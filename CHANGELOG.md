@@ -20,6 +20,11 @@ version on.
 
 ### Changed
 
+- The copyright holder of Veredictum's own work is Vernum Projecten B.V.
+  (#556). `LICENSE` and `NOTICE` name the company beside the Veredictum
+  contributors; the Apache-2.0 terms are unchanged, and maintainer credit
+  stays a person. The FerroEHR party statement the test fixtures carry
+  names the company as vendor, as FerroEHR's own statement now does.
 - The hosted instrument's box grew from a Hetzner CPX12 (1 vCPU, 2 GB) to a
   CX33 (4 vCPU, 8 GB), and its concurrency cap moved with it: the official
   instrument at console.veredictum.eu now drives two runs at once, with the
