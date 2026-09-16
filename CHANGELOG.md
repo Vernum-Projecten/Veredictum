@@ -45,6 +45,12 @@ version on.
   the run's own completion instant. A terminal run (finished, cancelled,
   expired, or failed) now reports the fixed duration it actually took (#464).
 
+### Security
+
+- `rustls` moves to 0.23.45 for RUSTSEC-2026-0285, TLS 1.3 handshake
+  messages incorrectly accepted across encryption level boundaries (#562).
+  The lockfile moves; no source changes.
+
 ## [0.1.5] - 2026-09-01
 
 ### Added
