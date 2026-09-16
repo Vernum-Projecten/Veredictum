@@ -4,6 +4,10 @@
 
 Closes #<!-- tracker issue number; the merge closes it. One Closes keyword per issue. -->
 
+## Licensing of contributions
+
+- [ ] I accept the terms in [CONTRIBUTING.md § Licensing of contributions](../CONTRIBUTING.md#licensing-of-contributions): I have the right to submit this work, I license it under the project licence of the version it lands in, and I grant the Licensor the relicensing right stated there.
+
 ## Specification citations
 
 <!--
