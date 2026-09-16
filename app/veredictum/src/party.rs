@@ -1008,7 +1008,7 @@ mod tests {
     fn statement_round_trips() {
         let json = serde_json::json!({
             "product": { "name": "FerroEHR", "version": "3.5.0",
-                          "vendor": "Ruben Talstra", "identifier": "urn:rubentalstra:ferroehr" },
+                          "vendor": "Vernum Projecten B.V.", "identifier": "urn:rubentalstra:ferroehr" },
             "schedule_release": "CNF-2.0",
             "spec_versions": { "rm": "1.2.0", "its_rest": "1.1.0" },
             "claims": { "capabilities": ["EhrOperations"], "profiles": ["CORE"] },
