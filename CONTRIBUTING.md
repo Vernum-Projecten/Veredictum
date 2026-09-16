@@ -5,9 +5,11 @@ rules. The working discipline that every change is held to lives in the root
 [`CLAUDE.md`](CLAUDE.md) and the rule files under
 [`.claude/rules/`](.claude/rules/); read those before writing anything.
 
-There is no contributor licence agreement and no copyright assignment. You keep
+There is no separate agreement to sign and no copyright assignment. You keep
 your copyright, and the licence stays Apache-2.0 for everyone, including the
-maintainer. What goes in is what comes out.
+maintainer. The terms a contribution carries are in
+[§ Licensing of contributions](#licensing-of-contributions), and the pull
+request template records your acceptance of them.
 
 Contributions are not limited to code. A conformance case for behaviour the
 catalogue does not cover, a specification citation that refutes an expectation,
@@ -127,6 +129,29 @@ These are the ones a pull request is most often refused for. The full set is in
 - A user-visible change adds an entry under `## [Unreleased]` in
   [`CHANGELOG.md`](CHANGELOG.md) in the same pull request.
 - Tests accompany behaviour changes.
+
+## Licensing of contributions
+
+Veredictum is licensed under the Apache License 2.0 ([`LICENSE`](LICENSE)). By
+submitting a contribution you:
+
+1. certify that you wrote it, or otherwise have the right to submit it under
+   these terms;
+2. license it under the Apache License 2.0 with the rest of the repository, as
+   section 5 of that licence already provides; and
+3. grant the Licensor named in `NOTICE` a perpetual, irrevocable, worldwide,
+   royalty-free, transferable right to use, reproduce, modify, distribute,
+   sublicense and relicense the contribution as part of the work under any
+   terms.
+
+You keep your copyright, and the licence stays Apache-2.0 for everyone, the
+maintainer included. Point 3 is what keeps the work one work under one
+licensor, the same terms every repository in the Ferro family carries, so a
+transfer of the project can cover every line, not only the maintainer's own.
+There is no separate agreement to sign: the pull request template carries a
+checkbox recording your acceptance of these terms, and a pull request from a
+person does not merge without it (the `contribution-licence-guard` check, backed
+by `scripts/checks/contribution-licence.sh`).
 
 ## Reporting issues
 

@@ -125,9 +125,12 @@ it applies to everyone identically.
 Recorded here so the questions do not have to be re-litigated in each pull
 request:
 
-- **No contributor licence agreement, and no copyright assignment.** You keep
-  your copyright; the licence stays Apache-2.0 for everyone including the
-  maintainer.
+- **No copyright assignment, and one Licensor.** You keep your copyright; the
+  licence stays Apache-2.0 for everyone including the maintainer. A contribution
+  grants the Licensor the relicensing right in
+  [CONTRIBUTING.md § Licensing of contributions](CONTRIBUTING.md#licensing-of-contributions),
+  recorded by the pull request checkbox, the same terms every Ferro repository
+  carries.
 - **No expectation without a specification citation**, and no expectation
   adjusted to match what a server did.
 - **No test, gate, or case weakened to make a run green.** A red row is

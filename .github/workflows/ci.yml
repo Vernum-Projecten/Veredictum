@@ -34,7 +34,7 @@ on:
   # fresh run whose payload carries it. Re-running the failed job instead re-uses
   # the stale payload and fails again.
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
   push:
     branches: [main]
   # Declared before any merge queue exists, because a queue reports its required
@@ -1132,10 +1132,32 @@ jobs:
   # of that design is that a job absent from `needs` still runs, still goes red,
   # and stops gating anything — so `ci-conclusion-complete.sh` above compares
   # this list against the jobs that exist, in both directions.
+  # A person's pull request records acceptance of the contribution licensing
+  # terms (CONTRIBUTING.md § Licensing of contributions) through the template's
+  # checkbox; this gate is what makes the checkbox binding. Bot authors are
+  # skipped: a bot cannot accept terms and its bumps carry no expression of its
+  # own. `edited` is in the pull_request trigger so ticking the box re-runs it.
+  contribution-licence:
+    name: contribution-licence-guard
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The pull request body accepts the contribution licensing terms
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: bash scripts/checks/contribution-licence.sh
+
   conclusion:
     name: conclusion
     if: always()
     needs:
+      - contribution-licence
       - changes
       - guards
       - workflow-audit

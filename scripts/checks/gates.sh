@@ -60,6 +60,7 @@ gate guard "image labels"             "bash scripts/checks/image-labels.sh"
 gate guard "VEX advisories"           "bash scripts/checks/vex-advisories.sh"
 gate guard "the bench legend"         "bash scripts/render/bench-legend.sh --check"
 gate guard "fuzz seeds"               "bash fuzz/seeds.sh"
+gate guard "contribution licence"     "bash scripts/checks/contribution-licence.sh"
 # The three workflow and licensing checks CI runs through actions rather than
 # through a `run:` line, so `gates-cover-ci.sh` cannot see them. Each names its
 # tool and skips by name when it is absent.
