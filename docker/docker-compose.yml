@@ -34,6 +34,6 @@
 # uid the image runs as.
 services:
   console:
-    image: ghcr.io/vernum-projecten/veredictum:0.1.5
+    image: ghcr.io/vernum-projecten/veredictum:0.1.6
     ports:
       - "127.0.0.1:3210:3000"
