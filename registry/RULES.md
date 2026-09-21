@@ -44,7 +44,7 @@ artifacts from the workflow's OIDC identity through Sigstore. The identity is
 the signature. Anybody can check it:
 
 ```bash
-gh attestation verify <artifact> --repo rubentalstra/Veredictum
+gh attestation verify <artifact> --repo Vernum-Projecten/Veredictum
 ```
 
 No key stands behind this tier and none ever will. A stored key is one

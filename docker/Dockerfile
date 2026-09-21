@@ -17,7 +17,7 @@
 # at their own. Run it locally as
 #
 #   docker run --rm -p 127.0.0.1:3000:3000 -v "$PWD:/work" \
-#     ghcr.io/rubentalstra/veredictum:<tag>
+#     ghcr.io/vernum-projecten/veredictum:<tag>
 #
 # The server binds 0.0.0.0:3000 INSIDE the container (set below — a
 # container-loopback bind would be reachable by nothing); the `127.0.0.1:` on
@@ -248,9 +248,9 @@ ARG VERSION="0.0.0"
 ARG REVISION=""
 LABEL org.opencontainers.image.title="Veredictum console" \
       org.opencontainers.image.description="The web console of the independent conformance instrument for openEHR clinical data repositories" \
-      org.opencontainers.image.url="https://github.com/rubentalstra/Veredictum" \
-      org.opencontainers.image.documentation="https://github.com/rubentalstra/Veredictum#readme" \
-      org.opencontainers.image.source="https://github.com/rubentalstra/Veredictum" \
+      org.opencontainers.image.url="https://github.com/Vernum-Projecten/Veredictum" \
+      org.opencontainers.image.documentation="https://github.com/Vernum-Projecten/Veredictum#readme" \
+      org.opencontainers.image.source="https://github.com/Vernum-Projecten/Veredictum" \
       org.opencontainers.image.vendor="Veredictum" \
       org.opencontainers.image.authors="Ruben Talstra <https://github.com/rubentalstra>" \
       org.opencontainers.image.licenses="Apache-2.0" \

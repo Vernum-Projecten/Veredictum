@@ -8,7 +8,7 @@ same files. This chapter is an overview of its shape and the rules an author
 works under.
 
 The full grammar is the published JSON Schema set, in
-[`schemas/`](https://github.com/rubentalstra/Veredictum/tree/main/schemas). Those
+[`schemas/`](https://github.com/Vernum-Projecten/Veredictum/tree/main/schemas). Those
 files are emitted by `veredictum emit-schemas` and drift-tested against it, so
 the published format and the code that reads it are one thing. Author against
 them; this page will not repeat every field.

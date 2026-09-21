@@ -155,7 +155,7 @@ by `scripts/checks/contribution-licence.sh`).
 
 ## Reporting issues
 
-Use the [issue tracker](https://github.com/rubentalstra/Veredictum/issues/new/choose).
+Use the [issue tracker](https://github.com/Vernum-Projecten/Veredictum/issues/new/choose).
 [SUPPORT.md](SUPPORT.md) has the routing for questions, defects, and reports
 about a CDR rather than about the instrument.
 

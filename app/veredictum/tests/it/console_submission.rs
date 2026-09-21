@@ -561,7 +561,7 @@ fn a_console_submission_is_completed_and_sealed_by_the_lane() -> Fallible {
         .env("CONSOLE_RUN_ID", "018f3b1e-6f0a-7c21-9a3d-6c2f5d4b8e77")
         .env(
             "SIGN_WORKFLOW_REF",
-            "rubentalstra/Veredictum/.github/workflows/registry-console.yml@refs/heads/main",
+            "Vernum-Projecten/Veredictum/.github/workflows/registry-console.yml@refs/heads/main",
         )
         .env("SIGN_RUN_ID", "42")
         .env("SIGN_RUN_ATTEMPT", "1")

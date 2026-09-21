@@ -53,7 +53,7 @@ deliberately, and record the version alongside the verdict.
 **Please do not open a public issue for a suspected vulnerability.**
 
 Report privately through
-[GitHub private vulnerability reporting](https://github.com/rubentalstra/Veredictum/security/advisories/new)
+[GitHub private vulnerability reporting](https://github.com/Vernum-Projecten/Veredictum/security/advisories/new)
 ("Report a vulnerability" on the repository's Security tab).
 
 
@@ -126,8 +126,8 @@ credit costs you nothing and changes nothing about how the report is handled.
 Settings live in GitHub, not in the tree, so they can change without a commit
 and reset without anyone noticing. This table records what the posture is
 supposed to be. Read it back with
-`gh api repos/rubentalstra/Veredictum --jq '.security_and_analysis'` and
-`gh api repos/rubentalstra/Veredictum/rulesets`, and treat a divergence as a
+`gh api repos/Vernum-Projecten/Veredictum --jq '.security_and_analysis'` and
+`gh api repos/Vernum-Projecten/Veredictum/rulesets`, and treat a divergence as a
 finding.
 
 | Setting | Expected | State on 2026-08-26 | Why |

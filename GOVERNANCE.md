@@ -60,7 +60,7 @@ false authority.
 
 | Kind of decision | Where it lives |
 |---|---|
-| What to work on next | a [GitHub issue](https://github.com/rubentalstra/Veredictum/issues); the open list is the worklist |
+| What to work on next | a [GitHub issue](https://github.com/Vernum-Projecten/Veredictum/issues); the open list is the worklist |
 | Why a change looks the way it does | the pull-request description that landed it, and the issue's closing comment |
 | What a release contains | [`CHANGELOG.md`](CHANGELOG.md) and the `vX.Y.Z` milestone |
 | A specification silence and how it was disposed of | the ambiguity register, and the `upstream-report` issue it points at |

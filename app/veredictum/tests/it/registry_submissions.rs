@@ -956,17 +956,17 @@ fn occurrences(page: &str, fragment: &str) -> usize {
 fn board_provenances() -> (serde_json::Value, serde_json::Value, serde_json::Value) {
     let reproduced = json!({
         "tier": "reproduced",
-        "workflow_ref": "rubentalstra/Veredictum/.github/workflows/registry-reproduce.yml@refs/heads/main",
+        "workflow_ref": "Vernum-Projecten/Veredictum/.github/workflows/registry-reproduce.yml@refs/heads/main",
         "run_id": "42",
         "run_attempt": 1,
         "predicate_type": "https://slsa.dev/provenance/v1",
-        "verify_command": "gh attestation verify verdicts.json --repo rubentalstra/Veredictum"
+        "verify_command": "gh attestation verify verdicts.json --repo Vernum-Projecten/Veredictum"
     });
     let console = json!({
         "tier": "console",
         "instrument_origin": "https://console.veredictum.eu",
         "console_run_id": "018f3b1e-6f0a-7c21-9a3d-6c2f5d4b8e77",
-        "workflow_ref": "rubentalstra/Veredictum/.github/workflows/registry-console.yml@refs/heads/main",
+        "workflow_ref": "Vernum-Projecten/Veredictum/.github/workflows/registry-console.yml@refs/heads/main",
         "run_id": "43",
         "run_attempt": 1,
         "scheme": "openpgp-detached",

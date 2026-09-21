@@ -22,8 +22,8 @@
 # names THIS workflow as the signer, which a consumer can require:
 #
 #   gh attestation verify veredictum-<tag>-<target>.tar.gz \
-#     -R rubentalstra/Veredictum \
-#     --signer-workflow rubentalstra/Veredictum/.github/workflows/release-build.yml
+#     -R Vernum-Projecten/Veredictum \
+#     --signer-workflow Vernum-Projecten/Veredictum/.github/workflows/release-build.yml
 #
 # That flag is the consumer-visible prize: a downstream verifier can insist an
 # artifact came from this hardened lane rather than from any workflow that

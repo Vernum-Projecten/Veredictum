@@ -675,7 +675,7 @@ mod tests {
             run_id: String::from("3f2504e0-4f89-41d3-9a0c-0305e82c3301"),
             entry_id: String::from("2026-08-31-console-3f2504e04f89"),
             branch: String::from("console-run/3f2504e0-4f89-41d3-9a0c-0305e82c3301"),
-            repo: String::from("rubentalstra/Veredictum"),
+            repo: String::from("Vernum-Projecten/Veredictum"),
             display_name: String::from("my-cdr"),
             version: String::from("unknown"),
             system: String::from("my-cdr"),
@@ -707,7 +707,7 @@ mod tests {
             "{:?}",
             pinned.files
         );
-        assert_eq!(pinned.repo, "rubentalstra/Veredictum");
+        assert_eq!(pinned.repo, "Vernum-Projecten/Veredictum");
         assert_eq!(pinned.catalogue_revision, "cnf-2.0-w2");
         assert_eq!(pinned.system, "my-cdr");
     }

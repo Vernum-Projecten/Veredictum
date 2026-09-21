@@ -94,13 +94,13 @@ fi
 # image tags are the bare version, so its tag is the same one value. A drifted
 # tag would hand operators a release page whose compose file starts a
 # different console.
-compose_tag="$(sed -nE 's|^[[:space:]]+image: ghcr\.io/rubentalstra/veredictum:([^ ]+)$|\1|p' "$COMPOSE" | head -1)"
+compose_tag="$(sed -nE 's|^[[:space:]]+image: ghcr\.io/vernum-projecten/veredictum:([^ ]+)$|\1|p' "$COMPOSE" | head -1)"
 if [[ -z "$compose_tag" ]]; then
-  echo "::error::could not read the console image tag from ${COMPOSE} — the seam is \`image: ghcr.io/rubentalstra/veredictum:X\` and this check reads that shape" >&2
+  echo "::error::could not read the console image tag from ${COMPOSE} — the seam is \`image: ghcr.io/vernum-projecten/veredictum:X\` and this check reads that shape" >&2
   exit 1
 fi
 if [[ "$compose_tag" != "$engine_version" ]]; then
-  echo "::error::${COMPOSE} starts ghcr.io/rubentalstra/veredictum:v${compose_tag} while the workspace engine version is ${engine_version}. The compose file ships on the release page, so its tag moves with the cut like every other copy of the one value." >&2
+  echo "::error::${COMPOSE} starts ghcr.io/vernum-projecten/veredictum:v${compose_tag} while the workspace engine version is ${engine_version}. The compose file ships on the release page, so its tag moves with the cut like every other copy of the one value." >&2
   exit 1
 fi
 

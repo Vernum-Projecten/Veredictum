@@ -94,10 +94,12 @@ jobs:
       - name: Scan the published image
         id: scan
         env:
-          OWNER: ${{ github.repository_owner }}
+          # Spelled out rather than derived from github.repository_owner: an OCI
+          # repository name is lowercase-only, and the owner is `Vernum-Projecten`.
+          IMAGE: ghcr.io/vernum-projecten/veredictum
         run: |
           set -euo pipefail
-          ref="ghcr.io/${OWNER}/veredictum:${SCAN_TAG}"
+          ref="${IMAGE}:${SCAN_TAG}"
           # Nothing published yet is a legitimate state, not a probe failure.
           # Reported explicitly, so an empty finding table can never be mistaken
           # for a clean scan of an image that does not exist.

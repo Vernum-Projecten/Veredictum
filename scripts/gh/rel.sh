@@ -24,7 +24,7 @@
 # Ported from FerroEHR at the Veredictum split (FerroEHR#2789) with the body
 # unchanged: it resolves the repository from `gh repo view`, so it is
 # repository-agnostic by construction and there was nothing to adapt but the
-# licensing header. Verified live against rubentalstra/Veredictum on the port.
+# licensing header. Verified live against Vernum-Projecten/Veredictum on the port.
 #
 # Limits (from the docs above): <=100 sub-issues per parent, <=8 nesting
 # levels, one parent per issue (use --replace to move it); <=50 issues per

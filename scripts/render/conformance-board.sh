@@ -32,8 +32,8 @@ command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
 
 readonly ENTRIES='registry/entries/conformance'
 readonly PAGE='website/landing/conformance-board.html'
-readonly RULES_URL='https://github.com/rubentalstra/Veredictum/blob/main/registry/RULES.md'
-readonly TREE_URL='https://github.com/rubentalstra/Veredictum/tree/main/registry/entries'
+readonly RULES_URL='https://github.com/Vernum-Projecten/Veredictum/blob/main/registry/RULES.md'
+readonly TREE_URL='https://github.com/Vernum-Projecten/Veredictum/tree/main/registry/entries'
 
 MODE="${1:-}"
 if [[ -n "$MODE" && "$MODE" != "--check" ]]; then
@@ -359,7 +359,7 @@ render_page() {
       <a href="./conformance-board.html" aria-current="page">Conformance</a>
       <a href="./benchmarks.html">Benchmarks</a>
       <a href="./benchmark-methodology.html">Methodology</a>
-      <a href="https://github.com/rubentalstra/Veredictum" rel="noopener">GitHub</a>
+      <a href="https://github.com/Vernum-Projecten/Veredictum" rel="noopener">GitHub</a>
     </nav>
   </div>
 </header>

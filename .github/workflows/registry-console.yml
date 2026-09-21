@@ -69,7 +69,7 @@ jobs:
   # the entry.
   triage:
     name: what arrived
-    if: github.repository == 'rubentalstra/Veredictum'
+    if: github.repository == 'Vernum-Projecten/Veredictum'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

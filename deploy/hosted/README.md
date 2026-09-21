@@ -56,7 +56,7 @@ publishes for both architectures, so it buys nothing here.
 
 ## The image
 
-**One image, and this directory builds none of it.** `ghcr.io/rubentalstra/veredictum`
+**One image, and this directory builds none of it.** `ghcr.io/vernum-projecten/veredictum`
 carries the engine, the console and the release's own catalogue and vendored
 specification oracle (#420), which is why this instance
 mounts nothing at all. `docker/Dockerfile` is where that is built, at a release.

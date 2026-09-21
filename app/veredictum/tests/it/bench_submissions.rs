@@ -633,7 +633,7 @@ fn write_registry_entry(
     let provenance = if tier == "reproduced" {
         json!({
             "tier": "reproduced",
-            "workflow_ref": "rubentalstra/Veredictum/.github/workflows/registry-reproduce.yml@refs/heads/main",
+            "workflow_ref": "Vernum-Projecten/Veredictum/.github/workflows/registry-reproduce.yml@refs/heads/main",
             "run_id": "7",
             "run_attempt": 1,
             "predicate_type": "https://slsa.dev/provenance/v1",

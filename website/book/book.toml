@@ -9,8 +9,8 @@ src = "src"
 default-theme = "light"
 preferred-dark-theme = "navy"
 additional-css = ["theme/custom.css"]
-git-repository-url = "https://github.com/rubentalstra/Veredictum"
-edit-url-template = "https://github.com/rubentalstra/Veredictum/edit/main/website/book/{path}"
+git-repository-url = "https://github.com/Vernum-Projecten/Veredictum"
+edit-url-template = "https://github.com/Vernum-Projecten/Veredictum/edit/main/website/book/{path}"
 smart-punctuation = true
 
 [output.html.search]

@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/rubentalstra/Veredictum/main/assets/brand/veredictum-icon.svg" width="112" alt="The Veredictum seal"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/assets/brand/veredictum-icon.svg" width="112" alt="The Veredictum seal"></p>
 
 <h1 align="center">Veredictum</h1>
 
@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-<a href="https://github.com/rubentalstra/Veredictum/actions/workflows/ci.yml"><img src="https://github.com/rubentalstra/Veredictum/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-<a href="https://github.com/rubentalstra/Veredictum/actions/workflows/codeql.yml"><img src="https://github.com/rubentalstra/Veredictum/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL"></a>
+<a href="https://github.com/Vernum-Projecten/Veredictum/actions/workflows/ci.yml"><img src="https://github.com/Vernum-Projecten/Veredictum/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+<a href="https://github.com/Vernum-Projecten/Veredictum/actions/workflows/codeql.yml"><img src="https://github.com/Vernum-Projecten/Veredictum/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL"></a>
 <a href="https://sonarcloud.io/summary/new_code?id=rubentalstra_Veredictum"><img src="https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=alert_status" alt="Quality gate status"></a>
 <a href="https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=coverage"><img src="https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=coverage" alt="Coverage"></a>
 </p>
@@ -20,8 +20,8 @@
 <a href="https://crates.io/crates/veredictum"><img src="https://img.shields.io/crates/v/veredictum?logo=rust" alt="crates.io"></a>
 <a href="https://crates.io/crates/veredictum"><img src="https://img.shields.io/crates/d/veredictum?logo=rust&label=crate%20downloads" alt="crate downloads"></a>
 <a href="https://docs.rs/veredictum"><img src="https://img.shields.io/docsrs/veredictum?logo=docsdotrs" alt="docs.rs"></a>
-<a href="https://github.com/rubentalstra/Veredictum/pkgs/container/veredictum"><img src="https://img.shields.io/badge/ghcr.io-veredictum-2496ED.svg?logo=docker&logoColor=white" alt="GHCR"></a>
-<a href="https://github.com/rubentalstra/Veredictum/pkgs/container/veredictum"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fghcr-badge.elias.eu.org%2Fapi%2Frubentalstra%2FVeredictum%2Fveredictum&query=downloadCount&label=image%20pulls&logo=github" alt="Image pulls"></a>
+<a href="https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum"><img src="https://img.shields.io/badge/ghcr.io-veredictum-2496ED.svg?logo=docker&logoColor=white" alt="GHCR"></a>
+<a href="https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fghcr-badge.elias.eu.org%2Fapi%2FVernum-Projecten%2FVeredictum%2Fveredictum&query=downloadCount&label=image%20pulls&logo=github" alt="Image pulls"></a>
 </p>
 
 <p align="center">
@@ -32,12 +32,12 @@
 </p>
 
 <p align="center">
-<a href="https://scorecard.dev/viewer/?uri=github.com/rubentalstra/Veredictum"><img src="https://api.scorecard.dev/projects/github.com/rubentalstra/Veredictum/badge" alt="OpenSSF Scorecard"></a>
+<a href="https://scorecard.dev/viewer/?uri=github.com/Vernum-Projecten/Veredictum"><img src="https://api.scorecard.dev/projects/github.com/Vernum-Projecten/Veredictum/badge" alt="OpenSSF Scorecard"></a>
 <a href="https://www.bestpractices.dev/projects/14252"><img src="https://www.bestpractices.dev/projects/14252/badge" alt="OpenSSF Best Practices"></a>
 <a href="https://veredictum.eu/docs/installation.html"><img src="https://slsa.dev/images/gh-badge-level3.svg" alt="SLSA Build L3"></a>
 <a href="https://doi.org/10.5281/zenodo.22113258"><img src="https://zenodo.org/badge/1347360549.svg" alt="DOI"></a>
-<a href="https://github.com/rubentalstra/Veredictum/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-46215C" alt="License: Apache-2.0"></a>
-<a href="https://github.com/rubentalstra/Veredictum/blob/main/rust-toolchain.toml"><img src="https://img.shields.io/badge/rust-1.97-B7431B?logo=rust&logoColor=white" alt="Rust 1.97"></a>
+<a href="https://github.com/Vernum-Projecten/Veredictum/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-46215C" alt="License: Apache-2.0"></a>
+<a href="https://github.com/Vernum-Projecten/Veredictum/blob/main/rust-toolchain.toml"><img src="https://img.shields.io/badge/rust-1.97-B7431B?logo=rust&logoColor=white" alt="Rust 1.97"></a>
 </p>
 
 <p align="center">
@@ -77,7 +77,7 @@ It ships as two products over one engine:
   [crates.io](https://crates.io/crates/veredictum) or taken as a signed
   release binary. Every verdict this repository speaks is a run of it.
 - **The web console** — the container image at
-  [ghcr.io/rubentalstra/veredictum](https://github.com/rubentalstra/Veredictum/pkgs/container/veredictum),
+  [ghcr.io/vernum-projecten/veredictum](https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum),
   a browser frontend that drives the same pinned CLI underneath: connect a
   CDR, paste the vendor's claim, watch the run live, read the results and
   the verdicts. The image is the console, never the CLI — a static binary
@@ -148,7 +148,7 @@ which lives in this repository — that path closes the section.
 ### docker compose up — the console
 
 ```bash
-curl -LO https://raw.githubusercontent.com/rubentalstra/Veredictum/main/docker/docker-compose.yml
+curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/docker/docker-compose.yml
 docker compose up
 ```
 
@@ -177,13 +177,13 @@ format.
 ### Bare-metal binaries
 
 Prebuilt binaries for `x86_64` and `aarch64` Linux are attached to each
-[release](https://github.com/rubentalstra/Veredictum/releases), each with a
+[release](https://github.com/Vernum-Projecten/Veredictum/releases), each with a
 `sha256sum`, a CycloneDX dependency SBOM and a Sigstore bundle you can check:
 
 ```bash
 gh attestation verify veredictum-<tag>-<target>.tar.gz \
-    -R rubentalstra/Veredictum \
-    --signer-workflow rubentalstra/Veredictum/.github/workflows/release-build.yml
+    -R Vernum-Projecten/Veredictum \
+    --signer-workflow Vernum-Projecten/Veredictum/.github/workflows/release-build.yml
 ```
 
 ### Benchmark a CDR in one command
@@ -215,7 +215,7 @@ reference — the only kind of number that means anything across machines. A
 declared posture profile is checked by canaries on both sides of the
 measured window, and a run whose deployment disagrees with its declaration
 is refused rather than recorded.
-[`benchmarks/SUBMITTING.md`](https://github.com/rubentalstra/Veredictum/blob/main/benchmarks/SUBMITTING.md)
+[`benchmarks/SUBMITTING.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/benchmarks/SUBMITTING.md)
 takes the record from there to the public board.
 
 ### Run the full conformance catalogue
@@ -226,7 +226,7 @@ as paths. The published crate carries the code; those two trees are over
 so grading a server starts from a clone:
 
 ```bash
-git clone https://github.com/rubentalstra/Veredictum
+git clone https://github.com/Vernum-Projecten/Veredictum
 cd Veredictum
 
 # 1. Check the catalogue itself. Zero findings is the only passing result.
@@ -328,7 +328,7 @@ instrument cannot be turned against the network it runs in.
 named version of a named system was driven by a named version of this
 instrument on a named machine. Certification is the openEHR Foundation's to
 grant, and the registry is deliberately shaped to hand over: the rules
-([`registry/RULES.md`](https://github.com/rubentalstra/Veredictum/blob/main/registry/RULES.md), versioned, changed prospectively)
+([`registry/RULES.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/registry/RULES.md), versioned, changed prospectively)
 are public, the entries carry their own evidence, and no step of the
 pipeline is proprietary.
 
@@ -361,12 +361,12 @@ without changing a line of code.
 there is signed only after this repository's CI has re-derived its verdicts from
 the submitted transcript, in an environment the host cannot reach. What the box
 can do is drive the catalogue, record the exchanges and open a pull request.
-[`registry/RULES.md`](https://github.com/rubentalstra/Veredictum/blob/main/registry/RULES.md)
+[`registry/RULES.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/registry/RULES.md)
 states what a console entry attests and what it cannot.
 
 The box is disposable. It stores nothing durable, git is where a record lives,
 and the whole posture is committed under
-[`deploy/hosted/`](https://github.com/rubentalstra/Veredictum/tree/main/deploy/hosted):
+[`deploy/hosted/`](https://github.com/Vernum-Projecten/Veredictum/tree/main/deploy/hosted):
 the cloud-init that built it, the compose file, the proxy configuration. A
 rebuild from that directory produces the same machine.
 
@@ -419,7 +419,7 @@ pack exists to check exactly that. A certificate row a human typed is a
 defect.
 
 Two verdict machineries share that discipline
-([`ARCHITECTURE.md`](https://github.com/rubentalstra/Veredictum/blob/main/ARCHITECTURE.md) §8):
+([`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md) §8):
 
 - **Conformance by assertion:** the statement selects the applicable cases,
   typed assertions judge each recorded exchange, and case results roll up
@@ -443,7 +443,7 @@ slowed-down client.
 
 The performance classes anchor to population served rather than to a
 concurrent-user guess, with the full derivation from OECD, Eurostat and NHS
-activity statistics in [`ARCHITECTURE.md`](https://github.com/rubentalstra/Veredictum/blob/main/ARCHITECTURE.md) §8.14:
+activity statistics in [`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md) §8.14:
 
 | Class | Population served | Corpus | Sustained arrival floor | p99 budget | Error rate |
 |---|---|---|---|---|---|
@@ -490,7 +490,7 @@ about what it observed. The seal above is the mark of that verdict.
 
 ## Design record
 
-[`ARCHITECTURE.md`](https://github.com/rubentalstra/Veredictum/blob/main/ARCHITECTURE.md) carries the reasoning rather than a
+[`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md) carries the reasoning rather than a
 summary of it: the testable surface and the case-core field definitions, the
 per-operation wire bindings, the outcome taxonomy and the ambiguity
 register, the assertion vocabulary, the verdict computation, and the
@@ -502,11 +502,11 @@ CASCO vocabulary the scheme is built in.
 
 ## Contributing
 
-[`CONTRIBUTING.md`](https://github.com/rubentalstra/Veredictum/blob/main/CONTRIBUTING.md) has the gates and the review bar.
-[`CLAUDE.md`](https://github.com/rubentalstra/Veredictum/blob/main/CLAUDE.md) is the working discipline the project holds itself
+[`CONTRIBUTING.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/CONTRIBUTING.md) has the gates and the review bar.
+[`CLAUDE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/CLAUDE.md) is the working discipline the project holds itself
 to, including the attribution law above. Security reports go through
-[`SECURITY.md`](https://github.com/rubentalstra/Veredictum/blob/main/SECURITY.md), and questions through
-[`SUPPORT.md`](https://github.com/rubentalstra/Veredictum/blob/main/SUPPORT.md).
+[`SECURITY.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/SECURITY.md), and questions through
+[`SUPPORT.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/SUPPORT.md).
 
 If you maintain a CDR and want it graded, open an issue. A defect this
 instrument finds in your server arrives with the reproduced exchange and the

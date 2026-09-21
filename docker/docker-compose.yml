@@ -7,7 +7,7 @@
 # scripts/release/check-console-pin.sh — the same one-value discipline as the
 # console's crates.io pin, so a stale copy cannot ship with a cut.
 #
-#   curl -LO https://raw.githubusercontent.com/rubentalstra/Veredictum/main/docker/docker-compose.yml
+#   curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/docker/docker-compose.yml
 #   docker compose up
 #
 # The console then serves on http://127.0.0.1:3210 (the container listens on
@@ -34,6 +34,6 @@
 # uid the image runs as.
 services:
   console:
-    image: ghcr.io/rubentalstra/veredictum:0.1.5
+    image: ghcr.io/vernum-projecten/veredictum:0.1.5
     ports:
       - "127.0.0.1:3210:3000"
