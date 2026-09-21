@@ -18,6 +18,8 @@ version on.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-09-21
+
 ### Changed
 
 - **The repository moved to the `Vernum-Projecten` organisation, and the
@@ -2294,7 +2296,8 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
   attribution-stripping `commit-msg` hook with `scripts/install-hooks.sh`, and
   the Rust `.gitignore` set.
 
-[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.5...HEAD
+[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.2...v0.1.3
