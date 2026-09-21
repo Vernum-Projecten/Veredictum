@@ -50,7 +50,7 @@ fn identity() -> AppConfig {
         key_file: engine_gate::repo_root()
             .join("fixtures/smart-test-issuer/cnf-smart-test.key.pem"),
         installation_id: String::from("89012345"),
-        repo: String::from("rubentalstra/Veredictum"),
+        repo: String::from("Vernum-Projecten/Veredictum"),
         api_base: String::from("https://api.github.com"),
     }
 }
@@ -222,7 +222,7 @@ fn with_stub_provenance(
                 "tier": "console",
                 "instrument_origin": "https://console.veredictum.eu",
                 "console_run_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
-                "workflow_ref": "rubentalstra/Veredictum/.github/workflows/registry-console.yml@refs/heads/main",
+                "workflow_ref": "Vernum-Projecten/Veredictum/.github/workflows/registry-console.yml@refs/heads/main",
                 "run_id": "42",
                 "run_attempt": 1,
                 "scheme": "openpgp-detached",

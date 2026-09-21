@@ -9,7 +9,7 @@ body:
     attributes:
       value: >
         A vulnerability goes through
-        [SECURITY.md](https://github.com/rubentalstra/Veredictum/blob/main/SECURITY.md)
+        [SECURITY.md](https://github.com/Vernum-Projecten/Veredictum/blob/main/SECURITY.md)
         instead, privately. A vulnerability this instrument found in a CDR under
         test belongs to that vendor's disclosure process, not here.
   - type: checkboxes
@@ -45,7 +45,7 @@ body:
       description: >
         The release tag or image digest, or the commit if you ran the
         runner from source.
-      placeholder: v0.1.0, or ghcr.io/rubentalstra/veredictum@sha256:..., or commit 4aa7923
+      placeholder: v0.1.0, or ghcr.io/vernum-projecten/veredictum@sha256:..., or commit 4aa7923
     validations:
       required: true
   - type: input

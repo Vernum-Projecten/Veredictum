@@ -1108,7 +1108,7 @@ impl fmt::Display for EntryDefect {
 }
 
 /// The repository whose workflows may issue the reproduced tier.
-const OWN_WORKFLOW_PREFIX: &str = "rubentalstra/Veredictum/.github/workflows/";
+const OWN_WORKFLOW_PREFIX: &str = "Vernum-Projecten/Veredictum/.github/workflows/";
 
 /// The tree the benchmark board renders its numbers from.
 const BENCH_SUBMISSIONS: &str = "benchmarks/submissions/";
@@ -1512,7 +1512,7 @@ mod tests {
             instrument_origin: String::from("https://console.veredictum.eu"),
             console_run_id: String::from("018f3b1e-6f0a-7c21-9a3d-6c2f5d4b8e77"),
             workflow_ref: String::from(
-                "rubentalstra/Veredictum/.github/workflows/registry-console.yml@refs/heads/main",
+                "Vernum-Projecten/Veredictum/.github/workflows/registry-console.yml@refs/heads/main",
             ),
             run_id: String::from("33306498731"),
             run_attempt: 1,

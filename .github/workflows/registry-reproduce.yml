@@ -10,7 +10,7 @@
 # the board, so no key exists here and none will. What a tier-1 entry carries
 # instead is a Sigstore-backed attestation issued to `workflow_ref` — this
 # file, on this repository — which anybody re-checks with
-# `gh attestation verify <artifact> --repo rubentalstra/Veredictum`. The claim
+# `gh attestation verify <artifact> --repo Vernum-Projecten/Veredictum`. The claim
 # is exactly that: these bytes came out of this workflow. It is not a SLSA
 # build-level claim, because the attestation is minted in an ordinary job
 # beside the steps that produced the artifacts

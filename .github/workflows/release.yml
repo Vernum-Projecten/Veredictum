@@ -586,7 +586,7 @@ jobs:
       attestations: write # store it against this repository
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/veredictum
+      image: ghcr.io/vernum-projecten/veredictum
       defer-tags: true
       dockerfile: docker/Dockerfile
       target: runtime-prebuilt
@@ -595,9 +595,9 @@ jobs:
       labels: |
         org.opencontainers.image.title=Veredictum console
         org.opencontainers.image.description=The web console of the independent conformance instrument for openEHR clinical data repositories
-        org.opencontainers.image.source=https://github.com/rubentalstra/Veredictum
-        org.opencontainers.image.url=https://github.com/rubentalstra/Veredictum
-        org.opencontainers.image.documentation=https://github.com/rubentalstra/Veredictum#readme
+        org.opencontainers.image.source=https://github.com/Vernum-Projecten/Veredictum
+        org.opencontainers.image.url=https://github.com/Vernum-Projecten/Veredictum
+        org.opencontainers.image.documentation=https://github.com/Vernum-Projecten/Veredictum#readme
         org.opencontainers.image.vendor=Veredictum
         org.opencontainers.image.authors=Ruben Talstra <https://github.com/rubentalstra>
         org.opencontainers.image.licenses=Apache-2.0
@@ -628,7 +628,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: The pushed image serves the console it was built to serve
         env:
-          IMAGE: ghcr.io/${{ github.repository_owner }}/veredictum
+          IMAGE: ghcr.io/vernum-projecten/veredictum
           DIGEST: ${{ needs.image.outputs.digest }}
         run: |
           set -euo pipefail
@@ -685,7 +685,7 @@ jobs:
       # mismatched serves a console that cannot start a single run (#375).
       - name: The pushed image carries the engine the console is pinned to
         env:
-          IMAGE: ghcr.io/${{ github.repository_owner }}/veredictum
+          IMAGE: ghcr.io/vernum-projecten/veredictum
           DIGEST: ${{ needs.image.outputs.digest }}
           VERSION: ${{ needs.plan.outputs.version }}
         run: |
@@ -705,12 +705,12 @@ jobs:
       packages: write # pull the pushed digest, then tag it
     uses: ./.github/workflows/scan-and-tag.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/veredictum
+      image: ghcr.io/vernum-projecten/veredictum
       digest: ${{ needs.image.outputs.digest }}
       tags: ${{ needs.image.outputs.tags }}
 
   # ── hosted console ──────────────────────────────────────────────────────────
-  # The hosted overlay is `FROM ghcr.io/rubentalstra/veredictum:latest`, so the
+  # The hosted overlay is `FROM ghcr.io/vernum-projecten/veredictum:latest`, so the
   # deploy rides the leg that MOVES `:latest` — scan-and-tag — and only for a
   # real release, because a pre-release moves no `:latest` and so changes
   # nothing to deploy. A failure here reddens `announce` with the recovery
@@ -779,7 +779,7 @@ jobs:
   # `scripts/release/publish-crate.sh`, which both lanes call.
   #
   # Consequence, stated where it bites: crates.io needs a Trusted Publisher
-  # entry for THIS workflow file (repository `rubentalstra/Veredictum`, workflow
+  # entry for THIS workflow file (repository `Vernum-Projecten/Veredictum`, workflow
   # `release.yml`, environment `crates-io`) in addition to the one naming
   # `publish-crates.yml`. Without it the token exchange below is refused, and the
   # step says so.

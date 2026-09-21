@@ -10,8 +10,8 @@ authors:
   - family-names: Talstra
     given-names: Ruben
     orcid: "https://orcid.org/0009-0009-2758-0141"
-repository-code: https://github.com/rubentalstra/Veredictum
-url: https://github.com/rubentalstra/Veredictum
+repository-code: https://github.com/Vernum-Projecten/Veredictum
+url: https://github.com/Vernum-Projecten/Veredictum
 abstract: >-
   The independent conformance instrument for openEHR clinical data
   repositories: a machine-readable catalogue of spec-cited test cases,

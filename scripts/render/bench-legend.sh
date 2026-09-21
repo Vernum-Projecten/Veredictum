@@ -29,7 +29,7 @@ command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
 readonly MANIFEST='website/landing/bench-packs.json'
 readonly PAGE='website/landing/benchmark-methodology.html'
 readonly BOARD='./benchmarks.html'
-readonly GUIDE_URL='https://github.com/rubentalstra/Veredictum/blob/main/benchmarks/SUBMITTING.md'
+readonly GUIDE_URL='https://github.com/Vernum-Projecten/Veredictum/blob/main/benchmarks/SUBMITTING.md'
 
 MODE="${1:-}"
 if [[ -n "$MODE" && "$MODE" != "--check" ]]; then
@@ -461,7 +461,7 @@ render_page() {
       <a href="./conformance-board.html">Conformance</a>
       <a href="./benchmarks.html">Benchmarks</a>
       <a href="./benchmark-methodology.html" aria-current="page">Methodology</a>
-      <a href="https://github.com/rubentalstra/Veredictum" rel="noopener">GitHub</a>
+      <a href="https://github.com/Vernum-Projecten/Veredictum" rel="noopener">GitHub</a>
     </nav>
   </div>
 </header>

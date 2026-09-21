@@ -12,7 +12,7 @@ services:
     # (#420): it carries the engine, the console and the release's own
     # catalogue and oracle, so this instance mounts nothing.
     # `.env` names the exact reference so a rollback can move it.
-    image: ${CONSOLE_IMAGE:-ghcr.io/rubentalstra/veredictum:latest}
+    image: ${CONSOLE_IMAGE:-ghcr.io/vernum-projecten/veredictum:latest}
     container_name: veredictum-console
     # A conformance run is a process that outlives its request. A crash must
     # come back, because nothing else is watching from inside the box.

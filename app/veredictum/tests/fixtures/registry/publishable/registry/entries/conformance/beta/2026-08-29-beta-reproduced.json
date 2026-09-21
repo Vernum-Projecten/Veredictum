@@ -4,7 +4,7 @@
   "rules_version": "1.1.0",
   "submitter": {
     "name": "Veredictum maintainers",
-    "contact": "https://github.com/rubentalstra/Veredictum",
+    "contact": "https://github.com/Vernum-Projecten/Veredictum",
     "relationship": "maintainer"
   },
   "subject": {
@@ -53,10 +53,10 @@
   ],
   "provenance": {
     "tier": "reproduced",
-    "workflow_ref": "rubentalstra/Veredictum/.github/workflows/registry-reproduce.yml@refs/heads/main",
+    "workflow_ref": "Vernum-Projecten/Veredictum/.github/workflows/registry-reproduce.yml@refs/heads/main",
     "run_id": "33377542605",
     "run_attempt": 1,
     "predicate_type": "https://slsa.dev/provenance/v1",
-    "verify_command": "gh attestation verify verdicts.json --repo rubentalstra/Veredictum"
+    "verify_command": "gh attestation verify verdicts.json --repo Vernum-Projecten/Veredictum"
   }
 }

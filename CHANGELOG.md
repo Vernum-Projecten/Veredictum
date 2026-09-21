@@ -20,6 +20,18 @@ version on.
 
 ### Changed
 
+- **The repository moved to the `Vernum-Projecten` organisation, and the
+  container image moves with it (#567).** The console image publishes as
+  `ghcr.io/vernum-projecten/veredictum`; the old
+  `ghcr.io/rubentalstra/veredictum` keeps the tags it already carries and
+  gains no new ones, so a deployment pinned to it stays on 0.1.5 until it
+  moves. `docker/docker-compose.yml`, the hosted overlay and its
+  `env.example` name the new reference, and the image's
+  `org.opencontainers.image.source` label points at the new repository, which
+  is what links the package to it. The registry's own trust anchor moves too:
+  a reproduced or console-tier record is issued by a workflow under
+  `Vernum-Projecten/Veredictum`, and a submission naming the old repository is
+  refused.
 - The copyright holder of Veredictum's own work is Vernum Projecten B.V.
   (#556). `LICENSE` and `NOTICE` name the company beside the Veredictum
   contributors; the Apache-2.0 terms are unchanged, and maintainer credit
@@ -2282,16 +2294,16 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
   attribution-stripping `commit-msg` hook with `scripts/install-hooks.sh`, and
   the Rust `.gitignore` set.
 
-[unreleased]: https://github.com/rubentalstra/Veredictum/compare/v0.1.5...HEAD
-[0.1.5]: https://github.com/rubentalstra/Veredictum/compare/v0.1.4...v0.1.5
-[0.1.4]: https://github.com/rubentalstra/Veredictum/compare/v0.1.3...v0.1.4
-[0.1.3]: https://github.com/rubentalstra/Veredictum/compare/v0.1.2...v0.1.3
-[0.1.2]: https://github.com/rubentalstra/Veredictum/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/rubentalstra/Veredictum/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/rubentalstra/Veredictum/compare/v0.1.0-alpha.6...v0.1.0
-[0.1.0-alpha.6]: https://github.com/rubentalstra/Veredictum/compare/v0.1.0-alpha.5...v0.1.0-alpha.6
-[0.1.0-alpha.5]: https://github.com/rubentalstra/Veredictum/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
-[0.1.0-alpha.4]: https://github.com/rubentalstra/Veredictum/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
-[0.1.0-alpha.3]: https://github.com/rubentalstra/Veredictum/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
-[0.1.0-alpha.2]: https://github.com/rubentalstra/Veredictum/compare/v0.0.1-alpha.1...v0.1.0-alpha.2
+[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.4...v0.1.5
+[0.1.4]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.0-alpha.6...v0.1.0
+[0.1.0-alpha.6]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.0-alpha.5...v0.1.0-alpha.6
+[0.1.0-alpha.5]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
+[0.1.0-alpha.4]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
+[0.1.0-alpha.3]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
+[0.1.0-alpha.2]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.0.1-alpha.1...v0.1.0-alpha.2
 [0.0.1-alpha.1]: https://github.com/rubentalstra/Veredictum/releases/tag/v0.0.1-alpha.1

@@ -20,11 +20,11 @@ thing and is the authority if the two ever disagree.
 
 ## I have a question
 
-[GitHub Discussions](https://github.com/rubentalstra/Veredictum/discussions) is
+[GitHub Discussions](https://github.com/Vernum-Projecten/Veredictum/discussions) is
 enabled, and its Q&A category is the right place for a question that is not yet
 a defect or a request. If the answer turns out to be work, it becomes an issue
 from there. A question you would rather file directly is
-[an issue](https://github.com/rubentalstra/Veredictum/issues/new/choose) with
+[an issue](https://github.com/Vernum-Projecten/Veredictum/issues/new/choose) with
 the `question` label.
 
 There is no commercial support offering, no service-level agreement, and no paid

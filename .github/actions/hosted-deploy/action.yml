@@ -79,7 +79,7 @@ inputs:
   image:
     description: The published image the box pulls.
     required: false
-    default: ghcr.io/rubentalstra/veredictum
+    default: ghcr.io/vernum-projecten/veredictum
   host:
     description: The box the deploy key opens.
     required: false

@@ -48,7 +48,7 @@ jobs:
   deploy:
     name: deploy the hosted instrument and verify
     # Upstream only: a fork has no token and no app.
-    if: github.repository == 'rubentalstra/Veredictum'
+    if: github.repository == 'Vernum-Projecten/Veredictum'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # The deploy key and the host key are ENVIRONMENT secrets, not repository

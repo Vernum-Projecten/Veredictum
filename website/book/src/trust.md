@@ -11,8 +11,8 @@ exact bytes came out of this repository's build workflow:
 
 ```bash
 gh attestation verify veredictum-<tag>-<target>.tar.gz \
-    -R rubentalstra/Veredictum \
-    --signer-workflow rubentalstra/Veredictum/.github/workflows/release-build.yml
+    -R Vernum-Projecten/Veredictum \
+    --signer-workflow Vernum-Projecten/Veredictum/.github/workflows/release-build.yml
 ```
 
 If that check fails, do not run the file.
@@ -43,5 +43,5 @@ not loopback.
 A published conformance reproduction is attested by the workflow that produced
 it, and a bench record embeds the histograms its summary is re-derived from,
 so both are checkable after the fact. The registry rules
-([registry/RULES.md](https://github.com/rubentalstra/Veredictum/blob/main/registry/RULES.md))
+([registry/RULES.md](https://github.com/Vernum-Projecten/Veredictum/blob/main/registry/RULES.md))
 carry the details.

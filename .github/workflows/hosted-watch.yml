@@ -30,13 +30,13 @@ concurrency:
 
 env:
   HOSTED_BASE: https://console.veredictum.eu
-  IMAGE: ghcr.io/rubentalstra/veredictum
+  IMAGE: ghcr.io/vernum-projecten/veredictum
   ISSUE_TITLE: "The hosted instrument is not serving what it should"
 
 jobs:
   watch:
     name: is it up, and is it the right version
-    if: github.repository == 'rubentalstra/Veredictum'
+    if: github.repository == 'Vernum-Projecten/Veredictum'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

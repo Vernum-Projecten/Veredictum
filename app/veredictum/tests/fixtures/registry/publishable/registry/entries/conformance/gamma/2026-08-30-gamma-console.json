@@ -70,7 +70,7 @@
     "tier": "console",
     "instrument_origin": "https://console.veredictum.eu",
     "console_run_id": "018f3b1e-6f0a-7c21-9a3d-6c2f5d4b8e77",
-    "workflow_ref": "rubentalstra/Veredictum/.github/workflows/registry-console.yml@refs/heads/main",
+    "workflow_ref": "Vernum-Projecten/Veredictum/.github/workflows/registry-console.yml@refs/heads/main",
     "run_id": "33377542606",
     "run_attempt": 1,
     "scheme": "openpgp-detached",

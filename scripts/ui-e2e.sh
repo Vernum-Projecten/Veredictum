@@ -262,7 +262,7 @@ VEREDICTUM_CLIENT_IP_HEADER="$CLIENT_IP_HEADER" \
 VEREDICTUM_GITHUB_APP_ID="1234567" \
 VEREDICTUM_GITHUB_APP_KEY="fixtures/smart-test-issuer/cnf-smart-test.key.pem" \
 VEREDICTUM_GITHUB_INSTALLATION_ID="89012345" \
-VEREDICTUM_REGISTRY_REPO="rubentalstra/Veredictum" \
+VEREDICTUM_REGISTRY_REPO="Vernum-Projecten/Veredictum" \
   "$CONSOLE_BIN" &
 CONSOLE_PID=$!
 wait_http "$PROBE_URL/healthz" 90 "the console"

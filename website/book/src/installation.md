@@ -26,7 +26,7 @@ published crate and the published image carry the code, and a clone of the
 repository is where the data lives:
 
 ```bash
-git clone https://github.com/rubentalstra/Veredictum
+git clone https://github.com/Vernum-Projecten/Veredictum
 cd Veredictum
 ```
 
@@ -62,22 +62,22 @@ The fastest start is the operator compose file, which pins the image to the
 version it shipped with and binds the console to loopback on port 3210:
 
 ```bash
-curl -LO https://raw.githubusercontent.com/rubentalstra/Veredictum/main/docker/docker-compose.yml
+curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/docker/docker-compose.yml
 docker compose up
 ```
 
 Open <http://127.0.0.1:3210>. Releases cut after v0.1.1 attach the same file
-to the [release page](https://github.com/rubentalstra/Veredictum/releases),
+to the [release page](https://github.com/Vernum-Projecten/Veredictum/releases),
 pinned to that release's image. The equivalent `docker run`, if you would
 rather not use compose:
 
 ```bash
 docker run --rm -p 127.0.0.1:3210:3000 -v "$PWD:/work" \
-    ghcr.io/rubentalstra/veredictum:<tag>
+    ghcr.io/vernum-projecten/veredictum:<tag>
 ```
 
 Substitute a published tag from the
-[package page](https://github.com/rubentalstra/Veredictum/pkgs/container/veredictum)
+[package page](https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum)
 for `<tag>`. The image is multi-architecture and is pushed by digest, with its
 tags applied only after a smoke run and a vulnerability scan of that digest have
 passed.
@@ -94,7 +94,7 @@ does today.
 ## From a release binary
 
 Prebuilt binaries for `x86_64` and `aarch64` Linux are attached to every
-[release](https://github.com/rubentalstra/Veredictum/releases). Each tarball
+[release](https://github.com/Vernum-Projecten/Veredictum/releases). Each tarball
 ships with a `sha256sum`, a CycloneDX dependency SBOM and a Sigstore bundle.
 
 Verify the bundle before you run the binary. The check that matters is not just
@@ -103,8 +103,8 @@ repository", which is what `--signer-workflow` asserts:
 
 ```bash
 gh attestation verify veredictum-<tag>-<target>.tar.gz \
-    -R rubentalstra/Veredictum \
-    --signer-workflow rubentalstra/Veredictum/.github/workflows/release-build.yml
+    -R Vernum-Projecten/Veredictum \
+    --signer-workflow Vernum-Projecten/Veredictum/.github/workflows/release-build.yml
 ```
 
 A release is created as a draft and published only once every expected asset is

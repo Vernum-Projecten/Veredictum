@@ -28,12 +28,12 @@
   ],
   "related_identifiers": [
     {
-      "identifier": "https://github.com/rubentalstra/Veredictum",
+      "identifier": "https://github.com/Vernum-Projecten/Veredictum",
       "relation": "isDocumentedBy",
       "resource_type": "publication-softwaredocumentation"
     },
     {
-      "identifier": "https://github.com/rubentalstra/Veredictum/tree/v0.1.5",
+      "identifier": "https://github.com/Vernum-Projecten/Veredictum/tree/v0.1.5",
       "relation": "isSupplementTo",
       "resource_type": "software"
     },

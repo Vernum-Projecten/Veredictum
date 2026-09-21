@@ -44,8 +44,8 @@ command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
 readonly SUBMISSIONS='benchmarks/submissions'
 readonly REGISTRY='registry/entries/bench'
 readonly PAGE='website/landing/benchmarks.html'
-readonly GUIDE_URL='https://github.com/rubentalstra/Veredictum/blob/main/benchmarks/SUBMITTING.md'
-readonly TREE_URL='https://github.com/rubentalstra/Veredictum/tree/main/benchmarks/submissions'
+readonly GUIDE_URL='https://github.com/Vernum-Projecten/Veredictum/blob/main/benchmarks/SUBMITTING.md'
+readonly TREE_URL='https://github.com/Vernum-Projecten/Veredictum/tree/main/benchmarks/submissions'
 readonly LEGEND='./benchmark-methodology.html'
 
 # The reference whose index decides the ROW ORDER. Every reference gets its own
@@ -552,7 +552,7 @@ render_page() {
       <a href="./conformance-board.html">Conformance</a>
       <a href="./benchmarks.html" aria-current="page">Benchmarks</a>
       <a href="./benchmark-methodology.html">Methodology</a>
-      <a href="https://github.com/rubentalstra/Veredictum" rel="noopener">GitHub</a>
+      <a href="https://github.com/Vernum-Projecten/Veredictum" rel="noopener">GitHub</a>
     </nav>
   </div>
 </header>

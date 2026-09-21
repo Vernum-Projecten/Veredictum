@@ -7,7 +7,7 @@ edition = "2024"
 rust-version = "1.96"
 license = "Apache-2.0"
 description = "The Veredictum web console: a Leptos SSR frontend over the published instrument (its own binary and OCI image; runs execute through the pinned veredictum CLI, never a fork of it)"
-repository = "https://github.com/rubentalstra/Veredictum"
+repository = "https://github.com/Vernum-Projecten/Veredictum"
 publish = false
 
 # Full-stack Leptos crate (cargo-leptos): the rlib feeds the server binary

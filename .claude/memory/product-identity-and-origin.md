@@ -10,7 +10,7 @@ metadata:
 
 Owner decision 2026-08-26: the openEHR conformance instrument is a separate
 product named **Veredictum**, in its own public Apache-2.0 repository at
-`github.com/rubentalstra/Veredictum`.
+`github.com/Vernum-Projecten/Veredictum`.
 
 **The name.** Medieval Latin *vere dictum*, "truly spoken", the root of the
 English *verdict*. Verdicts are the instrument's core output: the pure-function
