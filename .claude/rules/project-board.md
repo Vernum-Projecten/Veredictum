@@ -9,7 +9,8 @@
 The tracker is GitHub Issues (`CLAUDE.md` §Issue workflow); milestones are the
 release spine; labels carry type + priority; native edges carry
 decomposition/sequencing (`issue-relationships.md`). The **"Veredictum
-Roadmap" Project** (a GitHub Project v2 under the repo owner, public) exists
+Roadmap" Project** (a GitHub Project v2 under the repository's organisation,
+public — <https://github.com/orgs/Vernum-Projecten/projects/1>) exists
 for one reason: **outward transparency** — anyone can see what is planned, in
 progress, and shipped, without reading the raw issue list. It is a **VIEW over
 the tracker, never a second tracker.** This file is the policy (what the board
@@ -161,8 +162,18 @@ repo-link ARE scriptable via `gh project edit --visibility` /
 | Code changes requested / Code review approved | OFF | PR-status workflows; PRs aren't on the board |
 
 (An Actions-based alternative — `actions/add-to-project` — exists but needs a
-PAT secret for a user-owned project; one-time UI toggles beat a standing
-secret.) Visibility: public.
+PAT or App secret for a project that lives outside the repository, which an
+organisation project does; one-time UI toggles beat a standing secret.)
+Visibility: public.
+
+**A Project v2 cannot be transferred (#571).** There is no page for it under
+"Managing your project" and no transfer mutation in the live GraphQL schema
+(re-verified 2026-09-21); `copyProjectV2` — `gh project copy` — is the whole
+move, and it carries the fields, the views and the built-in workflow states
+and nothing else. Items, readme, short description, visibility, the repository
+link and the status-update history are all rebuilt afterwards. So the owner is
+a decision made once: the board belongs to the organisation that owns the
+repository, and moving it again means rebuilding it again.
 
 ## Interaction with the rest of the workflow
 

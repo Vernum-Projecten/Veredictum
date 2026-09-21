@@ -217,14 +217,17 @@ cmd_update() {
 cmd_updates() {
   resolve_project
   # shellcheck disable=SC2016  # GraphQL $variables are literal, never shell expansion
+  # Read through the project's node id, never through `user(login:)` or
+  # `organization(login:)`: those two resolve nothing for the other owner kind,
+  # and the board moved from a user to an organisation (#571).
   gh api graphql \
-    -f query='query($owner: String!, $number: Int!) {
-      user(login: $owner) { projectV2(number: $number) { statusUpdates(last: 10) {
+    -f query='query($projectId: ID!) {
+      node(id: $projectId) { ... on ProjectV2 { statusUpdates(last: 10) {
         nodes { status startDate targetDate createdAt creator { login } body }
       } } }
     }' \
-    -f owner="$OWNER" -F number="$PROJ_NUMBER" \
-    --jq '.data.user.projectV2.statusUpdates.nodes | reverse | .[] | "== \(.status)  \(.createdAt)  by \(.creator.login)" + (if .startDate then "  start \(.startDate)" else "" end) + (if .targetDate then "  target \(.targetDate)" else "" end), .body, ""'
+    -f projectId="$PROJ_ID" \
+    --jq '.data.node.statusUpdates.nodes | reverse | .[] | "== \(.status)  \(.createdAt)  by \(.creator.login)" + (if .startDate then "  start \(.startDate)" else "" end) + (if .targetDate then "  target \(.targetDate)" else "" end), .body, ""'
 }
 
 # Derive "Target date" from each item's milestone due date. The roadmap
