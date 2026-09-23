@@ -67,12 +67,12 @@ jobs:
       # restoring a build cache is inside the reliability rule — only a
       # publishing lane must run cache-free. `cache-shared-key` keeps the
       # instrumented profile out of the plain CI cache.
-      - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           components: llvm-tools-preview
           cache-shared-key: sonar
           cache-save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@84f5ac3124727fb3d284d4d22ee9ab3654fd09a6 # v2.87.7
+      - uses: taiki-e/install-action@94c31af3204a9f15ab40b35ad084410b905bbc73 # v2.87.17
         with:
           tool: cargo-llvm-cov,cargo-nextest
 
@@ -160,7 +160,7 @@ jobs:
           echo "sonar.projectVersion=$version" >> sonar-project.properties
           echo "projectVersion=$version"
 
-      - uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
+      - uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8.2.2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
@@ -177,7 +177,7 @@ jobs:
         run: bash scripts/sonar/issues-to-sarif.sh rubentalstra_Veredictum sonar-findings.sarif
       - name: Upload the findings to code scanning
         if: github.event_name == 'push'
-        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: sonar-findings.sarif
           category: sonarqube-cloud
