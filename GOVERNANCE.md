@@ -129,8 +129,7 @@ request:
   licence stays Apache-2.0 for everyone including the maintainer. A contribution
   grants the Licensor the relicensing right in
   [CONTRIBUTING.md § Licensing of contributions](CONTRIBUTING.md#licensing-of-contributions),
-  recorded by the pull request checkbox, the same terms every Ferro repository
-  carries.
+  accepted by opening a pull request.
 - **No expectation without a specification citation**, and no expectation
   adjusted to match what a server did.
 - **No test, gate, or case weakened to make a run green.** A red row is
