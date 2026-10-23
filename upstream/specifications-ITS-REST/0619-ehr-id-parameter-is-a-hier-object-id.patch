@@ -1,0 +1,16 @@
+diff --git a/specifications/parameters/path/ehr_id.yaml b/specifications/parameters/path/ehr_id.yaml
+index 14c2b9b..f3dcc31 100644
+--- a/specifications/parameters/path/ehr_id.yaml
++++ b/specifications/parameters/path/ehr_id.yaml
+@@ -1,10 +1,9 @@
+ name: ehr_id
+ in: path
+ description: |
+-  EHR identifier taken from EHR.ehr_id.value.
++  EHR identifier taken from EHR.ehr_id.value, a HIER_OBJECT_ID. It is strongly RECOMMENDED that an UUID is used.
+ required: true
+ style: simple
+ schema:
+   type: string
+-  format: uuid
+   example: '7d44b88c-4199-4bad-97dc-d78268e01398'

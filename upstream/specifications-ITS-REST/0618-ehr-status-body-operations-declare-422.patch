@@ -1,0 +1,32 @@
+diff --git a/specifications/operations/ehr_create.yaml b/specifications/operations/ehr_create.yaml
+index c4438aa..7819b71 100644
+--- a/specifications/operations/ehr_create.yaml
++++ b/specifications/operations/ehr_create.yaml
+@@ -32,3 +32,5 @@ responses:
+     $ref: ../responses/400.yaml
+   '409':
+     $ref: ../responses/409_EHR.yaml
++  '422':
++    $ref: ../responses/422.yaml
+diff --git a/specifications/operations/ehr_create_with_id.yaml b/specifications/operations/ehr_create_with_id.yaml
+index be8f84a..69d317b 100644
+--- a/specifications/operations/ehr_create_with_id.yaml
++++ b/specifications/operations/ehr_create_with_id.yaml
+@@ -36,3 +36,5 @@ responses:
+     $ref: ../responses/400.yaml
+   '409':
+     $ref: ../responses/409_EHR_with_id.yaml
++  '422':
++    $ref: ../responses/422.yaml
+diff --git a/specifications/operations/ehr_status_update.yaml b/specifications/operations/ehr_status_update.yaml
+index 3c3c0ea..533a9ff 100644
+--- a/specifications/operations/ehr_status_update.yaml
++++ b/specifications/operations/ehr_status_update.yaml
+@@ -38,5 +38,5 @@ responses:
+     $ref: ../responses/404_unknown_ehr_id.yaml
+   '412':    
+     $ref: ../responses/412_EHR_STATUS.yaml
+-
+-
++  '422':
++    $ref: ../responses/422.yaml
