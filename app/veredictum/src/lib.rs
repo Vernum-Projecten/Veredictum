@@ -22,6 +22,13 @@
 // Doctests are copy-paste templates: they must use `?`, never unwrap
 // (C-QUESTION-MARK, https://rust-lang.github.io/api-guidelines/documentation.html#c-question-mark).
 #![doc(test(attr(deny(warnings))))]
+#[expect(
+    clippy::disallowed_types,
+    reason = "dev/verification tooling over JSON artifacts (the catalogue, results, wire \
+              exchanges), whose shapes belong to the artifacts and the SUT; the Arazzo model \
+              carries inputs, payloads and extensions as JSON values"
+)]
+pub mod arazzo;
 pub mod artifacts;
 pub mod badges;
 pub mod bench;

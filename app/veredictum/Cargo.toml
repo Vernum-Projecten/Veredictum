@@ -115,6 +115,13 @@ rand = "0.8"
 # Authorization Server, so the runner signs RS256 access tokens carrying the
 # scope claim each case declares. Never hand-roll JWT signing.
 jsonwebtoken = { version = "11.0.0", features = ["aws_lc_rs"] }
+# The Arazzo 1.1.0 document model the catalogue's workflows parse into
+# (https://docs.rs/roas-arazzo/0.3.0). Parsing only: the evaluator, the
+# condition profile and every verdict stay this crate's own code.
+roas-arazzo = { version = "=0.3.0", default-features = false, features = ["v1_1"] }
+# The option set roas-arazzo's `Validate::validate` takes; already in the
+# graph through roas-arazzo, at the version it resolves.
+enumset = "1.1.14"
 
 [dev-dependencies]
 assert_fs = "1"
