@@ -84,6 +84,10 @@ version on.
 
 ### Changed
 
+- The minimum supported Rust version rises from 1.96 to 1.98, and the pinned
+  toolchain and the image's builder move to Rust 1.98.1. `openehr-query`, the
+  AQL parser Veredictum adopts (#626), requires Rust 1.98.
+
 - quick-xml moves from 0.41 to 0.42 in the engine and the fuzz workspace,
   superseding #548. The library now hands out element names, attribute values
   and text as `&str`, so the canonical-XML comparison, the `xml_root`

@@ -223,6 +223,7 @@ pub mod fns {
     //! The `#[server]` endpoints, one module for one inner suppression.
     #![allow(
         clippy::unused_async,
+        clippy::unused_async_trait_impl,
         missing_docs,
         reason = "fires only in some #[server] expansions; see catalogue_api::fns"
     )]

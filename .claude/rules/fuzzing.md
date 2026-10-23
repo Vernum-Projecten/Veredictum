@@ -90,7 +90,7 @@ record.
 ## The traps this lane has already hit
 
 - **`fuzz/` is its own workspace on purpose.** cargo-fuzz needs nightly; this
-  repository is pinned to stable 1.97.1. Never add the package to the root
+  repository is pinned to stable 1.98.1. Never add the package to the root
   workspace, and never let a root `cargo build`, `clippy` or `nextest` reach it.
 - **`--target` is mandatory in CI.** cargo-fuzz defaults the build target to the
   triple IT was built for rather than the runner's, and `install-action`

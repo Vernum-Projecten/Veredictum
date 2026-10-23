@@ -2,7 +2,7 @@
 # the only legal home; this file carries behaviour).
 # Reference: https://doc.rust-lang.org/clippy/lint_configuration.html
 # `msrv` is deliberately NOT set: it defaults to the package `rust-version`
-# (1.96); duplicating it here invites silent drift.
+# (1.98); duplicating it here invites silent drift.
 
 # ── test scoping: panicking assertion idioms are correct IN TESTS (Book ch11) ─
 allow-unwrap-in-tests = true            # clippy::unwrap_used

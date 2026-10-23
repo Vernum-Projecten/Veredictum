@@ -120,7 +120,7 @@ missing_assert_message = "deny"     # production asserts carry a message (lint i
 dbg_macro = "deny"
 print_stdout = "deny"               # the library returns typed reports; the binary relaxes at its own root
 print_stderr = "deny"
-incompatible_msrv = "deny"          # MSRV 1.96 is a hard pin
+incompatible_msrv = "deny"          # MSRV 1.98 is a hard pin
 unchecked_time_subtraction = "deny" # std::time::Duration::sub panics on negative durations; jiff is the safe alternative
 as_conversions = "deny"             # `as` silently truncates; use TryFrom/TryInto
 

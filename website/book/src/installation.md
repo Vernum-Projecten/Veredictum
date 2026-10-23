@@ -123,7 +123,7 @@ Rust version:
 cargo run -- validate --root artifacts --specs specs/openehr
 ```
 
-The declared minimum supported Rust version is 1.96, verified in CI against
+The declared minimum supported Rust version is 1.98, verified in CI against
 that floor rather than assumed. The only extra tool is `cargo-nextest`, and only
 if you intend to run the project's own test suite.
 
