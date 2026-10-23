@@ -285,17 +285,16 @@ The first live triage attributed 7 of 7 diagnosed defects to the runner and
 none to the server under test. An instrument that presumes itself correct is
 worth nothing to the people who rely on its verdicts.
 
-## Results are not published here
+## Results and certificates
 
 This repository publishes the instrument, never results about somebody's
-product. There is no registry, no board and no submission channel: the public
-results registry, its boards and the console's submission flow were removed on
-2026-10-23 (#592). A run's record stays with whoever drove the run.
+product. A run's record stays with whoever drove the run.
 
 **A test report is not a certificate.** A record says what happened when a
 named version of a named system was driven by a named version of this
-instrument on a named machine. Certificates will be issued by the hosted
-instrument itself (#593).
+instrument on a named machine. Certificates are issued by the hosted
+instrument (#593). It runs in trial mode for now: a vendor sees the full
+results and verdicts, and no certificate is issued.
 
 ## Where the hosted instrument runs
 

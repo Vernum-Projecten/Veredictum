@@ -32,8 +32,7 @@ rotation and the answer to "is it up" are all things this directory states.
 
 A Hetzner **CAX21**: 4 vCPU Arm (Ampere Altra), 8 GB RAM, 80 GB local disk,
 named `veredictum`, in Falkenstein (`fsn1`, `eu-central`), dual-stack, on
-Ubuntu 26.04 LTS. It replaced the CX33 in Nuremberg, which no longer exists, on
-2026-10-23 (#583).
+Ubuntu 26.04 LTS.
 
 **So the caps are the box's, not the aspiration's.** #388 reasoned two
 concurrent runs on an 8 GB machine and said plainly that those were starting

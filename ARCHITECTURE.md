@@ -2293,13 +2293,6 @@ than the system, so a completely failed run is unrankable by construction: the
 ceiling is part of the versioned pack definition, the engine refuses the
 record, and the rendered summary prints the failed share per phase.
 
-**The public results registry, removed.** The public results registry, its
-conformance and benchmark boards, the pull-request submission channel and the
-CI lane that re-derived and signed a hosted run's record were removed on
-2026-10-23 (#592). This repository publishes the instrument and no results
-about anybody's product. Certificates will be issued by the hosted instrument
-itself (#593).
-
 A bench row and a §8.14 class verdict are separate records behind separate
 gates, and nothing in this pipeline promotes one into the other: the
 certificate reports the earned class with its environment (§8.14), never a
