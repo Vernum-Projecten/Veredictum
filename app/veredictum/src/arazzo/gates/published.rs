@@ -59,7 +59,7 @@ pub fn extensions_schema() -> Value {
                         "not": { "pattern": format!("^{}", regex_escape_prefix(EXCLUDED_ROOT)) }
                     },
                     "section": {
-                        "description": "A top-level key or a JSON Pointer in a YAML source; a heading title in a Markdown or AsciiDoc source.",
+                        "description": "A top-level key or a JSON Pointer in a YAML source. In a Markdown or AsciiDoc source, the title of exactly one heading, or a path of titles joined by ` > ` in which each heading sits directly under the one before it; a title that matches more than one heading is refused.",
                         "type": "string",
                         "minLength": 1
                     },

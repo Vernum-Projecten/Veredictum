@@ -198,7 +198,14 @@ fn overlay_world(dest: &str, fixture: &str) -> assert_fs::TempDir {
 
     for component in Path::new(dest) {
         std::fs::create_dir_all(&target).expect("mkdir");
-        for entry in std::fs::read_dir(&source).expect("read_dir") {
+        // A destination directory the pristine tree lacks (`workflows/zz/`,
+        // where the Arazzo defects land) has nothing to link beside the overlay.
+        let siblings: Vec<std::io::Result<std::fs::DirEntry>> = if source.is_dir() {
+            std::fs::read_dir(&source).expect("read_dir").collect()
+        } else {
+            Vec::new()
+        };
+        for entry in siblings {
             let entry = entry.expect("entry");
             if entry.file_name() == component {
                 continue; // the overlaid path: materialized, never linked
