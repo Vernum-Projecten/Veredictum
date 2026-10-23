@@ -291,8 +291,9 @@ at absent machinery reports green.
 ## Merging
 
 `main` merges through a **merge queue** (the `main` ruleset, 2026-10-23). A
-pull request enters it with `gh pr merge <n> --auto --squash` or "Merge when
-ready"; GitHub rebases it onto the current `main` with the entries ahead of
+pull request enters it with `gh pr merge <n> --auto` or "Merge when
+ready" (no `--squash`: the queue sets the method, and `gh` refuses one);
+GitHub rebases it onto the current `main` with the entries ahead of
 it, runs CI on that `merge_group`, and squash-merges it when the required
 `conclusion` check passes. Nothing merges with a red `conclusion` through the
 queue, and no pull request has to be updated by hand after another merges.
@@ -407,7 +408,7 @@ pipeline is a `needs` edge, so no leg guesses whether an earlier one finished.
    (<https://help.zenodo.org/docs/github/describe-software/zenodo-json/>). The
    deposit's FILES freeze at publication, so a drifted copy is archived under a
    DOI nobody can correct.
-5. Put it in the merge queue (`gh pr merge <n> --auto --squash`), then
+5. Put it in the merge queue (`gh pr merge <n> --auto`), then
    **verify the merge actually landed** —
    `gh pr view <n> --json state --jq .state` must read `MERGED`. `gh pr merge`
    can print advice and exit zero without merging, and a tag on an unmerged
