@@ -85,6 +85,18 @@ pub enum CiteError {
         /// The section that was not found.
         section: String,
     },
+    /// The section names more than one heading of a docs source.
+    #[error(
+        "`{file}` has {headings} headings `{section}`; name one with a `Parent > Child` heading path"
+    )]
+    AmbiguousSection {
+        /// The cited source.
+        file: String,
+        /// The cited section.
+        section: String,
+        /// How many headings it matches.
+        headings: usize,
+    },
     /// The quote does not occur in the named element or section.
     #[error("the quote does not occur in `{file}` `{section}`: \"{quote}\"")]
     QuoteNotFound {
@@ -153,9 +165,9 @@ impl<'a> QuoteChecker<'a> {
     /// A YAML source is an OAS citation: `section` is a top-level key, or a
     /// JSON Pointer when it starts with `/`, and the quote must occur in the
     /// string content of that element. Any other source is docs text:
-    /// `section` must be the title of one of its headings, and the quote must
-    /// occur under that heading, before the next heading of the same or a
-    /// higher level.
+    /// `section` must name exactly one of its headings, by title or by a
+    /// `Parent > Child` path of titles, and the quote must occur under that
+    /// heading, before the next heading of the same or a higher level.
     ///
     /// # Errors
     /// The [`CiteError`] naming the first property that does not hold.
@@ -179,11 +191,16 @@ impl<'a> QuoteChecker<'a> {
         let haystack = if is_yaml {
             yaml_section_text(&text, source, &citation.section)?
         } else {
-            heading_section_text(&text, &citation.section).ok_or_else(|| {
-                CiteError::SectionNotFound {
+            heading_section_text(&text, &citation.section).map_err(|miss| match miss {
+                SectionMiss::NotFound => CiteError::SectionNotFound {
                     file: source.to_owned(),
                     section: citation.section.clone(),
-                }
+                },
+                SectionMiss::Ambiguous(headings) => CiteError::AmbiguousSection {
+                    file: source.to_owned(),
+                    section: citation.section.clone(),
+                    headings,
+                },
             })?
         };
         if normalize_whitespace(&haystack).contains(&quote) {
@@ -253,18 +270,81 @@ fn heading(line: &str) -> Option<(usize, String)> {
     (level > 0 && title.starts_with(' ')).then(|| (level, normalize_whitespace(title)))
 }
 
-/// The text under the heading titled `section`, up to the next heading of the
-/// same or a higher level; `None` when no heading has that title.
-fn heading_section_text(text: &str, section: &str) -> Option<String> {
-    let wanted = normalize_whitespace(section);
-    let mut lines = text.lines();
-    let level = lines.by_ref().find_map(|line| {
-        heading(line).and_then(|(level, title)| (title == wanted).then_some(level))
-    })?;
+/// The separator of a heading path in a docs citation's `section`:
+/// `Parent > Child` names the heading `Child` directly under `Parent`.
+pub const SECTION_PATH_SEPARATOR: &str = " > ";
+
+/// One heading of a docs file.
+struct Heading {
+    /// The zero-based line the heading is on.
+    line: usize,
+    /// `=` or `#` count.
+    level: usize,
+    /// The whitespace-normalized title.
+    title: String,
+    /// The index, in the heading list, of the nearest preceding heading of a
+    /// higher level.
+    parent: Option<usize>,
+}
+
+/// Why a docs `section` names no single heading.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SectionMiss {
+    /// No heading, or no heading path, matches.
+    NotFound,
+    /// This many headings match.
+    Ambiguous(usize),
+}
+
+/// The text under the one heading `section` names, up to the next heading of
+/// the same or a higher level.
+///
+/// `section` is a heading title, or a path of titles joined by
+/// [`SECTION_PATH_SEPARATOR`] in which each title is a direct child of the one
+/// before it. A section that matches more than one heading is refused rather
+/// than resolved to the first, because the quote would then be checked
+/// against a section the author may not have meant.
+fn heading_section_text(text: &str, section: &str) -> Result<String, SectionMiss> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut headings: Vec<Heading> = Vec::new();
+    for (line, content) in lines.iter().enumerate() {
+        if let Some((level, title)) = heading(content) {
+            let parent = headings.iter().rposition(|h| h.level < level);
+            headings.push(Heading {
+                line,
+                level,
+                title,
+                parent,
+            });
+        }
+    }
+    let mut candidates: Option<Vec<usize>> = None;
+    for part in section.split(SECTION_PATH_SEPARATOR) {
+        let wanted = normalize_whitespace(part);
+        let matched = headings
+            .iter()
+            .enumerate()
+            .filter(|(_, h)| h.title == wanted)
+            .filter(|(_, h)| match &candidates {
+                None => true,
+                Some(parents) => h.parent.is_some_and(|p| parents.contains(&p)),
+            })
+            .map(|(index, _)| index)
+            .collect();
+        candidates = Some(matched);
+    }
+    let found = match candidates.as_deref().unwrap_or_default() {
+        [] => return Err(SectionMiss::NotFound),
+        [one] => headings.get(*one).ok_or(SectionMiss::NotFound)?,
+        many => return Err(SectionMiss::Ambiguous(many.len())),
+    };
     let body: Vec<&str> = lines
-        .take_while(|line| heading(line).is_none_or(|(next, _)| next > level))
+        .iter()
+        .skip(found.line.saturating_add(1))
+        .take_while(|line| heading(line).is_none_or(|(next, _)| next > found.level))
+        .copied()
         .collect();
-    Some(body.join("\n"))
+    Ok(body.join("\n"))
 }
 
 #[cfg(test)]
@@ -436,6 +516,102 @@ mod tests {
             Err(CiteError::Malformed(_))
         ));
         assert_eq!(citation_of(None), Ok(None));
+    }
+
+    /// The vendored RM composition package carries `Overview` three times:
+    /// under `Composition Package`, `Context Model of Recording` and
+    /// `Event Context`.
+    const COMPOSITION: &str = "specs/openehr/RM/docs/ehr/master05-composition_package.adoc";
+
+    fn vendored() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    }
+
+    #[test]
+    fn a_seeded_repeated_heading_title_is_refused_as_ambiguous() {
+        let root = vendored();
+        let mut checker = QuoteChecker::new(&root);
+        let seeded = cite(
+            COMPOSITION,
+            "Overview",
+            "The openEHR EHR model takes account of a systematic analysis of \"context\".",
+        );
+        assert_eq!(
+            checker.check(&seeded),
+            Err(CiteError::AmbiguousSection {
+                file: COMPOSITION.to_owned(),
+                section: "Overview".to_owned(),
+                headings: 3,
+            })
+        );
+    }
+
+    #[test]
+    fn a_heading_path_names_one_of_the_repeated_headings() {
+        let root = vendored();
+        let mut checker = QuoteChecker::new(&root);
+        let context =
+            "The openEHR EHR model takes account of a systematic analysis of \"context\".";
+        let top = "The Composition is the primary 'data container' in the openEHR EHR and is the root point of clinical content.";
+        let event = "The optional event_context in the `COMPOSITION` class is used to document the healthcare event causing new or changed content in the record.";
+        for (section, quote) in [
+            ("Context Model of Recording > Overview", context),
+            ("Composition Package > Overview", top),
+            (
+                "Context Model of Recording > Event Context > Overview",
+                event,
+            ),
+        ] {
+            assert_eq!(
+                checker.check(&cite(COMPOSITION, section, quote)),
+                Ok(()),
+                "{section}"
+            );
+        }
+        assert!(
+            matches!(
+                checker.check(&cite(
+                    COMPOSITION,
+                    "Composition Package > Overview",
+                    context
+                )),
+                Err(CiteError::QuoteNotFound { .. })
+            ),
+            "the path selects the section, so a quote from a sibling section is refused"
+        );
+        for missing in [
+            "Composition Package > Event Context",
+            "Class Descriptions > Overview",
+            "Composition Package > Nowhere",
+        ] {
+            assert!(
+                matches!(
+                    checker.check(&cite(COMPOSITION, missing, context)),
+                    Err(CiteError::SectionNotFound { .. })
+                ),
+                "{missing}: a path step must be a direct child"
+            );
+        }
+    }
+
+    #[test]
+    fn a_repeated_heading_in_markdown_is_refused_too() {
+        use assert_fs::prelude::*;
+        let dir = repo();
+        let source = "specs/openehr/ITS-REST/specifications/docs/overview/x.md";
+        dir.child(source)
+            .write_str("# A\n\n## Notes\n\nfirst\n\n# B\n\n## Notes\n\nsecond\n")
+            .unwrap();
+        let mut checker = QuoteChecker::new(dir.path());
+        assert!(matches!(
+            checker.check(&cite(source, "Notes", "second")),
+            Err(CiteError::AmbiguousSection { headings: 2, .. })
+        ));
+        assert_eq!(checker.check(&cite(source, "B > Notes", "second")), Ok(()));
+        assert!(matches!(
+            checker.check(&cite(source, "A > Notes", "second")),
+            Err(CiteError::QuoteNotFound { .. })
+        ));
     }
 
     #[test]
