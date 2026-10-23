@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use roas_arazzo::v1_1::Workflow;
 use serde_json::Value;
 
-use crate::arazzo::gates::rows::{ROWS_SUFFIX, RowsFile, check_rows, parse};
+use crate::arazzo::gates::rows::{ROWS_SUFFIX, RowsFile, bind, check_rows, parse};
 
 /// One row: the input values of one run of the workflow.
 pub type Row = BTreeMap<String, Value>;
@@ -64,12 +64,15 @@ pub fn rows_path(document: &Path, workflow_id: &str) -> PathBuf {
 /// Loads the rows file at `path` for `workflow`, whose case id is `case_id`,
 /// through the published schema and the rows gate's binding check.
 ///
+/// The rows returned are the rows the workflow receives: each authored row
+/// plus the input the file's recipe binds, if it names one.
+///
 /// # Errors
 /// [`RowsError`] when the file does not load, does not validate, names
 /// another workflow, or does not bind the workflow's inputs.
 pub fn load(path: &Path, case_id: &str, workflow: &Workflow) -> Result<RowsFile, RowsError> {
     let value = crate::load::yaml_file_to_value(path)?;
-    let rows = parse(&value).map_err(|reasons| RowsError::Schema {
+    let mut rows = parse(&value).map_err(|reasons| RowsError::Schema {
         path: path.to_owned(),
         reasons,
     })?;
@@ -87,6 +90,10 @@ pub fn load(path: &Path, case_id: &str, workflow: &Workflow) -> Result<RowsFile,
             reasons,
         });
     }
+    rows.rows = bind(&rows).map_err(|reasons| RowsError::Binding {
+        path: path.to_owned(),
+        reasons,
+    })?;
     Ok(rows)
 }
 

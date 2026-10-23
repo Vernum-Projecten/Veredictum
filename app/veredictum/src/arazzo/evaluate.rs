@@ -695,20 +695,12 @@ fn compose(
     let mut body = None;
     let mut body_is_json = true;
     if let Some(request_body) = &step.request_body {
-        let mut payload = request_body.payload.clone().unwrap_or(Value::Null);
+        // NOTE: Arazzo 1.1.0 §Request Body Object: a payload's runtime expressions "MUST be
+        // evaluated prior to calling the referenced operation"; a whole-string one is the body.
+        let mut payload = body_value(request_body.payload.as_ref().unwrap_or(&Value::Null), scope)?;
         for replacement in &request_body.replacements {
             let value = match &replacement.value {
-                ValueOrSelector::Literal(Value::String(text)) if text.starts_with('$') => {
-                    Expr::parse(text)
-                        .map_err(EvalError::from)
-                        .and_then(|expr| {
-                            scope
-                                .eval(&expr)?
-                                .ok_or(EvalError::MissingOutput(text.clone()))
-                        })
-                        .map_err(|e| e.to_string())?
-                }
-                ValueOrSelector::Literal(literal) => literal.clone(),
+                ValueOrSelector::Literal(literal) => body_value(literal, scope)?,
                 ValueOrSelector::Selector(_) => return Err("a selector value".to_owned()),
             };
             let Some(slot) = payload.pointer_mut(&replacement.target) else {
@@ -741,6 +733,22 @@ fn compose(
         body,
         body_is_json,
     })
+}
+
+/// A payload or replacement value as sent: a string that is a runtime
+/// expression is its value, and anything else is itself.
+fn body_value(value: &Value, scope: &Scope<'_>) -> Result<Value, String> {
+    match value {
+        Value::String(text) if text.starts_with('$') => Expr::parse(text)
+            .map_err(EvalError::from)
+            .and_then(|expr| {
+                scope
+                    .eval(&expr)?
+                    .ok_or(EvalError::MissingOutput(text.clone()))
+            })
+            .map_err(|e| e.to_string()),
+        literal => Ok(literal.clone()),
+    }
 }
 
 /// The citation an extension map carries, read after the gate has run.
@@ -839,6 +847,7 @@ mod tests {
     struct Scripted {
         answers: VecDeque<(u16, &'static str)>,
         sent: Vec<(HttpMethod, String, BTreeMap<String, String>)>,
+        bodies: Vec<Option<Value>>,
     }
 
     impl Scripted {
@@ -846,6 +855,7 @@ mod tests {
             Self {
                 answers: answers.iter().copied().collect(),
                 sent: Vec::new(),
+                bodies: Vec::new(),
             }
         }
     }
@@ -856,10 +866,11 @@ mod tests {
             method: HttpMethod,
             url: &str,
             headers: &BTreeMap<String, String>,
-            _body: Option<&Value>,
+            body: Option<&Value>,
             _body_is_json: bool,
         ) -> Result<RawResponse, String> {
             self.sent.push((method, url.to_owned(), headers.clone()));
+            self.bodies.push(body.cloned());
             let Some((status, text)) = self.answers.pop_front() else {
                 return Err("transport: connection refused".to_owned());
             };
@@ -959,6 +970,8 @@ workflows:
                 RowsFile {
                     workflow: format!("ehr/{workflow}"),
                     iteration,
+                    literals: Vec::new(),
+                    recipe: None,
                     rows: rows.to_vec(),
                 },
             )]),
@@ -1009,6 +1022,39 @@ workflows:
             !text.contains("eDp5") && !text.contains("step-token"),
             "{text}"
         );
+    }
+
+    #[test]
+    fn a_payload_that_is_a_runtime_expression_sends_its_value() {
+        let doc = DOC.replace(
+            "          - { name: Authorization, in: header, value: Bearer step-token }\n",
+            "          - { name: Authorization, in: header, value: Bearer step-token }\n        requestBody: { contentType: application/json, payload: $inputs.body }\n",
+        )
+        .replace(
+            "properties: { ehr_id: { type: string, format: uuid } }",
+            "properties: { ehr_id: { type: string, format: uuid }, body: { type: object } }",
+        );
+        let (dir, document) = load(&doc);
+        let mut transport =
+            Scripted::new(&[(201, ""), (409, ""), (200, r#"{"ehr_id":{"value":"abc"}}"#)]);
+        let body = serde_json::json!({ "_type": "EHR_STATUS", "is_queryable": true });
+        let row = Row::from([
+            ("ehr_id".to_owned(), Value::from("abc")),
+            ("body".to_owned(), body.clone()),
+        ]);
+        let plan = plan_with("twice", &[row], Iteration::ResetPerRow);
+        let (results, _) = run_document(
+            &document,
+            "ehr",
+            config(),
+            dir.path(),
+            &plan,
+            &mut transport,
+        )
+        .unwrap();
+        assert_eq!(only(&results).status, Status::Passed);
+        assert_eq!(transport.bodies.first(), Some(&Some(body)));
+        assert_eq!(transport.bodies.get(1), Some(&None));
     }
 
     #[test]
