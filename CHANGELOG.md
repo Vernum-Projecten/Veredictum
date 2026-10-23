@@ -18,6 +18,8 @@ version on.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-23
+
 ### Changed
 
 - jsonschema moves from 0.49 to 0.58.6 in the engine, the console and the
@@ -2352,7 +2354,8 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
   attribution-stripping `commit-msg` hook with `scripts/install-hooks.sh`, and
   the Rust `.gitignore` set.
 
-[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.6...HEAD
+[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.3...v0.1.4
