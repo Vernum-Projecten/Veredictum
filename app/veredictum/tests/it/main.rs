@@ -19,6 +19,7 @@
     reason = "an independently authored wire input catches codec bugs a typed-then-serialized value cannot, so fixtures and wire assertions are raw JSON"
 )]
 
+mod arazzo_catalogue;
 mod artifact_gates;
 mod bench_engine;
 mod bench_manifest;
