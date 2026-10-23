@@ -80,7 +80,7 @@ axum = { version = "0.8", features = ["multipart"], optional = true }
 # The export download and the S9 upload speak one archive format. Reading is
 # the untrusted direction: every entry name is refused unless it is a plain
 # file name, mirroring the lib's own `UnsafeFileName` rule.
-zip = { version = "8", default-features = false, features = ["deflate"], optional = true }
+zip = { version = "9", default-features = false, features = ["deflate"], optional = true }
 # Wall-clock time comes from jiff, never `std::time::SystemTime::now` (the
 # `disallowed-methods` ban): S9 sweeps its transient scratch directories by
 # age, which is the one place the console reads a clock.
@@ -139,7 +139,7 @@ assert_fs = "1"
 # The journeys build the tamper fixture archives themselves. The shipping
 # dependency above stays optional behind `ssr`; the TEST target compiles in
 # the featureless clippy pass too, so its copy is unconditional.
-zip = { version = "8", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 # The browser journeys (#69): a Rust-native WebDriver client over headless
 # Chromium, never Playwright — the console admits no hand-written JavaScript,
 # its test suite included. The gate reads the browser log through

@@ -332,7 +332,13 @@ pub mod unpack {
             // The RAW name, never a resolved one: resolving is exactly the
             // step that lets `../` escape. The on-disk name is then REBUILT
             // from the allowlist, so no uploader byte reaches the join.
-            let name = safe_entry_name(entry.name())?;
+            // NOTE: zip 9.0.0-pre1 decodes names on demand, so `name()` is fallible
+            // (zip-rs/zip2#807); an undecodable name is refused like any other bad one.
+            let name = safe_entry_name(
+                &entry
+                    .name()
+                    .map_err(|e| format!("entry {index}: unreadable file name: {e}"))?,
+            )?;
             if name.contains("..") {
                 return Err(format!(
                     "the archive carries {name:?}, which is not a plain file name — a record bundle is one flat directory"

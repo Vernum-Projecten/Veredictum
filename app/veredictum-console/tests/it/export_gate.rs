@@ -302,7 +302,7 @@ async fn the_download_route_serves_the_sealed_bytes() -> Result<(), Box<dyn std:
     );
     let mut zip = zip::ZipArchive::new(std::io::Cursor::new(archive.as_slice()))?;
     let names: Vec<String> = (0..zip.len())
-        .map(|index| Ok(zip.by_index(index)?.name().to_owned()))
+        .map(|index| Ok(zip.by_index(index)?.name()?.into_owned()))
         .collect::<Result<_, zip::result::ZipError>>()?;
     for expected in [
         veredictum::record::MANIFEST_FILE,
@@ -323,7 +323,7 @@ async fn the_download_route_serves_the_sealed_bytes() -> Result<(), Box<dyn std:
     std::fs::create_dir_all(&unpacked)?;
     for index in 0..zip.len() {
         let mut entry = zip.by_index(index)?;
-        let name = entry.name().to_owned();
+        let name = entry.name()?.into_owned();
         let mut body = Vec::new();
         std::io::Read::read_to_end(&mut entry, &mut body)?;
         std::fs::write(unpacked.join(name), body)?;
