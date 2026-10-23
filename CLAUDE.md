@@ -276,12 +276,12 @@ becomes gating.
 **Milestones are releases.** A milestone is a delivery promise, so an issue
 waiting on something upstream carries `blocked-upstream` and no milestone. A
 release is cut when its milestone reaches zero open issues; the next milestone
-always exists, so triage always has a target. **Veredictum is beta, not
-stable** (owner ruling 2026-10-23): releases are `1.0.0-beta.N`, and `1.0.0`
-proper is cut only when the owner declares it stable. `v1.0.0-beta.1` is the
-rewrite onto Arazzo (#590); `v1.0.0-beta.2` holds what comes up from it and
-must ship right after; `v1.0.0-beta.3` holds the follow-ups outside the
-rewrite. The 0.1.x line ended with v0.1.7.
+always exists, so triage always has a target. **Veredictum stays on 0.x until
+the openEHR SEC approves it, and 1.0.0 marks that approval** (owner ruling
+2026-10-23); 0.x already means not yet stable, so no release carries a
+pre-release suffix. `v0.2.0` is the rewrite onto Arazzo (#590); `v0.2.1` holds
+what comes up from it and must ship right after; `v0.3.0` holds the follow-ups
+outside the rewrite.
 
 **Skills.** `/phase-status` orients, `/next-task` turns an issue into a plan,
 `/phase-done` closes one. Each is trimmed to the machinery that exists here and
