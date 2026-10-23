@@ -55,7 +55,7 @@ ARG TAILWIND_VERSION=v4.3.3
 # while everything COPYed below arrives root-owned. distroless carries no shell,
 # so no RUN can create that directory there: it arrives from here instead,
 # already owned by the uid that has to write to it.
-FROM busybox@sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0 AS mkdirs
+FROM busybox@sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e AS mkdirs
 RUN mkdir -p /empty/out
 
 # ── builder: toolchain + prebuilt tools, then cargo-leptos under the cache ────
