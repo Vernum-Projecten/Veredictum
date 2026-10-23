@@ -63,6 +63,16 @@ version on.
   in scope at once, where 0.41 refused only more than 256 declarations on a
   single element.
 
+### Fixed
+
+- The `arazzo-citation` gate refuses a docs `section` that matches more than
+  one heading, instead of checking the quote against the first one (#633).
+  A repeated heading is named by a path of titles joined by ` > `, each
+  directly under the one before it, for example
+  `Context Model of Recording > Overview` in the RM composition package,
+  which has three `Overview` headings. The `arazzo-extensions` schema
+  describes the form.
+
 ## [0.1.7] - 2026-10-23
 
 ### Changed
