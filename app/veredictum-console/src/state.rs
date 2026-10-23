@@ -32,10 +32,11 @@ pub const OUT_ENV: &str = "VEREDICTUM_OUT";
 /// instruction to mount a key, and offers no button.
 pub const SIGN_KEY_ENV: &str = "VEREDICTUM_SIGN_KEY";
 
-/// The environment variable naming the armored OpenPGP public key `/verify`
-/// checks a bundle against.
+/// The environment variable naming the armored OpenPGP public key the export
+/// checks its own seal against.
 ///
-/// Unset is a first-class state: the page explains what to configure.
+/// Unset is a first-class state: the export section then names the variable
+/// to configure, and offers no button.
 pub const VERIFY_KEY_ENV: &str = "VEREDICTUM_VERIFY_KEY";
 
 /// The environment variable stating how many runs this host can drive at once.
@@ -71,37 +72,6 @@ pub const CLIENT_IP_HEADER_ENV: &str = "VEREDICTUM_CLIENT_IP_HEADER";
 /// line.
 pub const SIGN_PASSPHRASE_ENV: &str = "VEREDICTUM_SIGN_PASSPHRASE";
 
-/// The environment variable naming the registry App's numeric app id (#391).
-///
-/// Unset is a first-class state: the submit screen then explains what to
-/// configure and offers no button. The four registry variables are read at the
-/// moment a submission is composed rather than cached here, because the App
-/// identity is a credential posture like the signing key and an operator who
-/// mounts it must not have to restart the instance to use it.
-pub const REGISTRY_APP_ID_ENV: &str = "VEREDICTUM_GITHUB_APP_ID";
-
-/// The environment variable naming the PEM file holding the registry App's
-/// private key.
-///
-/// The console holds the PATH, never the key bytes: the file is read at the
-/// moment a JWT is minted and the material reaches no state, no signal and no
-/// log line, exactly as [`SIGN_KEY_ENV`] does.
-pub const REGISTRY_APP_KEY_ENV: &str = "VEREDICTUM_GITHUB_APP_KEY";
-
-/// The environment variable naming the App's installation id on the registry
-/// repository.
-pub const REGISTRY_INSTALLATION_ENV: &str = "VEREDICTUM_GITHUB_INSTALLATION_ID";
-
-/// The environment variable naming the registry repository, `owner/name`.
-pub const REGISTRY_REPO_ENV: &str = "VEREDICTUM_REGISTRY_REPO";
-
-/// The environment variable naming the GitHub REST API root.
-///
-/// Optional, defaulting to the public API. It exists so a GitHub Enterprise
-/// deployment can name its own root, and so the client's request sequence is
-/// assertable against a stub server with no network at all.
-pub const REGISTRY_API_ENV: &str = "VEREDICTUM_GITHUB_API";
-
 /// Why the console refused to start.
 ///
 /// Two values, and only two, that this console will not guess at. Everything
@@ -136,7 +106,7 @@ pub struct ConsoleState {
     pub out: PathBuf,
     /// The armored secret key the export seals with, when one is mounted.
     pub sign_key: Option<PathBuf>,
-    /// The armored public key `/verify` checks a bundle against, when one is
+    /// The armored public key the export checks its own seal against, when one is
     /// mounted.
     pub verify_key: Option<PathBuf>,
     /// The one startup validation pass, shared by every request; `Err` is

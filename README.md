@@ -83,22 +83,21 @@ It ships as two products over one engine:
   the verdicts. The image is the console, never the CLI — a static binary
   needs no container.
 
-[console.veredictum.eu](https://console.veredictum.eu) is the official
-conformance instrument, and a run performed there is an official run. It
-drives the catalogue against the endpoint you name, records every exchange,
-computes the verdicts, and submits the whole record as a pull request. CI
-recomputes those verdicts from the transcript the submission carries, refuses
-any mismatch, and signs the record with a key the instance never holds. The
-merge publishes it.
+[console.veredictum.eu](https://console.veredictum.eu) is the hosted
+conformance instrument. It drives the catalogue against the endpoint you
+name, records every exchange, and computes the verdicts, so you read the full
+results and verdicts for your own server. It runs functional conformance
+only: the measured instruments (`perf`, `stress`, `aql-probe` and `bench`)
+are run locally with the CLI. Nothing a run produces is published, and this
+repository keeps no list of results.
 
-What that establishes is threefold: the run was performed by an instrument
-nobody in the exchange controls, its judgement is arithmetic anyone can
-repeat, and the bytes have not moved since we repeated it. What it cannot
-establish is the environment — you chose the endpoint, and the record says
-so. Running the instrument yourself publishes your own claim instead, which
-is a different question rather than a weaker answer, and the section below is
-how. The delivery pipeline behind the hosted instrument is documented in
-[deploy/hosted/README.md](deploy/hosted/README.md).
+What a hosted run establishes is that the judgement was made by an instrument
+nobody in the exchange controls, and that the judgement is arithmetic anyone
+can repeat from the recorded exchanges. What it cannot establish is the
+environment: you chose the endpoint, and the record says so. Running the
+instrument yourself answers the same question on your own hardware, and the
+section below is how. The delivery pipeline behind the hosted instrument is
+documented in [deploy/hosted/README.md](deploy/hosted/README.md).
 
 Both are pre-1.0. The 0.1.x line publishes working releases and makes no
 API-stability claim yet; every claim a release does make is checked, signed
@@ -138,9 +137,9 @@ answer the same questions without this tool.
 ## Quick start
 
 The fastest path installs nothing:
-[console.veredictum.eu](https://console.veredictum.eu) is the official
-instrument described above, and a run there produces an official record. To
-publish your own claim, or to work offline, run the instrument yourself —
+[console.veredictum.eu](https://console.veredictum.eu) is the hosted
+instrument described above. For a deployment the internet cannot reach, for
+the measured instruments, or to work offline, run the instrument yourself —
 fastest first: the console with `docker compose up`, the CLI from cargo, the
 signed bare-metal binaries. Grading a server end to end needs the catalogue,
 which lives in this repository — that path closes the section.
@@ -215,8 +214,6 @@ reference — the only kind of number that means anything across machines. A
 declared posture profile is checked by canaries on both sides of the
 measured window, and a run whose deployment disagrees with its declaration
 is refused rather than recorded.
-[`benchmarks/SUBMITTING.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/benchmarks/SUBMITTING.md)
-takes the record from there to the public board.
 
 ### Run the full conformance catalogue
 
@@ -288,51 +285,18 @@ The first live triage attributed 7 of 7 diagnosed defects to the runner and
 none to the server under test. An instrument that presumes itself correct is
 worth nothing to the people who rely on its verdicts.
 
-## The public results registry
+## Results and certificates
 
-Published results live in this repository as one append-only tree,
-conformance runs on [one board](https://veredictum.eu/conformance-board.html)
-and benchmark runs on [another](https://veredictum.eu/benchmarks.html). A
-submission is a pull request that adds one entry, CI validates it before
-anybody reads the numbers, and the merge is the publication. Every entry
-records who submitted it, their relationship to the system, the deployment
-with its image digests, the instrument version, the machine, and the
-artifacts it stands on by digest.
+This repository publishes the instrument, never results about somebody's
+product. A run's record stays with whoever drove the run.
 
-Every entry carries one of three tiers, and the tier is a property of who
-performed the run. A **reproduced** entry was produced by this repository's
-own workflow: it composed the deployment from a recipe committed under
-`registry/topologies/`, drove the catalogue against it, and attested the
-bundle. A **console** entry was produced at
-[console.veredictum.eu](https://console.veredictum.eu), the official hosted
-instrument, against an endpoint the submitter named that is **reachable from the
-public internet**; its verdicts were re-derived here from the transcript it
-submitted, and the record was signed only after they matched. A **self-reported** entry was run and signed by its
-submitter; the signature proves who submitted the file and that the bytes
-have not moved, and it never proves the run happened as described. The tier
-is the discriminant of the entry's provenance block, so it cannot be claimed
-without the evidence its variant requires.
-
-**A deployment the internet cannot reach cannot earn a console entry.** The
-hosted instrument refuses a target only it could reach (loopback, RFC 1918,
-link-local, unique-local) before a socket opens, because otherwise a visitor
-could point it at its own host network. That leaves a server behind a firewall,
-on a laptop, or in a private subnet with two honest routes: the **reproduced**
-tier, if the deployment can be composed from a recipe committed under
-`registry/topologies/`, which is the stronger of the two because this repository
-performs the run; or **self-reported**, which says what the submitter says it
-says. The guard is not a limitation to be worked around. It is the reason the
-instrument cannot be turned against the network it runs in.
-
-**A test report is not a certificate.** An entry says what happened when a
+**A test report is not a certificate.** A record says what happened when a
 named version of a named system was driven by a named version of this
-instrument on a named machine. Certification is the openEHR Foundation's to
-grant, and the registry is deliberately shaped to hand over: the rules
-([`registry/RULES.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/registry/RULES.md), versioned, changed prospectively)
-are public, the entries carry their own evidence, and no step of the
-pipeline is proprietary.
+instrument on a named machine. Certificates are issued by the hosted
+instrument (#593). It runs in trial mode for now: a vendor sees the full
+results and verdicts, and no certificate is issued.
 
-## Where the official instrument runs
+## Where the hosted instrument runs
 
 An instrument that grades other people's products in public states its own
 conditions in public.
@@ -357,39 +321,35 @@ container's memory limit. Raising it is an environment edit and a redeploy,
 never a release, so a bigger machine changes what the instrument admits
 without changing a line of code.
 
-**The host holds no signing key, in any form, at any step.** A record produced
-there is signed only after this repository's CI has re-derived its verdicts from
-the submitted transcript, in an environment the host cannot reach. What the box
-can do is drive the catalogue, record the exchanges and open a pull request.
-[`registry/RULES.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/registry/RULES.md)
-states what a console entry attests and what it cannot.
+**The host holds no credential.** What the box can do is drive the catalogue,
+record the exchanges and show the verdicts.
 
-The box is disposable. It stores nothing durable, git is where a record lives,
-and the whole posture is committed under
+The box is disposable. It stores nothing durable, and the whole posture is
+committed under
 [`deploy/hosted/`](https://github.com/Vernum-Projecten/Veredictum/tree/main/deploy/hosted):
 the cloud-init that built it, the compose file, the proxy configuration. A
 rebuild from that directory produces the same machine.
 
-**Who can change the thing that judges.** A record is trusted because this
-repository's CI re-derived its verdicts from the submitted transcript and then
-signed them, and the lane that does both lives on `main`. So who can move `main`
-is part of the trust claim, and the answer is published rather than implied.
+**Who can change the thing that judges.** A verdict is trusted because the
+engine and the catalogue that produced it are the ones on `main`. So who can
+move `main` is part of the trust claim, and the answer is published rather than
+implied.
 
 Every change to `main` requires a pull request, with its diff, its CI run and its
 audit-log entry. The maintainer holds a pull-request-only bypass, which means
 they may merge their own pull request without a second reviewer, and may merge
 one whose checks have not passed. They cannot push to `main` at all. Signed
 commits, no force-pushes and no branch deletion are enforced with no exception
-for anyone. The registry signing key sits behind a second gate: an environment
-that admits only `main` and holds the job until a person releases it.
+for anyone.
 
 For a project with one maintainer, a second reviewer is a promise nobody could
 keep. A visible object for every change is one that can be kept, and it is the
 one that matters when somebody wants to audit how a verdict was produced.
 
 **One measurement caveat, stated before anyone reads a number.** The hosted
-instrument performs functional conformance runs. It does not offer the measured
-instruments: `perf`, `stress` and the comparative benchmark stay local for now.
+instrument performs functional conformance runs only. The measured instruments
+(`perf`, `stress`, `aql-probe` and the comparative `bench`) are run locally with
+the CLI, and the hosted console exposes none of them.
 A latency measured from a fixed origin in Falkenstein carries the network path to
 wherever the system under test lives, and distance is not a property of the
 database being graded. Measured runs are driven by the operator, on hardware
@@ -404,7 +364,6 @@ they describe.
 | **The vocabularies** | `artifacts/vocab/` — the capability matrix behind the CORE, STANDARD and OPTIONS profiles, the wire surface the coverage gate enumerates, the outcome and selector grammars, and the journey catalogue the measured workload decomposes through |
 | **The corpora** | `artifacts/corpus/` — payload fixtures with their adjudicated verdicts, plus breadth packs vendored verbatim from upstream clinical-model libraries. Every invalid shape is kept as its own negative case, so a lenient server that accepts it fails |
 | **The ambiguity register** | `artifacts/registers/ambiguities.yaml` — every place the specification is silent or contradicts itself, each with a typed disposition and, where we reported it, the upstream issue |
-| **The results registry** | `registry/` and `benchmarks/` — the versioned submission rules, the deployment topologies the reproduction lane composes, and the committed entries the public boards render from |
 | **The published schemas** | `schemas/` — JSON Schema for every artifact family, emitted by the instrument and drift-tested, so an integrator can author against the format |
 | **The verification pack** | `verification-pack/` — a recorded transcript with adjudicated verdicts. A runner claiming to implement this catalogue replays it and must reproduce every verdict, so no harness, this one included, is trusted on its word |
 | **The oracle** | `specs/openehr/` — the released specification text, vendored verbatim, plus the released XSD, JSON Schema and OpenAPI bundles a citation resolves against |

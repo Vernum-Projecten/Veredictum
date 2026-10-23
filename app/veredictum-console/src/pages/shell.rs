@@ -30,8 +30,8 @@ struct NavEntry {
     icon: icondata_core::Icon,
 }
 
-/// The five surfaces (#61, #166): the run pipeline lives under one entry.
-fn nav_entries() -> [NavEntry; 5] {
+/// The three surfaces (#61): the run pipeline lives under one entry.
+fn nav_entries() -> [NavEntry; 3] {
     [
         NavEntry {
             key: "/",
@@ -48,16 +48,6 @@ fn nav_entries() -> [NavEntry; 5] {
             label: "Run",
             icon: icondata_lu::LuPlay,
         },
-        NavEntry {
-            key: "/benchmarks",
-            label: "Benchmarks",
-            icon: icondata_lu::LuActivity,
-        },
-        NavEntry {
-            key: "/verify",
-            label: "Verify",
-            icon: icondata_lu::LuShieldCheck,
-        },
     ]
 }
 
@@ -68,10 +58,6 @@ fn nav_key(path: &str) -> &'static str {
         "/catalogue"
     } else if path.starts_with("/run") {
         "/run"
-    } else if path.starts_with("/benchmarks") {
-        "/benchmarks"
-    } else if path.starts_with("/verify") {
-        "/verify"
     } else {
         "/"
     }
@@ -213,9 +199,6 @@ mod tests {
         );
         assert_eq!(nav_key("/run/connect"), "/run");
         assert_eq!(nav_key("/run/results"), "/run");
-        assert_eq!(nav_key("/verify"), "/verify");
-        assert_eq!(nav_key("/benchmarks"), "/benchmarks");
-        assert_eq!(nav_key("/benchmarks?record=abc"), "/benchmarks");
         assert_eq!(nav_key("/nonsense"), "/");
     }
 }

@@ -22,8 +22,8 @@ citation.
 The support columns are the supplier's. ISO/IEC 17050-1 is titled *supplier's*
 declaration of conformity, so a filled-in declaration written by the test
 instrument is a contradiction in terms. A real declaration therefore travels
-with the submission it describes: pasted into a console run, or carried as the
-`statement` artifact of a registry entry.
+with the run it describes: pasted into a console run, or passed to the command
+line as `--statement`.
 
 What the test suites still need is the SHAPE of a filled-in declaration, so the
 static conformance review can be seen to fire. That is what

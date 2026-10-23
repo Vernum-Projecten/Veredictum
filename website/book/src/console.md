@@ -5,6 +5,10 @@ own container image, reads the catalogue and the vendored specification text
 from paths you mount, and reaches the engine only through the published
 `veredictum` crate: every number it shows is one the command line prints too.
 
+The console runs functional conformance. The measured instruments (`perf`,
+`stress`, `aql-probe` and `bench`) are run with the command line, and the
+console exposes none of them.
+
 Every screenshot below is captured by the console's own browser journeys
 (`scripts/ui-e2e.sh` with `UI_E2E_DOCS_SHOTS=1`), in one 1440×900 browser
 window, light and dark. They are refreshed in the pull request that changes the
@@ -139,7 +143,8 @@ rather than being a logo anyone could copy:
   verdict was spoken, read back from the signature's own creation time because
   the record carries no wall clock.
 - **The badge** is a compact SVG for a README, with the digest prefix in its
-  title and the verify path in its source.
+  title and the check command in its source. The copy-paste snippets link it
+  to the report beside it.
 - **The report** is one self-contained HTML file of everything the results and
   verdicts screens show, with the full digest, the signer fingerprint and the
   signing time in its footer.
@@ -151,147 +156,20 @@ The seal card, the badge and the report sit deliberately outside the manifest.
 The manifest covers what the instrument judged; these are renderings about
 that judgement, and signing a rendering of a rendering would say nothing extra.
 
-Two keys are configuration. `VEREDICTUM_SIGN_KEY` names the armored secret key
-the bundle is sealed with, and `VEREDICTUM_VERIFY_KEY` names the public half.
-The console asks for both because it will not print a signing time it has not
-checked: after sealing, it verifies its own bundle before stating who signed
-it and when. With neither mounted the section says so and offers no button.
-
-## Submit: the run publishes itself
-
-A finished run at the hosted instrument becomes a published record by being
-committed to the public results registry. The submit step asks for the
-disclosure the submission rules make mandatory and states everything the run
-already knows.
-
-![The submission step in light mode](console/img/submit-light.png)
-![The submission step in dark mode](console/img/submit-dark.png)
-
-The instrument drove an endpoint you named, so it can say what that server
-answered and nothing about the host behind it. That is the split the form is
-built on. The run supplies the endpoint it drove, the moment it started, the
-catalogue revision its results record names, and the engine version the
-console links. You supply who is publishing, the machine the graded server
-runs on, what was switched on behind the result, and the conflict-of-interest
-sentence the rules give no "not applicable" for. An empty mandatory field is
-refused by name before anything is opened.
-
-The submission adds one entry and the five record files a re-derivation reads:
-the results, the verdicts, the recorded exchanges, the topology they were
-driven under and the claim they were judged against. Each is listed by role
-with the SHA-256 of the exact committed bytes. The entry carries no provenance
-block, because a performer does not state its own: CI recomputes the verdicts
-from the submitted transcript, refuses a mismatch, signs the record with a key
-the instrument never holds, and writes that block itself.
-
-No credential the run was driven under reaches the branch. The ixit the record
-carries names environment variables, never values, and the recorded exchanges
-withhold the credential header.
-
-The identity that opens the pull request is a GitHub App:
-`VEREDICTUM_GITHUB_APP_ID`, `VEREDICTUM_GITHUB_APP_KEY`,
-`VEREDICTUM_GITHUB_INSTALLATION_ID` and `VEREDICTUM_REGISTRY_REPO`. Its
-installation token is short-lived and revocable, which a signing key on a
-public host would not be, and it is the only identity permitted to open a
-`console` entry. With any of the four unset the step says what to configure
-and offers no button.
-
-## Verify: checking a record without trusting us
-
-`/verify` is public. It needs no run, no server and no account: upload a
-bundle, and the published library recomputes every digest the manifest names
-and checks the detached signature over it.
-
-![A bundle verifying clean](console/img/verify-light.png)
-![The same page in dark mode](console/img/verify-dark.png)
-
-The upload is a plain HTML form posting to a server route. There is no
-JavaScript in it, so it works before the client bundle has loaded and works
-with scripting switched off. Uploaded bundles are transient: they unpack into
-a scratch directory, are checked, and are swept on a short timer.
-
-A tampered file names itself. Change one byte of one document and the row for
-that file reads `mismatched`, with the digest the bytes actually produce
-beside the digest the manifest promised. Change the manifest instead and the
-signature is rejected while every remaining digest still matches, which says
-precisely which of the two claims failed.
-
-Two things are permanent furniture on that page. The first is the honesty box,
-which renders on every outcome including a clean one: a valid signature proves
-integrity and origin since signing, and nothing else. It does not prove the
-conditions the run executed under, that the system under test is what the
-record says it is, or that the catalogue covered everything the specification
-defines. The second is the command line that does the same job:
+A sealed bundle is ordinary files, so anyone checks it without this console:
 
 ```text
 veredictum verify-record --record <dir> --key <public-key>
 ```
 
-The manifest's signature is an ordinary detached OpenPGP signature, so
-`gpg --verify` accepts a bundle too. Nobody has to trust this console to check
-this console.
+`gpg --verify` accepts the manifest's detached signature too, and `sha256sum`
+re-derives every digest it names.
 
-The key the page checks against is baked into the image at
-`/app/keys/registry-signing.pub.asc`, and `VEREDICTUM_VERIFY_KEY` names it by
-default, so a fresh instance verifies a published record with no configuration.
-It is the public half of the key that signs a registry record, which is what a
-reader needs and all a reader needs. Point that variable at another file to
-check records signed by another key.
-
-## Benchmarks: speed records, read as speed records
-
-`/benchmarks` reads the JSON document a `veredictum bench` run writes. It lists
-every `bench-result*.json` under the mounted output directory and takes
-uploaded ones through the same plain-form mechanism `/verify` uses. An uploaded
-batch is transient and swept on a timer, because the console stores nothing of
-its own.
-
-![The benchmark record list in light mode](console/img/benchmarks-light.png)
-![The same list in dark mode](console/img/benchmarks-dark.png)
-
-The first thing on every one of these pages is the boundary statement, read
-verbatim out of the record: a bench result is a comparative speed measurement,
-and it is not a conformance record, not a certificate, and not a
-performance-class rating. A table of speed numbers is exactly the artifact
-somebody quotes out of context, so the sentence that says what it is not
-travels with it.
-
-One record opens in full. The header names the pack, the system, the machine
-that offered the load, the seed and the scale, then says whether the record may
-be offered for ranking and, when it may not, which requirement it misses and
-what that requirement asks for. The posture block follows, one line per
-disclosed item, each labelled `verified` where a black-box canary read it off
-the running system at both ends of the measured window and `declared-only`
-where released ITS-REST discloses nothing to read. Two speed numbers are
-comparable only when the same features were switched on behind them, which is
-why the posture reads before any figure.
-
-Then the numbers: the cross-repetition percentiles per phase in microseconds
-with the millisecond reading beside them, the failed-arrival share of every
-repetition and phase on the target and on each baseline, the same-machine
-baselines with their pinned image digests and upstream recipe, and the relative
-index the run derived against each of them. Every figure carries the discipline
-that produced it, because a closed-loop average and an open-loop percentile
-answer different questions and are never read against one another.
-
-![One bench record in full](console/img/benchmark-detail-light.png)
-
-Each operation carries the standard HdrHistogram V2 encoding of its own
-latencies, so every percentile on the page is recomputable from the record
-itself. The console tabulates rather than draws it: decoding one is the
-engine's own histogram reader, which the console reaches once its engine pin
-carries the bench module.
-
-Selecting two or more records aligns them side by side, one column per record,
-one row per phase, operation and metric. What makes the view worth having is
-the block above the numbers: the columns' packs, generator hosts, posture
-profiles, full disclosures and scale factors are compared, and every
-disagreement is stated before a reader reaches a cell. A column that is not
-submittable says so with the requirement it misses; a set of columns taken on
-different hosts where one carries no relative index says that nothing in the
-table is comparable across them.
-
-![Two records aligned side by side](console/img/benchmark-compare-light.png)
+Two keys are configuration. `VEREDICTUM_SIGN_KEY` names the armored secret key
+the bundle is sealed with, and `VEREDICTUM_VERIFY_KEY` names the public half.
+The console asks for both because it will not print a signing time it has not
+checked: after sealing, it verifies its own bundle before stating who signed
+it and when. With neither mounted the section says so and offers no button.
 
 ## Running it in public
 

@@ -623,75 +623,6 @@ fn fixture_sut() -> Result<u16, std::io::Error> {
     Ok(port)
 }
 
-/// The console's own output root under the harness, where a driven run's job
-/// directory (and its `export/` bundle) lands.
-fn harness_out_dir() -> PathBuf {
-    let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
-    Path::new(root).join("target").join("ui-e2e").join("out")
-}
-
-/// The newest driven job's sealed bundle directory.
-///
-/// The journey reads the bundle off disk rather than driving a browser
-/// download: a headless Chromium's download directory is harness-specific,
-/// and what S9 must be given is the archive's BYTES, which the console has
-/// already written where the operator can see them.
-fn newest_export_dir() -> Option<PathBuf> {
-    let mut jobs: Vec<PathBuf> = std::fs::read_dir(harness_out_dir())
-        .ok()?
-        .filter_map(|entry| {
-            let entry = entry.ok()?;
-            let name = entry.file_name().to_str()?.to_owned();
-            name.starts_with("console-job-").then(|| entry.path())
-        })
-        .collect();
-    jobs.sort();
-    jobs.into_iter()
-        .rev()
-        .map(|job| job.join("export"))
-        .find(|export| export.join("record-manifest.json").is_file())
-}
-
-/// Where the journey writes an upload, and what the BROWSER must be told to
-/// read: a containerised browser has its own filesystem, so the harness
-/// bind-mounts one directory and names it twice.
-///
-/// # Panics
-/// When the harness set a base URL but not these — the S9 journey cannot be
-/// driven at all then, and silently skipping its assertions would report a
-/// green gate over an unexercised surface.
-fn upload_paths() -> (PathBuf, String) {
-    let host = env("UI_E2E_UPLOAD_DIR")
-        .expect("UI_E2E_UPLOAD_DIR (run scripts/ui-e2e.sh, which mounts it)");
-    let remote = env("UI_E2E_UPLOAD_REMOTE")
-        .expect("UI_E2E_UPLOAD_REMOTE (run scripts/ui-e2e.sh, which mounts it)");
-    (PathBuf::from(host), remote)
-}
-
-/// Zips a bundle directory into a file the upload control can be handed.
-///
-/// # Panics
-/// On any archive or IO failure — a journey that silently uploaded nothing
-/// would assert against the page's resting state and pass for the wrong
-/// reason.
-fn zip_bundle(dir: &Path, into: &Path) {
-    let mut buffer = std::io::Cursor::new(Vec::new());
-    let mut writer = zip::ZipWriter::new(&mut buffer);
-    let options = zip::write::SimpleFileOptions::default();
-    let mut names: Vec<String> = std::fs::read_dir(dir)
-        .expect("read the bundle directory")
-        .filter_map(|entry| entry.ok()?.file_name().to_str().map(ToOwned::to_owned))
-        .collect();
-    names.sort();
-    for name in names {
-        let body = std::fs::read(dir.join(&name)).expect("read a bundle file");
-        writer.start_file(name, options).expect("start an entry");
-        std::io::Write::write_all(&mut writer, &body).expect("write an entry");
-    }
-    writer.finish().expect("finish the archive");
-    std::fs::write(into, buffer.into_inner()).expect("write the archive");
-}
-
 /// One system under test the wizard drives end to end.
 struct DrivenSut<'a> {
     /// The openEHR REST base URL the connect form receives.
@@ -941,25 +872,18 @@ async fn e2e_wizard_drives_a_run_to_its_verdicts() {
     h.wait_xpath("//span[contains(., 'finished')]").await;
     h.wait_xpath("//a[starts-with(@href, '/run/live/')]").await;
 
-    // S8 and S9 ride this journey rather than a second driven one. The console
-    // now holds a draft and a run per SUBMITTER (#389), and every journey
-    // drives the same browser, which is one submitter: it has one draft, and
-    // the per-submitter cap gives it one run in flight at a time.
-    let clean_url = export_and_verify(&h).await;
-
-    // S10 rides it too: the finished run states what it can submit, and asks
-    // for the disclosure only its submitter knows (#391).
-    read_submission(&h).await;
+    // S8 rides this journey rather than a second driven one. The console holds
+    // a draft and a run per SUBMITTER (#389), and every journey drives the
+    // same browser, which is one submitter: it has one draft, and the
+    // per-submitter cap gives it one run in flight at a time.
+    prepare_export(&h).await;
+    h.capture("verdicts-export-light").await;
 
     // The dark pass re-walks the finished run's surfaces: the job state
     // persists, so each page renders the same record in the other theme.
     h.enable_dark().await;
     h.goto("/run/verdicts").await;
     h.capture("verdicts-dark").await;
-    h.goto(&clean_url).await;
-    h.wait_xpath("//h2[contains(., 'The check')]").await;
-    h.wait_xpath("//h2[contains(., 'What this proves')]").await;
-    h.capture("verify-dark").await;
     h.goto("/run/scope").await;
     h.wait_xpath("//h1[contains(., 'Scope')]").await;
     h.capture("scope-dark").await;
@@ -969,51 +893,9 @@ async fn e2e_wizard_drives_a_run_to_its_verdicts() {
     h.goto("/run/results").await;
     h.wait_xpath("//h1[contains(., 'Results')]").await;
     h.capture("results-dark").await;
-    h.goto("/run/submit").await;
-    h.wait_xpath("//h1[contains(., 'Submit to the registry')]")
-        .await;
-    h.capture("submit-dark").await;
 
     h.assert_console_clean(&[]).await;
     h.finish().await;
-}
-
-/// S10 — the submission screen states what the run knows and asks for the
-/// disclosure the rules make mandatory.
-///
-/// The journey never opens a submission: the harness holds no real GitHub App,
-/// and a screen that reached the API would be writing to a repository this test
-/// does not own. What it proves is the browser-side half — the screen renders
-/// the run's own facts and the whole disclosure form, and hydrates clean.
-async fn read_submission(h: &Harness) {
-    h.goto("/run/submit").await;
-    h.wait_xpath("//h1[contains(., 'Submit to the registry')]")
-        .await;
-    h.wait_xpath("//h3[contains(., 'What the run knows')]")
-        .await;
-    h.wait_xpath("//body[contains(., 'registry/entries/conformance/')]")
-        .await;
-    h.wait_xpath("//body[contains(., 'no provenance block')]")
-        .await;
-    // The three fields only the submitter can answer, each present as a real
-    // control rather than a sentence about one.
-    for id in [
-        "submitter-name",
-        "sut-configuration",
-        "conflict-of-interest",
-    ] {
-        h.wait_css(&format!("#{id}")).await;
-    }
-    h.wait_xpath("//button[contains(., 'Open the submission')]")
-        .await;
-    // The branch is the contract the re-derivation lane reads the run id out
-    // of, so the screen states it rather than leaving it implied.
-    let body = page_text(h).await;
-    assert!(
-        body.contains("console-run/"),
-        "the submission screen does not name the branch it will open:\n{body}"
-    );
-    h.capture("submit-light").await;
 }
 
 /// A run id this console never drove says so about the RUN, and never "no run
@@ -1046,60 +928,6 @@ async fn e2e_an_unknown_run_id_says_so_in_its_own_words() {
     h.finish().await;
 }
 
-/// Seals the finished run's record, carries the archive to the public page,
-/// sees it verify clean — then tampers one document and watches the page NAME
-/// the file that changed. Returns the clean result's own path.
-async fn export_and_verify(h: &Harness) -> String {
-    prepare_export(h).await;
-    h.capture("verdicts-export-light").await;
-
-    let bundle = newest_export_dir().expect("the console sealed a bundle");
-    let (upload_dir, upload_remote) = upload_paths();
-    std::fs::create_dir_all(&upload_dir).expect("the upload directory");
-    zip_bundle(&bundle, &upload_dir.join("clean.zip"));
-
-    let clean_url = upload_bundle(h, &format!("{upload_remote}/clean.zip")).await;
-    h.wait_xpath("//body[contains(., 'The bundle verifies')]")
-        .await;
-    // The honesty box is page furniture on EVERY outcome, including a clean
-    // one — that is the whole point of it.
-    h.wait_xpath("//h2[contains(., 'What this proves')]").await;
-    h.wait_xpath("//body[contains(., 'not the run')]").await;
-    // The check's own provenance table, so a clean verdict names the origin
-    // and the instrument it rests on and not merely that something verified.
-    h.wait_xpath("//h2[contains(., 'The check')]").await;
-    h.wait_xpath("//body[contains(., 'Every file the manifest names')]")
-        .await;
-    h.capture("verify-light").await;
-
-    // The tamper: one document edited, everything else identical.
-    let forged_dir = upload_dir.join("forged");
-    std::fs::create_dir_all(&forged_dir).expect("the forged bundle directory");
-    let mut tampered: Option<String> = None;
-    for entry in std::fs::read_dir(&bundle).expect("read the bundle") {
-        let entry = entry.expect("a bundle entry");
-        let name = entry.file_name().to_string_lossy().into_owned();
-        let mut body = std::fs::read(entry.path()).expect("read a bundle file");
-        if Path::new(&name).extension() == Some(std::ffi::OsStr::new("md")) && tampered.is_none() {
-            body.extend_from_slice(b"\nnot what was signed\n");
-            tampered = Some(name.clone());
-        }
-        std::fs::write(forged_dir.join(&name), body).expect("write a forged file");
-    }
-    let tampered = tampered.expect("the judgement rendered a markdown document");
-    zip_bundle(&forged_dir, &upload_dir.join("forged.zip"));
-
-    upload_bundle(h, &format!("{upload_remote}/forged.zip")).await;
-    h.wait_xpath("//body[contains(., 'does NOT verify')]").await;
-    // The finding must NAME the file, which is what makes a tamper report
-    // actionable rather than a shrug.
-    h.wait_xpath(&format!("//body[contains(., '{tampered}')]"))
-        .await;
-    h.wait_xpath("//span[contains(., 'mismatched')]").await;
-
-    clean_url
-}
-
 /// Prepares the export on the verdicts screen and returns once the sealed
 /// bundle's facts are on the page.
 async fn prepare_export(h: &Harness) {
@@ -1117,167 +945,6 @@ async fn prepare_export(h: &Harness) {
         .await;
     h.wait_xpath("//a[contains(., 'Download the bundle')]")
         .await;
-}
-
-/// Uploads one archive through the plain form and returns the resulting URL.
-async fn upload_bundle(h: &Harness, archive: &str) -> String {
-    h.goto("/verify").await;
-    // WebDriver's own file-upload path: setting the value of a file input
-    // sends the local file. No script, and nothing the page itself does.
-    h.wait_css("input#bundle")
-        .await
-        .send_keys(archive)
-        .await
-        .expect("choose the bundle");
-    h.wait_xpath("//button[contains(., 'Verify the bundle')]")
-        .await
-        .click()
-        .await
-        .expect("submit the bundle");
-    h.wait_url_contains("bundle=").await;
-    h.wait_xpath("//h2[contains(., 'The check')]").await;
-    let url = h
-        .driver
-        .current_url()
-        .await
-        .map(|url| url.to_string())
-        .expect("the verification URL");
-    // The console-relative path, so a later navigation does not depend on how
-    // the harness spells the origin.
-    url.split_once("://")
-        .and_then(|(_, rest)| rest.split_once('/'))
-        .map_or_else(|| String::from("/verify"), |(_, tail)| format!("/{tail}"))
-}
-
-/// The committed bench fixtures, in the order the journey uploads them.
-const BENCH_FIXTURES: [(&str, &str); 2] = [
-    ("bench-result-alpha.json", "Alpha CDR 3.1"),
-    ("bench-result-beta.json", "Beta CDR 2.0"),
-];
-
-/// Copies one committed bench fixture where the BROWSER can read it, and
-/// returns the path to type into the file control.
-///
-/// # Panics
-/// On any IO failure — a journey that silently uploaded nothing would assert
-/// against the page's resting state and pass for the wrong reason.
-fn stage_bench_fixture(name: &str) -> String {
-    let (host, remote) = upload_paths();
-    std::fs::create_dir_all(&host).expect("the upload directory");
-    let source = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/bench")).join(name);
-    let _copied = std::fs::copy(source, host.join(name)).expect("stage the bench fixture");
-    format!("{remote}/{name}")
-}
-
-/// Uploads one bench record through the plain form and waits for the listing.
-///
-/// # Panics
-/// When the control is absent or the upload never lands.
-async fn upload_bench_record(h: &Harness, name: &str, label: &str) {
-    let staged = stage_bench_fixture(name);
-    h.goto("/benchmarks").await;
-    h.wait_css("input#records")
-        .await
-        .send_keys(&staged)
-        .await
-        .expect("choose the bench record");
-    h.wait_xpath("//button[contains(., 'Read the records')]")
-        .await
-        .click()
-        .await
-        .expect("submit the bench record");
-    h.wait_url_contains("uploaded=").await;
-    h.wait_xpath(&format!("//td//a[contains(., '{label}')]"))
-        .await;
-}
-
-/// The benchmark surface (#166): upload a record, read it in full, then align
-/// two of them and see every mismatch stated.
-///
-/// The fixtures are committed records, so the journey needs no bench run and
-/// no CDR: what it exercises is the console's reading of the published
-/// bench-result family.
-#[tokio::test(flavor = "multi_thread")]
-async fn e2e_bench_records_upload_render_and_compare() {
-    let Some(h) = Harness::start("benchmarks").await else {
-        return;
-    };
-    for (name, label) in BENCH_FIXTURES {
-        upload_bench_record(&h, name, label).await;
-    }
-    // The boundary statement is furniture on every bench surface, verbatim
-    // from the records: a table of speed numbers is exactly the artifact
-    // somebody quotes out of context.
-    h.wait_xpath("//h2[contains(., 'What a bench record is')]")
-        .await;
-    h.wait_xpath("//body[contains(., 'not a conformance record')]")
-        .await;
-    h.capture("benchmarks-light").await;
-
-    // One record in full: the posture labels, the percentile table, the
-    // failed-arrival readings, the baseline and the relative index.
-    h.wait_xpath("//td//a[contains(., 'Alpha CDR 3.1')]")
-        .await
-        .click()
-        .await
-        .expect("open the record");
-    h.wait_url_contains("record=").await;
-    for heading in [
-        "Posture `minimal`",
-        "Cross-repetition percentiles",
-        "Failed-arrival share",
-        "Same-machine baselines",
-        "Relative index",
-    ] {
-        h.wait_xpath(&format!("//h2[contains(., '{heading}')]"))
-            .await;
-    }
-    // Every figure says which discipline produced it, and the histograms are
-    // honestly named as tabulated rather than drawn.
-    h.wait_xpath("//body[contains(., 'open-loop')]").await;
-    h.wait_xpath("//body[contains(., 'closed-loop')]").await;
-    h.wait_xpath("//body[contains(., 'declared-only')]").await;
-    h.wait_xpath("//body[contains(., 'HdrHistogram V2')]").await;
-    h.capture("benchmark-detail-light").await;
-
-    // Two records aligned, each toggled from its own row.
-    h.goto("/benchmarks").await;
-    for (_, label) in BENCH_FIXTURES {
-        h.wait_xpath(&format!(
-            "//tr[.//a[contains(., '{label}')]]//a[normalize-space()='compare']"
-        ))
-        .await
-        .click()
-        .await
-        .expect("select the record for comparison");
-        h.wait_url_contains("compare=").await;
-    }
-    let aligned = h.wait_xpath("//h2[contains(., 'Side by side')]").await;
-    // The mismatch warnings are the point of the view: two records taken on
-    // different machines under different disclosures are not one ranking.
-    h.wait_xpath("//body[contains(., 'DIFFERENT hosts')]").await;
-    h.wait_xpath("//body[contains(., 'DIFFERENT postures')]")
-        .await;
-    h.wait_xpath("//body[contains(., 'not submittable')]").await;
-    // The capture is of the ALIGNED table, which sits below the listing that
-    // selected it; without this the book would show the listing twice.
-    aligned
-        .scroll_into_view()
-        .await
-        .expect("bring the aligned table into the viewport");
-    tokio::time::sleep(THEME_SETTLE).await;
-    h.capture("benchmark-compare-light").await;
-
-    h.enable_dark().await;
-    h.goto("/benchmarks").await;
-    h.wait_css("html.dark").await;
-    h.wait_xpath("//h2[contains(., 'What a bench record is')]")
-        .await;
-    tokio::time::sleep(THEME_SETTLE).await;
-    h.capture("benchmarks-dark").await;
-
-    h.assert_console_clean(&[]).await;
-    h.finish().await;
 }
 
 /// The side-by-side grading (#99): the same wizard against two REAL CDRs —

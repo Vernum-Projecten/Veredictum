@@ -17,16 +17,13 @@ use leptos_router::{
     components::{ParentRoute, Route, Router, Routes},
 };
 
-use crate::pages::benchmarks::Benchmarks;
 use crate::pages::catalogue::{Case, Catalogue, Chapter};
 use crate::pages::instrument::Instrument;
 use crate::pages::not_found::NotFound;
 use crate::pages::results::Results;
 use crate::pages::run::{Connect, Live, Run, Scope};
 use crate::pages::shell::Shell;
-use crate::pages::submit::Submit;
 use crate::pages::verdicts::Verdicts;
-use crate::pages::verify::Verify;
 
 /// The HTML document the server renders around the application: the head with
 /// the hydration bootstrap, and the body the client takes over.
@@ -139,9 +136,6 @@ pub fn App() -> impl IntoView {
                     />
                     <Route path=(StaticSegment("run"), StaticSegment("results")) view=Results />
                     <Route path=(StaticSegment("run"), StaticSegment("verdicts")) view=Verdicts />
-                    <Route path=(StaticSegment("run"), StaticSegment("submit")) view=Submit />
-                    <Route path=StaticSegment("benchmarks") view=Benchmarks />
-                    <Route path=StaticSegment("verify") view=Verify />
                 </ParentRoute>
             </Routes>
         </Router>

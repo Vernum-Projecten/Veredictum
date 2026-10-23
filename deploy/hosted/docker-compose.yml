@@ -53,20 +53,9 @@ services:
       # stays one so a box this file reaches without its `.env` starts small.
       VEREDICTUM_MAX_CONCURRENT_RUNS: "${VEREDICTUM_MAX_CONCURRENT_RUNS:-1}"
     env_file:
-      # Holds CONSOLE_IMAGE and the GitHub App's id, installation and repository.
-      # Readable by the service user alone.
+      # Holds CONSOLE_IMAGE and the concurrency cap. Readable by the service
+      # user alone.
       - .env
-    # The App's private key, the one credential on this host. It arrives as a
-    # file rather than an environment value because the console opens it by
-    # path, and `VEREDICTUM_GITHUB_APP_KEY` in `.env` names the mount below.
-    # Compose applies `uid`, `gid` and `mode` only to a secret sourced from an
-    # environment variable (https://docs.docker.com/reference/compose-file/services/),
-    # so a file-sourced secret keeps the HOST file's ownership: the key on the
-    # box is owned by 65532 mode 400, which is the console's own uid and nobody
-    # else's. A missing file fails the recreate loudly instead of mounting a
-    # directory over the path.
-    secrets:
-      - github-app.pem
     expose:
       - "3000"
 
@@ -91,7 +80,3 @@ services:
 volumes:
   caddy_data:
   caddy_config:
-
-secrets:
-  github-app.pem:
-    file: ./github-app.pem

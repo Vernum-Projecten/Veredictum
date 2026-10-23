@@ -27,9 +27,6 @@ const SLUG_OF: &[(&str, &str)] = &[
     ("run/live/:run_id", "live"),
     ("run/results", "results"),
     ("run/verdicts", "verdicts"),
-    ("run/submit", "submit"),
-    ("verify", "verify"),
-    ("benchmarks", "benchmarks"),
 ];
 
 /// Routes whose captures are honestly pending, each naming the issue that

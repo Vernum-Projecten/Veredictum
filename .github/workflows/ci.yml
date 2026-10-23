@@ -90,8 +90,6 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
       docker: ${{ steps.filter.outputs.docker }}
-      bench: ${{ steps.filter.outputs.bench }}
-      registry: ${{ steps.filter.outputs.registry }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -159,26 +157,6 @@ jobs:
             echo "docker=true" >> "$GITHUB_OUTPUT"
           else
             echo "docker=false" >> "$GITHUB_OUTPUT"
-          fi
-          # The benchmark-submission tier: the committed records, the gate that
-          # validates them, the generator that renders the public board, and the
-          # board page itself — a hand edit to the page is exactly the drift the
-          # generator's --check exists to refuse.
-          if echo "$changed" | grep -qE '^(benchmarks/|scripts/checks/bench-submission\.sh$|scripts/render/bench-board\.sh$|website/landing/benchmarks\.html$|app/veredictum/tests/it/bench_submissions\.rs$|\.github/workflows/ci\.yml$)'; then
-            echo "bench=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "bench=false" >> "$GITHUB_OUTPUT"
-          fi
-          # The registry tier: the committed entries and the evidence under
-          # them, the gate that validates a submission, the generator that
-          # renders the public conformance board, and the board page itself.
-          # The benchmark tree is in this tier too, because the bench board now
-          # reads its tier badge out of the registry, so a record and its entry
-          # are checked together or not at all.
-          if echo "$changed" | grep -qE '^(registry/|benchmarks/|scripts/checks/registry-submission\.sh$|scripts/registry/|scripts/render/(conformance|bench)-board\.sh$|website/landing/(conformance-board|benchmarks)\.html$|app/veredictum/tests/it/registry_submissions\.rs$|app/veredictum/src/registry\.rs$|schemas/registry-|\.github/workflows/ci\.yml$)'; then
-            echo "registry=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "registry=false" >> "$GITHUB_OUTPUT"
           fi
 
   # ── The guard tier: prose, licensing, commit messages, changelog structure ──
@@ -571,31 +549,6 @@ jobs:
             exit 1
           fi
           echo "the image declares it carries the catalogue, and all five trees are present"
-      - name: The image carries the verifying key its environment names
-        env:
-          IMAGE: veredictum-ci-image-build:${{ github.sha }}
-        run: |
-          set -euo pipefail
-          # #430 baked the registry signing public half so /verify works on a
-          # fresh instance. Its own tests pin the BUILD INSTRUCTION -- that the
-          # COPY destination and the ENV value agree -- which is not the same
-          # claim as a built image carrying the file. This is that claim.
-          baked=$(docker image inspect "$IMAGE" \
-            --format '{{range .Config.Env}}{{println .}}{{end}}' \
-            | sed -n 's/^VEREDICTUM_VERIFY_KEY=//p')
-          if [ -z "$baked" ]; then
-            echo "::error::the image sets no VEREDICTUM_VERIFY_KEY, so /verify checks nothing and the reader-facing half of the trust story is dead on arrival (#430)." >&2
-            exit 1
-          fi
-          cid=$(docker create "$IMAGE")
-          # docker cp fails loudly on an absent path, and the byte comparison is
-          # what distinguishes the committed public half from something else
-          # sitting at that path.
-          docker cp "$cid:$baked" ./image-verify-key.asc
-          docker rm -f "$cid" >/dev/null
-          diff -u registry/keys/registry-signing.pub.asc ./image-verify-key.asc
-          rm -f ./image-verify-key.asc
-          echo "the image carries the committed verifying key at ${baked}"
       - name: The image carries the hosted posture, and it comes out by docker cp
         env:
           IMAGE: veredictum-ci-image-build:${{ github.sha }}
@@ -910,121 +863,6 @@ jobs:
           tool: cargo-machete
       - run: cargo machete
 
-  # ── The benchmark board's submission gate ───────────────────────────────────
-  # The submission channel is a pull request that adds one bench record, and the
-  # merge is the acceptance, so the machine check has to happen before a human
-  # reads the numbers. `bench-submission.sh` is the whole gate: append-only over
-  # the tree, the record-content integration test, and the board page held to
-  # the records it was generated from.
-  #
-  # Its own tier rather than a step in `test`, because a submission pull request
-  # touches nothing the `code` filter watches — a contributor adding a JSON
-  # record would otherwise land it with no gate having run at all.
-  bench-submissions:
-    name: benchmark submissions
-    needs: changes
-    if: needs.changes.outputs.bench == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          # The append-only half walks a commit range.
-          fetch-depth: 0
-      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
-        with:
-          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
-        with:
-          tool: cargo-nextest
-      - name: Every submission is valid, additive, and on the board
-        shell: bash
-        # Context reaches the shell through `env:`, never `${{ }}` inline.
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
-          PUSH_BEFORE: ${{ github.event.before }}
-          PUSH_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            base="$PR_BASE"; head="$PR_HEAD"
-          elif [ "$EVENT_NAME" = "merge_group" ]; then
-            # `github.event.before` does not exist on this event, and the push
-            # branch would build `..<sha>` — a range git reads as nothing, which
-            # would pass the append-only half vacuously.
-            base="$QUEUE_BASE"; head="$PUSH_SHA"
-          else
-            base="$PUSH_BEFORE"; head="$PUSH_SHA"
-          fi
-          bash scripts/checks/bench-submission.sh "$base" "$head"
-
-  # ── The public registry's submission gate ───────────────────────────────────
-  # A registry entry is a published claim about somebody's product, and the
-  # merge is the publication, so the machine check has to happen before a human
-  # reads it. `registry-submission.sh` is the whole gate: append-only over the
-  # entries and the evidence under them, the entry-content integration test,
-  # the refusal of any committed private key, and both boards held to what is
-  # committed.
-  #
-  # Its own tier rather than a step in `test`, for the reason the benchmark
-  # gate has one: a submission pull request touches nothing the `code` filter
-  # watches, so a contributor adding a JSON entry would otherwise land it with
-  # no gate having run at all.
-  #
-  # The tier-1 reproduction is deliberately NOT here. It composes a live server
-  # and takes tens of minutes, and a server's behaviour is never allowed to
-  # decide whether a pull request can land; `registry-reproduce.yml` runs it
-  # beside the merge.
-  registry-submissions:
-    name: registry submissions
-    needs: changes
-    if: needs.changes.outputs.registry == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          # The append-only half walks a commit range.
-          fetch-depth: 0
-      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
-        with:
-          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
-        with:
-          tool: cargo-nextest
-      - name: Every entry is valid, additive, and on a board
-        shell: bash
-        # Context reaches the shell through `env:`, never `${{ }}` inline.
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
-          PUSH_BEFORE: ${{ github.event.before }}
-          PUSH_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            base="$PR_BASE"; head="$PR_HEAD"
-          elif [ "$EVENT_NAME" = "merge_group" ]; then
-            # `github.event.before` does not exist on this event, and the push
-            # branch would build `..<sha>` — a range git reads as nothing, which
-            # would pass the append-only half vacuously.
-            base="$QUEUE_BASE"; head="$PUSH_SHA"
-          else
-            base="$PUSH_BEFORE"; head="$PUSH_SHA"
-          fi
-          bash scripts/checks/registry-submission.sh "$base" "$head"
-
   # The console's browser journeys (#69): the one gate that proves the shipped
   # UI actually renders, hydrates and navigates, and the only one that reads the
   # browser console — where a hydration mismatch and a client panic surface and
@@ -1156,8 +994,6 @@ jobs:
       - deny
       - fuzz-build
       - unused-deps
-      - bench-submissions
-      - registry-submissions
       - ui-e2e
       - ui-screenshot-guard
     runs-on: ubuntu-latest

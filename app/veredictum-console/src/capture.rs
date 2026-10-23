@@ -32,7 +32,6 @@
 use crate::export_api::{ExportScreen, ExportSummary};
 use crate::run_api::{DraftView, ProbeAnswer, RecordedResults, RecordedRun, RunScreen};
 use crate::run_job::{FinishedView, JobView, RunId};
-use crate::verify_api::{BundleView, VerifyScreen};
 
 /// The environment variable that turns capture mode on.
 pub const CAPTURE_ENV: &str = "VEREDICTUM_CAPTURE_MODE";
@@ -89,55 +88,12 @@ pub const PINNED_ELAPSED_MS: u64 = 0;
 pub const PINNED_RUN_ID: RunId = RunId::NIL;
 
 /// The endpoint every captured surface shows in place of the address its run
-/// drove: the submission's disclosure and the scope screen's connection pane.
+/// drove: the scope screen's connection pane.
 ///
 /// The harness's fixture server binds an ephemeral port, so the real value
 /// moves on every pass; port zero is a port no server ever answers on, which
 /// makes the stand-in unmistakable.
 pub const PINNED_ENDPOINT: &str = "http://127.0.0.1:0";
-
-/// The submission screen as this console answers it: pinned under capture
-/// mode, verbatim otherwise.
-#[cfg(feature = "ssr")]
-#[must_use]
-pub fn submit_screen(
-    state: &crate::state::ConsoleState,
-    screen: crate::submit_api::SubmitScreen,
-) -> crate::submit_api::SubmitScreen {
-    if state.capture {
-        pin_submission(screen)
-    } else {
-        screen
-    }
-}
-
-/// The submission screen as a capture shows it.
-///
-/// Five facts move between runs: the run's own id, the entry id derived from
-/// it and the run's start date, the branch that carries it, the disclosed
-/// start, and the endpoint. The paths the screen lists carry the entry id, so
-/// they are re-derived from the pinned one through the seam's own derivation.
-#[must_use]
-pub fn pin_submission(screen: crate::submit_api::SubmitScreen) -> crate::submit_api::SubmitScreen {
-    let crate::submit_api::SubmitScreen::Ready(facts) = screen else {
-        return screen;
-    };
-    let run_id = PINNED_RUN_ID.to_string();
-    let entry_id = format!(
-        "{}-{}",
-        PINNED_TIME.get(..10).unwrap_or(PINNED_TIME),
-        crate::submit_api::slug_of(&run_id)
-    );
-    crate::submit_api::SubmitScreen::Ready(Box::new(crate::submit_api::SubmissionFacts {
-        files: crate::submit_api::submission_paths(&facts.system, &entry_id),
-        branch: format!("console-run/{run_id}"),
-        endpoint: String::from(PINNED_ENDPOINT),
-        run_started_at: String::from(PINNED_TIME),
-        run_id,
-        entry_id,
-        ..*facts
-    }))
-}
 
 /// The export section as this console answers it: pinned under capture mode,
 /// verbatim otherwise.
@@ -159,17 +115,6 @@ pub fn export_summary(state: &crate::state::ConsoleState, summary: ExportSummary
         pin_summary(summary)
     } else {
         summary
-    }
-}
-
-/// The verification page as this console answers it.
-#[cfg(feature = "ssr")]
-#[must_use]
-pub fn verification(state: &crate::state::ConsoleState, screen: VerifyScreen) -> VerifyScreen {
-    if state.capture {
-        pin_verification(screen)
-    } else {
-        screen
     }
 }
 
@@ -256,35 +201,6 @@ pub fn pin_summary(summary: ExportSummary) -> ExportSummary {
     }
 }
 
-/// The verification page as a capture shows it.
-#[must_use]
-pub fn pin_verification(screen: VerifyScreen) -> VerifyScreen {
-    match screen {
-        VerifyScreen::Checked(view) => VerifyScreen::Checked(Box::new(pin_bundle(*view))),
-        other => other,
-    }
-}
-
-/// One checked bundle's facts as a capture shows them.
-///
-/// The per-file digests are the manifest's own, so they move with every run
-/// exactly as the record digest does.
-#[must_use]
-pub fn pin_bundle(view: BundleView) -> BundleView {
-    BundleView {
-        signed_at: view.signed_at.map(|_| String::from(PINNED_TIME)),
-        files: view
-            .files
-            .into_iter()
-            .map(|file| crate::verify_api::FileRow {
-                digest: String::from(PINNED_DIGEST),
-                ..file
-            })
-            .collect(),
-        ..view
-    }
-}
-
 /// The live screen as a capture shows it.
 ///
 /// A streamed run and a run read back from its own directory both carry the
@@ -352,13 +268,12 @@ fn pin_run_paths(line: &str, minted: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        PINNED_DIGEST, PINNED_ELAPSED_MS, PINNED_RUN_ID, PINNED_TIME, pin_bundle, pin_export,
-        pin_job, pin_run_screen, pin_summary, pin_verification,
+        PINNED_DIGEST, PINNED_ELAPSED_MS, PINNED_RUN_ID, PINNED_TIME, pin_export, pin_job,
+        pin_run_screen, pin_summary,
     };
     use crate::export_api::{ExportScreen, ExportSummary};
     use crate::run_api::{DraftView, ProbeAnswer, RecordedResults, RecordedRun, RunScreen};
     use crate::run_job::{FinishedView, JobStatus, JobView, RunId};
-    use crate::verify_api::{BundleView, FileRow, VerifyScreen};
 
     /// One sealed record's summary as the export seam builds it.
     fn summary() -> ExportSummary {
@@ -373,8 +288,8 @@ mod tests {
             profile_summary: String::from("CORE pass"),
             sealed_files: vec![String::from("record-manifest.json")],
             presentation_files: vec![String::from("seal-card.svg")],
-            badge_markdown: String::from("[![badge](record-badge.svg)](/verify)"),
-            badge_html: String::from("<a href=\"/verify\"></a>"),
+            badge_markdown: String::from("[![badge](record-badge.svg)](record-report.html)"),
+            badge_html: String::from("<a href=\"record-report.html\"></a>"),
         }
     }
 
@@ -412,53 +327,6 @@ mod tests {
             panic!("a prepared export stays prepared");
         };
         assert_eq!(pinned.digest, PINNED_DIGEST);
-    }
-
-    /// The verification page pins the signing time and every file digest, and
-    /// keeps the outcome tokens — which is what the page is actually about.
-    #[test]
-    fn a_pinned_bundle_keeps_its_outcomes() {
-        let view = BundleView {
-            signature_accepted: true,
-            fingerprint: Some(String::from("ABCD1234")),
-            signed_at: Some(String::from("2026-08-30T09:41:07Z")),
-            instrument: String::from("veredictum 0.1.1"),
-            files: vec![
-                FileRow {
-                    name: String::from("CONFORMANCE_REPORT.md"),
-                    digest: String::from("aaaa"),
-                    outcome: String::from("matched"),
-                    detail: None,
-                },
-                FileRow {
-                    name: String::from("verdicts.json"),
-                    digest: String::from("bbbb"),
-                    outcome: String::from("mismatched"),
-                    detail: Some(String::from("the body does not reproduce its digest")),
-                },
-            ],
-            findings: vec![String::from("verdicts.json: mismatched")],
-            is_clean: false,
-        };
-        let pinned = pin_bundle(view);
-        assert_eq!(pinned.signed_at.as_deref(), Some(PINNED_TIME));
-        assert!(pinned.files.iter().all(|file| file.digest == PINNED_DIGEST));
-        assert_eq!(
-            pinned
-                .files
-                .iter()
-                .map(|f| f.outcome.clone())
-                .collect::<Vec<_>>(),
-            vec![String::from("matched"), String::from("mismatched")]
-        );
-        assert_eq!(
-            pinned.findings,
-            vec![String::from("verdicts.json: mismatched")]
-        );
-        assert!(!pinned.is_clean);
-        // An unsigned bundle states no time, and pinning must not invent one.
-        let unsigned = pin_verification(VerifyScreen::Idle);
-        assert_eq!(unsigned, VerifyScreen::Idle);
     }
 
     /// The stylesheet's still-frame rule keys on this exact class, and an
@@ -667,60 +535,5 @@ mod tests {
             panic!("a streamed run stays streamed");
         };
         assert_eq!(pinned.elapsed_ms, PINNED_ELAPSED_MS);
-    }
-
-    /// One ready submission as the seam builds it.
-    fn ready() -> crate::submit_api::SubmitScreen {
-        crate::submit_api::SubmitScreen::Ready(Box::new(crate::submit_api::SubmissionFacts {
-            run_id: String::from("3f2504e0-4f89-41d3-9a0c-0305e82c3301"),
-            entry_id: String::from("2026-08-31-console-3f2504e04f89"),
-            branch: String::from("console-run/3f2504e0-4f89-41d3-9a0c-0305e82c3301"),
-            repo: String::from("Vernum-Projecten/Veredictum"),
-            display_name: String::from("my-cdr"),
-            version: String::from("unknown"),
-            system: String::from("my-cdr"),
-            endpoint: String::from("http://127.0.0.1:54321"),
-            instrument_version: String::from(crate::ENGINE_PIN),
-            run_started_at: String::from("2026-08-31T09:41:07Z"),
-            catalogue_revision: String::from("cnf-2.0-w2"),
-            files: crate::submit_api::submission_paths("my-cdr", "2026-08-31-console-3f2504e04f89"),
-        }))
-    }
-
-    /// The five facts a re-run moves are pinned, the paths follow the pinned
-    /// entry id, and the disclosure the screen is about survives untouched.
-    #[test]
-    fn a_pinned_submission_keeps_what_a_re_run_does_not_move() {
-        let crate::submit_api::SubmitScreen::Ready(pinned) = super::pin_submission(ready()) else {
-            panic!("a ready submission stays ready");
-        };
-        assert_eq!(pinned.run_id, PINNED_RUN_ID.to_string());
-        assert_eq!(pinned.run_started_at, PINNED_TIME);
-        assert_eq!(pinned.endpoint, super::PINNED_ENDPOINT);
-        assert_eq!(pinned.entry_id, "1970-01-01-console-000000000000");
-        assert_eq!(pinned.branch, format!("console-run/{PINNED_RUN_ID}"));
-        assert!(
-            pinned
-                .files
-                .iter()
-                .all(|path| path.contains(&pinned.entry_id)),
-            "{:?}",
-            pinned.files
-        );
-        assert_eq!(pinned.repo, "Vernum-Projecten/Veredictum");
-        assert_eq!(pinned.catalogue_revision, "cnf-2.0-w2");
-        assert_eq!(pinned.system, "my-cdr");
-    }
-
-    /// Pinning is idempotent, and a screen with no submission to make carries
-    /// nothing a re-run moves.
-    #[test]
-    fn pinning_a_submission_twice_is_pinning_it_once() {
-        let once = super::pin_submission(ready());
-        assert_eq!(super::pin_submission(once.clone()), once);
-        assert_eq!(
-            super::pin_submission(crate::submit_api::SubmitScreen::NoRun),
-            crate::submit_api::SubmitScreen::NoRun
-        );
     }
 }

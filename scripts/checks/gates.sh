@@ -53,8 +53,6 @@ gate guard "issue fields self-test"   "bash scripts/gh/fields.sh --self-test" jq
 gate guard "CI jobs gate the merge"   "bash scripts/checks/ci-conclusion-complete.sh"
 gate guard "gates cover CI"           "bash scripts/checks/gates-cover-ci.sh"
 gate guard "the command reference"    "bash scripts/checks/cli-surface.sh"
-gate guard "registry submissions"     "bash scripts/checks/registry-submission.sh"
-gate guard "benchmark submissions"    "bash scripts/checks/bench-submission.sh"
 gate guard "the console's engine pin" "bash scripts/release/check-console-pin.sh"
 gate guard "corpus OPTs reproduce"    "bash scripts/checks/corpus-opt-reproducible.sh"
 gate guard "image labels"             "bash scripts/checks/image-labels.sh"

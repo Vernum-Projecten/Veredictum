@@ -25,6 +25,10 @@ pub const DOWNLOAD_PATH: &str = "/export/record.zip";
 /// surface says exactly that.
 pub const BADGE_PLACEHOLDER_URL: &str = "record-badge.svg";
 
+/// What the copy-paste snippets link the badge to: the rendered report,
+/// relative to wherever the party publishes the bundle, as the badge is.
+pub const REPORT_LINK_URL: &str = "record-report.html";
+
 /// The three presentation files the console renders beside the sealed set.
 pub const PRESENTATION_FILES: [&str; 3] =
     ["seal-card.svg", "record-badge.svg", "record-report.html"];
@@ -83,7 +87,7 @@ pub mod prepare {
     use sha2::{Digest as _, Sha256};
 
     use super::{
-        BADGE_PLACEHOLDER_URL, ExportScreen, ExportSummary, PRESENTATION_FILES, VERIFY_PATH,
+        BADGE_PLACEHOLDER_URL, ExportScreen, ExportSummary, PRESENTATION_FILES, REPORT_LINK_URL,
     };
     use crate::export::{self, ReportFacts, SealFacts};
     use crate::state::{ConsoleState, SIGN_KEY_ENV, VERIFY_KEY_ENV};
@@ -297,8 +301,8 @@ pub mod prepare {
                 .map(|file| file.name.clone())
                 .collect(),
             presentation_files: PRESENTATION_FILES.iter().map(|f| (*f).to_owned()).collect(),
-            badge_markdown: export::render::badge_markdown(BADGE_PLACEHOLDER_URL, VERIFY_PATH),
-            badge_html: export::render::badge_html(BADGE_PLACEHOLDER_URL, VERIFY_PATH),
+            badge_markdown: export::render::badge_markdown(BADGE_PLACEHOLDER_URL, REPORT_LINK_URL),
+            badge_html: export::render::badge_html(BADGE_PLACEHOLDER_URL, REPORT_LINK_URL),
         })
     }
 
@@ -411,6 +415,19 @@ pub mod prepare {
         Ok(())
     }
 
+    /// Whether `name` is a plain bundle-relative file name.
+    ///
+    /// Mirrors `veredictum::record`'s own rule: an entry carrying a path
+    /// separator or a parent hop would name something outside the bundle, so
+    /// it is left out of the archive rather than resolved.
+    fn is_plain_file_name(name: &str) -> bool {
+        !name.is_empty()
+            && name != "."
+            && name != ".."
+            && !name.contains('/')
+            && !name.contains('\\')
+    }
+
     /// Zips the finished job's export directory in memory.
     ///
     /// Only plain file names are archived: a bundle is a flat directory by
@@ -437,7 +454,7 @@ pub mod prepare {
                 continue;
             }
             if let Some(name) = entry.file_name().to_str()
-                && crate::verify_api::unpack::is_plain_file_name(name)
+                && is_plain_file_name(name)
             {
                 names.push(name.to_owned());
             }
@@ -515,9 +532,6 @@ pub mod prepare {
         }
     }
 }
-
-/// Where the public verification page lives, for the snippets and the copy.
-pub const VERIFY_PATH: &str = "/verify";
 
 #[cfg(feature = "ssr")]
 pub mod route {

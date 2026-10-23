@@ -45,7 +45,7 @@ pub fn Run() -> impl IntoView {
 
 /// The step indicator: one row, the active step accented — a URL per step.
 pub(crate) fn steps(active: &'static str) -> impl IntoView + use<> {
-    ["connect", "scope", "live", "results", "verdicts", "submit"]
+    ["connect", "scope", "live", "results", "verdicts"]
         .into_iter()
         .map(|step| {
             let class = if step == active {
@@ -1251,7 +1251,7 @@ pub fn Live() -> impl IntoView {
 fn ephemeral_note() -> impl IntoView + use<> {
     view! {
         <p class="mt-4 text-xs text-ink-muted">
-            "This instance keeps nothing durable. A run's artifacts live long enough to be judged, shown and submitted, and a redeploy ends the runs in flight along with them."
+            "This instance keeps nothing durable. A run's artifacts live long enough to be judged and shown, and a redeploy ends the runs in flight along with them."
         </p>
     }
 }

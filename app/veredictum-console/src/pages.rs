@@ -5,16 +5,13 @@
 //! Screens still under construction render an honest placeholder naming
 //! their tracker issue instead of pretending.
 
-pub mod benchmarks;
 pub mod catalogue;
 pub mod instrument;
 pub mod not_found;
 pub mod results;
 pub mod run;
 pub mod shell;
-pub mod submit;
 pub mod verdicts;
-pub mod verify;
 
 use leptos::prelude::{IntoView, view};
 use leptos_meta::Title;

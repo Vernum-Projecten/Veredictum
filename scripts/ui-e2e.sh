@@ -55,11 +55,6 @@
 # calls claim an address of their own. The journeys learn the header's name
 # and the console's host-side URL from UI_E2E_CLIENT_IP_HEADER and
 # UI_E2E_HOST_URL, and skip the concurrency journey when either is unset.
-#
-# It is also served with a FICTIONAL registry App identity (#391), so the
-# submission screen renders its ready state instead of the unconfigured one.
-# The key is this repository's committed RSA test key, which holds no account,
-# and no journey opens a submission.
 set -Eeuo pipefail
 
 FILTER="${1:-}"
@@ -229,11 +224,8 @@ if command -v codesign >/dev/null; then
 fi
 
 # The console's output mount is this harness's own scratch, and it is emptied
-# before every pass. A driven run's job directories and the bench page's
-# uploaded batches both survive a pass — the bench sweep keeps a batch for an
-# hour — so a second pass listed each uploaded record twice and the benchmark
-# captures grew a row per run. The console's own TTL is a production
-# behaviour and stays untouched; what is reset is the directory the harness
+# before every pass, so a driven run's job directories never survive into
+# the next pass's captures. What is reset is the directory the harness
 # created.
 rm -rf "$ROOT/target/ui-e2e/out"
 mkdir -p "$ROOT/target/ui-e2e/out"
@@ -259,10 +251,6 @@ VEREDICTUM_SIGN_KEY="artifacts/corpus/keys/cnf-signing.sec.asc" \
 VEREDICTUM_VERIFY_KEY="artifacts/corpus/keys/cnf-signing.pub.asc" \
 VEREDICTUM_CAPTURE_MODE="${UI_E2E_DOCS_SHOTS:-}" \
 VEREDICTUM_CLIENT_IP_HEADER="$CLIENT_IP_HEADER" \
-VEREDICTUM_GITHUB_APP_ID="1234567" \
-VEREDICTUM_GITHUB_APP_KEY="fixtures/smart-test-issuer/cnf-smart-test.key.pem" \
-VEREDICTUM_GITHUB_INSTALLATION_ID="89012345" \
-VEREDICTUM_REGISTRY_REPO="Vernum-Projecten/Veredictum" \
   "$CONSOLE_BIN" &
 CONSOLE_PID=$!
 wait_http "$PROBE_URL/healthz" 90 "the console"
@@ -292,16 +280,8 @@ curl -sf "$PROBE_URL/" \
     done
 
 # ── 2. The browser endpoint ─────────────────────────────────────────────────
-# The S9 upload journey hands the browser a real file, so the browser must be
-# able to READ it. A containerised browser has its own filesystem, so the
-# directory is bind-mounted and the journey is told both names for it: where to
-# write (host) and what to type into the file control (browser).
-UPLOAD_DIR="$ROOT/target/ui-e2e/upload"
-mkdir -p "$UPLOAD_DIR"
-
 if [[ -n "${UI_E2E_CHROMEDRIVER:-}" ]]; then
   echo "── starting the local chromedriver ($UI_E2E_CHROMEDRIVER)"
-  UPLOAD_DIR_REMOTE="$UPLOAD_DIR"
   command -v "$UI_E2E_CHROMEDRIVER" >/dev/null \
     || { echo "FATAL: $UI_E2E_CHROMEDRIVER is not executable" >&2; exit 1; }
   "$UI_E2E_CHROMEDRIVER" --port="$DRIVER_PORT" >"$SHOTS_DIR/chromedriver.log" 2>&1 &
@@ -313,7 +293,6 @@ else
   # --add-host: the host-gateway mapping is what makes CONSOLE_URL resolve
   # from inside the container on a Linux engine (Docker Desktop already
   # provides the name, and re-declaring it there is a no-op).
-  UPLOAD_DIR_REMOTE="/uploads"
   # --platform: the digest names a multi-arch manifest LIST, so without it an
   # arm64 host runs arm64 Chromium and CI runs amd64 Chromium — two browser
   # builds, each rendering text its own stable way, which rewrote the whole
@@ -323,7 +302,6 @@ else
     --shm-size=2g \
     --add-host=host.docker.internal:host-gateway \
     -p "127.0.0.1:$DRIVER_PORT:4444" \
-    -v "$UPLOAD_DIR:$UPLOAD_DIR_REMOTE:ro" \
     "$SELENIUM_IMAGE" >/dev/null
 fi
 wait_http "$DRIVER_URL/status" 120 "the browser endpoint"
@@ -372,8 +350,6 @@ UI_E2E_SHOTS_DIR="$SHOTS_DIR" \
 UI_E2E_DOCS_SHOTS="${UI_E2E_DOCS_SHOTS:-}" \
 UI_E2E_FERROEHR_URL="$FERROEHR_SUT_URL" \
 UI_E2E_EHRBASE_URL="$EHRBASE_SUT_URL" \
-UI_E2E_UPLOAD_DIR="$UPLOAD_DIR" \
-UI_E2E_UPLOAD_REMOTE="$UPLOAD_DIR_REMOTE" \
 UI_E2E_CLIENT_IP_HEADER="$CLIENT_IP_HEADER" \
 UI_E2E_HOST_URL="$PROBE_URL" \
   cargo nextest run --locked -p veredictum-console --features ssr \

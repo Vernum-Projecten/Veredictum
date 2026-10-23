@@ -6,7 +6,7 @@ This document describes the project as it actually operates. Where the honest
 description is "one person decides", it says so. A governance document that
 describes a committee which does not meet is worse than none, because it invites
 a reader to rely on a control that is not there. That matters more here than it
-would for most software: Veredictum publishes verdicts about other people's
+would for most software: Veredictum speaks verdicts about other people's
 systems, so anyone weighing one of those verdicts is entitled to know exactly
 who stood behind it.
 
@@ -134,8 +134,8 @@ request:
   adjusted to match what a server did.
 - **No test, gate, or case weakened to make a run green.** A red row is
   information.
-- **No verdict a reader cannot re-derive.** Published numbers come from
-  committed run records, performance numbers from measured runs on a declared
+- **No verdict a reader cannot re-derive.** Every number comes from a
+  recorded run, performance numbers from measured runs on a declared
   environment. A claim with no artifact behind it does not get written.
 - **No paid pass, no certification business, no privileged party.** Every party
   is graded by the same catalogue against the same specifications.

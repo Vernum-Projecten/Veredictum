@@ -9,9 +9,7 @@
 # record has to name a catalogue revision that belongs to a published release,
 # and an instance that mounts nothing has no other way to read them. An
 # exclusion of those trees fails that build, which is how it was found. The same
-# holds for `registry/keys/registry-signing.pub.asc`, the public half /verify
-# checks a published record against (#430), and for
-# `deploy/hosted/docker-compose.yml` plus `deploy/hosted/Caddyfile`, the hosted
+# holds for `deploy/hosted/docker-compose.yml` plus `deploy/hosted/Caddyfile`, the hosted
 # posture the deploy extracts from the image it pulled (#423). Nothing below
 # excludes `deploy/`, and nothing may start to.
 #

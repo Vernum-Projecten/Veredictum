@@ -36,7 +36,6 @@ pub const ENGINE_PIN: &str = env!("VEREDICTUM_ENGINE_PIN");
 
 pub mod app;
 pub mod arg_refusal;
-pub mod bench_api;
 pub mod capture;
 pub mod catalogue_api;
 pub mod components;
@@ -45,15 +44,12 @@ pub mod engine;
 pub mod evidence_api;
 pub mod export;
 pub mod export_api;
-#[cfg(feature = "ssr")]
-pub mod github;
 pub mod pages;
 #[cfg(feature = "ssr")]
 pub mod posture;
 #[cfg(feature = "ssr")]
 pub mod rate_limit;
 pub mod record_api;
-pub mod redirect;
 #[cfg(feature = "ssr")]
 pub mod router;
 pub mod run_api;
@@ -61,12 +57,10 @@ pub mod run_job;
 pub mod site_bundle;
 #[cfg(feature = "ssr")]
 pub mod state;
-pub mod submit_api;
 pub mod submitter;
 #[cfg(feature = "ssr")]
 pub mod target_safety;
 pub mod theme;
-pub mod verify_api;
 
 /// The browser entry point: installs the panic hook so a client-side panic
 /// reports a real stack trace, then hydrates the server-rendered body.

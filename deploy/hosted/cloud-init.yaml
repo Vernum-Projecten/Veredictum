@@ -297,6 +297,6 @@ runcmd:
   - [systemctl, enable, --now, unattended-upgrades]
 
 final_message: >-
-  the box is up after $UPTIME seconds. Put .env and github-app.pem in
+  the box is up after $UPTIME seconds. Put .env in
   /opt/veredictum-console, then run the deploy lane: it installs
   docker-compose.yml and the Caddyfile out of the image it pulls.

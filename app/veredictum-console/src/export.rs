@@ -34,7 +34,7 @@ pub const INDEPENDENCE_LINES: [&str; 3] = [
 ];
 
 /// What a verified signature does and does not establish, rendered on every
-/// S9 outcome and in the report footer.
+/// sealed export and in the report footer.
 ///
 /// One fact with the lib's own `veredictum::record::HONESTY_LINE`; the
 /// `the_honesty_line_matches_the_engines` test holds the two together.
@@ -271,8 +271,8 @@ pub mod render {
     ///
     /// Own design, shields-like, with no external fetch of any kind: the
     /// whole mark is drawn here. The digest prefix rides the accessible name
-    /// and the `<title>`, and the verify path is embedded as a comment so a
-    /// reader of the raw file finds the check without the surrounding page.
+    /// and the `<title>`, and the check command is embedded as a comment so a
+    /// reader of the raw file finds it without the surrounding page.
     #[must_use]
     pub fn badge(facts: &SealFacts) -> String {
         // Fixed advance widths keep the geometry a pure function of the label
@@ -292,7 +292,7 @@ pub mod render {
         ));
         format!(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
-             <!-- Veredictum record {prefix}. Verify this bundle at /verify, or run \
+             <!-- Veredictum record {prefix}. Verify this bundle with \
              `veredictum verify-record --record <dir> --key <public-key>`. -->\n\
              <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{total}\" height=\"20\" \
              viewBox=\"0 0 {total} 20\" role=\"img\" aria-label=\"{label}\">\n\
@@ -319,18 +319,18 @@ pub mod render {
     ///
     /// `badge_url` is where the party hosts its own copy of the badge; the
     /// console cannot know that, so the caller supplies a placeholder and the
-    /// surface says so.
+    /// surface says so. `link_url` is what the badge links to.
     #[must_use]
-    pub fn badge_markdown(badge_url: &str, verify_url: &str) -> String {
-        format!("[![Veredictum conformance record]({badge_url})]({verify_url})")
+    pub fn badge_markdown(badge_url: &str, link_url: &str) -> String {
+        format!("[![Veredictum conformance record]({badge_url})]({link_url})")
     }
 
     /// The copy-paste HTML snippet for the badge.
     #[must_use]
-    pub fn badge_html(badge_url: &str, verify_url: &str) -> String {
+    pub fn badge_html(badge_url: &str, link_url: &str) -> String {
         format!(
             "<a href=\"{}\"><img src=\"{}\" alt=\"Veredictum conformance record\"></a>",
-            escape(verify_url),
+            escape(link_url),
             escape(badge_url)
         )
     }
@@ -622,7 +622,10 @@ mod tests {
         assert!(first.contains("VEREDICTUM"));
         assert!(first.contains("CORE pass"));
         assert!(first.contains("a1b2c3d4e5f6"), "the digest prefix");
-        assert!(first.contains("/verify"), "the verify path comment");
+        assert!(
+            first.contains("veredictum verify-record"),
+            "the check command comment"
+        );
         assert!(!first.contains("<script"), "no script in a badge");
     }
 
@@ -691,11 +694,14 @@ mod tests {
     }
 
     #[test]
-    fn the_snippets_point_at_the_hosted_badge_and_the_verify_page() {
+    fn the_snippets_point_at_the_hosted_badge_and_its_link() {
         assert_eq!(
-            badge_markdown("record-badge.svg", "https://example.test/verify"),
-            "[![Veredictum conformance record](record-badge.svg)](https://example.test/verify)"
+            badge_markdown("record-badge.svg", "record-report.html"),
+            "[![Veredictum conformance record](record-badge.svg)](record-report.html)"
         );
-        assert!(badge_html("record-badge.svg", "/verify").contains("href=\"/verify\""));
+        assert!(
+            badge_html("record-badge.svg", "record-report.html")
+                .contains("href=\"record-report.html\"")
+        );
     }
 }
