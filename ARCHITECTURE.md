@@ -2866,11 +2866,18 @@ when both the condition and the judge hold:
 | `result_set` | AQL result equality under the RESULT_SET bag, order, cell and NULL rules (§8.6) |
 | `equivalent` | Two RM documents are equal, ignoring a named set of server-assigned fields |
 | `signature` | `ORIGINAL_VERSION.signature` facts (RM common §Digital Signature) |
+| `schema` | The response conforms to the schema its operation declares in the `-validation` OAS for that status |
 
 Every other check is a standard Arazzo criterion. Field values use `jsonpath`
 or `regex`; XML documents use `xpath`; status codes and counts use `simple`.
-Every response whose operation declares a schema is validated against the
-`-validation` OAS schema by the evaluator itself. A postcondition about server
+Response-schema validation runs only where a case asks for it, through the
+`schema` judge on a criterion that carries its own citation, like every other
+expectation. It never runs on every response by default: an OAS schema can
+contradict a higher oracle (the released `Ehr.yaml` types `ehr_status` as a
+reference to an EHR_STATUS version, while RM `ehr.adoc` `Ehr_status_valid`
+requires the VERSIONED_EHR_STATUS, #639), and an automatic check would put the
+OAS above the RM. A case author applies the judge only where no higher text
+says otherwise. A postcondition about server
 state is a read-back step.
 
 ### 15.5 A case, worked: re-creating an existing EHR
