@@ -2766,22 +2766,11 @@ proposing a format and demonstrating one.
 
 ---
 
-## 15. The v1.0.0 design (proposed, #590, #592)
+## 15. The v1.0.0 design
 
-**Status: proposed, under review.** Nothing in this section is implemented.
-Where it and §8 disagree, §8 describes the code as it runs today and this
-section describes what v1.0.0 replaces it with. Each subsection names the §8
-part it supersedes. When v1.0.0 ships, the superseded parts are deleted and
-this section becomes the design.
+**Status: proposed, not implemented (#590, #592).**
 
-### 15.1 What changes, and what does not
-
-v1.0.0 moves the catalogue onto an open standard, the OpenAPI Initiative's
-Arazzo Specification 1.1.0, over the released openEHR ITS-REST OpenAPI
-documents. It also stops this repository from publishing results (#592).
-
-These properties do not change, and every decision below is checked against
-them:
+### 15.1 The properties every part of this design holds
 
 1. The released openEHR specifications are the only authority. Every
    expectation quotes the released sentence that assigns it.
@@ -2793,81 +2782,57 @@ them:
    the catalogue (`.claude/rules/cnf-triage.md`).
 5. Coverage only ratchets up. Every refusal the spec requires is an asserted
    negative case.
-6. Spec silences go to the ambiguity register with an upstream report, never
-   to a private resolution.
+6. Spec silences go to the ambiguity register (§8.5) with an upstream report,
+   never to a private resolution.
 
-What changes:
+### 15.2 Cases are Arazzo workflows over the released ITS-REST operations
 
-| Today (§8) | v1.0.0 |
-|---|---|
-| A protocol-neutral case core per case, plus a binding per SM operation per ITS (§8.3, §8.4) | One Arazzo workflow per case, written directly against the ITS-REST operations (§15.3) |
-| The `${…}` reference grammar, selectors and capture sources (§8.3, §8.4) | Arazzo runtime expressions, criteria and outputs |
-| `requires` provisioning (§8.3) | Setup workflows the case `dependsOn` |
-| Outcome kinds mapped to status per binding (§8.5) | The status stated in the step's criterion, with its citation (§15.5) |
-| Eleven assertion types (§8.6) | Standard criteria, plus one extension for three judges (§15.4) |
-| OpenPGP-signed run record | A JWS certificate verified against a published JWK Set (§15.9, #593) |
-| The public registry, boards and submission flow | Removed. Certificates are kept on the hosted machine (§15.9, #592) |
+The catalogue is written in the OpenAPI Initiative's Arazzo Specification
+1.1.0. A case is an Arazzo workflow, and its steps call the operations of the
+released openEHR ITS-REST OpenAPI documents by `operationId`.
 
-What stays exactly as it is: the ambiguity register (§8.5), the corpus
-manifest (§8.8), the statement, results and IXIT roles (§8.10), the
-selection and verdict pipeline (§8.11), the verification pack (§8.12), and
-the measured instruments in the CLI (§8.14, §8.16; the hosted console does
-not offer them, #595).
+The SM is an oracle like every other released component: a workflow that
+asserts an SM-defined behaviour cites the SM text. A future second ITS gets
+its own Arazzo documents beside the REST ones.
 
-### 15.2 Two principle changes, stated plainly
-
-**The case is no longer protocol-neutral (supersedes §7 principle 2).** Today a
-case names an SM operation and a binding realizes it per ITS. Arazzo addresses
-an OpenAPI operation, so a case is written against ITS-REST directly. There is
-one released ITS today, so the binding layer realizes every operation exactly
-once and buys nothing but indirection. The SM stays an oracle: a workflow that
-asserts an SM-defined behaviour cites the SM text, and a future second ITS gets
-its own Arazzo documents beside the REST ones. The cost is that such an ITS
-re-states its cases instead of adding binding files.
-
-**The wire contract is cited where it is written (refines §7 principle 6).** In
-ITS-REST Release-1.1.0 the per-operation wire contract is the decomposed
+In ITS-REST Release-1.1.0 the per-operation wire contract is the decomposed
 OpenAPI under `specs/openehr/ITS-REST/specifications/` (`operations/*.yaml`,
-`responses/*.yaml`, `parameters/header/*.yaml`). There are no separate prose
-status tables (§8 header). So a status or header expectation cites the
-response or header file it comes from, by file and element, and quotes its
-`description`. Where the ITS-REST docs text speaks (Simplified Formats, SMART),
-the docs text is cited and wins any conflict, as hard rule 1 requires. An
-Arazzo step addressing an `operationId` uses the OAS as an address only; the
-address is never the authority for the expectation.
+`responses/*.yaml`, `parameters/header/*.yaml`). A status or header
+expectation cites the response or header file it comes from, by file and
+element, and quotes its `description`. Where the ITS-REST docs text speaks
+(Simplified Formats, SMART), the docs text is cited and wins any conflict, as
+hard rule 1 requires. An `operationId` is an address; it is never the
+authority for an expectation.
 
-### 15.3 The catalogue layout (supersedes §8.2 rows 1 to 3)
+### 15.3 The catalogue layout
 
 ```text
 artifacts/
   workflows/<capability>/<topic>.arazzo.yaml   one Arazzo document per capability topic
   data/<capability>/<workflowId>.rows.yaml     input rows for data-driven workflows
   sources/veredictum-extensions.openapi.yaml   the routes no openEHR OAS describes
-  vocab/capability_matrix.yaml                 unchanged roles; rows point at documents
-  corpus/                                      unchanged (§8.8)
-  registers/ambiguities.yaml                   unchanged (§8.5)
+  vocab/capability_matrix.yaml                 capabilities, tiers and their documents
+  corpus/                                      fixtures, recipes and their manifest (§8.8)
+  registers/ambiguities.yaml                   the ambiguity register (§8.5)
 schemas/                                       statement, results, ixit, register, matrix,
                                                rows, certificate payload, extension schema
 ```
 
-- **Sources.** Every document lists the released `specs/rest-oas/<group>-validation.openapi.yaml`
-  bundles it calls. The `-validation` flavour has identical `paths` to the
-  other two and inlines its schemas, which response validation needs.
+- **Sources.** Every document lists the released
+  `specs/rest-oas/<group>-validation.openapi.yaml` bundles it calls. The
+  `-validation` flavour inlines its schemas, which response validation needs.
   `contribution_create` and `contribution_get` exist in both `ehr` and
   `demographic`, so every step uses the qualified
   `$sourceDescriptions.<name>.<operationId>` form.
-- **Extension routes.** The 34 bindings that drive routes no openEHR OAS
-  describes move to one OAS document of our own, named as a non-openEHR source.
-  The `realization: extension` matrix column and the `realization-scope` gate
-  (§8.13) keep working against it.
+- **Extension routes.** Routes no openEHR OAS describes are declared in one
+  OAS document of our own, named as a non-openEHR source. A capability verified
+  only over those routes carries `realization: extension` in the capability
+  matrix, and the `realization-scope` gate holds it there (§15.9).
 - **Capability by document.** A workflow belongs to the capability of the
-  document it is in. No per-workflow capability label is needed. The capability
-  matrix lists the documents per capability.
+  document it is in. The capability matrix lists the documents per capability.
 - **Ids.** A case id is `<document>/<workflowId>`, for example
-  `ehr/create_ehr-same_ehr_twice-with_id`. Arazzo recommends `workflowId`
-  match `[A-Za-z0-9_\-]+`, so the dots of today's ids cannot survive. The
-  migration writes a committed map from every old id to its new id or ids, so
-  upstream reports and register entries that name an old id still resolve.
+  `ehr/create_ehr-same_ehr_twice-with_id`. `workflowId` matches
+  `[A-Za-z0-9_\-]+`, as Arazzo recommends.
 
 ### 15.4 The two extensions
 
@@ -2884,37 +2849,34 @@ x-veredictum-cite:
   quote: "Can happen when the supplied `ehr_id` is already used by an existing EHR."
 ```
 
-Inheritance keeps it short: a criterion without its own citation inherits its
-step's, and a step inherits its workflow's. `validate` refuses a criterion that
-resolves to no citation, and refuses a citation whose `quote` does not occur
-verbatim (after whitespace normalization) in the named file. A file under
+A criterion without its own citation inherits its step's, and a step inherits
+its workflow's. `validate` refuses a criterion that resolves to no citation,
+and refuses a citation whose `quote` does not occur verbatim (after whitespace
+normalization) in the named file. A file under
 `specs/openehr/ITS-REST/specifications/` or `specs/rest-oas/` is an OAS
 citation and ranks below the docs text (hard rule 1).
 
-**`x-veredictum-check`**, as an extra entry in a step's `successCriteria` that
-standard criterion types cannot express:
+**`x-veredictum-check`**, an entry in a step's `successCriteria` for the three
+judgements no standard criterion type can express:
 
-| Judge | What it decides | Kept from |
-|---|---|---|
-| `result_set` | AQL result equality under the bag, order, cell and NULL rules | §8.6 RESULT_SET rules 1 to 6 |
-| `equivalent` | Two RM documents are equal, ignoring a named server-assigned set | §8.6 `equivalent` |
-| `signature` | `ORIGINAL_VERSION.signature` facts | §8.6 `signature` |
+| Judge | What it decides |
+|---|---|
+| `result_set` | AQL result equality under the RESULT_SET bag, order, cell and NULL rules (§8.6) |
+| `equivalent` | Two RM documents are equal, ignoring a named set of server-assigned fields |
+| `signature` | `ORIGINAL_VERSION.signature` facts (RM common §Digital Signature) |
 
-Everything else in §8.6 becomes a standard criterion: `field` and `returns` as
-`jsonpath`, `regex` or `simple`; `xml_root` as `xpath`; `version` as `regex` and
-`jsonpath`; `instance_of` as validation of the response against the OAS
-`-validation` schema, which the evaluator does for every response the step's
-operation declares a schema for. `message_exemplar` and `state` were never
-pass or fail criteria; `state` becomes a read-back step, and an exemplar stays
-in the step's `description`.
+Every other check is a standard Arazzo criterion. Field values use `jsonpath`
+or `regex`; XML documents use `xpath`; status codes and counts use `simple`.
+Every response whose operation declares a schema is validated against the
+`-validation` OAS schema by the evaluator itself. A postcondition about server
+state is a read-back step.
 
 ### 15.5 A case, worked: re-creating an existing EHR
 
-Today's `I_EHR_SERVICE.create_ehr-same_ehr_twice` has two matrix rows, and they
-call different operations: the `provided` row creates with a client-supplied id
-(`ehr_create_with_id`, a PUT) and the `absent` row lets the server assign one
-(`ehr_create`, a POST). In v1.0.0 they are two workflows. This is the
-`provided` one:
+Creating an EHR twice with the same `ehr_id` has two variants, and they call
+different operations: a client-supplied id (`ehr_create_with_id`, a PUT) and a
+server-assigned one (`ehr_create`, a POST). Each is its own workflow. This is
+the client-supplied one:
 
 ```yaml
 - workflowId: create_ehr-same_ehr_twice-with_id
@@ -2967,19 +2929,19 @@ call different operations: the `provided` row creates with a client-supplied id
 ```
 
 The `create-again` criterion inherits the workflow's 409 citation. The `ehr_id`
-input has no value in any data file, so the evaluator generates a fresh UUID
-per run (§15.6), which also removes the need for an empty server.
+input has no value in any rows file, so the evaluator generates a fresh UUID
+per run (§15.6), and the case needs no empty server.
 
-### 15.6 The condition profile (new)
+### 15.6 The condition profile
 
-Arazzo leaves several evaluation rules open (issues #515, #517, #518, #584)
-and runners already disagree on them. The profile pins each one, is published
-with the schemas, and is enforced by `validate` and the evaluator. Every rule
-stays inside what Arazzo 1.1.0 permits.
+Arazzo leaves several evaluation rules open (upstream issues #515, #517, #518,
+#584). The profile pins each one, is published with the schemas, and is
+enforced by `validate` and the evaluator. Every rule stays inside what Arazzo
+1.1.0 permits.
 
 1. **`simple` conditions** are used only for status codes, numbers and
-   presence. Arazzo makes `simple` string comparison case-insensitive by MUST,
-   which would let an identifier that differs only in case pass, so `validate`
+   presence. Arazzo makes `simple` string comparison case-insensitive, which
+   would let an identifier that differs only in case pass, so `validate`
    refuses a `simple` condition comparing strings. Exact string checks use
    `regex` or `jsonpath` (RFC 9535 comparison is exact).
 2. **`regex`** is ECMA-262, the dialect proposed upstream in #516.
@@ -2994,41 +2956,39 @@ stays inside what Arazzo 1.1.0 permits.
    fresh random UUID per row, recorded in the results so a replay reuses it.
 7. **Evaluation errors.** Arazzo says an evaluation error evaluates to *fail*.
    The evaluator records that, and the verdict layer classifies the row as
-   *errored*, never *failed*, because the instrument could not judge (§8.11
-   law c). `validate` catches every statically detectable expression error
-   before a run.
+   *errored*, never *failed*, because the instrument could not judge.
+   `validate` catches every statically detectable expression error before a
+   run.
 
-### 15.7 Data-driven cases (supersedes the `parameters` block, §8.3)
+### 15.7 Data-driven cases
 
 A workflow with `inputs` runs once per row of its rows file. The rows file is
-our own small format with a published schema, since Arazzo defines inputs but
-not how a set of them is supplied:
+a small format of our own with a published schema, because Arazzo defines
+inputs but not how a set of them is supplied:
 
 ```yaml
-# shape only; the values are illustrative, not a converted case
+# shape only; the values are illustrative
 workflow: content/create_composition-dv_quantity_magnitude
-iteration: reset_per_row      # or single_pass, as in §8.3
+iteration: reset_per_row      # or single_pass, when an assertion spans rows
 rows:
   - { magnitude: 5.0, units: cm, expected: accepted }
   - { magnitude: 11.0, units: cm, expected: rejected, violates: ["constraint(C_DV_QUANTITY.list)"] }
 ```
 
-The decision-table literal grammar and violation categories (§8.8) and the
-recipes stay; a recipe now produces an input row or a request body. A row that
-would call a different operation becomes its own workflow (§15.5).
+Rows use the decision-table literal grammar and violation categories of the
+corpus (§8.8), and a recipe produces an input row or a request body. A
+variant that calls a different operation is its own workflow (§15.5).
 
 ### 15.8 The evaluator, and what a vendor sees on a red row
 
-The evaluator is Veredictum's own Rust code. It parses Arazzo 1.1.0
-(`roas-arazzo` if the spike finds it complete enough, otherwise a model
-generated from the official schema), resolves sources, runs setup workflows
-through `dependsOn`, drives each step, records every exchange as HAR 1.2, and
-judges each criterion under the condition profile. No third-party runner's
-result is ever a verdict. A vendor may still run the same documents through
-Redocly Respect or any other Arazzo tool as a second opinion.
+The evaluator is Veredictum's own Rust code. It parses Arazzo 1.1.0, resolves
+sources, runs setup workflows through `dependsOn`, drives each step, records
+every exchange as HAR 1.2, and judges each criterion under the condition
+profile. A vendor may run the same documents through Redocly Respect or any
+other Arazzo tool as a second opinion; that result is never a verdict.
 
 Every red row in `results.json` and in the rendered report carries four parts,
-all derived from the case and the recording with nothing extra to author:
+derived from the case and the recording with nothing extra to author:
 
 ```text
 FAILED   ehr/create_ehr-same_ehr_twice-with_id   step create-again
@@ -3045,33 +3005,9 @@ The last line is one of: the server (*failed*); the instrument could not judge
 (*errored*, which never counts against the vendor); or a known spec gap, naming
 the register entry and its upstream report.
 
-### 15.9 Results, certificates and the hosted instrument (#592, #593)
+### 15.9 The gates
 
-- `results.json` keeps its role and fields (§8.10). `measurements` stays for
-  CLI runs of the measured instruments.
-- A certificate is a JWS (RFC 7515) signed with Ed25519 (RFC 8037). Its
-  payload names the SUT, the catalogue revision, the engine version, the
-  verdict summary and the digests of the recorded exchanges. The verifying key
-  is a JWK (RFC 7517) in a JWK Set served at
-  `https://console.veredictum.eu/.well-known/jwks.json` and committed here.
-  `veredictum verify` checks a certificate offline against that set.
-- Issuance is off by default (trial mode): runs, results and verdicts work, no
-  certificate is created, every run page says so, and no private key is loaded.
-  Turning it on is an `.env` setting and a redeploy.
-- When issuance is on, the hosted machine keeps every certificate and its
-  results, and the vendor downloads a copy. That makes the machine stateful, so
-  it needs backups (#592), and the private key on a publicly reachable host is
-  a recorded risk with a rotation and revocation procedure.
-- The console offers connect, scope, live run, results, verdicts and the
-  certificate download. It offers no registry, board, benchmark or verify page.
-
-### 15.10 The gates (supersedes the binding and grammar gates of §8.13)
-
-Kept: id uniqueness, register links, corpus integrity, capability-depth floors,
-claim completeness, option resolution, `realization-scope`, surface coverage,
-and every catalogue-independent guard.
-
-New or changed:
+`validate` reports zero findings or the catalogue does not build:
 
 - **Arazzo schema**: every document validates against the official 1.1 schema
   (`https://spec.openapis.org/arazzo/1.1/schema/2026-04-15`). Where the schema
@@ -3083,63 +3019,35 @@ New or changed:
   verbatim in its file.
 - **Profile**: no `simple` string comparison, and every expression parses.
 - **Rows**: every rows file validates and every row binds every required input.
-- **Surface coverage** enumerates the released operations, their response
-  branches and the negotiation headers from the decomposed ITS-REST OAS, and
-  fails on any branch with neither a covering step nor a `wire_surface.yaml`
-  exception.
+- **Surface coverage**: the released operations, their response branches and
+  the negotiation headers, enumerated from the decomposed ITS-REST OAS, each
+  have a covering step or a `wire_surface.yaml` exception.
+- **Identity and links**: unique case ids, resolving register links and corpus
+  references, option tags that resolve to register entries.
+- **Claims**: capability-depth floors, claim completeness and
+  `realization-scope`, as §8.13 defines them.
 
-Deleted with the formats they check: binding completeness, step arguments, the
-reference and selector grammars, and their fuzz targets.
+### 15.10 Results, certificates and the hosted instrument (#592, #593)
 
-### 15.11 What the rewrite deletes, keeps and replaces
-
-| Component | Fate |
-|---|---|
-| `artifacts/schedule/**` (1,150 case files) | Converted to Arazzo, then deleted |
-| `artifacts/bindings/**` (249 files) | Deleted; their outcome citations move onto criteria |
-| `refgrammar.rs`, selectors, header matchers, capture grammar | Deleted |
-| Case-core, binding, selector and outcome schemas | Deleted; the Arazzo schema and our extension, rows and profile schemas replace them |
-| Driver and interpreter (`exec/**`, `run.rs`) | Replaced by the Arazzo evaluator |
-| `result_set`, `equivalent`, `signature` judges | Kept, behind `x-veredictum-check` |
-| Register, corpus manifest, capability matrix, statement, results, IXIT, verdict pipeline, verification pack | Kept |
-| Content synthesis and recipes | Kept; they produce rows and bodies |
-| `record.rs` and OpenPGP signing | Replaced by JWS certificates (#593) |
-| Registry, boards, submission flow, console submit, benchmarks and verify pages | Deleted (#594, #595) |
-| perf, stress, probe, bench | Kept in the CLI, unchanged |
-
-### 15.12 Migration: convert, then prove nothing was lost
-
-1. **Spike** (first): port the EHR create and read cases by hand, with their
-   refusal twins, and run them against FerroEHR and EHRbase. Settle the parser
-   choice and confirm the two extensions suffice.
-2. **Converter**: a one-off tool turns each case core plus its bindings into
-   Arazzo workflows and rows files, writes the old-to-new id map, and carries
-   every `spec_refs`, register link and corpus reference across. Citations are
-   then completed by hand with verbatim quotes, which `validate` checks.
-3. **Parity**: for each converted component, the old and the new catalogue are
-   both run against the verification pack and against FerroEHR and EHRbase,
-   and their verdicts are compared row by row. Every difference is attributed
-   under the three-way law before the component is accepted. Coverage may only
-   rise: a case that has no converted counterpart blocks the component.
-4. **Cut-over**: when every component has passed parity, the old formats, the
-   driver and their gates are deleted in one change, and `CLAUDE.md`, the rule
-   files and this document are rewritten to the new layout.
-
-### 15.13 Open questions for review
-
-1. **Ids.** Is `<document>/<workflowId>` with a committed old-to-new map the
-   right identity, or should workflows keep the old ids with dots replaced?
-2. **Parser.** Adopt `roas-arazzo` (Apache-2.0 OR MIT, models 1.0 and 1.1, no
-   XPath in its executor) for parsing only, or generate our own model from the
-   official schema? The spike decides unless you have a preference.
-3. **Report export.** Also emit CTRF or JUnit XML from `results.json` for
-   vendors' CI, as a derived view? No Arazzo runner emits either today.
-4. **Backups and key custody** for the hosted machine once issuance is on:
-   Hetzner's backup option, or an external target? A key file readable only by
-   the console user, or a hardware-backed key?
-5. **Order of the component conversions** after the spike. The proposal is
-   EHR, EHR_STATUS, COMPOSITION, CONTRIBUTION, DIRECTORY, DEFINITION, QUERY,
-   then content and Simplified Formats.
+- `results.json` is the conformance test report (§8.10). The statement, IXIT,
+  selection and verdict computation are §8.10 and §8.11, and the verification
+  pack is §8.12.
+- A certificate is a JWS (RFC 7515) signed with Ed25519 (RFC 8037). Its
+  payload names the SUT, the catalogue revision, the engine version, the
+  verdict summary and the digests of the recorded exchanges. The verifying key
+  is a JWK (RFC 7517) in a JWK Set served at
+  `https://console.veredictum.eu/.well-known/jwks.json` and committed in this
+  repository. `veredictum verify` checks a certificate offline against that
+  set.
+- Issuance is off by default (trial mode): runs, results and verdicts work, no
+  certificate is created, every run page says so, and no private key is loaded.
+  Turning it on is an `.env` setting and a redeploy.
+- With issuance on, the hosted machine keeps every certificate and its results,
+  and the vendor downloads a copy. The machine is backed up, and the signing
+  key has a written rotation and revocation procedure.
+- The console offers connect, scope, live run, results, verdicts and the
+  certificate download. The measured instruments (perf, stress, probe, bench)
+  run from the CLI only.
 
 ## Appendix — source register
 
