@@ -26,8 +26,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
-    # Sized for the box, not for an aspiration. The instrument runs on a CX33
-    # today — 4 vCPU, 8 GB (#523) — so this leaves roughly 2 GB for Caddy and
+    # Sized for the box, not for an aspiration. The instrument runs on a CAX21
+    # today — 4 vCPU, 8 GB (#583) — so this leaves roughly 2 GB for Caddy and
     # the operating system. The limit exists so a runaway run cannot take the
     # proxy and the host with it.
     #
@@ -47,8 +47,8 @@ services:
       # the address Caddy forwards — and only because this names the header.
       VEREDICTUM_CLIENT_IP_HEADER: X-Forwarded-For
       # What this host can actually drive at once. #388 reasoned two on an 8 GB
-      # machine and called it a value to re-derive by measuring; the CX33 is
-      # that machine (#523), so `.env` says two, and the queue covers anything
+      # machine and called it a value to re-derive by measuring; the CAX21 is
+      # that machine (#583), so `.env` says two, and the queue covers anything
       # past the cap with a position rather than a refusal. The unset fallback
       # stays one so a box this file reaches without its `.env` starts small.
       VEREDICTUM_MAX_CONCURRENT_RUNS: "${VEREDICTUM_MAX_CONCURRENT_RUNS:-1}"

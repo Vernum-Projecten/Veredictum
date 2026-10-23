@@ -28,10 +28,10 @@ rotation and the answer to "is it up" are all things this directory states.
 
 ## The machine
 
-A Hetzner **CX33** — 4 vCPU x86, 8 GB RAM, 40 GB SSD — `veredictum-console`,
-in Nuremberg (`eu-central`), dual-stack. The box started as a CPX12 (1 vCPU,
-2 GB) because the Cost-Optimized line had limited availability at ordering
-time; it was resized to the CX33 on 2026-09-01 (#523).
+A Hetzner **CAX21**: 4 vCPU Arm (Ampere Altra), 8 GB RAM, 80 GB local disk,
+named `veredictum`, in Falkenstein (`fsn1`, `eu-central`), dual-stack, on
+Ubuntu 26.04 LTS. It replaced the CX33 in Nuremberg, which no longer exists, on
+2026-10-23 (#583).
 
 **So the caps are the box's, not the aspiration's.** #388 reasoned two
 concurrent runs on an 8 GB machine and said plainly that those were starting
@@ -51,8 +51,9 @@ Two numbers say so, and neither is a code change:
 of the cap being an environment value: a bigger box is an `.env` edit and a
 redeploy, not a release.
 
-Not Arm: the CAX line is the more expensive half since April 2026, and the image
-publishes for both architectures, so it buys nothing here.
+Arm is fine here because the image publishes `linux/arm64` beside
+`linux/amd64`, and the scheduled image scan covers both. The box pulls the arm64
+variant of the same tag.
 
 ## The image
 
@@ -189,9 +190,14 @@ Four layers, each answering a different question:
 
 ## Provisioning
 
-#403, once: buy the box with `cloud-init.yaml` as its user data, point
+#403, once, and #583 again for the CAX21: buy the box with `cloud-init.yaml` as
+its user data and a Hetzner Cloud Firewall allowing 22, 80 and 443, point
 `console.veredictum.eu` at it, and store a deploy key restricted to one command
-as `HOSTED_SSH_KEY` with the host's key as `HOSTED_KNOWN_HOSTS`.
+as `HOSTED_SSH_KEY` with the host's key as `HOSTED_KNOWN_HOSTS`. The deploy
+connects by name, so the entries are keyed `console.veredictum.eu`, but scan the
+keys by address (`ssh-keyscan <ipv4>`) and compare them with the box's own
+`/etc/ssh/ssh_host_*_key.pub`: while DNS still points at an old box, a scan by
+name records the wrong host (#403).
 
 **Both are environment secrets, in an environment named `hosted`, not
 repository secrets.** The deploy job names that environment, so nothing else in

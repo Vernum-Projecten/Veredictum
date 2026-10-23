@@ -1,6 +1,6 @@
 ---
 name: hosted-instrument-box
-description: console.veredictum.eu runs on a Hetzner box this repository provisions (owner ruling 2026-08-31); hosting is the owner's call and I proposed migrations twice before being told
+description: console.veredictum.eu runs on a Hetzner CAX21 this repository provisions (owner ruling 2026-08-31, box replaced 2026-10-23); hosting is the owner's call and I proposed migrations twice before being told
 metadata:
   type: project
 ---
@@ -11,9 +11,10 @@ Nothing about it is a demonstration, and the word "demo" appears on no surface �
 `scripts/checks/hosted-instrument-language.sh` keeps it that way.
 
 **It runs on a Hetzner box this repository provisions** (#412, #403; owner ruling
-2026-08-31). `veredictum-console`, a CX33 (4 vCPU, 8 GB; resized from the CPX12
-on 2026-09-01, #523, two concurrent runs) in Nuremberg (`eu-central`),
-dual-stack. Vercel is
+2026-08-31). `veredictum`, a CAX21 (4 vCPU Arm, 8 GB, 80 GB, two concurrent
+runs) in Falkenstein (`fsn1`, `eu-central`), dual-stack, Ubuntu 26.04 LTS. It
+replaced the CX33 in Nuremberg, which was gone by 2026-10-23 (#583); the watch
+had reported it down since 2026-09-19 (#565). Vercel is
 retired and its project deleted. `deploy/hosted/` carries the whole posture as
 code — the cloud-init, the compose file, the Caddyfile, the image overlay CI
 builds — and the box holds no checkout.

@@ -340,9 +340,9 @@ conditions in public.
 | | |
 |---|---|
 | Provider | Hetzner Cloud |
-| Location | Nuremberg, Germany, network zone `eu-central` |
-| Machine | CX33: 4 vCPU, 8 GB RAM, 40 GB local disk |
-| Price | €10.27 per month, from the account's own record on 2026-09-01 |
+| Location | Falkenstein, Germany, network zone `eu-central` |
+| Machine | CAX21: 4 vCPU Arm (Ampere Altra), 8 GB RAM, 80 GB local disk |
+| Price | €10.49 per month, from the account's own record on 2026-10-23 |
 | Paid by | The maintainer, out of pocket. No vendor funds the instrument that grades them |
 | Concurrent runs | Two |
 
@@ -390,7 +390,7 @@ one that matters when somebody wants to audit how a verdict was produced.
 **One measurement caveat, stated before anyone reads a number.** The hosted
 instrument performs functional conformance runs. It does not offer the measured
 instruments: `perf`, `stress` and the comparative benchmark stay local for now.
-A latency measured from a fixed origin in Nuremberg carries the network path to
+A latency measured from a fixed origin in Falkenstein carries the network path to
 wherever the system under test lives, and distance is not a property of the
 database being graded. Measured runs are driven by the operator, on hardware
 they describe.

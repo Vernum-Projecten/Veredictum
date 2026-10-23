@@ -18,6 +18,16 @@ version on.
 
 ## [Unreleased]
 
+### Changed
+
+- The hosted instrument at console.veredictum.eu moves to a new box, a Hetzner
+  CAX21 (4 vCPU Arm, 8 GB RAM, 80 GB disk) in Falkenstein, after the CX33 in
+  Nuremberg stopped existing (#583). It still drives two runs at once. The
+  README's stated conditions and the deploy posture describe the new machine,
+  and `cloud-init.yaml` now states the SSH policy itself, installs Docker from
+  Docker's signed apt repository so security updates reach it, and reboots at
+  04:00 UTC when an update needs it.
+
 ### Security
 
 - The image's distroless base moves to the Debian 13.7 rebuild of
