@@ -20,6 +20,20 @@ version on.
 
 ### Added
 
+- The EHR component of the case-core catalogue is converted to Arazzo (#603).
+  The 27 `I_EHR_SERVICE.*` cases become workflows in six documents under
+  `catalogue/cases/ehr/`: `ehr` (create and read, the default and supplied
+  EHR_STATUS, the identifier preference, the subject conflict and its
+  refusal twins), `ehr_xml`, `ehr_xml_not_acceptable` and
+  `ehr_xml_write_refused` (the canonical-XML choices a statement selects
+  between), `ehr_committal` and `ehr_bulk_load`. Every criterion quotes the
+  released ITS-REST or RM sentence that assigns it. Three cases have no
+  counterpart because no released sentence or operation carries them, and
+  `catalogue/id-map.yaml` maps every old case id to its new ids or says why
+  it has none. The `convert_catalogue` example is the one-off converter that
+  drafts a component's documents with placeholder citations for hand
+  completion.
+
 - Rows files carry decision-table literals (#638). The published rows schema
   gains `literals`, the columns whose values are read through the
   decision-table literal grammar, and `recipe`, which binds one more input per
@@ -31,9 +45,9 @@ version on.
   evaluator sends a request body whose `payload` is a runtime expression as
   that expression's value (Arazzo 1.1.0 §Request Body Object). The first
   converted content case is `CONT-DV_COUNT-validate_range`, as
-  `artifacts/workflows/content/dv_count.arazzo.yaml` with three rows files.
+  `catalogue/cases/content/dv_count.arazzo.yaml` with three rows files.
 - An experimental Arazzo 1.1.0 catalogue slice (#599): the EHR create and
-  read cases in `artifacts/workflows/ehr/ehr.arazzo.yaml`, with their 400,
+  read cases in `catalogue/cases/ehr/ehr.arazzo.yaml`, with their 400,
   404, 409 and 422 refusal twins, each criterion citing the released ITS-REST
   or RM sentence that assigns it through `x-veredictum-cite`. The library gains an
   `arazzo` module that parses the documents with `roas-arazzo` 0.3.0, gates
@@ -44,7 +58,7 @@ version on.
   `arazzo_spike` example runs a document against a server. The CLI and the
   existing catalogue are unchanged.
 - `validate` gates the Arazzo catalogue (#601). Every document under
-  `artifacts/workflows/` validates against the official Arazzo 1.1 JSON
+  `catalogue/cases/` validates against the official Arazzo 1.1 JSON
   Schema (revision 2026-04-15, vendored by `scripts/vendor/arazzo-schema.sh`
   and amended only where the Arazzo 1.1.0 text disagrees with it,
   OAI/Arazzo-Specification#559). Findings carry eight new tokens:
@@ -57,7 +71,7 @@ version on.
   backreference, every runtime expression parses), `arazzo-rows` (a rows file
   sits beside its document as `<workflowId>.rows.yaml`, names a workflow in
   that folder, validates, and binds every required input) and `arazzo-surface` (inside the families
-  `artifacts/workflows/surface.yaml` scopes, every released operation,
+  `catalogue/cases/surface.yaml` scopes, every released operation,
   declared response and negotiation-header value is covered by a step or is
   a gap with its tracking issue). `x-veredictum-cite` gains an optional
   `report` naming an `upstream-report` issue. Four schemas are published:
@@ -83,6 +97,12 @@ version on.
   failed and errored verdicts.
 
 ### Changed
+
+- The Arazzo catalogue moves from `artifacts/workflows/` to `catalogue/cases/`
+  (#603, #624), and the case-core catalogue stays in `artifacts/` until the
+  cut-over. `validate --root catalogue` runs only the Arazzo gates over a root
+  that holds `cases/` and no `schedule/`, and CI runs it beside
+  `validate --root artifacts`.
 
 - The minimum supported Rust version rises from 1.96 to 1.98, and the pinned
   toolchain and the image's builder move to Rust 1.98.1. `openehr-query`, the

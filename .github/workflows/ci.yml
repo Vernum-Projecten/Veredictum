@@ -145,7 +145,7 @@ jobs:
           # (#55); no code lives at the root any more. The legend generator is
           # named individually (#189) because the test job runs its --check and
           # the rest of scripts/render/ has nothing to do with that job.
-          if echo "$changed" | grep -qE '^(app/|artifacts/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|scripts/render/bench-legend\.sh$|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
+          if echo "$changed" | grep -qE '^(app/|artifacts/|catalogue/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|scripts/render/bench-legend\.sh$|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
@@ -707,6 +707,10 @@ jobs:
       - run: cargo nextest run --locked -p veredictum-console --features ssr --profile ci
       - name: The artifact tree passes every machine gate
         run: cargo run --locked -- validate --root artifacts --specs specs/openehr
+      # The Arazzo catalogue lives in its own tree until the cut-over (#604),
+      # so it is a second root with its own zero-findings gate.
+      - name: The Arazzo catalogue passes every machine gate
+        run: cargo run --locked -- validate --root catalogue --specs specs/openehr
       # The website's hand-typed catalogue counts cannot drift from the
       # catalogue (#35): the guard reruns validate for its summary line and
       # holds every count-bearing phrase on both site surfaces to it.

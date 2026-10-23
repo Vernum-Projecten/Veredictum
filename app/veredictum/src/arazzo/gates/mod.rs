@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The `validate` gates for the Arazzo catalogue under an artifact root.
+//! The `validate` gates for the Arazzo catalogue under a catalogue root.
 //!
-//! The documents are `workflows/<capability>/<topic>.arazzo.yaml`, each rows
+//! The documents are `cases/<capability>/<topic>.arazzo.yaml`, each rows
 //! file sits beside the document whose workflow it feeds as
-//! `<workflowId>.rows.yaml`, and the surface file is `workflows/surface.yaml`. Every file is read once, every finding names its
-//! [`Gate`], and the output is sorted, so two runs over one tree print the
-//! same bytes.
+//! `<workflowId>.rows.yaml`, and the surface file is `cases/surface.yaml`.
+//! Every file is read once, every finding names its [`Gate`], and the output
+//! is sorted, so two runs over one tree print the same bytes.
 
 pub mod profile;
 pub mod published;
@@ -23,6 +23,9 @@ use crate::arazzo::document::{ArazzoDocument, source_finding};
 
 /// The suffix every Arazzo document carries.
 pub const DOCUMENT_SUFFIX: &str = ".arazzo.yaml";
+
+/// The folder under a catalogue root that holds the capability folders.
+pub const CASES_DIR: &str = "cases";
 
 /// The gates, one per kind of refusal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -110,7 +113,9 @@ struct Located {
     document: ArazzoDocument,
 }
 
-/// Runs every Arazzo gate over the catalogue under `artifact_root`.
+/// Runs every Arazzo gate over the catalogue under `catalogue_root`, whose
+/// [`CASES_DIR`] folder holds the documents; a root without one yields
+/// nothing.
 ///
 /// `spec_root` is the vendored openEHR tree (`<repo>/specs/openehr`). With
 /// it, every quote is looked up in the files under its repository root
@@ -118,10 +123,10 @@ struct Located {
 /// decomposed ITS-REST OAS; without it, those two checks do not run, the way
 /// every other spec-resolving gate of `validate` does not.
 #[must_use]
-pub fn check_catalogue(artifact_root: &Path, spec_root: Option<&Path>) -> Vec<GateFinding> {
+pub fn check_catalogue(catalogue_root: &Path, spec_root: Option<&Path>) -> Vec<GateFinding> {
     let mut findings = Vec::new();
     let repo_root = spec_root.map(|specs| specs.join("../.."));
-    let workflows = artifact_root.join("workflows");
+    let workflows = catalogue_root.join(CASES_DIR);
     let mut documents: BTreeMap<String, Located> = BTreeMap::new();
     let mut rows_files = Vec::new();
     let surface_file = workflows.join(surface::SURFACE_FILE);
@@ -137,7 +142,7 @@ pub fn check_catalogue(artifact_root: &Path, spec_root: Option<&Path>) -> Vec<Ga
                 &path,
                 "#",
                 format!(
-                    "workflows/ holds `*{DOCUMENT_SUFFIX}` documents, `*{}` rows files and `{}` only",
+                    "{CASES_DIR}/ holds `*{DOCUMENT_SUFFIX}` documents, `*{}` rows files and `{}` only",
                     rows::ROWS_SUFFIX,
                     surface::SURFACE_FILE
                 ),
@@ -149,7 +154,7 @@ pub fn check_catalogue(artifact_root: &Path, spec_root: Option<&Path>) -> Vec<Ga
                 Gate::Load,
                 &path,
                 "#",
-                "a document or rows file sits in `workflows/<capability>/`, never at the top",
+                "a document or rows file sits in `cases/<capability>/`, never at the top",
             ));
             continue;
         }
@@ -327,7 +332,7 @@ fn check_rows_file(
     (out, Some((document_id.clone(), workflow_id.to_owned())))
 }
 
-/// The surface gate, over the scope `workflows/surface.yaml` declares.
+/// The surface gate, over the scope `cases/surface.yaml` declares.
 fn check_surface(
     workflows: &Path,
     spec_root: &Path,
@@ -450,14 +455,14 @@ mod tests {
         dir.child("specs/rest-oas/ehr-validation.openapi.yaml")
             .write_str(OAS)
             .unwrap();
-        dir.child("artifacts/workflows/ehr/ehr.arazzo.yaml")
+        dir.child("catalogue/cases/ehr/ehr.arazzo.yaml")
             .write_str(&document(inputs))
             .unwrap();
         dir
     }
 
     fn gates(dir: &assert_fs::TempDir) -> Vec<(Gate, String)> {
-        check_catalogue(&dir.path().join("artifacts"), None)
+        check_catalogue(&dir.path().join("catalogue"), None)
             .into_iter()
             .map(|f| (f.gate, f.message))
             .collect()
@@ -476,7 +481,7 @@ mod tests {
             gates(&dir).as_slice(),
             [(Gate::Rows, message)] if message.contains("`units`")
         ));
-        dir.child("artifacts/workflows/ehr/w.rows.yaml")
+        dir.child("catalogue/cases/ehr/w.rows.yaml")
             .write_str("workflow: ehr/w\niteration: reset_per_row\nrows:\n  - { units: cm }\n")
             .unwrap();
         assert_eq!(gates(&dir), Vec::new());
@@ -487,27 +492,27 @@ mod tests {
         let good = "workflow: ehr/w\niteration: reset_per_row\nrows:\n  - { units: cm }\n";
         for (path, body, fragment) in [
             (
-                "artifacts/workflows/ehr/w.rows.yaml",
+                "catalogue/cases/ehr/w.rows.yaml",
                 "workflow: ehr/w\niteration: reset_per_row\nrows:\n  - { unit: cm }\n",
                 "`unit` is not an input",
             ),
             (
-                "artifacts/workflows/ehr/missing.rows.yaml",
+                "catalogue/cases/ehr/missing.rows.yaml",
                 good,
                 "names no workflow of a document in this folder",
             ),
             (
-                "artifacts/workflows/other/w.rows.yaml",
+                "catalogue/cases/other/w.rows.yaml",
                 good,
                 "names no workflow of a document in this folder",
             ),
             (
-                "artifacts/workflows/ehr/w.rows.yaml",
+                "catalogue/cases/ehr/w.rows.yaml",
                 "workflow: ehr/x\niteration: reset_per_row\nrows:\n  - { units: cm }\n",
                 "`workflow` is `ehr/x`",
             ),
             (
-                "artifacts/workflows/ehr/w.rows.yaml",
+                "catalogue/cases/ehr/w.rows.yaml",
                 "workflow: ehr/w\nrows:\n  - { units: cm }\n",
                 "iteration",
             ),
@@ -527,13 +532,13 @@ mod tests {
     #[test]
     fn stray_misplaced_and_duplicate_documents_are_refused() {
         let dir = world("");
-        dir.child("artifacts/workflows/ehr/ehr.arazo.yaml")
+        dir.child("catalogue/cases/ehr/ehr.arazo.yaml")
             .write_str("x: 1\n")
             .unwrap();
-        dir.child("artifacts/workflows/top.arazzo.yaml")
+        dir.child("catalogue/cases/top.arazzo.yaml")
             .write_str(&document(""))
             .unwrap();
-        dir.child("artifacts/workflows/other/ehr.arazzo.yaml")
+        dir.child("catalogue/cases/other/ehr.arazzo.yaml")
             .write_str(&document(""))
             .unwrap();
         let found = gates(&dir);
@@ -554,7 +559,7 @@ mod tests {
     #[test]
     fn an_unmodelled_document_reports_its_schema_violations() {
         let dir = world("");
-        dir.child("artifacts/workflows/ehr/broken.arazzo.yaml")
+        dir.child("catalogue/cases/ehr/broken.arazzo.yaml")
             .write_str("arazzo: 1.1.0\ninfo: { title: t, version: '1' }\nworkflows: 3\n")
             .unwrap();
         let found = gates(&dir);
@@ -575,7 +580,7 @@ mod tests {
             .create_dir_all()
             .unwrap();
         let found: Vec<Gate> = check_catalogue(
-            &dir.path().join("artifacts"),
+            &dir.path().join("catalogue"),
             Some(&dir.path().join("specs/openehr")),
         )
         .into_iter()

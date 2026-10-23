@@ -1,0 +1,150 @@
+# Loading a population of EHRs through the released create-EHR and
+# create-COMPOSITION operations: every load is its own EHR, and each one
+# serves back the content committed to it. Every quote is copied verbatim
+# from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Bulk EHR load
+  version: 0.1.0
+  description: >-
+    Creating a population of EHRs with one COMPOSITION each, and reading each
+    COMPOSITION back from its own EHR.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: definition
+    url: ../../../specs/rest-oas/definition-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: upload_template-count_range
+    summary: The template the loads commit against is on the server
+    description: >-
+      Uploads the operational template cnf.tpl.count_range. A server that
+      already holds a template with that template_id refuses the upload with
+      409, which leaves the same precondition in place.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/definition_template_adl1.4_upload.yaml
+      section: description
+      quote: "Upload a new ADL 1.4 operational template (OPT)."
+    steps:
+      - stepId: upload
+        description: Upload the template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="utf-8"?>
+            <template xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://schemas.openehr.org/v1">
+              <language><terminology_id><value>ISO_639-1</value></terminology_id><code_string>en</code_string></language>
+              <description><original_author id="Original Author">CNF corpus</original_author><lifecycle_state>Initial</lifecycle_state><details><language><terminology_id><value>ISO_639-1</value></terminology_id><code_string>en</code_string></language><purpose>CNF content constraint template</purpose></details></description>
+              <uid><value>fb9c45f6-4d4b-5f85-8cbb-808912f5182b</value></uid>
+              <template_id><value>cnf.tpl.count_range</value></template_id>
+              <concept>CNF content constraint</concept>
+              <definition>
+                <rm_type_name>COMPOSITION</rm_type_name>
+                <occurrences><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></occurrences>
+                <node_id>at0000</node_id>
+                <attributes xsi:type="C_SINGLE_ATTRIBUTE"><rm_attribute_name>category</rm_attribute_name><existence><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></existence><children xsi:type="C_COMPLEX_OBJECT"><rm_type_name>DV_CODED_TEXT</rm_type_name><occurrences><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></occurrences><node_id /><attributes xsi:type="C_SINGLE_ATTRIBUTE"><rm_attribute_name>defining_code</rm_attribute_name><existence><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></existence><children xsi:type="C_CODE_PHRASE"><rm_type_name>CODE_PHRASE</rm_type_name><occurrences><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></occurrences><node_id /><terminology_id><value>openehr</value></terminology_id><code_list>433</code_list></children></attributes></children></attributes>
+                
+                <attributes xsi:type="C_MULTIPLE_ATTRIBUTE"><rm_attribute_name>content</rm_attribute_name><existence><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>0</lower><upper>1</upper></existence><children xsi:type="C_ARCHETYPE_ROOT"><rm_type_name>OBSERVATION</rm_type_name><occurrences><lower_included>true</lower_included><lower_unbounded>false</lower_unbounded><upper_unbounded>true</upper_unbounded><lower>0</lower></occurrences><node_id>at0000</node_id><attributes xsi:type="C_SINGLE_ATTRIBUTE"><rm_attribute_name>data</rm_attribute_name><existence><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></existence><children xsi:type="C_COMPLEX_OBJECT"><rm_type_name>HISTORY</rm_type_name><occurrences><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></occurrences><node_id>at0001</node_id><attributes xsi:type="C_MULTIPLE_ATTRIBUTE"><rm_attribute_name>events</rm_attribute_name><existence><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></existence><children xsi:type="C_COMPLEX_OBJECT"><rm_type_name>EVENT</rm_type_name><occurrences><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>0</lower><upper>1</upper></occurrences><node_id>at0002</node_id><attributes xsi:type="C_SINGLE_ATTRIBUTE"><rm_attribute_name>data</rm_attribute_name><existence><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></existence><children xsi:type="C_COMPLEX_OBJECT"><rm_type_name>ITEM_TREE</rm_type_name><occurrences><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></occurrences><node_id>at0003</node_id><attributes xsi:type="C_MULTIPLE_ATTRIBUTE"><rm_attribute_name>items</rm_attribute_name><existence><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>0</lower><upper>1</upper></existence><children xsi:type="C_COMPLEX_OBJECT"><rm_type_name>ELEMENT</rm_type_name><occurrences><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>0</lower><upper>1</upper></occurrences><node_id>at0004</node_id><attributes xsi:type="C_SINGLE_ATTRIBUTE"><rm_attribute_name>value</rm_attribute_name><existence><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>0</lower><upper>1</upper></existence><children xsi:type="C_COMPLEX_OBJECT"><rm_type_name>DV_COUNT</rm_type_name><occurrences><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></occurrences><node_id /><attributes xsi:type="C_SINGLE_ATTRIBUTE"><rm_attribute_name>magnitude</rm_attribute_name><existence><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></existence><children xsi:type="C_PRIMITIVE_OBJECT"><rm_type_name>INTEGER</rm_type_name><occurrences><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>1</lower><upper>1</upper></occurrences><node_id /><item xsi:type="C_INTEGER"><range><lower_included>true</lower_included><upper_included>true</upper_included><lower_unbounded>false</lower_unbounded><upper_unbounded>false</upper_unbounded><lower>10</lower><upper>20</upper></range></item></children></attributes></children></attributes></children><cardinality><is_ordered>false</is_ordered><is_unique>false</is_unique><interval><lower_included>true</lower_included><lower_unbounded>false</lower_unbounded><upper_unbounded>true</upper_unbounded><lower>0</lower></interval></cardinality></attributes></children></attributes></children><cardinality><is_ordered>false</is_ordered><is_unique>false</is_unique><interval><lower_included>true</lower_included><lower_unbounded>false</lower_unbounded><upper_unbounded>true</upper_unbounded><lower>1</lower></interval></cardinality></attributes></children></attributes><archetype_id><value>openEHR-EHR-OBSERVATION.minimal.v1</value></archetype_id><term_definitions code="at0000"><items id="description">unknown</items><items id="text">Minimal</items></term_definitions><term_definitions code="at0001"><items id="description">@ internal @</items><items id="text">Event Series</items></term_definitions><term_definitions code="at0002"><items id="description">*</items><items id="text">Any event</items></term_definitions><term_definitions code="at0003"><items id="description">@ internal @</items><items id="text">Tree</items></term_definitions><term_definitions code="at0004"><items id="description">*</items><items id="text">value</items></term_definitions></children><cardinality><is_ordered>false</is_ordered><is_unique>false</is_unique><interval><lower_included>true</lower_included><lower_unbounded>false</lower_unbounded><upper_unbounded>true</upper_unbounded><lower>0</lower></interval></cardinality></attributes>
+                <archetype_id><value>openEHR-EHR-COMPOSITION.minimal.v1</value></archetype_id>
+                <template_id><value>cnf.tpl.count_range</value></template_id>
+                <term_definitions code="at0000"><items id="description">unknown</items><items id="text">Minimal</items></term_definitions>
+              </definition>
+            </template>
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: description
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+
+  - workflowId: bulk_load-population
+    summary: Each load of a population is its own EHR and serves back its own content
+    description: >-
+      Per row, creates an EHR, commits one COMPOSITION to it, and reads that
+      COMPOSITION version back from the same EHR. The served COMPOSITION is
+      the one committed, apart from the uid the server assigns.
+    dependsOn: [upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/composition_create.yaml
+      section: description
+      quote: "Creates the first version of a new COMPOSITION in the EHR identified by `ehr_id`."
+    inputs:
+      type: object
+      required: [load_index, composition]
+      properties:
+        load_index: { type: integer }
+        magnitude: { type: [integer, "null"] }
+        composition: { type: object }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR this load fills.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's COMPOSITION to the EHR and ask for its identifier.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+          - condition: $response.body#/uid != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "if is `return=identifier`, only its unique identifier is included."
+        outputs:
+          version_uid: $response.body#/uid
+      - stepId: read-back
+        description: Read the committed COMPOSITION version back from the same EHR.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested COMPOSITION is successfully retrieved."
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: equivalent
+              context: $response.body
+              to: $inputs.composition
+              ignoring: [uid]
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Contributions
+              quote: "a new `VERSIONED_OBJECT` is created with a first `ORIGINAL_VERSION` whose data is the new item;"

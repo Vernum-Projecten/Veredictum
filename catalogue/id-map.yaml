@@ -1,0 +1,88 @@
+# The old-to-new case id map (#603): each case id of the case-core
+# catalogue, and the Arazzo case ids (`<document>/<workflowId>`) that carry
+# it. An entry with no new id says why in `open`. Upstream reports and pull
+# requests that name an old id resolve through this file.
+cases:
+  I_EHR_SERVICE.create_ehr-bulk_load_population:
+    new: [ehr_bulk_load/bulk_load-population]
+  I_EHR_SERVICE.create_ehr-clone_system_id:
+    new: []
+    open: >-
+      The expected system_id is a deployment fact a party declares, and an
+      Arazzo workflow has no input a declaration fills.
+  I_EHR_SERVICE.create_ehr-committal_headers:
+    new: [ehr_committal/create_ehr-committal_headers]
+  I_EHR_SERVICE.create_ehr-invalid_status:
+    new:
+      - ehr/create_ehr-invalid_status-missing_required
+      - ehr/create_ehr-invalid_status-untyped_other_details
+      - ehr/create_ehr-status_without_archetype_details
+  I_EHR_SERVICE.create_ehr-main:
+    new:
+      - ehr/create_ehr-server_assigned
+      - ehr/create_ehr-with_id
+      - ehr/create_ehr-default_status
+      - ehr/create_ehr-default_status-with_id
+      - ehr/create_ehr-provided_status
+      - ehr/create_ehr-provided_status-with_id
+      - ehr/create_ehr-provided_status-other_details
+      - ehr/create_ehr-provided_status-other_details-with_id
+      - ehr/create_ehr-distinct_ids
+  I_EHR_SERVICE.create_ehr-return_identifier:
+    new: [ehr/create_ehr-return_identifier]
+  I_EHR_SERVICE.create_ehr-same_ehr_twice:
+    new:
+      - ehr/create_ehr-same_ehr_twice-server_assigned
+      - ehr/create_ehr-same_ehr_twice-with_id
+  I_EHR_SERVICE.create_ehr-subject_key_ignores_type:
+    new: [ehr/create_ehr-same_subject_twice-other_type]
+  I_EHR_SERVICE.create_ehr-two_ehrs_same_patient:
+    new: [ehr/create_ehr-same_subject_twice]
+  I_EHR_SERVICE.create_ehr-with_ehr_id:
+    new:
+      - ehr/create_ehr-with_id
+      - ehr/get_ehr-by_id
+      - ehr/create_ehr-same_ehr_twice-with_id
+  I_EHR_SERVICE.create_ehr-with_ehr_id_subject_taken:
+    new: []
+    open: >-
+      No released sentence assigns a refusal to a create with a fresh ehr_id
+      whose subject already has an EHR: responses/409_EHR.yaml scopes the
+      subject conflict to ehr_create, and responses/409_EHR_with_id.yaml names
+      only an ehr_id in use.
+  I_EHR_SERVICE.create_ehr-wrong_method:
+    new: []
+    open: >-
+      DELETE /ehr is an operation no released OAS declares, so no Arazzo step
+      can address it, and the Allow header the case asserted is required by
+      RFC 9110, which is not vendored openEHR text.
+  I_EHR_SERVICE.create_ehr-xml:
+    new: [ehr_xml_write_refused/create_ehr-xml_unsupported_media]
+  I_EHR_SERVICE.get_ehr-existing_ehr_by_ehr_id:
+    new: [ehr/get_ehr-by_id]
+  I_EHR_SERVICE.get_ehr-existing_ehr_by_subject_id:
+    new: [ehr/get_ehr-by_subject]
+  I_EHR_SERVICE.get_ehr-get_ehr_by_invalid_ehr_id:
+    new: [ehr/get_ehr-unknown_ehr_id]
+  I_EHR_SERVICE.get_ehr-get_ehr_by_invalid_subject_id:
+    new: [ehr/get_ehr-unknown_subject]
+  I_EHR_SERVICE.get_ehr-malformed_ehr_id:
+    new: [ehr/get_ehr-malformed_ehr_id]
+  I_EHR_SERVICE.get_ehr-xml:
+    new: [ehr_xml/get_ehr-xml]
+  I_EHR_SERVICE.get_ehr-xml_not_acceptable:
+    new: [ehr_xml_not_acceptable/get_ehr-xml_not_acceptable]
+  I_EHR_SERVICE.get_ehrs_for_subject-xml:
+    new: [ehr_xml/get_ehr-by_subject-xml]
+  I_EHR_SERVICE.has_ehr-existing_ehr_id:
+    new: [ehr/get_ehr-by_id]
+  I_EHR_SERVICE.has_ehr-existing_subject_id:
+    new: [ehr/get_ehr-by_subject]
+  I_EHR_SERVICE.has_ehr-non_existing_ehr_id:
+    new: [ehr/get_ehr-unknown_ehr_id]
+  I_EHR_SERVICE.has_ehr-non_existing_subject_id:
+    new: [ehr/get_ehr-unknown_subject]
+  I_EHR_SERVICE.has_ehr-xml:
+    new: [ehr_xml/get_ehr-xml]
+  I_EHR_SERVICE.has_ehr_for_subject-xml:
+    new: [ehr_xml/get_ehr-by_subject-xml]

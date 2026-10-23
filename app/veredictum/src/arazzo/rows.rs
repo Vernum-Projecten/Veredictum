@@ -117,10 +117,10 @@ mod tests {
 
     fn file(text: &str) -> (assert_fs::TempDir, PathBuf) {
         let dir = assert_fs::TempDir::new().unwrap();
-        dir.child("workflows/content/w.rows.yaml")
+        dir.child("cases/content/w.rows.yaml")
             .write_str(text)
             .unwrap();
-        let path = dir.path().join("workflows/content/w.rows.yaml");
+        let path = dir.path().join("cases/content/w.rows.yaml");
         (dir, path)
     }
 
@@ -159,10 +159,10 @@ mod tests {
     fn the_rows_file_sits_beside_its_document() {
         assert_eq!(
             rows_path(
-                Path::new("artifacts/workflows/ehr/ehr.arazzo.yaml"),
+                Path::new("catalogue/cases/ehr/ehr.arazzo.yaml"),
                 "get_ehr-by_id"
             ),
-            PathBuf::from("artifacts/workflows/ehr/get_ehr-by_id.rows.yaml")
+            PathBuf::from("catalogue/cases/ehr/get_ehr-by_id.rows.yaml")
         );
     }
 }

@@ -1,5 +1,5 @@
 {
-  "document": "artifacts/workflows/ehr/ehr.arazzo.yaml",
+  "document": "catalogue/cases/ehr/ehr.arazzo.yaml",
   "recordings": [
     {
       "recording": "pass.har",

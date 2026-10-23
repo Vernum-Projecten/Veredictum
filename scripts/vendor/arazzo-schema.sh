@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: Veredictum contributors
 # SPDX-License-Identifier: Apache-2.0
 # Vendors the official Arazzo 1.1 JSON Schema, the schema `validate` holds
-# every Arazzo document under artifacts/workflows/ to.
+# every Arazzo document under catalogue/cases/ to.
 #
 # The file lands INSIDE the engine crate, beside the module that embeds it with
 # `include_str!`, because the crate publishes to crates.io and a package may

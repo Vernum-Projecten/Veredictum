@@ -787,7 +787,7 @@ mod tests {
         let doc = format!(
             "arazzo: 1.1.0\ninfo: {{ title: t, version: '1' }}\nsourceDescriptions:\n  - {{ name: ehr, url: ../../specs/rest-oas/ehr.yaml, type: openapi }}\nworkflows:\n{workflow}"
         );
-        let file = dir.child("artifacts/workflows/ehr.arazzo.yaml");
+        let file = dir.child("catalogue/cases/ehr.arazzo.yaml");
         file.write_str(&doc).unwrap();
         let loaded = ArazzoDocument::load(file.path()).unwrap();
         (dir, loaded)
@@ -1093,7 +1093,7 @@ mod tests {
     fn a_seeded_source_without_type_openapi_is_reported_not_indexed() {
         let dir = assert_fs::TempDir::new().unwrap();
         dir.child("specs/rest-oas/ehr.yaml").write_str(OAS).unwrap();
-        let file = dir.child("artifacts/workflows/ehr.arazzo.yaml");
+        let file = dir.child("catalogue/cases/ehr.arazzo.yaml");
         file.write_str(&format!(
             "arazzo: 1.1.0\ninfo: {{ title: t, version: '1' }}\nsourceDescriptions:\n  - {{ name: ehr, url: ../../specs/rest-oas/ehr.yaml }}\nworkflows:\n{}",
             workflow(&cited(), "", "$statusCode == 404")

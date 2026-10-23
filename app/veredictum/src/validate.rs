@@ -249,21 +249,60 @@ pub struct Context<'a> {
 }
 
 /// Run every gate; findings in check order.
+///
+/// A root that holds the Arazzo catalogue's `cases/` folder and no
+/// case-core `schedule/` is an Arazzo catalogue root, and only the Arazzo
+/// gates run over it: the case-core gates would read an empty tree and
+/// report the whole released surface uncovered.
 #[must_use]
 pub fn validate(ctx: &Context<'_>) -> Vec<Finding> {
-    let mut findings = Vec::new();
+    if let Some(root) = &ctx.set.artifact_root
+        && is_arazzo_root(root)
+    {
+        let mut findings = load_findings(ctx);
+        findings.extend(arazzo_findings(root, ctx.spec_root));
+        return findings;
+    }
+    validate_case_cores(ctx)
+}
+
+/// Whether `root` is an Arazzo catalogue root: it holds
+/// [`crate::arazzo::gates::CASES_DIR`] and no case-core `schedule/`.
+fn is_arazzo_root(root: &Path) -> bool {
+    root.join(crate::arazzo::gates::CASES_DIR).is_dir() && !root.join("schedule").exists()
+}
+
+/// One finding per file that did not load.
+fn load_findings(ctx: &Context<'_>) -> Vec<Finding> {
+    ctx.load_errors
+        .iter()
+        .map(|e| Finding {
+            check: CheckId::Load,
+            artifact: e.path().display().to_string(),
+            message: e.detail(),
+        })
+        .collect()
+}
+
+/// The Arazzo gates over the catalogue under `root`, as findings.
+fn arazzo_findings(root: &Path, spec_root: Option<&Path>) -> Vec<Finding> {
+    crate::arazzo::gates::check_catalogue(root, spec_root)
+        .into_iter()
+        .map(|finding| Finding {
+            check: CheckId::Arazzo(finding.gate),
+            artifact: finding.file.display().to_string(),
+            message: format!("{}: {}", finding.location, finding.message),
+        })
+        .collect()
+}
+
+/// Every gate over a case-core root; findings in check order.
+fn validate_case_cores(ctx: &Context<'_>) -> Vec<Finding> {
+    let mut findings = load_findings(ctx);
     // One memoizing reader for the whole run: the citation gates otherwise
     // re-read the same SM class exports and re-walk the same vendored
     // component directories once per case.
     let spec = ctx.spec_root.map(SpecIndex::new);
-
-    for e in ctx.load_errors {
-        findings.push(Finding {
-            check: CheckId::Load,
-            artifact: e.path().display().to_string(),
-            message: e.detail(),
-        });
-    }
 
     check_id_uniqueness(ctx.set, &mut findings);
     for (_path, case) in &ctx.set.cases {
@@ -326,13 +365,7 @@ pub fn validate(ctx: &Context<'_>) -> Vec<Finding> {
     check_content_synthesis(ctx.set, &mut findings);
     check_recipe_digests(ctx.set, &mut findings);
     if let Some(root) = &ctx.set.artifact_root {
-        for finding in crate::arazzo::gates::check_catalogue(root, ctx.spec_root) {
-            findings.push(Finding {
-                check: CheckId::Arazzo(finding.gate),
-                artifact: finding.file.display().to_string(),
-                message: format!("{}: {}", finding.location, finding.message),
-            });
-        }
+        findings.extend(arazzo_findings(root, ctx.spec_root));
     }
 
     findings

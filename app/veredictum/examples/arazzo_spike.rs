@@ -41,7 +41,7 @@ struct Args {
     #[arg(long, default_value = "")]
     password: String,
     /// The Arazzo document to drive.
-    #[arg(long, default_value = "artifacts/workflows/ehr/ehr.arazzo.yaml")]
+    #[arg(long, default_value = "catalogue/cases/ehr/ehr.arazzo.yaml")]
     document: PathBuf,
     /// The repository root citations are relative to.
     #[arg(long, default_value = ".")]

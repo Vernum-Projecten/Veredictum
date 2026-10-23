@@ -397,12 +397,12 @@ mod tests {
     #[test]
     fn a_rows_file_name_names_its_workflow() {
         assert_eq!(
-            workflow_id_of(Path::new("/a/workflows/ehr/w-1.rows.yaml")),
+            workflow_id_of(Path::new("/a/cases/ehr/w-1.rows.yaml")),
             Some("w-1")
         );
-        assert_eq!(workflow_id_of(Path::new("/a/workflows/ehr/w.yaml")), None);
+        assert_eq!(workflow_id_of(Path::new("/a/cases/ehr/w.yaml")), None);
         assert_eq!(
-            workflow_id_of(Path::new("/a/workflows/ehr/ehr.arazzo.yaml")),
+            workflow_id_of(Path::new("/a/cases/ehr/ehr.arazzo.yaml")),
             None
         );
     }

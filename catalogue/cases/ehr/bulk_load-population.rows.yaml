@@ -1,0 +1,20 @@
+# The population of I_EHR_SERVICE.create_ehr-bulk_load_population: eight
+# loads that coexist on the server, each with one COMPOSITION the recipe
+# builds from the row's `magnitude` literal.
+workflow: ehr_bulk_load/bulk_load-population
+iteration: single_pass
+literals: [magnitude]
+recipe:
+  name: content_instance
+  rm_class: DV_COUNT
+  template_id: cnf.tpl.count_range
+  input: composition
+rows:
+  - { load_index: 1, magnitude: 11 }
+  - { load_index: 2, magnitude: 12 }
+  - { load_index: 3, magnitude: 13 }
+  - { load_index: 4, magnitude: 14 }
+  - { load_index: 5, magnitude: 15 }
+  - { load_index: 6, magnitude: 16 }
+  - { load_index: 7, magnitude: 17 }
+  - { load_index: 8, magnitude: 18 }

@@ -1,5 +1,5 @@
-# Seeded defect: this workflow covers `ehr_get_by_id` with
-# `Accept: application/xml`, which the surface file still lists as a gap, so
+# Seeded defect: this workflow covers `ehr_create_with_id` with
+# `Prefer: return=identifier`, which the surface file still lists as a gap, so
 # the gap is closed and must go. The source url passes through the pristine
 # `ehr` directory the overlay links.
 arazzo: 1.1.0
@@ -9,20 +9,20 @@ sourceDescriptions:
     url: ../ehr/../../../specs/rest-oas/ehr-validation.openapi.yaml
     type: openapi
 workflows:
-  - workflowId: get_ehr-as_xml
+  - workflowId: create_ehr-with_id-identifier
     x-veredictum-cite:
-      source: specs/openehr/ITS-REST/specifications/operations/ehr_get_by_id.yaml
+      source: specs/openehr/ITS-REST/specifications/operations/ehr_create_with_id.yaml
       section: description
-      quote: "Retrieve the EHR with the specified `ehr_id`."
+      quote: "Create a new EHR with the specified `ehr_id` identifier."
     inputs:
       type: object
       properties:
         ehr_id: { type: string, format: uuid }
     steps:
-      - stepId: get
-        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+      - stepId: create
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Accept, in: header, value: application/xml }
+          - { name: Prefer, in: header, value: return=identifier }
         successCriteria:
-          - condition: $statusCode == 404
+          - condition: $statusCode == 201

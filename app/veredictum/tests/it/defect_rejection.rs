@@ -148,23 +148,23 @@ defects! {
     // The Arazzo catalogue's gates, each refusing one seeded document, rows
     // file or stray file through the same `validate` pass.
     arazzo_wrong_version =>
-        ("arazzo-wrong-version.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-schema"),
+        ("arazzo-wrong-version.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-schema"),
     arazzo_unknown_key =>
-        ("arazzo-unknown-key.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-keys"),
+        ("arazzo-unknown-key.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-keys"),
     arazzo_undeclared_header =>
-        ("arazzo-undeclared-header.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-source"),
+        ("arazzo-undeclared-header.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-source"),
     arazzo_missing_citation =>
-        ("arazzo-missing-citation.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-citation"),
+        ("arazzo-missing-citation.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-citation"),
     arazzo_simple_string =>
-        ("arazzo-simple-string.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-profile"),
+        ("arazzo-simple-string.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-profile"),
     arazzo_rows_unknown_input =>
-        ("arazzo-rows-unknown-input.rows.yaml", "workflows/ehr/create_ehr-with_id.rows.yaml", "arazzo-rows"),
+        ("arazzo-rows-unknown-input.rows.yaml", "cases/ehr/create_ehr-with_id.rows.yaml", "arazzo-rows"),
     arazzo_rows_bad_literal =>
-        ("arazzo-rows-bad-literal.rows.yaml", "workflows/content/commit-dv_count_out_of_range.rows.yaml", "arazzo-rows"),
+        ("arazzo-rows-bad-literal.rows.yaml", "cases/content/commit-dv_count_out_of_range.rows.yaml", "arazzo-rows"),
     arazzo_stale_gap =>
-        ("arazzo-stale-gap.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-surface"),
+        ("arazzo-stale-gap.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-surface"),
     arazzo_stray_file =>
-        ("arazzo-stray-file.yaml", "workflows/zz-notes.yaml", "arazzo-load"),
+        ("arazzo-stray-file.yaml", "cases/zz-notes.yaml", "arazzo-load"),
 }
 
 /// The repository root, two levels above this package (#55): the catalogue
@@ -186,21 +186,28 @@ fn spec_root() -> PathBuf {
     crate_dir().join("specs/openehr")
 }
 
-/// Build the world one defect validates against: the pristine artifact tree,
-/// with `dest` replaced (or added) from `fixture`.
+/// Build the world one defect validates against: the pristine tree, with
+/// `dest` replaced (or added) from `fixture`. A `cases/` destination lands in
+/// the Arazzo catalogue under `catalogue/`, every other one in the case-core
+/// tree under `artifacts/`.
 ///
 /// Every entry the overlaid path does not pass through is a symlink to the
 /// pristine tree; only the directories along `dest` are real, and the overlaid
 /// name itself is never linked, so the copy at the end always creates a fresh
-/// file and can never write through into `artifacts/`.
+/// file and can never write through into the committed tree.
 fn overlay_world(dest: &str, fixture: &str) -> assert_fs::TempDir {
     let temp = assert_fs::TempDir::new().expect("temp dir");
-    let mut source = crate_dir().join("artifacts");
+    let base = if dest.starts_with("cases/") {
+        "catalogue"
+    } else {
+        "artifacts"
+    };
+    let mut source = crate_dir().join(base);
     let mut target = temp.path().to_owned();
 
     for component in Path::new(dest) {
         std::fs::create_dir_all(&target).expect("mkdir");
-        // A destination directory the pristine tree lacks (`workflows/zz/`,
+        // A destination directory the pristine tree lacks (`cases/zz/`,
         // where the Arazzo defects land) has nothing to link beside the overlay.
         let siblings: Vec<std::io::Result<std::fs::DirEntry>> = if source.is_dir() {
             std::fs::read_dir(&source).expect("read_dir").collect()
