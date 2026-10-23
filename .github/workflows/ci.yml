@@ -164,8 +164,11 @@ jobs:
     name: guards
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # issues: read is for the report-number guard, which asks the tracker
+    # whether each citation's `report:` names an upstream-report issue.
     permissions:
       contents: read
+      issues: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -195,6 +198,14 @@ jobs:
 
       - name: TODOs name their issue — seeded-violation proof
         run: bash scripts/checks/todo-issue-refs.sh --self-test
+
+      - name: Every citation's report number names an upstream report
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/checks/report-refs.sh
+
+      - name: Report numbers — stub-tracker proof
+        run: bash scripts/checks/report-refs.sh --self-test
 
       # console.veredictum.eu is the official conformance instrument (#388), so
       # no reader-facing surface may call it a demo or a sandbox. The words are
