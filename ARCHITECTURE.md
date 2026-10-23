@@ -2985,6 +2985,18 @@ every exchange as HAR 1.2, and judges each criterion under the condition
 profile. A vendor may run the same documents through Redocly Respect or any
 other Arazzo tool as a second opinion; that result is never a verdict.
 
+Every row ends in one of four statuses: *passed*, *failed*, *errored* or
+*skipped*. Only *failed* counts against the vendor. A *skipped* row was not
+run, and always carries one reason from a closed list, with its citation:
+
+| Reason | When |
+|---|---|
+| `not-claimed` | the statement does not claim the case's capability |
+| `option-not-selected` | the statement selects the other branch of a register option |
+| `version-out-of-range` | the case applies to spec versions the statement does not declare |
+| `format-not-claimed` | the case needs a format outside the claimed tech profile |
+| `extension-not-offered` | the case drives an extension route the vendor does not declare |
+
 Every red row in `results.json` and in the rendered report carries four parts,
 derived from the case and the recording with nothing extra to author:
 
@@ -3009,8 +3021,8 @@ run the instrument in their own pipeline and see the result where they work:
 
 | View | Mapping | Shown by |
 |---|---|---|
-| JUnit XML | a workflow is a `testsuite`, a row a `testcase`; *failed* is `<failure>`, *errored* is `<error>`, *not-applicable* and *skipped* are `<skipped>` with their citation | GitHub (through a JUnit report action), GitLab, Jenkins and most CI systems |
-| CTRF 0.2.0 JSON | *passed*, *failed* and *skipped* map directly; *errored* is `other`; *not-applicable* is `skipped`; the case id, citation and register link go in the test's `extra` object | `ctrf-io/github-test-reporter`: a GitHub job summary and pull request comment |
+| JUnit XML | a workflow is a `testsuite`, a row a `testcase`; *failed* is `<failure>`, *errored* is `<error>`, *skipped* is `<skipped>` with its reason and citation | GitHub (through a JUnit report action), GitLab, Jenkins and most CI systems |
+| CTRF 0.2.0 JSON | *passed*, *failed* and *skipped* map directly; *errored* is `other`; the case id, skip reason, citation and register link go in the test's `extra` object | `ctrf-io/github-test-reporter`: a GitHub job summary and pull request comment |
 | Markdown summary | the rendered report, written to `$GITHUB_STEP_SUMMARY` when present | GitHub Actions job summary, with no third-party action |
 
 In every view, the failure message is the four-part explanation above, so the
