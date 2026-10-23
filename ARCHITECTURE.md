@@ -3118,12 +3118,15 @@ against the released grammar, `specs/openehr/QUERY/docs/AQL/grammar/AqlParser.g4
 and `AqlLexer.g4`, so a mistyped query can never become a false failure. The
 parsing is done with `openehr-query`, a Rust implementation of that grammar
 (BUSL-1.1, used here with its owner's approval, through a licence exception
-scoped to that crate alone in `deny.toml`). Because FerroEHR, a server this
-instrument judges, is built on the same parser, that parser is never the only
-authority: the parser check is itself tested against the worked queries of
-the release this repository pins, `specs/openehr/QUERY/docs/AQL_examples/`,
-which `openehr-query` vendors at a different commit, and a query whose
-validity rests on a reading of the grammar cites the grammar rule. Queries that the grammar refuses are kept as their own
+scoped to that crate alone in `deny.toml`). It is the one AQL parser this
+instrument uses. Because FerroEHR, a server this instrument judges, is built on
+the same parser, the grammar stays the authority over it: the parser check is
+tested against the worked queries of the release this repository pins,
+`specs/openehr/QUERY/docs/AQL_examples/` (which `openehr-query` vendors at a
+different commit), and a query whose validity rests on a reading of the
+grammar cites the grammar rule. When that test shows the parser disagreeing
+with the released grammar, `openehr-query` is fixed; the instrument never
+works around it. Queries that the grammar refuses are kept as their own
 refusal cases.
 
 **External query collections.** A query and dataset collection maintained
