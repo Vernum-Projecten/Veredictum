@@ -462,3 +462,55 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
               section: HTTP status codes
               quote: "The request was well-formed but was unable to be followed due to semantic errors"
+
+  - workflowId: create_ehr-ehr_status_reference_type
+    summary: A created EHR references its EHR_STATUS through the versioned object
+    description: >-
+      Creates an EHR and asks for the full resource back. The EHR's
+      ehr_status reference names the type VERSIONED_EHR_STATUS.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/ehr.adoc
+      section: EHR Class
+      quote: "__Ehr_status_valid__: `ehr_status.type.is_equal(\"VERSIONED_EHR_STATUS\")`"
+    steps:
+      - stepId: create
+        description: Create an EHR and check the type its ehr_status reference names.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+          - context: $response.body#/ehr_status/type
+            type: regex
+            condition: '^VERSIONED_EHR_STATUS$'
+
+  - workflowId: create_ehr-ehr_access_reference_type
+    summary: A created EHR references its EHR_ACCESS through the versioned object
+    description: >-
+      Creates an EHR and asks for the full resource back. The EHR's
+      ehr_access reference names the type VERSIONED_EHR_ACCESS.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/ehr.adoc
+      section: EHR Class
+      quote: "__Ehr_access_valid__: `ehr_access.type.is_equal (\"VERSIONED_EHR_ACCESS\")`"
+    steps:
+      - stepId: create
+        description: Create an EHR and check the type its ehr_access reference names.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+          - context: $response.body#/ehr_access/type
+            type: regex
+            condition: '^VERSIONED_EHR_ACCESS$'

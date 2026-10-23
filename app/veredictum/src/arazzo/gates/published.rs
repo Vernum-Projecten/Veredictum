@@ -34,6 +34,79 @@ pub const WORKFLOW_ID_PATTERN: &str = "^[A-Za-z0-9_\\-]+$";
 /// `<document>/<workflowId>`, a case id.
 pub const CASE_ID_PATTERN: &str = "^[A-Za-z0-9_\\-]+/[A-Za-z0-9_\\-]+$";
 
+/// The serde tokens of a closed vocabulary.
+fn tokens<T: serde::Serialize>(all: &[T]) -> Vec<Value> {
+    all.iter()
+        .map(|v| serde_json::to_value(v).unwrap_or(Value::Null))
+        .collect()
+}
+
+/// One `x-veredictum-check` judge: `judge` fixed, `context` required, and
+/// exactly the arguments [`crate::arazzo::check::Check`] reads.
+fn judge_def(judge: &str, required: &[&str], properties: &Value) -> Value {
+    let mut all = json!({
+        "judge": { "const": judge },
+        "context": {
+            "description": "The runtime expression the judged value is read from.",
+            "type": "string",
+            "pattern": "^\\$"
+        }
+    });
+    if let (Some(all), Some(more)) = (all.as_object_mut(), properties.as_object()) {
+        all.extend(more.clone());
+    }
+    let mut needed = vec!["judge", "context"];
+    needed.extend_from_slice(required);
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": needed,
+        "properties": all
+    })
+}
+
+/// The `x-veredictum-check` object: one of the three judges. A string value
+/// starting with `$` is a runtime expression; any other value is a literal.
+fn check_def() -> Value {
+    let expression_or =
+        |literal: Value| json!({ "anyOf": [{ "type": "string", "pattern": "^\\$" }, literal] });
+    json!({
+        "oneOf": [
+            judge_def("result_set", &["match"], &json!({
+                "match": { "enum": tokens(crate::vocab::ResultSetMatch::ALL) },
+                "rows": expression_or(json!({ "type": "array", "items": { "type": "array" } })),
+                "count": { "type": "integer", "minimum": 0 },
+                "columns": { "type": "array", "items": { "type": "string" } },
+                "cells": { "enum": tokens(crate::vocab::CellComparison::ALL) }
+            })),
+            judge_def("equivalent", &["to"], &json!({
+                "to": { "description": "The document the context must equal: a literal, or a runtime expression." },
+                "ignoring": {
+                    "description": "RM paths ignored on both sides; `**` matches any depth.",
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1 }
+                }
+            })),
+            judge_def("signature", &[], &json!({
+                "present": { "type": "boolean" },
+                "verifiable": { "type": "boolean" },
+                "equals": { "type": "string" },
+                "distinct_from": { "type": "string" }
+            })),
+            {
+                "description": "The step's response body validates against the schema its operation declares for the served status and media type. It runs only where a criterion asks for it, and that criterion cites the OAS element.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["judge", "against"],
+                "properties": {
+                    "judge": { "const": "schema" },
+                    "against": { "enum": tokens(crate::arazzo::check::SchemaSource::ALL) }
+                }
+            }
+        ]
+    })
+}
+
 /// The `x-veredictum-cite` and `x-veredictum-check` extension objects.
 #[must_use]
 pub fn extensions_schema() -> Value {
@@ -75,14 +148,7 @@ pub fn extensions_schema() -> Value {
                     }
                 }
             },
-            // TODO(#600): close the `check` object once each judge's arguments are defined.
-            "check": {
-                "type": "object",
-                "required": ["judge"],
-                "properties": {
-                    "judge": { "enum": ["result_set", "equivalent", "signature"] }
-                }
-            }
+            "check": check_def()
         }
     })
 }

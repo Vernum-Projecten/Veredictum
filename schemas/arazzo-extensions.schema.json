@@ -39,19 +39,144 @@
       }
     },
     "check": {
-      "type": "object",
-      "required": [
-        "judge"
-      ],
-      "properties": {
-        "judge": {
-          "enum": [
-            "result_set",
-            "equivalent",
-            "signature"
-          ]
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "judge",
+            "context",
+            "match"
+          ],
+          "properties": {
+            "judge": {
+              "const": "result_set"
+            },
+            "context": {
+              "description": "The runtime expression the judged value is read from.",
+              "type": "string",
+              "pattern": "^\\$"
+            },
+            "match": {
+              "enum": [
+                "ordered",
+                "set",
+                "count",
+                "contains"
+              ]
+            },
+            "rows": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\$"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "array"
+                  }
+                }
+              ]
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "columns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "cells": {
+              "enum": [
+                "lexeme",
+                "instant"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "judge",
+            "context",
+            "to"
+          ],
+          "properties": {
+            "judge": {
+              "const": "equivalent"
+            },
+            "context": {
+              "description": "The runtime expression the judged value is read from.",
+              "type": "string",
+              "pattern": "^\\$"
+            },
+            "to": {
+              "description": "The document the context must equal: a literal, or a runtime expression."
+            },
+            "ignoring": {
+              "description": "RM paths ignored on both sides; `**` matches any depth.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "judge",
+            "context"
+          ],
+          "properties": {
+            "judge": {
+              "const": "signature"
+            },
+            "context": {
+              "description": "The runtime expression the judged value is read from.",
+              "type": "string",
+              "pattern": "^\\$"
+            },
+            "present": {
+              "type": "boolean"
+            },
+            "verifiable": {
+              "type": "boolean"
+            },
+            "equals": {
+              "type": "string"
+            },
+            "distinct_from": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "description": "The step's response body validates against the schema its operation declares for the served status and media type. It runs only where a criterion asks for it, and that criterion cites the OAS element.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "judge",
+            "against"
+          ],
+          "properties": {
+            "judge": {
+              "const": "schema"
+            },
+            "against": {
+              "enum": [
+                "oas"
+              ]
+            }
+          }
         }
-      }
+      ]
     }
   }
 }

@@ -2,16 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Drives every workflow of one Arazzo document against a running server
-//! under test, and prints one row per workflow.
+//! under test, or re-judges a recording of an earlier run, and prints one row
+//! per workflow row.
 //!
 //! The document is gated first, and a document with any finding is not run.
-//! A failed or errored row prints its four-part explanation with a short
-//! excerpt of the response body.
+//! A failed or errored row prints its four-part explanation. With `--out`,
+//! the results and the HAR recording are written there; the recording holds
+//! response bodies verbatim, so it belongs where the operator keeps the run.
 //!
 //! ```text
 //! cargo run --example arazzo_spike -- \
 //!     --base-url http://127.0.0.1:8080/ehrbase/rest/openehr/v1 \
-//!     --user alice --password secret
+//!     --user alice --password secret --out target/arazzo-run
+//! cargo run --example arazzo_spike -- --rejudge target/arazzo-run/recording.har
 //! ```
 
 use std::collections::BTreeMap;
@@ -20,15 +23,17 @@ use std::path::PathBuf;
 use base64::Engine;
 use clap::Parser;
 use veredictum::arazzo::document::ArazzoDocument;
-use veredictum::arazzo::evaluate::{RowStatus, RunConfig, run_workflow};
+use veredictum::arazzo::evaluate::{Plan, RunConfig, rejudge, run_document};
+use veredictum::arazzo::har::Har;
+use veredictum::arazzo::rows::{self, rows_path};
 use veredictum::exec::transport::HttpTransport;
 
 /// The command line of the example.
 #[derive(Debug, Parser)]
 struct Args {
     /// The base URL the OAS paths are appended to.
-    #[arg(long)]
-    base_url: String,
+    #[arg(long, required_unless_present = "rejudge")]
+    base_url: Option<String>,
     /// The basic-auth user, if the server needs one.
     #[arg(long)]
     user: Option<String>,
@@ -41,6 +46,12 @@ struct Args {
     /// The repository root citations are relative to.
     #[arg(long, default_value = ".")]
     repo_root: PathBuf,
+    /// Where to write `results.json` and `recording.har`.
+    #[arg(long)]
+    out: Option<PathBuf>,
+    /// Re-judge this recording instead of driving a server.
+    #[arg(long)]
+    rejudge: Option<PathBuf>,
 }
 
 #[expect(
@@ -62,36 +73,49 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .file_name()
         .and_then(std::ffi::OsStr::to_str)
         .and_then(|file| file.strip_suffix(".arazzo.yaml"))
-        .unwrap_or("document");
-    let authorization = args.user.as_ref().map(|user| {
-        let pair = format!("{user}:{}", args.password);
-        format!(
-            "Basic {}",
-            base64::engine::general_purpose::STANDARD.encode(pair)
-        )
-    });
-    let config = RunConfig {
-        base_url: args.base_url.clone(),
-        authorization,
-    };
-    let mut transport = HttpTransport::new()?;
-    let mut tally: BTreeMap<String, usize> = BTreeMap::new();
+        .ok_or("the document's file name does not end in .arazzo.yaml")?;
+    let mut plan = Plan::default();
     for workflow in &document.description().workflows {
-        let run = run_workflow(
+        let path = rows_path(&args.document, &workflow.workflow_id);
+        if path.is_file() {
+            let case_id = format!("{name}/{}", workflow.workflow_id);
+            let rows = rows::load(&path, &case_id, workflow)?;
+            plan.rows.insert(workflow.workflow_id.clone(), rows);
+        }
+    }
+    let (results, recording) = if let Some(path) = &args.rejudge {
+        let recording = Har::read(path)?;
+        let results = rejudge(&document, name, &args.repo_root, None, &plan, &recording)?;
+        (results, None)
+    } else {
+        let authorization = args.user.as_ref().map(|user| {
+            let pair = format!("{user}:{}", args.password);
+            format!(
+                "Basic {}",
+                base64::engine::general_purpose::STANDARD.encode(pair)
+            )
+        });
+        let config = RunConfig {
+            base_url: args.base_url.clone().ok_or("--base-url is required")?,
+            authorization,
+            signing: None,
+        };
+        let mut transport = HttpTransport::new()?;
+        let (results, recording) = run_document(
             &document,
             name,
-            &workflow.workflow_id,
-            &BTreeMap::new(),
-            &config,
+            config,
+            &args.repo_root,
+            &plan,
             &mut transport,
         )?;
-        let label = match run.status {
-            RowStatus::Skipped(_) => "SKIPPED".to_owned(),
-            other => other.to_string(),
-        };
-        *tally.entry(label).or_default() += 1;
-        println!("{run}");
-        if run.status != RowStatus::Passed {
+        (results, Some(recording))
+    };
+    let mut tally: BTreeMap<String, usize> = BTreeMap::new();
+    for row in &results.rows {
+        *tally.entry(row.status.to_string()).or_default() += 1;
+        println!("{row}");
+        if row.explanation.is_some() || row.skip.is_some() {
             println!();
         }
     }
@@ -103,5 +127,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect::<Vec<_>>()
             .join(", ")
     );
+    if let Some(out) = &args.out {
+        std::fs::create_dir_all(out)?;
+        std::fs::write(out.join("results.json"), results.to_text()?)?;
+        if let Some(recording) = recording {
+            std::fs::write(out.join("recording.har"), recording.to_text()?)?;
+        }
+    }
     Ok(())
 }

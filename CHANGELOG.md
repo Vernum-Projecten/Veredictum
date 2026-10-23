@@ -50,6 +50,25 @@ version on.
   a gap with its tracking issue). `x-veredictum-cite` gains an optional
   `report` naming an `upstream-report` issue. Four schemas are published:
   `arazzo-extensions`, `arazzo-profile`, `arazzo-rows` and `arazzo-surface`.
+- The Arazzo evaluator (#600). It judges `jsonpath` criteria as RFC 9535
+  queries and `regex` criteria in the syntax ECMA-262 and the `regex` crate
+  share, refusing lookaround, backreferences and every construct only one
+  dialect has. It refuses `xpath` criteria with a typed error. The
+  `x-veredictum-check` judges `result_set`, `equivalent` and `signature`
+  reuse the engine's existing comparators. A fourth judge, `schema`, validates
+  a response against the schema its operation declares in the `-validation`
+  OAS, translated from OpenAPI 3.0.3 into JSON Schema 2020-12. It runs only
+  on a criterion that asks for it and cites the OAS element, so an OAS schema
+  never outranks the RM. The EHR document gains two cases from RM `ehr.adoc`:
+  a created EHR's `ehr_status` and `ehr_access` references name
+  `VERSIONED_EHR_STATUS` and `VERSIONED_EHR_ACCESS`. A workflow runs once per row of
+  its `<workflowId>.rows.yaml` beside the document, under `reset_per_row` or
+  `single_pass`, with its `dependsOn` workflows as setup. Every exchange is
+  recorded as HAR 1.2 without the `Authorization` value, and re-judging a
+  recording writes the same results bytes. Rows files are read against the
+  published `arazzo-rows` schema, and `arazzo-results.schema.json` is new. The
+  verification pack gains three Arazzo recordings with adjudicated passed,
+  failed and errored verdicts.
 
 ### Changed
 
@@ -2422,5 +2441,3 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
 [0.1.0-alpha.5]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [0.1.0-alpha.4]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [0.1.0-alpha.3]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
-[0.1.0-alpha.2]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.0.1-alpha.1...v0.1.0-alpha.2
-[0.0.1-alpha.1]: https://github.com/rubentalstra/Veredictum/releases/tag/v0.0.1-alpha.1

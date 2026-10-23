@@ -124,6 +124,13 @@ roas-arazzo = { version = "=0.3.0", default-features = false, features = ["v1_1"
 # The option set roas-arazzo's `Validate::validate` takes; already in the
 # graph through roas-arazzo, at the version it resolves.
 enumset = "1.1.14"
+# The Arazzo `jsonpath` criterion: RFC 9535 queries over a response, the
+# JSONPath Arazzo 1.1.0 names (https://docs.rs/serde_json_path/0.7.2).
+serde_json_path = "0.7.2"
+# The condition profile's regex dialect: the parser behind `regex`, already in
+# the graph through it, read for its syntax tree so a pattern outside the
+# ECMA-262 and Rust shared subset is refused by construct.
+regex-syntax = "0.8.11"
 
 [dev-dependencies]
 assert_fs = "1"

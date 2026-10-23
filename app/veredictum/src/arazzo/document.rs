@@ -18,14 +18,15 @@ use std::path::{Path, PathBuf};
 use enumset::EnumSet;
 use roas_arazzo::common::reusable::ReusableOr;
 use roas_arazzo::v1_1::{
-    Criterion, CriterionKind, CriterionType, Description, ParameterLocation, SourceType, Step,
-    ValueOrSelector, Workflow,
+    Criterion, CriterionKind, CriterionType, Description, ExpressionKind, ExpressionType,
+    ParameterLocation, SourceType, Step, ValueOrSelector, Workflow,
 };
 use roas_arazzo::validation::Validate;
 use serde_json::Value;
 
+use crate::arazzo::check::Check;
 use crate::arazzo::cite::{CITE_KEY, Citation, CiteError, QuoteChecker, citation_of};
-use crate::arazzo::expr::{Expr, ParseError, RegexCriterion, SimpleCondition};
+use crate::arazzo::expr::{Expr, JsonPathCriterion, ParseError, RegexCriterion, SimpleCondition};
 use crate::arazzo::gates::Gate;
 use crate::arazzo::gates::profile::{ProfileHeader, RegexBreach, lint_regex};
 use crate::arazzo::source::{
@@ -237,17 +238,23 @@ impl ArazzoDocument {
             quotes.as_deref_mut(),
             findings,
         );
-        if !workflow.depends_on.is_empty()
-            || !workflow.success_actions.is_empty()
+        for id in &workflow.depends_on {
+            if self.workflow(id).is_none() {
+                findings.push(Finding::new(
+                    &at,
+                    FindingKind::Unsupported(format!(
+                        "dependsOn `{id}`, which is not a workflow of this document"
+                    )),
+                ));
+            }
+        }
+        if !workflow.success_actions.is_empty()
             || !workflow.failure_actions.is_empty()
-            || !workflow.outputs.is_empty()
             || !workflow.parameters.is_empty()
         {
             findings.push(Finding::new(
                 &at,
-                FindingKind::Unsupported(
-                    "dependsOn, actions, outputs and parameters on a workflow".to_owned(),
-                ),
+                FindingKind::Unsupported("actions and parameters on a workflow".to_owned()),
             ));
         }
         for step in &workflow.steps {
@@ -396,22 +403,42 @@ fn is_workflow_id(id: &str) -> bool {
 /// context expression.
 fn criterion_profile(criterion: &Criterion) -> Vec<FindingKind> {
     let mut out = Vec::new();
+    if matches!(
+        criterion.type_,
+        Some(CriterionType::Simple(CriterionKind::Regex))
+    ) && let Err(breach) = lint_regex(&criterion.condition)
+    {
+        out.push(FindingKind::Regex(breach));
+        return out;
+    }
     match CriterionPlan::of(criterion) {
         Err(kind) => out.push(kind),
-        Ok(CriterionPlan::Regex(_)) => {
+        Ok(plan) => plan_profile(&plan, criterion, &mut out),
+    }
+    out
+}
+
+/// The profile findings of one planned criterion; a checked criterion is
+/// linted through the condition its judge runs behind.
+fn plan_profile(plan: &CriterionPlan, criterion: &Criterion, out: &mut Vec<FindingKind>) {
+    match plan {
+        CriterionPlan::Regex(_) => {
             if let Err(breach) = lint_regex(&criterion.condition) {
                 out.push(FindingKind::Regex(breach));
             }
         }
-        Ok(CriterionPlan::Simple(_)) => {
+        CriterionPlan::Simple(_) => {
             if let Some(context) = &criterion.context
                 && let Err(error) = Expr::parse(context)
             {
                 out.push(FindingKind::Profile(error));
             }
         }
+        // NOTE: Arazzo 1.1.0 §JSONPath Conditions; `JsonPathCriterion::parse` already refused a
+        // query that is not RFC 9535 and a context that does not parse.
+        CriterionPlan::JsonPath(_) => {}
+        CriterionPlan::Checked(inner, _) => plan_profile(inner, criterion, out),
     }
-    out
 }
 
 /// Reads and, when a checker is supplied, checks the citation at one
@@ -488,6 +515,11 @@ pub enum CriterionPlan {
     Simple(SimpleCondition),
     /// A `regex` condition over a context.
     Regex(RegexCriterion),
+    /// An RFC 9535 `jsonpath` condition over a context.
+    JsonPath(JsonPathCriterion),
+    /// A condition that must hold for its `x-veredictum-check` judge to run;
+    /// the criterion holds when both do.
+    Checked(Box<CriterionPlan>, Check),
 }
 
 impl CriterionPlan {
@@ -496,34 +528,51 @@ impl CriterionPlan {
     /// # Errors
     /// The [`FindingKind`] that refuses it.
     pub fn of(criterion: &Criterion) -> Result<Self, FindingKind> {
-        if criterion
-            .extensions
-            .as_ref()
-            .is_some_and(|ext| ext.contains_key(CHECK_KEY))
-        {
-            // TODO(#600): drive the `result_set`, `equivalent` and `signature` judges.
-            return Err(FindingKind::Unsupported(format!("`{CHECK_KEY}`")));
+        let condition = Self::condition(criterion).map_err(FindingKind::Profile)?;
+        match criterion.extensions.as_ref().and_then(|e| e.get(CHECK_KEY)) {
+            None => Ok(condition),
+            Some(value) => Check::parse(value)
+                .map(|check| Self::Checked(Box::new(condition), check))
+                .map_err(FindingKind::Profile),
         }
+    }
+
+    fn condition(criterion: &Criterion) -> Result<Self, ParseError> {
+        let context = |kind: &str| {
+            criterion
+                .context
+                .as_deref()
+                .ok_or_else(|| ParseError::MissingContext(kind.to_owned()))
+        };
+        let jsonpath = || {
+            JsonPathCriterion::parse(context("jsonpath")?, &criterion.condition).map(Self::JsonPath)
+        };
         match &criterion.type_ {
             None | Some(CriterionType::Simple(CriterionKind::Simple)) => {
-                SimpleCondition::parse(&criterion.condition)
-                    .map(Self::Simple)
-                    .map_err(FindingKind::Profile)
+                SimpleCondition::parse(&criterion.condition).map(Self::Simple)
             }
             Some(CriterionType::Simple(CriterionKind::Regex)) => {
-                let Some(context) = &criterion.context else {
-                    return Err(FindingKind::Model(
-                        "a regex criterion needs a context".to_owned(),
-                    ));
-                };
-                RegexCriterion::parse(context, &criterion.condition)
-                    .map(Self::Regex)
-                    .map_err(FindingKind::Profile)
+                RegexCriterion::parse(context("regex")?, &criterion.condition).map(Self::Regex)
             }
-            // TODO(#600): evaluate `jsonpath` (RFC 9535) and `xpath` criteria.
-            Some(other) => Err(FindingKind::Unsupported(format!(
-                "criterion type {other:?}"
-            ))),
+            Some(CriterionType::Simple(CriterionKind::Jsonpath)) => jsonpath(),
+            Some(CriterionType::Expression(expression))
+                if expression.type_ == ExpressionKind::Jsonpath
+                    && expression.version == "rfc9535" =>
+            {
+                jsonpath()
+            }
+            // TODO(#637): judge `xpath` criteria once a vetted XPath 3.1 engine is chosen.
+            Some(
+                CriterionType::Simple(CriterionKind::Xpath)
+                | CriterionType::Expression(ExpressionType {
+                    type_: ExpressionKind::Xpath,
+                    ..
+                }),
+            ) => Err(ParseError::XPath(criterion.condition.clone())),
+            Some(CriterionType::Expression(expression)) => Err(ParseError::ExpressionType {
+                kind: format!("{:?}", expression.type_).to_lowercase(),
+                version: expression.version.clone(),
+            }),
         }
     }
 }
@@ -846,6 +895,87 @@ mod tests {
             vec![FindingKind::Regex(RegexBreach::Lookaround(
                 "^(?=a){$inputs.ehr_id}$".to_owned()
             ))]
+        );
+    }
+
+    fn with_criterion(criterion: &str) -> String {
+        workflow(&cited(), "", "$statusCode == 404")
+            .replace("          - condition: $statusCode == 404\n", criterion)
+    }
+
+    #[test]
+    fn a_seeded_jsonpath_outside_rfc_9535_or_without_context_is_refused() {
+        let good = with_criterion(
+            "          - context: $response.body\n            type: jsonpath\n            condition: \"$.ehr_id[?@ == '{$inputs.ehr_id}']\"\n",
+        );
+        let (dir, doc) = fixture(&good);
+        assert_eq!(kinds(&dir, &doc), Vec::new());
+        let bad = with_criterion(
+            "          - context: $response.body\n            type: jsonpath\n            condition: '$.a[?(@.b'\n",
+        );
+        let (dir, doc) = fixture(&bad);
+        assert!(matches!(
+            kinds(&dir, &doc).as_slice(),
+            [FindingKind::Profile(ParseError::JsonPath { .. })]
+        ));
+        let bare = with_criterion("          - type: jsonpath\n            condition: $.a\n");
+        let (dir, doc) = fixture(&bare);
+        assert!(
+            kinds(&dir, &doc)
+                .iter()
+                .any(|k| matches!(k, FindingKind::Profile(ParseError::MissingContext(_)))),
+            "{:?}",
+            kinds(&dir, &doc)
+        );
+    }
+
+    #[test]
+    fn a_seeded_xpath_criterion_is_refused() {
+        let text = with_criterion(
+            "          - context: $response.body\n            type: xpath\n            condition: /ehr\n",
+        );
+        let (dir, doc) = fixture(&text);
+        assert_eq!(
+            kinds(&dir, &doc),
+            vec![FindingKind::Profile(ParseError::XPath("/ehr".to_owned()))]
+        );
+    }
+
+    #[test]
+    fn a_seeded_check_is_linted_through_its_condition_and_its_judge() {
+        let checked = |extra: &str| {
+            with_criterion(&format!(
+                "          - condition: $statusCode == 200\n            x-veredictum-check: {{ judge: equivalent, context: $response.body, to: $inputs.ehr_id{extra} }}\n"
+            ))
+        };
+        let (dir, doc) = fixture(&checked(""));
+        assert_eq!(kinds(&dir, &doc), Vec::new());
+        let (dir, doc) = fixture(&checked(", extra: 1"));
+        assert!(
+            kinds(&dir, &doc)
+                .iter()
+                .any(|k| matches!(k, FindingKind::Profile(ParseError::Check(_)))),
+            "{:?}",
+            kinds(&dir, &doc)
+        );
+    }
+
+    #[test]
+    fn a_seeded_schema_check_is_accepted_only_against_the_oas() {
+        let checked = |against: &str| {
+            with_criterion(&format!(
+                "          - condition: $statusCode == 200\n            x-veredictum-check: {{ judge: schema, against: {against} }}\n"
+            ))
+        };
+        let (dir, doc) = fixture(&checked("oas"));
+        assert_eq!(kinds(&dir, &doc), Vec::new());
+        let (dir, doc) = fixture(&checked("xsd"));
+        assert!(
+            kinds(&dir, &doc)
+                .iter()
+                .any(|k| matches!(k, FindingKind::Profile(ParseError::Check(_)))),
+            "{:?}",
+            kinds(&dir, &doc)
         );
     }
 

@@ -20,6 +20,7 @@
 )]
 
 mod arazzo_catalogue;
+mod arazzo_pack;
 mod artifact_gates;
 mod bench_engine;
 mod bench_manifest;
