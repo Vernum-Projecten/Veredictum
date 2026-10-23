@@ -82,7 +82,7 @@ catalogue-expected against SUT-observed. The full law is
 
 | Suspect | What it means | Fix path |
 |---|---|---|
-| **The SUT** | the server under test violates the spec | a defect report to that CDR, with the reproduced exchange and the spec citation. Never a change here |
+| **The SUT** | the server under test violates the spec | the attribution recorded where it was found, with the reproduced exchange and the spec citation. Never a change here, and never a report filed outside this repository (`.claude/rules/cnf-triage.md`) |
 | **The runner machinery** | the server behaved correctly and `app/veredictum/src/**` misdrove the case or misjudged the response | fix the runner module. Those rows were inconclusive, never SUT failures |
 | **The catalogue** | the hand-authored expectation is wrong against the spec | edit the artifact, with a new spec-cited source for the corrected expectation |
 
