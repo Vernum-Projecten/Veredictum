@@ -43,18 +43,19 @@ gh api graphql \
   -f query='query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { pinnedIssues(first: 3) { nodes { issue { number title } } } } }' \
   -f owner="${repo_nwo%%/*}" -f name="${repo_nwo##*/}" \
   --jq '.data.repository.pinnedIssues.nodes[].issue | "#\(.number)  \(.title)"' 2>&1 || true
-echo "--- open (child-of = sub-issue; {k/n} = sub-issue progress; BLOCKED-by = has an open blocker) ---"
-# One batched GraphQL call yields each open issue's labels, milestone, parent,
-# sub-issue progress, and open blockers/blocks — so the tracker shows work
+echo "--- open (<Type/Priority>, ? when unset; child-of = sub-issue; {k/n} = sub-issue progress; BLOCKED-by = has an open blocker) ---"
+# One batched GraphQL call yields each open issue's type and Priority field,
+# labels, milestone, parent, sub-issue progress, and open blockers/blocks — so the tracker shows work
 # structure, not just a flat list. Falls back gracefully if gh/GraphQL fails.
 gh api graphql \
-  -f query='query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { issues(first: 100, states: OPEN, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { number title labels(first: 20) { nodes { name } } milestone { title } parent { number } subIssuesSummary { total completed } blockedBy(first: 30) { nodes { number state } } blocking(first: 30) { nodes { number state } } } } } }' \
+  -f query='query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { issues(first: 100, states: OPEN, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { number title issueType { name } issueFieldValues(first: 10) { nodes { ... on IssueFieldSingleSelectValue { field { ... on IssueFieldSingleSelect { name } } value } } } labels(first: 20) { nodes { name } } milestone { title } parent { number } subIssuesSummary { total completed } blockedBy(first: 30) { nodes { number state } } blocking(first: 30) { nodes { number state } } } } } }' \
   -f owner="${repo_nwo%%/*}" -f name="${repo_nwo##*/}" \
   --jq '.data.repository.issues.nodes[]
+    | ((.issueType.name // "?") + "/" + ([.issueFieldValues.nodes[] | select(.field.name == "Priority") | .value] | first // "?")) as $tp
     | ([.labels.nodes[].name] | join(", ")) as $labels
     | ([.blockedBy.nodes[] | select(.state == "OPEN") | "#\(.number)"]) as $b
     | ([.blocking.nodes[]  | select(.state == "OPEN") | "#\(.number)"]) as $k
-    | "#\(.number)  \(.title)  [\($labels)]"
+    | "#\(.number)  \(.title)  <\($tp)>  [\($labels)]"
       + (if .milestone then "  (\(.milestone.title))" else "" end)
       + (if .parent then "  child-of #\(.parent.number)" else "" end)
       + (if .subIssuesSummary.total > 0 then "  {\(.subIssuesSummary.completed)/\(.subIssuesSummary.total)}" else "" end)

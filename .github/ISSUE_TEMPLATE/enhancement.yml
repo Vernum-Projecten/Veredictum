@@ -3,7 +3,7 @@
 
 name: Enhancement Request
 description: Request new or extended functionality in Veredictum
-labels: ["enhancement"]
+type: Feature
 body:
   - type: textarea
     id: contract

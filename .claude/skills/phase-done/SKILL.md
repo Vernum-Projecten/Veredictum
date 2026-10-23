@@ -62,7 +62,9 @@ exist is worse than no step, because it reports green.
    the decisions with their specification citations, the gate results, and what
    was deliberately left out with its follow-up issue numbers. The pull-request
    description and the issue thread are the build record — there is no design-doc
-   layer.
+   layer. A follow-up is filed with `scripts/gh/fields.sh new <type> <priority>
+   <effort> …`, so it carries its type and its `Priority` and `Effort` fields
+   from the start; type and priority are never labels.
 
 8. **Post the handoff comment on the issue** (`gh issue comment <n>`): where
    things stand at close, what was left out and where it is tracked, and what a

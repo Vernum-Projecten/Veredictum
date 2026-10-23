@@ -24,8 +24,13 @@ project-board move, deferred at the split, is back since #1 landed the board.
 
 1. **Read the tracker.** `gh issue list --state open` — the SessionStart dump
    already annotates each issue with `{k/n}` sub-issue progress, `child-of
-   #parent`, and open `BLOCKED-by` / `blocks` edges. Take the pinned issue, or
-   the issue the user named.
+   #parent`, and open `BLOCKED-by` / `blocks` edges, and `<Type/Priority>`
+   from the native issue type and the organisation's `Priority` field. Take
+   the issue the user named, else the pinned issue, else the next by
+   **Priority**: `Urgent`, then `High`, `Medium`, `Low`, and oldest first
+   within a priority. Effort is an estimate and never reorders the pick. An
+   issue shown `<?/?>` has no type or priority yet: set both with
+   `scripts/gh/fields.sh` before planning it, so the order stays honest.
 
    **Respect relationships** (`.claude/rules/issue-relationships.md`): do NOT
    pick an issue shown `BLOCKED-by` an open issue — surface its blocker as the

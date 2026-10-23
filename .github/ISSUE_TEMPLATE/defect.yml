@@ -3,7 +3,7 @@
 
 name: Bug Report
 description: Report a defect in Veredictum (a mis-judged case, a wrong expectation, a crash)
-labels: ["bug"]
+type: Bug
 body:
   - type: markdown
     attributes:

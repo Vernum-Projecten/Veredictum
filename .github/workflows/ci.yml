@@ -240,6 +240,13 @@ jobs:
       - name: The hosted deploy script — seeded-violation proof
         run: bash scripts/checks/hosted-deploy-script.sh --self-test
 
+      # `scripts/gh/fields.sh` is the one write path for an issue's type and its
+      # Priority and Effort fields (#588). The self-test drives it against a stub
+      # gh, so it needs no token: an organisation that answers, the empty answer
+      # a workflow token gets, a refused create, and every usage error.
+      - name: The issue-fields helper — stub-driven self-test
+        run: bash scripts/gh/fields.sh --self-test
+
       # The console's engine pin is ONE value, the workspace engine version
       # (#179). The root manifest's `[patch.crates-io]` only redirects the
       # console's exact crates.io pin to `app/veredictum` while the two agree,

@@ -217,4 +217,4 @@ jobs:
         with:
           title: "security(image): the published image carries fixable HIGH/CRITICAL findings"
           body-file: body.md
-          labels: bug,P1
+          type: Bug

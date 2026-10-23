@@ -42,3 +42,7 @@ apply" part so a future session can act on it without re-deriving it.
   seam that makes a re-judgement meaningful, and the two ways a gate can pass
   while doing nothing
 - [The hosted instrument](hosted-instrument-box.md) — console.veredictum.eu is the OFFICIAL instrument (#388) on a Hetzner box (owner ruling); hosting is the owner's call and I proposed migrations twice before being told; no signing key on the host
+- [Native issue types and priority](native-issue-types-and-priority.md) —
+  owner ruling 2026-10-23 (#588): type, priority and effort are the native
+  issue type and the organisation's Priority and Effort fields, written with
+  `scripts/gh/fields.sh`; the `bug`, `enhancement` and `P0`–`P3` labels retired

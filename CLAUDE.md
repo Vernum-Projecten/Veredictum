@@ -242,9 +242,20 @@ express decomposition, `blocked-by` expresses real in-repository sequencing, and
 neither is ever restated in an issue body — the panel is canonical and a body
 copy rots on the first change. Full policy: `.claude/rules/issue-relationships.md`.
 
-**Labels.** Exactly one type label per issue, mapped to the conventional-commit
-types: `bug` for fix, `enhancement` for feat, `documentation` for docs, plus
-`chore`, `refactor`, `perf`, `ci`. Priority is `P0` through `P3`. The component
+**Type, priority and effort are issue fields, never labels** (owner ruling
+2026-10-23, #588). The Vernum-Projecten organisation defines them: the native
+issue type (`Bug`, `Feature`, `Task`), the `Priority` issue field (`Urgent`,
+`High`, `Medium`, `Low`) and the `Effort` issue field (`High`, `Medium`,
+`Low`). `scripts/gh/fields.sh` is the one sanctioned write path (`type`,
+`priority`, `effort`, `show`), and `scripts/gh/fields.sh new <type> <priority>
+<effort> <gh issue create args…>` files an issue that carries all three from
+the start. Every open issue has a type and a priority. Priority decides pickup
+order, oldest first within a priority; Effort is an estimate and never reorders
+anything.
+
+**Labels.** A `Bug` or a `Feature` carries no work-kind label. A `Task` carries
+exactly one, mapped to the conventional-commit types: `documentation`, `chore`,
+`refactor`, `perf`, `ci` or `test`. The component
 an issue adjudicates against carries a `spec:` label (`spec:RM`, `spec:BASE`,
 `spec:AM`, `spec:QUERY`, `spec:TERM`, `spec:ITS`, `spec:SM`, `spec:CNF`).
 `question` routes a question, `on-hold` marks work parked by owner decision, and
