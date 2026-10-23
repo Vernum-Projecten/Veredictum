@@ -146,8 +146,9 @@ transient by design.
 every step. Two callers reach it, on exactly two occasions:
 
 1. **A real release.** The `hosted` job in `release.yml`, after the scan-and-tag
-   leg applies the image tags. A pre-release moves no `:latest`, so it deploys
-   nothing.
+   leg applies the image tags. While Veredictum is beta, every release is a
+   pre-release (`1.0.0-beta.N`) and `:latest` moves on every one, so every
+   beta deploys here.
 2. **A manual `workflow_dispatch`** of `.github/workflows/hosted-deploy.yml`.
 
 Both callers are a checkout plus the action, so they run identical steps. The

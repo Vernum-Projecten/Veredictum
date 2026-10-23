@@ -727,7 +727,9 @@ jobs:
   hosted:
     name: hosted console
     needs: [plan, scan-and-tag]
-    if: needs.plan.outputs.is-release == 'true'
+    # Betas deploy too: while Veredictum is beta, `:latest` moves on every
+    # release, pre-releases included (build-image.yml), so the box follows them.
+    if: needs.plan.outputs.is-release == 'true' || needs.plan.outputs.is-prerelease == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # The environment's own protection rules are what stands in front of a key
@@ -847,7 +849,6 @@ jobs:
         env:
           TAG: ${{ needs.plan.outputs.tag }}
           VERSION: ${{ needs.plan.outputs.version }}
-          IS_RELEASE: ${{ needs.plan.outputs.is-release }}
           DIGEST: ${{ needs.image.outputs.digest }}
           R_PLAN: ${{ needs.plan.result }}
           R_DRAFT: ${{ needs.github-release.result }}
@@ -881,13 +882,8 @@ jobs:
           check "image" "$R_IMAGE"
           check "image smoke" "$R_IMAGE_SMOKE"
           check "scan + tag" "$R_SCAN_AND_TAG"
-          # A pre-release moves no `:latest`, so the hosted leg is SKIPPED by
-          # design there and skipped is the correct outcome, not a failure.
-          if [ "$IS_RELEASE" = "true" ]; then
-            check "hosted console" "$R_HOSTED"
-          else
-            rows="${rows}| hosted console | skipped — pre-release moves no \`:latest\` |"$'\n'
-          fi
+          # Every release deploys while Veredictum is beta, pre-releases included.
+          check "hosted console" "$R_HOSTED"
           check "crates.io" "$R_CRATE"
 
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
@@ -898,8 +894,7 @@ jobs:
             printf '| release | %s/releases/tag/%s |\n' "$repo_url" "$TAG"
             printf '| image | `ghcr.io/%s/veredictum:%s` `@%s` |\n' \
               "$GITHUB_REPOSITORY_OWNER" "$VERSION" "${DIGEST:-not pushed}"
-            printf '| `:latest` moved | %s |\n' \
-              "$([ "$IS_RELEASE" = "true" ] && echo yes || echo 'no — pre-release')"
+            printf '| `:latest` moved | yes |\n'
             printf '| crate | https://crates.io/crates/veredictum/%s |\n' "$VERSION"
             printf '\n'
             if [ "$fail" != 0 ]; then

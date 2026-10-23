@@ -444,14 +444,18 @@ refuses to publish until every expected asset is attached, then flips the draft
 — last, because publication freezes the asset set. In parallel the image binary
 compiles natively per architecture, the multi-architecture image pushes BY
 DIGEST, a smoke run drives that digest, Trivy scans both variants, and only then
-do the tags apply, `:latest` among them for a non-pre-release. `publish-crate`
+do the tags apply, `:latest` among them on every release while Veredictum is
+beta. `publish-crate`
 runs last of all and pauses for the `crates-io` environment's reviewer, so that
 approval blocks nothing else. `announce` asserts every leg landed and prints the
 exact recovery per leg.
 
 **Two facts that are easy to get wrong.** A pre-release is a `v*` tag with a `-`
-suffix and moves no release pointer; the rule has one definition,
-`.github/actions/release-kind`. And crates.io Trusted Publishing matches the
+suffix; the rule has one definition, `.github/actions/release-kind`. While
+Veredictum is beta (`1.0.0-beta.N`), a pre-release still moves `:latest` and
+deploys to the hosted instrument, because there is no stable line yet; when
+the owner calls it stable, `build-image.yml` restricts `:latest` to stable
+tags again. And crates.io Trusted Publishing matches the
 OIDC `workflow_ref` claim, which names the CALLING workflow for a job inside a
 reusable workflow — so the publisher configuration must name `release.yml`
 itself, beside the entry for the out-of-band `publish-crates.yml` lane, and the

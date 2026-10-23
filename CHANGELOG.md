@@ -34,6 +34,12 @@ version on.
 
 ### Changed
 
+- While Veredictum is beta, every release is a pre-release (`1.0.0-beta.N`),
+  and the image's `:latest` tag moves on every release, pre-releases included,
+  so `:latest` is always the newest beta. The hosted instrument follows it, so
+  every beta deploys to console.veredictum.eu (#627). When Veredictum is
+  declared stable, `:latest` returns to stable releases only.
+
 - quick-xml moves from 0.41 to 0.42 in the engine and the fuzz workspace,
   superseding #548. The library now hands out element names, attribute values
   and text as `&str`, so the canonical-XML comparison, the `xml_root`
