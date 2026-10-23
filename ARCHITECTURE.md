@@ -3004,7 +3004,7 @@ run, and always carries one reason from a closed list, with its citation:
 | Reason | When |
 |---|---|
 | `not-claimed` | the statement does not claim the case's capability |
-| `option-not-selected` | the statement selects the other branch of a register option |
+| `option-not-selected` | the statement selects the other branch of an option in `capabilities.yaml` |
 | `version-out-of-range` | the case applies to spec versions the statement does not declare |
 | `format-not-claimed` | the case needs a format outside the claimed tech profile |
 | `extension-not-offered` | the case drives an extension route the vendor does not declare |
@@ -3024,8 +3024,9 @@ Whose    the server: a failed row counts against the claimed capability
 ```
 
 The last line is one of: the server (*failed*); the instrument could not judge
-(*errored*, which never counts against the vendor); or a known spec gap, naming
-the register entry and its upstream report.
+(*errored*, which never counts against the vendor). Where the expectation rests
+on released text with a known defect, the row also names the `upstream-report`
+issue its citation carries in `report:`.
 
 **Exports for a vendor's CI.** `results.json` is the record; three views are
 derived from it, byte-deterministic like every other output, so a vendor can
@@ -3034,7 +3035,7 @@ run the instrument in their own pipeline and see the result where they work:
 | View | Mapping | Shown by |
 |---|---|---|
 | JUnit XML | a workflow is a `testsuite`, a row a `testcase`; *failed* is `<failure>`, *errored* is `<error>`, *skipped* is `<skipped>` with its reason and citation | GitHub (through a JUnit report action), GitLab, Jenkins and most CI systems |
-| CTRF 0.2.0 JSON | *passed*, *failed* and *skipped* map directly; *errored* is `other`; the case id, skip reason, citation and register link go in the test's `extra` object | `ctrf-io/github-test-reporter`: a GitHub job summary and pull request comment |
+| CTRF 0.2.0 JSON | *passed*, *failed* and *skipped* map directly; *errored* is `other`; the case id, skip reason, citation and report link go in the test's `extra` object | `ctrf-io/github-test-reporter`: a GitHub job summary and pull request comment |
 | Markdown summary | the rendered report, written to `$GITHUB_STEP_SUMMARY` when present | GitHub Actions job summary, with no third-party action |
 
 In every view, the failure message is the four-part explanation above, so the
@@ -3062,9 +3063,17 @@ vendor reads why a row is red without opening `results.json`.
 - **Rows**: every rows file validates and every row binds every required input.
 - **Surface coverage**: the released operations, their response branches and
   the negotiation headers, enumerated from the decomposed ITS-REST OAS, each
-  have a covering step or a `wire_surface.yaml` exception.
-- **Identity and links**: unique case ids, resolving register links and corpus
-  references, option tags that resolve to register entries.
+  have a covering step or a recorded gap that names its tracker issue. The
+  scope is declared, never inferred: a `surface.yaml` beside the workflows
+  lists the families converted so far, each as an API document plus an OAS
+  tag, so an unconverted family does not fail the build and a converted one
+  cannot silently lose coverage. A gap whose element is already covered is
+  refused as stale.
+- **Identity and links**: unique case ids, resolving payload references, and
+  option tags that resolve to options in `capabilities.yaml`. A citation's
+  `report:` is a positive issue number; checking that it names an
+  `upstream-report` issue needs the tracker, so it runs in CI rather than in
+  the offline `validate`.
 - **Claims**: capability-depth floors, claim completeness and
   `realization-scope`, as §8.13 defines them.
 
