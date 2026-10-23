@@ -39,7 +39,7 @@ a test suite that presumes its own correctness and questions the server.
 
 | Bin | What it means | Fix path |
 |---|---|---|
-| **SUT** | the server under test violates the spec | a defect report to that CDR's maintainers carrying the reproduced wire exchange and the spec citation. NEVER a change in this repository, and never a catalogue edit that hides it |
+| **SUT** | the server under test violates the spec | the attribution recorded on the pull request or issue that found it, carrying the reproduced wire exchange and the spec citation. NEVER a change in this repository, never a catalogue edit that hides it, and never a report filed outside it (below) |
 | **Runner machinery** | the SUT behaved correctly but `app/veredictum/src/**` misdrove the case or misjudged the response (driver, provisioning, resolver, outcome classification, comparator, verdicts) | fix the runner module; the affected rows were inconclusive, not SUT failures |
 | **Catalogue artifact** | the hand-authored schedule is wrong versus the spec (case core, operation binding, corpus, vocabulary) | edit the artifact WITH a new spec-cited source for the corrected expectation |
 
@@ -166,11 +166,20 @@ the narrative lives only on the issue.
   stays open only while something here is genuinely blocked on it, expressed
   as a native `blocked-by` edge. When it turns out to be a docs misreading it
   closes as refuted, its register entry is removed or re-grounded, and the
-  affected case becomes gating. When a report is filed on an openEHR channel
-  (Jira, or the spec repository), the returned key is recorded on the issue
-  without reopening it; when upstream later resolves one, file the inbound
-  `spec-update` issue with the closed report as its provenance, and reopen
-  only if the resolution requires changes here.
+  affected case becomes gating. A proposed fix to the released text is a
+  patch under `upstream/<openEHR repository>/`, named after the report. When
+  the owner files a report on an openEHR channel, the returned key is
+  recorded on the issue without reopening it; when upstream later resolves
+  one, file the inbound `spec-update` issue with the closed report as its
+  provenance, and reopen only if the resolution requires changes here.
+
+**Nothing is ever filed outside this repository** (owner ruling 2026-10-23):
+no issue, pull request or comment on any openEHR repository or channel, and
+none on another vendor's repository, EHRbase included. A server defect in
+another vendor's CDR is recorded on the pull request or issue that found it
+and goes no further. The single exception is the FerroHEALTH organisation,
+for a red row genuinely attributed to FerroEHR, and only with the owner's
+go-ahead for that report.
 - **Labels**: `upstream-report` plus `spec:<component>`, and
   `upstream-confirmed` once verified. The report's issue type is `Bug`, and
   its priority is the `Priority` issue field, both set with

@@ -52,10 +52,11 @@ evidence. You never edit files: findings only.
    governing section there and cite the file plus section in your report.
 2. **Everything else is a suspect. Three bins:**
    - **SUT defect** — the server under test violates the spec. The outcome is
-     a defect report to that CDR's maintainers, carrying the reproduced wire
-     exchange and the spec citation. Never a change in this repository. This
-     bin carries the highest evidence bar in the whole method: it is a public
-     claim about somebody else's product.
+     the attribution, recorded where the red row was found, carrying the
+     reproduced wire exchange and the spec citation. Never a change in this
+     repository, and never a report filed outside it. This bin carries the
+     highest evidence bar in the whole method: it is a claim about somebody
+     else's product.
    - **Runner machinery defect** — the server behaved correctly but `app/veredictum/src/**`
      misdrove or misjudged it: the HTTP driver, requires-provisioning, the
      `${…}` resolver, outcome classification (status ties, unmapped
@@ -133,8 +134,9 @@ Ranked findings, most severe first (wire-visible SUT defect > catalogue defect
    the replay for any SUT attribution.
 4. **Fix location** — file:line of the code or artifact to change and the fix
    path: a runner module fix, a binding or case edit with a new spec-cited
-   source, an ambiguity-register entry with a proposed disposition, or a
-   defect report drafted for the SUT's maintainers.
+   source, an ambiguity-register entry with a proposed disposition, or the
+   SUT attribution recorded here (never a report filed outside this
+   repository).
 
 Group identical root causes and state per case id. Close with an honest list of
 rows you did NOT fully adjudicate and why. Cite only the vendored specs or
