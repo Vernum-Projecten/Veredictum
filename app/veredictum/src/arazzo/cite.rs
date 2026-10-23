@@ -140,7 +140,8 @@ impl<'a> QuoteChecker<'a> {
     /// JSON Pointer when it starts with `/`, and the quote must occur in the
     /// string content of that element. Any other source is docs text:
     /// `section` must be the title of one of its headings, and the quote must
-    /// occur in the file.
+    /// occur under that heading, before the next heading of the same or a
+    /// higher level.
     ///
     /// # Errors
     /// The [`CiteError`] naming the first property that does not hold.
@@ -164,13 +165,12 @@ impl<'a> QuoteChecker<'a> {
         let haystack = if is_yaml {
             yaml_section_text(&text, source, &citation.section)?
         } else {
-            if !has_heading(&text, &citation.section) {
-                return Err(CiteError::SectionNotFound {
+            heading_section_text(&text, &citation.section).ok_or_else(|| {
+                CiteError::SectionNotFound {
                     file: source.to_owned(),
                     section: citation.section.clone(),
-                });
-            }
-            text
+                }
+            })?
         };
         if normalize_whitespace(&haystack).contains(&quote) {
             Ok(())
@@ -232,16 +232,25 @@ fn collect_strings(value: &Value, out: &mut String) {
     }
 }
 
-/// Whether an `AsciiDoc` or Markdown heading in `text` is titled `section`.
-fn has_heading(text: &str, section: &str) -> bool {
+/// The level and title of an `AsciiDoc` (`=`) or Markdown (`#`) heading line.
+fn heading(line: &str) -> Option<(usize, String)> {
+    let title = line.trim_start_matches(['=', '#']);
+    let level = line.len().saturating_sub(title.len());
+    (level > 0 && title.starts_with(' ')).then(|| (level, normalize_whitespace(title)))
+}
+
+/// The text under the heading titled `section`, up to the next heading of the
+/// same or a higher level; `None` when no heading has that title.
+fn heading_section_text(text: &str, section: &str) -> Option<String> {
     let wanted = normalize_whitespace(section);
-    text.lines().any(|line| {
-        let trimmed = line.trim_start();
-        let title = trimmed.trim_start_matches(['=', '#']);
-        title.len() < trimmed.len()
-            && title.starts_with(' ')
-            && normalize_whitespace(title) == wanted
-    })
+    let mut lines = text.lines();
+    let level = lines.by_ref().find_map(|line| {
+        heading(line).and_then(|(level, title)| (title == wanted).then_some(level))
+    })?;
+    let body: Vec<&str> = lines
+        .take_while(|line| heading(line).is_none_or(|(next, _)| next > level))
+        .collect();
+    Some(body.join("\n"))
 }
 
 #[cfg(test)]
@@ -334,6 +343,43 @@ mod tests {
             checker.check(&wrong_section),
             Err(CiteError::SectionNotFound { .. })
         ));
+    }
+
+    #[test]
+    fn a_docs_quote_must_sit_under_its_own_heading() {
+        use assert_fs::prelude::*;
+        let dir = repo();
+        dir.child("specs/openehr/ITS-REST/specifications/docs/overview/rr.md")
+            .write_str(
+                "# HTTP headers\n\nThe semantic header.\n\n# HTTP status codes\n\n| Code | Meaning |\n| ---- | ------- |\n| 422  | The request was well-formed but was unable to be followed due to semantic errors   |\n\n## A subsection\n\nStill in status codes.\n\n# Representation details\n\nSomething else.\n",
+            )
+            .unwrap();
+        let mut checker = QuoteChecker::new(dir.path());
+        let source = "specs/openehr/ITS-REST/specifications/docs/overview/rr.md";
+        let row = cite(
+            source,
+            "HTTP status codes",
+            "The request was well-formed but was unable to be followed due to semantic errors",
+        );
+        assert_eq!(checker.check(&row), Ok(()));
+        let nested = cite(source, "HTTP status codes", "Still in status codes.");
+        assert_eq!(
+            checker.check(&nested),
+            Ok(()),
+            "a subsection belongs to its parent"
+        );
+        for (section, quote) in [
+            ("HTTP status codes", "Something else."),
+            ("HTTP headers", "semantic errors"),
+        ] {
+            assert!(
+                matches!(
+                    checker.check(&cite(source, section, quote)),
+                    Err(CiteError::QuoteNotFound { .. })
+                ),
+                "{section}: {quote}"
+            );
+        }
     }
 
     #[test]

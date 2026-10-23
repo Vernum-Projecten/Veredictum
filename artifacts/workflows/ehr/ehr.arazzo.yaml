@@ -313,6 +313,9 @@ workflows:
             _type: EHR_STATUS
             archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
             name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
             subject:
               _type: PARTY_SELF
               external_ref:
@@ -414,3 +417,48 @@ workflows:
           replacements: *subject_replacements
         successCriteria:
           - condition: $statusCode == 409
+
+  - workflowId: create_ehr-status_without_archetype_details
+    summary: An EHR_STATUS without archetype_details is refused on create
+    description: >-
+      Creates an EHR whose EHR_STATUS carries no archetype_details. An
+      EHR_STATUS is an archetype root, and an archetype root must carry
+      archetype_details, so the request is semantically invalid and the
+      create is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+      section: LOCATABLE Class
+      quote: "is_archetype_root xor archetype_details = Void"
+    inputs:
+      type: object
+      properties:
+        subject_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create an EHR whose EHR_STATUS has no archetype_details.
+        x-veredictum-cite:
+          source: specs/openehr/RM/docs/UML/classes/ehr_status.adoc
+          section: EHR_STATUS Class
+          quote: "__Is_archetype_root__: `is_archetype_root`"
+        operationId: $sourceDescriptions.ehr.ehr_create
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            subject:
+              _type: PARTY_SELF
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: replaced-by-subject_id }
+                namespace: veredictum
+                type: PERSON
+            is_queryable: true
+            is_modifiable: true
+          replacements: *subject_replacements
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The request was well-formed but was unable to be followed due to semantic errors"

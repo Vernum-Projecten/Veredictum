@@ -22,8 +22,8 @@ version on.
 
 - An experimental Arazzo 1.1.0 catalogue slice (#599): the EHR create and
   read cases in `artifacts/workflows/ehr/ehr.arazzo.yaml`, with their 400,
-  404 and 409 refusal twins, each criterion citing the released ITS-REST
-  sentence that assigns it through `x-veredictum-cite`. The library gains an
+  404, 409 and 422 refusal twins, each criterion citing the released ITS-REST
+  or RM sentence that assigns it through `x-veredictum-cite`. The library gains an
   `arazzo` module that parses the documents with `roas-arazzo` 0.3.0, gates
   them (every criterion resolves to a citation whose quote occurs in the
   vendored file, every operation resolves in its released OAS, every
