@@ -2769,14 +2769,27 @@ released openEHR ITS-REST OpenAPI documents by `operationId`.
 
 A future second ITS gets its own Arazzo documents beside the REST ones.
 
-In ITS-REST Release-1.1.0 the per-operation wire contract is the decomposed
-OpenAPI under `specs/openehr/ITS-REST/specifications/` (`operations/*.yaml`,
-`responses/*.yaml`, `parameters/header/*.yaml`). A status or header
-expectation cites the response or header file it comes from, by file and
-element, and quotes its `description`. Where the ITS-REST docs text speaks
-(Simplified Formats, SMART), the docs text is cited and wins any conflict, as
-hard rule 1 requires. An `operationId` is an address; it is never the
-authority for an expectation.
+ITS-REST Release-1.1.0 writes its wire contract in two places, both under
+`specs/openehr/ITS-REST/specifications/`:
+
+- **The docs text**, `docs/overview/*.md` and `docs/<api>/*.md`, states the
+  rules that hold across operations: what each status code means, the
+  headers, content negotiation. For example, `Requests_and_responses.md`
+  assigns 422 to a request that is "well-formed but was unable to be
+  followed due to semantic errors". The ITS-REST docs under `docs/` beside
+  `specifications/` (Simplified Formats, SMART) are docs text too.
+- **The decomposed OpenAPI**, `operations/*.yaml`, `responses/*.yaml` and
+  `parameters/**`, states each operation's own responses, parameters and
+  bodies.
+
+An expectation cites the sentence that assigns it, in whichever of the two
+says it. The docs text wins any conflict (hard rule 1), and an operation's
+OAS response list is not exhaustive: OAS 3.0.3 §Responses Object says "The
+documentation is not necessarily expected to cover all possible HTTP response
+codes because they may not be known in advance." So a status the docs text
+assigns is expected even when the operation's OAS fragment does not declare
+it. An `operationId` is an address;
+it is never the authority for an expectation.
 
 ### 15.3 The catalogue layout
 
@@ -2793,7 +2806,8 @@ schemas/                                       statement, results, ixit, registe
 ```
 
 - **Sources.** Every document lists the released
-  `specs/rest-oas/<group>-validation.openapi.yaml` bundles it calls. The
+  `specs/rest-oas/<group>-validation.openapi.yaml` bundles it calls, each with
+  an explicit `type: openapi`. The
   `-validation` flavour inlines its schemas, which response validation needs.
   `contribution_create` and `contribution_get` exist in both `ehr` and
   `demographic`, so every step uses the qualified
@@ -2823,15 +2837,20 @@ x-veredictum-cite:
   quote: "Can happen when the supplied `ehr_id` is already used by an existing EHR."
 ```
 
-A criterion without its own citation inherits its step's, and a step inherits
-its workflow's. `validate` refuses a criterion that resolves to no citation,
+`section` addresses the element the quote must occur in. In a YAML source it
+is a top-level key or a JSON Pointer (RFC 6901); in a Markdown or AsciiDoc
+source it is a heading title. A criterion without its own citation inherits
+its step's, and a step inherits its workflow's. `validate` refuses a criterion that resolves to no citation,
 and refuses a citation whose `quote` does not occur verbatim (after whitespace
 normalization) in the named file. A file under
 `specs/openehr/ITS-REST/specifications/` or `specs/rest-oas/` is an OAS
 citation and ranks below the docs text (hard rule 1).
 
-**`x-veredictum-check`**, an entry in a step's `successCriteria` for the three
-judgements no standard criterion type can express:
+**`x-veredictum-check`**, on a criterion, for the three judgements no standard
+criterion type can express. Arazzo requires every criterion to carry a
+`condition`, so the criterion's condition states what must hold for the
+judge to run (for example `$statusCode == 200`), and the criterion holds only
+when both the condition and the judge hold:
 
 | Judge | What it decides |
 |---|---|
@@ -2918,7 +2937,10 @@ enforced by `validate` and the evaluator. Every rule stays inside what Arazzo
    would let an identifier that differs only in case pass, so `validate`
    refuses a `simple` condition comparing strings. Exact string checks use
    `regex` or `jsonpath` (RFC 9535 comparison is exact).
-2. **`regex`** is ECMA-262, the dialect proposed upstream in #516.
+2. **`regex`** uses the syntax that ECMA-262 (the dialect proposed upstream in
+   #516) and the evaluator's engine share: no lookaround and no
+   backreferences, which `validate` refuses. A value substituted into a
+   pattern through `{$…}` is a literal: its metacharacters are escaped.
 3. **`jsonpath`** is RFC 9535.
 4. **`xpath`** is XPath 3.1, with the openEHR namespaces bound to fixed prefixes
    the profile lists.
@@ -2926,9 +2948,14 @@ enforced by `validate` and the evaluator. Every rule stays inside what Arazzo
    and `Authorization`, whether or not the operation declares it. OAS 3.0.3
    tells a tool to ignore those three as declared parameters, and content
    negotiation cases depend on sending them.
-6. **Generated inputs.** An input of `format: uuid` with no supplied value is a
+6. **Missing values.** A criterion over a value that is absent from a
+   readable response does not hold, so the row is *failed*. A body the
+   evaluator cannot read, and an output a later step needs that an earlier
+   step never captured, make the row *errored*. `simple` compares against
+   integers, booleans and `null`.
+7. **Generated inputs.** An input of `format: uuid` with no supplied value is a
    fresh random UUID per row, recorded in the results so a replay reuses it.
-7. **Evaluation errors.** Arazzo says an evaluation error evaluates to *fail*.
+8. **Evaluation errors.** Arazzo says an evaluation error evaluates to *fail*.
    The evaluator records that, and the verdict layer classifies the row as
    *errored*, never *failed*, because the instrument could not judge.
    `validate` catches every statically detectable expression error before a
@@ -3013,10 +3040,16 @@ vendor reads why a row is red without opening `results.json`.
   and the prose disagree (open upstream bugs #558, #559), the prose wins and the
   gate records the exception.
 - **Source resolution**: every `operationId` resolves in its named source, and
-  every parameter resolves at that operation or is a header the profile allows.
+  every parameter, after following the operation's `$ref`s, resolves at that
+  operation or is a header the profile allows.
 - **Citation**: every criterion resolves to a citation, and every quote occurs
   verbatim in its file.
-- **Profile**: no `simple` string comparison, and every expression parses.
+- **Profile**: no `simple` string comparison, no regex lookaround or
+  backreferences, and every expression parses.
+- **Unknown keys**: a key that is neither an Arazzo field nor one of the two
+  extensions is refused. A parser that captures extensions through a catch-all
+  map drops a misspelled key such as `succesCriteria` without an error, so the
+  gate compares the parsed document with the raw one.
 - **Rows**: every rows file validates and every row binds every required input.
 - **Surface coverage**: the released operations, their response branches and
   the negotiation headers, enumerated from the decomposed ITS-REST OAS, each
