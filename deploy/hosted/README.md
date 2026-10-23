@@ -194,6 +194,15 @@ keys by address (`ssh-keyscan <ipv4>`) and compare them with the box's own
 `/etc/ssh/ssh_host_*_key.pub`: while DNS still points at an old box, a scan by
 name records the wrong host (#403).
 
+**`cloud-init.yaml` is user data, given at creation. Never apply it to a
+running box.** Placed in `/etc/cloud/cloud.cfg.d/` and re-run with
+`cloud-init clean`, its `runcmd` list is replaced by the one in Hetzner's
+instance data rather than merged with it. Everything else applies, the SSH
+policy included, so root login is gone while `deploy` never joins the
+`docker` group and the firewall rules never run: the box can be neither
+administered nor deployed to (#583). A box that needs a different
+configuration is deleted and created again, keeping its Primary IPs.
+
 **Both are environment secrets, in an environment named `hosted`, not
 repository secrets.** The deploy job names that environment, so nothing else in
 this repository can reach the key, and the environment's own protection rules
