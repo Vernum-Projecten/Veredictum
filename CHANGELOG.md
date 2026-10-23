@@ -37,6 +37,16 @@ version on.
   `.trivyignore.yaml` entry and the `distroless-libssl` OpenVEX statement are
   removed: a base rebuild now carries the fix those two documents were waiting
   for.
+- `rustls` moves to 0.23.46 for RUSTSEC-2026-0346, -0347, -0348 and -0349,
+  `rustls-webpki` to 0.103.16 for RUSTSEC-2026-0382, and `webpki-root-certs`
+  to 1.0.11 for RUSTSEC-2026-0383, which together cover leaked TLS secrets in
+  `Debug` output, a ServerHello downgrade, and trust in distrusted
+  intermediates. The fuzz workspace's lockfile moves with them (#587).
+- The console's `zip` dependency moves from 8 to 9 for RUSTSEC-2026-0367,
+  -0368 and -0369, permission and symlink handling during extraction, and
+  `thirtyfour` moves to 0.37.10, which also requires `zip` 9. The console never
+  calls `extract`; its upload reader now refuses an entry whose file name zip
+  cannot decode, the one API change zip 9 made to the code paths it uses (#587).
 
 ## [0.1.6] - 2026-09-21
 
