@@ -2791,9 +2791,7 @@ The catalogue is written in the OpenAPI Initiative's Arazzo Specification
 1.1.0. A case is an Arazzo workflow, and its steps call the operations of the
 released openEHR ITS-REST OpenAPI documents by `operationId`.
 
-The SM is an oracle like every other released component: a workflow that
-asserts an SM-defined behaviour cites the SM text. A future second ITS gets
-its own Arazzo documents beside the REST ones.
+A future second ITS gets its own Arazzo documents beside the REST ones.
 
 In ITS-REST Release-1.1.0 the per-operation wire contract is the decomposed
 OpenAPI under `specs/openehr/ITS-REST/specifications/` (`operations/*.yaml`,
