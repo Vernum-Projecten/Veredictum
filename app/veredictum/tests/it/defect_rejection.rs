@@ -159,6 +159,8 @@ defects! {
         ("arazzo-simple-string.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-profile"),
     arazzo_rows_unknown_input =>
         ("arazzo-rows-unknown-input.rows.yaml", "workflows/ehr/create_ehr-with_id.rows.yaml", "arazzo-rows"),
+    arazzo_rows_bad_literal =>
+        ("arazzo-rows-bad-literal.rows.yaml", "workflows/content/commit-dv_count_out_of_range.rows.yaml", "arazzo-rows"),
     arazzo_stale_gap =>
         ("arazzo-stale-gap.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-surface"),
     arazzo_stray_file =>

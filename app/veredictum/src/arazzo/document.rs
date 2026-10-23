@@ -361,6 +361,12 @@ impl ArazzoDocument {
             }
         }
         if let Some(body) = &step.request_body {
+            if let Some(payload @ Value::String(text)) = &body.payload
+                && text.starts_with('$')
+                && let Err(kind) = value_expression(&ValueOrSelector::Literal(payload.clone()))
+            {
+                push(kind);
+            }
             for replacement in &body.replacements {
                 if !replacement.target.starts_with('/')
                     || replacement.target_selector_type.is_some()
@@ -1055,6 +1061,28 @@ mod tests {
                 "{seeded}"
             );
         }
+    }
+
+    #[test]
+    fn a_payload_that_is_a_runtime_expression_must_parse() {
+        let with_payload = |payload: &str| {
+            workflow(&cited(), "", "$statusCode == 404").replace(
+                "        successCriteria:",
+                &format!(
+                    "        requestBody: {{ payload: '{payload}' }}\n        successCriteria:"
+                ),
+            )
+        };
+        for payload in ["$inputs.composition", "<template/>"] {
+            let (dir, doc) = fixture(&with_payload(payload));
+            assert_eq!(doc.check(dir.path()), Vec::new(), "{payload}");
+        }
+        let (dir, doc) = fixture(&with_payload("$input.composition"));
+        assert!(
+            matches!(kinds(&dir, &doc).as_slice(), [FindingKind::Profile(_)]),
+            "{:?}",
+            kinds(&dir, &doc)
+        );
     }
 
     #[test]

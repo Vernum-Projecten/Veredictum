@@ -46,6 +46,19 @@ impl LiteralError {
             reason: reason.into(),
         }
     }
+
+    /// The text of the production that fails: the whole literal, or the
+    /// list item, range or code inside it the grammar stopped at.
+    #[must_use]
+    pub fn fragment(&self) -> &str {
+        &self.text
+    }
+
+    /// Why the production fails.
+    #[must_use]
+    pub fn reason(&self) -> &str {
+        &self.reason
+    }
 }
 
 /// A parsed decision-table literal.

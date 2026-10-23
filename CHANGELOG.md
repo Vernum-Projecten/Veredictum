@@ -20,6 +20,18 @@ version on.
 
 ### Added
 
+- Rows files carry decision-table literals (#638). The published rows schema
+  gains `literals`, the columns whose values are read through the
+  decision-table literal grammar, and `recipe`, which binds one more input per
+  row from those literals. `validate` refuses a literal that does not parse
+  under `arazzo-rows`, naming the row, the column and the character offset of
+  the failing production. The `content_instance` recipe builds the
+  composition a content decision-table row commits, with the same code the
+  decision tables use, so a row yields the same bytes on every run. The
+  evaluator sends a request body whose `payload` is a runtime expression as
+  that expression's value (Arazzo 1.1.0 §Request Body Object). The first
+  converted content case is `CONT-DV_COUNT-validate_range`, as
+  `artifacts/workflows/content/dv_count.arazzo.yaml` with three rows files.
 - An experimental Arazzo 1.1.0 catalogue slice (#599): the EHR create and
   read cases in `artifacts/workflows/ehr/ehr.arazzo.yaml`, with their 400,
   404, 409 and 422 refusal twins, each criterion citing the released ITS-REST

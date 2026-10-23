@@ -19,6 +19,7 @@ pub mod expr;
 pub mod gates;
 pub mod har;
 pub mod oas;
+pub mod recipe;
 pub mod regex_profile;
 pub mod results;
 pub mod rows;

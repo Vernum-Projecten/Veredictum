@@ -16,6 +16,7 @@ use crate::arazzo::cite::{CITE_KEY, EXCLUDED_ROOT, ORACLE_ROOTS};
 use crate::arazzo::document::CHECK_KEY;
 use crate::arazzo::gates::profile::ProfileHeader;
 use crate::arazzo::gates::surface::NegotiationHeader;
+use crate::arazzo::recipe::ContentClass;
 use crate::vocab::Iteration;
 
 const DRAFT: &str = "https://json-schema.org/draft/2020-12/schema";
@@ -212,10 +213,11 @@ pub fn rows_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-rows"),
         "title": "Input rows for one data-driven Arazzo workflow",
-        "description": "Sits beside the Arazzo document whose workflow it feeds, named `<workflowId>.rows.yaml`; `workflow` repeats that workflow's case id. Each row binds the workflow's `inputs` by property name: a key the inputs schema does not name is refused, every `required` input is bound in every row, and each row validates against the inputs schema. An input of `format: uuid` with no value is generated per row.",
+        "description": "Sits beside the Arazzo document whose workflow it feeds, named `<workflowId>.rows.yaml`; `workflow` repeats that workflow's case id. Each row binds the workflow's `inputs` by property name: a key the inputs schema does not name is refused, every `required` input is bound in every row, and each row validates against the inputs schema. An input of `format: uuid` with no value is generated per row. A value under a column `literals` names is a decision-table literal, and `validate` refuses one that does not parse against the literal grammar, naming its row, its column and the character offset of the production that fails. A `recipe` binds one more input per row from the row's literals, and the row it completes is what the inputs schema validates.",
         "type": "object",
         "additionalProperties": false,
         "required": ["workflow", "iteration", "rows"],
+        "dependentRequired": { "recipe": ["literals"] },
         "properties": {
             "workflow": {
                 "description": "The case id of the workflow, `<document>/<workflowId>`.",
@@ -226,6 +228,14 @@ pub fn rows_schema() -> Value {
                 "description": "`reset_per_row` runs each row against fresh preconditions; `single_pass` runs every row against one shared server state.",
                 "enum": [iteration_token(Iteration::ResetPerRow), iteration_token(Iteration::SinglePass)]
             },
+            "literals": {
+                "description": "The columns whose values are decision-table literals: a range `a..b`, a list `[x, y]`, a unit-scoped range `cm 5.0..10.0`, a terminology code `openehr::122 (length)`, an ordinal tuple `1|[local::at0005]`, a quantity `100 mg`, or a plain scalar. Each names an input the workflow declares.",
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": { "type": "string", "minLength": 1 }
+            },
+            "recipe": recipe_def(),
             "rows": {
                 "type": "array",
                 "minItems": 1,
@@ -285,6 +295,31 @@ pub fn surface_schema() -> Value {
                 }
             }
         }
+    })
+}
+
+/// A rows file's `recipe`: one of the registered recipes, with exactly its
+/// arguments.
+fn recipe_def() -> Value {
+    json!({
+        "description": "The registered recipe that turns each row's literals into the value of one more input. `content_instance` builds the composition a content decision-table row commits: the `rm_class` value from the literal columns, in the minimal carrier composition stamped with `template_id`.",
+        "oneOf": [
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "rm_class", "template_id", "input"],
+                "properties": {
+                    "name": { "const": "content_instance" },
+                    "rm_class": { "enum": tokens(ContentClass::ALL) },
+                    "template_id": { "type": "string", "minLength": 1 },
+                    "input": {
+                        "description": "The workflow input the recipe binds; no row supplies it.",
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            }
+        ]
     })
 }
 

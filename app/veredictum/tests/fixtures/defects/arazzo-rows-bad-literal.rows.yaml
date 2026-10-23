@@ -1,0 +1,14 @@
+# Seeded defect: the `magnitude` value of row 1 is declared a decision-table
+# literal and does not parse: a unit-scoped range whose upper bound is not a
+# number.
+workflow: dv_count/commit-dv_count_out_of_range
+iteration: reset_per_row
+literals: [magnitude]
+recipe:
+  name: content_instance
+  rm_class: DV_COUNT
+  template_id: cnf.tpl.count_range
+  input: composition
+rows:
+  - { magnitude: 0 }
+  - { magnitude: "[cm 5.0..x, m]" }
