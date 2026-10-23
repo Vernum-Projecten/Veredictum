@@ -3003,6 +3003,19 @@ The last line is one of: the server (*failed*); the instrument could not judge
 (*errored*, which never counts against the vendor); or a known spec gap, naming
 the register entry and its upstream report.
 
+**Exports for a vendor's CI.** `results.json` is the record; three views are
+derived from it, byte-deterministic like every other output, so a vendor can
+run the instrument in their own pipeline and see the result where they work:
+
+| View | Mapping | Shown by |
+|---|---|---|
+| JUnit XML | a workflow is a `testsuite`, a row a `testcase`; *failed* is `<failure>`, *errored* is `<error>`, *not-applicable* and *skipped* are `<skipped>` with their citation | GitHub (through a JUnit report action), GitLab, Jenkins and most CI systems |
+| CTRF 0.2.0 JSON | *passed*, *failed* and *skipped* map directly; *errored* is `other`; *not-applicable* is `skipped`; the case id, citation and register link go in the test's `extra` object | `ctrf-io/github-test-reporter`: a GitHub job summary and pull request comment |
+| Markdown summary | the rendered report, written to `$GITHUB_STEP_SUMMARY` when present | GitHub Actions job summary, with no third-party action |
+
+In every view, the failure message is the four-part explanation above, so the
+vendor reads why a row is red without opening `results.json`.
+
 ### 15.9 The gates
 
 `validate` reports zero findings or the catalogue does not build:
