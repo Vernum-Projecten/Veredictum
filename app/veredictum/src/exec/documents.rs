@@ -420,7 +420,7 @@ fn canonical_items(text: &str) -> Result<Vec<Item>, String> {
                 items.push(Item::End);
             }
             Event::Text(content) => {
-                let text = content.xml10_content().map_err(|e| e.to_string())?;
+                let text = content.xml10_content();
                 if depth > 0 {
                     chars.push_str(&text);
                 } else if !text.trim().is_empty() {
@@ -430,9 +430,8 @@ fn canonical_items(text: &str) -> Result<Vec<Item>, String> {
                 }
             }
             Event::CData(content) => {
-                let text = content.decode().map_err(|e| e.to_string())?;
                 if depth > 0 {
-                    chars.push_str(&normalize_line_ends(&text));
+                    chars.push_str(&normalize_line_ends(&content));
                 }
             }
             Event::GeneralRef(reference) => {
@@ -440,16 +439,14 @@ fn canonical_items(text: &str) -> Result<Vec<Item>, String> {
             }
             Event::Comment(content) => {
                 flush(&mut chars, &mut items);
-                items.push(Item::Comment(
-                    content.decode().map_err(|e| e.to_string())?.into_owned(),
-                ));
+                items.push(Item::Comment(content.into_inner().into_owned()));
             }
             Event::PI(content) => {
                 flush(&mut chars, &mut items);
                 items.push(Item::Instruction(format!(
                     "{} {}",
-                    String::from_utf8_lossy(content.target()),
-                    String::from_utf8_lossy(content.content())
+                    content.target(),
+                    content.content()
                 )));
             }
             // Canonical XML 1.1 §2.3: the XML declaration and the document
@@ -470,13 +467,10 @@ fn canonical_items(text: &str) -> Result<Vec<Item>, String> {
 /// that stopped it resolving.
 fn element_namespace(resolved: ResolveResult<'_>) -> Result<Option<String>, String> {
     match resolved {
-        ResolveResult::Bound(namespace) => Ok(Some(
-            String::from_utf8_lossy(namespace.as_ref()).into_owned(),
-        )),
+        ResolveResult::Bound(namespace) => Ok(Some(namespace.into_inner().to_owned())),
         ResolveResult::Unbound => Ok(None),
         ResolveResult::Unknown(prefix) => Err(format!(
-            "the prefix `{}` is not bound to any namespace",
-            String::from_utf8_lossy(&prefix)
+            "the prefix `{prefix}` is not bound to any namespace"
         )),
     }
 }
@@ -491,8 +485,8 @@ fn resolved_reference(reference: &quick_xml::events::BytesRef<'_>) -> Result<Str
     if let Some(character) = reference.resolve_char_ref().map_err(|e| e.to_string())? {
         return Ok(character.to_string());
     }
-    let name = reference.decode().map_err(|e| e.to_string())?;
-    quick_xml::escape::resolve_predefined_entity(&name)
+    let name: &str = reference;
+    quick_xml::escape::resolve_predefined_entity(name)
         .map(str::to_owned)
         .ok_or_else(|| format!("the entity `&{name};` is declared by no readable declaration"))
 }
@@ -513,7 +507,7 @@ fn start_item(
 ) -> Result<Item, String> {
     let name = Name {
         namespace,
-        local: String::from_utf8_lossy(element.local_name().as_ref()).into_owned(),
+        local: element.local_name().into_inner().to_owned(),
     };
     let mut attributes: BTreeMap<Name, String> = BTreeMap::new();
     for attribute in element.attributes() {
@@ -522,13 +516,13 @@ fn start_item(
         // namespace DECLARATION, not an attribute, and what it declares is
         // already carried by the expanded names it resolves.
         let key = attribute.key.as_ref();
-        if key == b"xmlns" || key.starts_with(b"xmlns:") {
+        if key == "xmlns" || key.starts_with("xmlns:") {
             continue;
         }
         let (attribute_namespace, local) = reader.resolver_mut().resolve_attribute(attribute.key);
         let attribute_name = Name {
             namespace: element_namespace(attribute_namespace)?,
-            local: String::from_utf8_lossy(local.as_ref()).into_owned(),
+            local: local.into_inner().to_owned(),
         };
         // Attribute-value normalization per XML 1.0 §3.3.3: references
         // resolved, tab/CR/LF folded to spaces, before the value is compared.

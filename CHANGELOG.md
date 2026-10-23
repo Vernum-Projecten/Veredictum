@@ -18,6 +18,18 @@ version on.
 
 ## [Unreleased]
 
+### Changed
+
+- quick-xml moves from 0.41 to 0.42 in the engine and the fuzz workspace,
+  superseding #548. The library now hands out element names, attribute values
+  and text as `&str`, so the canonical-XML comparison, the `xml_root`
+  assertion, the template-identity read and the jitter constraint read were
+  ported to that API. Text decoding, line-end normalization and entity
+  resolution are unchanged. The namespace resolver's own guard changed with
+  the library: it now refuses a document with more than 128 namespace bindings
+  in scope at once, where 0.41 refused only more than 256 declarations on a
+  single element.
+
 ## [0.1.7] - 2026-10-23
 
 ### Changed
