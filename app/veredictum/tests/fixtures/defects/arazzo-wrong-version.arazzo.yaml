@@ -1,0 +1,26 @@
+# Seeded defect: `arazzo: 1.0.1` is outside the 1.1.x versions the official
+# Arazzo 1.1 schema accepts. The source url passes through the pristine `ehr`
+# directory the overlay links.
+arazzo: 1.0.1
+info: { title: seeded defect, version: 0.1.0 }
+sourceDescriptions:
+  - name: ehr
+    url: ../ehr/../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_ehr-old_version
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/ehr_get_by_id.yaml
+      section: description
+      quote: "Retrieve the EHR with the specified `ehr_id`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 404

@@ -5,10 +5,11 @@
 //! and checked by the catalogue gate.
 //!
 //! The gate refuses what the evaluator would otherwise have to guess about:
-//! a key Arazzo does not define, an extension outside the two the catalogue
-//! allows, a criterion with no citation, a citation whose quote is not in its
-//! source, a condition outside the profile, an operation that does not
-//! resolve, and a construct the evaluator does not drive yet.
+//! a document the official Arazzo schema refuses, a key Arazzo does not
+//! define, an extension outside the two the catalogue allows, a criterion
+//! with no citation, a citation whose quote is not in its source, a condition
+//! outside the profile, an operation or parameter that does not resolve, and
+//! a construct the evaluator does not drive yet.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -25,7 +26,12 @@ use serde_json::Value;
 
 use crate::arazzo::cite::{CITE_KEY, Citation, CiteError, QuoteChecker, citation_of};
 use crate::arazzo::expr::{Expr, ParseError, RegexCriterion, SimpleCondition};
-use crate::arazzo::source::{Operation, OperationIndex, SourceError, split_qualified};
+use crate::arazzo::gates::Gate;
+use crate::arazzo::gates::profile::{ProfileHeader, RegexBreach, lint_regex};
+use crate::arazzo::source::{
+    DeclaredParameter, Operation, OperationIndex, ParameterError, ParameterIn, ParameterIndex,
+    SourceError, split_qualified,
+};
 
 /// The specification-extension key of the catalogue's own judges.
 pub const CHECK_KEY: &str = "x-veredictum-check";
@@ -50,6 +56,9 @@ pub enum DocumentError {
     /// A source description does not index.
     #[error(transparent)]
     Source(#[from] SourceError),
+    /// A source description's parameters do not resolve.
+    #[error(transparent)]
+    Parameters(#[from] ParameterError),
 }
 
 /// A loaded Arazzo document with its sources indexed.
@@ -59,6 +68,7 @@ pub struct ArazzoDocument {
     raw: Value,
     description: Description,
     sources: BTreeMap<String, OperationIndex>,
+    parameters: BTreeMap<String, ParameterIndex>,
 }
 
 impl ArazzoDocument {
@@ -69,6 +79,23 @@ impl ArazzoDocument {
     /// [`DocumentError`] when the file, the model or a source does not load.
     pub fn load(path: &Path) -> Result<Self, DocumentError> {
         let raw = crate::load::yaml_file_to_value(path)?;
+        let (document, problems) = Self::from_value(path, raw)?;
+        match problems.into_iter().next() {
+            Some(problem) => Err(problem),
+            None => Ok(document),
+        }
+    }
+
+    /// Builds the document at `path` from its parsed YAML, indexing every
+    /// source it can. A source that does not index is returned beside the
+    /// document instead of failing it, so a gate can report every one.
+    ///
+    /// # Errors
+    /// [`DocumentError::Model`] when `raw` is not an Arazzo 1.1.0 document.
+    pub fn from_value(
+        path: &Path,
+        raw: Value,
+    ) -> Result<(Self, Vec<DocumentError>), DocumentError> {
         let description: Description =
             serde_json::from_value(raw.clone()).map_err(|error| DocumentError::Model {
                 path: path.to_owned(),
@@ -76,30 +103,54 @@ impl ArazzoDocument {
             })?;
         let base = path.parent().unwrap_or_else(|| Path::new("."));
         let mut sources = BTreeMap::new();
+        let mut parameters = BTreeMap::new();
+        let mut problems = Vec::new();
         for source in &description.source_descriptions {
             if source.type_ != Some(SourceType::Openapi) {
-                return Err(DocumentError::SourceType(source.name.clone()));
+                problems.push(DocumentError::SourceType(source.name.clone()));
+                continue;
             }
             if source.url.contains("://") || Path::new(&source.url).is_absolute() {
-                return Err(SourceError::NotLocal(source.url.clone()).into());
+                problems.push(SourceError::NotLocal(source.url.clone()).into());
+                continue;
             }
-            sources.insert(
-                source.name.clone(),
-                OperationIndex::load(&base.join(&source.url))?,
-            );
+            let file = base.join(&source.url);
+            match OperationIndex::load(&file) {
+                Ok(index) => {
+                    sources.insert(source.name.clone(), index);
+                }
+                Err(error) => {
+                    problems.push(error.into());
+                    continue;
+                }
+            }
+            match ParameterIndex::load(&file) {
+                Ok(index) => {
+                    parameters.insert(source.name.clone(), index);
+                }
+                Err(error) => problems.push(error.into()),
+            }
         }
-        Ok(Self {
+        let document = Self {
             path: path.to_owned(),
             raw,
             description,
             sources,
-        })
+            parameters,
+        };
+        Ok((document, problems))
     }
 
     /// The document's file.
     #[must_use]
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// The document as read from YAML, before the model saw it.
+    #[must_use]
+    pub fn raw(&self) -> &Value {
+        &self.raw
     }
 
     /// The parsed Arazzo model.
@@ -124,13 +175,35 @@ impl ArazzoDocument {
         self.sources.get(source)?.get(operation_id)
     }
 
-    /// Runs the catalogue gate over the document; an empty list is the only
-    /// passing result.
-    ///
-    /// `repo_root` is the directory every citation `source` is relative to.
+    /// The parameters a qualified `$sourceDescriptions.<name>.<operationId>`
+    /// declares, after every `$ref` is followed.
+    #[must_use]
+    pub fn declared_parameters(&self, qualified: &str) -> Option<&[DeclaredParameter]> {
+        let (source, operation_id) = split_qualified(qualified)?;
+        self.parameters.get(source)?.get(operation_id)
+    }
+
+    /// Runs the catalogue gate over the document, checking every quote
+    /// against the vendored files under `repo_root`; an empty list is the
+    /// only passing result.
     #[must_use]
     pub fn check(&self, repo_root: &Path) -> Vec<Finding> {
+        self.gate(Some(repo_root))
+    }
+
+    /// Runs the catalogue gate over the document. Without `repo_root` a
+    /// citation is still read and inherited, but its quote is not looked up.
+    #[must_use]
+    pub fn gate(&self, repo_root: Option<&Path>) -> Vec<Finding> {
         let mut findings = Vec::new();
+        match super::gates::schema::violations(&self.raw) {
+            Ok(violations) => {
+                for violation in violations {
+                    findings.push(Finding::new("#", FindingKind::Schema(violation)));
+                }
+            }
+            Err(error) => findings.push(Finding::new("#", FindingKind::Schema(error.to_string()))),
+        }
         if let Err(error) = self.description.validate(EnumSet::empty()) {
             for e in error.errors {
                 findings.push(Finding::new(e.path, FindingKind::Model(e.message)));
@@ -141,9 +214,9 @@ impl ArazzoDocument {
             Err(error) => findings.push(Finding::new("#", FindingKind::Model(error.to_string()))),
         }
         extension_keys(&self.raw, &mut Vec::new(), &mut findings);
-        let mut quotes = QuoteChecker::new(repo_root);
+        let mut quotes = repo_root.map(QuoteChecker::new);
         for workflow in &self.description.workflows {
-            self.check_workflow(workflow, &mut quotes, &mut findings);
+            self.check_workflow(workflow, quotes.as_mut(), &mut findings);
         }
         findings
     }
@@ -151,11 +224,19 @@ impl ArazzoDocument {
     fn check_workflow(
         &self,
         workflow: &Workflow,
-        quotes: &mut QuoteChecker<'_>,
+        mut quotes: Option<&mut QuoteChecker<'_>>,
         findings: &mut Vec<Finding>,
     ) {
         let at = workflow.workflow_id.clone();
-        let workflow_cite = cite_at(workflow.extensions.as_ref(), &at, quotes, findings);
+        if !is_workflow_id(&at) {
+            findings.push(Finding::new(&at, FindingKind::WorkflowId(at.clone())));
+        }
+        let workflow_cite = cite_at(
+            workflow.extensions.as_ref(),
+            &at,
+            quotes.as_deref_mut(),
+            findings,
+        );
         if !workflow.depends_on.is_empty()
             || !workflow.success_actions.is_empty()
             || !workflow.failure_actions.is_empty()
@@ -171,11 +252,21 @@ impl ArazzoDocument {
         }
         for step in &workflow.steps {
             let at = format!("{at}/{}", step.step_id);
-            let step_cite = cite_at(step.extensions.as_ref(), &at, quotes, findings);
+            let step_cite = cite_at(
+                step.extensions.as_ref(),
+                &at,
+                quotes.as_deref_mut(),
+                findings,
+            );
             self.check_step(step, &at, findings);
             for (index, criterion) in step.success_criteria.iter().enumerate() {
                 let at = format!("{at}/successCriteria[{index}]");
-                let own = cite_at(criterion.extensions.as_ref(), &at, quotes, findings);
+                let own = cite_at(
+                    criterion.extensions.as_ref(),
+                    &at,
+                    quotes.as_deref_mut(),
+                    findings,
+                );
                 if own
                     .or(step_cite.clone())
                     .or(workflow_cite.clone())
@@ -183,7 +274,7 @@ impl ArazzoDocument {
                 {
                     findings.push(Finding::new(&at, FindingKind::MissingCitation));
                 }
-                if let Err(kind) = CriterionPlan::of(criterion) {
+                for kind in criterion_profile(criterion) {
                     findings.push(Finding::new(&at, kind));
                 }
             }
@@ -213,19 +304,40 @@ impl ArazzoDocument {
             push(FindingKind::UnresolvedOperation(qualified.clone()));
             return;
         };
+        let declared = self.declared_parameters(qualified).unwrap_or_default();
         let mut path_parameters = Vec::new();
         for parameter in &step.parameters {
             let ReusableOr::Item(parameter) = parameter else {
                 push(FindingKind::Unsupported("a reusable parameter".to_owned()));
                 continue;
             };
-            match parameter.in_ {
-                Some(ParameterLocation::Path) => path_parameters.push(parameter.name.clone()),
-                Some(ParameterLocation::Query | ParameterLocation::Header) => {}
-                other => push(FindingKind::Unsupported(format!(
-                    "parameter `{}` in {other:?}",
-                    parameter.name
-                ))),
+            let location = match parameter.in_ {
+                Some(ParameterLocation::Path) => {
+                    path_parameters.push(parameter.name.clone());
+                    Some(ParameterIn::Path)
+                }
+                Some(ParameterLocation::Query) => Some(ParameterIn::Query),
+                Some(ParameterLocation::Header) => Some(ParameterIn::Header),
+                other => {
+                    push(FindingKind::Unsupported(format!(
+                        "parameter `{}` in {other:?}",
+                        parameter.name
+                    )));
+                    None
+                }
+            };
+            if let Some(location) = location {
+                let resolves = declared
+                    .iter()
+                    .any(|declared| declared.matches(location, &parameter.name));
+                let allowed = location == ParameterIn::Header
+                    && ProfileHeader::parse(&parameter.name).is_some();
+                if !resolves && !allowed && location != ParameterIn::Path {
+                    push(FindingKind::UndeclaredParameter {
+                        name: parameter.name.clone(),
+                        location: location.token(),
+                    });
+                }
             }
             if let Err(kind) = value_expression(&parameter.value) {
                 push(kind);
@@ -271,17 +383,50 @@ impl ArazzoDocument {
     }
 }
 
-/// Reads and checks the citation at one location; returns it when it is
-/// well-formed.
+/// Whether `id` matches `[A-Za-z0-9_\-]+`, the form Arazzo 1.1.0 §Workflow
+/// Object recommends for `workflowId` and a case id is built from.
+fn is_workflow_id(id: &str) -> bool {
+    !id.is_empty()
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+/// The profile findings of one criterion: its plan, its regex lint, and its
+/// context expression.
+fn criterion_profile(criterion: &Criterion) -> Vec<FindingKind> {
+    let mut out = Vec::new();
+    match CriterionPlan::of(criterion) {
+        Err(kind) => out.push(kind),
+        Ok(CriterionPlan::Regex(_)) => {
+            if let Err(breach) = lint_regex(&criterion.condition) {
+                out.push(FindingKind::Regex(breach));
+            }
+        }
+        Ok(CriterionPlan::Simple(_)) => {
+            if let Some(context) = &criterion.context
+                && let Err(error) = Expr::parse(context)
+            {
+                out.push(FindingKind::Profile(error));
+            }
+        }
+    }
+    out
+}
+
+/// Reads and, when a checker is supplied, checks the citation at one
+/// location; returns it when it is well-formed.
 fn cite_at(
     extensions: Option<&BTreeMap<String, Value>>,
     at: &str,
-    quotes: &mut QuoteChecker<'_>,
+    quotes: Option<&mut QuoteChecker<'_>>,
     findings: &mut Vec<Finding>,
 ) -> Option<Citation> {
     match citation_of(extensions) {
         Ok(Some(citation)) => {
-            if let Err(error) = quotes.check(&citation) {
+            if let Some(quotes) = quotes
+                && let Err(error) = quotes.check(&citation)
+            {
                 findings.push(Finding::new(at, FindingKind::Citation(error)));
             }
             Some(citation)
@@ -294,18 +439,37 @@ fn cite_at(
     }
 }
 
-/// Checks a parameter or replacement value: a literal, or a runtime
-/// expression that parses.
+/// Checks a parameter or replacement value: a literal, a runtime expression
+/// that parses, or a string whose embedded `{$…}` expressions all parse.
 fn value_expression(value: &ValueOrSelector) -> Result<(), FindingKind> {
     match value {
         ValueOrSelector::Literal(Value::String(text)) if text.starts_with('$') => {
             Expr::parse(text).map(drop).map_err(FindingKind::Profile)
+        }
+        ValueOrSelector::Literal(Value::String(text)) => {
+            embedded_expressions(text).map_err(FindingKind::Profile)
         }
         ValueOrSelector::Literal(_) => Ok(()),
         ValueOrSelector::Selector(_) => {
             Err(FindingKind::Unsupported("a selector value".to_owned()))
         }
     }
+}
+
+/// Parses every `{$…}` expression embedded in `text` (Arazzo 1.1.0 §Runtime
+/// Expressions: "Runtime expressions … can be embedded into string values by
+/// surrounding the expression with {} curly braces").
+fn embedded_expressions(text: &str) -> Result<(), ParseError> {
+    let mut rest = text;
+    while let Some(start) = rest.find("{$") {
+        let tail = rest.get(start.saturating_add(1)..).unwrap_or_default();
+        let Some(end) = tail.find('}') else {
+            return Err(ParseError::Unterminated(text.to_owned()));
+        };
+        Expr::parse(tail.get(..end).unwrap_or_default())?;
+        rest = tail.get(end..).unwrap_or_default();
+    }
+    Ok(())
 }
 
 /// The `{name}` placeholders of a path template.
@@ -391,9 +555,16 @@ impl fmt::Display for Finding {
 /// What a gate finding refuses.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum FindingKind {
+    /// The official Arazzo 1.1 JSON Schema refuses the document.
+    #[error("Arazzo 1.1 schema: {0}")]
+    Schema(String),
     /// The Arazzo model's own validation refuses it.
     #[error("Arazzo 1.1.0: {0}")]
     Model(String),
+    /// A `workflowId` outside `[A-Za-z0-9_\-]+`, so no case id can be built
+    /// from it.
+    #[error("workflowId `{0}` does not match [A-Za-z0-9_\\-]+")]
+    WorkflowId(String),
     /// A key Arazzo 1.1.0 does not define, which the model would drop.
     #[error("`{0}` is not a field Arazzo 1.1.0 defines here")]
     UnknownKey(String),
@@ -410,15 +581,58 @@ pub enum FindingKind {
     /// An expression or condition outside the profile.
     #[error(transparent)]
     Profile(ParseError),
+    /// A `regex` condition outside the profile.
+    #[error(transparent)]
+    Regex(RegexBreach),
+    /// A source description that is not an indexable local `openapi` source.
+    #[error("source description: {0}")]
+    Source(String),
     /// An `operationId` that does not resolve in its named source.
     #[error("operation `{0}` does not resolve in its source")]
     UnresolvedOperation(String),
     /// A path parameter that does not match the operation's path template.
     #[error("path parameter `{0}` does not match the operation's path template")]
     UnresolvedParameter(String),
+    /// A parameter the operation does not declare, and that is not a header
+    /// the profile allows.
+    #[error(
+        "parameter `{name}` in {location} is not declared by the operation and is not a header the profile allows"
+    )]
+    UndeclaredParameter {
+        /// The parameter name.
+        name: String,
+        /// The OAS `in` token.
+        location: &'static str,
+    },
     /// A construct the evaluator does not drive.
     #[error("not driven by the evaluator: {0}")]
     Unsupported(String),
+}
+
+impl FindingKind {
+    /// The `validate` gate this finding belongs to.
+    #[must_use]
+    pub fn gate(&self) -> Gate {
+        match self {
+            Self::Schema(_) | Self::Model(_) | Self::WorkflowId(_) => Gate::Schema,
+            Self::UnknownKey(_) | Self::ExtensionNotAllowed(_) => Gate::Keys,
+            Self::MissingCitation | Self::Citation(_) => Gate::Citation,
+            Self::Profile(_) | Self::Regex(_) | Self::Unsupported(_) => Gate::Profile,
+            Self::Source(_)
+            | Self::UnresolvedOperation(_)
+            | Self::UnresolvedParameter(_)
+            | Self::UndeclaredParameter { .. } => Gate::Source,
+        }
+    }
+}
+
+/// The finding a source description that did not index becomes.
+#[must_use]
+pub fn source_finding(problem: &DocumentError) -> Finding {
+    Finding::new(
+        "#/sourceDescriptions",
+        FindingKind::Source(problem.to_string()),
+    )
 }
 
 /// Reports every key present in `raw` that the model's round trip dropped.
@@ -501,8 +715,7 @@ mod tests {
     use super::*;
     use assert_fs::prelude::*;
 
-    const OAS: &str =
-        "openapi: 3.0.3\npaths:\n  /ehr/{ehr_id}:\n    get:\n      operationId: ehr_get_by_id\n";
+    const OAS: &str = "openapi: 3.0.3\npaths:\n  /ehr/{ehr_id}:\n    get:\n      operationId: ehr_get_by_id\n      parameters:\n        - $ref: '#/components/parameters/ehr_id'\n        - { name: version_at_time, in: query }\ncomponents:\n  parameters:\n    ehr_id: { name: ehr_id, in: path, required: true }\n";
     const RESPONSE: &str =
         "description: |\n  `404 Not Found` is returned when an EHR with `ehr_id` does not exist.\n";
 
@@ -524,18 +737,25 @@ mod tests {
     const CITE: &str =
         "source: specs/openehr/ITS-REST/specifications/responses/404.yaml, section: description";
 
+    fn cited() -> String {
+        format!(
+            "    x-veredictum-cite: {{ {CITE}, quote: '`404 Not Found` is returned when an EHR with `ehr_id` does not exist.' }}\n"
+        )
+    }
+
     fn workflow(workflow_ext: &str, criterion_ext: &str, condition: &str) -> String {
         format!(
             "  - workflowId: w\n{workflow_ext}    steps:\n      - stepId: get\n        operationId: $sourceDescriptions.ehr.ehr_get_by_id\n        parameters: [{{ name: ehr_id, in: path, value: $inputs.ehr_id }}]\n        successCriteria:\n          - condition: {condition}\n{criterion_ext}"
         )
     }
 
+    fn kinds(dir: &assert_fs::TempDir, doc: &ArazzoDocument) -> Vec<FindingKind> {
+        doc.check(dir.path()).into_iter().map(|f| f.kind).collect()
+    }
+
     #[test]
     fn a_criterion_inherits_its_workflow_citation() {
-        let ext = format!(
-            "    x-veredictum-cite: {{ {CITE}, quote: '`404 Not Found` is returned when an EHR with `ehr_id` does not exist.' }}\n"
-        );
-        let (dir, doc) = fixture(&workflow(&ext, "", "$statusCode == 404"));
+        let (dir, doc) = fixture(&workflow(&cited(), "", "$statusCode == 404"));
         assert_eq!(doc.check(dir.path()), Vec::new());
     }
 
@@ -563,15 +783,35 @@ mod tests {
             findings.first().map(|f| &f.kind),
             Some(FindingKind::Citation(CiteError::QuoteNotFound { .. }))
         ));
+        assert!(
+            doc.gate(None).is_empty(),
+            "offline, the quote is not looked up"
+        );
+    }
+
+    #[test]
+    fn a_seeded_report_that_is_not_an_issue_number_is_refused() {
+        let ext = format!(
+            "            x-veredictum-cite: {{ {CITE}, quote: '`404 Not Found` is returned when an EHR with `ehr_id` does not exist.', report: 0 }}\n"
+        );
+        let (dir, doc) = fixture(&workflow("", &ext, "$statusCode == 404"));
+        let kinds = kinds(&dir, &doc);
+        assert!(
+            kinds
+                .iter()
+                .any(|k| matches!(k, FindingKind::Citation(CiteError::Malformed(_)))),
+            "{kinds:?}"
+        );
     }
 
     #[test]
     fn unknown_keys_foreign_extensions_and_profile_breaches_are_refused() {
         let ext = format!(
-            "    x-veredictum-cite: {{ {CITE}, quote: '`404 Not Found` is returned when an EHR with `ehr_id` does not exist.' }}\n    x-veredictum-outcome: failed\n    succesCriteria: []\n"
+            "{}    x-veredictum-outcome: failed\n    succesCriteria: []\n",
+            cited()
         );
         let (dir, doc) = fixture(&workflow(&ext, "", "\"$response.body#/a == 'x'\""));
-        let kinds: Vec<FindingKind> = doc.check(dir.path()).into_iter().map(|f| f.kind).collect();
+        let kinds = kinds(&dir, &doc);
         assert!(
             kinds.contains(&FindingKind::UnknownKey("succesCriteria".to_owned())),
             "{kinds:?}"
@@ -588,15 +828,51 @@ mod tests {
                 .any(|k| matches!(k, FindingKind::Profile(ParseError::StringComparison(_)))),
             "{kinds:?}"
         );
+        assert!(
+            kinds.iter().any(|k| matches!(k, FindingKind::Schema(_))),
+            "the official schema refuses the unknown key too: {kinds:?}"
+        );
+    }
+
+    #[test]
+    fn a_seeded_lookaround_regex_is_refused() {
+        let text = workflow(&cited(), "", "$statusCode == 404").replace(
+            "          - condition: $statusCode == 404\n",
+            "          - context: $response.body#/ehr_id/value\n            type: regex\n            condition: '^(?=a){$inputs.ehr_id}$'\n",
+        );
+        let (dir, doc) = fixture(&text);
+        assert_eq!(
+            kinds(&dir, &doc),
+            vec![FindingKind::Regex(RegexBreach::Lookaround(
+                "^(?=a){$inputs.ehr_id}$".to_owned()
+            ))]
+        );
+    }
+
+    #[test]
+    fn seeded_unparsable_expressions_are_refused() {
+        let text = workflow(&cited(), "", "$statusCode == 404")
+            .replace("value: $inputs.ehr_id", "value: '$input.ehr_id'");
+        let (dir, doc) = fixture(&text);
+        assert_eq!(
+            kinds(&dir, &doc),
+            vec![FindingKind::Profile(ParseError::Expression(
+                "$input.ehr_id".to_owned()
+            ))]
+        );
+        let text = workflow(&cited(), "", "$statusCode == 404")
+            .replace("value: $inputs.ehr_id", "value: 'ehr-{$inputs.ehr_id'");
+        let (dir, doc) = fixture(&text);
+        assert!(matches!(
+            kinds(&dir, &doc).as_slice(),
+            [FindingKind::Profile(ParseError::Unterminated(_))]
+        ));
     }
 
     #[test]
     fn an_unresolved_operation_is_refused() {
-        let ext = format!(
-            "    x-veredictum-cite: {{ {CITE}, quote: '`404 Not Found` is returned when an EHR with `ehr_id` does not exist.' }}\n"
-        );
         let text =
-            workflow(&ext, "", "$statusCode == 404").replace("ehr_get_by_id", "ehr_get_by_idx");
+            workflow(&cited(), "", "$statusCode == 404").replace("ehr_get_by_id", "ehr_get_by_idx");
         let (dir, doc) = fixture(&text);
         assert_eq!(
             doc.check(dir.path()),
@@ -606,6 +882,84 @@ mod tests {
                     "$sourceDescriptions.ehr.ehr_get_by_idx".to_owned()
                 )
             )]
+        );
+    }
+
+    #[test]
+    fn declared_and_allowed_parameters_resolve_and_others_are_refused() {
+        let params = "[{ name: ehr_id, in: path, value: $inputs.ehr_id }, { name: version_at_time, in: query, value: x }, { name: accept, in: header, value: application/json }, { name: If-Match, in: header, value: x }]";
+        let text = workflow(&cited(), "", "$statusCode == 404").replace(
+            "[{ name: ehr_id, in: path, value: $inputs.ehr_id }]",
+            params,
+        );
+        let (dir, doc) = fixture(&text);
+        assert_eq!(doc.check(dir.path()), Vec::new());
+        for (seeded, name, location) in [
+            (
+                "{ name: versionAtTime, in: query, value: x }",
+                "versionAtTime",
+                "query",
+            ),
+            (
+                "{ name: If-None-Match, in: header, value: x }",
+                "If-None-Match",
+                "header",
+            ),
+            (
+                "{ name: version_at_time, in: header, value: x }",
+                "version_at_time",
+                "header",
+            ),
+        ] {
+            let text = workflow(&cited(), "", "$statusCode == 404").replace(
+                "[{ name: ehr_id, in: path, value: $inputs.ehr_id }]",
+                &format!("[{{ name: ehr_id, in: path, value: $inputs.ehr_id }}, {seeded}]"),
+            );
+            let (dir, doc) = fixture(&text);
+            assert_eq!(
+                kinds(&dir, &doc),
+                vec![FindingKind::UndeclaredParameter {
+                    name: name.to_owned(),
+                    location
+                }],
+                "{seeded}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_seeded_source_without_type_openapi_is_reported_not_indexed() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("specs/rest-oas/ehr.yaml").write_str(OAS).unwrap();
+        let file = dir.child("artifacts/workflows/ehr.arazzo.yaml");
+        file.write_str(&format!(
+            "arazzo: 1.1.0\ninfo: {{ title: t, version: '1' }}\nsourceDescriptions:\n  - {{ name: ehr, url: ../../specs/rest-oas/ehr.yaml }}\nworkflows:\n{}",
+            workflow(&cited(), "", "$statusCode == 404")
+        ))
+        .unwrap();
+        assert!(matches!(
+            ArazzoDocument::load(file.path()),
+            Err(DocumentError::SourceType(_))
+        ));
+        let raw = crate::load::yaml_file_to_value(file.path()).unwrap();
+        let (doc, problems) = ArazzoDocument::from_value(file.path(), raw).unwrap();
+        assert!(matches!(problems.as_slice(), [DocumentError::SourceType(name)] if name == "ehr"));
+        assert_eq!(source_finding(&problems[0]).kind.gate(), Gate::Source);
+        assert!(doc.check(dir.path()).iter().any(|f| f.kind
+            == FindingKind::UnresolvedOperation(
+                "$sourceDescriptions.ehr.ehr_get_by_id".to_owned()
+            )));
+    }
+
+    #[test]
+    fn a_seeded_workflow_id_outside_the_case_id_alphabet_is_refused() {
+        let text = workflow(&cited(), "", "$statusCode == 404")
+            .replace("workflowId: w", "workflowId: w.1");
+        let (dir, doc) = fixture(&text);
+        assert!(
+            kinds(&dir, &doc).contains(&FindingKind::WorkflowId("w.1".to_owned())),
+            "{:?}",
+            kinds(&dir, &doc)
         );
     }
 }

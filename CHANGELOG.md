@@ -31,6 +31,25 @@ version on.
   failed, errored or skipped with a four-part explanation. The
   `arazzo_spike` example runs a document against a server. The CLI and the
   existing catalogue are unchanged.
+- `validate` gates the Arazzo catalogue (#601). Every document under
+  `artifacts/workflows/` validates against the official Arazzo 1.1 JSON
+  Schema (revision 2026-04-15, vendored by `scripts/vendor/arazzo-schema.sh`
+  and amended only where the Arazzo 1.1.0 text disagrees with it,
+  OAI/Arazzo-Specification#559). Findings carry eight new tokens:
+  `arazzo-load`, `arazzo-schema`, `arazzo-keys` (a key Arazzo does not define,
+  or an extension other than the two), `arazzo-source` (every `operationId`
+  and parameter resolves in its released OAS after `$ref`s, or is a request
+  header the ITS-REST overview names), `arazzo-citation` (every criterion
+  resolves to a citation whose quote occurs in its section),
+  `arazzo-profile` (no `simple` string comparison, no regex lookaround or
+  backreference, every runtime expression parses), `arazzo-rows` (a rows file
+  sits beside its document as `<workflowId>.rows.yaml`, names a workflow in
+  that folder, validates, and binds every required input) and `arazzo-surface` (inside the families
+  `artifacts/workflows/surface.yaml` scopes, every released operation,
+  declared response and negotiation-header value is covered by a step or is
+  a gap with its tracking issue). `x-veredictum-cite` gains an optional
+  `report` naming an `upstream-report` issue. Four schemas are published:
+  `arazzo-extensions`, `arazzo-profile`, `arazzo-rows` and `arazzo-surface`.
 
 ### Changed
 

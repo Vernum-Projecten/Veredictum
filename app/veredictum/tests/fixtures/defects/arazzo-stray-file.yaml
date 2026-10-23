@@ -1,0 +1,3 @@
+# Seeded defect: a file under workflows/ that is neither an `.arazzo.yaml`
+# document nor the surface file, the shape a misspelt document name takes.
+arazzo: 1.1.0

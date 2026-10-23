@@ -97,6 +97,16 @@ precedence = "override"
 SPDX-FileCopyrightText = "the publisher of the openEHR Discourse benchmark harness attachment"
 SPDX-License-Identifier = "LicenseRef-openEHR-forum-attachment"
 
+# ── The embedded Arazzo 1.1 JSON Schema ─────────────────────────────────────
+# Compiled into the engine, so it lives under `app/` where the catch-all would
+# claim it. The OpenAPI Initiative publishes it from the Arazzo Specification
+# repository, which carries Apache-2.0 at its root.
+[[annotations]]
+path = "app/veredictum/src/arazzo/vendor/arazzo-1.1-schema-2026-04-15.json"
+precedence = "override"
+SPDX-FileCopyrightText = "OpenAPI Initiative, a Linux Foundation Collaborative Project"
+SPDX-License-Identifier = "Apache-2.0"
+
 # ── One vendored file whose NAME contains a newline character ───────────────
 # A file in the vendored CNF suite is tracked with a literal U+000A inside its
 # filename — an upstream defect, and not something this repository may rename,

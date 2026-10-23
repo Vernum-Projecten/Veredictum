@@ -18,4 +18,5 @@ pub mod cite;
 pub mod document;
 pub mod evaluate;
 pub mod expr;
+pub mod gates;
 pub mod source;
