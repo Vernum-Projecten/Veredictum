@@ -98,8 +98,8 @@ rediscovery. Before first use: verify the repository has the preview enabled
 (exit code 9 check above), run one throwaway two-layer stack end to end
 (init → add → submit → merge bottom → confirm the top re-targets and the
 cascade rebases), and record the outcome on a tracker issue. Until then the
-serial train (rebase → green → squash-merge, one PR at a time) remains the
-working procedure.
+merge queue on `main` (`CLAUDE.md` § Merging) is the working procedure: it
+rebases, tests and squash-merges queued pull requests in order.
 
 ## Official documentation (durable citations)
 
