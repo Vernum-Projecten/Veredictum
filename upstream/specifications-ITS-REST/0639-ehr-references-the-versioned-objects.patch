@@ -1,0 +1,38 @@
+diff --git a/specifications/schemas/ehr/Ehr.yaml b/specifications/schemas/ehr/Ehr.yaml
+index 276de77..d4bfa01 100644
+--- a/specifications/schemas/ehr/Ehr.yaml
++++ b/specifications/schemas/ehr/Ehr.yaml
+@@ -7,9 +7,9 @@ properties:
+   ehr_id:
+     $ref: ../base_types/HierObjectId.yaml
+   ehr_status:
+-    $ref: ../base_types/ObjectRefOfObjectVersionId.yaml
++    $ref: ../base_types/ObjectRefOfHierObjectId.yaml
+   ehr_access:
+-    $ref: ../base_types/ObjectRefOfObjectVersionId.yaml
++    $ref: ../base_types/ObjectRefOfHierObjectId.yaml
+   time_created:
+     $ref: ../data_types/DvDateTime.yaml
+ example:
+@@ -19,15 +19,15 @@ example:
+     value: 7d44b88c-4199-4bad-97dc-d78268e01398
+   ehr_status:
+     id:
+-      _type: OBJECT_VERSION_ID
+-      value: 8849182c-82ad-4088-a07f-48ead4180515::openEHRSys.example.com::1
++      _type: HIER_OBJECT_ID
++      value: 8849182c-82ad-4088-a07f-48ead4180515
+     namespace: local
+-    type: EHR_STATUS
++    type: VERSIONED_EHR_STATUS
+   ehr_access:
+     id:
+-      _type: OBJECT_VERSION_ID
+-      value: 59a8d0ac-140e-4feb-b2d6-af99f8e68af8::openEHRSys.example.com::1
++      _type: HIER_OBJECT_ID
++      value: 59a8d0ac-140e-4feb-b2d6-af99f8e68af8
+     namespace: local
+-    type: EHR_ACCESS
++    type: VERSIONED_EHR_ACCESS
+   time_created:
+     value: '2015-01-20T19:30:22.765+01:00'
