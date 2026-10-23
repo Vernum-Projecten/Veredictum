@@ -2742,7 +2742,7 @@ proposing a format and demonstrating one.
 
 ---
 
-## 15. The v1.0.0 design
+## 15. The v0.2.0 design
 
 **Status: proposed, not implemented (#590, #592).**
 
