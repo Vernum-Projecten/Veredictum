@@ -23,7 +23,10 @@ version on.
 - jsonschema moves from 0.49 to 0.58.6 in the engine, the console and the
   fuzz workspace, which keeps a single copy of the crate (#552). No source
   changes.
-
+- The lockfile takes the minor and patch releases of serde_json, reqwest,
+  jiff, thiserror, clap, uuid, sha2, jsonwebtoken, tokio, leptos_meta,
+  leptos_router and leptos-use, with server_fn_macro_default 0.8.6, which
+  the newer leptos macros need to compile (#597). No source changes.
 - The hosted instrument at console.veredictum.eu moves to a new box, a Hetzner
   CAX21 (4 vCPU Arm, 8 GB RAM, 80 GB disk) in Falkenstein, after the CX33 in
   Nuremberg stopped existing (#583). It still drives two runs at once. The
