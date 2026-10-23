@@ -9,6 +9,7 @@
 //! [`Gate`], and the output is sorted, so two runs over one tree print the
 //! same bytes.
 
+pub mod aql;
 pub mod profile;
 pub mod published;
 pub mod rows;
@@ -44,6 +45,8 @@ pub enum Gate {
     Rows,
     /// A scoped surface element with neither a covering step nor a gap.
     Surface,
+    /// An AQL query that does not parse outside a step expecting `400`.
+    Aql,
 }
 
 impl Gate {
@@ -59,6 +62,7 @@ impl Gate {
             Self::Profile => "arazzo-profile",
             Self::Rows => "arazzo-rows",
             Self::Surface => "arazzo-surface",
+            Self::Aql => "arazzo-aql",
         }
     }
 }
@@ -174,7 +178,8 @@ pub fn check_catalogue(artifact_root: &Path, spec_root: Option<&Path>) -> Vec<Ga
         }
         documents.insert(id, Located { document });
     }
-    check_rows_files(&rows_files, &documents, &mut findings);
+    let rows = check_rows_files(&rows_files, &documents, &mut findings);
+    check_aql(&documents, &rows, &mut findings);
     if let Some(specs) = spec_root {
         check_surface(&workflows, specs, &documents, &mut findings);
     }
@@ -235,24 +240,29 @@ fn load_document(
 }
 
 /// The rows gate over the rows files beside the documents, plus the
-/// workflows whose required inputs no rows file binds.
+/// workflows whose required inputs no rows file binds. Returns every rows
+/// file that parsed, keyed by its `(document, workflowId)`.
 fn check_rows_files(
     rows_files: &[PathBuf],
     documents: &BTreeMap<String, Located>,
     findings: &mut Vec<GateFinding>,
-) {
-    let mut bound: Vec<(String, String)> = Vec::new();
+) -> BTreeMap<(String, String), rows::RowsFile> {
+    let mut bound: BTreeMap<(String, String), rows::RowsFile> = BTreeMap::new();
     for path in rows_files {
         let (found, binds) = check_rows_file(path, documents);
         findings.extend(found);
-        bound.extend(binds);
+        if let Some((key, file)) = binds {
+            bound.insert(key, file);
+        }
     }
     for (id, located) in documents {
         for workflow in &located.document.description().workflows {
             let unbound = rows::InputShape::of(workflow)
                 .unbound_without_rows()
                 .join(", ");
-            if !unbound.is_empty() && !bound.contains(&(id.clone(), workflow.workflow_id.clone())) {
+            if !unbound.is_empty()
+                && !bound.contains_key(&(id.clone(), workflow.workflow_id.clone()))
+            {
                 findings.push(GateFinding::new(
                     Gate::Rows,
                     located.document.path(),
@@ -266,15 +276,20 @@ fn check_rows_files(
             }
         }
     }
+    bound
 }
 
+/// The workflow a parsed rows file feeds, `(document, workflowId)`, with
+/// the file.
+type BoundRows = ((String, String), rows::RowsFile);
+
 /// Checks one rows file; returns its findings and, when its name matches a
-/// workflow of a document in its folder, that workflow's
-/// `(document, workflowId)`.
+/// workflow of a document in its folder and it parses, that workflow's
+/// `(document, workflowId)` with the file.
 fn check_rows_file(
     path: &Path,
     documents: &BTreeMap<String, Located>,
-) -> (Vec<GateFinding>, Option<(String, String)>) {
+) -> (Vec<GateFinding>, Option<BoundRows>) {
     let refuse = |message: String| GateFinding::new(Gate::Rows, path, "#", message);
     let Some(workflow_id) = rows::workflow_id_of(path) else {
         return (Vec::new(), None);
@@ -324,7 +339,32 @@ fn check_rows_file(
     if let Some(workflow) = located.document.workflow(workflow_id) {
         out.extend(rows::check_rows(&file, workflow).into_iter().map(refuse));
     }
-    (out, Some((document_id.clone(), workflow_id.to_owned())))
+    (
+        out,
+        Some(((document_id.clone(), workflow_id.to_owned()), file)),
+    )
+}
+
+/// The AQL gate over every workflow, each with its rows file when it has one.
+fn check_aql(
+    documents: &BTreeMap<String, Located>,
+    rows: &BTreeMap<(String, String), rows::RowsFile>,
+    findings: &mut Vec<GateFinding>,
+) {
+    for (id, located) in documents {
+        for workflow in &located.document.description().workflows {
+            let case_id = format!("{id}/{}", workflow.workflow_id);
+            let file = rows.get(&(id.clone(), workflow.workflow_id.clone()));
+            for finding in aql::check_workflow(&case_id, workflow, file) {
+                findings.push(GateFinding::new(
+                    Gate::Aql,
+                    located.document.path(),
+                    finding.location,
+                    finding.message,
+                ));
+            }
+        }
+    }
 }
 
 /// The surface gate, over the scope `workflows/surface.yaml` declares.
@@ -585,6 +625,25 @@ mod tests {
     }
 
     #[test]
+    fn the_aql_gate_reads_each_row_of_a_query_workflow() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("specs/rest-oas/query-validation.openapi.yaml")
+            .write_str("openapi: 3.0.3\npaths:\n  /query/aql:\n    get:\n      operationId: query_execute_adhoc_query\n      parameters:\n        - { name: q, in: query, required: true }\n")
+            .unwrap();
+        dir.child("artifacts/workflows/query/query.arazzo.yaml")
+            .write_str("arazzo: 1.1.0\ninfo: { title: t, version: '1' }\nsourceDescriptions:\n  - { name: query, url: ../../../specs/rest-oas/query-validation.openapi.yaml, type: openapi }\nworkflows:\n  - workflowId: adhoc\n    x-veredictum-cite: { source: specs/rest-oas/query-validation.openapi.yaml, section: openapi, quote: x }\n    inputs:\n      type: object\n      required: [q]\n      properties:\n        q: { type: string }\n    steps:\n      - stepId: execute\n        operationId: $sourceDescriptions.query.query_execute_adhoc_query\n        parameters: [{ name: q, in: query, value: $inputs.q }]\n        successCriteria:\n          - condition: $statusCode == 200\n")
+            .unwrap();
+        dir.child("artifacts/workflows/query/adhoc.rows.yaml")
+            .write_str("workflow: query/adhoc\niteration: single_pass\nrows:\n  - { q: 'SELECT e/ehr_id/value FROM EHR e' }\n  - { q: 'SELECT e/ehr_id/value EHR e' }\n")
+            .unwrap();
+        let found = gates(&dir);
+        assert!(
+            matches!(found.as_slice(), [(Gate::Aql, message)] if message.contains("case `query/adhoc` row 1")),
+            "{found:?}"
+        );
+    }
+
+    #[test]
     fn every_gate_token_is_distinct_and_prefixed() {
         let all = [
             Gate::Load,
@@ -595,6 +654,7 @@ mod tests {
             Gate::Profile,
             Gate::Rows,
             Gate::Surface,
+            Gate::Aql,
         ];
         let mut tokens: Vec<&str> = all.iter().map(|g| g.token()).collect();
         assert!(tokens.iter().all(|t| t.starts_with("arazzo-")));
