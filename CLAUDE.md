@@ -39,6 +39,7 @@ and the container image through the pipeline the Releasing section describes.
 | `verification-pack/**` | the recorded transcript proving the verdict pipeline reproduces its adjudicated verdicts |
 | `specs/openehr/**` | the vendored released openEHR spec text: the oracle |
 | `specs/its-xml-schemas/**`, `specs/its-json-schemas/**`, `specs/rest-oas/**` | the released machine-readable bundles, the second root a citation resolves against where the docs tree carries only prose |
+| `upstream/<openEHR repository>/**` | proposed fixes to a released specification, one patch per `upstream-report` issue, written against the vendored commit and never applied to `specs/` |
 | `scripts/vendor/**` | one script per vendored tree — the only way any of them is refreshed |
 | `scripts/checks/**` | the repository guard scripts |
 | `.claude/**` | rules, hooks, agents, memory |

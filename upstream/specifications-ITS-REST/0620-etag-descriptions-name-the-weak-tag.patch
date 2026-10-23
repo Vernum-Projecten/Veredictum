@@ -1,0 +1,44 @@
+diff --git a/specifications/headers/ETag_EHR.yaml b/specifications/headers/ETag_EHR.yaml
+index d17bc0b..ec1fe4f 100644
+--- a/specifications/headers/ETag_EHR.yaml
++++ b/specifications/headers/ETag_EHR.yaml
+@@ -1,5 +1,5 @@
+ description: |
+-  The `ETag` (i.e. entity tag) response header is the `ehr_id` identifier, enclosed by double quotes.
++  The `ETag` (i.e. entity tag) response header is a weak entity tag carrying the `ehr_id` identifier, i.e. `W/` followed by the identifier enclosed by double quotes.
+ schema:
+   type: string
+   example: 'W/"7d44b88c-4199-4bad-97dc-d78268e01398"'
+diff --git a/specifications/headers/ETag_CONTRIBUTION.yaml b/specifications/headers/ETag_CONTRIBUTION.yaml
+index 5e9e4d6..e55c575 100644
+--- a/specifications/headers/ETag_CONTRIBUTION.yaml
++++ b/specifications/headers/ETag_CONTRIBUTION.yaml
+@@ -1,5 +1,5 @@
+ description: |
+-  The `ETag` (i.e. entity tag) response header is the `contribution_uid` identifier, enclosed by double quotes.
++  The `ETag` (i.e. entity tag) response header is a weak entity tag carrying the `contribution_uid` identifier, i.e. `W/` followed by the identifier enclosed by double quotes.
+ schema:
+   type: string
+   example: 'W/"0826851c-c4c2-4d61-92b9-410fb8275ff0"'
+diff --git a/specifications/headers/ETag_VERSION.yaml b/specifications/headers/ETag_VERSION.yaml
+index 9191261..ec6a39e 100644
+--- a/specifications/headers/ETag_VERSION.yaml
++++ b/specifications/headers/ETag_VERSION.yaml
+@@ -1,5 +1,5 @@
+ description: |
+-  The `ETag` (i.e. entity tag) response header is the VERSION identifier (i.e. the `version_uid`) enclosed by double quotes.
++  The `ETag` (i.e. entity tag) response header is a weak entity tag carrying the VERSION identifier (i.e. the `version_uid`), i.e. `W/` followed by the identifier enclosed by double quotes.
+ schema:
+   type: string
+   example: 'W/"6cb19121-4307-4648-9da0-d62e4d51f19b::openEHRSys.example.com::2"'
+diff --git a/specifications/headers/ETag_VERSION_of_COMPOSITION.yaml b/specifications/headers/ETag_VERSION_of_COMPOSITION.yaml
+index c1b09e9..e96a6bc 100644
+--- a/specifications/headers/ETag_VERSION_of_COMPOSITION.yaml
++++ b/specifications/headers/ETag_VERSION_of_COMPOSITION.yaml
+@@ -1,5 +1,5 @@
+ description: |
+-  The `ETag` (i.e. entity tag) response header is the VERSION identifier (i.e. the `version_uid`) enclosed by double quotes.
++  The `ETag` (i.e. entity tag) response header is a weak entity tag carrying the VERSION identifier (i.e. the `version_uid`), i.e. `W/` followed by the identifier enclosed by double quotes.
+ schema:
+   type: string
+   example: 'W/"8849182c-82ad-4088-a07f-48ead4180515::openEHRSys.example.com::2"'
