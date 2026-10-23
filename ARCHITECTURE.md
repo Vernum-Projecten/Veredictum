@@ -2742,7 +2742,7 @@ proposing a format and demonstrating one.
 
 ---
 
-## 15. The v1.0.0 design
+## 15. The v0.2.0 design
 
 **Status: proposed, not implemented (#590, #592).**
 
@@ -2758,8 +2758,9 @@ proposing a format and demonstrating one.
    the catalogue (`.claude/rules/cnf-triage.md`).
 5. Coverage only ratchets up. Every refusal the spec requires is an asserted
    negative case.
-6. Spec silences go to the ambiguity register (§8.5) with an upstream report,
-   never to a private resolution.
+6. A defect, contradiction or silence in the released text is an
+   `upstream-report` issue in this repository, never a private resolution,
+   and no case asserts behaviour the released text does not assign.
 
 ### 15.2 Cases are Arazzo workflows over the released ITS-REST operations
 
@@ -2794,16 +2795,23 @@ it is never the authority for an expectation.
 ### 15.3 The catalogue layout
 
 ```text
-artifacts/
-  workflows/<capability>/<topic>.arazzo.yaml   one Arazzo document per capability topic
-  data/<capability>/<workflowId>.rows.yaml     input rows for data-driven workflows
+catalogue/
+  capabilities.yaml                    capabilities, tiers, options and their documents
+  cases/<capability>/
+    <topic>.arazzo.yaml                the workflows
+    <workflowId>.rows.yaml             a data-driven workflow's rows, beside it
+  datasets/<name>/                     data a server is seeded with (§15.11)
+  payloads/                            request bodies, templates, archetypes, MANIFEST.yaml
+  recipes/                             code that generates payloads
+  keys/                                signing material for the signature checks
   sources/veredictum-extensions.openapi.yaml   the routes no openEHR OAS describes
-  vocab/capability_matrix.yaml                 capabilities, tiers and their documents
-  corpus/                                      fixtures, recipes and their manifest (§8.8)
-  registers/ambiguities.yaml                   the ambiguity register (§8.5)
-schemas/                                       statement, results, ixit, register, matrix,
-                                               rows, certificate payload, extension schema
+schemas/                               statement, results, ixit, matrix, rows,
+                                       dataset, certificate payload, extension schema
 ```
+
+A case's files sit together: a capability's folder holds its Arazzo documents
+and their rows files. "Payloads" is Arazzo's own word for a request body
+(`requestBody.payload`).
 
 - **Sources.** Every document lists the released
   `specs/rest-oas/<group>-validation.openapi.yaml` bundles it calls, each with
@@ -2817,7 +2825,8 @@ schemas/                                       statement, results, ixit, registe
   only over those routes carries `realization: extension` in the capability
   matrix, and the `realization-scope` gate holds it there (§15.9).
 - **Capability by document.** A workflow belongs to the capability of the
-  document it is in. The capability matrix lists the documents per capability.
+  folder its document is in, and `capabilities.yaml` lists the documents per
+  capability, together with the options a statement answers.
 - **Ids.** A case id is `<document>/<workflowId>`, for example
   `ehr/create_ehr-same_ehr_twice-with_id`. `workflowId` matches
   `[A-Za-z0-9_\-]+`, as Arazzo recommends.
@@ -3080,6 +3089,52 @@ vendor reads why a row is red without opening `results.json`.
 - The console offers connect, scope, live run, results, verdicts and the
   certificate download. The measured instruments (perf, stress, probe, bench)
   run from the CLI only.
+
+### 15.11 AQL conformance
+
+An AQL expectation is a fact about the QUERY rules *and* about the data the
+server holds: "this query returns these three rows" is only spec-derived when
+the data is known exactly. So AQL cases run against a known dataset.
+
+**Datasets.** `catalogue/datasets/<name>/` holds a named, versioned dataset:
+the payloads to commit (compositions against a named template, EHRs, their
+statuses) and a manifest describing what the data contains, in the terms the
+expected results are derived from. A dataset is seeded once per run by a setup
+workflow, and every query workflow that reads it names it in `dependsOn`, so a
+run seeds it once and queries it many times (`single_pass`, §15.7).
+
+**Query rows.** A query workflow executes one query and judges the result with
+the `result_set` judge (§15.4). Its rows file lists the cases: the query text,
+its parameters, the expected rows, and the match mode (`ordered`, `set`,
+`count`, `contains`), under the RESULT_SET equivalence rules: bag semantics,
+total ordering under ORDER BY, explicit LIMIT, cell equality and NULL
+ordering (§8.6). Each row cites the QUERY section it exercises, and its
+expected rows are derived from the dataset manifest and that section, never
+from a server's answer. Stored queries, query parameters and paging use the
+same shape.
+
+**The parser check.** Every query in the catalogue is checked by `validate`
+against the released grammar, `specs/openehr/QUERY/docs/AQL/grammar/AqlParser.g4`
+and `AqlLexer.g4`, so a mistyped query can never become a false failure. The
+parsing is done with `openehr-query`, a Rust implementation of that grammar
+(BUSL-1.1, used here with its owner's approval, through a licence exception
+scoped to that crate alone in `deny.toml`). It is the one AQL parser this
+instrument uses. Because FerroEHR, a server this instrument judges, is built on
+the same parser, the grammar stays the authority over it: the parser check is
+tested against the worked queries of the release this repository pins,
+`specs/openehr/QUERY/docs/AQL_examples/` (which `openehr-query` vendors at a
+different commit), and a query whose validity rests on a reading of the
+grammar cites the grammar rule. When that test shows the parser disagreeing
+with the released grammar, `openehr-query` is fixed; the instrument never
+works around it. Queries that the grammar refuses are kept as their own
+refusal cases.
+
+**External query collections.** A query and dataset collection maintained
+elsewhere enters through a vendor script, like every vendored tree, into
+`catalogue/datasets/<name>/` with a `PROVENANCE.md` naming its source and
+commit. Nothing is imported blind: each query is re-adjudicated against the
+QUERY specification before it becomes a row, and a query whose expected result
+the released text does not determine stays out of the rows.
 
 ## Appendix — source register
 
