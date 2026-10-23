@@ -145,6 +145,24 @@ defects! {
     outcomes_wrong_class => ("outcomes-wrong-class.yaml", "vocab/outcomes.yaml", "vocab-drift"),
     wire_surface_empty =>
         ("wire-surface-empty.yaml", "vocab/wire_surface.yaml", "surface-coverage"),
+    // The Arazzo catalogue's gates, each refusing one seeded document, rows
+    // file or stray file through the same `validate` pass.
+    arazzo_wrong_version =>
+        ("arazzo-wrong-version.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-schema"),
+    arazzo_unknown_key =>
+        ("arazzo-unknown-key.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-keys"),
+    arazzo_undeclared_header =>
+        ("arazzo-undeclared-header.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-source"),
+    arazzo_missing_citation =>
+        ("arazzo-missing-citation.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-citation"),
+    arazzo_simple_string =>
+        ("arazzo-simple-string.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-profile"),
+    arazzo_rows_unknown_input =>
+        ("arazzo-rows-unknown-input.rows.yaml", "workflows/ehr/create_ehr-with_id.rows.yaml", "arazzo-rows"),
+    arazzo_stale_gap =>
+        ("arazzo-stale-gap.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-surface"),
+    arazzo_stray_file =>
+        ("arazzo-stray-file.yaml", "workflows/zz-notes.yaml", "arazzo-load"),
 }
 
 /// The repository root, two levels above this package (#55): the catalogue

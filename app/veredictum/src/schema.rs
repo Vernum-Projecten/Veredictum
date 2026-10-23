@@ -2668,6 +2668,22 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
         ("evidence-bundle.schema.json", evidence_bundle_schema()),
         ("bench-result.schema.json", bench_result_schema()),
         ("bench-packs.schema.json", bench_packs_schema()),
+        (
+            "arazzo-extensions.schema.json",
+            crate::arazzo::gates::published::extensions_schema(),
+        ),
+        (
+            "arazzo-profile.schema.json",
+            crate::arazzo::gates::published::profile_schema(),
+        ),
+        (
+            "arazzo-rows.schema.json",
+            crate::arazzo::gates::published::rows_schema(),
+        ),
+        (
+            "arazzo-surface.schema.json",
+            crate::arazzo::gates::published::surface_schema(),
+        ),
     ]
 }
 

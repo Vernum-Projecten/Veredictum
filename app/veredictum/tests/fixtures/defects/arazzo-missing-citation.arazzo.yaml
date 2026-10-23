@@ -1,0 +1,23 @@
+# Seeded defect: the criterion, its step and its workflow carry no
+# x-veredictum-cite, so the criterion resolves to no citation. The source url
+# passes through the pristine `ehr` directory the overlay links, so it
+# resolves to the released bundle from the overlaid `zz` directory.
+arazzo: 1.1.0
+info: { title: seeded defect, version: 0.1.0 }
+sourceDescriptions:
+  - name: ehr
+    url: ../ehr/../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_ehr-uncited
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 404

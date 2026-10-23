@@ -11,6 +11,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt;
+use std::num::NonZeroU64;
 use std::path::{Component, Path};
 
 use serde::{Deserialize, Serialize};
@@ -21,14 +22,17 @@ pub const CITE_KEY: &str = "x-veredictum-cite";
 
 /// The roots a citation may name: the vendored released openEHR text and the
 /// released OpenAPI bundles.
-const ORACLE_ROOTS: [&str; 2] = ["specs/openehr/", "specs/rest-oas/"];
+pub const ORACLE_ROOTS: [&str; 2] = ["specs/openehr/", "specs/rest-oas/"];
 
 /// The vendored tree no citation may name (owner ruling on #590: the SM has
 /// no role in the Arazzo catalogue).
-const EXCLUDED_ROOT: &str = "specs/openehr/SM/";
+pub const EXCLUDED_ROOT: &str = "specs/openehr/SM/";
 
-/// One `x-veredictum-cite` value: the released source, the element or section
-/// inside it, and the verbatim sentence that assigns the expectation.
+/// One `x-veredictum-cite` value.
+///
+/// It names the released source, the element or section inside it, the
+/// verbatim sentence that assigns the expectation, and the `upstream-report`
+/// issue when that sentence is defective.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Citation {
@@ -38,11 +42,21 @@ pub struct Citation {
     pub section: String,
     /// The sentence, copied verbatim from the source.
     pub quote: String,
+    /// The `upstream-report` issue in this repository that records a defect,
+    /// contradiction or silence in the cited text. Serde refuses zero, a
+    /// negative number and a string, so a present value is always an issue
+    /// number.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<NonZeroU64>,
 }
 
 impl fmt::Display for Citation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({}): \"{}\"", self.source, self.section, self.quote)
+        write!(f, "{} ({}): \"{}\"", self.source, self.section, self.quote)?;
+        if let Some(report) = self.report {
+            write!(f, " (upstream report #{report})")?;
+        }
+        Ok(())
     }
 }
 
@@ -262,6 +276,7 @@ mod tests {
             source: source.to_owned(),
             section: section.to_owned(),
             quote: quote.to_owned(),
+            report: None,
         }
     }
 
@@ -421,5 +436,31 @@ mod tests {
             Err(CiteError::Malformed(_))
         ));
         assert_eq!(citation_of(None), Ok(None));
+    }
+
+    #[test]
+    fn a_report_is_a_positive_issue_number() {
+        let with = |report: Value| {
+            let mut ext = BTreeMap::new();
+            ext.insert(
+                CITE_KEY.to_owned(),
+                serde_json::json!({ "source": "s", "section": "d", "quote": "q", "report": report }),
+            );
+            citation_of(Some(&ext))
+        };
+        let citation = with(serde_json::json!(618)).unwrap().unwrap();
+        assert_eq!(citation.report.map(NonZeroU64::get), Some(618));
+        assert!(citation.to_string().ends_with("(upstream report #618)"));
+        for seeded in [
+            serde_json::json!(0),
+            serde_json::json!(-3),
+            serde_json::json!("618"),
+            serde_json::json!(6.5),
+        ] {
+            assert!(
+                matches!(with(seeded.clone()), Err(CiteError::Malformed(_))),
+                "{seeded}"
+            );
+        }
     }
 }

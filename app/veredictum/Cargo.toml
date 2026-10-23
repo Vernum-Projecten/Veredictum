@@ -32,10 +32,11 @@ categories = ["development-tools::testing", "command-line-utilities", "science"]
 # list. The catalogue and the vendored specification oracle are 347 MB of data
 # in this repository — far past what a registry accepts, and nothing the crate
 # needs in order to COMPILE: every catalogue root is a path the caller passes at
-# run time. The ONE exception is `src/bench/fixtures/**`, which the benchmark
-# packs embed with `include_str!` so a bench run needs no artifact root at all;
-# those few kilobytes are listed below and are the only data the package
-# carries. Everything else is obtained from the repository or a release.
+# run time. The exceptions are `src/bench/fixtures/**`, which the benchmark
+# packs embed with `include_str!` so a bench run needs no artifact root at all,
+# and the Arazzo 1.1 JSON Schema under `src/arazzo/vendor/`, which `validate`
+# embeds so it never fetches the norm; those few kilobytes are listed below and
+# are the only data the package carries. Everything else is obtained from the repository or a release.
 #
 # `include` wins over `exclude` here on the failure direction: a new vendored
 # tree lands in this repository regularly, and with an exclude list one that
@@ -49,6 +50,7 @@ categories = ["development-tools::testing", "command-line-utilities", "science"]
 include = [
   "src/**/*.rs",
   "src/bench/fixtures/**",
+  "src/arazzo/vendor/*.json",
   "Cargo.toml",
   "README.md",
   "CHANGELOG.md",

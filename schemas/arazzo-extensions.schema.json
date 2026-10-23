@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:arazzo-extensions:0.1.0",
+  "title": "The Arazzo catalogue's two specification extensions",
+  "description": "`x-veredictum-cite` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `x-veredictum-check` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state.",
+  "$defs": {
+    "cite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "section",
+        "quote"
+      ],
+      "properties": {
+        "source": {
+          "description": "The vendored released file, relative to the repository root.",
+          "type": "string",
+          "pattern": "^(specs/openehr/|specs/rest\\-oas/)",
+          "not": {
+            "pattern": "^specs/openehr/SM/"
+          }
+        },
+        "section": {
+          "description": "A top-level key or a JSON Pointer in a YAML source; a heading title in a Markdown or AsciiDoc source.",
+          "type": "string",
+          "minLength": 1
+        },
+        "quote": {
+          "description": "The sentence that assigns the expectation, copied verbatim.",
+          "type": "string",
+          "minLength": 1
+        },
+        "report": {
+          "description": "The upstream-report issue in this repository that records a defect, contradiction or silence in the cited text.",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "required": [
+        "judge"
+      ],
+      "properties": {
+        "judge": {
+          "enum": [
+            "result_set",
+            "equivalent",
+            "signature"
+          ]
+        }
+      }
+    }
+  }
+}

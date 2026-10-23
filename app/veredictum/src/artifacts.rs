@@ -84,6 +84,9 @@ pub struct ArtifactSet {
     /// absent here, so a check pairing the two reads the directory both
     /// entries share.
     pub party_ixits: Vec<(PathBuf, crate::ixit::Ixit)>,
+    /// The artifact root this set was loaded from, which the Arazzo gates
+    /// read `workflows/` and `rows/` under. `None` for a set built in memory.
+    pub artifact_root: Option<PathBuf>,
 }
 
 /// A load pass over one artifact root.
@@ -316,6 +319,7 @@ pub fn load_root(root: &Path) -> Result<Loaded, LoadError> {
     } = schemas;
 
     let mut loaded = Loaded::default();
+    loaded.set.artifact_root = Some(root.to_owned());
 
     let performance_dir = root.join("schedule/performance");
     for path in yaml_files_under(&root.join("schedule")) {

@@ -170,6 +170,8 @@ pub enum CheckId {
     /// catalogue data instead of prose: edit the contract and the pin must move
     /// with it. An unverified pin claims a provenance no committed file backs.
     RecipeDigest,
+    /// One of the Arazzo catalogue's gates over `workflows/` and `rows/`.
+    Arazzo(crate::arazzo::gates::Gate),
 }
 
 impl CheckId {
@@ -206,6 +208,7 @@ impl CheckId {
             Self::SurfaceCoverage => "surface-coverage",
             Self::ContentSynthesis => "content-synthesis",
             Self::RecipeDigest => "recipe-digest",
+            Self::Arazzo(gate) => gate.token(),
         }
     }
 }
@@ -322,6 +325,15 @@ pub fn validate(ctx: &Context<'_>) -> Vec<Finding> {
     check_surface_coverage(ctx.set, spec.as_ref(), &mut findings);
     check_content_synthesis(ctx.set, &mut findings);
     check_recipe_digests(ctx.set, &mut findings);
+    if let Some(root) = &ctx.set.artifact_root {
+        for finding in crate::arazzo::gates::check_catalogue(root, ctx.spec_root) {
+            findings.push(Finding {
+                check: CheckId::Arazzo(finding.gate),
+                artifact: finding.file.display().to_string(),
+                message: format!("{}: {}", finding.location, finding.message),
+            });
+        }
+    }
 
     findings
 }
