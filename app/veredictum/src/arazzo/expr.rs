@@ -12,13 +12,20 @@
 //! The profile pins what Arazzo leaves open. A `simple` condition compares an
 //! expression with an integer, a boolean or `null`, and never with a string,
 //! because Arazzo makes `simple` string comparison case-insensitive. A
-//! `regex` condition is matched against its context, with every embedded
-//! `{$expression}` substituted as an escaped literal.
+//! `regex` condition is matched against its context in the dialect
+//! [`crate::arazzo::regex_profile`] pins, with every embedded `{$expression}`
+//! substituted as an escaped literal. A `jsonpath` condition is an RFC 9535
+//! query that holds when its nodelist is not empty (Arazzo 1.1.0 §`JSONPath`
+//! Conditions), with every embedded value escaped for an RFC 9535 string
+//! literal. An `xpath` condition is refused: the profile names `XPath` 3.1, and
+//! no engine for it is vetted here.
 
 use std::collections::BTreeMap;
-use std::fmt;
+use std::fmt::{self, Write as _};
 
 use serde_json::Value;
+
+use crate::arazzo::regex_profile::{self, RegexConstruct};
 
 /// One parsed runtime expression.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,6 +55,13 @@ pub enum Expr {
         /// The output name.
         output: String,
     },
+    /// `$workflows.<workflowId>.outputs.<name>`.
+    WorkflowOutput {
+        /// The workflow whose output is read.
+        workflow: String,
+        /// The output name.
+        output: String,
+    },
 }
 
 impl fmt::Display for Expr {
@@ -64,6 +78,9 @@ impl fmt::Display for Expr {
             Self::ResponseBody(p) => write!(f, "$response.body#{p}"),
             Self::Input(n) => write!(f, "$inputs.{n}"),
             Self::StepOutput { step, output } => write!(f, "$steps.{step}.outputs.{output}"),
+            Self::WorkflowOutput { workflow, output } => {
+                write!(f, "$workflows.{workflow}.outputs.{output}")
+            }
         }
     }
 }
@@ -85,6 +102,40 @@ pub enum ParseError {
     /// An embedded `{$…}` expression is not closed.
     #[error("`{0}` has an unterminated embedded expression")]
     Unterminated(String),
+    /// A `regex` condition uses a construct outside the profile's dialect.
+    #[error("the regex `{pattern}` uses {construct}, which the profile refuses")]
+    Regex {
+        /// The pattern as authored.
+        pattern: String,
+        /// The refused construct.
+        construct: RegexConstruct,
+    },
+    /// A `jsonpath` condition is not an RFC 9535 query.
+    #[error("`{query}` is not an RFC 9535 JSONPath query: {reason}")]
+    JsonPath {
+        /// The query as authored.
+        query: String,
+        /// The parser's verbatim reason.
+        reason: String,
+    },
+    /// An `xpath` condition, which the evaluator does not judge.
+    #[error("`{0}` is an xpath condition, and no vetted XPath 3.1 engine judges it")]
+    XPath(String),
+    /// An Expression Type Object names a language or version the profile
+    /// does not use.
+    #[error("expression type `{kind}` version `{version}` is outside the profile")]
+    ExpressionType {
+        /// The expression language.
+        kind: String,
+        /// The version named.
+        version: String,
+    },
+    /// A criterion type that needs a `context` has none.
+    #[error("a `{0}` criterion needs a `context`")]
+    MissingContext(String),
+    /// An `x-veredictum-check` value that is not one of the three judges.
+    #[error("`x-veredictum-check` is malformed: {0}")]
+    Check(String),
 }
 
 impl Expr {
@@ -139,6 +190,16 @@ impl Expr {
                 output: output.to_owned(),
             });
         }
+        if let Some(rest) = text.strip_prefix("$workflows.")
+            && let Some((workflow, output)) = rest.split_once(".outputs.")
+            && !workflow.is_empty()
+            && !output.is_empty()
+        {
+            return Ok(Self::WorkflowOutput {
+                workflow: workflow.to_owned(),
+                output: output.to_owned(),
+            });
+        }
         Err(bad())
     }
 }
@@ -167,6 +228,12 @@ pub enum EvalError {
     /// The `regex` condition does not compile.
     #[error("the regex `{0}` does not compile: {1}")]
     BadRegex(String, String),
+    /// The substituted `jsonpath` condition does not parse.
+    #[error("the JSONPath query `{0}` does not parse once substituted: {1}")]
+    BadJsonPath(String, String),
+    /// A judge cannot decide on this exchange.
+    #[error("{0}")]
+    Unjudgeable(String),
     /// The text could not be parsed.
     #[error(transparent)]
     Parse(#[from] ParseError),
@@ -205,6 +272,8 @@ pub struct Scope<'a> {
     pub inputs: &'a BTreeMap<String, Value>,
     /// The outputs captured by earlier steps.
     pub outputs: &'a BTreeMap<String, BTreeMap<String, Value>>,
+    /// The outputs of the workflows this one depends on.
+    pub workflows: &'a BTreeMap<String, BTreeMap<String, Value>>,
     /// The current step's exchange, once it has happened.
     pub exchange: Option<(&'a RequestView, &'a ResponseView)>,
 }
@@ -230,6 +299,13 @@ impl Scope<'_> {
             Expr::StepOutput { step, output } => Some(
                 self.outputs
                     .get(step)
+                    .and_then(|o| o.get(output))
+                    .cloned()
+                    .ok_or_else(|| EvalError::MissingOutput(expr.to_string()))?,
+            ),
+            Expr::WorkflowOutput { workflow, output } => Some(
+                self.workflows
+                    .get(workflow)
                     .and_then(|o| o.get(output))
                     .cloned()
                     .ok_or_else(|| EvalError::MissingOutput(expr.to_string()))?,
@@ -521,22 +597,56 @@ pub struct RegexCriterion {
     pub pattern: String,
 }
 
+/// The text every embedded `{$…}` expression stands for while a template is
+/// checked statically: inert in a regex, a `JSONPath` string and a `JSONPath`
+/// number alike.
+const PLACEHOLDER: &str = "0";
+
+/// Checks every embedded `{$…}` expression of `template` parses, and returns
+/// the template with each replaced by [`PLACEHOLDER`].
+fn with_placeholders(template: &str) -> Result<String, ParseError> {
+    let mut out = String::new();
+    let mut rest = template;
+    while let Some(start) = rest.find("{$") {
+        let (before, tail) = rest.split_at(start);
+        out.push_str(before);
+        let inner_and_after = tail.get(1..).unwrap_or_default();
+        let Some(end) = inner_and_after.find('}') else {
+            return Err(ParseError::Unterminated(template.to_owned()));
+        };
+        let (inner, after) = inner_and_after.split_at(end);
+        Expr::parse(inner)?;
+        out.push_str(PLACEHOLDER);
+        rest = after.get(1..).unwrap_or_default();
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
+/// The text a context value is matched as: a string is its content, a number
+/// or a boolean its JSON text (Arazzo 1.1.0 §Regex Conditions applies a
+/// pattern to `$statusCode`); `None` for an object, an array or `null`.
+fn context_text(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) => Some(text.clone()),
+        Value::Number(_) | Value::Bool(_) => Some(value.to_string()),
+        Value::Null | Value::Array(_) | Value::Object(_) => None,
+    }
+}
+
 impl RegexCriterion {
-    /// Parses the context expression and checks the embedded expressions of
-    /// the pattern parse.
+    /// Parses the context expression, checks the embedded expressions of the
+    /// pattern parse, and checks the pattern stays in the profile's dialect.
     ///
     /// # Errors
-    /// [`ParseError`] when the context or an embedded expression does not parse.
+    /// [`ParseError`] when the context or an embedded expression does not
+    /// parse, or the pattern uses a construct the profile refuses.
     pub fn parse(context: &str, pattern: &str) -> Result<Self, ParseError> {
-        let mut rest = pattern;
-        while let Some(start) = rest.find("{$") {
-            let tail = rest.get(start.saturating_add(1)..).unwrap_or_default();
-            let Some(end) = tail.find('}') else {
-                return Err(ParseError::Unterminated(pattern.to_owned()));
-            };
-            Expr::parse(tail.get(..end).unwrap_or_default())?;
-            rest = tail.get(end..).unwrap_or_default();
-        }
+        let checked = with_placeholders(pattern)?;
+        regex_profile::check(&checked).map_err(|construct| ParseError::Regex {
+            pattern: pattern.to_owned(),
+            construct,
+        })?;
         Ok(Self {
             context: Expr::parse(context)?,
             pattern: pattern.to_owned(),
@@ -545,29 +655,115 @@ impl RegexCriterion {
 
     /// Judges the criterion in `scope`.
     ///
-    /// An absent context does not hold: the response was readable and did not
-    /// carry the value.
+    /// An absent or `null` context does not hold: the response was readable
+    /// and did not carry the value (Arazzo 1.1.0 §Regex Conditions).
     ///
     /// # Errors
-    /// [`EvalError`] when a value cannot be read, the context is not a string,
-    /// or the substituted pattern does not compile.
+    /// [`EvalError`] when a value cannot be read, the context is an object or
+    /// an array, or the substituted pattern does not compile.
     pub fn judge(&self, scope: &Scope<'_>) -> Result<Judgement, EvalError> {
         let pattern = scope.substitute(&self.pattern, regex::escape)?;
-        let regex = regex::Regex::new(&pattern)
-            .map_err(|error| EvalError::BadRegex(pattern.clone(), error.to_string()))?;
+        let regex = regex_profile::compile(&pattern)
+            .map_err(|error| EvalError::BadRegex(error.pattern, error.reason))?;
         let expected = format!("{} matches /{pattern}/", self.context);
         let context = scope.eval(&self.context)?;
         let (holds, received) = match &context {
-            None => (false, format!("{} is absent", self.context)),
-            Some(Value::String(text)) => (
-                regex.is_match(text),
-                format!("{} is \"{text}\"", self.context),
-            ),
-            Some(other) => {
-                return Err(EvalError::NonStringContext(
-                    self.context.to_string(),
-                    other.to_string(),
-                ));
+            None | Some(Value::Null) => (false, format!("{} is absent", self.context)),
+            Some(value) => {
+                let Some(text) = context_text(value) else {
+                    return Err(EvalError::NonStringContext(
+                        self.context.to_string(),
+                        value.to_string(),
+                    ));
+                };
+                (
+                    regex.is_match(&text),
+                    format!("{} is {}", self.context, describe(Some(value))),
+                )
+            }
+        };
+        Ok(Judgement {
+            holds,
+            expected,
+            received,
+        })
+    }
+}
+
+/// A `jsonpath` criterion: an RFC 9535 query applied to a context value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JsonPathCriterion {
+    /// The context expression.
+    pub context: Expr,
+    /// The query, with embedded `{$…}` expressions still in place.
+    pub query: String,
+}
+
+/// Escapes a value for the inside of an RFC 9535 string literal, single- or
+/// double-quoted (RFC 9535 §2.3.1.1): quotes, the backslash and every control
+/// character become `\uXXXX` or their short escapes.
+#[must_use]
+pub fn jsonpath_escape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '\'' => out.push_str("\\u0027"),
+            '"' => out.push_str("\\u0022"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if u32::from(c) < 0x20 => {
+                let _ = write!(out, "\\u{:04x}", u32::from(c));
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+impl JsonPathCriterion {
+    /// Parses the context and checks the query is RFC 9535 once every embedded
+    /// expression is replaced by an inert value.
+    ///
+    /// # Errors
+    /// [`ParseError`] when the context or an embedded expression does not
+    /// parse, or the query is not RFC 9535.
+    pub fn parse(context: &str, query: &str) -> Result<Self, ParseError> {
+        let checked = with_placeholders(query)?;
+        serde_json_path::JsonPath::parse(&checked).map_err(|error| ParseError::JsonPath {
+            query: query.to_owned(),
+            reason: error.to_string(),
+        })?;
+        Ok(Self {
+            context: Expr::parse(context)?,
+            query: query.to_owned(),
+        })
+    }
+
+    /// Judges the criterion in `scope`: it holds when the query's nodelist
+    /// is not empty (Arazzo 1.1.0 §`JSONPath` Conditions).
+    ///
+    /// An absent or `null` context does not hold.
+    ///
+    /// # Errors
+    /// [`EvalError`] when a value cannot be read or the substituted query
+    /// does not parse.
+    pub fn judge(&self, scope: &Scope<'_>) -> Result<Judgement, EvalError> {
+        let query = scope.substitute(&self.query, jsonpath_escape)?;
+        let path = serde_json_path::JsonPath::parse(&query)
+            .map_err(|error| EvalError::BadJsonPath(query.clone(), error.to_string()))?;
+        let expected = format!("{} selects at least one node by {query}", self.context);
+        let (holds, received) = match scope.eval(&self.context)? {
+            None | Some(Value::Null) => (false, format!("{} is absent", self.context)),
+            Some(value) => {
+                let nodes = path.query(&value).all();
+                let received = match nodes.as_slice() {
+                    [] => format!("{query} selects no node of {}", self.context),
+                    [one] => format!("{query} selects {}", describe(Some(one))),
+                    many => format!("{query} selects {} nodes", many.len()),
+                };
+                (!nodes.is_empty(), received)
             }
         };
         Ok(Judgement {
@@ -607,6 +803,7 @@ mod tests {
         let scope = Scope {
             inputs: &inputs,
             outputs: &outputs,
+            workflows: &outputs,
             exchange: Some((&request, &response)),
         };
         SimpleCondition::parse(condition)?.judge(&scope, condition)
@@ -709,6 +906,7 @@ mod tests {
                 &Scope {
                     inputs: &BTreeMap::new(),
                     outputs: &BTreeMap::new(),
+                    workflows: &BTreeMap::new(),
                     exchange: None
                 },
                 "$statusCode == 200"
@@ -725,6 +923,7 @@ mod tests {
         let scope = Scope {
             inputs: &inputs,
             outputs: &outputs,
+            workflows: &outputs,
             exchange: Some((&request, &response)),
         };
         let exact =
@@ -756,11 +955,163 @@ mod tests {
         let scope = Scope {
             inputs: &BTreeMap::new(),
             outputs: &BTreeMap::new(),
+            workflows: &BTreeMap::new(),
             exchange: None,
         };
         assert_eq!(
             scope.eval(&Expr::Input("ehr_id".to_owned())),
             Err(EvalError::MissingInput("ehr_id".to_owned()))
         );
+        let workflow = Expr::parse("$workflows.setup.outputs.ehr_id").unwrap();
+        assert!(matches!(
+            scope.eval(&workflow),
+            Err(EvalError::MissingOutput(_))
+        ));
+    }
+
+    fn judge_with<T>(
+        body: &str,
+        inputs: &[(&str, Value)],
+        judge: impl FnOnce(&Scope<'_>) -> T,
+    ) -> T {
+        let (request, response) = exchange(200, body);
+        let inputs: BTreeMap<String, Value> = inputs
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), v.clone()))
+            .collect();
+        let none = BTreeMap::new();
+        let workflows = BTreeMap::from([(
+            "setup".to_owned(),
+            BTreeMap::from([("id".to_owned(), Value::from("w-1"))]),
+        )]);
+        judge(&Scope {
+            inputs: &inputs,
+            outputs: &none,
+            workflows: &workflows,
+            exchange: Some((&request, &response)),
+        })
+    }
+
+    #[test]
+    fn simple_compares_integers_booleans_and_null_only() {
+        let body = r#"{"q":true,"n":3,"s":"3"}"#;
+        assert!(
+            judge_simple("$response.body#/q == true", 200, body)
+                .unwrap()
+                .holds
+        );
+        assert!(
+            !judge_simple("$response.body#/q != true", 200, body)
+                .unwrap()
+                .holds
+        );
+        assert!(
+            judge_simple("$response.body#/n >= 3", 200, body)
+                .unwrap()
+                .holds
+        );
+        assert!(
+            !judge_simple("$response.body#/missing == 3", 200, body)
+                .unwrap()
+                .holds,
+            "an absent value in a readable response does not hold"
+        );
+        assert!(
+            matches!(
+                judge_simple("$response.body#/s == 3", 200, body),
+                Err(EvalError::Incomparable(..))
+            ),
+            "a numeric string is not coerced"
+        );
+        assert!(matches!(
+            judge_simple("$response.body#/q < true", 200, body),
+            Err(EvalError::Incomparable(..))
+        ));
+    }
+
+    #[test]
+    fn a_regex_outside_the_profile_is_refused_statically() {
+        for pattern in ["^a(?=b)$", r"(a)\1", "(?i)abc", r"\Aabc"] {
+            assert!(
+                matches!(
+                    RegexCriterion::parse("$response.body#/a", pattern),
+                    Err(ParseError::Regex { .. })
+                ),
+                "{pattern}"
+            );
+        }
+        assert!(RegexCriterion::parse("$response.body#/a", "^{$inputs.id}[0-9]{2}$").is_ok());
+    }
+
+    #[test]
+    fn a_regex_reads_a_number_context_as_its_text() {
+        let status = RegexCriterion::parse("$statusCode", r"^2\d{2}$").unwrap();
+        assert!(judge_with("", &[], |s| status.judge(s)).unwrap().holds);
+        let null = RegexCriterion::parse("$response.body#/a", "^x$").unwrap();
+        assert!(
+            !judge_with(r#"{"a":null}"#, &[], |s| null.judge(s))
+                .unwrap()
+                .holds,
+            "a null context does not hold"
+        );
+    }
+
+    #[test]
+    fn a_jsonpath_criterion_holds_on_a_non_empty_nodelist() {
+        let body = r#"{"ehr_id":{"value":"x'y"},"items":[1,2]}"#;
+        let exact =
+            JsonPathCriterion::parse("$response.body", "$.ehr_id[?@ == '{$inputs.id}']").unwrap();
+        let holds = judge_with(body, &[("id", Value::from("x'y"))], |s| exact.judge(s)).unwrap();
+        assert!(holds.holds, "{holds:?}");
+        let other = judge_with(body, &[("id", Value::from("X'Y"))], |s| exact.judge(s)).unwrap();
+        assert!(!other.holds, "RFC 9535 comparison is exact");
+        let many = JsonPathCriterion::parse("$response.body", "$.items[*]").unwrap();
+        let judged = judge_with(body, &[], |s| many.judge(s)).unwrap();
+        assert!(judged.holds);
+        assert_eq!(judged.received, "$.items[*] selects 2 nodes");
+        let none = JsonPathCriterion::parse("$response.body", "$.missing").unwrap();
+        assert!(!judge_with(body, &[], |s| none.judge(s)).unwrap().holds);
+        let from_setup = JsonPathCriterion::parse(
+            "$response.body",
+            "$.ehr_id[?@ == '{$workflows.setup.outputs.id}']",
+        )
+        .unwrap();
+        assert!(
+            !judge_with(body, &[], |s| from_setup.judge(s))
+                .unwrap()
+                .holds
+        );
+    }
+
+    #[test]
+    fn a_jsonpath_context_that_is_absent_fails_and_an_unreadable_one_errors() {
+        let query = JsonPathCriterion::parse("$response.body#/nope", "$.a").unwrap();
+        assert!(
+            !judge_with(r#"{"a":1}"#, &[], |s| query.judge(s))
+                .unwrap()
+                .holds
+        );
+        assert!(matches!(
+            judge_with("not json", &[], |s| query.judge(s)),
+            Err(EvalError::UnreadableBody(_))
+        ));
+    }
+
+    #[test]
+    fn a_query_that_is_not_rfc_9535_is_refused() {
+        assert!(matches!(
+            JsonPathCriterion::parse("$response.body", "$.a[?(@.b"),
+            Err(ParseError::JsonPath { .. })
+        ));
+        assert!(matches!(
+            JsonPathCriterion::parse("$response.body", "$..[?@.v == '{$nope}']"),
+            Err(ParseError::Expression(_))
+        ));
+    }
+
+    #[test]
+    fn a_substituted_value_is_escaped_for_a_jsonpath_string() {
+        assert_eq!(jsonpath_escape("a'b\"c\\d"), "a\\u0027b\\u0022c\\\\d");
+        assert_eq!(jsonpath_escape("\x01"), "\\u0001");
     }
 }

@@ -2641,6 +2641,103 @@ pub fn bench_packs_schema() -> Value {
     })
 }
 
+/// The citation a results row names, with its upstream link.
+fn arazzo_why_def() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "section", "quote"],
+        "properties": {
+            "source": { "type": "string", "minLength": 1 },
+            "section": { "type": "string" },
+            "quote": { "type": "string" },
+            "link": { "type": "string", "minLength": 1 },
+            "report": { "type": "integer", "minimum": 1 }
+        }
+    })
+}
+
+/// `arazzo-results.schema.json` — the results of one Arazzo document's run.
+#[must_use]
+pub fn arazzo_results_schema() -> Value {
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("arazzo-results"),
+        "title": "Arazzo run results",
+        "description": "One row per workflow row of one Arazzo document, each passed, failed, errored or skipped. A failed or errored row carries the four-part explanation (what was checked, why it is required, expected against received with the exchange, whose problem it is); a skipped row carries one reason from the closed list and its citation. Re-judging the HAR recording of the run writes the same bytes.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["document", "engine", "base_url", "rows"],
+        "properties": {
+            "document": { "type": "string", "minLength": 1 },
+            "engine": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "version"],
+                "properties": {
+                    "name": { "type": "string", "minLength": 1 },
+                    "version": { "type": "string", "minLength": 1 }
+                }
+            },
+            "base_url": { "type": "string" },
+            "rows": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["case", "row", "status", "inputs", "generated"],
+                    "properties": {
+                        "case": { "type": "string", "pattern": crate::arazzo::gates::published::CASE_ID_PATTERN },
+                        "row": { "type": "integer", "minimum": 0 },
+                        "status": { "enum": tokens(crate::arazzo::results::Status::ALL) },
+                        "inputs": { "type": "object" },
+                        "generated": { "type": "array", "items": { "type": "string" } },
+                        "skip": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["reason", "why"],
+                            "properties": {
+                                "reason": { "enum": tokens(crate::arazzo::results::SkipReason::ALL) },
+                                "why": arazzo_why_def()
+                            }
+                        },
+                        "explanation": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["step", "what", "expected", "received", "whose"],
+                            "properties": {
+                                "step": { "type": "string", "minLength": 1 },
+                                "what": { "type": "string" },
+                                "why": arazzo_why_def(),
+                                "expected": { "type": "string" },
+                                "received": { "type": "string" },
+                                "exchange": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["entry", "method", "url", "status"],
+                                    "properties": {
+                                        "entry": { "type": "integer", "minimum": 0 },
+                                        "method": { "type": "string" },
+                                        "url": { "type": "string" },
+                                        "status": { "type": "integer", "minimum": 0 }
+                                    }
+                                },
+                                "whose": { "enum": tokens(crate::arazzo::results::Whose::ALL) }
+                            }
+                        }
+                    },
+                    "allOf": [
+                        { "if": { "properties": { "status": { "const": "skipped" } } },
+                          "then": { "required": ["skip"] } },
+                        { "if": { "properties": { "status": { "enum": ["failed", "errored"] } } },
+                          "then": { "required": ["explanation"] } }
+                    ]
+                }
+            }
+        }
+    })
+}
+
 /// The full published set: (file name, schema document).
 #[must_use]
 pub fn emit_all() -> Vec<(&'static str, Value)> {
@@ -2684,6 +2781,7 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
             "arazzo-surface.schema.json",
             crate::arazzo::gates::published::surface_schema(),
         ),
+        ("arazzo-results.schema.json", arazzo_results_schema()),
     ]
 }
 

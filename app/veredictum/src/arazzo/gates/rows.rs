@@ -140,7 +140,7 @@ pub fn check_rows(rows: &RowsFile, workflow: &Workflow) -> Vec<String> {
         return out;
     };
     let shape = InputShape::of(workflow);
-    // TODO(#600): check row values against the decision-table literal grammar once the
+    // TODO(#638): check row values against the decision-table literal grammar once the
     // evaluator reads rows through it.
     let validator = match jsonschema::validator_for(inputs) {
         Ok(validator) => validator,
