@@ -3,6 +3,7 @@
 
 name: Task
 description: A general work item (maintenance, research, tooling, migration step)
+type: Task
 labels: ["chore"]
 body:
   - type: textarea

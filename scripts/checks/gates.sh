@@ -49,6 +49,7 @@ gate guard "hosted-instrument words"  "bash scripts/checks/hosted-instrument-lan
 gate guard "hosted words self-test"   "bash scripts/checks/hosted-instrument-language.sh --self-test"
 gate guard "hosted deploy script"     "bash scripts/checks/hosted-deploy-script.sh"
 gate guard "hosted deploy self-test"  "bash scripts/checks/hosted-deploy-script.sh --self-test"
+gate guard "issue fields self-test"   "bash scripts/gh/fields.sh --self-test" jq
 gate guard "CI jobs gate the merge"   "bash scripts/checks/ci-conclusion-complete.sh"
 gate guard "gates cover CI"           "bash scripts/checks/gates-cover-ci.sh"
 gate guard "the command reference"    "bash scripts/checks/cli-surface.sh"

@@ -172,5 +172,7 @@ the narrative lives only on the issue.
   `spec-update` issue with the closed report as its provenance, and reopen
   only if the resolution requires changes here.
 - **Labels**: `upstream-report` plus `spec:<component>`, and
-  `upstream-confirmed` once verified. A work item here waiting on a reported
+  `upstream-confirmed` once verified. The report's issue type is `Bug`, and
+  its priority is the `Priority` issue field, both set with
+  `scripts/gh/fields.sh`; neither is a label. A work item here waiting on a reported
   defect adds a native `blocked-by` edge to the report issue.
