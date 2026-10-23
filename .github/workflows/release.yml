@@ -195,7 +195,7 @@ jobs:
       - name: .zenodo.json is in sync with CITATION.cff
         run: bash scripts/render/zenodo-json.sh --check
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-notes
           path: release-notes.md
@@ -231,7 +231,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.sha }} # == plan's commit: the dispatch-at-tag refusal makes them equal
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-notes
 
@@ -253,7 +253,7 @@ jobs:
       # supplier, component name, version, other unique identifiers (purl),
       # dependency relationships, SBOM author and timestamp
       # (https://www.cisa.gov/sbom).
-      - uses: taiki-e/install-action@84f5ac3124727fb3d284d4d22ee9ab3654fd09a6 # v2.87.7
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: syft@1.50.0
       - name: Generate the repository SPDX SBOM
@@ -465,7 +465,7 @@ jobs:
       # No cache in a publishing lane: nothing a prior run could have poisoned
       # may influence the bytes that get pushed and attested.
       - name: Install cargo-auditable
-        uses: taiki-e/install-action@84f5ac3124727fb3d284d4d22ee9ab3654fd09a6 # v2.87.7
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-auditable@0.7.5
 
@@ -500,7 +500,7 @@ jobs:
 
       # Both binaries under one artifact name, so build-image.yml's single
       # download per platform stages bin/<arch>/ complete.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: veredictum-console-${{ matrix.platform }}
           path: |
@@ -530,7 +530,7 @@ jobs:
           persist-credentials: false
           ref: ${{ github.sha }} # == plan's commit: the dispatch-at-tag refusal makes them equal
 
-      - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           target: wasm32-unknown-unknown
           cache: false
@@ -565,7 +565,7 @@ jobs:
           cargo leptos build --release
           mv target/release/hash.txt target/site/hash.txt
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: veredictum-console-site
           path: target/site
@@ -799,7 +799,7 @@ jobs:
           ref: ${{ github.sha }} # == plan's commit: the dispatch-at-tag refusal makes them equal
       # No cache in the lane that uploads: a published version is immutable, so
       # it is built from this checkout and nothing else.
-      - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           cache: false
 
