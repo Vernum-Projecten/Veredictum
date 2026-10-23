@@ -8,8 +8,8 @@ rules. The working discipline that every change is held to lives in the root
 There is no separate agreement to sign and no copyright assignment. You keep
 your copyright, and the licence stays Apache-2.0 for everyone, including the
 maintainer. The terms a contribution carries are in
-[§ Licensing of contributions](#licensing-of-contributions), and the pull
-request template records your acceptance of them.
+[§ Licensing of contributions](#licensing-of-contributions), and opening a pull
+request accepts them.
 
 Contributions are not limited to code. A conformance case for behaviour the
 catalogue does not cover, a specification citation that refutes an expectation,
@@ -146,12 +146,10 @@ submitting a contribution you:
 
 You keep your copyright, and the licence stays Apache-2.0 for everyone, the
 maintainer included. Point 3 is what keeps the work one work under one
-licensor, the same terms every repository in the Ferro family carries, so a
-transfer of the project can cover every line, not only the maintainer's own.
-There is no separate agreement to sign: the pull request template carries a
-checkbox recording your acceptance of these terms, and a pull request from a
-person does not merge without it (the `contribution-licence-guard` check, backed
-by `scripts/checks/contribution-licence.sh`).
+licensor, so a transfer of the project can cover every line, not only the
+maintainer's own.
+There is no separate agreement to sign: opening a pull request is your
+acceptance of these terms.
 
 ## Reporting issues
 
