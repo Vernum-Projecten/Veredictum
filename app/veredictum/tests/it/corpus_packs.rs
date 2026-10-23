@@ -732,17 +732,16 @@ fn read_xml_document(
         match event {
             quick_xml::events::Event::Eof => break,
             quick_xml::events::Event::Start(e) => {
-                let local = String::from_utf8_lossy(e.local_name().as_ref()).into_owned();
+                let local = e.local_name().into_inner().to_owned();
                 if root.is_none() {
                     let namespace = match resolved {
                         quick_xml::name::ResolveResult::Bound(ns) => {
-                            Some(String::from_utf8_lossy(ns.as_ref()).into_owned())
+                            Some(ns.into_inner().to_owned())
                         }
                         quick_xml::name::ResolveResult::Unbound => None,
                         quick_xml::name::ResolveResult::Unknown(prefix) => {
                             return Err(format!(
-                                "the root element's prefix `{}` is bound to no namespace",
-                                String::from_utf8_lossy(&prefix)
+                                "the root element's prefix `{prefix}` is bound to no namespace"
                             ));
                         }
                     };
@@ -763,7 +762,7 @@ fn read_xml_document(
                 }
             }
             quick_xml::events::Event::Text(e) if path == value_path => {
-                value = Some(e.decode().map_err(|err| err.to_string())?.trim().to_owned());
+                value = Some(e.trim().to_owned());
             }
             _ => {}
         }

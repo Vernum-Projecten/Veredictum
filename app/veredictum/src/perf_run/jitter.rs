@@ -396,10 +396,7 @@ impl LeafConstraints {
                     stack.push(frame);
                 }
                 quick_xml::events::Event::Text(text) => {
-                    let decoded = text
-                        .decode()
-                        .map_err(|e| ConstraintReadError::Malformed(e.to_string()))?;
-                    let trimmed = decoded.trim();
+                    let trimmed = text.trim();
                     if !trimmed.is_empty() {
                         record_text(&mut stack, &mut accumulator, &mut units, filling, trimmed);
                     }
@@ -574,18 +571,18 @@ fn frame_of(
     reader: &mut quick_xml::NsReader<&[u8]>,
     start: &quick_xml::events::BytesStart<'_>,
 ) -> Result<Frame, ConstraintReadError> {
-    let name = String::from_utf8_lossy(start.local_name().as_ref()).into_owned();
+    let name = start.local_name().into_inner().to_owned();
     let mut xsi_type = None;
     for attribute in start.attributes() {
         let attribute = attribute.map_err(|e| ConstraintReadError::Malformed(e.to_string()))?;
         let (namespace, local) = reader.resolver_mut().resolve_attribute(attribute.key);
-        let is_xsi_type = local.as_ref() == b"type"
+        let is_xsi_type = local.as_ref() == "type"
             && matches!(
                 namespace,
-                quick_xml::name::ResolveResult::Bound(ns) if ns.as_ref() == XSI_NAMESPACE.as_bytes()
+                quick_xml::name::ResolveResult::Bound(ns) if ns.as_ref() == XSI_NAMESPACE
             );
         if is_xsi_type {
-            let value = String::from_utf8_lossy(attribute.value.as_ref()).into_owned();
+            let value = attribute.value.into_owned();
             xsi_type = value.rsplit(':').next().map(str::to_owned);
         }
     }

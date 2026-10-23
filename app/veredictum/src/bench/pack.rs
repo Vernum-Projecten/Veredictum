@@ -1061,14 +1061,13 @@ fn template_identity(opt_xml: &str) -> Result<TemplateIdentity, String> {
                 ));
             }
             quick_xml::events::Event::Start(start) => {
-                path.push(String::from_utf8_lossy(start.local_name().as_ref()).into_owned());
+                path.push(start.local_name().into_inner().to_owned());
             }
             quick_xml::events::Event::End(_) => {
                 path.pop();
             }
             quick_xml::events::Event::Text(text) => {
-                let decoded = text.decode().map_err(|e| e.to_string())?;
-                let trimmed = decoded.trim();
+                let trimmed = text.trim();
                 if trimmed.is_empty() {
                     continue;
                 }

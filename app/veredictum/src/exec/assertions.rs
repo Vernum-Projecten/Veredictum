@@ -1078,8 +1078,9 @@ struct XmlRootElement {
 /// document's DEFAULT namespace — which `resolve_element` implements.
 ///
 /// # Errors
-/// A message when an attribute is malformed or its value is not valid UTF-8,
-/// or when the `xsi:type` `QName` carries a prefix the document never bound.
+/// A message when an attribute is malformed or its value fails
+/// attribute-value normalization, or when the `xsi:type` `QName` carries a
+/// prefix the document never bound.
 fn root_xsi_type(
     reader: &mut quick_xml::NsReader<&[u8]>,
     start: &quick_xml::events::BytesStart<'_>,
@@ -1089,10 +1090,10 @@ fn root_xsi_type(
             .map_err(|e| AssertionFailure(format!("xml_root: body is not well-formed XML: {e}")))?;
         let (attribute_ns, attribute_local) =
             reader.resolver_mut().resolve_attribute(attribute.key);
-        let is_xsi_type = attribute_local.as_ref() == b"type"
+        let is_xsi_type = attribute_local.as_ref() == "type"
             && matches!(
                 attribute_ns,
-                quick_xml::name::ResolveResult::Bound(ns) if ns.as_ref() == XSI_NAMESPACE.as_bytes()
+                quick_xml::name::ResolveResult::Bound(ns) if ns.as_ref() == XSI_NAMESPACE
             );
         if !is_xsi_type {
             continue;
@@ -1106,23 +1107,17 @@ fn root_xsi_type(
             .map_err(|e| AssertionFailure(format!("xml_root: xsi:type is not readable: {e}")))?;
         let (type_ns, type_local) = reader
             .resolver_mut()
-            .resolve_element(quick_xml::name::QName(value.as_bytes()));
+            .resolve_element(quick_xml::name::QName(&value));
         let namespace = match type_ns {
-            quick_xml::name::ResolveResult::Bound(ns) => {
-                Some(String::from_utf8_lossy(ns.as_ref()).into_owned())
-            }
+            quick_xml::name::ResolveResult::Bound(ns) => Some(ns.into_inner().to_owned()),
             quick_xml::name::ResolveResult::Unbound => None,
             quick_xml::name::ResolveResult::Unknown(prefix) => {
                 return Err(AssertionFailure(format!(
-                    "xml_root: the xsi:type QName's prefix `{}` is not bound to any namespace",
-                    String::from_utf8_lossy(&prefix)
+                    "xml_root: the xsi:type QName's prefix `{prefix}` is not bound to any namespace"
                 )));
             }
         };
-        return Ok(Some((
-            String::from_utf8_lossy(type_local.as_ref()).into_owned(),
-            namespace,
-        )));
+        return Ok(Some((type_local.into_inner().to_owned(), namespace)));
     }
     Ok(None)
 }
@@ -1166,16 +1161,13 @@ fn xml_root_element(text: &str) -> Result<XmlRootElement, AssertionFailure> {
             quick_xml::events::Event::Start(e) | quick_xml::events::Event::Empty(e)
                 if root.is_none() =>
             {
-                let local = String::from_utf8_lossy(e.local_name().as_ref()).into_owned();
+                let local = e.local_name().into_inner().to_owned();
                 let namespace = match resolved {
-                    quick_xml::name::ResolveResult::Bound(ns) => {
-                        Some(String::from_utf8_lossy(ns.as_ref()).into_owned())
-                    }
+                    quick_xml::name::ResolveResult::Bound(ns) => Some(ns.into_inner().to_owned()),
                     quick_xml::name::ResolveResult::Unbound => None,
                     quick_xml::name::ResolveResult::Unknown(prefix) => {
                         return Err(AssertionFailure(format!(
-                            "xml_root: the root element's prefix `{}` is not bound to any namespace",
-                            String::from_utf8_lossy(&prefix)
+                            "xml_root: the root element's prefix `{prefix}` is not bound to any namespace"
                         )));
                     }
                 };
