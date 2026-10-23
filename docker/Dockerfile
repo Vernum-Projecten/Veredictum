@@ -46,7 +46,7 @@
 # never `cargo install cargo-leptos` (that compiles a vendored OpenSSL C tree
 # — roughly ten minutes per cold build; a FerroEHR lesson carried over).
 
-ARG RUST_VERSION=1.97.1
+ARG RUST_VERSION=1.98.1
 ARG CARGO_LEPTOS_VERSION=v0.3.7
 ARG TAILWIND_VERSION=v4.3.3
 
@@ -59,13 +59,13 @@ FROM busybox@sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d
 RUN mkdir -p /empty/out
 
 # ── builder: toolchain + prebuilt tools, then cargo-leptos under the cache ────
-# Digest-pinned rust:1.97.1-slim-trixie (Debian 13, glibc 2.41). The builder
+# Digest-pinned rust:1.98.1-slim-trixie (Debian 13, glibc 2.41). The builder
 # and the cc-debian13 runtime below share the Debian 13 generation, so the
 # binary links exactly the glibc it runs against. Pinning by digest rather
 # than by the mutable tag is what makes the base reproducible
 # (https://docs.docker.com/build/building/best-practices — "pinning to a
 # digest guarantees the same image version").
-FROM rust:${RUST_VERSION}-slim-trixie@sha256:3b2879047d42784ca9403ad20c51ed3df361a50f1df96f5777d39b4e33aa65cd AS builder
+FROM rust:${RUST_VERSION}-slim-trixie@sha256:4cd829461bd5c4d511c32e269da9cb8929223b666519d8004e35fc8d1d771ab7 AS builder
 ARG CARGO_LEPTOS_VERSION
 ARG TAILWIND_VERSION
 # amd64 | arm64 — provided by buildx; the from-source target builds natively.

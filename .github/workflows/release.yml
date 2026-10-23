@@ -438,7 +438,7 @@ jobs:
     # Digest-pinned rather than tag-pinned: a tag is mutable, so a re-run of an
     # already-reviewed commit could otherwise build against different bytes. The
     # INDEX digest, so both runner architectures resolve it.
-    container: rust:1.97.1-slim-trixie@sha256:3b2879047d42784ca9403ad20c51ed3df361a50f1df96f5777d39b4e33aa65cd
+    container: rust:1.98.1-slim-trixie@sha256:4cd829461bd5c4d511c32e269da9cb8929223b666519d8004e35fc8d1d771ab7
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

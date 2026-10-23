@@ -14,7 +14,7 @@ version = "0.1.7"
 # `cargo run -- <subcommand>` and must keep meaning the instrument.
 default-run = "veredictum"
 edition = "2024"
-rust-version = "1.96"
+rust-version = "1.98"
 license = "Apache-2.0"
 description = "The independent conformance instrument for openEHR clinical data repositories: a machine-readable catalogue of spec-cited test cases, executed against any running CDR, judged by pure-function verdicts"
 repository = "https://github.com/Vernum-Projecten/Veredictum"

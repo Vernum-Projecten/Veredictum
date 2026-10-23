@@ -94,7 +94,7 @@ inputs. The seed directory reaches it read-only, as the second argument.
 
 cargo-fuzz needs a nightly toolchain, which is why `fuzz/` is its own workspace:
 no `cargo build`, `cargo clippy` or `cargo nextest` at the repository root ever
-compiles this package, and the root stays on its pinned stable 1.97.1.
+compiles this package, and the root stays on its pinned stable 1.98.1.
 
 ```sh
 rustup toolchain install nightly

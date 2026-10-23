@@ -765,8 +765,8 @@ jobs:
   # The declared MSRV is a possibly-breaking semver datum
   # (https://doc.rust-lang.org/cargo/reference/semver.html#env-new-rust), and
   # `cargo hack check --rust-version` is the tool the Cargo book names for
-  # verifying it. Without this job `rust-version = "1.96"` is a claim nothing
-  # tests, because the pinned toolchain is 1.97.1 and compiles it either way.
+  # verifying it. Without this job `rust-version = "1.98"` is a claim nothing
+  # tests, because the pinned toolchain is 1.98.1 and compiles it either way.
   msrv:
     name: msrv
     needs: changes

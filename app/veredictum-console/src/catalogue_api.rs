@@ -353,13 +353,15 @@ pub mod read {
 pub mod fns {
     //! The `#[server]` endpoints, one module for one inner suppression.
     //!
-    //! The suppression covers what the macro expands: `unused_async`, and
+    //! The suppression covers what the macro expands: `unused_async` and
+    //! `unused_async_trait_impl` on the async fn it wraps in a trait impl, and
     //! `missing_docs` on the argument struct it mints. Both fire only in SOME
     //! expansions, so `#[expect]` would itself warn through
     //! `unfulfilled_lint_expectations` in the quiet ones
     //! (<https://doc.rust-lang.org/rustc/lints/levels.html#expect>).
     #![allow(
         clippy::unused_async,
+        clippy::unused_async_trait_impl,
         missing_docs,
         reason = "fires only in some #[server] expansions; see the module doc"
     )]

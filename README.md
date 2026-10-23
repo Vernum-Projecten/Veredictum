@@ -37,7 +37,7 @@
 <a href="https://veredictum.eu/docs/installation.html"><img src="https://slsa.dev/images/gh-badge-level3.svg" alt="SLSA Build L3"></a>
 <a href="https://doi.org/10.5281/zenodo.22113258"><img src="https://zenodo.org/badge/1347360549.svg" alt="DOI"></a>
 <a href="https://github.com/Vernum-Projecten/Veredictum/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-46215C" alt="License: Apache-2.0"></a>
-<a href="https://github.com/Vernum-Projecten/Veredictum/blob/main/rust-toolchain.toml"><img src="https://img.shields.io/badge/rust-1.97-B7431B?logo=rust&logoColor=white" alt="Rust 1.97"></a>
+<a href="https://github.com/Vernum-Projecten/Veredictum/blob/main/rust-toolchain.toml"><img src="https://img.shields.io/badge/rust-1.98-B7431B?logo=rust&logoColor=white" alt="Rust 1.97"></a>
 </p>
 
 <p align="center">

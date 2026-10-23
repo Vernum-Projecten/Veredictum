@@ -4,7 +4,7 @@
 # The libFuzzer harnesses over the readers that take text or bytes the
 # instrument did not produce. Deliberately its OWN workspace (the empty
 # `[workspace]` table below): cargo-fuzz needs a nightly toolchain, this
-# repository is pinned to stable 1.97.1, and no ordinary `cargo build`,
+# repository is pinned to stable 1.98.1, and no ordinary `cargo build`,
 # `cargo clippy` or `cargo nextest` run at the root may compile this package.
 [workspace]
 
