@@ -18,6 +18,16 @@ version on.
 
 ## [Unreleased]
 
+### Security
+
+- The image's distroless base moves to the Debian 13.7 rebuild of
+  `gcr.io/distroless/cc-debian13:nonroot`, which carries `libssl3t64`
+  3.5.7-1~deb13u3. That fixes CVE-2026-84782 (HIGH), the finding the scheduled
+  scan of the published image reported (#576), and also CVE-2026-14456, so its
+  `.trivyignore.yaml` entry and the `distroless-libssl` OpenVEX statement are
+  removed: a base rebuild now carries the fix those two documents were waiting
+  for.
+
 ## [0.1.6] - 2026-09-21
 
 ### Changed

@@ -34,7 +34,6 @@ reasoning, which decays into a list nobody can re-evaluate.
 
 | File | Subject | Authored |
 |---|---|---|
-| `distroless-libssl.openvex.json` | The OpenSSL finding in the distroless base filesystem. Not affected: nothing in the shipped image links libssl. | by hand |
 | `rust-advisories.openvex.json` | The Rust dependency advisories `deny.toml` accepts with an adjudication. | **generated** |
 
 ## The generated document
