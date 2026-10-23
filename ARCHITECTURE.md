@@ -2163,7 +2163,7 @@ sustained run at the normative offered load, and a ratio against a reference
 deployment tests none of those thresholds. A bench result may motivate a class
 run and never substitutes for one. The engine carries that sentence verbatim in
 the emitted artifact, on the command line's own summary, in every rendered
-comparison, and on the public board, so a number cannot travel away from it.
+comparison, so a number cannot travel away from it.
 
 **The pack model.** A pack is a versioned load definition compiled into the
 binary, so a run has nothing to fetch and nothing to tune. It carries its
@@ -2250,7 +2250,7 @@ no audit trail is not playing the same sport as one running with audit and
 signing on, so comparability needs the configuration on the record. Every pack
 defines named posture profiles and a run declares exactly one. `minimal` is the
 bare spec-conformant surface and is what every pack's default declares;
-`clinical-default`, which the board's reference pack also defines, is that
+`clinical-default`, which the reference pack also defines, is that
 surface with an audit trail written to the deployment's own store. Validation
 sits at `template` even
 in `minimal`, because the specification puts it there (ITS-REST
@@ -2281,40 +2281,24 @@ pair of readings that disagree with each other refuses it too, because the
 numbers would straddle two configurations. Neither is ever a footnote under a
 published number.
 
-**Submittability and the public board (#187).** A record is always valid for
-local exploration. Offering it for public ranking asks more, and the record
-names which requirements it misses rather than only that it misses some:
-at least three repetitions, because one repetition measures a moment;
-at least one same-machine baseline block with a relative index derived from it;
-and an **error share (#197)** at or below the failed-arrival ceiling its pack
-version pins, for every repetition, phase and operation, on the target and on
-every baseline. Percentiles taken over failed arrivals measure the failure
-rather than the system, so a completely failed run is unrankable by
-construction: the ceiling is part of the versioned pack definition, the engine
-refuses the record, the rendered summary prints the failed share per phase, and
-the submission gate refuses it again.
+**Submittability (#187).** A record is always valid for local exploration.
+Comparing it with other records asks more, and the record names which
+requirements it misses rather than only that it misses some: at least three
+repetitions, because one repetition measures a moment; at least one
+same-machine baseline block with a relative index derived from it; and an
+**error share (#197)** at or below the failed-arrival ceiling its pack version
+pins, for every repetition, phase and operation, on the target and on every
+baseline. Percentiles taken over failed arrivals measure the failure rather
+than the system, so a completely failed run is unrankable by construction: the
+ceiling is part of the versioned pack definition, the engine refuses the
+record, and the rendered summary prints the failed share per phase.
 
-The submission channel is a pull request against this repository. A submitter
-runs the pack with baselines and adds the record the engine wrote under
-`benchmarks/submissions/<system>/<date>-<host>.json`, where the host segment
-digests the record's own environment block, so a copied file name fails.
-`scripts/checks/bench-submission.sh` is the whole gate and runs before anyone
-reads the numbers: the published schema, the pack pins against what this
-release embeds, the repetition count, the baselines and their derived indices,
-the failed-arrival ceiling, the environment fingerprint, the posture
-verification (an item the canaries can observe may not sit at `declared-only`,
-and an item nothing can observe may not claim verification), the file name, and
-the append-only rule over every record already merged. The merge is the
-acceptance. The board is a static page generated from the committed records and
-committed beside them, so it has a reviewable diff and a stale page fails the
-same gate. Each row carries one index per reference CDR, the fingerprint of the
-machine the absolute numbers came from, the pack version, the repetition count,
-the regime label on every figure, and the tier badge (`self-reported` until a
-maintainer reproduces the run). Rows are grouped by declared posture profile
-and ranked only inside their group (#204), because ranking a `minimal` row
-against a `clinical-default` one republishes exactly the incomparability the
-posture block exists to close. Absolute milliseconds render second, and never
-without their machine.
+**The public results registry, removed.** The public results registry, its
+conformance and benchmark boards, the pull-request submission channel and the
+CI lane that re-derived and signed a hosted run's record were removed on
+2026-10-23 (#592). This repository publishes the instrument and no results
+about anybody's product. Certificates will be issued by the hosted instrument
+itself (#593).
 
 A bench row and a §8.14 class verdict are separate records behind separate
 gates, and nothing in this pipeline promotes one into the other: the
@@ -2328,7 +2312,7 @@ that builds it:
 
 - *The instance prescription.* A published spec a vendor deployment must match
   to be comparable: one machine class (vCPU count, memory, disk class), the
-  container ceilings the reproduction lane already pins, and one region so the
+  pinned container ceilings, and one region so the
   network leg is the same for every row. The prescription is versioned data
   beside the packs; a record names the prescription version it ran under.
 - *The network leg is a record field.* Today every record is loopback-class
@@ -2336,11 +2320,10 @@ that builds it:
   disclosed beside the environment fingerprint, because a ratio only cancels
   the machine when both sides rode the same leg. A record naming no leg reads
   as `same-host`, which keeps every existing record honest.
-- *The two tiers already fit.* A neutral-host conformance run is the reproduced
-  tier on different iron: the lane composes from a committed recipe, attests
-  from its workflow identity, and nothing about that changes when the runner is
-  Foundation-funded instead of GitHub-hosted. A neutral-host bench run stays a
-  bench record with its leg disclosed.
+- *Both records already fit.* A neutral-host conformance run is an ordinary
+  run on different iron, and nothing about it changes when the runner is
+  Foundation-funded. A neutral-host bench run stays a bench record with its leg
+  disclosed.
 - *What waits, and why.* The one funded piece is the load-generator instance;
   vendor instances are the vendors' own per the prescription. Until the compute
   conversation lands (the Foundation proposal in motion), the same-machine

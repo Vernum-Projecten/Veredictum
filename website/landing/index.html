@@ -57,12 +57,6 @@
             "name": "Documentation",
             "url": "https://veredictum.eu/docs/",
             "description": "Installation, the command surface, the conformance methodology, and catalogue authoring."
-          },
-          {
-            "@type": "WebPage",
-            "name": "Benchmark board",
-            "url": "https://veredictum.eu/benchmarks.html",
-            "description": "Comparative speed for openEHR clinical data repositories, ranked by a same-machine relative index, rendered from community submissions."
           }
         ]
       },
@@ -103,8 +97,6 @@
     </a>
     <nav aria-label="Primary">
       <a href="./docs/">Docs</a>
-      <a href="./conformance-board.html">Conformance</a>
-      <a href="./benchmarks.html">Benchmarks</a>
       <a href="#method" class="hide-sm">Method</a>
       <a href="#start" class="hide-sm">Quick start</a>
       <a href="https://github.com/Vernum-Projecten/Veredictum" rel="noopener">GitHub</a>
@@ -127,7 +119,7 @@
         pure functions over what it recorded.
       </p>
       <div class="actions">
-        <a class="btn btn-solid" href="https://console.veredictum.eu" rel="noopener">Open the official instrument</a>
+        <a class="btn btn-solid" href="https://console.veredictum.eu" rel="noopener">Open the hosted instrument</a>
         <a class="btn btn-outline" href="./docs/">Read the documentation</a>
         <a class="btn btn-outline" href="https://github.com/Vernum-Projecten/Veredictum" rel="noopener">Source on GitHub</a>
       </div>
@@ -229,7 +221,7 @@
             <tr>
               <td><strong>Benchmark</strong><br><code>bench</code></td>
               <td>How fast does this CDR answer a fixed workload, relative to reference CDRs measured on the same machine?</td>
-              <td>A bench result with a relative index per reference. Comparative speed only, never a conformance verdict; results are submittable to the <a href="benchmarks.html">public board</a> by pull request</td>
+              <td>A bench result with a relative index per reference. Comparative speed only, never a conformance verdict; run locally with the CLI, the way the <a href="benchmark-methodology.html">methodology</a> describes</td>
             </tr>
           </tbody>
         </table>

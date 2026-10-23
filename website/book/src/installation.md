@@ -1,10 +1,11 @@
 # Installation
 
-The zeroth way installs nothing: the official instrument at
+The zeroth way installs nothing: the hosted instrument at
 [console.veredictum.eu](https://console.veredictum.eu) browses the catalogue
-and drives runs against a publicly reachable CDR, and a run there produces an
-official record. Everything below is for running the instrument yourself,
-which publishes your own claim and works offline.
+and drives functional conformance runs against a publicly reachable CDR.
+Everything below is for running the instrument yourself, which reaches a
+deployment the internet cannot, runs the measured instruments, and works
+offline.
 
 Four ways end at the same place: a `veredictum` you can point at a catalogue.
 Pick by what you already have installed. Whichever you pick, you also want a

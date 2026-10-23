@@ -44,8 +44,6 @@
     </a>
     <nav aria-label="Primary">
       <a href="./docs/">Docs</a>
-      <a href="./conformance-board.html">Conformance</a>
-      <a href="./benchmarks.html">Benchmarks</a>
       <a href="./benchmark-methodology.html" aria-current="page">Methodology</a>
       <a href="https://github.com/Vernum-Projecten/Veredictum" rel="noopener">GitHub</a>
     </nav>
@@ -59,8 +57,8 @@
       <div class="head">
         <span class="eyebrow">Benchmark methodology</span>
         <h1>What the benchmark actually creates, and what it actually measures</h1>
-        <p>The <a href="./benchmarks.html">benchmark board</a> ranks openEHR clinical data
-          repositories by speed. This page says what produced those numbers: the data each
+        <p>The <code>veredictum bench</code> command measures how fast an openEHR clinical
+          data repository answers. This page says what produces those numbers: the data each
           benchmark pack creates, the requests it then issues, how long it issues them for,
           and what each request is there to find out. It is written for someone who has
           never run the tool.</p>
@@ -85,7 +83,7 @@
         <span class="eyebrow">How a run works</span>
         <h2>Seed once, measure several times</h2>
         <p>Every pack follows the same shape, and each term below means the same thing
-          further down this page, on the board, and inside every published record.</p>
+          further down this page and inside every bench record.</p>
       </div>
       <div class="prose">
         <p><b>What gets created.</b> A run starts by uploading the pack&#39;s operational
@@ -120,8 +118,8 @@
         <p><b>The relative index.</b> The relative index is the target&apos;s cross-repetition median divided by the baseline&apos;s cross-repetition median for the same phase, operation and metric, both measured on the same host in the same session. It is dimensionless. On a latency metric a value below 1.0 means the target answered faster than the baseline and above 1.0 slower; on throughput the sense inverts, because there a larger number is the faster system. A record
           earns one by composing the pinned reference deployments on the same machine, in
           the same session, and driving the same pack at the same seed against them. That is
-          the figure the board sorts on, because milliseconds taken on somebody else&#39;s
-          hardware cannot be compared with yours.</p>
+          the figure two records are compared on, because milliseconds taken on somebody
+          else&#39;s hardware cannot be compared with yours.</p>
       </div>
     </div>
   </section>
@@ -437,14 +435,14 @@
     </div>
   </section>
 
-  <section class="quickstart" id="submitting">
+  <section class="quickstart" id="comparable">
     <div class="wrap">
       <div class="head">
-        <span class="eyebrow">Getting on the board</span>
-        <h2>What a record has to carry before it can be ranked</h2>
-        <p>A run against your own deployment is useful on its own. Ranking one against other
-          people&#39;s records asks for more, and a record that misses any of it stays valid for
-          local work while naming what it is missing.</p>
+        <span class="eyebrow">Comparable records</span>
+        <h2>What a record has to carry before it compares with another</h2>
+        <p>A run against your own deployment is useful on its own. Comparing one with another
+          record asks for more, and a record that misses any of it stays valid for local work
+          while naming what it is missing.</p>
       </div>
       <div class="prose">
         <ul>
@@ -452,12 +450,8 @@
           <li><b>baseline:</b> at least one same-machine baseline, because an absolute number without an anchor describes the machine as much as the system</li>
           <li><b>error_share:</b> every repetition, phase and operation, on the target and on every baseline, at or below the pack&apos;s failed-arrival ceiling, because percentiles taken over failed arrivals measure the failure rather than the system</li>
         </ul>
-        <p>Both are decided by the tool from the record itself, and CI checks them again
-          before a maintainer reads the numbers. The full procedure, including the file
-          naming and the append-only rule over merged records, is in
-          <a href="https://github.com/Vernum-Projecten/Veredictum/blob/main/benchmarks/SUBMITTING.md">the submission guide</a>.</p>
-        <p>A record for the <a href="./benchmarks.html">board</a> comes out of one command,
-          driving one of the pack versions on this page.</p>
+        <p>Both are decided by the tool from the record itself. A record comes out of one
+          command, driving one of the pack versions on this page, run locally with the CLI.</p>
       </div>
       <figure class="code">
         <figcaption>One command, one record</figcaption>

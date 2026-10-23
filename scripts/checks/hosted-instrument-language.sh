@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # The hosted instrument is not a demo, and no surface may call it one (#395).
 #
-# Owner ruling (#388): a run performed at console.veredictum.eu is an official
-# conformance run and produces an official record. "Demo" and "sandbox" describe
-# something a reader may disregard, and a reader who disregards the instrument
-# disregards the record it produced — so the words are refused on every surface
-# a reader meets, and this guard is what keeps them out after the prose is
-# written.
+# Owner ruling (#388): a run performed at console.veredictum.eu is a real
+# conformance run, judged by the same engine and catalogue as any other.
+# "Demo" and "sandbox" describe something a reader may disregard, and a reader
+# who disregards the instrument disregards the verdicts it produced, so the
+# words are refused on every surface a reader meets, and this guard is what
+# keeps them out after the prose is written.
 #
 # The refusal is narrow on purpose. `demonstration` is a real word this project
 # uses correctly (the POC performance class is a demonstration floor), and
@@ -28,7 +28,6 @@ cd "$(dirname "$0")/../.."
 # the words used to be.
 readonly SURFACES=(
   README.md
-  registry/RULES.md
   deploy/hosted
   website/landing
   website/book/src
@@ -84,8 +83,8 @@ if [[ -n "$found" ]]; then
   echo "::error::a reader-facing surface calls the instrument a demo or a sandbox" >&2
   printf '%s\n' "$found" | sed 's/^/  /' >&2
   echo >&2
-  echo "console.veredictum.eu is the official conformance instrument (#388): a run" >&2
-  echo "performed there is an official run and produces an official record. Say what" >&2
+  echo "console.veredictum.eu is the conformance instrument itself (#388): a run" >&2
+  echo "performed there is a real conformance run, judged like any other. Say what" >&2
   echo "it is." >&2
   exit 1
 fi

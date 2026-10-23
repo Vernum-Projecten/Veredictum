@@ -9,8 +9,6 @@
 //! its own process.
 
 #[cfg(feature = "ssr")]
-mod bench_surfaces;
-#[cfg(feature = "ssr")]
 mod body_limits;
 #[cfg(feature = "ssr")]
 mod bundle_names;
@@ -24,8 +22,6 @@ mod engine_gate;
 mod evidence_gate;
 #[cfg(feature = "ssr")]
 mod export_gate;
-#[cfg(feature = "ssr")]
-mod github_client;
 
 mod hosted_posture;
 #[cfg(feature = "ssr")]
@@ -38,7 +34,3 @@ mod run_scope;
 mod run_start;
 #[cfg(feature = "ssr")]
 mod server_fns;
-#[cfg(feature = "ssr")]
-mod submission_gate;
-#[cfg(feature = "ssr")]
-mod verify_surfaces;

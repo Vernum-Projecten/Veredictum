@@ -144,9 +144,7 @@ the other kinds of evidence.
   conformance record, which is why it is class-free by design.
 - `veredictum bench` measures comparative speed against any reachable CDR and
   writes a `bench-result` document. It needs no artifact root, no IXIT and no
-  statement, and it is a speed record and never a conformance record. The
-  [benchmark board](https://veredictum.eu/benchmarks.html) ranks the submitted
-  ones.
+  statement, and it is a speed record and never a conformance record.
 
 `perf` and `stress` both need the `environment` block in your IXIT file filled
 in, because a throughput number without the deployment described says nothing.

@@ -40,8 +40,6 @@ not loopback.
 
 ## The record does not depend on trusting the operator
 
-A published conformance reproduction is attested by the workflow that produced
-it, and a bench record embeds the histograms its summary is re-derived from,
-so both are checkable after the fact. The registry rules
-([registry/RULES.md](https://github.com/Vernum-Projecten/Veredictum/blob/main/registry/RULES.md))
-carry the details.
+A conformance record carries the recorded exchanges its verdicts are
+re-derived from (`veredictum replay`), and a bench record embeds the histograms
+its summary is re-derived from, so both are checkable after the fact.

@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Render the benchmark legend from the emitted pack manifest.
 #
-# The board (scripts/render/bench-board.sh) publishes the numbers; this page
-# publishes the work those numbers describe. A hand-written explanation rots
+# This page publishes the work a bench record's numbers describe. A
+# hand-written explanation rots
 # the first time a pack version moves, so the page is GENERATED from
 # `website/landing/bench-packs.json`, which the binary itself emits with
 # `veredictum bench-packs --out website/landing`. A Rust integration test holds
@@ -12,8 +12,8 @@
 # holds the page byte-identical to the document, so a pack edit cannot reach
 # the site with either one stale.
 #
-# The manifest is committed rather than emitted at deploy time for the reason
-# the board is: the page then has a reviewable diff, and the site build needs
+# The manifest is committed rather than emitted at deploy time so the page
+# has a reviewable diff, and the site build needs
 # no Rust toolchain to serve it. The document is served beside the page, so a
 # reader can fetch what the page was rendered from.
 #
@@ -28,8 +28,6 @@ command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
 
 readonly MANIFEST='website/landing/bench-packs.json'
 readonly PAGE='website/landing/benchmark-methodology.html'
-readonly BOARD='./benchmarks.html'
-readonly GUIDE_URL='https://github.com/Vernum-Projecten/Veredictum/blob/main/benchmarks/SUBMITTING.md'
 
 MODE="${1:-}"
 if [[ -n "$MODE" && "$MODE" != "--check" ]]; then
@@ -46,7 +44,7 @@ fi
 # figure and every sentence of pack detail on the page comes out of the
 # manifest, and `@html` escapes each one.
 render_body() {
-  jq -r --arg board "$BOARD" --arg guide "$GUIDE_URL" '
+  jq -r '
     # ── Number formatting ────────────────────────────────────────────────────
     # A population figure reads as 100,000 rather than 100000, and a rate keeps
     # at most two decimals. Every figure carries its unit at the call site.
@@ -260,8 +258,8 @@ render_body() {
     "      <div class=\"head\">\n" +
     "        <span class=\"eyebrow\">Benchmark methodology</span>\n" +
     "        <h1>What the benchmark actually creates, and what it actually measures</h1>\n" +
-    "        <p>The <a href=\"" + $board + "\">benchmark board</a> ranks openEHR clinical data\n" +
-    "          repositories by speed. This page says what produced those numbers: the data each\n" +
+    "        <p>The <code>veredictum bench</code> command measures how fast an openEHR clinical\n" +
+    "          data repository answers. This page says what produces those numbers: the data each\n" +
     "          benchmark pack creates, the requests it then issues, how long it issues them for,\n" +
     "          and what each request is there to find out. It is written for someone who has\n" +
     "          never run the tool.</p>\n" +
@@ -287,7 +285,7 @@ render_body() {
     "        <span class=\"eyebrow\">How a run works</span>\n" +
     "        <h2>Seed once, measure several times</h2>\n" +
     "        <p>Every pack follows the same shape, and each term below means the same thing\n" +
-    "          further down this page, on the board, and inside every published record.</p>\n" +
+    "          further down this page and inside every bench record.</p>\n" +
     "      </div>\n" +
     "      <div class=\"prose\">\n" +
     "        <p><b>What gets created.</b> A run starts by uploading the pack&#39;s operational\n" +
@@ -322,8 +320,8 @@ render_body() {
     "        <p><b>The relative index.</b> " + ($manifest.relative_index | @html) + " A record\n" +
     "          earns one by composing the pinned reference deployments on the same machine, in\n" +
     "          the same session, and driving the same pack at the same seed against them. That is\n" +
-    "          the figure the board sorts on, because milliseconds taken on somebody else&#39;s\n" +
-    "          hardware cannot be compared with yours.</p>\n" +
+    "          the figure two records are compared on, because milliseconds taken on somebody\n" +
+    "          else&#39;s hardware cannot be compared with yours.</p>\n" +
     "      </div>\n" +
     "    </div>\n" +
     "  </section>\n" +
@@ -368,14 +366,14 @@ render_body() {
     "    </div>\n" +
     "  </section>\n" +
     "\n" +
-    "  <section class=\"quickstart\" id=\"submitting\">\n" +
+    "  <section class=\"quickstart\" id=\"comparable\">\n" +
     "    <div class=\"wrap\">\n" +
     "      <div class=\"head\">\n" +
-    "        <span class=\"eyebrow\">Getting on the board</span>\n" +
-    "        <h2>What a record has to carry before it can be ranked</h2>\n" +
-    "        <p>A run against your own deployment is useful on its own. Ranking one against other\n" +
-    "          people&#39;s records asks for more, and a record that misses any of it stays valid for\n" +
-    "          local work while naming what it is missing.</p>\n" +
+    "        <span class=\"eyebrow\">Comparable records</span>\n" +
+    "        <h2>What a record has to carry before it compares with another</h2>\n" +
+    "        <p>A run against your own deployment is useful on its own. Comparing one with another\n" +
+    "          record asks for more, and a record that misses any of it stays valid for local work\n" +
+    "          while naming what it is missing.</p>\n" +
     "      </div>\n" +
     "      <div class=\"prose\">\n" +
     "        <ul>\n" +
@@ -383,12 +381,8 @@ render_body() {
        | "          <li><b>" + (.token | @html) + ":</b> " + (.statement | @html) + "</li>"
      ] | join("\n")) + "\n" +
     "        </ul>\n" +
-    "        <p>Both are decided by the tool from the record itself, and CI checks them again\n" +
-    "          before a maintainer reads the numbers. The full procedure, including the file\n" +
-    "          naming and the append-only rule over merged records, is in\n" +
-    "          <a href=\"" + $guide + "\">the submission guide</a>.</p>\n" +
-    "        <p>A record for the <a href=\"" + $board + "\">board</a> comes out of one command,\n" +
-    "          driving one of the pack versions on this page.</p>\n" +
+    "        <p>Both are decided by the tool from the record itself. A record comes out of one\n" +
+    "          command, driving one of the pack versions on this page, run locally with the CLI.</p>\n" +
     "      </div>\n" +
     "      <figure class=\"code\">\n" +
     "        <figcaption>One command, one record</figcaption>\n" +
@@ -458,8 +452,6 @@ render_page() {
     </a>
     <nav aria-label="Primary">
       <a href="./docs/">Docs</a>
-      <a href="./conformance-board.html">Conformance</a>
-      <a href="./benchmarks.html">Benchmarks</a>
       <a href="./benchmark-methodology.html" aria-current="page">Methodology</a>
       <a href="https://github.com/Vernum-Projecten/Veredictum" rel="noopener">GitHub</a>
     </nav>

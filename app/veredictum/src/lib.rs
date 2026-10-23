@@ -41,7 +41,6 @@ pub mod pipeline;
 pub mod probe;
 pub mod record;
 pub mod refgrammar;
-pub mod registry;
 pub mod render;
 pub mod run;
 pub mod schema;

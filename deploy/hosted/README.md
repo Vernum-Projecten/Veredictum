@@ -1,15 +1,17 @@
 # The hosted instrument (console.veredictum.eu)
 
-console.veredictum.eu is the official conformance instrument (#388). A run
-performed there is an official run and produces an official record: the console
-drives the catalogue against the endpoint a submitter names, records every
-exchange, computes the verdicts, and submits the whole record as a pull request
-that CI re-derives and signs. Anyone may run the console themselves, and a local
-run is that operator's own claim — which is the entire reason the hosted
-instance exists.
+console.veredictum.eu is the hosted conformance instrument (#388). The console
+drives the catalogue against the endpoint a visitor names, records every
+exchange, and computes the verdicts, so a vendor sees the full results and
+verdicts for its own server. Nothing it produces is published anywhere: the
+record stays with the run, and the repository keeps no list of results. Anyone
+may run the console themselves against a deployment the internet cannot reach.
 
-It also serves the reading surfaces: the catalogue, the vendored specification
-oracle, the boards, and record verification.
+It runs **functional conformance only**. The measured instruments (`perf`,
+`stress`, the AQL probe and the comparative `bench`) are run locally with the
+`veredictum` CLI, and the hosted console exposes none of them.
+
+It also serves the catalogue as a reading surface.
 
 ## Why a box, and not a platform
 
@@ -62,7 +64,7 @@ carries the engine, the console and the release's own catalogue and vendored
 specification oracle (#420), which is why this instance
 mounts nothing at all. `docker/Dockerfile` is where that is built, at a release.
 
-Two consequences worth stating. A record produced here names a catalogue
+Two consequences worth stating. A run produced here names a catalogue
 revision that belongs to a published version, because the data in the image is
 the data of the release that built it. And an image built before #420 cannot be
 deployed here at all: it declares no
@@ -80,7 +82,7 @@ older one that still carries the label.
 | `cloud-init.yaml` | A fresh box to serving state on first boot: the `deploy` user, key-only SSH, both firewalls, unattended upgrades, Docker, capped logs, and the one command the CI key may run | the server's user data at creation, once |
 | `docker-compose.yml` | What runs on the box: the console with its healthcheck and memory limit, behind Caddy | baked into the image at `/app/posture/`, and `deploy.sh` installs it from the image it pulled |
 | `Caddyfile` | Automatic TLS, and the raised timeouts a run's streaming needs | the same way, and a change to it restarts Caddy |
-| `env.example` | A copy-to-`.env` template: the machine-sized caps, the image reference, and the one credential's path | never. `.env` is the operator's file, written by hand on the box |
+| `env.example` | A copy-to-`.env` template: the machine-sized caps and the image reference | never. `.env` is the operator's file, written by hand on the box |
 
 The box holds **no checkout of this repository**, and it fetches nothing from
 here over the network. Everything the instrument needs is baked into the image,
@@ -126,24 +128,18 @@ that will not start on a posture nobody has run before.
 
 ## What the instance keeps, and what it never holds
 
-Nothing durable. A run's artifacts live long enough to be judged, shown and
-submitted, and git is where a record lives. Because the box does not restart,
+Nothing durable. A run's artifacts live long enough to be judged and shown.
+Because the box does not restart,
 the console sweeps expired run directories itself on a stated policy —
 `ARTIFACTS_KEPT`, currently a day — and a swept run answers through #386's
 honest "this console knows nothing about that run" rather than a stack trace.
 
-**No signing key reaches this host, in any form.** A console record is signed by
-the registry key, which exists only in the `registry-signing` CI environment
-(`registry/keys/README.md`). That is the point: the host a visitor can reach
-must hold nothing that could forge a record.
-
-**One credential does live here**: the console's GitHub App private key, which
-opens a submission's pull request (#391). It cannot sign a record, and it sits
-in an environment file the service user alone can read.
+**No credential lives on this host.** `.env` carries the image reference and the
+concurrency cap, and nothing that signs or opens anything.
 
 **No backups**, deliberately. There is nothing here worth backing up: the
-container is rebuilt from a published image, and every published record is in
-git.
+container is rebuilt from a published image, and a run's artifacts are
+transient by design.
 
 ## How a deploy happens
 
@@ -202,8 +198,7 @@ name records the wrong host (#403).
 **Both are environment secrets, in an environment named `hosted`, not
 repository secrets.** The deploy job names that environment, so nothing else in
 this repository can reach the key, and the environment's own protection rules
-are what stands in front of it. It is the same posture the registry signing key
-has, for the same reason.
+are what stands in front of it.
 
 No Hetzner API token is created for CI at all — the deploy talks to the host and
 nothing else, so a key that leaks cannot destroy the server.

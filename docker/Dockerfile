@@ -146,8 +146,6 @@ WORKDIR /app
 # VEREDICTUM_ENGINE names the in-image engine by absolute path rather than
 # leaning on PATH resolution, so an overlay can repoint or disable it with one
 # variable and the console never resolves a different binary by accident.
-# VEREDICTUM_VERIFY_KEY names the verifying key COPYed below, so /verify
-# checks a published record with no operator action at all.
 #
 # The bundle is emitted under content-hashed names (#450), which the server
 # reads back at render time, so LEPTOS_HASH_FILES must be set here as well as
@@ -164,8 +162,7 @@ ENV LEPTOS_OUTPUT_NAME=veredictum-console \
     VEREDICTUM_ENGINE=/usr/local/bin/veredictum \
     VEREDICTUM_ROOT=/work/artifacts \
     VEREDICTUM_SPECS=/work/specs/openehr \
-    VEREDICTUM_OUT=/work/out \
-    VEREDICTUM_VERIFY_KEY=/app/keys/registry-signing.pub.asc
+    VEREDICTUM_OUT=/work/out
 
 # ── The data the instrument judges against, in the image ──────────────────────
 # The catalogue and the vendored specification oracle ship WITH the release
@@ -193,19 +190,6 @@ COPY specs/its-xml-schemas/ /work/specs/its-xml-schemas/
 COPY specs/its-json-schemas/ /work/specs/its-json-schemas/
 COPY specs/rest-oas/ /work/specs/rest-oas/
 COPY --from=mkdirs --chown=65532:65532 /empty/ /work/
-
-# ── The verifying key, in the image ───────────────────────────────────────────
-# The PUBLIC half of the registry signing key: what a reader checks a published
-# record against on /verify. It is release data exactly like the catalogue
-# above, because the release that publishes a record is the release that has to
-# be able to check one — so a fresh instance verifies with no clone, no key
-# hunting and no operator step (#430). Shipping a public key in an image
-# weakens nothing; the secret half lives in one GitHub environment and reaches
-# no host.
-#
-# /app, not /work: an operator bind-mounts their own trees over the /work paths
-# above, and a mount there would shadow the key. Nothing mounts over /app.
-COPY registry/keys/registry-signing.pub.asc /app/keys/registry-signing.pub.asc
 
 # ── The hosted posture, in the image ──────────────────────────────────────────
 # What the hosted instance RUNS — its compose file and its Caddyfile — travels

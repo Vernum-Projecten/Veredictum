@@ -28,6 +28,25 @@ version on.
   Docker's signed apt repository so security updates reach it, and reboots at
   04:00 UTC when an update needs it.
 
+### Removed
+
+- The public results registry is gone (#594): `registry/` with its submission
+  rules, signing key and topologies, the `registry-entry` and
+  `registry-topology` JSON Schemas, the `registry-console` and
+  `registry-reproduce` workflows, and the registry and benchmark submission
+  gates. The conformance and benchmark boards leave the website with it. This
+  repository publishes the instrument and no results about anybody's product.
+- The web console drops its submit, benchmarks and verify pages, their server
+  functions and upload routes, and the GitHub App client that opened a
+  submission's pull request (#594). It exposes none of the measured instruments
+  (#595): `perf`, `stress`, `aql-probe` and `bench` are run locally with the
+  CLI, which keeps them unchanged. The hosted deployment no longer takes the
+  `VEREDICTUM_GITHUB_APP_*` and `VEREDICTUM_REGISTRY_REPO` settings, and the
+  image no longer bakes a verifying key or sets `VEREDICTUM_VERIFY_KEY`; an
+  operator who seals exports sets both export keys. A sealed bundle is checked
+  with `veredictum verify-record`, and the export's badge snippets link the
+  badge to the report beside it.
+
 ### Security
 
 - The image's distroless base moves to the Debian 13.7 rebuild of

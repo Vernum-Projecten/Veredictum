@@ -14,7 +14,7 @@ use leptos_router::components::A;
 
 use crate::catalogue_api::InstrumentView;
 use crate::catalogue_api::fns::fetch_instrument;
-use crate::components::field::{BTN_PRIMARY, BTN_SECONDARY};
+use crate::components::field::BTN_PRIMARY;
 use crate::components::format_view::inline_error;
 use crate::components::page_header::PageHeader;
 use crate::components::stat_card::StatCard;
@@ -24,10 +24,6 @@ use crate::components::surface::{CARD_PAD, CARD_TITLE};
 #[expect(
     clippy::must_use_candidate,
     reason = "a Leptos component is mounted by the framework, never consumed as a value"
-)]
-#[expect(
-    clippy::too_many_lines,
-    reason = "the four stat cards and the mounts panel — one cohesive screen, its sections erased per rules §1"
 )]
 #[component]
 pub fn Instrument() -> impl IntoView {
@@ -98,14 +94,11 @@ pub fn Instrument() -> impl IntoView {
                                 <section class=CARD_PAD>
                                     <h2 class=CARD_TITLE>"Start"</h2>
                                     <p class="mb-3 text-sm text-ink-muted">
-                                        "Point the instrument at a reachable CDR and read the verdict, or check a published record."
+                                        "Point the instrument at a reachable CDR and read the verdict."
                                     </p>
                                     <div class="flex flex-wrap items-center gap-2">
                                         <A href="/run" attr:class=BTN_PRIMARY>
                                             "Grade a server"
-                                        </A>
-                                        <A href="/verify" attr:class=BTN_SECONDARY>
-                                            "Verify a record"
                                         </A>
                                     </div>
                                 </section>

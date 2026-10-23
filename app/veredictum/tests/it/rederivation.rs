@@ -4,8 +4,8 @@
 //! Re-judging a recorded run from its own transcript, and refusing a record
 //! the recorded exchanges do not support (#392).
 //!
-//! The property a published `console` entry rests on: its judgement is
-//! arithmetic anybody can repeat. Here the same campaign is driven twice —
+//! The property a recorded run rests on: its judgement is arithmetic anybody
+//! can repeat. Here the same campaign is driven twice —
 //! once against a fake SUT with the wire recorded, once with that recording
 //! standing in for the server — and the second pass has to reach the first
 //! pass's outcomes through the same composition, classification and assertion
@@ -148,8 +148,7 @@ fn a_recorded_run_re_judges_to_the_outcomes_it_recorded() -> Fallible {
 }
 
 /// A record altered after the run no longer follows from the recording, and
-/// the comparison names the row. This is the gate a submission passes through
-/// before anything is signed.
+/// the comparison names the row.
 #[test]
 #[expect(
     clippy::panic_in_result_fn,

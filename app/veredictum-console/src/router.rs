@@ -18,14 +18,6 @@ use leptos_axum::{LeptosRoutes as _, generate_route_list};
 use crate::app::{App, shell};
 use crate::state::ConsoleState;
 
-/// The framing a body carries on top of the payload its handler judges.
-///
-/// A multipart post spends its envelope on a boundary per part, the part
-/// headers and the line breaks between them, and none of that reaches the
-/// reader's own size check. One mebibyte is far above what the entries an
-/// upload may carry can spend on framing.
-const FRAMING_SLACK_BYTES: u64 = 1024 * 1024;
-
 /// How far URL encoding can inflate the payload a server function judges.
 ///
 /// A `#[server]` call posts its arguments URL-encoded, and percent-encoding
@@ -50,37 +42,25 @@ pub struct BodyCapTooLarge {
     pub source: std::num::TryFromIntError,
 }
 
-/// The transport body caps the router installs, one per reach.
+/// The transport body cap the router installs.
 ///
-/// Each is derived from the number the endpoint's own code enforces and sits
+/// It is derived from the number the endpoints' own code enforces and sits
 /// above it, so every payload an endpoint accepts reaches the code that judges
 /// it, and a size refusal within the transport cap is that endpoint's own
 /// sentence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BodyCaps {
-    /// The verify upload route's cap.
-    pub verify_upload: usize,
-    /// The bench upload route's cap.
-    pub bench_upload: usize,
-    /// The cap every other route carries, the server functions among them.
+    /// The cap every route carries, the server functions among them.
     pub server_fn: usize,
 }
 
 impl BodyCaps {
-    /// Derives the three caps from the numbers the pages enforce.
+    /// Derives the cap from the number the pages enforce.
     ///
     /// # Errors
-    /// [`BodyCapTooLarge`] when a cap does not fit this host's `usize`.
+    /// [`BodyCapTooLarge`] when the cap does not fit this host's `usize`.
     pub fn derived() -> Result<Self, BodyCapTooLarge> {
         Ok(Self {
-            verify_upload: fits(
-                "verify upload",
-                crate::verify_api::unpack::MAX_UPLOAD_BYTES + FRAMING_SLACK_BYTES,
-            )?,
-            bench_upload: fits(
-                "bench upload",
-                crate::bench_api::upload::MAX_BATCH_BYTES + FRAMING_SLACK_BYTES,
-            )?,
             server_fn: fits(
                 "server function",
                 SERVER_FN_INFLATION * crate::run_api::read::STATEMENT_CAP_BYTES,
@@ -99,12 +79,7 @@ fn fits(route: &'static str, bytes: u64) -> Result<usize, BodyCapTooLarge> {
 }
 
 /// Builds the console's router: the server-owned routes, the Leptos route
-/// tree, and the body cap each reach carries.
-///
-/// The arrangement is PER-ROUTE caps rather than one router-wide maximum.
-/// One maximum is the loosest of the options — it hands every endpoint the
-/// largest number any endpoint needs — and the property this owes a caller is
-/// that the limit they meet is the one the code they called enforces.
+/// tree, and the body cap they carry.
 ///
 /// # Errors
 /// [`BodyCapTooLarge`] when a cap does not fit this host's `usize`. The caller
@@ -133,22 +108,7 @@ pub fn router(
             crate::evidence_api::DOWNLOAD_PATH,
             axum::routing::get(crate::evidence_api::route::evidence_json),
         )
-        // A plain multipart form post, which uploads with zero JavaScript and
-        // before WASM loads. The cap sits above the largest BODY the reader
-        // accepts, so its size refusal is the reader's own sentence.
-        .route(
-            crate::verify_api::UPLOAD_PATH,
-            axum::routing::post(crate::verify_api::route::upload)
-                .layer(DefaultBodyLimit::max(caps.verify_upload)),
-        )
-        // The bench batch upload (#166): read and listed, never stored. Its
-        // cap is the batch cap the reader enforces, plus the framing.
-        .route(
-            crate::bench_api::UPLOAD_PATH,
-            axum::routing::post(crate::bench_api::route::upload)
-                .layer(DefaultBodyLimit::max(caps.bench_upload)),
-        )
-        // These four handlers are outside the reactive route tree, so they
+        // These handlers are outside the reactive route tree, so they
         // take the state as an extension rather than through `expect_context`.
         .layer(axum::Extension(state.clone()))
         .leptos_routes_with_context(
@@ -168,13 +128,10 @@ pub fn router(
         // point: "the middleware is only applied to existing routes"
         // (<https://docs.rs/axum/latest/axum/routing/struct.Router.html#method.layer>),
         // so this is the first placement from which a `#[server]` call's body
-        // limit is anything but axum's 2 MiB default (#496). The two upload
-        // routes keep their own, larger caps: the limit is a request extension
-        // and the layer closest to the route writes it last
-        // (<https://docs.rs/axum/latest/axum/extract/struct.DefaultBodyLimit.html>).
+        // limit is anything but axum's 2 MiB default (#496).
         .layer(DefaultBodyLimit::max(caps.server_fn))
         // Also after the server functions, for the same reason: a layer placed
-        // higher up would cover the five routes above and none of the
+        // higher up would cover the three routes above and none of the
         // endpoints whose refusals it exists to rewrite (#484).
         .layer(axum::middleware::from_fn(caller_faults_are_4xx))
         .with_state(leptos_options))
@@ -228,22 +185,12 @@ const MAX_REFUSAL_BYTES: usize = 64 * 1024;
     reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
 )]
 mod tests {
-    use super::{BodyCapTooLarge, BodyCaps, FRAMING_SLACK_BYTES, SERVER_FN_INFLATION};
+    use super::{BodyCapTooLarge, BodyCaps, SERVER_FN_INFLATION};
 
     #[test]
     fn every_cap_is_derived_from_the_number_its_own_endpoint_enforces()
     -> Result<(), BodyCapTooLarge> {
         let caps = BodyCaps::derived()?;
-        assert_eq!(
-            u64::try_from(caps.verify_upload),
-            Ok(crate::verify_api::unpack::MAX_UPLOAD_BYTES + FRAMING_SLACK_BYTES),
-            "the verify cap is the largest body its reader accepts, plus the framing"
-        );
-        assert_eq!(
-            u64::try_from(caps.bench_upload),
-            Ok(crate::bench_api::upload::MAX_BATCH_BYTES + FRAMING_SLACK_BYTES),
-            "the bench cap is the batch total its reader judges, plus the framing"
-        );
         assert_eq!(
             u64::try_from(caps.server_fn),
             Ok(SERVER_FN_INFLATION * crate::run_api::read::STATEMENT_CAP_BYTES),
@@ -255,8 +202,6 @@ mod tests {
     #[test]
     fn the_caps_are_the_numbers_this_host_installs() -> Result<(), BodyCapTooLarge> {
         let caps = BodyCaps::derived()?;
-        assert_eq!(caps.verify_upload, 17_825_792, "17 MiB");
-        assert_eq!(caps.bench_upload, 34_603_008, "33 MiB");
         assert_eq!(caps.server_fn, 4_194_304, "4 MiB");
         Ok(())
     }
@@ -264,16 +209,6 @@ mod tests {
     #[test]
     fn every_cap_sits_above_the_payload_its_endpoint_accepts() -> Result<(), BodyCapTooLarge> {
         let caps = BodyCaps::derived()?;
-        assert!(
-            u64::try_from(caps.verify_upload)
-                .is_ok_and(|cap| cap > crate::verify_api::unpack::MAX_UPLOAD_BYTES),
-            "an upload at the page's own cap must reach the reader"
-        );
-        assert!(
-            u64::try_from(caps.bench_upload)
-                .is_ok_and(|cap| cap > crate::bench_api::upload::MAX_BATCH_BYTES),
-            "a batch at the page's own cap must reach the reader"
-        );
         assert!(
             u64::try_from(caps.server_fn)
                 .is_ok_and(|cap| cap > crate::run_api::read::STATEMENT_CAP_BYTES),

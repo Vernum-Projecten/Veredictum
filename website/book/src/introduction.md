@@ -7,20 +7,17 @@ the openEHR specification that server implements.
 It executes a machine-readable catalogue of 1146 spec-cited test cases against
 the server's own wire, records every exchange, and computes verdicts as pure
 functions over what it recorded. Functional conformance, measured performance,
-step-load stress and the comparative-speed benchmark come from the one tool,
-and published results live on the public
-[conformance](https://veredictum.eu/conformance-board.html) and
-[benchmark](https://veredictum.eu/benchmarks.html) boards, submitted by pull
-request.
+step-load stress and the comparative-speed benchmark come from the one tool.
+This repository publishes the instrument and no results about anybody's
+product.
 
-[console.veredictum.eu](https://console.veredictum.eu) is the official
-conformance instrument. It serves the catalogue and the vendored specification
-text, and a run driven there against a publicly
-reachable CDR is an official run: the record is submitted as a pull request,
-its verdicts are recomputed here from the transcript it carries, and it is
-signed only after they match. The instance holds no key and nothing durable —
-git is where a record lives. Running the instrument yourself publishes your
-own claim instead ([Installation](installation.md)).
+[console.veredictum.eu](https://console.veredictum.eu) is the hosted
+conformance instrument. It serves the catalogue, and a run driven there against
+a publicly reachable CDR shows the full results and verdicts for that server.
+It runs functional conformance only; the measured instruments are run locally
+with the command line. The instance holds no key and nothing durable. Running
+the instrument yourself works against any deployment you can reach
+([Installation](installation.md)).
 
 The released openEHR specifications are the only authority the instrument
 accepts. Every expectation in the catalogue names the section it comes from, so
