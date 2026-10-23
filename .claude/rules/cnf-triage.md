@@ -172,6 +172,11 @@ the narrative lives only on the issue.
   recorded on the issue without reopening it; when upstream later resolves
   one, file the inbound `spec-update` issue with the closed report as its
   provenance, and reopen only if the resolution requires changes here.
+- **Labels**: `upstream-report` plus `spec:<component>`, and
+  `upstream-confirmed` once verified. The report's issue type is `Bug`, and
+  its priority is the `Priority` issue field, both set with
+  `scripts/gh/fields.sh`; neither is a label. A work item here waiting on a reported
+  defect adds a native `blocked-by` edge to the report issue.
 
 **Nothing is ever filed outside this repository** (owner ruling 2026-10-23):
 no issue, pull request or comment on any openEHR repository or channel, and
@@ -180,8 +185,3 @@ another vendor's CDR is recorded on the pull request or issue that found it
 and goes no further. The single exception is the FerroHEALTH organisation,
 for a red row genuinely attributed to FerroEHR, and only with the owner's
 go-ahead for that report.
-- **Labels**: `upstream-report` plus `spec:<component>`, and
-  `upstream-confirmed` once verified. The report's issue type is `Bug`, and
-  its priority is the `Priority` issue field, both set with
-  `scripts/gh/fields.sh`; neither is a label. A work item here waiting on a reported
-  defect adds a native `blocked-by` edge to the report issue.
