@@ -31,6 +31,10 @@ use crate::model::case::MatrixCell;
 /// it is not in the list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[expect(
+    clippy::enum_variant_names,
+    reason = "each variant spells its RM class name, and every RM data-value class starts with DV_"
+)]
 pub enum ContentClass {
     /// `DV_BOOLEAN`.
     DvBoolean,

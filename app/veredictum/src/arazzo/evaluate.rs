@@ -695,32 +695,12 @@ fn compose(
     let mut body = None;
     let mut body_is_json = true;
     if let Some(request_body) = &step.request_body {
-        let mut payload = match &request_body.payload {
-            // NOTE: Arazzo 1.1.0 §Request Body Object: a payload's runtime expressions "MUST be
-            // evaluated prior to calling the referenced operation"; a whole-string one is the body.
-            Some(Value::String(text)) if text.starts_with('$') => Expr::parse(text)
-                .map_err(EvalError::from)
-                .and_then(|expr| {
-                    scope
-                        .eval(&expr)?
-                        .ok_or(EvalError::MissingOutput(text.clone()))
-                })
-                .map_err(|e| e.to_string())?,
-            other => other.clone().unwrap_or(Value::Null),
-        };
+        // NOTE: Arazzo 1.1.0 §Request Body Object: a payload's runtime expressions "MUST be
+        // evaluated prior to calling the referenced operation"; a whole-string one is the body.
+        let mut payload = body_value(request_body.payload.as_ref().unwrap_or(&Value::Null), scope)?;
         for replacement in &request_body.replacements {
             let value = match &replacement.value {
-                ValueOrSelector::Literal(Value::String(text)) if text.starts_with('$') => {
-                    Expr::parse(text)
-                        .map_err(EvalError::from)
-                        .and_then(|expr| {
-                            scope
-                                .eval(&expr)?
-                                .ok_or(EvalError::MissingOutput(text.clone()))
-                        })
-                        .map_err(|e| e.to_string())?
-                }
-                ValueOrSelector::Literal(literal) => literal.clone(),
+                ValueOrSelector::Literal(literal) => body_value(literal, scope)?,
                 ValueOrSelector::Selector(_) => return Err("a selector value".to_owned()),
             };
             let Some(slot) = payload.pointer_mut(&replacement.target) else {
@@ -753,6 +733,22 @@ fn compose(
         body,
         body_is_json,
     })
+}
+
+/// A payload or replacement value as sent: a string that is a runtime
+/// expression is its value, and anything else is itself.
+fn body_value(value: &Value, scope: &Scope<'_>) -> Result<Value, String> {
+    match value {
+        Value::String(text) if text.starts_with('$') => Expr::parse(text)
+            .map_err(EvalError::from)
+            .and_then(|expr| {
+                scope
+                    .eval(&expr)?
+                    .ok_or(EvalError::MissingOutput(text.clone()))
+            })
+            .map_err(|e| e.to_string()),
+        literal => Ok(literal.clone()),
+    }
 }
 
 /// The citation an extension map carries, read after the gate has run.

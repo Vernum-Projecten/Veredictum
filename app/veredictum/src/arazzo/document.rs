@@ -19,7 +19,7 @@ use enumset::EnumSet;
 use roas_arazzo::common::reusable::ReusableOr;
 use roas_arazzo::v1_1::{
     Criterion, CriterionKind, CriterionType, Description, ExpressionKind, ExpressionType,
-    ParameterLocation, SourceType, Step, ValueOrSelector, Workflow,
+    ParameterLocation, RequestBody, SourceType, Step, ValueOrSelector, Workflow,
 };
 use roas_arazzo::validation::Validate;
 use serde_json::Value;
@@ -361,25 +361,7 @@ impl ArazzoDocument {
             }
         }
         if let Some(body) = &step.request_body {
-            if let Some(payload @ Value::String(text)) = &body.payload
-                && text.starts_with('$')
-                && let Err(kind) = value_expression(&ValueOrSelector::Literal(payload.clone()))
-            {
-                push(kind);
-            }
-            for replacement in &body.replacements {
-                if !replacement.target.starts_with('/')
-                    || replacement.target_selector_type.is_some()
-                {
-                    push(FindingKind::Unsupported(format!(
-                        "replacement target `{}` (a JSON Pointer is required)",
-                        replacement.target
-                    )));
-                }
-                if let Err(kind) = value_expression(&replacement.value) {
-                    push(kind);
-                }
-            }
+            body_findings(body, &mut push);
         }
         for value in step.outputs.values() {
             match value {
@@ -468,6 +450,28 @@ fn cite_at(
         Err(error) => {
             findings.push(Finding::new(at, FindingKind::Citation(error)));
             None
+        }
+    }
+}
+
+/// Checks a request body: a payload that is a runtime expression parses, and
+/// every replacement targets a JSON Pointer with a value that parses.
+fn body_findings(body: &RequestBody, push: &mut impl FnMut(FindingKind)) {
+    if let Some(payload @ Value::String(text)) = &body.payload
+        && text.starts_with('$')
+        && let Err(kind) = value_expression(&ValueOrSelector::Literal(payload.clone()))
+    {
+        push(kind);
+    }
+    for replacement in &body.replacements {
+        if !replacement.target.starts_with('/') || replacement.target_selector_type.is_some() {
+            push(FindingKind::Unsupported(format!(
+                "replacement target `{}` (a JSON Pointer is required)",
+                replacement.target
+            )));
+        }
+        if let Err(kind) = value_expression(&replacement.value) {
+            push(kind);
         }
     }
 }
