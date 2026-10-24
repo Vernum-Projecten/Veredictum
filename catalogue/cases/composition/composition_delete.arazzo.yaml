@@ -1,6 +1,7 @@
-# Deleting a COMPOSITION: the logical delete of its latest version, the
-# misses a delete answers with 404, a delete repeated on a deleted
-# COMPOSITION, an If-Match precondition a client volunteers, the headers of
+# Deleting a COMPOSITION: the logical delete of its latest version and the
+# VERSION it commits, the misses a delete answers with 404, a delete repeated
+# on a deleted COMPOSITION or addressed to a superseded version, an If-Match
+# precondition a client volunteers, the committal headers, the headers of
 # the answer, and an EHR that is not modifiable, as Arazzo 1.1.0 workflows
 # over the released ITS-REST `-validation` OAS. Every criterion resolves to
 # an `x-veredictum-cite` (its own, else its step's, else its workflow's),
@@ -11,10 +12,11 @@ info:
   version: 0.1.0
   description: >-
     Deleting a COMPOSITION by the version_uid of its latest version: the
-    204 of a successful delete, a second delete of the same COMPOSITION, an
-    unknown version or EHR, a volunteered If-Match that does or does not
-    match, the ETag and Location headers of the answer, and a delete in an
-    EHR that is not modifiable.
+    204 of a successful delete and the VERSION it commits, a second delete
+    of the same COMPOSITION, a delete of a superseded version, an unknown
+    version or EHR, a volunteered If-Match that does or does not match, the
+    committal headers, the ETag and Location headers of the answer, and a
+    delete in an EHR that is not modifiable.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
@@ -549,5 +551,286 @@ workflows:
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
           - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        successCriteria:
+          - *no_content
+
+  - workflowId: delete_composition-version_deleted
+    summary: A delete adds a version with no data that follows the deleted one
+    description: >-
+      Creates an EHR and an event COMPOSITION, deletes it, then reads the
+      latest VERSION from the container its versioned_object_uid names. A
+      deletion adds a new ORIGINAL_VERSION whose data is Void, so the latest
+      version follows the created one and carries no data.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &deletion
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Contributions
+      quote: "a new `ORIGINAL_VERSION` whose data attribute is set to Void is added to an existing `VERSIONED_OBJECT`; the `ORIGINAL_VERSION._commit_audit_._change_type_` is set to the code `523|deleted|`;"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &commit_container
+        stepId: commit
+        description: Create the event COMPOSITION, keep the version_uid of the full representation the create answers with, and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - *delete
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION, the one the delete committed.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: &latest_parameters
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &latest_version
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+          - context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+          - condition: $response.body#/data == null
+
+  - workflowId: delete_composition-change_type_deleted
+    summary: The version a delete commits records the change type deleted
+    description: >-
+      Creates an EHR and an event COMPOSITION, deletes it with no committal
+      header, then reads the latest VERSION. A deletion is committed with the
+      change type 523|deleted|.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *deletion
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_container
+      - *delete
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION and its commit audit.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^523$'
+
+  - workflowId: delete_composition-lifecycle_deleted
+    summary: The version a delete commits is in the lifecycle_state deleted
+    description: >-
+      Creates an EHR and an event COMPOSITION, deletes it, then reads the
+      latest VERSION. A logical deletion sets the version's lifecycle_state
+      to 523|deleted|.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Logical Deletion
+      quote: "set the `_lifecycle_state_` value to the code for \"deleted\""
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_container
+      - *delete
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION and its lifecycle_state.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^523$'
+
+  - workflowId: delete_composition-audit_details
+    summary: A description sent in openehr-audit-details on a delete is merged into the version it commits
+    description: >-
+      Creates an EHR and an event COMPOSITION, then deletes it with an
+      openehr-audit-details header carrying a description and a committer
+      name. The latest VERSION's commit_audit carries both.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "None of these headers are mandatory, but whatever is provided it MUST be merged with the default VERSION and VERSION.audit_details attributes on commit runtime."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_container
+      - stepId: delete
+        description: Delete the COMPOSITION with a description in openehr-audit-details.
+        operationId: $sourceDescriptions.ehr.composition_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: openehr-audit-details, in: header, value: 'description.value="retracted per patient request",committer.name="Dr Chart"' }
+        successCriteria:
+          - *no_content
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION and its commit audit.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/commit_audit/description/value
+            type: regex
+            condition: '^retracted per patient request$'
+          - context: $response.body#/commit_audit/committer/name
+            type: regex
+            condition: '^Dr Chart$'
+
+  - workflowId: delete_composition-not_latest_version
+    summary: A delete that names a superseded version is refused with 409 and not performed
+    description: >-
+      Creates an EHR and an event COMPOSITION, updates it, then deletes the
+      COMPOSITION by the version_uid the create committed, which is no longer
+      the latest version. The delete is refused with 409 Conflict, and the
+      latest VERSION is still the one the update committed.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/409_COMPOSITION_with_uid_based_id.yaml
+      section: description
+      quote: "`409 Conflict` is returned when supplied `uid_based_id` doesn't match the latest version."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_container
+      - &update
+        stepId: update
+        description: Update the COMPOSITION with composer Dr. Cuddy under the created version.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /composer/name, value: Dr. Cuddy }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|204)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+      - &updated_version
+        stepId: updated
+        description: Read the latest VERSION for the version the update committed.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: delete
+        description: Delete the COMPOSITION by the version_uid the update superseded.
+        operationId: $sourceDescriptions.ehr.composition_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 409
+      - stepId: latest
+        description: Read the latest VERSION again; the refused delete committed nothing.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.updated.outputs.version_uid}$'
+
+  - workflowId: delete_composition-not_latest_version-etag_latest
+    summary: A 409 to a delete of a superseded version names the latest version in its ETag
+    description: >-
+      Creates an EHR and an event COMPOSITION, updates it, reads the latest
+      VERSION for the version the update committed, then deletes the
+      COMPOSITION by the version_uid the update superseded. The 409 answer
+      carries the latest version_uid in its ETag.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/409_COMPOSITION_with_uid_based_id.yaml
+      section: description
+      quote: "Returns also latest `version_uid` in the `ETag` header."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_container
+      - *update
+      - *updated_version
+      - stepId: delete
+        description: Delete the COMPOSITION by the version_uid the update superseded.
+        operationId: $sourceDescriptions.ehr.composition_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 409
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_COMPOSITION_with_uid_based_id.yaml
+              section: description
+              quote: "`409 Conflict` is returned when supplied `uid_based_id` doesn't match the latest version."
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/)?"{$steps.updated.outputs.version_uid}"$'
+
+  - workflowId: delete_composition-if_match_superseded
+    summary: A delete whose volunteered If-Match names a superseded version is refused with 412 and not performed
+    description: >-
+      Creates an EHR and an event COMPOSITION and updates it, then deletes
+      the latest version with an If-Match header naming the version the
+      update superseded. The condition is false, so the delete is refused
+      with 412 Precondition Failed and not performed: the same delete
+      without the header then succeeds with 204.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_container
+      - *update
+      - *updated_version
+      - stepId: delete-superseded
+        description: Delete the latest version with an If-Match naming the superseded version.
+        operationId: $sourceDescriptions.ehr.composition_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.updated.outputs.version_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+        successCriteria:
+          - condition: $statusCode == 412
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: If-Match and accidental overwrites
+              quote: "Instead, it MUST respond with HTTP status code `412 Precondition Failed`,"
+      - stepId: delete
+        description: Delete the latest version without If-Match; the refused delete left it in place.
+        operationId: $sourceDescriptions.ehr.composition_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.updated.outputs.version_uid }
         successCriteria:
           - *no_content

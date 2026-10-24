@@ -278,6 +278,25 @@ version on.
   reads is a gap under upstream report #687. Two at-time cases have no
   workflow: no released text says whether a version is extant at its own
   commit instant, and no expression adds to a time.
+- The COMPOSITION update cases are converted to Arazzo (#675). A create
+  step derives the `versioned_object_uid` from the version_uid it answers
+  with (`x-veredictum-derive`), and 65 new workflows address the
+  COMPOSITION and its VERSIONs by it. `composition_update` (the new version
+  an update commits, its change type, the If-Match precondition, the
+  representation preferences, the answer headers, the committal headers and
+  FEEDER_AUDITs) and `composition_update_refused` (400, 422 and a
+  not-modifiable EHR, each read back) carry 24 of the 27 update cases.
+  `composition_create` and `composition_delete` gain the VERSION halves:
+  change type, lifecycle_state, system_id, the audit headers, and the 409
+  and 412 of a delete addressed to a superseded version. The XML and
+  simplified-format `Accept` values of the create and update join the arms
+  of the `composition-xml-read`, `composition-flat-read` and
+  `composition-structured-read` options, the XML update body joins
+  `composition-xml-write`, and the new `composition-flat-write` and
+  `composition-structured-write` options carry the simplified request
+  bodies. `catalogue/id-map.yaml` says why for each case not carried, and
+  `surface.yaml` lists no gap under #675; the 400 of a second delete stays
+  a gap under #681.
 
 ### Changed
 

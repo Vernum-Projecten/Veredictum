@@ -1,0 +1,1183 @@
+# Updating a COMPOSITION: the version an update commits, its If-Match
+# precondition, its representation preferences, its committal headers and the
+# headers of its answer, as Arazzo 1.1.0 workflows over the released ITS-REST
+# `-validation` OAS. The update addresses the COMPOSITION by its
+# versioned_object_uid, which the create step derives from the version_uid it
+# answers with. Every criterion resolves to an `x-veredictum-cite` (its own,
+# else its step's, else its workflow's), and every quote is copied verbatim
+# from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION update
+  version: 0.1.0
+  description: >-
+    Updating a COMPOSITION by its versioned_object_uid under the If-Match
+    precondition: the new version it commits and that version's commit
+    audit, a stale, unknown or missing precondition, an unknown EHR or
+    container, the minimal, identifier and representation preferences, the
+    ETag, Last-Modified, Location and Content-Type headers of the answer,
+    the committal headers, and FEEDER_AUDITs kept or dropped by the update.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: update_composition-event
+    summary: An event COMPOSITION is updated and answered 200 with the full representation
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates the COMPOSITION
+      by its versioned_object_uid under an If-Match naming the created
+      version, with a body whose composer is Dr. Cuddy, Prefer
+      return=representation and Accept application/json. The update is
+      answered 200, and the latest VERSION read back holds the composer sent.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &update_operation
+      source: specs/openehr/ITS-REST/specifications/operations/composition_update.yaml
+      section: description
+      quote: "Updates COMPOSITION identified by `uid_based_id` and associated with the EHR identified by `ehr_id`."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: Create the event COMPOSITION, keep the version_uid of the full representation the create answers with, and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &event
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - &composition_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - &update
+        stepId: update
+        description: Update the COMPOSITION with composer Dr. Cuddy under the created version, asking for the full representation.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: &update_parameters
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: &cuddy_body
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /composer/name, value: Dr. Cuddy }
+        successCriteria:
+          - &updated
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the COMPOSITION is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION; it holds the composer the update sent.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: &latest_parameters
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &latest_version
+            condition: $statusCode == 200
+            x-veredictum-cite: &latest_cite
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+          - &holds_cuddy
+            context: $response.body#/data/composer/name
+            type: regex
+            condition: '^Dr\. Cuddy$'
+            x-veredictum-cite: &new_composition
+              source: specs/openehr/ITS-REST/specifications/operations/composition_update.yaml
+              section: /requestBody/description
+              quote: "The new COMPOSITION."
+
+  - workflowId: update_composition-new_version
+    summary: An update adds a version to the COMPOSITION's container that follows the created one
+    description: >-
+      Creates an EHR and an event COMPOSITION, updates it, then reads the
+      latest VERSION. A modification adds a new ORIGINAL_VERSION to the
+      existing container, so the latest version's uid has the container's
+      versioned_object_uid as its object_id, and its preceding_version_uid is
+      the version the create committed.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Contributions
+      quote: "a new `ORIGINAL_VERSION` whose data contains the updated form of the item content is added to an existing `VERSIONED_OBJECT`;"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - *update
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION and its identifiers.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.versioned_object_uid}::'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Version Identification
+              quote: "in which the `__object_id()__` part is a copy of the `__uid__` of the owning `VERSIONED_OBJECT` version container."
+          - context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+
+  - workflowId: update_composition-change_type_modification
+    summary: The version an update commits records the change type modification
+    description: >-
+      Creates an EHR and an event COMPOSITION, updates its composer with no
+      committal header, then reads the latest VERSION. A change to the
+      content is committed with the change type 251|modification|.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Contributions
+      quote: "if the change is logically a change, addition etc to the content, the `ORIGINAL_VERSION._commit_audit_._change_type_` is set to the code `251|modification|`;"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - *update
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION and its commit audit.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^251$'
+
+  - workflowId: update_composition-persistent
+    summary: A persistent COMPOSITION is updated
+    description: >-
+      Creates an EHR and a persistent COMPOSITION, then updates it with a body
+      whose composer is Dr. Cuddy. The update is answered 200, and the latest
+      VERSION read back holds the composer sent and follows the created one.
+    dependsOn: [$sourceDescriptions.setup.upload_template-persistent_minimal]
+    x-veredictum-cite: *update_operation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the persistent COMPOSITION, keep the version_uid of the full representation, and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &persistent
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Persistent minimal }
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id:
+                _type: ARCHETYPE_ID
+                value: openEHR-EHR-COMPOSITION.persistent_minimal.v1
+              template_id: { _type: TEMPLATE_ID, value: persistent_minimal.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.persistent_minimal.v1
+            language:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+              code_string: en
+            territory:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+              code_string: UY
+            category:
+              _type: DV_CODED_TEXT
+              value: persistent
+              defining_code:
+                _type: CODE_PHRASE
+                terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                code_string: "431"
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                _type: PARTY_REF
+                id: { _type: HIER_OBJECT_ID, value: a3dce0d4-fa51-4ff2-9cce-93dd60437842 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. Yamamoto
+            content:
+              - _type: OBSERVATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                language:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                  code_string: en
+                encoding:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                  code_string: UTF-8
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: HISTORY
+                  name: { _type: DV_TEXT, value: Event Series }
+                  archetype_node_id: at0001
+                  origin: { _type: DV_DATE_TIME, value: "2019-04-16T21:08:11,380+00:00" }
+                  events:
+                    - _type: POINT_EVENT
+                      name: { _type: DV_TEXT, value: Cualquier evento }
+                      archetype_node_id: at0002
+                      time: { _type: DV_DATE_TIME, value: "2019-04-16T21:08:11,384+00:00" }
+                      data:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: Arbol }
+                        archetype_node_id: at0003
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: text }
+                            archetype_node_id: at0004
+                            value: { _type: DV_TEXT, value: original value }
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                  rm_version: "1.0.2"
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the persistent COMPOSITION with composer Dr. Cuddy under the created version.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: *update_parameters
+        requestBody:
+          contentType: application/json
+          payload: *persistent
+          replacements:
+            - { target: /composer/name, value: Dr. Cuddy }
+        successCriteria:
+          - *updated
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION; it holds the composer sent and follows the created version.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - *holds_cuddy
+          - &follows_created
+            context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Contributions
+              quote: "a new `ORIGINAL_VERSION` whose data contains the updated form of the item content is added to an existing `VERSIONED_OBJECT`;"
+
+  - workflowId: update_composition-same_content
+    summary: An update whose content equals the preceding version's commits a new version
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it with the same
+      COMPOSITION it was created with. The update is answered 200, and the
+      latest VERSION follows the created one, so the update was committed as
+      a new version.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *update_operation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION with the body it was created with.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: *update_parameters
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - *updated
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION; it follows the created version.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - *follows_created
+
+  - workflowId: update_composition-prefer_minimal
+    summary: An update with Prefer return=minimal is answered 204 and committed
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it with Prefer
+      return=minimal. The update is answered 204 No Content with no body, and
+      the latest VERSION read back holds the composer sent.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &no_content
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+      section: description
+      quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - &update_minimal
+        stepId: update
+        description: Update the COMPOSITION with composer Dr. Cuddy and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody: *cuddy_body
+        successCriteria:
+          - &updated_minimal
+            condition: $statusCode == 204
+            x-veredictum-cite: *no_content
+          - condition: $response.body == null
+      - &latest_cuddy
+        stepId: latest
+        description: Read the latest VERSION of the COMPOSITION; the minimal answer still committed the update.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - *holds_cuddy
+
+  - workflowId: update_composition-prefer_absent
+    summary: An update with no Prefer header is answered 204 and committed
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it with no Prefer
+      header. The update is answered 204 No Content, and the latest VERSION
+      read back holds the composer sent.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *no_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION with composer Dr. Cuddy and no Prefer header.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: &update_no_prefer
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+        requestBody: *cuddy_body
+        successCriteria:
+          - *updated_minimal
+      - *latest_cuddy
+
+  - workflowId: update_composition-return_identifier
+    summary: An update with Prefer return=identifier answers with the new version's uid only
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it with Prefer
+      return=identifier and Accept application/json. The answer is 200 with a
+      body that carries the identifier under uid and none of the COMPOSITION
+      attributes, and that identifier is the latest version's uid. The
+      released text recommends the identifier body, so the status and body
+      criteria are advisory; a service that declines the preference leaves no
+      identifier to compare, and that row is errored.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &identifier_only
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer only identifier
+      quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+      level: should
+      report: 673
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION with composer Dr. Cuddy and ask for its identifier only.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: *cuddy_body
+        successCriteria:
+          - &success_status
+            context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+          - condition: $statusCode == 200
+          - condition: $response.body#/uid != null
+          - condition: $response.body#/archetype_node_id == null
+          - condition: $response.body#/content == null
+        outputs:
+          uid: $response.body#/uid
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION; its uid is the identifier the update answered.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.update.outputs.uid}$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/schemas/others/Identifier.yaml
+              section: /properties/uid/description
+              quote: "The (version) resource identifier."
+
+  - workflowId: update_composition-content_type
+    summary: An update answered with the full COMPOSITION names it as JSON
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it with Prefer
+      return=representation and Accept application/json. The answer is 200
+      with the COMPOSITION in its body, so it carries Content-Type
+      application/json.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION and ask for the full representation as JSON.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: *update_parameters
+        requestBody: *cuddy_body
+        successCriteria:
+          - *updated
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+
+  - workflowId: update_composition-etag_weak
+    summary: An ETag sent on a COMPOSITION update carries the weakness indicator
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it. If the answer
+      sends an ETag, it is a weak entity tag.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &etag_weak_form
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: *update_no_prefer
+        requestBody: *cuddy_body
+        successCriteria:
+          - *updated_minimal
+          - &etag_weak
+            context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: update_composition-etag_last_modified
+    summary: A COMPOSITION update answers with ETag and Last-Modified
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it. The answer
+      carries both an ETag and a Last-Modified header. The rule is
+      recommended, so a row that answers without them is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: ETag and Last-Modified
+      quote: "Both `ETag` and `Last-Modified` SHOULD be included in responses for VERSION, VERSIONED_OBJECT, or other resources that have versioning or unique state identifiers."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: *update_no_prefer
+        requestBody: *cuddy_body
+        successCriteria:
+          - *updated_minimal
+          - context: $response.header.ETag
+            type: regex
+            condition: '^.+$'
+          - context: $response.header.Last-Modified
+            type: regex
+            condition: '^.+$'
+
+  - workflowId: update_composition-location
+    summary: A minimal COMPOSITION update answers with a Location header
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it with Prefer
+      return=minimal. The answer carries a Location header pointing at the
+      updated resource. The rule is recommended, so a row that answers
+      otherwise is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer minimal, identifier or full representation response
+      quote: "The response SHOULD include a `Location` header pointing to the newly created or updated resource."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody: *cuddy_body
+        successCriteria:
+          - *updated_minimal
+          - context: $response.header.Location
+            type: regex
+            condition: '^.+$'
+
+  - workflowId: update_composition-unknown_ehr
+    summary: A COMPOSITION update under an ehr_id no EHR carries is answered 404
+    description: >-
+      Updates a COMPOSITION by a well-formed versioned_object_uid under a
+      freshly generated ehr_id that no EHR carries. The update is answered
+      with 404 Not Found.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &not_found
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id_or_uid_based_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when the `uid_based_id` does not exist."
+    inputs: &ehr_object_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        object_id: { type: string, format: uuid }
+    steps:
+      - stepId: update
+        description: Update a COMPOSITION under an ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: &update_unknown
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $inputs.object_id }
+          - { name: If-Match, in: header, value: '"{$inputs.object_id}::veredictum.example.org::1"' }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: update_composition-unknown_versioned_object_uid
+    summary: An update of a versioned_object_uid no COMPOSITION carries is answered 404
+    description: >-
+      Creates an EHR, then updates under it a COMPOSITION by a well-formed
+      versioned_object_uid that names no container. The update is answered
+      with 404 Not Found.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *not_found
+    inputs: *ehr_object_input
+    steps:
+      - *create_ehr
+      - stepId: update
+        description: Update a COMPOSITION no versioned_object_uid in the EHR carries.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: *update_unknown
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: update_composition-stale_if_match
+    summary: An update whose If-Match names a superseded version is refused with 412 and not performed
+    description: >-
+      Creates an EHR and an event COMPOSITION, updates it to composer Dr.
+      Cuddy, then sends a second update to composer Dr. Wilson under the
+      version the first update superseded. The second update is refused with
+      412 Precondition Failed, and the latest VERSION still holds Dr. Cuddy.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &stale_refused
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - *update_minimal
+      - &stale
+        stepId: stale
+        description: Update the COMPOSITION with composer Dr. Wilson under the superseded version.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: *update_no_prefer
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /composer/name, value: Dr. Wilson }
+        successCriteria:
+          - &precondition_failed
+            condition: $statusCode == 412
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: If-Match and accidental overwrites
+              quote: "Instead, it MUST respond with HTTP status code `412 Precondition Failed`,"
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION; the refused update left Dr. Cuddy in place.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/data/composer/name
+            type: regex
+            condition: '^Dr\. Cuddy$'
+
+  - workflowId: update_composition-stale_if_match-etag_latest
+    summary: A 412 to a stale If-Match names the latest version in its ETag
+    description: >-
+      Creates an EHR and an event COMPOSITION, updates it once, reads the
+      latest VERSION for the version the update created, then sends a second
+      update under the superseded version. The 412 answer carries the latest
+      version_uid in its ETag. The rule is recommended, so a row that answers
+      otherwise is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "SHOULD return also latest `version_uid` in the `ETag` response headers."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - *update_minimal
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION for the version the update created.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: stale
+        description: Update the COMPOSITION under the superseded version.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: *update_no_prefer
+        requestBody: *cuddy_body
+        successCriteria:
+          - *precondition_failed
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/)?"{$steps.latest.outputs.version_uid}"$'
+
+  - workflowId: update_composition-stale_if_match-etag_weak
+    summary: An ETag sent on a 412 to a stale If-Match carries the weakness indicator
+    description: >-
+      Creates an EHR and an event COMPOSITION, updates it once, then sends a
+      second update under the superseded version. If the 412 answer sends an
+      ETag, it is a weak entity tag.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *etag_weak_form
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - *update_minimal
+      - stepId: stale
+        description: Update the COMPOSITION under the superseded version.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: *update_no_prefer
+        requestBody: *cuddy_body
+        successCriteria:
+          - *precondition_failed
+          - *etag_weak
+
+  - workflowId: update_composition-unknown_preceding_version
+    summary: An update whose If-Match names a version the container never had is refused with 412 and not performed
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it under an
+      If-Match naming version 99 of its container, which the container never
+      had. The condition is false, so the update is refused with 412
+      Precondition Failed, and the latest VERSION is still the created one.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *stale_refused
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION under an If-Match naming a version its container never had.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.versioned_object_uid}::veredictum.example.org::99"' }
+        requestBody: *cuddy_body
+        successCriteria:
+          - *precondition_failed
+      - &latest_is_created
+        stepId: latest
+        description: Read the latest VERSION of the COMPOSITION; the refused update committed nothing.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+
+  - workflowId: update_composition-missing_if_match
+    summary: An update sent without If-Match is refused with 400 and not performed
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it with no
+      If-Match header. The update is refused with 400 Bad Request, and the
+      latest VERSION is still the created one. The rule is recommended, so a
+      row that answers otherwise is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "When the service expects `If-Match` for an operation, but the client does not provide it, the service SHOULD respond with `400 Bad Request`."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION with no If-Match.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+        requestBody: *cuddy_body
+        successCriteria:
+          - condition: $statusCode == 400
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION; the refused update committed nothing.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+
+  - workflowId: update_composition-audit_change_type
+    summary: A change type sent in openehr-audit-details on an update is merged into the version it commits
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it with an
+      openehr-audit-details header naming the change type 250 (amendment).
+      The latest VERSION's commit_audit carries the change type 250.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &merged
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "None of these headers are mandatory, but whatever is provided it MUST be merged with the default VERSION and VERSION.audit_details attributes on commit runtime."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION with the change type 250 in openehr-audit-details.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: openehr-audit-details, in: header, value: 'change_type.code_string="250"' }
+        requestBody: *cuddy_body
+        successCriteria:
+          - *updated_minimal
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION and its commit audit.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^250$'
+
+  - workflowId: update_composition-audit_system_id
+    summary: A system_id sent in openehr-audit-details on an update is merged into the version it commits
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it with an
+      openehr-audit-details header naming the system_id
+      client.system.example.org. The latest VERSION's commit_audit carries
+      that system_id.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *merged
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - &update_system_id
+        stepId: update
+        description: Update the COMPOSITION with a system_id in openehr-audit-details.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: openehr-audit-details, in: header, value: 'system_id="client.system.example.org"' }
+        requestBody: *cuddy_body
+        successCriteria:
+          - *updated_minimal
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION and its commit audit.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/commit_audit/system_id
+            type: regex
+            condition: '^client\.system\.example\.org$'
+
+  - workflowId: update_composition-audit_system_id_default
+    summary: An update that sends no system_id is committed under the server's own system_id
+    description: >-
+      Creates an EHR and an event COMPOSITION with no committal header and
+      reads the created version's system_id, which is the server's own.
+      Updates the COMPOSITION once with the client system_id
+      client.system.example.org, then once more with no committal header. The
+      last version's commit_audit carries the server's own system_id again,
+      not the client's.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "In particular, when `system_id` is not provided by the client, the server MUST set it to its own configured system identifier."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: created
+        description: Read the created version for the system_id the server committed it under.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: version_uid, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &version_retrieved
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_COMPOSITION_by_id.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+        outputs:
+          system_id: $response.body#/commit_audit/system_id
+      - *update_system_id
+      - stepId: second
+        description: Read the latest VERSION, the one the client system_id was sent with.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: update-again
+        description: Update the COMPOSITION again with no committal header.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.second.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - *updated_minimal
+      - stepId: latest
+        description: Read the latest VERSION; it is committed under the server's own system_id.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/commit_audit/system_id
+            type: regex
+            condition: '^{$steps.created.outputs.system_id}$'
+
+  - workflowId: update_composition-lifecycle_state
+    summary: A lifecycle_state sent in openehr-version on an update is merged into the version it commits
+    description: >-
+      Creates an EHR and an event COMPOSITION, then updates it with an
+      openehr-version header naming the lifecycle_state 553 (incomplete). The
+      latest VERSION carries the lifecycle_state 553.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *merged
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION with the lifecycle_state 553 in openehr-version.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: openehr-version, in: header, value: 'lifecycle_state.code_string="553"' }
+        requestBody: *cuddy_body
+        successCriteria:
+          - *updated_minimal
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION and its lifecycle_state.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^553$'
+
+  - workflowId: update_composition-feeder_audit_carried
+    summary: The FEEDER_AUDITs an update sends are in the version it commits
+    description: >-
+      Creates an EHR and an event COMPOSITION carrying a FEEDER_AUDIT at its
+      root and one on an ELEMENT, then updates it with the same FEEDER_AUDITs
+      and composer Dr. Cuddy. The latest VERSION holds both FEEDER_AUDITs.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *new_composition
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &commit_feeder
+        stepId: commit
+        description: Create the COMPOSITION with two FEEDER_AUDITs, keep the version_uid of the full representation, and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &feeder
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            feeder_audit:
+              _type: FEEDER_AUDIT
+              originating_system_item_ids:
+                - _type: DV_IDENTIFIER
+                  issuer: Lab Uruguay
+                  assigner: Lab Uruguay
+                  id: ACC-2021-0917
+                  type: accession
+              original_content:
+                _type: DV_PARSABLE
+                value: "MSH|^~\\&|LAB|URY|CDR|URY|20210921215231||ORU^R01|MSG0001|P|2.5"
+                formalism: HL7v2.5
+              originating_system_audit:
+                _type: FEEDER_AUDIT_DETAILS
+                system_id: lab.example.org
+                time: { value: "2021-09-21T21:50:00-03:00" }
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+                      feeder_audit:
+                        _type: FEEDER_AUDIT
+                        originating_system_item_ids:
+                          - _type: DV_IDENTIFIER
+                            issuer: Lab Uruguay
+                            assigner: Lab Uruguay
+                            id: OBX-1
+                            type: observation
+                        originating_system_audit:
+                          _type: FEEDER_AUDIT_DETAILS
+                          system_id: lab.example.org
+                          time: { value: "2021-09-21T21:50:00-03:00" }
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the COMPOSITION with the same FEEDER_AUDITs and composer Dr. Cuddy.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: *update_no_prefer
+        requestBody:
+          contentType: application/json
+          payload: *feeder
+          replacements:
+            - { target: /composer/name, value: Dr. Cuddy }
+        successCriteria:
+          - *updated_minimal
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION and both FEEDER_AUDITs.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - *holds_cuddy
+          - context: $response.body#/data/feeder_audit/originating_system_audit/system_id
+            type: regex
+            condition: '^lab\.example\.org$'
+          - context: $response.body#/data/feeder_audit/original_content/formalism
+            type: regex
+            condition: '^HL7v2\.5$'
+          - context: $response.body#/data/content/0/data/items/0/feeder_audit/originating_system_item_ids/0/id
+            type: regex
+            condition: '^OBX-1$'
+
+  - workflowId: update_composition-feeder_audit_removed
+    summary: An update that sends no FEEDER_AUDIT commits a version without the earlier ones
+    description: >-
+      Creates an EHR and an event COMPOSITION carrying a FEEDER_AUDIT at its
+      root and one on an ELEMENT, then updates it with a COMPOSITION that
+      carries none. The latest VERSION holds the COMPOSITION sent, with no
+      FEEDER_AUDIT at the root or on the ELEMENT.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *new_composition
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit_feeder
+      - stepId: update
+        description: Update the COMPOSITION with a body that carries no FEEDER_AUDIT.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters: *update_no_prefer
+        requestBody: *cuddy_body
+        successCriteria:
+          - *updated_minimal
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION and look for FEEDER_AUDITs.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - *holds_cuddy
+          - condition: $response.body#/data/feeder_audit == null
+          - condition: $response.body#/data/content/0/data/items/0/feeder_audit == null

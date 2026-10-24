@@ -7,11 +7,7 @@
 # (#603): each moves into `cases` when its family is converted.
 cases:
   I_EHR_COMPOSITION.create_composition-audit_system_id_declared:
-    new: []
-    open: >-
-      The system_id stamped on the VERSION audit: it needs the VERSION, read
-      through a route addressed by the versioned_object_uid; derivable once
-      #680 lands.
+    new: [composition_create/create_composition-audit_system_id_declared]
   I_EHR_COMPOSITION.create_composition-bulk_load_depth:
     new: [composition_create/create_composition-two_in_one_ehr]
     open: >-
@@ -25,8 +21,7 @@ cases:
       No released sentence assigns what a create does with a client-supplied
       COMPOSITION.uid: RM composition.adoc only "strongly recommended" copying
       the VERSION uid, and the "must match" of composition_update.yaml is
-      lower case and about the update. The version read it compared against is
-      addressed by the versioned_object_uid; derivable once #680 lands.
+      lower case and about the update.
   I_EHR_COMPOSITION.create_composition-cluster_no_items:
     new: [composition_create_refused/create_composition-cluster_no_items]
   I_EHR_COMPOSITION.create_composition-composer_identifiers_empty:
@@ -45,10 +40,11 @@ cases:
       "SHOULD return" the values in their original format.
   I_EHR_COMPOSITION.create_composition-deprecated_template_id:
     new: []
-    open: >-
-      A Simplified Format commit: the simplified formats are a SHOULD
-      (Resources.md §Data representation) with no option in capabilities.yaml
-      yet, tracked under #675.
+    open: &deprecated_header >-
+      A deprecated header name: Requests_and_responses.md §Deprecated headers
+      says only that the deprecated headers "remain available for backward
+      compatibility", with no key word that obliges a server to accept them,
+      and the profile admits the Release-1.1.0 names alone.
   I_EHR_COMPOSITION.create_composition-duplicate_member:
     new: []
     open: >-
@@ -65,12 +61,12 @@ cases:
       - composition_create/create_composition-event
       - composition_create/create_composition-read_back
       - composition_create/create_composition-version_uid_form
-    open: >-
-      The change_type CREATE and version count of the VERSION: it needs the
-      VERSION, read through a route addressed by the versioned_object_uid;
-      derivable once #680 lands. The version_tree_id 1 is not asserted: RM
-      master06 §Local Versioning describes it as "a suitable scheme", with no
-      key word.
+      - composition_create/create_composition-change_type_creation
+    open: &version_count >-
+      The version count is not judged: it is read from the container's
+      revision history, which belongs to the VERSIONED_COMPOSITION reads
+      (#678). The version_tree_id 1 is not asserted: RM master06 §Local
+      Versioning describes it as "a suitable scheme", with no key word.
   I_EHR_COMPOSITION.create_composition-event_bad_ehr:
     new: [composition_create_refused/create_composition-unknown_ehr]
   I_EHR_COMPOSITION.create_composition-event_bad_opt:
@@ -137,10 +133,8 @@ cases:
     new:
       - composition_create/create_composition-persistent
       - composition_create/create_composition-persistent-read_back
-    open: >-
-      The change_type CREATE and version count of the VERSION: it needs the
-      VERSION, read through a route addressed by the versioned_object_uid;
-      derivable once #680 lands.
+      - composition_create/create_composition-persistent-change_type_creation
+    open: *version_count
   I_EHR_COMPOSITION.create_composition-prefer_absent:
     new:
       - composition_create/create_composition-prefer_absent
@@ -203,16 +197,9 @@ cases:
     new: [composition_create_refused/create_composition-unknown_key_root]
   I_EHR_COMPOSITION.create_composition-version_bare_deprecated:
     new: []
-    open: >-
-      The lifecycle_state merged into the VERSION: it needs the VERSION, read
-      through a route addressed by the versioned_object_uid; derivable once
-      #680 lands.
+    open: *deprecated_header
   I_EHR_COMPOSITION.create_composition-version_lifecycle:
-    new: []
-    open: >-
-      The lifecycle_state merged into the VERSION: it needs the VERSION, read
-      through a route addressed by the versioned_object_uid; derivable once
-      #680 lands.
+    new: [composition_create/create_composition-lifecycle_state]
   I_EHR_COMPOSITION.create_composition-wrong_media:
     new: [composition_create_refused/create_composition-wrong_media]
   I_EHR_COMPOSITION.create_composition-xml:
@@ -224,18 +211,18 @@ cases:
       read compares the archetype_node_id, template_id, setting and quantity
       units.
   I_EHR_COMPOSITION.delete_composition-already_deleted:
-    new: [composition_delete/delete_composition-already_deleted]
+    new:
+      - composition_delete/delete_composition-already_deleted
+      - composition_delete/delete_composition-version_deleted
     open: >-
       The second delete matches both declared refusals, 400 already deleted
-      and 409 not the latest version, so either holds (#675). The version
-      count and lifecycle: it needs the VERSION, read through a route
-      addressed by the versioned_object_uid; derivable once #680 lands.
+      and 409 not the latest version, so either holds (#681). The version
+      count is not judged: it is read from the container's revision history,
+      which belongs to the VERSIONED_COMPOSITION reads (#678).
   I_EHR_COMPOSITION.delete_composition-audit_headers:
-    new: []
-    open: >-
-      The audit details merged into the deleted VERSION: it needs the VERSION,
-      read through a route addressed by the versioned_object_uid; derivable
-      once #680 lands.
+    new:
+      - composition_delete/delete_composition-audit_details
+      - composition_delete/delete_composition-change_type_deleted
   I_EHR_COMPOSITION.delete_composition-contradictory_lifecycle_header:
     new: []
     open: >-
@@ -256,114 +243,140 @@ cases:
     new:
       - composition_delete/delete_composition-event
       - composition_delete/delete_composition-no_location
-    open: >-
-      The deleted VERSION and its lifecycle_state 523: it needs the VERSION,
-      read through a route addressed by the versioned_object_uid; derivable
-      once #680 lands.
+      - composition_delete/delete_composition-version_deleted
+      - composition_delete/delete_composition-lifecycle_deleted
+      - composition_delete/delete_composition-change_type_deleted
   I_EHR_COMPOSITION.delete_composition-non_existent:
     new: [composition_delete/delete_composition-unknown_version]
   I_EHR_COMPOSITION.delete_composition-not_latest_version:
-    new: []
-    open: >-
-      Its second version needs an update: composition_update is addressed by
-      the versioned_object_uid; derivable once #680 lands.
+    new:
+      - composition_delete/delete_composition-not_latest_version
+      - composition_delete/delete_composition-not_latest_version-etag_latest
   I_EHR_COMPOSITION.delete_composition-persistent:
     new: [composition_delete/delete_composition-persistent]
     open: >-
-      The deleted VERSION and its lifecycle_state 523: it needs the VERSION,
-      read through a route addressed by the versioned_object_uid; derivable
-      once #680 lands.
+      The deleted VERSION and its lifecycle_state are judged on an event
+      COMPOSITION (delete_composition-version_deleted,
+      delete_composition-lifecycle_deleted): RM master06 §Logical Deletion
+      gives one procedure for every top-level content item.
   I_EHR_COMPOSITION.delete_composition-volunteered_if_match:
-    new: [composition_delete/delete_composition-if_match_mismatch]
-    open: >-
-      Carried with an If-Match naming a version the COMPOSITION never had,
-      since a superseded version needs an update, which is addressed by the
-      versioned_object_uid; derivable once #680 lands.
+    new:
+      - composition_delete/delete_composition-if_match_mismatch
+      - composition_delete/delete_composition-if_match_superseded
   I_EHR_COMPOSITION.delete_composition-volunteered_if_match_current:
     new: [composition_delete/delete_composition-if_match_current]
   I_EHR_COMPOSITION.update_composition-audit_amendment:
-    new: []
-    open: &update_needs_container >-
-      composition_update is addressed by the versioned_object_uid; derivable
-      once #680 lands.
+    new: [composition_update/update_composition-audit_change_type]
   I_EHR_COMPOSITION.update_composition-audit_bare_deprecated:
     new: []
-    open: *update_needs_container
+    open: *deprecated_header
   I_EHR_COMPOSITION.update_composition-audit_change_type_invalid:
-    new: []
-    open: *update_needs_container
+    new: [composition_update_refused/update_composition-audit_change_type_invalid]
   I_EHR_COMPOSITION.update_composition-audit_change_type_mismatch:
     new: []
-    open: *update_needs_container
+    open: >-
+      No released sentence refuses a client-supplied 249|creation| on an
+      update: Requests_and_responses.md says whatever is provided "MUST be
+      merged", and RM master06 §Contributions sets 250 or 251 on a
+      modification without naming a refusal for another code.
   I_EHR_COMPOSITION.update_composition-audit_system_id:
-    new: []
-    open: *update_needs_container
+    new:
+      - composition_update/update_composition-audit_system_id
+      - composition_update/update_composition-audit_system_id_default
   I_EHR_COMPOSITION.update_composition-body_uid_mismatch:
     new: []
-    open: *update_needs_container
+    open: >-
+      The "must match" of composition_update.yaml is lower case, so it
+      carries no RFC 2119 requirement, and no other released sentence
+      refuses a body uid that names another container.
   I_EHR_COMPOSITION.update_composition-category_flip:
-    new: []
-    open: *update_needs_container
+    new: [composition_update_refused/update_composition-category_flip]
   I_EHR_COMPOSITION.update_composition-cluster_no_items:
-    new: []
-    open: *update_needs_container
+    new: [composition_update_refused/update_composition-cluster_no_items]
   I_EHR_COMPOSITION.update_composition-deleted_lifecycle_header:
-    new: []
-    open: *update_needs_container
+    new: [composition_update/update_composition-lifecycle_state]
+    open: >-
+      The refusal of a content-carrying update that names the lifecycle_state
+      523: no released sentence assigns it, since RM master06 §Logical
+      Deletion gives the procedure and Requests_and_responses.md asks that
+      supplied values be merged. The merge of a supplied lifecycle_state is
+      carried with 553|incomplete|.
   I_EHR_COMPOSITION.update_composition-ehr_not_modifiable:
-    new: []
-    open: *update_needs_container
+    new: [composition_update_refused/update_composition-ehr_not_modifiable]
+    open: >-
+      The status code: RM ehr_status.adoc assigns that the contents may not be
+      written to and no released sentence names the code, so any 4xx holds.
   I_EHR_COMPOSITION.update_composition-event:
-    new: []
-    open: *update_needs_container
+    new:
+      - composition_update/update_composition-event
+      - composition_update/update_composition-new_version
+      - composition_update/update_composition-change_type_modification
+    open: &update_version_count >-
+      The version count is not judged: it is read from the container's
+      revision history, which belongs to the VERSIONED_COMPOSITION reads
+      (#678). The version_tree_id 2 is not asserted: RM master06 §Local
+      Versioning describes the numbering as "a suitable scheme", with no key
+      word, so the new version is judged by its preceding_version_uid.
   I_EHR_COMPOSITION.update_composition-feeder_audit_carried:
-    new: []
-    open: *update_needs_container
+    new: [composition_update/update_composition-feeder_audit_carried]
   I_EHR_COMPOSITION.update_composition-feeder_audit_removed:
-    new: []
-    open: *update_needs_container
+    new: [composition_update/update_composition-feeder_audit_removed]
   I_EHR_COMPOSITION.update_composition-flat:
-    new: []
-    open: *update_needs_container
+    new: [composition_write_flat/update_composition-flat]
+    open: &simplified_update >-
+      Carried on the template minimal_evaluation.en.v1 with a COMPOSITION
+      whose composer is judged; the change type of an update is judged on
+      the canonical JSON update (update_composition-change_type_modification).
   I_EHR_COMPOSITION.update_composition-missing_if_match:
-    new: []
-    open: *update_needs_container
+    new: [composition_update/update_composition-missing_if_match]
+    open: >-
+      Carried as advisory: Requests_and_responses.md §If-Match and accidental
+      overwrites says the service "SHOULD respond with `400 Bad Request`".
   I_EHR_COMPOSITION.update_composition-non_existent:
-    new: []
-    open: *update_needs_container
+    new:
+      - composition_update/update_composition-unknown_versioned_object_uid
+      - composition_update/update_composition-unknown_ehr
   I_EHR_COMPOSITION.update_composition-paragraph_no_items:
-    new: []
-    open: *update_needs_container
+    new: [composition_update_refused/update_composition-paragraph_no_items]
   I_EHR_COMPOSITION.update_composition-persistent:
-    new: []
-    open: *update_needs_container
+    new: [composition_update/update_composition-persistent]
+    open: *update_version_count
   I_EHR_COMPOSITION.update_composition-prefer_absent:
-    new: []
-    open: *update_needs_container
+    new: [composition_update/update_composition-prefer_absent]
   I_EHR_COMPOSITION.update_composition-prefer_minimal:
-    new: []
-    open: *update_needs_container
+    new:
+      - composition_update/update_composition-prefer_minimal
+      - composition_update/update_composition-location
   I_EHR_COMPOSITION.update_composition-return_identifier:
-    new: []
-    open: *update_needs_container
+    new: [composition_update/update_composition-return_identifier]
+    open: >-
+      Carried as advisory on the SHOULD of Requests_and_responses.md §Prefer
+      only identifier; "never `204 No Content`" carries no key word (upstream
+      report #673).
   I_EHR_COMPOSITION.update_composition-same_content:
-    new: []
-    open: *update_needs_container
+    new: [composition_update/update_composition-same_content]
+    open: >-
+      The equality of the whole stored COMPOSITION with the one sent is not
+      judged; the new version is judged by its preceding_version_uid.
   I_EHR_COMPOSITION.update_composition-stale_if_match:
-    new: []
-    open: *update_needs_container
+    new:
+      - composition_update/update_composition-stale_if_match
+      - composition_update/update_composition-stale_if_match-etag_latest
+      - composition_update/update_composition-stale_if_match-etag_weak
   I_EHR_COMPOSITION.update_composition-structured:
-    new: []
-    open: *update_needs_container
+    new: [composition_write_structured/update_composition-structured]
+    open: *simplified_update
   I_EHR_COMPOSITION.update_composition-unknown_preceding_version:
-    new: []
-    open: *update_needs_container
+    new: [composition_update/update_composition-unknown_preceding_version]
   I_EHR_COMPOSITION.update_composition-wrong_template:
-    new: []
-    open: *update_needs_container
+    new: [composition_update_refused/update_composition-wrong_template]
   I_EHR_COMPOSITION.update_composition-xml:
-    new: []
-    open: *update_needs_container
+    new:
+      - composition_update_xml/update_composition-xml
+      - composition_update_xml_write_refused/update_composition-xml_unsupported_media
+    open: >-
+      The equality of the whole stored COMPOSITION with its JSON twin: the
+      read compares the composer the XML document carries.
   I_EHR_COMPOSITION.get_composition_at_time-bad_composition:
     new: [composition_read/get_composition-unknown_versioned_object_uid-at_time]
   I_EHR_COMPOSITION.get_composition_at_time-bad_ehr:

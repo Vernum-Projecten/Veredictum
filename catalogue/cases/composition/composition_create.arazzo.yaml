@@ -11,8 +11,9 @@ info:
   description: >-
     Creating the first version of an event and a persistent COMPOSITION, the
     minimal, identifier and representation preferences of the create, the
-    ETag and Last-Modified headers it answers with, and the content a read of
-    the created version returns.
+    ETag and Last-Modified headers it answers with, the content a read of
+    the created version returns, and the change type, lifecycle_state and
+    system_id of the VERSION it commits.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
@@ -1298,3 +1299,164 @@ workflows:
           - { name: Accept, in: header, value: application/json }
         successCriteria:
           - *retrieved
+
+  - workflowId: create_composition-change_type_creation
+    summary: The version an event COMPOSITION create commits records the change type creation
+    description: >-
+      Creates an EHR and an event COMPOSITION with no committal header, keeps
+      the version_uid of the full representation the create answers with,
+      and reads that VERSION from the container its versioned_object_uid
+      names. A new item is committed with the change type 249|creation|.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &creation
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Contributions
+      quote: "a new `VERSIONED_OBJECT` is created with a first `ORIGINAL_VERSION` whose data is the new item; the `ORIGINAL_VERSION._commit_audit_._change_type_` is set to the code `249|creation|`;"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &commit_representation
+        stepId: commit
+        description: Create the event COMPOSITION, keep the version_uid of the full representation the create answers with, and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - &composition_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - &read_version
+        stepId: version
+        description: Read the committed VERSION by its version_uid from the container its versioned_object_uid names.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_by_id
+        parameters: &version_parameters
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: version_uid, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &version_retrieved
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_COMPOSITION_by_id.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^249$'
+            x-veredictum-cite: *creation
+
+  - workflowId: create_composition-persistent-change_type_creation
+    summary: The version a persistent COMPOSITION create commits records the change type creation
+    description: >-
+      Creates an EHR and a persistent COMPOSITION with no committal header,
+      and reads the committed VERSION from the container its
+      versioned_object_uid names. A new item is committed with the change
+      type 249|creation|.
+    dependsOn: [$sourceDescriptions.setup.upload_template-persistent_minimal]
+    x-veredictum-cite: *creation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the persistent COMPOSITION, keep the version_uid of the full representation, and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *persistent
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - *read_version
+
+  - workflowId: create_composition-lifecycle_state
+    summary: A lifecycle_state sent in openehr-version on a create is merged into the version it commits
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION with an
+      openehr-version header naming the lifecycle_state 553 (incomplete), and
+      reads the committed VERSION from the container its versioned_object_uid
+      names. The VERSION carries the lifecycle_state 553.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "None of these headers are mandatory, but whatever is provided it MUST be merged with the default VERSION and VERSION.audit_details attributes on commit runtime."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the event COMPOSITION with the lifecycle_state 553 in openehr-version.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version, in: header, value: 'lifecycle_state.code_string="553"' }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: version
+        description: Read the committed VERSION and its lifecycle_state.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_by_id
+        parameters: *version_parameters
+        successCriteria:
+          - *version_retrieved
+          - context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^553$'
+
+  - workflowId: create_composition-audit_system_id_declared
+    summary: A create that sends no system_id is committed under the server's declared system_id
+    description: >-
+      Creates an EHR and an event COMPOSITION with no committal header, and
+      reads the committed VERSION from the container its versioned_object_uid
+      names. Its commit_audit carries the server's own configured system
+      identifier, which the party declares in its IXIT.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "In particular, when `system_id` is not provided by the client, the server MUST set it to its own configured system identifier."
+    inputs:
+      type: object
+      required: [system_id]
+      properties:
+        system_id: { type: string }
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create_ehr
+      - *commit_representation
+      - stepId: version
+        description: Read the committed VERSION and its commit audit system_id.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_by_id
+        parameters: *version_parameters
+        successCriteria:
+          - *version_retrieved
+          - context: $response.body#/commit_audit/system_id
+            type: regex
+            condition: '^{$inputs.system_id}$'

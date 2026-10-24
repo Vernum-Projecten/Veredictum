@@ -67,9 +67,9 @@ options:
       application/xml.
     arms:
       composition-xml-supported:
-        documents: [composition_read_xml, composition_versioned_read_xml]
+        documents: [composition_read_xml, composition_versioned_read_xml, composition_write_xml_accept]
       composition-xml-unsupported:
-        documents: [composition_read_xml_not_acceptable, composition_versioned_read_xml_not_acceptable]
+        documents: [composition_read_xml_not_acceptable, composition_versioned_read_xml_not_acceptable, composition_write_xml_not_acceptable]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -82,9 +82,9 @@ options:
       answers 406.
     arms:
       composition-flat-supported:
-        documents: [composition_read_flat]
+        documents: [composition_read_flat, composition_write_flat_accept]
       composition-flat-unsupported:
-        documents: [composition_read_flat_not_acceptable]
+        documents: [composition_read_flat_not_acceptable, composition_write_flat_not_acceptable]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -98,9 +98,9 @@ options:
       this one answers 406.
     arms:
       composition-structured-supported:
-        documents: [composition_read_structured]
+        documents: [composition_read_structured, composition_write_structured_accept]
       composition-structured-unsupported:
-        documents: [composition_read_structured_not_acceptable]
+        documents: [composition_read_structured_not_acceptable, composition_write_structured_not_acceptable]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -109,14 +109,44 @@ options:
   composition-xml-write:
     description: >-
       Whether the service processes a COMPOSITION sent as canonical XML on the
-      COMPOSITION create, an instance of the composition element the
-      published ITS-XML schema declares.
+      COMPOSITION create and update, an instance of the composition element
+      the published ITS-XML schema declares.
     arms:
       composition-xml-write-accepted:
-        documents: [composition_xml]
+        documents: [composition_xml, composition_update_xml]
       composition-xml-write-refused:
-        documents: [composition_xml_write_refused]
+        documents: [composition_xml_write_refused, composition_update_xml_write_refused]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format
       quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  composition-flat-write:
+    description: >-
+      Whether the service processes a COMPOSITION sent in the Simplified Flat
+      JSON format on the COMPOSITION create and update. The release
+      recommends the Simplified Formats, so a service that does not process
+      this one answers 415.
+    arms:
+      composition-flat-write-accepted:
+        documents: [composition_write_flat]
+      composition-flat-write-refused:
+        documents: [composition_write_flat_unsupported]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "If the service cannot process the request payload as the simplified format is not supported, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  composition-structured-write:
+    description: >-
+      Whether the service processes a COMPOSITION sent in the Simplified
+      Structured JSON format on the COMPOSITION create and update. The
+      release recommends the Simplified Formats, so a service that does not
+      process this one answers 415.
+    arms:
+      composition-structured-write-accepted:
+        documents: [composition_write_structured]
+      composition-structured-write-refused:
+        documents: [composition_write_structured_unsupported]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "If the service cannot process the request payload as the simplified format is not supported, it MUST respond with HTTP status code `415 Unsupported Media Type`."
