@@ -35,6 +35,7 @@ pub mod bench;
 pub mod conf_assets;
 pub mod evidence;
 pub mod exec;
+pub mod identity;
 pub mod ids;
 pub mod ixit;
 pub mod literal;

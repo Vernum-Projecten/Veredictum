@@ -830,6 +830,75 @@ async fn read_record(
     h.capture(verdicts_shot).await;
 }
 
+/// A fixture SUT that states its identity: `OPTIONS /` answers a 200
+/// `Options` document (ITS-REST `specifications/operations/options.yaml`),
+/// and every other request answers `500`, in THIS test process.
+fn options_fixture_sut() -> Result<u16, std::io::Error> {
+    use std::io::{Read as _, Write as _};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
+    let port = listener.local_addr()?.port();
+    std::thread::spawn(move || {
+        let body = br#"{"solution":"fixture-cdr","solution_version":"9.8.7","vendor":"Fixture Vendor","restapi_specs_version":"1.1.0"}"#;
+        for stream in listener.incoming() {
+            let Ok(mut stream) = stream else { continue };
+            let mut scratch = [0_u8; 4096];
+            let read = stream.read(&mut scratch).unwrap_or(0);
+            let head = scratch.get(..read).unwrap_or_default();
+            let answer = if head.starts_with(b"OPTIONS / ") {
+                let mut answer = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                    body.len()
+                )
+                .into_bytes();
+                answer.extend_from_slice(body);
+                answer
+            } else {
+                b"HTTP/1.1 500 Internal Server Error\r\ncontent-length: 2\r\nconnection: close\r\n\r\nno"
+                    .to_vec()
+            };
+            let _write = stream.write_all(&answer);
+        }
+    });
+    Ok(port)
+}
+
+/// A server that states its identity through System OPTIONS shows it
+/// read-only, labelled as reported by the server, with the vendor and the REST
+/// specification version beside it; the operator's inputs give way.
+#[tokio::test(flavor = "multi_thread")]
+async fn e2e_connect_shows_the_identity_the_server_states() {
+    let Some(h) = Harness::start("connect-identity").await else {
+        return;
+    };
+    let Ok(port) = options_fixture_sut() else {
+        panic!("the fixture SUT could not bind");
+    };
+    h.goto("/run/connect").await;
+    let base = h.wait_css("input#base-url").await;
+    base.clear().await.expect("clear the base URL");
+    base.send_keys(&format!("http://127.0.0.1:{port}"))
+        .await
+        .expect("type the base URL");
+    h.wait_xpath("//button[contains(., 'Probe connection')]")
+        .await
+        .click()
+        .await
+        .expect("probe");
+    h.wait_xpath("//p[@id='sut-name-reported' and normalize-space()='fixture-cdr']")
+        .await;
+    h.wait_xpath("//p[@id='sut-version-reported' and normalize-space()='9.8.7']")
+        .await;
+    h.wait_xpath("//p[@id='sut-vendor-reported' and normalize-space()='Fixture Vendor']")
+        .await;
+    h.wait_xpath("//p[@id='sut-rest-version-reported' and normalize-space()='1.1.0']")
+        .await;
+    h.wait_xpath("//body[contains(., 'reported by the server')]")
+        .await;
+    h.wait_xpath("//a[contains(., 'Continue anyway')]").await;
+    h.assert_console_clean(&[]).await;
+    h.finish().await;
+}
+
 /// The whole pipeline through the real UI: connect → probe → scope with a
 /// statement → start → live to finished → results with a detail → verdicts —
 /// capturing every record surface, light and dark, against the hermetic

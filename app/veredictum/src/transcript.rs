@@ -128,6 +128,10 @@ pub struct RunTranscript {
     pub sut: crate::party::Sut,
     /// The schedule release the campaign ran, as the results record spells it.
     pub schedule_release: String,
+    /// The System OPTIONS exchange the run read the SUT's identity through,
+    /// when it was answered. It belongs to no case and is never judged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity: Option<RecordedExchange>,
     /// One entry per case that drove at least one exchange, case-id sorted.
     pub cases: Vec<CaseTranscript>,
 }
@@ -217,11 +221,9 @@ mod tests {
 
     fn transcript(cases: Vec<CaseTranscript>) -> RunTranscript {
         RunTranscript {
-            sut: crate::party::Sut {
-                name: String::from("example-cdr"),
-                version: String::from("0.0.0"),
-            },
+            sut: crate::party::Sut::operator(String::from("example-cdr"), String::from("0.0.0")),
             schedule_release: String::from("cnf-2.0-w2"),
+            identity: None,
             cases,
         }
     }

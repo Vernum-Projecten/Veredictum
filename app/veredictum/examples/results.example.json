@@ -1,7 +1,21 @@
 {
   "sut": {
-    "name": "example-cdr",
-    "version": "0.0.0-example"
+    "name": {
+      "value": "example-cdr",
+      "source": "server"
+    },
+    "version": {
+      "value": "0.0.0-example",
+      "source": "server"
+    },
+    "vendor": {
+      "value": "Example Vendor",
+      "source": "server"
+    },
+    "restapi_specs_version": {
+      "value": "1.1.0",
+      "source": "server"
+    }
   },
   "runner": {
     "name": "veredictum",

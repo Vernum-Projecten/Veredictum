@@ -100,8 +100,8 @@ fn drive_under(
         root: &root,
         ixit,
         out_dir,
-        sut_name: "transcript-gate",
-        sut_version: "0.0.0-gate",
+        sut_name: Some("transcript-gate"),
+        sut_version: Some("0.0.0-gate"),
         filter: Some(FILTER),
         statement,
         recording,
@@ -151,7 +151,7 @@ fn a_recorded_run_emits_a_schema_valid_ordered_transcript() -> Fallible {
     }
 
     let transcript: veredictum::transcript::RunTranscript = serde_json::from_str(&document)?;
-    assert_eq!(transcript.sut.name, "transcript-gate");
+    assert_eq!(transcript.sut.name.value, "transcript-gate");
     assert!(
         transcript.exchange_count() > 0,
         "the run drove exchanges, so the transcript carries them"
@@ -525,7 +525,7 @@ fn the_red_rows_of_a_credentialed_run_export_without_a_statement() -> Fallible {
     }
 
     let bundle: veredictum::evidence::EvidenceBundle = serde_json::from_str(&body)?;
-    assert_eq!(bundle.sut.name, "transcript-gate");
+    assert_eq!(bundle.sut.name.value, "transcript-gate");
     assert!(
         bundle.exchange_count() > 0,
         "an empty bundle is exactly what must be unproducible"

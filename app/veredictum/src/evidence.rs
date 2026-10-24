@@ -327,11 +327,9 @@ mod tests {
 
     fn transcript(cases: Vec<CaseTranscript>) -> RunTranscript {
         RunTranscript {
-            sut: crate::party::Sut {
-                name: String::from("example-cdr"),
-                version: String::from("0.0.0"),
-            },
+            sut: crate::party::Sut::operator(String::from("example-cdr"), String::from("0.0.0")),
             schedule_release: String::from("cnf-2.0-w2"),
+            identity: None,
             cases,
         }
     }
@@ -377,7 +375,7 @@ mod tests {
             Some(OutcomeStatus::Failed),
             "the bundle carries the row the exchanges are compared against"
         );
-        assert_eq!(bundle.sut.name, "example-cdr");
+        assert_eq!(bundle.sut.name.value, "example-cdr");
         assert!(bundle.without_exchanges.is_empty());
     }
 

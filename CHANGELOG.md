@@ -36,6 +36,25 @@ version on.
   `catalogue/id-map.yaml` says why for each. `surface.yaml` takes the
   EHR_STATUS tag into scope, with seventeen header branches tracked as gaps
   under #659.
+- The server states its own identity through the ITS-REST System `OPTIONS`
+  operation (#614). The new `veredictum identify --base-url <URL>` sends
+  `OPTIONS <base>/` with `Accept: application/json` and prints one JSON
+  document whose `outcome` is `offered` (a 200 `Options` document),
+  `not_offered` (any status outside 2xx) or `not_options_document`; nothing
+  is judged. `run` performs the same read before it drives anything, and
+  records it in the transcript under `identity` when `--record-exchanges` is
+  on. In `results.json`, `run-transcript.json` and the evidence bundle, `sut`
+  now carries `name` and `version` as `{ value, source }` with `source`
+  `server` or `operator`, plus `vendor` and `restapi_specs_version` when the
+  server stated them. `--sut-name` and `--sut-version` lose their defaults and
+  supply only what the server did not state; a flag that disagrees with the
+  server is overridden with a notice naming both, and a run with neither
+  refuses to start. A results document with the earlier bare-string `sut` is
+  refused. The console's Connect step reads the identity through the engine
+  and shows what the server stated read-only, labelled as reported by the
+  server, with the vendor and REST specification version beside it; where the
+  server does not offer the document, the operator's inputs stay, labelled as
+  entered by the operator.
 - The EHR component of the case-core catalogue is converted to Arazzo (#603).
   The 27 `I_EHR_SERVICE.*` cases become workflows in six documents under
   `catalogue/cases/ehr/`: `ehr` (create and read, the default and supplied

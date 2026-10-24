@@ -66,8 +66,8 @@ fn a_job_supervises_a_run_to_its_finished_view() -> Result<(), Box<dyn std::erro
             root: engine_gate::repo_root().join("artifacts"),
             ixit,
             out_dir: out.clone(),
-            sut_name: String::from("job-gate"),
-            sut_version: String::from("0.0.0-gate"),
+            sut_name: Some(String::from("job-gate")),
+            sut_version: Some(String::from("0.0.0-gate")),
             statement: None,
             filter: Some(String::from("I_EHR_SERVICE.create_ehr-main")),
             credentials: vec![
@@ -116,6 +116,7 @@ fn posture_draft(postures: DeclaredPostures) -> RunDraft {
         base_url: String::from("http://cdr.example"),
         sut_name: String::from("x"),
         sut_version: String::from("y"),
+        identity: None,
         auth: AuthChoice::Basic,
         credentials: vec![
             Credential {
@@ -354,6 +355,7 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
             base_url: String::from("http://unused"),
             sut_name: String::from("record-gate"),
             sut_version: String::from("0.0.0-gate"),
+            identity: None,
             auth: AuthChoice::None,
             credentials: vec![],
             probed_ok: true,
@@ -382,8 +384,8 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
                 root,
                 ixit,
                 out_dir: out,
-                sut_name: String::from("record-gate"),
-                sut_version: String::from("0.0.0-gate"),
+                sut_name: Some(String::from("record-gate")),
+                sut_version: Some(String::from("0.0.0-gate")),
                 statement: Some(statement),
                 filter: Some(String::from("I_EHR_SERVICE.create_ehr-main")),
                 credentials: vec![],
@@ -528,6 +530,7 @@ fn a_recorded_run_fills_the_drawer_with_its_wire() -> Result<(), Box<dyn std::er
             base_url: String::from("http://unused"),
             sut_name: String::from("wire-gate"),
             sut_version: String::from("0.0.0-gate"),
+            identity: None,
             auth: AuthChoice::None,
             credentials: vec![],
             probed_ok: true,
@@ -566,8 +569,8 @@ fn a_recorded_run_fills_the_drawer_with_its_wire() -> Result<(), Box<dyn std::er
                 root,
                 ixit,
                 out_dir: out.clone(),
-                sut_name: String::from("wire-gate"),
-                sut_version: String::from("0.0.0-gate"),
+                sut_name: Some(String::from("wire-gate")),
+                sut_version: Some(String::from("0.0.0-gate")),
                 statement: None,
                 filter: Some(String::from("I_EHR_SERVICE.create_ehr-main")),
                 // The fixture ixit declares Basic auth: without the values
@@ -665,7 +668,7 @@ fn the_live_screen_answers_for_a_run_this_process_never_drove()
     // Authored as bytes, the way the engine writes the document the console
     // reads back, so a codec change fails here.
     const RECORD: &str = r#"{
-        "sut": { "name": "recorded-cdr", "version": "9.9" },
+        "sut": { "name": { "value": "recorded-cdr", "source": "operator" }, "version": { "value": "9.9", "source": "operator" } },
         "runner": {
             "name": "veredictum",
             "version": "0",
@@ -757,8 +760,8 @@ fn spec_for(
         root: root.to_path_buf(),
         ixit: ixit.to_path_buf(),
         out_dir,
-        sut_name: String::from("cap-gate"),
-        sut_version: String::from("0.0.0-gate"),
+        sut_name: Some(String::from("cap-gate")),
+        sut_version: Some(String::from("0.0.0-gate")),
         statement: None,
         filter: Some(String::from("I_EHR_SERVICE.create_ehr-main")),
         credentials: vec![
@@ -1066,6 +1069,7 @@ fn the_start_seam_answers_with_the_run_already_in_flight() -> Result<(), Box<dyn
             base_url: format!("http://127.0.0.1:{port}"),
             sut_name: String::from("busy-gate"),
             sut_version: String::from("0.0.0-gate"),
+            identity: None,
             auth: AuthChoice::None,
             credentials: vec![],
             probed_ok: true,

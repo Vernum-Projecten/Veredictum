@@ -94,12 +94,19 @@ enum Command {
         /// Output directory for results.json + the run summary.
         #[arg(long)]
         out: PathBuf,
-        /// SUT display name.
-        #[arg(long, default_value = "ferroehr")]
-        sut_name: String,
-        /// SUT version label.
-        #[arg(long, default_value = "dev")]
-        sut_version: String,
+        /// SUT display name, recorded only when the server does not state its
+        /// own `solution` through System OPTIONS.
+        ///
+        /// The run reads `OPTIONS <base>/` on the ixit's `sut` instance before
+        /// it drives anything. A value the server states wins over this flag,
+        /// and a differing flag is named in a notice. With neither, the run
+        /// refuses to start.
+        #[arg(long)]
+        sut_name: Option<String>,
+        /// SUT version label, recorded only when the server does not state its
+        /// own `solution_version` through System OPTIONS.
+        #[arg(long)]
+        sut_version: Option<String>,
         /// Only run cases whose id contains this substring.
         #[arg(long)]
         filter: Option<String>,
@@ -136,6 +143,26 @@ enum Command {
         /// byte-identical without it.
         #[arg(long)]
         progress: bool,
+    },
+    /// Read a server's identity from the ITS-REST System OPTIONS operation and
+    /// print it as one JSON document.
+    ///
+    /// Sends `OPTIONS <base>/` with `Accept: application/json`. The document's
+    /// `outcome` is `offered` (a 200 `Options` document), `not_offered` (any
+    /// status outside 2xx, which the operation's SHOULD permits) or
+    /// `not_options_document` (a 2xx that is not that document). Nothing is
+    /// judged and nothing counts toward conformance.
+    Identify {
+        /// The server's base URL, up to and including the openEHR REST base.
+        #[arg(long)]
+        base_url: String,
+        /// How the client presents itself: `none`, `basic` or `bearer`.
+        ///
+        /// The secret never rides argv: `basic` reads `VEREDICTUM_SUT_USER`
+        /// and `VEREDICTUM_SUT_PASSWORD`, and `bearer` reads
+        /// `VEREDICTUM_SUT_TOKEN`.
+        #[arg(long, default_value = "none")]
+        auth: String,
     },
     /// Validate one artifact tree through every machine gate.
     Validate {
@@ -564,8 +591,8 @@ fn main() -> ExitCode {
                 root: &root,
                 ixit: &ixit,
                 out_dir: &out,
-                sut_name: &sut_name,
-                sut_version: &sut_version,
+                sut_name: sut_name.as_deref(),
+                sut_version: sut_version.as_deref(),
                 filter: filter.as_deref(),
                 statement: statement.as_deref(),
                 recording: Recording::from(record_exchanges),
@@ -576,6 +603,7 @@ fn main() -> ExitCode {
             },
             progress,
         ),
+        Command::Identify { base_url, auth } => identify_command(&base_url, &auth),
         Command::Validate {
             root,
             specs,
@@ -1001,6 +1029,25 @@ struct BenchInvocation<'a> {
     label: Option<&'a str>,
 }
 
+/// Prints the server's identity document on stdout.
+fn identify_command(base_url: &str, auth: &str) -> ExitCode {
+    let auth = match AuthKind::parse(auth) {
+        Ok(auth) => auth,
+        Err(e) => return fail(&e),
+    };
+    let read = match veredictum::identity::identify(base_url, auth) {
+        Ok(read) => read,
+        Err(e) => return fail(&e),
+    };
+    match to_json_document(&read, "serialize the identity document") {
+        Ok(document) => {
+            print!("{document}");
+            ExitCode::SUCCESS
+        }
+        Err(e) => fail(&e),
+    }
+}
+
 fn bench_command(invocation: &BenchInvocation<'_>, out: &Path) -> ExitCode {
     let auth = match AuthKind::parse(invocation.auth_token) {
         Ok(auth) => auth,
@@ -1282,8 +1329,8 @@ fn evidence_command(request: &EvidenceRequest<'_>, out: &Path) -> ExitCode {
         out.display(),
         bundle.cases.len(),
         bundle.exchange_count(),
-        bundle.sut.name,
-        bundle.sut.version
+        bundle.sut.name.value,
+        bundle.sut.version.value
     );
     // A half-matched selection is stated on the console as well as in the
     // document, so it is seen without opening the file.

@@ -12,6 +12,7 @@
   ],
   "properties": {
     "sut": {
+      "description": "The SUT identity. A field the server stated in its ITS-REST System OPTIONS document (specifications/operations/options.yaml, schemas/others/Options.yaml) carries the server's value with source `server`; the operator supplies only the name or version the server did not state (source `operator`). `vendor` and `restapi_specs_version` are present only when the server stated them.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -20,18 +21,168 @@
       ],
       "properties": {
         "name": {
-          "type": "string",
-          "minLength": 1
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server",
+                "operator"
+              ]
+            }
+          }
         },
         "version": {
-          "type": "string",
-          "minLength": 1
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server",
+                "operator"
+              ]
+            }
+          }
+        },
+        "vendor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server"
+              ]
+            }
+          }
+        },
+        "restapi_specs_version": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server"
+              ]
+            }
+          }
         }
       }
     },
     "schedule_release": {
       "type": "string",
       "minLength": 1
+    },
+    "identity": {
+      "description": "The ITS-REST System OPTIONS exchange the run read the SUT's identity through before it drove any case. It belongs to no case and is never judged.",
+      "allOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "seq",
+            "row",
+            "request",
+            "response"
+          ],
+          "properties": {
+            "seq": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The exchange's ordinal within its case, in send order — provisioning exchanges included."
+            },
+            "row": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "method",
+                "url",
+                "headers"
+              ],
+              "properties": {
+                "method": {
+                  "enum": [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "DELETE",
+                    "HEAD",
+                    "OPTIONS"
+                  ]
+                },
+                "url": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "headers": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "body": {}
+              }
+            },
+            "response": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "headers"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 599
+                },
+                "headers": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "body": {}
+              }
+            }
+          }
+        }
+      ]
     },
     "cases": {
       "type": "array",

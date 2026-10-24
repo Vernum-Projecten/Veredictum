@@ -81,10 +81,12 @@ pub struct RunSpec {
     pub ixit: PathBuf,
     /// The output directory the run writes into.
     pub out_dir: PathBuf,
-    /// The SUT display name recorded in the results.
-    pub sut_name: String,
-    /// The SUT version label recorded in the results.
-    pub sut_version: String,
+    /// `--sut-name`: the operator's display name, passed only when the
+    /// server does not state its own through System OPTIONS.
+    pub sut_name: Option<String>,
+    /// `--sut-version`: the operator's version label, passed only when the
+    /// server does not state its own.
+    pub sut_version: Option<String>,
     /// The party statement, when test selection should apply.
     pub statement: Option<PathBuf>,
     /// Drive only cases whose id contains this substring.
@@ -134,6 +136,20 @@ pub struct EvidenceSpec {
     pub results: PathBuf,
     /// Where the bundle is written.
     pub out: PathBuf,
+}
+
+/// Whom to identify, mirroring the `veredictum identify` CLI surface one to
+/// one and adding nothing to it.
+#[derive(Debug)]
+pub struct IdentifySpec {
+    /// The CDR base URL.
+    pub base_url: String,
+    /// The `--auth` token: `none`, `basic` or `bearer`.
+    pub auth: &'static str,
+    /// The secret values under the variable names `identify` reads
+    /// ([`veredictum::identity::USER_ENV`] and its siblings). They reach the
+    /// child process environment and nothing else.
+    pub credentials: Vec<Credential>,
 }
 
 /// One line of the running engine's own output, as it happens.
@@ -204,6 +220,16 @@ pub enum Error {
         /// What the engine printed, trimmed.
         diagnostic: String,
     },
+    /// The identify subcommand exited non-zero; the field is the engine's own
+    /// diagnostic, verbatim.
+    #[error("the engine could not read the server's identity: {diagnostic}")]
+    Identify {
+        /// What the engine printed, trimmed.
+        diagnostic: String,
+    },
+    /// The identity document did not parse as the published type.
+    #[error("the identity document does not parse as the published type: {0}")]
+    IdentityMalformed(#[source] serde_json::Error),
     /// The results document did not parse as the published record.
     #[error("the results document at {path} does not parse as the published record: {source}")]
     Malformed {
@@ -336,6 +362,33 @@ impl Engine {
             stderr
         };
         Err(Error::Evidence { diagnostic })
+    }
+
+    /// Reads the server's identity by running the pinned binary's `identify`
+    /// subcommand to completion and parsing its document through the
+    /// published lib.
+    ///
+    /// # Errors
+    /// [`Error::Execute`] when the process cannot run, [`Error::Identify`]
+    /// carrying the engine's own diagnostic when it exits non-zero, and
+    /// [`Error::IdentityMalformed`] when its document does not parse.
+    pub fn identify(
+        &self,
+        spec: &IdentifySpec,
+    ) -> Result<veredictum::identity::IdentityRead, Error> {
+        let mut command = std::process::Command::new(&self.binary);
+        command
+            .args(identify_args(spec))
+            .stdin(std::process::Stdio::null());
+        for credential in &spec.credentials {
+            command.env(&credential.name, &credential.value.0);
+        }
+        let output = command.output().map_err(Error::Execute)?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+            return Err(Error::Identify { diagnostic: stderr });
+        }
+        serde_json::from_slice(&output.stdout).map_err(Error::IdentityMalformed)
     }
 
     /// Spawns one run and hands back the handle that streams it — the split
@@ -567,11 +620,15 @@ pub fn args(spec: &RunSpec) -> Vec<std::ffi::OsString> {
         spec.ixit.clone().into(),
         "--out".into(),
         spec.out_dir.clone().into(),
-        "--sut-name".into(),
-        spec.sut_name.clone().into(),
-        "--sut-version".into(),
-        spec.sut_version.clone().into(),
     ];
+    if let Some(name) = &spec.sut_name {
+        args.push("--sut-name".into());
+        args.push(name.clone().into());
+    }
+    if let Some(version) = &spec.sut_version {
+        args.push("--sut-version".into());
+        args.push(version.clone().into());
+    }
     if let Some(statement) = &spec.statement {
         args.push("--statement".into());
         args.push(statement.clone().into());
@@ -587,6 +644,43 @@ pub fn args(spec: &RunSpec) -> Vec<std::ffi::OsString> {
         args.push("--progress".into());
     }
     args
+}
+
+/// Assembles the exact `veredictum identify` argument vector for a spec.
+#[must_use]
+pub fn identify_args(spec: &IdentifySpec) -> Vec<std::ffi::OsString> {
+    vec![
+        "identify".into(),
+        "--base-url".into(),
+        spec.base_url.clone().into(),
+        "--auth".into(),
+        spec.auth.into(),
+    ]
+}
+
+/// The console's view of the engine's identity document.
+#[must_use]
+pub fn identity_answer(
+    read: veredictum::identity::IdentityRead,
+) -> crate::identity::IdentityAnswer {
+    use veredictum::identity::IdentityRead;
+
+    match read {
+        IdentityRead::Offered { options, .. } => {
+            crate::identity::IdentityAnswer::Stated(crate::identity::StatedIdentity {
+                name: options.solution,
+                version: options.solution_version,
+                vendor: options.vendor,
+                restapi_specs_version: options.restapi_specs_version,
+            })
+        }
+        IdentityRead::NotOffered { status } => {
+            crate::identity::IdentityAnswer::NotOffered { status }
+        }
+        IdentityRead::NotOptionsDocument { status, reason } => {
+            crate::identity::IdentityAnswer::NotOptionsDocument { status, reason }
+        }
+    }
 }
 
 /// Assembles the exact `veredictum verdicts` argument vector for a spec.
@@ -701,8 +795,8 @@ mod tests {
             root: "artifacts".into(),
             ixit: "out/ixit.json".into(),
             out_dir: "out".into(),
-            sut_name: "my-cdr".into(),
-            sut_version: "1.2.3".into(),
+            sut_name: Some("my-cdr".into()),
+            sut_version: Some("1.2.3".into()),
             statement: Some("mine/statement.json".into()),
             filter: Some("create_ehr-main".into()),
             credentials: vec![],
@@ -742,6 +836,53 @@ mod tests {
                 "--progress",
             ]
         );
+    }
+
+    /// A field the server states passes no operator flag, so the engine
+    /// records the server's value.
+    #[test]
+    fn a_server_stated_identity_passes_no_operator_flag() {
+        let spec = RunSpec {
+            sut_name: None,
+            sut_version: None,
+            ..full_spec()
+        };
+        let rendered = rendered(&spec);
+        assert!(
+            !rendered.contains(&String::from("--sut-name")),
+            "{rendered:?}"
+        );
+        assert!(
+            !rendered.contains(&String::from("--sut-version")),
+            "{rendered:?}"
+        );
+    }
+
+    #[test]
+    fn the_identify_vector_mirrors_the_cli_surface_and_carries_no_secret() {
+        let spec = super::IdentifySpec {
+            base_url: String::from("http://cdr.test/openehr/v1"),
+            auth: "basic",
+            credentials: vec![Credential {
+                name: String::from("VEREDICTUM_SUT_PASSWORD"),
+                value: Secret::new(String::from("hunter2")),
+            }],
+        };
+        let rendered: Vec<String> = super::identify_args(&spec)
+            .into_iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            rendered,
+            [
+                "identify",
+                "--base-url",
+                "http://cdr.test/openehr/v1",
+                "--auth",
+                "basic"
+            ]
+        );
+        assert!(!rendered.iter().any(|a| a.contains("hunter2")));
     }
 
     /// Recording is opt-in: an unchecked box passes no flag at all, so the

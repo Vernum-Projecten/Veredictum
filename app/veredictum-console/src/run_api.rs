@@ -389,10 +389,15 @@ pub fn declared_postures(form: &PostureForm) -> Result<DeclaredPostures, String>
 pub struct RunDraft {
     /// The CDR base URL.
     pub base_url: String,
-    /// The SUT display name for the record.
+    /// The display name the operator entered, which the record carries only
+    /// when the server does not state its own.
     pub sut_name: String,
-    /// The SUT version label for the record.
+    /// The version label the operator entered, which the record carries only
+    /// when the server does not state its own.
     pub sut_version: String,
+    /// What the server answered to the identity read, `None` when it was
+    /// never read.
+    pub identity: Option<crate::identity::IdentityAnswer>,
     /// The authentication mode.
     pub auth: AuthChoice,
     /// The credential values, redacted from every rendering.
@@ -412,6 +417,16 @@ pub struct RunDraft {
     /// The deployment postures the operator declared, each absent until they
     /// declare it (#456).
     pub postures: DeclaredPostures,
+}
+
+#[cfg(feature = "ssr")]
+impl RunDraft {
+    /// The identity a run over this draft records, and the operator values
+    /// it passes on.
+    #[must_use]
+    pub fn resolved(&self) -> crate::identity::Resolved {
+        crate::identity::resolve(self.identity.as_ref(), &self.sut_name, &self.sut_version)
+    }
 }
 
 /// Every visitor's connection draft, one per submitter.
@@ -477,9 +492,11 @@ impl Drafts {
 pub struct DraftView {
     /// The CDR base URL.
     pub base_url: String,
-    /// The SUT display name.
+    /// The SUT display name the record will carry, the server's when it
+    /// stated one; empty when neither side supplied it.
     pub sut_name: String,
-    /// The SUT version label.
+    /// The SUT version label the record will carry, the server's when it
+    /// stated one; empty when neither side supplied it.
     pub sut_version: String,
     /// The authentication mode token.
     pub auth: String,
@@ -588,6 +605,16 @@ pub enum ProbeAnswer {
     },
 }
 
+/// What the connect step's probe answered: the reachability probe and the
+/// engine's identity read.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConnectAnswer {
+    /// The reachability probe's verbatim answer.
+    pub probe: ProbeAnswer,
+    /// What the server stated about itself through System OPTIONS.
+    pub identity: crate::identity::IdentityAnswer,
+}
+
 /// The honest scope preview: what a run over this scope will PROCESS.
 ///
 /// Every case in filter scope lands as an outcome or a recorded exception,
@@ -694,16 +721,19 @@ pub mod read {
     #[must_use]
     pub fn draft_view(state: &ConsoleState, submitter: Submitter) -> Option<DraftView> {
         let guard = state.draft.lock().ok()?;
-        guard.get(submitter).map(|draft| DraftView {
-            base_url: draft.base_url.clone(),
-            sut_name: draft.sut_name.clone(),
-            sut_version: draft.sut_version.clone(),
-            auth: draft.auth.token().to_owned(),
-            probed_ok: draft.probed_ok,
-            statement: draft.statement_product.clone(),
-            filter: draft.filter.clone(),
-            record_exchanges: draft.record_exchanges,
-            postures: draft.postures.summary(),
+        guard.get(submitter).map(|draft| {
+            let resolved = draft.resolved();
+            DraftView {
+                base_url: draft.base_url.clone(),
+                sut_name: resolved.name.unwrap_or_default(),
+                sut_version: resolved.version.unwrap_or_default(),
+                auth: draft.auth.token().to_owned(),
+                probed_ok: draft.probed_ok,
+                statement: draft.statement_product.clone(),
+                filter: draft.filter.clone(),
+                record_exchanges: draft.record_exchanges,
+                postures: draft.postures.summary(),
+            }
         })
     }
 
@@ -1002,19 +1032,21 @@ pub mod read {
         }
         let validation = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
         let matrix = capability_matrix(validation)?;
-        let (name, version) = {
+        let (resolved, vendor) = {
             let guard = state.draft.lock().map_err(|e| e.to_string())?;
             let draft = guard.get(submitter).ok_or_else(|| String::from(NO_DRAFT))?;
-            (
-                draft.sut_name.trim().to_owned(),
-                draft.sut_version.trim().to_owned(),
-            )
+            let vendor = draft
+                .identity
+                .as_ref()
+                .and_then(crate::identity::IdentityAnswer::vendor)
+                .map(str::to_owned);
+            (draft.resolved(), vendor)
         };
-        if name.is_empty() || version.is_empty() {
+        let (Some(name), Some(version)) = (resolved.name, resolved.version) else {
             return Err(String::from(
-                "the composed claim's product identity is the Connect step's display name and version: fill both in first",
+                "the composed claim's product identity is the server's stated name and version, or the Connect step's entries where it stated none: fill both in first",
             ));
-        }
+        };
         let members: std::collections::BTreeSet<String> = selected
             .iter()
             .flat_map(|tier| veredictum::verdict::tier_members(lib_tier(*tier), matrix))
@@ -1033,7 +1065,7 @@ pub mod read {
                 identifier: identifier_of(&name, &version),
                 name,
                 version,
-                vendor: String::from("unknown"),
+                vendor: vendor.unwrap_or_else(|| String::from("unknown")),
             },
             schedule_release: String::from(veredictum::party::SCHEDULE_RELEASE),
             spec_versions: catalogue_spec_versions(validation)?,
@@ -1292,6 +1324,14 @@ pub mod read {
         // seal lives INSIDE the job directory, so the seam that creates a
         // run's directory is what guarantees no bundle is in it.
         crate::export_api::prepare::invalidate(&out_dir)?;
+        let resolved = draft.resolved();
+        let missing = resolved.missing();
+        if !missing.is_empty() {
+            return Err(format!(
+                "the server did not state its {} and the Connect step has none: enter it there and probe again",
+                missing.join(" or ")
+            ));
+        }
         let ixit_path = out_dir.join("ixit.json");
         std::fs::write(&ixit_path, ixit_document(draft)?)
             .map_err(|e| format!("{}: {e}", ixit_path.display()))?;
@@ -1311,15 +1351,15 @@ pub mod read {
             root: state.root.clone(),
             ixit: ixit_path,
             out_dir,
-            sut_name: draft.sut_name.clone(),
-            sut_version: draft.sut_version.clone(),
+            sut_name: resolved.operator_name.clone(),
+            sut_version: resolved.operator_version.clone(),
             statement: statement_path,
             filter: draft.filter.clone(),
             credentials: std::mem::take(&mut draft.credentials),
             progress: true,
             record_exchanges: draft.record_exchanges,
         };
-        let sut_name = draft.sut_name.clone();
+        let sut_name = resolved.name.unwrap_or_default();
         drop(guard);
         match state.jobs.start(id, submitter, engine, spec, sut_name) {
             Ok(accepted) => Ok(StartOutcome::Accepted(accepted)),
@@ -1397,7 +1437,7 @@ pub mod read {
             id,
             dir: dir.display().to_string(),
             results: Some(RecordedResults {
-                sut_name: results.sut.name.clone(),
+                sut_name: results.sut.name.value.clone(),
                 passed,
                 failed,
                 errored,
@@ -1405,6 +1445,59 @@ pub mod read {
                 results_path: results_path.display().to_string(),
             }),
         })))
+    }
+
+    /// Reads the server's identity through the pinned engine's `identify`
+    /// subcommand, on a blocking thread.
+    ///
+    /// The console never speaks System OPTIONS itself: the spawned engine
+    /// does, with the same credential values the draft holds, under the
+    /// variable names `identify` reads.
+    ///
+    /// # Errors
+    /// Never: a failed read is the [`crate::identity::IdentityAnswer::Unread`]
+    /// answer, which leaves the identity to the operator.
+    pub async fn identify(
+        base_url: &str,
+        auth: super::AuthChoice,
+        user: &str,
+        password: &str,
+        token: &str,
+    ) -> crate::identity::IdentityAnswer {
+        let mut credentials = Vec::new();
+        let mut credential = |name: &str, value: &str| {
+            credentials.push(crate::engine::Credential {
+                name: name.to_owned(),
+                value: crate::engine::Secret::new(value.to_owned()),
+            });
+        };
+        match auth {
+            super::AuthChoice::None => {}
+            super::AuthChoice::Basic => {
+                credential(veredictum::identity::USER_ENV, user);
+                credential(veredictum::identity::PASSWORD_ENV, password);
+            }
+            super::AuthChoice::Bearer => credential(veredictum::identity::TOKEN_ENV, token),
+        }
+        let spec = crate::engine::IdentifySpec {
+            base_url: base_url.to_owned(),
+            auth: auth.token(),
+            credentials,
+        };
+        let read = tokio::task::spawn_blocking(move || {
+            crate::engine::locate()
+                .and_then(|engine| engine.identify(&spec))
+                .map(crate::engine::identity_answer)
+                .map_err(|e| e.to_string())
+        })
+        .await;
+        match read {
+            Ok(Ok(answer)) => answer,
+            Ok(Err(error)) => crate::identity::IdentityAnswer::Unread { error },
+            Err(joined) => crate::identity::IdentityAnswer::Unread {
+                error: joined.to_string(),
+            },
+        }
     }
 
     /// The reachability probe.
@@ -1477,14 +1570,16 @@ pub mod fns {
     use leptos::prelude::{ServerFnError, server};
 
     use super::{
-        AuthChoice, ClaimSummary, DraftView, PostureForm, ProbeAnswer, RunScreen, ScopePreview,
+        AuthChoice, ClaimSummary, ConnectAnswer, DraftView, PostureForm, RunScreen, ScopePreview,
         ScopeTier, StartOutcome, TierRow,
     };
     use crate::run_job::RunId;
 
-    /// Probes the connection and, on any answer, stores the draft with these
-    /// facts (the probe outcome seed-gates Continue client-side). The secret
-    /// values enter the server-side draft and nothing else.
+    /// Probes the connection, reads the server's identity through the engine,
+    /// and, on any answer, stores the draft with these facts (the probe
+    /// outcome seed-gates Continue client-side). The secret values enter the
+    /// server-side draft and the spawned `identify` environment, and nothing
+    /// else.
     ///
     /// The probe is the one console-originated request to a CDR, so it is
     /// also one of the two seams a visitor-named target reaches (#390): the
@@ -1504,7 +1599,7 @@ pub mod fns {
         user: String,
         password: String,
         token: String,
-    ) -> Result<ProbeAnswer, ServerFnError> {
+    ) -> Result<ConnectAnswer, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
         state
@@ -1515,7 +1610,15 @@ pub mod fns {
             .await
             .map_err(ServerFnError::new)?;
         let answer = super::read::probe(&base_url, auth, &user, &password, &token).await;
-        let probed_ok = matches!(answer, ProbeAnswer::Answered { ok: true, .. });
+        let probed_ok = matches!(answer, super::ProbeAnswer::Answered { ok: true, .. });
+        let identity = match answer {
+            super::ProbeAnswer::Answered { .. } => {
+                super::read::identify(&base_url, auth, &user, &password, &token).await
+            }
+            super::ProbeAnswer::Unreachable { .. } => crate::identity::IdentityAnswer::Unread {
+                error: String::from("nothing answered the reachability probe"),
+            },
+        };
         let mut credentials = Vec::new();
         match auth {
             AuthChoice::None => {}
@@ -1543,6 +1646,7 @@ pub mod fns {
                 base_url,
                 sut_name,
                 sut_version,
+                identity: Some(identity.clone()),
                 auth,
                 credentials,
                 probed_ok,
@@ -1554,7 +1658,10 @@ pub mod fns {
             },
         )
         .map_err(ServerFnError::new)?;
-        Ok(crate::capture::probe_answer(&state, answer))
+        Ok(ConnectAnswer {
+            probe: crate::capture::probe_answer(&state, answer),
+            identity,
+        })
     }
 
     /// The client-safe draft this submitter has, when they have one.

@@ -52,10 +52,10 @@ fn driven_case() -> Value {
 /// The results document a report stands for, as the record surfaces build it.
 fn results_of(report: &RunReport) -> Results {
     Results {
-        sut: veredictum::party::Sut {
-            name: String::from("rederivation-gate"),
-            version: String::from("0.0.0-gate"),
-        },
+        sut: veredictum::party::Sut::operator(
+            String::from("rederivation-gate"),
+            String::from("0.0.0-gate"),
+        ),
         runner: veredictum::party::Runner {
             name: String::from("veredictum"),
             version: String::from("0"),
@@ -81,11 +81,12 @@ fn results_of(report: &RunReport) -> Results {
 /// The transcript a recorded report stands for.
 fn transcript_of(report: &RunReport) -> RunTranscript {
     RunTranscript {
-        sut: veredictum::party::Sut {
-            name: String::from("rederivation-gate"),
-            version: String::from("0.0.0-gate"),
-        },
+        sut: veredictum::party::Sut::operator(
+            String::from("rederivation-gate"),
+            String::from("0.0.0-gate"),
+        ),
         schedule_release: String::from("cnf-2.0-w2"),
+        identity: None,
         cases: report.transcripts.clone(),
     }
 }

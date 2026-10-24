@@ -114,8 +114,8 @@ fn driven(
             root: state.root.clone(),
             ixit,
             out_dir: job_dir,
-            sut_name: String::from("evidence-gate"),
-            sut_version: String::from("0.0.0-gate"),
+            sut_name: Some(String::from("evidence-gate")),
+            sut_version: Some(String::from("0.0.0-gate")),
             statement: None,
             filter: Some(String::from(GATE_FILTER)),
             credentials: vec![
@@ -172,7 +172,7 @@ fn a_red_run_hands_over_its_exchanges_with_the_credential_withheld()
     );
 
     let bundle: veredictum::evidence::EvidenceBundle = serde_json::from_str(&body)?;
-    assert_eq!(bundle.sut.name, "evidence-gate");
+    assert_eq!(bundle.sut.name.value, "evidence-gate");
     assert!(
         bundle.exchange_count() > 0,
         "an empty bundle is exactly what must be unproducible"

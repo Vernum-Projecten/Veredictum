@@ -49,14 +49,12 @@ Options:
           Output directory for results.json + the run summary
 
       --sut-name <SUT_NAME>
-          SUT display name
+          SUT display name, recorded only when the server does not state its own `solution` through System OPTIONS.
           
-          [default: ferroehr]
+          The run reads `OPTIONS <base>/` on the ixit's `sut` instance before it drives anything. A value the server states wins over this flag, and a differing flag is named in a notice. With neither, the run refuses to start.
 
       --sut-version <SUT_VERSION>
-          SUT version label
-          
-          [default: dev]
+          SUT version label, recorded only when the server does not state its own `solution_version` through System OPTIONS
 
       --filter <FILTER>
           Only run cases whose id contains this substring
@@ -86,6 +84,39 @@ Options:
 
 Drives every applicable case and records the exchange. Exits `1` if any case
 failed or errored.
+
+## identify
+
+```text
+Read a server's identity from the ITS-REST System OPTIONS operation and print it as one JSON document.
+
+Sends `OPTIONS <base>/` with `Accept: application/json`. The document's `outcome` is `offered` (a 200 `Options` document), `not_offered` (any status outside 2xx, which the operation's SHOULD permits) or `not_options_document` (a 2xx that is not that document). Nothing is judged and nothing counts toward conformance.
+
+Usage: veredictum identify [OPTIONS] --base-url <BASE_URL>
+
+Options:
+      --base-url <BASE_URL>
+          The server's base URL, up to and including the openEHR REST base
+
+      --auth <AUTH>
+          How the client presents itself: `none`, `basic` or `bearer`.
+          
+          The secret never rides argv: `basic` reads `VEREDICTUM_SUT_USER` and `VEREDICTUM_SUT_PASSWORD`, and `bearer` reads `VEREDICTUM_SUT_TOKEN`.
+          
+          [default: none]
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+Prints what the server states about itself through the ITS-REST System
+`OPTIONS` operation, and exits `0` whatever the server answered: a server that
+does not offer the document is within the specification, which says services
+SHOULD answer. It exits `2` only when no answer arrived at all, or when the
+credential variable `--auth` names is unset.
+
+`run` performs the same read before it drives anything, so the identity this
+command prints is the identity a run against the same base URL records.
 
 ## validate
 

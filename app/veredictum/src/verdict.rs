@@ -1009,7 +1009,7 @@ mod tests {
 
     fn results(outcomes: serde_json::Value) -> Results {
         let mut value = serde_json::json!({
-            "sut": { "name": "s", "version": "1" },
+            "sut": { "name": { "value": "s", "source": "operator" }, "version": { "value": "1", "source": "operator" } },
             "runner": { "name": "veredictum", "version": "0", "verification_pack_status": "passed" },
             "instrument_status": "pre-approval",
             "schedule_release": "CNF-2.0",

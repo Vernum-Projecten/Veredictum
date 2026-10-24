@@ -44,6 +44,7 @@ pub mod engine;
 pub mod evidence_api;
 pub mod export;
 pub mod export_api;
+pub mod identity;
 pub mod pages;
 #[cfg(feature = "ssr")]
 pub mod posture;

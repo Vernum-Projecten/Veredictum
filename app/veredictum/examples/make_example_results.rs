@@ -25,8 +25,9 @@ use hdrhistogram::Histogram;
 use veredictum::ids::CaseId;
 use veredictum::ixit::Environment;
 use veredictum::party::{
-    AmbiguityDisposition, InstrumentStatus, OutcomeRecord, OutcomeStatus, RecordedTechProfile,
-    Results, Runner, SelectionBasis, Sut, TechProfileSource, VerificationPackStatus,
+    AmbiguityDisposition, IdentityField, InstrumentStatus, OutcomeRecord, OutcomeStatus,
+    RecordedTechProfile, Results, Runner, SelectionBasis, Sut, TechProfileSource,
+    VerificationPackStatus,
 };
 use veredictum::perf::{Measurement, OperationMeasurement, PerfClass, class_verdict};
 use veredictum::pipeline::conformance::{ixit_digest, statement_digest};
@@ -86,8 +87,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let results = Results {
         sut: Sut {
-            name: "example-cdr".to_owned(),
-            version: "0.0.0-example".to_owned(),
+            name: IdentityField::server("example-cdr"),
+            version: IdentityField::server("0.0.0-example"),
+            vendor: Some(IdentityField::server("Example Vendor")),
+            restapi_specs_version: Some(IdentityField::server("1.1.0")),
         },
         runner: Runner {
             name: "veredictum".to_owned(),

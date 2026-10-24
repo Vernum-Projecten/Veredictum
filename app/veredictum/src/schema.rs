@@ -25,7 +25,8 @@ use crate::model::capability::Realization;
 use crate::model::vocab_files::{BODY_SELECTOR_TOKENS, HEADER_MATCHER_FORMS};
 use crate::model::wire_surface::SurfaceReason;
 use crate::party::{
-    InstrumentStatus, OutcomeStatus, SelectionBasis, TechProfileSource, VerificationPackStatus,
+    IdentitySource, InstrumentStatus, OutcomeStatus, SelectionBasis, TechProfileSource,
+    VerificationPackStatus,
 };
 use crate::vocab::{
     CaseKind, CaseStatus, Component, CorpusFormat, Disposition, FormatName, HttpMethod, Iteration,
@@ -922,6 +923,35 @@ fn outcome_record_def() -> Value {
 }
 
 /// The approval status of the instrument that wrote a results document.
+/// One recorded identity field: its value and who supplied it.
+fn identity_field_def(sources: &[IdentitySource]) -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["value", "source"],
+        "properties": {
+            "value": { "type": "string", "minLength": 1 },
+            "source": { "enum": tokens(sources) }
+        }
+    })
+}
+
+/// The recorded SUT identity, each field with its source.
+fn sut_def() -> Value {
+    json!({
+        "description": "The SUT identity. A field the server stated in its ITS-REST System OPTIONS document (specifications/operations/options.yaml, schemas/others/Options.yaml) carries the server's value with source `server`; the operator supplies only the name or version the server did not state (source `operator`). `vendor` and `restapi_specs_version` are present only when the server stated them.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "version"],
+        "properties": {
+            "name": identity_field_def(IdentitySource::ALL),
+            "version": identity_field_def(IdentitySource::ALL),
+            "vendor": identity_field_def(&[IdentitySource::Server]),
+            "restapi_specs_version": identity_field_def(&[IdentitySource::Server])
+        }
+    })
+}
+
 fn instrument_status_def() -> Value {
     json!({
         "enum": tokens(InstrumentStatus::ALL),
@@ -941,15 +971,7 @@ pub fn results_schema() -> Value {
         "additionalProperties": false,
         "required": ["sut", "runner", "instrument_status", "schedule_release", "tech_profile", "ixit_digest"],
         "properties": {
-            "sut": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["name", "version"],
-                "properties": {
-                    "name": { "type": "string", "minLength": 1 },
-                    "version": { "type": "string", "minLength": 1 }
-                }
-            },
+            "sut": sut_def(),
             "runner": {
                 "type": "object",
                 "additionalProperties": false,
@@ -1813,16 +1835,12 @@ pub fn run_transcript_schema() -> Value {
         "additionalProperties": false,
         "required": ["sut", "schedule_release", "cases"],
         "properties": {
-            "sut": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["name", "version"],
-                "properties": {
-                    "name": { "type": "string", "minLength": 1 },
-                    "version": { "type": "string", "minLength": 1 }
-                }
-            },
+            "sut": sut_def(),
             "schedule_release": { "type": "string", "minLength": 1 },
+            "identity": {
+                "description": "The ITS-REST System OPTIONS exchange the run read the SUT's identity through before it drove any case. It belongs to no case and is never judged.",
+                "allOf": [recorded_exchange_def()]
+            },
             "cases": {
                 "type": "array",
                 "items": {
@@ -1862,15 +1880,7 @@ pub fn evidence_bundle_schema() -> Value {
         "additionalProperties": false,
         "required": ["sut", "schedule_release", "selection", "cases"],
         "properties": {
-            "sut": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["name", "version"],
-                "properties": {
-                    "name": { "type": "string", "minLength": 1 },
-                    "version": { "type": "string", "minLength": 1 }
-                }
-            },
+            "sut": sut_def(),
             "schedule_release": { "type": "string", "minLength": 1 },
             "selection": {
                 "type": "object",

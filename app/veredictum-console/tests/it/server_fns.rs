@@ -326,7 +326,7 @@ async fn the_connect_step_records_the_probe_and_keeps_the_secrets()
         // the answer is not ok — an unreachable server would be the other
         // variant, and neither is an error.
         assert_eq!(
-            probe_status(&answer).as_deref(),
+            probe_status(&answer.probe).as_deref(),
             Some("HTTP 500 Internal Server Error"),
             "the probe reports the server's own status line, verbatim"
         );
@@ -364,7 +364,7 @@ async fn the_connect_step_records_the_probe_and_keeps_the_secrets()
     .await
     .map_err(|e| e.to_string())?;
     assert!(
-        matches!(unreachable, ProbeAnswer::Unreachable { .. }),
+        matches!(unreachable.probe, ProbeAnswer::Unreachable { .. }),
         "{unreachable:?}"
     );
     Ok(())
@@ -427,7 +427,7 @@ async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
     .await
     .map_err(|e| e.to_string())?;
     assert!(
-        probe_status(&probed).is_some(),
+        probe_status(&probed.probe).is_some(),
         "the fixture answered, so the draft carries a probe result"
     );
 
