@@ -165,6 +165,8 @@ defects! {
         ("arazzo-stale-gap.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-surface"),
     arazzo_stray_file =>
         ("arazzo-stray-file.yaml", "workflows/zz-notes.yaml", "arazzo-load"),
+    arazzo_aql_unparsable =>
+        ("arazzo-aql-unparsable.arazzo.yaml", "workflows/zz/zz-defect.arazzo.yaml", "arazzo-aql"),
 }
 
 /// The repository root, two levels above this package (#55): the catalogue

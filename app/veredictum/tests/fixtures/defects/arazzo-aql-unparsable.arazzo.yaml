@@ -1,0 +1,23 @@
+# Seeded defect: the ad-hoc query leaves out FROM, which `selectQuery` in the
+# released AqlParser.g4 requires, and the step expects 200 rather than the
+# 400 a malformed query gets. The source url passes through the pristine
+# `ehr` directory the overlay links.
+arazzo: 1.1.0
+info: { title: seeded defect, version: 0.1.0 }
+sourceDescriptions:
+  - name: query
+    url: ../ehr/../../../specs/rest-oas/query-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: query_adhoc-missing_from
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query.yaml
+      section: description
+      quote: "Execute a given ad-hoc AQL query, supplied by `q` parameter"
+    steps:
+      - stepId: execute
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - { name: q, in: query, value: "SELECT e/ehr_id/value EHR e" }
+        successCriteria:
+          - condition: $statusCode == 200
