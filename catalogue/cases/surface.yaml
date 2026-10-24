@@ -7,6 +7,7 @@
 # until it is removed, so the list only shrinks.
 scope:
   - { api: ehr, tag: EHR }
+  - { api: ehr, tag: EHR_STATUS }
 # Each gap is a branch no EHR workflow reaches yet, covered by #653: the
 # simplified-format request bodies, the XML response of a create, and the
 # minimal and the client-id identifier preferences. An XML request body on a
@@ -24,3 +25,23 @@ gaps:
   - { api: ehr, operation: ehr_create_with_id, header: Content-Type, value: application/openehr.wt.structured+json, issue: 653 }
   - { api: ehr, operation: ehr_create_with_id, header: Prefer, value: return=minimal, issue: 653 }
   - { api: ehr, operation: ehr_create_with_id, header: Prefer, value: return=identifier, issue: 653 }
+# The EHR_STATUS gaps, covered by #659: the simplified formats, an XML request
+# body on the update (whose accepting arm of `ehr-status-xml-write` has no
+# document), and the Content-Type the release declares on body-less reads.
+  - { api: ehr, operation: ehr_status_get_at_time, header: Accept, value: application/openehr.wt.flat+json, issue: 659 }
+  - { api: ehr, operation: ehr_status_get_at_time, header: Accept, value: application/openehr.wt.structured+json, issue: 659 }
+  - { api: ehr, operation: ehr_status_get_by_version_id, header: Accept, value: application/openehr.wt.flat+json, issue: 659 }
+  - { api: ehr, operation: ehr_status_get_by_version_id, header: Accept, value: application/openehr.wt.structured+json, issue: 659 }
+  - { api: ehr, operation: ehr_status_update, header: Accept, value: application/openehr.wt.flat+json, issue: 659 }
+  - { api: ehr, operation: ehr_status_update, header: Accept, value: application/openehr.wt.structured+json, issue: 659 }
+  - { api: ehr, operation: ehr_status_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 659 }
+  - { api: ehr, operation: ehr_status_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 659 }
+  - { api: ehr, operation: ehr_status_update, header: Content-Type, value: application/xml, issue: 659 }
+  - { api: ehr, operation: versioned_ehr_status_get, header: Content-Type, value: application/json, issue: 659 }
+  - { api: ehr, operation: versioned_ehr_status_get, header: Content-Type, value: application/xml, issue: 659 }
+  - { api: ehr, operation: versioned_ehr_status_revision_history, header: Content-Type, value: application/json, issue: 659 }
+  - { api: ehr, operation: versioned_ehr_status_revision_history, header: Content-Type, value: application/xml, issue: 659 }
+  - { api: ehr, operation: versioned_ehr_status_version_get_at_time, header: Content-Type, value: application/json, issue: 659 }
+  - { api: ehr, operation: versioned_ehr_status_version_get_at_time, header: Content-Type, value: application/xml, issue: 659 }
+  - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/json, issue: 659 }
+  - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/xml, issue: 659 }
