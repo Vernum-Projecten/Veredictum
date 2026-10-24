@@ -1,4 +1,4 @@
-# The provided-status rows of I_EHR_SERVICE.create_ehr-main without
+# The supplied-EHR_STATUS rows of the EHR create without
 # other_details and with a client-supplied ehr_id: every combination of the
 # two EHR_STATUS flags.
 workflow: ehr/create_ehr-provided_status-with_id

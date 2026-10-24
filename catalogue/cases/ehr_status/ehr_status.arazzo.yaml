@@ -162,6 +162,34 @@ workflows:
             x-veredictum-cite: *status_retrieved
           - condition: $response.body#/is_queryable == false
 
+  - workflowId: get_ehr_status-at_time_future
+    summary: A read at a time after the newest version serves the newest EHR_STATUS version
+    description: >-
+      Creates an EHR, updates its EHR_STATUS with is_queryable false, then
+      retrieves the EHR_STATUS at 2999-01-01. Nothing has superseded the
+      newest version at that time, so it is the version extant and is
+      served: the EHR_STATUS is not queryable.
+    x-veredictum-cite: *latest_status
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - *update
+      - stepId: get
+        description: Retrieve the EHR_STATUS at a time after the newest version.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_at_time, in: query, value: "2999-01-01T00:00:00.000Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *status_retrieved
+          - condition: $response.body#/is_queryable == false
+
   - workflowId: get_ehr_status-at_time_before_first_version
     summary: A read at a time before the first EHR_STATUS version is answered 404
     description: >-

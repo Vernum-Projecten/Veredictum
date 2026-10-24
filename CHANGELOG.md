@@ -21,7 +21,7 @@ version on.
 ### Added
 
 - The EHR_STATUS component of the case-core catalogue is converted to Arazzo
-  (#603). The 55 `I_EHR_STATUS.*` cases become 65 workflows in seven
+  (#603). The 55 `I_EHR_STATUS.*` cases become 67 workflows in seven
   documents under `catalogue/cases/ehr_status/`: `ehr_status` (the latest,
   at-time and by-version reads and their refusals), `ehr_status_versioned`
   (the VERSIONED_EHR_STATUS, its versions and the revision history),
@@ -30,8 +30,9 @@ version on.
   `ehr_status_flags`, and `ehr_status_xml`, `ehr_status_xml_not_acceptable`
   and `ehr_status_xml_write_refused` (the canonical-XML choices of the new
   `ehr-status-xml-read` and `ehr-status-xml-write` options). Every criterion
-  quotes the released ITS-REST or RM sentence that assigns it. Four cases
-  have no counterpart because no released sentence carries them, and
+  quotes the released ITS-REST or RM sentence that assigns it. Two cases
+  have no counterpart because no released sentence or operation carries
+  them, and
   `catalogue/id-map.yaml` says why for each. `surface.yaml` takes the
   EHR_STATUS tag into scope, with seventeen header branches tracked as gaps
   under #659.
