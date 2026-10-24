@@ -261,8 +261,8 @@ version on.
   failed and errored verdicts.
 - The COMPOSITION reads addressed by a `versioned_object_uid` are converted
   to Arazzo (#678). A step derives the uid from the version_uid a create
-  answers with, and a second version comes from `composition_update`. 50
-  workflows carry the 23 cases that waited under `pending`:
+  answers with, and a second version comes from `composition_update`. 48
+  workflows carry 21 of the 23 cases that waited under `pending`:
   `composition_versioned` (the VERSIONED_COMPOSITION, its VERSION latest,
   at a time and by version_uid, a deleted VERSION, the revision history, and
   their headers), `composition_read_container` (the latest version, the
@@ -274,7 +274,10 @@ version on.
   `composition_versioned_read_xml_not_acceptable`, which join the arms of
   `composition-xml-read`. The XML root element stays unjudged until the
   evaluator reads XML bodies (#637), and the `Content-Type` the release
-  declares on the body-less VERSIONED_COMPOSITION reads is held under #659.
+  declares on the body-less VERSIONED_EHR_STATUS and VERSIONED_COMPOSITION
+  reads is a gap under upstream report #687. Two at-time cases have no
+  workflow: no released text says whether a version is extant at its own
+  commit instant, and no expression adds to a time.
 
 ### Changed
 
