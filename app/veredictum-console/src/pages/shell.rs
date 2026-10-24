@@ -4,7 +4,7 @@
 //! The persistent chrome (#61 §Look and feel).
 //!
 //! The static sidebar (seal, one entry per surface, the versions in the
-//! footer) around the routed `<Outlet/>`. The chrome renders exactly once
+//! footer) and the instrument status banner around the routed `<Outlet/>`. The chrome renders exactly once
 //! outside any Suspense: a `Suspend` closure re-runs on every notification of
 //! the resources it awaits and re-creates everything inside it, so a resource
 //! owned there gets a different id on the server than on the client and
@@ -14,13 +14,15 @@
 
 use leptos::prelude::{
     AddAnyAttr, AriaAttributes, Children, ClassAttribute, CollectView, Effect, ElementChild, Get,
-    IntoView, OnAttribute, RwSignal, Set, Update, component, view,
+    GlobalAttributes, IntoAny, IntoView, OnAttribute, Resource, RwSignal, Set, Suspend, Suspense,
+    Update, component, view,
 };
 use leptos_icons::Icon;
 use leptos_router::components::{A, Outlet};
 use leptos_router::hooks::use_location;
 
 use crate::components::toast::{self, ToastHost};
+use crate::status_api::fns::fetch_status_line;
 use crate::theme;
 
 /// One sidebar entry.
@@ -168,6 +170,7 @@ pub fn Chrome(
                 </div>
             </aside>
             <div class="flex min-w-0 flex-1 flex-col">
+                <StatusBanner />
                 <header class="flex items-center gap-3 border-b border-edge bg-raised px-4 py-2 lg:hidden">
                     <button
                         class="rounded-control border border-edge-strong px-2 py-1 text-sm text-ink"
@@ -182,6 +185,45 @@ pub fn Chrome(
             </div>
             <ToastHost />
         </div>
+    }
+}
+
+/// The instrument status banner: the linked engine's approval status, read
+/// through a server fn so the server pass and the hydrated client render the
+/// same text.
+#[expect(
+    clippy::must_use_candidate,
+    reason = "a Leptos component is mounted by the framework, never consumed as a value"
+)]
+#[component]
+pub fn StatusBanner() -> impl IntoView {
+    // Created in setup, never inside a Suspend (rules §4); the Suspend renders
+    // only the resolved text.
+    let status = Resource::new(|| (), |()| fetch_status_line());
+    view! {
+        <p
+            id="instrument-status"
+            class="border-b border-edge bg-sunken px-4 py-1.5 text-xs text-ink-muted lg:px-8"
+        >
+            <Suspense fallback=|| ()>
+                {move || Suspend::new(async move {
+                    match status.await {
+                        Ok(line) => {
+                            view! {
+                                <span class="font-medium text-ink">{line.token}</span>
+                                ": "
+                                {line.summary}
+                            }
+                                .into_any()
+                        }
+                        Err(e) => {
+                            view! { <span>{format!("instrument status unavailable: {e}")}</span> }
+                                .into_any()
+                        }
+                    }
+                })}
+            </Suspense>
+        </p>
     }
 }
 

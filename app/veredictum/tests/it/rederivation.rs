@@ -61,6 +61,7 @@ fn results_of(report: &RunReport) -> Results {
             version: String::from("0"),
             verification_pack_status: veredictum::party::VerificationPackStatus::Passed,
         },
+        instrument_status: veredictum::party::InstrumentStatus::PreApproval,
         schedule_release: String::from("cnf-2.0-w2"),
         tech_profile: veredictum::party::RecordedTechProfile {
             its: veredictum::vocab::ItsName::ItsRest,

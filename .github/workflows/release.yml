@@ -679,10 +679,12 @@ jobs:
           done
 
       # The console spawns the engine to drive every run, and refuses a binary
-      # answering anything but `veredictum <pin>` (engine.rs, Engine::verified),
-      # where the pin equals the released version — check-console-pin.sh holds
-      # those two to one string. A published image whose engine is absent or
-      # mismatched serves a console that cannot start a single run (#375).
+      # answering anything but `veredictum <pin> (<status>: …)` (engine.rs,
+      # Engine::verified), where the pin equals the released version —
+      # check-console-pin.sh holds those two to one string — and the status
+      # token is `pre-approval` for 0.x and `sec-approved` from 1.0.0 (#627).
+      # A published image whose engine is absent or mismatched serves a
+      # console that cannot start a single run (#375).
       - name: The pushed image carries the engine the console is pinned to
         env:
           IMAGE: ghcr.io/vernum-projecten/veredictum
@@ -692,8 +694,10 @@ jobs:
           set -euo pipefail
           reported="$(docker run --rm --entrypoint /usr/local/bin/veredictum "${IMAGE}@${DIGEST}" --version)"
           echo "engine reports: ${reported}"
-          if [ "$reported" != "veredictum ${VERSION}" ]; then
-            echo "::error::the in-image engine reports '${reported}', not 'veredictum ${VERSION}' — the console refuses it and every run in this image fails"; exit 1
+          if [[ "${VERSION%%.*}" == "0" ]]; then status="pre-approval"; else status="sec-approved"; fi
+          expected="veredictum ${VERSION} (${status}: "
+          if [[ "$reported" != "${expected}"*")" ]]; then
+            echo "::error::the in-image engine reports '${reported}', not '${expected}…)' — the console refuses it and every run in this image fails"; exit 1
           fi
 
   # ── The gate that makes the pushed digest referencable ──────────────────────

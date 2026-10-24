@@ -491,6 +491,7 @@ mod tests {
                 version: String::from("0"),
                 verification_pack_status: crate::party::VerificationPackStatus::Passed,
             },
+            instrument_status: crate::party::InstrumentStatus::PreApproval,
             schedule_release: String::from("cnf-2.0-w2"),
             tech_profile: crate::party::RecordedTechProfile {
                 its: crate::vocab::ItsName::ItsRest,

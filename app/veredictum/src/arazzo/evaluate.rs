@@ -231,6 +231,7 @@ impl<'d> Evaluator<'d> {
                 name: "veredictum".to_owned(),
                 version: env!("CARGO_PKG_VERSION").to_owned(),
             },
+            instrument_status: crate::party::InstrumentStatus::CURRENT,
             base_url: self.config.base_url.clone(),
             rows,
         })

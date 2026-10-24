@@ -77,6 +77,19 @@ version on.
   BUSL-1.1, admitted by a `deny.toml` licence exception for that crate alone;
   the README and `NOTICE` state its terms.
 
+- Every surface and every result states the instrument's approval status
+  (#627). Veredictum stays on 0.x until the openEHR SEC approves it, and 1.0.0
+  marks that approval. `results.json` and the Arazzo results document carry a
+  required top-level `instrument_status`, `pre-approval` for every 0.x version
+  and `sec-approved` from 1.0.0, derived at compile time from the crate's own
+  version; both published schemas require it, and a results document without
+  it no longer parses. `veredictum --version` prints the status after the
+  version, as in `veredictum 0.1.7 (pre-approval: not yet approved by the
+  openEHR SEC)`, and the console checks the pinned engine against that full
+  line. The console shows the status in a banner above every screen, read from
+  the engine. The README, the website, the book's introduction and the crate
+  description say the same.
+
 - Rows files carry decision-table literals (#638). The published rows schema
   gains `literals`, the columns whose values are read through the
   decision-table literal grammar, and `recipe`, which binds one more input per

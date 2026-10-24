@@ -1150,6 +1150,7 @@ mod tests {
                 "version": "0",
                 "verification_pack_status": "passed"
             },
+            "instrument_status": "pre-approval",
             "schedule_release": "0",
             "tech_profile": { "its": "its-rest", "formats": [] },
             "ixit_digest": "0",

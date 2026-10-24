@@ -8,6 +8,7 @@
   "required": [
     "sut",
     "runner",
+    "instrument_status",
     "schedule_release",
     "tech_profile",
     "ixit_digest"
@@ -56,6 +57,13 @@
           ]
         }
       }
+    },
+    "instrument_status": {
+      "enum": [
+        "pre-approval",
+        "sec-approved"
+      ],
+      "description": "The approval status of the instrument that wrote this document, derived from its own version: pre-approval for every 0.x version, which the openEHR SEC has not approved, and sec-approved from 1.0.0, which marks that approval."
     },
     "schedule_release": {
       "type": "string",

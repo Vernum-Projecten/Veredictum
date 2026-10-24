@@ -28,10 +28,12 @@
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::LazyLock;
 
 use clap::{Parser, Subcommand};
 
 use veredictum::bench::client::AuthKind;
+use veredictum::party::version_line;
 use veredictum::pipeline::assets::{
     conformance_assets, performance_assets, schema_files, stress_overlay,
 };
@@ -56,11 +58,16 @@ use veredictum::record::{
 };
 use veredictum::transcript::Recording;
 
+/// What `--version` prints after the name: the version and the instrument's
+/// approval status, `0.1.7 (pre-approval: not yet approved by the openEHR SEC)`
+/// for a 0.x build.
+static VERSION_LINE: LazyLock<String> = LazyLock::new(|| version_line(env!("CARGO_PKG_VERSION")));
+
 #[derive(Parser)]
 #[command(
     name = "veredictum",
     about = "The independent conformance instrument for openEHR clinical data repositories",
-    version
+    version = VERSION_LINE.as_str()
 )]
 struct Cli {
     #[command(subcommand)]

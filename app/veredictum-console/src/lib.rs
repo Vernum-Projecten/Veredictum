@@ -57,6 +57,7 @@ pub mod run_job;
 pub mod site_bundle;
 #[cfg(feature = "ssr")]
 pub mod state;
+pub mod status_api;
 pub mod submitter;
 #[cfg(feature = "ssr")]
 pub mod target_safety;

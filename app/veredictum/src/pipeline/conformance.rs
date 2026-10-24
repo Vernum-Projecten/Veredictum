@@ -399,6 +399,7 @@ impl RecordedCampaign<'_> {
                 version: env!("CARGO_PKG_VERSION").to_owned(),
                 verification_pack_status: crate::party::VerificationPackStatus::Passed,
             },
+            instrument_status: crate::party::InstrumentStatus::CURRENT,
             schedule_release: self.schedule_release,
             tech_profile: tech_profile(statement),
             ixit_digest: ixit_digest(self.ixit_text),

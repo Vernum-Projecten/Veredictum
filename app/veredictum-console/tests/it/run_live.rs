@@ -671,6 +671,7 @@ fn the_live_screen_answers_for_a_run_this_process_never_drove()
             "version": "0",
             "verification_pack_status": "passed"
         },
+        "instrument_status": "pre-approval",
         "schedule_release": "0",
         "tech_profile": { "its": "its-rest", "formats": [] },
         "ixit_digest": "0",

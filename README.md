@@ -66,6 +66,9 @@ digest, and the linked installation page shows the `gh attestation verify`
 invocation that checks it.
 -->
 
+> **Status:** Veredictum is on 0.x and is not yet approved by the openEHR SEC.
+> Version 1.0.0 will mark that approval.
+
 Veredictum grades openEHR servers. Point it at a running clinical data
 repository (CDR) and it tells you, with a specification citation on every
 finding, which parts of the released openEHR specifications that server

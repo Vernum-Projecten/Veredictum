@@ -8,6 +8,7 @@
   "required": [
     "document",
     "engine",
+    "instrument_status",
     "base_url",
     "rows"
   ],
@@ -33,6 +34,13 @@
           "minLength": 1
         }
       }
+    },
+    "instrument_status": {
+      "enum": [
+        "pre-approval",
+        "sec-approved"
+      ],
+      "description": "The approval status of the instrument that wrote this document, derived from its own version: pre-approval for every 0.x version, which the openEHR SEC has not approved, and sec-approved from 1.0.0, which marks that approval."
     },
     "base_url": {
       "type": "string"
