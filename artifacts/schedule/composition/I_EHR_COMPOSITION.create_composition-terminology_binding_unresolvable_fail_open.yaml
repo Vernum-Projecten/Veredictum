@@ -19,6 +19,12 @@
 # therefore identical on every attempt and no case mutates the deployment it
 # tests.
 #
+# WHERE IT RUNS: on its own deployment, the `sut_fail_open` instance, as the
+# fail-closed twin runs on `sut_pgp`. A party wired to one terminology server
+# per deployment cannot hold a reachable and an unreachable server on the same
+# instance, so the down branch needs a deployment of its own; a party that
+# declares no such instance gets the cited undeclared-instance outcome.
+#
 # The payload itself is intrinsically VALID (every RM invariant and every
 # archetype constraint the template states is satisfied), so acceptance here
 # rests solely on the declared posture, never on the data.
@@ -42,7 +48,7 @@ applies: { rm: ">=1.0.2" }
 requires:
   server: any
   templates: [cnf.tpl.dv_coded_text_binding_tsdown]
-  ehr: { commits: none }                 # mints ${ehr_id}
+  ehr: { commits: none }                 # mints ${ehr_id} on the addressed deployment
   terminology:
     posture: fail_open
     unreachable:
@@ -52,6 +58,7 @@ data_sets: [cnf.composition.terminology_binding_tsdown]
 flow:
   - step: 1
     call: create_composition
+    on: sut_fail_open
     with:
       ehr_id: "${ehr_id}"
       composition: "${ds:cnf.composition.terminology_binding_tsdown}"
