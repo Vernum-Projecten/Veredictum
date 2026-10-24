@@ -108,6 +108,20 @@ version on.
   which has three `Overview` headings. The `arazzo-extensions` schema
   describes the form.
 
+### Security
+
+- Signing a run record refuses a secret key with any component outside RSA,
+  Ed25519, legacy EdDSA, X25519 and Curve25519 ECDH, naming the refused
+  algorithm. The check reads packet headers before the key is parsed, so an
+  ECDSA, NIST or Brainpool ECDH, X448 or Ed448 secret scalar is never decoded.
+  RUSTSEC-2026-0387 reports timing variability in `crypto-bigint` 0.5.5, which
+  `pgp` 0.20 pulls in through `elliptic-curve` 0.13 and `cx448`, and no `pgp`
+  release has moved off it. With the refusal in place, `crypto-bigint` sees
+  only public keys during signature verification, so `deny.toml` accepts the
+  advisory and the Rust-advisory OpenVEX document states it as not affected.
+  Removing OpenPGP signing (#593), or a `pgp` release on a fixed
+  `crypto-bigint`, retires the entry.
+
 ## [0.1.7] - 2026-10-23
 
 ### Changed

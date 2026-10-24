@@ -32,9 +32,35 @@
         ],
         "name": "RUSTSEC-2023-0071"
       }
+    },
+    {
+      "impact_statement": "The advisory reports timing variability in `crypto-bigint` operations meant to be constant-time, which leaks SECRET integers. `crypto-bigint` 0.5.5 reaches this graph only through `pgp` 0.20's `elliptic-curve` 0.13 stack (ecdsa, p256, p384, p521, k256) and `cx448`, and `pgp` 0.21 still requires `elliptic-curve` ^0.13. The signature judge verifies detached OpenPGP signatures over PUBLIC keys only. The run-record signer reads every secret key packet's algorithm before the key is parsed and refuses any component that is not RSA, Ed25519, legacy EdDSA, X25519 or Curve25519 ECDH, so no ECDSA, NIST or Brainpool ECDH, X448 or Ed448 secret scalar is ever decoded. RSA uses `num-bigint-dig` and the 25519 algorithms use `curve25519-dalek`, neither of which depends on `crypto-bigint`. Deleting event: OpenPGP signing removed by #593, or a `pgp` release on `elliptic-curve` 0.14 / `crypto-bigint` 0.7.6 or later (deny.toml carries the same adjudication as the gate).",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "products": [
+        {
+          "@id": "pkg:cargo/veredictum",
+          "subcomponents": [
+            {
+              "@id": "pkg:cargo/crypto-bigint"
+            }
+          ]
+        },
+        {
+          "@id": "pkg:oci/veredictum",
+          "subcomponents": [
+            {
+              "@id": "pkg:cargo/crypto-bigint"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "vulnerability": {
+        "name": "RUSTSEC-2026-0387"
+      }
     }
   ],
-  "timestamp": "2026-08-27T00:00:00Z",
+  "timestamp": "2026-10-24T00:00:00Z",
   "tooling": "scripts/security/vex-generate.sh from security/vex/rust-advisories.toml + deny.toml",
-  "version": 1
+  "version": 2
 }
