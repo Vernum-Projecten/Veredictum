@@ -2831,11 +2831,12 @@ and their rows files. "Payloads" is Arazzo's own word for a request body
   `ehr/create_ehr-same_ehr_twice-with_id`. `workflowId` matches
   `[A-Za-z0-9_\-]+`, as Arazzo recommends.
 
-### 15.4 The two extensions
+### 15.4 The three extensions
 
-Arazzo has no citation object and no judges for openEHR result semantics, so
-two specification extensions are defined, with a published JSON Schema. Any
-further extension needs a recorded reason on #590 first.
+Arazzo has no citation object, no judges for openEHR result semantics and no
+way to take part of a string, so three specification extensions are defined,
+with a published JSON Schema. Any further extension needs a recorded reason
+on #590 first.
 
 **`x-veredictum-cite`**, on workflows, steps and criteria:
 
@@ -2881,6 +2882,31 @@ requires the VERSIONED_EHR_STATUS, #639), and an automatic check would put the
 OAS above the RM. A case author applies the judge only where no higher text
 says otherwise. A postcondition about server
 state is a read-back step.
+
+**`x-veredictum-derive`**, on a step, names new step outputs, each one
+function of an `OBJECT_VERSION_ID` applied to one of the step's own outputs.
+A create answers with a `version_uid`, while the update and the
+VERSIONED_COMPOSITION reads address the container by its
+`versioned_object_uid`, and no Arazzo runtime expression or selector can take
+part of a string. BASE `object_version_id.adoc` defines the derivation:
+"Globally unique identifier for one version of a versioned object; lexical
+form: `object_id  '::' creating_system_id  '::' version_tree_id`", with the
+functions `object_id()`, `creating_system_id()` and `version_tree_id()`.
+
+```yaml
+outputs:
+  version_uid: $response.body#/uid
+x-veredictum-derive:
+  versioned_object_uid: { function: object_id, of: version_uid }
+```
+
+The three function names are the whole vocabulary. A derived output is read
+like any other, as `$steps.<stepId>.outputs.<name>`. `validate` refuses an
+unknown function, an `of` the step does not declare and a derived name that
+collides with a declared output. A captured value that is not of the lexical
+form makes the row errored, never failed, because the workflow's subject is
+not the identifier's form; an `of` the response did not carry leaves the
+derived output uncaptured, so a later step that reads it is errored too.
 
 ### 15.5 A case, worked: re-creating an existing EHR
 
@@ -3100,7 +3126,7 @@ vendor reads why a row is red without opening `results.json`.
   SHOULD or RECOMMENDED but no MUST, SHALL or REQUIRED needs `level: should`,
   and the reverse is refused; a quote whose only keyword is MAY or OPTIONAL is
   refused outright, because permission is never asserted.
-- **Unknown keys**: a key that is neither an Arazzo field nor one of the two
+- **Unknown keys**: a key that is neither an Arazzo field nor one of the three
   extensions is refused. A parser that captures extensions through a catch-all
   map drops a misspelled key such as `succesCriteria` without an error, so the
   gate compares the parsed document with the raw one.

@@ -47,6 +47,7 @@ use serde_json::Value;
 
 use crate::arazzo::check::JudgeEnv;
 use crate::arazzo::cite::{Citation, Level, citation_of};
+use crate::arazzo::derive::derivations_of;
 use crate::arazzo::document::{ArazzoDocument, CriterionPlan};
 use crate::arazzo::expr::{
     EvalError, Expr, Judgement, RequestView, ResponseView, Scope, value_text,
@@ -710,6 +711,9 @@ impl<'d> Evaluator<'d> {
                 captured.insert(name.clone(), value);
             }
         }
+        derive_outputs(step, &mut captured).map_err(|reason| {
+            Red::errored(cite.cloned(), "the step's derived outputs", reason).at(entry)
+        })?;
         Ok((captured, should))
     }
 
@@ -759,6 +763,50 @@ impl<'d> Evaluator<'d> {
             }
         }
         Ok(should)
+    }
+}
+
+/// Adds a step's `x-veredictum-derive` outputs to what it captured. A
+/// derivation over an output the response did not carry is left out, so a
+/// later step that reads it is errored for the missing output; a captured
+/// value that is not an `OBJECT_VERSION_ID` stops the row as errored here.
+fn derive_outputs(step: &Step, captured: &mut BTreeMap<String, Value>) -> Result<(), String> {
+    let derivations = derivations_of(step.extensions.as_ref(), |name| {
+        step.outputs.contains_key(name)
+    })
+    .map_err(|error| error.to_string())?;
+    for (name, derivation) in derivations {
+        let Some(value) = captured.get(&derivation.of) else {
+            continue;
+        };
+        let Value::String(text) = value else {
+            return Err(format!(
+                "step `{}` derives `{name}` from output `{}`, which is {} rather than a string",
+                step.step_id,
+                derivation.of,
+                json_kind(value)
+            ));
+        };
+        let part = derivation.function.apply(text).map_err(|error| {
+            format!(
+                "step `{}` derives `{name}` from output `{}`: {error}",
+                step.step_id, derivation.of
+            )
+        })?;
+        captured.insert(name, Value::String(part));
+    }
+    Ok(())
+}
+
+/// The JSON kind of a value, for an explanation.
+fn json_kind(value: &Value) -> &'static str {
+    match value {
+        Value::Null => "null",
+        Value::Bool(_) => "a boolean",
+        Value::Number(_) => "a number",
+        Value::String(_) => "a string",
+        Value::Array(_) => "an array",
+        Value::Object(_) => "an object",
     }
 }
 
@@ -1700,6 +1748,83 @@ workflows:
             Some("get")
         );
         assert_eq!(transport.sent.len(), 1, "the unbound request is never sent");
+    }
+
+    const DERIVED: &str = "arazzo: 1.1.0
+info: { title: t, version: '1' }
+sourceDescriptions:
+  - { name: ehr, url: ehr.yaml, type: openapi }
+workflows:
+  - workflowId: chain
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    steps:
+      - stepId: create
+        operationId: $sourceDescriptions.ehr.ehr_create
+        successCriteria: [{ condition: $statusCode == 201 }]
+        outputs: { version_uid: $response.body#/uid }
+        x-veredictum-derive:
+          object: { function: object_id, of: version_uid }
+          system: { function: creating_system_id, of: version_uid }
+          tree: { function: version_tree_id, of: version_uid }
+      - stepId: get
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters: [{ name: ehr_id, in: path, value: $steps.create.outputs.object }]
+        successCriteria:
+          - condition: $statusCode == 200
+          - { context: $steps.create.outputs.system, type: regex, condition: '^sys\\.example$' }
+          - { context: $steps.create.outputs.tree, type: regex, condition: '^2$' }
+";
+
+    #[test]
+    fn a_derived_output_addresses_a_later_step() {
+        let (dir, document) = load(DERIVED);
+        let mut transport =
+            Scripted::new(&[(201, r#"{"uid":"9f3c::sys.example::2"}"#), (200, "{}")]);
+        let (results, _) = run_document(
+            &document,
+            "ehr",
+            config(),
+            dir.path(),
+            &Plan::default(),
+            &mut transport,
+        )
+        .unwrap();
+        assert_eq!(only(&results).status, Status::Passed, "{}", only(&results));
+        assert_eq!(
+            transport.sent.get(1).map(|(_, url, _)| url.as_str()),
+            Some("http://sut/v1/ehr/9f3c")
+        );
+    }
+
+    #[test]
+    fn a_value_not_of_the_lexical_form_is_errored_never_failed() {
+        for body in [
+            r#"{"uid":"9f3c"}"#,
+            r#"{"uid":"9f3c::::2"}"#,
+            r#"{"uid":42}"#,
+        ] {
+            let (dir, document) = load(DERIVED);
+            let mut transport = Scripted::new(&[(201, body), (200, "{}")]);
+            let (results, _) = run_document(
+                &document,
+                "ehr",
+                config(),
+                dir.path(),
+                &Plan::default(),
+                &mut transport,
+            )
+            .unwrap();
+            let row = only(&results);
+            assert_eq!(row.status, Status::Errored, "{body}: {row}");
+            let explanation = row.explanation.as_ref().unwrap();
+            assert_eq!(explanation.step, "create");
+            assert!(
+                explanation.received.contains("step `create` derives"),
+                "{}",
+                explanation.received
+            );
+            assert_eq!(transport.sent.len(), 1, "the derived request is never sent");
+        }
     }
 
     #[test]

@@ -39,6 +39,15 @@ version on.
   tag into scope with those branches as gaps under #678 and the write
   branches under #675, and the id map says why for each other case without
   a counterpart.
+- A third Arazzo specification extension, `x-veredictum-derive` (#680). On a
+  step it names new outputs, each `object_id`, `creating_system_id` or
+  `version_tree_id` of an OBJECT_VERSION_ID held in one of the step's own
+  outputs, as BASE `object_version_id.adoc` defines them, so a workflow that
+  created a COMPOSITION can address its container by `versioned_object_uid`.
+  `schemas/arazzo-extensions.schema.json` publishes its shape, `validate`
+  refuses an unknown function, an `of` the step does not declare and a
+  derived name that collides with a declared output, and a captured value
+  that is not of the lexical form makes the row errored.
 - The ITEM_TAG cases of the EHR API are converted to Arazzo (#603). The 30
   `I_ITS_REST_ITEM_TAGS.*` cases on the COMPOSITION, EHR_STATUS and EHR tag
   routes become 58 workflows in four documents under
