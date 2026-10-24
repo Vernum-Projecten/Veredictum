@@ -123,9 +123,10 @@ version on.
   which has three `Overview` headings. The `arazzo-extensions` schema
   describes the form.
 - A `single_pass` case whose shared provisioning is refused records every row
-  errored, and none of its rows is driven (#651). Rows after the first used
-  to run on ground that was never provisioned, and their outcomes counted
-  against the server.
+  errored, and one whose shared ground does not apply on the technology
+  profile records every row not applicable; in both, none of its rows is
+  driven (#651). Rows after the first used to run on ground that was never
+  provisioned, and their outcomes counted against the server.
 - Every errored row is on the record (#651). An outcome in `results.json`
   gains `errored_rows`, listing each errored row with its step and reason
   whatever the rolled-up status, so an errored row no longer disappears when

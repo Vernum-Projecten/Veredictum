@@ -191,6 +191,7 @@ fn a_record_altered_after_the_run_is_refused_by_the_re_judgement() -> Fallible {
         outcome.status = OutcomeStatus::Passed;
         outcome.reason = None;
         outcome.failed_rows.clear();
+        outcome.errored_rows.clear();
     }
     let found = divergences(&altered, &rederived);
     assert_eq!(found.len(), 1, "{found:?}");

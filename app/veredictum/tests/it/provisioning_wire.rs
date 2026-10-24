@@ -825,6 +825,15 @@ fn run_table_case(
     sut: &FakeSut,
     iteration: &str,
 ) -> Result<CaseRecord, Box<dyn std::error::Error>> {
+    run_table_document(sut, table_template_case(iteration))
+}
+
+/// Drive the given table case through `run_case` against the fake SUT, over
+/// the template corpus and the upload and EHR-creation bindings.
+fn run_table_document(
+    sut: &FakeSut,
+    document: Value,
+) -> Result<CaseRecord, Box<dyn std::error::Error>> {
     let dir = corpus(&[("opt", "<template/>".to_owned())])?;
     let manifest = json!({ "cnf.opt.minimal": entry("opt.json", "opt-xml") });
     let mut bindings = upload_bindings();
@@ -836,7 +845,7 @@ fn run_table_case(
     }));
     let set = artifact_set_over_corpus(&bindings, manifest, dir.path());
     let topology = ixit(&sut.base_url());
-    let core = case(table_template_case(iteration));
+    let core = case(document);
     let mut driver = HttpDriver::new(&set, &topology, None)?;
     Ok(run_case(&core, None, &mut driver)?)
 }
@@ -954,5 +963,67 @@ fn an_errored_row_stays_on_the_record_beside_a_failed_one() -> Fallible {
         Some(&json!(0)),
         "{written}"
     );
+    Ok(())
+}
+
+/// Under `single_pass` a row 0 ground that cannot be realized on this
+/// technology profile applies to no row: row 0's expected rejection rests
+/// only on a constraint the OPT 1.4 wire cannot carry, so every row is
+/// recorded not applicable and nothing reaches the SUT.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn an_unrealizable_shared_ground_excuses_every_single_pass_row_and_drives_none() -> Fallible {
+    let sut = FakeSut::start();
+    let document = json!({
+        "id": "WIRE-table", "kind": "functional", "component": "EHR",
+        "sm_operation": "I_EHR_SERVICE.create_ehr",
+        "rm_class": "DV_TIME",
+        "constraint_context": {
+            "template": "cnf.opt.minimal",
+            "path": "/content[at0001]/value",
+            "constraint_columns": ["millisecond_validity"]
+        },
+        "parameters": {
+            "iteration": "single_pass",
+            "matrix": {
+                "columns": ["expected", "violates", "millisecond_validity"],
+                "rows": [
+                    ["rejected", ["millisecond_validity"], "prohibited"],
+                    ["accepted", [], "optional"],
+                    ["accepted", [], "optional"]
+                ]
+            }
+        },
+        "test_purpose": "t", "description": "d", "spec_refs": [],
+        "flow": [{ "step": 1, "call": "create_ehr", "expect": "created" }]
+    });
+    let record = run_table_document(&sut, document)?;
+
+    assert_eq!(exchanges(&sut), Vec::<String>::new(), "nothing is driven");
+    assert_eq!(record.rows.len(), 3);
+    let Some(RowOutcome::NotApplicable { citation: shared }) = record.rows.first() else {
+        panic!("row 0 must be not applicable, got {:?}", record.rows);
+    };
+    for (index, row) in record.rows.iter().enumerate().skip(1) {
+        match row {
+            RowOutcome::NotApplicable { citation } => {
+                assert!(
+                    citation.contains("does not apply"),
+                    "row {index}: {citation}"
+                );
+                assert!(
+                    citation.ends_with(shared.as_str()),
+                    "row {index}: {citation}"
+                );
+            }
+            other => panic!("row {index} must be not applicable, got {other:?}"),
+        }
+    }
+    let outcome = OutcomeRecord::from(&record);
+    assert_eq!(outcome.status, OutcomeStatus::NotApplicable);
+    assert_eq!(outcome.citation.as_deref(), Some(shared.as_str()));
     Ok(())
 }
