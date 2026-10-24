@@ -53,6 +53,7 @@ fn outcome(
         reason: reason.map(str::to_owned),
         citation: citation.map(str::to_owned),
         failed_rows: Vec::new(),
+        errored_rows: Vec::new(),
     })
 }
 

@@ -884,6 +884,16 @@ pub fn statement_schema() -> Value {
 /// One case×format outcome record, as the results document and the evidence
 /// bundle both carry it.
 fn outcome_record_def() -> Value {
+    let row_record = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["row", "step", "reason"],
+        "properties": {
+            "row": { "type": "integer", "minimum": 0 },
+            "step": { "type": "integer", "minimum": 0 },
+            "reason": { "type": "string", "minLength": 1 }
+        }
+    });
     json!({
         "type": "object",
         "additionalProperties": false,
@@ -897,19 +907,8 @@ fn outcome_record_def() -> Value {
             "failing_step": { "type": "integer", "minimum": 0 },
             "reason": { "type": "string" },
             "citation": { "type": "string" },
-            "failed_rows": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["row", "step", "reason"],
-                    "properties": {
-                        "row": { "type": "integer", "minimum": 0 },
-                        "step": { "type": "integer", "minimum": 0 },
-                        "reason": { "type": "string", "minLength": 1 }
-                    }
-                }
-            }
+            "failed_rows": { "type": "array", "items": row_record },
+            "errored_rows": { "type": "array", "items": row_record }
         },
         "allOf": [
             { "if": { "properties": { "status": { "enum": ["skipped", "not_applicable"] } },

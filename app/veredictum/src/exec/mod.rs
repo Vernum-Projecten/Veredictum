@@ -194,7 +194,10 @@ pub trait StepDriver {
     /// first row and again before every row under `reset_per_row`. Returns
     /// [`Provisioned::RowNotApplicable`] when THIS row's ground cannot be
     /// realized on the technology profile (register-cited) — the row is
-    /// recorded N/A and its steps are not driven.
+    /// recorded N/A and its steps are not driven. A
+    /// [`Provisioned::RowErrored`] errors the row. Under `single_pass` either
+    /// outcome on row 0 is recorded for every row of the case, none of which
+    /// is then driven.
     ///
     /// # Errors
     /// As [`StepDriver::perform`]: interpreter defects only.
@@ -316,6 +319,61 @@ fn row_from_assertion(step: u32, failure: &AssertionOutcome) -> RowOutcome {
     }
 }
 
+/// The rows a provisioning outcome other than [`Provisioned::Ready`] records,
+/// or `None` when the ground is established.
+///
+/// The first row carries the outcome itself. Each of the other `count - 1`
+/// rows shares that ground, so it gets the same outcome and is not driven.
+// NOTE: no openEHR spec governs this — our own design: under `single_pass`
+// every row stands on row 0's ground, so a row driven without it proves nothing.
+fn unprovisioned_rows(ground: Provisioned, count: usize) -> Option<Vec<RowOutcome>> {
+    let (later, first) = match ground {
+        Provisioned::Ready => return None,
+        Provisioned::RowNotApplicable { citation } => (
+            RowOutcome::NotApplicable {
+                citation: format!(
+                    "not driven: the case's shared provisioning (row 0) does not apply: {citation}"
+                ),
+            },
+            RowOutcome::NotApplicable { citation },
+        ),
+        Provisioned::RowErrored { reason } => (
+            RowOutcome::Errored {
+                step: 0,
+                reason: format!(
+                    "not driven: the case's shared provisioning (row 0) was refused: {reason}"
+                ),
+            },
+            RowOutcome::Errored { step: 0, reason },
+        ),
+    };
+    Some(
+        std::iter::once(first)
+            .chain(std::iter::repeat_n(later, count.saturating_sub(1)))
+            .collect(),
+    )
+}
+
+/// Law e: evaluates the aggregate assertions once after the last row, when
+/// every row passed, and records the first failure on the last row.
+fn judge_aggregates<D: StepDriver>(
+    case: &CaseCore,
+    driver: &mut D,
+    rows: &mut [RowOutcome],
+    row_states: &[VarStore],
+) -> Result<(), String> {
+    if rows.iter().all(|r| matches!(r, RowOutcome::Passed))
+        && let Some(failure) = driver.aggregates(case, row_states)?.into_iter().next()
+        && let Some(last) = rows.last_mut()
+    {
+        *last = RowOutcome::Failed {
+            step: 0,
+            reason: format!("aggregate: {failure}"),
+        };
+    }
+    Ok(())
+}
+
 /// Run one case×format through the interpreter laws.
 ///
 /// # Errors
@@ -341,18 +399,17 @@ pub fn run_case<D: StepDriver>(
         if reset_per_row || row == 0 {
             vars = VarStore::default();
             // Law a. Step 0 is the precondition, before any flow step drove.
-            match driver.provision(case, row, &mut vars)? {
-                Provisioned::Ready => {}
-                Provisioned::RowNotApplicable { citation } => {
-                    row_states.push(vars.clone());
-                    rows.push(RowOutcome::NotApplicable { citation });
+            // Under `single_pass` row 0's ground is every row's ground.
+            let sharing = if reset_per_row { 1 } else { total };
+            if let Some(unprovisioned) =
+                unprovisioned_rows(driver.provision(case, row, &mut vars)?, sharing)
+            {
+                row_states.extend(unprovisioned.iter().map(|_| vars.clone()));
+                rows.extend(unprovisioned);
+                if reset_per_row {
                     continue;
                 }
-                Provisioned::RowErrored { reason } => {
-                    row_states.push(vars.clone());
-                    rows.push(RowOutcome::Errored { step: 0, reason });
-                    continue;
-                }
+                break;
             }
         }
 
@@ -413,18 +470,7 @@ pub fn run_case<D: StepDriver>(
         rows.push(row_outcome);
     }
 
-    // Law e: aggregates once after the last row.
-    if rows.iter().all(|r| matches!(r, RowOutcome::Passed))
-        && let Some(failure) = driver.aggregates(case, &row_states)?.into_iter().next()
-        && let Some(last) = rows.last_mut()
-    {
-        {
-            *last = RowOutcome::Failed {
-                step: 0,
-                reason: format!("aggregate: {failure}"),
-            };
-        }
-    }
+    judge_aggregates(case, driver, &mut rows, &row_states)?;
 
     Ok(CaseRecord {
         case: case.id.clone(),
@@ -692,6 +738,82 @@ mod tests {
         assert!(
             !record.passed(),
             "an inconclusive row is not a passing case"
+        );
+    }
+
+    /// Under `single_pass` row 0's provisioning is the ground of every row, so
+    /// a refused provisioning exchange errors the whole case, and no row's
+    /// steps reach the SUT on ground that was never established.
+    #[test]
+    fn a_refused_shared_provisioning_errors_every_single_pass_row_undriven() {
+        let mut case = two_row_case();
+        if let Some(parameters) = case.parameters.as_mut() {
+            parameters.iteration = crate::vocab::Iteration::SinglePass;
+        }
+        let mut driver = Provisioning {
+            grounds: vec![Provisioned::RowErrored {
+                reason: "template upload answered 406".to_owned(),
+            }],
+            assertion_failures: Vec::new(),
+            postconditions: Vec::new(),
+            performed: 0,
+            cursor: 0,
+        };
+        let record = run_case(&case, None, &mut driver).unwrap();
+
+        assert_eq!(driver.cursor, 1, "single_pass provisions once");
+        assert_eq!(driver.performed, 0, "no row is driven");
+        assert_eq!(record.rows.len(), 2);
+        assert_eq!(
+            record.rows[0],
+            RowOutcome::Errored {
+                step: 0,
+                reason: "template upload answered 406".to_owned()
+            }
+        );
+        match &record.rows[1] {
+            RowOutcome::Errored { step: 0, reason } => {
+                assert!(reason.contains("shared provisioning"), "{reason}");
+                assert!(reason.contains("template upload answered 406"), "{reason}");
+            }
+            other => panic!("row 1 must be errored, got {other:?}"),
+        }
+        assert!(!record.passed());
+    }
+
+    /// Under `single_pass` a row 0 ground that does not apply on this profile
+    /// applies to no row: every row is recorded N/A and none is driven.
+    #[test]
+    fn an_inapplicable_shared_provisioning_excuses_every_single_pass_row_undriven() {
+        let mut case = two_row_case();
+        if let Some(parameters) = case.parameters.as_mut() {
+            parameters.iteration = crate::vocab::Iteration::SinglePass;
+        }
+        let mut driver = Provisioning {
+            grounds: vec![Provisioned::RowNotApplicable {
+                citation: "AMB-99: no such ground on this profile".to_owned(),
+            }],
+            assertion_failures: Vec::new(),
+            postconditions: Vec::new(),
+            performed: 0,
+            cursor: 0,
+        };
+        let record = run_case(&case, None, &mut driver).unwrap();
+
+        assert_eq!(driver.cursor, 1, "single_pass provisions once");
+        assert_eq!(driver.performed, 0, "no row is driven");
+        assert_eq!(
+            record.rows,
+            vec![
+                RowOutcome::NotApplicable {
+                    citation: "AMB-99: no such ground on this profile".to_owned()
+                },
+                RowOutcome::NotApplicable {
+                    citation: "not driven: the case's shared provisioning (row 0) does not \
+                               apply: AMB-99: no such ground on this profile"
+                        .to_owned()
+                },
+            ]
         );
     }
 

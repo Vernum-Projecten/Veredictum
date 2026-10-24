@@ -358,14 +358,17 @@ impl OutcomeStatus {
     }
 }
 
-/// One failing row of a table-driven case: the row index (0-based, the
-/// content-table order), the failing step (0 = a postcondition/aggregate),
-/// and the reason.
+/// One failed or errored row of a table-driven case.
+///
+/// It carries the row index (0-based, the content-table order), the step it
+/// stopped at (0 = a precondition, postcondition or aggregate), and the
+/// reason. The list carrying it says which of the two it is.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FailedRow {
     /// The 0-based row index in the case's parameter table.
     pub row: usize,
-    /// The failing step number (0 for postcondition/aggregate failures).
+    /// The step the row stopped at (0 for a precondition, postcondition or
+    /// aggregate).
     pub step: u32,
     /// The failure reason.
     pub reason: String,
@@ -399,6 +402,11 @@ pub struct OutcomeRecord {
     /// the per-row evidence a triage needs, not just the first reason.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failed_rows: Vec<FailedRow>,
+    /// Every errored (inconclusive) row, whatever the rolled-up status: a
+    /// failed row outranks an errored one in `status`, and this list keeps the
+    /// errored row on the record all the same.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub errored_rows: Vec<FailedRow>,
 }
 
 impl OutcomeRecord {
@@ -423,7 +431,8 @@ impl From<&CaseRecord> for OutcomeRecord {
     /// any failed row → `failed` (first failing step/reason); else any
     /// errored → `errored`; else any passed → `passed` (mixed passed/N-A is
     /// a pass); else all N/A → `not_applicable`; else all skipped →
-    /// `skipped`; an empty record → `errored` (nothing was driven).
+    /// `skipped`; an empty record → `errored` (nothing was driven). Every
+    /// errored row is listed in `errored_rows` whatever the status.
     fn from(record: &CaseRecord) -> Self {
         let mut failing: Option<(u32, String)> = None;
         let mut erroring: Option<(u32, String)> = None;
@@ -431,6 +440,7 @@ impl From<&CaseRecord> for OutcomeRecord {
         let mut skip_citation: Option<String> = None;
         let mut has_passed = false;
         let mut failed_rows = Vec::new();
+        let mut errored_rows = Vec::new();
 
         for (index, row) in record.rows.iter().enumerate() {
             match row {
@@ -446,6 +456,11 @@ impl From<&CaseRecord> for OutcomeRecord {
                     }
                 }
                 RowOutcome::Errored { step, reason } => {
+                    errored_rows.push(FailedRow {
+                        row: index,
+                        step: *step,
+                        reason: reason.clone(),
+                    });
                     if erroring.is_none() {
                         erroring = Some((*step, reason.clone()));
                     }
@@ -473,6 +488,7 @@ impl From<&CaseRecord> for OutcomeRecord {
             reason,
             citation,
             failed_rows,
+            errored_rows: errored_rows.clone(),
         };
 
         if let Some((step, reason)) = failing {
@@ -728,6 +744,77 @@ mod tests {
         ]));
         assert_eq!(r.status, OutcomeStatus::Errored);
         assert_eq!(r.failing_step, Some(2));
+    }
+
+    /// A failed row outranks an errored one in the rolled-up status, and the
+    /// errored row stays on the record beside it, in the serialized document
+    /// too.
+    #[test]
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+    )]
+    fn every_errored_row_is_recorded_beside_the_failed_ones() -> Result<(), serde_json::Error> {
+        let r = OutcomeRecord::from(&record(vec![
+            RowOutcome::Errored {
+                step: 0,
+                reason: "template upload answered 406".to_owned(),
+            },
+            RowOutcome::Failed {
+                step: 1,
+                reason: "expected `created`, observed `bad_request`".to_owned(),
+            },
+            RowOutcome::Passed,
+            RowOutcome::Errored {
+                step: 2,
+                reason: "connection reset".to_owned(),
+            },
+        ]));
+        assert_eq!(r.status, OutcomeStatus::Failed);
+        assert_eq!(
+            r.failed_rows,
+            vec![FailedRow {
+                row: 1,
+                step: 1,
+                reason: "expected `created`, observed `bad_request`".to_owned(),
+            }]
+        );
+        assert_eq!(
+            r.errored_rows,
+            vec![
+                FailedRow {
+                    row: 0,
+                    step: 0,
+                    reason: "template upload answered 406".to_owned(),
+                },
+                FailedRow {
+                    row: 3,
+                    step: 2,
+                    reason: "connection reset".to_owned(),
+                },
+            ]
+        );
+        let written = serde_json::to_value(&r)?;
+        assert_eq!(
+            written.pointer("/errored_rows/0/reason"),
+            Some(&serde_json::json!("template upload answered 406"))
+        );
+
+        // An all-errored case lists every row too, not only the first reason.
+        let r = OutcomeRecord::from(&record(vec![
+            RowOutcome::Errored {
+                step: 0,
+                reason: "a".to_owned(),
+            },
+            RowOutcome::Errored {
+                step: 0,
+                reason: "b".to_owned(),
+            },
+        ]));
+        assert_eq!(r.status, OutcomeStatus::Errored);
+        assert_eq!(r.errored_rows.len(), 2);
+        assert!(r.failed_rows.is_empty());
+        Ok(())
     }
 
     #[test]
