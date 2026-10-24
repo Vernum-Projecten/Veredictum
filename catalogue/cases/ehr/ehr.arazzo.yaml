@@ -1076,10 +1076,6 @@ workflows:
               section: HTTP status codes
               quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
           - condition: $statusCode == 201
-          - context: $response.header.Content-Type
-            type: regex
-            condition: '^(application/json.*)?$'
-            x-veredictum-cite: *json_content_type
           - condition: $response.body#/uid != null
           - condition: $response.body#/ehr_id == null
             x-veredictum-cite: &identifier_only
@@ -1110,6 +1106,35 @@ workflows:
           - context: $response.body#/ehr_id/value
             type: regex
             condition: '^{$steps.create.outputs.ehr_id}$'
+
+  - workflowId: create_ehr-content_type
+    summary: An EHR create answered with the full resource names it as JSON
+    description: >-
+      Creates an EHR with Prefer return=representation and Accept
+      application/json. The answer is 201 with the EHR in its body, so it
+      carries Content-Type application/json.
+    x-veredictum-cite: *json_content_type
+    steps:
+      - stepId: create
+        description: Create an EHR and ask for the full resource as JSON.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
 
   - workflowId: create_ehr-invalid_status-missing_required
     summary: An EHR_STATUS that lacks a member the request schema requires is refused

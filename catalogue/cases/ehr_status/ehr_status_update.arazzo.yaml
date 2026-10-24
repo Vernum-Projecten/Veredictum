@@ -368,13 +368,6 @@ workflows:
               section: HTTP status codes
               quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
           - condition: $statusCode == 200
-          - context: $response.header.Content-Type
-            type: regex
-            condition: '^(application/json.*)?$'
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
-              section: JSON Format
-              quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
           - condition: $response.body#/uid != null
           - condition: $response.body#/is_queryable == null
             x-veredictum-cite: &identifier_only
@@ -403,6 +396,45 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/schemas/others/Identifier.yaml
               section: /properties/uid/description
               quote: "The (version) resource identifier."
+
+  - workflowId: update-content_type
+    summary: An EHR_STATUS update answered with the full resource names it as JSON
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with Prefer
+      return=representation and Accept application/json. The answer is 200
+      with the EHR_STATUS in its body, so it carries Content-Type
+      application/json.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with is_queryable false and ask for the full resource as JSON.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *not_queryable
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_EHR_STATUS_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the EHR_STATUS is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
 
   - workflowId: update-etag_weak
     summary: An ETag sent on an EHR_STATUS update carries the weakness indicator

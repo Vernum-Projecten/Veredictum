@@ -45,7 +45,10 @@ version on.
   empty body under that preference is an advisory row citing upstream report
   #673, and a workflow that needs the identifier to go on is errored when the
   server does not send it. This reclassifies the EHR create, the EHR_STATUS
-  update and the bulk-load commit.
+  update and the bulk-load commit. Their identifier workflows no longer judge
+  Content-Type; `ehr/create_ehr-content_type` and
+  `ehr_status_update/update-content_type` judge it on the JSON responses of
+  the create and the update under return=representation.
 - The EHR_STATUS component of the case-core catalogue is converted to Arazzo
   (#603). The 55 `I_EHR_STATUS.*` cases become 67 workflows in seven
   documents under `catalogue/cases/ehr_status/`: `ehr_status` (the latest,
