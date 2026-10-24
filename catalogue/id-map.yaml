@@ -63,9 +63,10 @@ cases:
       - composition_create/create_composition-version_uid_form
       - composition_create/create_composition-change_type_creation
     open: &version_count >-
-      The version count is not judged: it is read from the container's
-      revision history, which belongs to the VERSIONED_COMPOSITION reads
-      (#678). The version_tree_id 1 is not asserted: RM master06 §Local
+      The version count is not judged: the revision history workflow
+      (composition_versioned/get_versioned_composition-revision_history)
+      judges the versions it lists by id, not their number. The
+      version_tree_id 1 is not asserted: RM master06 §Local
       Versioning describes it as "a suitable scheme", with no key word.
   I_EHR_COMPOSITION.create_composition-event_bad_ehr:
     new: [composition_create_refused/create_composition-unknown_ehr]
@@ -217,8 +218,9 @@ cases:
     open: >-
       The second delete matches both declared refusals, 400 already deleted
       and 409 not the latest version, so either holds (#681). The version
-      count is not judged: it is read from the container's revision history,
-      which belongs to the VERSIONED_COMPOSITION reads (#678).
+      count is not judged: the revision history workflow
+      (composition_versioned/get_versioned_composition-revision_history)
+      judges the versions it lists by id, not their number.
   I_EHR_COMPOSITION.delete_composition-audit_headers:
     new:
       - composition_delete/delete_composition-audit_details
@@ -312,9 +314,10 @@ cases:
       - composition_update/update_composition-new_version
       - composition_update/update_composition-change_type_modification
     open: &update_version_count >-
-      The version count is not judged: it is read from the container's
-      revision history, which belongs to the VERSIONED_COMPOSITION reads
-      (#678). The version_tree_id 2 is not asserted: RM master06 §Local
+      The version count is not judged: the revision history workflow
+      (composition_versioned/get_versioned_composition-revision_history)
+      judges the versions it lists by id, not their number. The
+      version_tree_id 2 is not asserted: RM master06 §Local
       Versioning describes the numbering as "a suitable scheme", with no key
       word, so the new version is judged by its preceding_version_uid.
   I_EHR_COMPOSITION.update_composition-feeder_audit_carried:
