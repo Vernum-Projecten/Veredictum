@@ -534,6 +534,9 @@ jobs:
           # that relied on the environment would pass while proving less.
           docker run --rm --entrypoint /usr/local/bin/veredictum "$IMAGE" \
             validate --root /work/artifacts --specs /work/specs/openehr
+          # The Arazzo catalogue is a second root until the cut-over (#604).
+          docker run --rm --entrypoint /usr/local/bin/veredictum "$IMAGE" \
+            validate --root /work/catalogue --specs /work/specs/openehr
       - name: The image declares that it carries the catalogue
         env:
           IMAGE: veredictum-ci-image-build:${{ github.sha }}
@@ -553,13 +556,13 @@ jobs:
           # list a directory from inside.
           cid=$(docker create "$IMAGE")
           present=$(docker export "$cid" | tar -tf - \
-            | grep -cE '^work/(artifacts|specs/(openehr|its-xml-schemas|its-json-schemas|rest-oas))/$' || true)
+            | grep -cE '^work/(artifacts|catalogue|specs/(openehr|its-xml-schemas|its-json-schemas|rest-oas))/$' || true)
           docker rm -f "$cid" >/dev/null
-          if [ "$present" -ne 5 ]; then
-            echo "::error::the image does not carry all five of /work/artifacts, /work/specs/openehr, /work/specs/its-xml-schemas, /work/specs/its-json-schemas and /work/specs/rest-oas (found ${present} of 5). The hosted instrument mounts nothing, so a missing tree there is an instrument with no catalogue or no oracle to cite against (#420)." >&2
+          if [ "$present" -ne 6 ]; then
+            echo "::error::the image does not carry all six of /work/artifacts, /work/catalogue, /work/specs/openehr, /work/specs/its-xml-schemas, /work/specs/its-json-schemas and /work/specs/rest-oas (found ${present} of 6). The hosted instrument mounts nothing, so a missing tree there is an instrument with no catalogue or no oracle to cite against (#420)." >&2
             exit 1
           fi
-          echo "the image declares it carries the catalogue, and all five trees are present"
+          echo "the image declares it carries the catalogue, and all six trees are present"
       - name: The image carries the hosted posture, and it comes out by docker cp
         env:
           IMAGE: veredictum-ci-image-build:${{ github.sha }}

@@ -53,7 +53,7 @@
 
 #![expect(
     clippy::disallowed_types,
-    reason = "a one-off converter between two YAML artifact formats, which it reads and writes as JSON values"
+    reason = "a one-off converter between two YAML artifact formats, which it reads and writes as JSON values; this file-level suppression is signed off on #603 because the tool is deleted at the cut-over"
 )]
 
 use std::collections::{BTreeMap, BTreeSet};
