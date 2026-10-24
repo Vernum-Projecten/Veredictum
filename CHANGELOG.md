@@ -20,6 +20,22 @@ version on.
 
 ### Added
 
+- The ITEM_TAG cases of the EHR API are converted to Arazzo (#603). The 30
+  `I_ITS_REST_ITEM_TAGS.*` cases on the COMPOSITION, EHR_STATUS and EHR tag
+  routes become 60 workflows in four documents under
+  `catalogue/cases/item_tags/`: `composition_tags` (reading, replacing and
+  deleting the tags of a COMPOSITION version, the key and target_path
+  identity, the representation preferences and the 404 misses),
+  `composition_tags_refused` (the XML, media-type, 400 and 422 refusals),
+  `ehr_status_tags` (the EHR_STATUS version and VERSIONED_EHR_STATUS tag
+  lists, kept apart and left in place by a new version) and `ehr_tags` (the
+  EHR-wide listing and its filters). Every criterion quotes the released
+  ITS-REST or RM sentence that assigns it. `surface.yaml` takes the ITEM_TAG
+  tag into scope with no gap. Two cases have no counterpart because no
+  released sentence assigns them, the container-addressed COMPOSITION forms
+  are carried on EHR_STATUS only (#667), and the two EHR_STATUS
+  revision-history cases map to the workflows that already carry them;
+  `catalogue/id-map.yaml` says why for each.
 - The EHR_STATUS component of the case-core catalogue is converted to Arazzo
   (#603). The 55 `I_EHR_STATUS.*` cases become 67 workflows in seven
   documents under `catalogue/cases/ehr_status/`: `ehr_status` (the latest,

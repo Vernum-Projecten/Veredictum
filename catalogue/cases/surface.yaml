@@ -8,6 +8,7 @@
 scope:
   - { api: ehr, tag: EHR }
   - { api: ehr, tag: EHR_STATUS }
+  - { api: ehr, tag: ITEM_TAG }
 # Each gap is a branch no EHR workflow reaches yet, covered by #653: the
 # simplified-format request bodies, the XML response of a create, and the
 # minimal and the client-id identifier preferences. An XML request body on a
