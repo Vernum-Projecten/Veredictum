@@ -1,7 +1,8 @@
 # The old-to-new case id map (#603): each case id of the case-core
 # catalogue, and the Arazzo case ids (`<document>/<workflowId>`) that carry
-# it. An entry with no new id says why in `open`. Upstream reports and pull
-# requests that name an old id resolve through this file.
+# it. An entry with no new id says why in `open`, and an entry that carries
+# only part of its case names the part it leaves in `open`. Upstream reports
+# and pull requests that name an old id resolve through this file.
 cases:
   I_EHR_SERVICE.create_ehr-bulk_load_population:
     new: [ehr_bulk_load/bulk_load-population]
@@ -12,8 +13,11 @@ cases:
   I_EHR_SERVICE.create_ehr-invalid_status:
     new:
       - ehr/create_ehr-invalid_status-missing_required
-      - ehr/create_ehr-invalid_status-untyped_other_details
       - ehr/create_ehr-status_without_archetype_details
+    open: >-
+      Row 3, an other_details without a _type: upstream report #650. The
+      released key words apply only in capitals, so the lower-case "should
+      be used" of Resources.md assigns no refusal.
   I_EHR_SERVICE.create_ehr-main:
     new:
       - ehr/create_ehr-server_assigned
@@ -26,6 +30,8 @@ cases:
       - ehr/create_ehr-provided_status-other_details-with_id
       - ehr/create_ehr-distinct_ids
       - ehr/create_ehr-etag_last_modified
+      - ehr/create_ehr-etag_weak
+      - ehr/create_ehr-etag_weak-with_id
   I_EHR_SERVICE.create_ehr-return_identifier:
     new: [ehr/create_ehr-return_identifier]
   I_EHR_SERVICE.create_ehr-same_ehr_twice:
@@ -51,9 +57,9 @@ cases:
   I_EHR_SERVICE.create_ehr-xml:
     new: [ehr_xml_write_refused/create_ehr-xml_unsupported_media]
   I_EHR_SERVICE.get_ehr-existing_ehr_by_ehr_id:
-    new: [ehr/get_ehr-by_id, ehr/create_ehr-etag_last_modified]
+    new: [ehr/get_ehr-by_id, ehr/create_ehr-etag_last_modified, ehr/get_ehr-etag_weak]
   I_EHR_SERVICE.get_ehr-existing_ehr_by_subject_id:
-    new: [ehr/get_ehr-by_subject]
+    new: [ehr/get_ehr-by_subject, ehr/get_ehr-by_subject-etag_weak]
   I_EHR_SERVICE.get_ehr-get_ehr_by_invalid_ehr_id:
     new: [ehr/get_ehr-unknown_ehr_id]
   I_EHR_SERVICE.get_ehr-get_ehr_by_invalid_subject_id:

@@ -36,7 +36,7 @@ version on.
 - The Arazzo condition profile and rows format gain the composition rules
   the EHR conversion needs (#603). A `regex` criterion over a response header
   reads an absent header as the empty string, so `^(W/".+")?$` states the
-  ETag weak-form MUST for every EHR response that sends one.
+  ETag weak-form MUST, which four workflows check, one per EHR operation.
   `x-veredictum-cite` gains `level` (`must` by default, or `should`), and the
   new `arazzo-level` gate refuses a level its quote's RFC 2119 keywords
   disagree with and any quote that only permits. A row whose failing criteria
@@ -46,8 +46,9 @@ version on.
   `not-declared`, a new skip reason), and `aggregate: distinct`, a property of
   a `single_pass` run judged after its last row. A document may name a
   `type: arazzo` source and depend on its workflows, so the template upload
-  lives once in `catalogue/cases/_setup/`. `catalogue/capabilities.yaml`
-  carries the options a statement answers, with their arm documents; the
+  lives once in `catalogue/cases/_setup/`. `catalogue/capabilities.yaml`,
+  validated against the new published `arazzo-capabilities` schema, carries
+  the options a statement answers, with their arm documents; the
   documents of an arm the statement does not select are skipped as
   `option-not-selected`, the new `arazzo-identity` gate refuses an arm naming
   a document that does not exist, and surface coverage counts an element only
@@ -55,7 +56,10 @@ version on.
   declares the deliberately wrong requests, marked as Veredictum's own.
   `create_ehr-clone_system_id`, `create_ehr-wrong_method` and the EHR
   uniqueness checks are restored on these rules, and an ETag and
-  Last-Modified presence check is added as an advisory row.
+  Last-Modified presence check is added as an advisory row. The
+  invalid-status row whose other_details has no `_type` is withdrawn: the
+  released key words apply only in capitals, and the lower-case "should be
+  used" assigns no refusal (upstream report #650).
 
 - Rows files carry decision-table literals (#638). The published rows schema
   gains `literals`, the columns whose values are read through the

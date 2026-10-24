@@ -12,10 +12,12 @@
 
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::sync::LazyLock;
 
 use serde::Deserialize;
 
 use crate::arazzo::cite::Citation;
+use crate::arazzo::gates::published::capabilities_schema;
 use crate::arazzo::results::{Skip, SkipReason, Why};
 
 /// The file name under a catalogue root.
@@ -58,27 +60,43 @@ pub enum CapabilitiesError {
     /// The file does not read or parse as YAML.
     #[error(transparent)]
     Load(#[from] crate::load::LoadError),
-    /// The file does not match the capabilities shape.
-    #[error("`{path}` is not a capabilities file: {reason}")]
+    /// The file does not match the published capabilities schema, or the
+    /// typed shape behind it.
+    #[error("`{path}` is not a capabilities file: {}", reasons.join("; "))]
     Shape {
         /// The file.
         path: std::path::PathBuf,
-        /// The deserializer's verbatim reason.
-        reason: String,
+        /// Every violation, verbatim.
+        reasons: Vec<String>,
     },
 }
 
+static VALIDATOR: LazyLock<Result<jsonschema::Validator, String>> =
+    LazyLock::new(|| jsonschema::validator_for(&capabilities_schema()).map_err(|e| e.to_string()));
+
 impl Capabilities {
-    /// Loads the capabilities file at `path`.
+    /// Loads the capabilities file at `path` through the published schema.
     ///
     /// # Errors
-    /// [`CapabilitiesError`] when the file does not load or has another shape.
+    /// [`CapabilitiesError`] when the file does not load, does not validate
+    /// against the schema, or has another shape.
     pub fn load(path: &Path) -> Result<Self, CapabilitiesError> {
         let value = crate::load::yaml_file_to_value(path)?;
-        serde_json::from_value(value).map_err(|error| CapabilitiesError::Shape {
+        let shape = |reasons| CapabilitiesError::Shape {
             path: path.to_owned(),
-            reason: error.to_string(),
-        })
+            reasons,
+        };
+        let validator = VALIDATOR
+            .as_ref()
+            .map_err(|error| shape(vec![format!("the schema does not compile: {error}")]))?;
+        let violations: Vec<String> = validator
+            .iter_errors(&value)
+            .map(|error| format!("#{}: {error}", error.instance_path()))
+            .collect();
+        if !violations.is_empty() {
+            return Err(shape(violations));
+        }
+        serde_json::from_value(value).map_err(|error| shape(vec![error.to_string()]))
     }
 
     /// The skip every row of `document` carries when the statement, whose
@@ -151,8 +169,26 @@ mod tests {
     }
 
     #[test]
-    fn an_unknown_key_is_refused() {
-        let bad = serde_json::json!({ "option": {} });
-        assert!(serde_json::from_value::<Capabilities>(bad).is_err());
+    fn an_unknown_key_and_a_one_armed_option_are_refused_by_the_schema() {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        let file = dir.child("capabilities.yaml");
+        for bad in [
+            "option: {}\n",
+            "options:\n  o:\n    description: d\n    arms: { a: { documents: [x] } }\n    x-veredictum-cite: { source: s, section: t, quote: q }\n",
+            "options:\n  o:\n    description: d\n    arms: { a: {}, b: { documents: [x, x] } }\n    x-veredictum-cite: { source: s, section: t, quote: q }\n",
+        ] {
+            file.write_str(bad).unwrap();
+            assert!(
+                matches!(
+                    Capabilities::load(file.path()),
+                    Err(CapabilitiesError::Shape { .. })
+                ),
+                "{bad}"
+            );
+        }
+        file.write_str("options:\n  o:\n    description: d\n    arms: { a: {}, b: { documents: [x] } }\n    x-veredictum-cite: { source: s, section: t, quote: q }\n")
+            .unwrap();
+        assert!(Capabilities::load(file.path()).is_ok());
     }
 }

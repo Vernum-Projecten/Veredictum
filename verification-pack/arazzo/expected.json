@@ -7,21 +7,28 @@
         "ehr/create_ehr-same_ehr_twice-with_id": "passed",
         "ehr/get_ehr-unknown_ehr_id": "passed"
       },
-      "adjudication": "The first PUT /ehr/{ehr_id} is answered 201 and the second 409, which ITS-REST specifications/responses/409_EHR_with_id.yaml assigns when 'the supplied `ehr_id` is already used by an existing EHR'; the read-back is answered 200 with the same ehr_id. The GET of an unused ehr_id is answered 404, which specifications/responses/404_unknown_ehr_id.yaml assigns. Both rows pass."
+      "adjudication": "The first PUT /ehr/{ehr_id} is answered 201 and the second 409, which ITS-REST specifications/responses/409_EHR_with_id.yaml assigns when 'the supplied `ehr_id` is already used by an existing EHR'; the read-back is answered 200 with the same ehr_id. The GET of an unused ehr_id is answered 404, which specifications/responses/404_unknown_ehr_id.yaml assigns. Both rows pass. The recorded ETag is the weak form W/\"…\": this is adjudicated synthetic material, edited on 2026-10-24 from the strong form when the ETag weak-form rule gained its own workflows, so the row judges only its own behaviour; etag-strong.har pins the strong form."
     },
     {
       "recording": "fail.har",
       "verdicts": {
         "ehr/create_ehr-same_ehr_twice-with_id": "failed"
       },
-      "adjudication": "The second PUT /ehr/{ehr_id} with an ehr_id already in use is answered 201 where specifications/responses/409_EHR_with_id.yaml assigns 409. The server served a value that differs from the cited one, so the row fails at step create-again."
+      "adjudication": "The second PUT /ehr/{ehr_id} with an ehr_id already in use is answered 201 where specifications/responses/409_EHR_with_id.yaml assigns 409. The server served a value that differs from the cited one, so the row fails at step create-again. The recorded ETag is the weak form W/\"…\": this is adjudicated synthetic material, edited on 2026-10-24 from the strong form when the ETag weak-form rule gained its own workflows, so the row judges only its own behaviour; etag-strong.har pins the strong form."
     },
     {
       "recording": "errored.har",
       "verdicts": {
         "ehr/get_ehr-by_id": "errored"
       },
-      "adjudication": "The GET /ehr/{ehr_id} is answered 200 with Content-Type application/json and a body that is not JSON, so the regex criterion over $response.body#/ehr_id/value cannot read its context. Under the condition profile an unreadable body makes the row errored: the instrument could not judge, and the row does not count against the server."
+      "adjudication": "The GET /ehr/{ehr_id} is answered 200 with Content-Type application/json and a body that is not JSON, so the regex criterion over $response.body#/ehr_id/value cannot read its context. Under the condition profile an unreadable body makes the row errored: the instrument could not judge, and the row does not count against the server. The recorded ETag is the weak form W/\"…\": this is adjudicated synthetic material, edited on 2026-10-24 from the strong form when the ETag weak-form rule gained its own workflows, so the row judges only its own behaviour; etag-strong.har pins the strong form."
+    },
+    {
+      "recording": "etag-strong.har",
+      "verdicts": {
+        "ehr/create_ehr-etag_weak-with_id": "failed"
+      },
+      "adjudication": "The PUT /ehr/{ehr_id} is answered 201 with ETag \"<ehr_id>\", a strong entity tag. ITS-REST docs/overview/Requests_and_responses.md §Deprecated headers: \"all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`\", and responses/201_EHR.yaml names the ETag the ehr_id identifier. The regex ^(W/\".+\")?$ does not match, so the row fails at step create. The recording is synthetic material authored on 2026-10-24 in the shape of an EHRbase 2.36.0 answer."
     }
   ]
 }

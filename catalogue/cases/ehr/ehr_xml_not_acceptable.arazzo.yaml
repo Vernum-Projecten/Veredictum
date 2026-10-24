@@ -40,14 +40,6 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
               quote: "`201 Created` is returned when the EHR has been successfully created,"
-          - &etag_weak
-            context: $response.header.ETag
-            type: regex
-            condition: '^(W/".+")?$'
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
-              section: Deprecated headers
-              quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
       - stepId: get
         description: Retrieve the EHR by its ehr_id in canonical XML.
         operationId: $sourceDescriptions.ehr.ehr_get_by_id
@@ -102,7 +94,6 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
               quote: "`201 Created` is returned when the EHR has been successfully created,"
-          - *etag_weak
       - stepId: get
         description: Retrieve the EHR by the subject's id and namespace in canonical XML.
         operationId: $sourceDescriptions.ehr.ehr_get_by_subject

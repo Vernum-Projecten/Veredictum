@@ -124,9 +124,8 @@ fn the_id_map_resolves_on_both_sides_and_covers_each_converted_component()
     }
     for (id, entry) in &map.cases {
         assert!(old.contains(id), "{id} names no case core");
-        assert_eq!(
-            entry.new.is_empty(),
-            entry.open.is_some(),
+        assert!(
+            !entry.new.is_empty() || entry.open.is_some(),
             "{id}: an entry carries new ids or says why it has none"
         );
         for new in &entry.new {

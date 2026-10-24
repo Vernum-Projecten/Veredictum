@@ -44,14 +44,6 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
               quote: "with the full resource in the body when `Prefer` header is `return=representation`"
-          - &etag_weak
-            context: $response.header.ETag
-            type: regex
-            condition: '^(W/".+")?$'
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
-              section: Deprecated headers
-              quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: read-version

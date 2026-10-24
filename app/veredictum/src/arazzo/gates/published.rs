@@ -275,6 +275,53 @@ pub fn rows_schema() -> Value {
     })
 }
 
+/// The capabilities file: the options a statement answers, with the
+/// documents that test each arm.
+#[must_use]
+pub fn capabilities_schema() -> Value {
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("arazzo-capabilities"),
+        "title": "Options and their arm documents for the Arazzo catalogue",
+        "description": "Lives at `catalogue/capabilities.yaml`. Each option is behaviour the released text leaves to the implementation, citing the sentence that leaves it. Its arms are keyed by the token a statement's `options` list selects one with, and each names the documents, by document id, that test it. The documents of every arm the statement does not select are skipped with `option-not-selected`, and a surface element counts as covered only when every arm of its option covers it. `validate` refuses an arm naming a document the catalogue does not hold, and a document under two arms of one option.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "options": {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["description", "arms", CITE_KEY],
+                    "properties": {
+                        "description": { "type": "string", "minLength": 1 },
+                        "arms": {
+                            "type": "object",
+                            "minProperties": 2,
+                            "additionalProperties": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "documents": {
+                                        "type": "array",
+                                        "uniqueItems": true,
+                                        "items": { "type": "string", "pattern": WORKFLOW_ID_PATTERN }
+                                    }
+                                }
+                            }
+                        },
+                        CITE_KEY: {
+                            "description": "The citation, in the `arazzo-extensions` cite shape.",
+                            "type": "object",
+                            "required": ["source", "section", "quote"]
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
 /// The surface-coverage file: the converted operation families, and the
 /// tracked gaps inside them.
 #[must_use]

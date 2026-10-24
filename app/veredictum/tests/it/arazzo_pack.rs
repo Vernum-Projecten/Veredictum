@@ -82,7 +82,7 @@ fn replay(document: &ArazzoDocument, recording: &Recording) -> Results {
 fn every_adjudicated_verdict_is_reproduced() {
     let expected = pack();
     let document = ArazzoDocument::load(&root().join(&expected.document)).unwrap();
-    assert_eq!(expected.recordings.len(), 3);
+    assert_eq!(expected.recordings.len(), 4);
     let mut seen = BTreeMap::new();
     for recording in &expected.recordings {
         assert!(!recording.adjudication.is_empty());
