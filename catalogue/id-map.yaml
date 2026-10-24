@@ -2,7 +2,9 @@
 # catalogue, and the Arazzo case ids (`<document>/<workflowId>`) that carry
 # it. An entry with no new id says why in `open`, and an entry that carries
 # only part of its case names the part it leaves in `open`. Upstream reports
-# and pull requests that name an old id resolve through this file.
+# and pull requests that name an old id resolve through this file. `pending`
+# lists the old ids of a component whose own family is not converted yet
+# (#603): each moves into `cases` when its family is converted.
 cases:
   I_EHR_SERVICE.create_ehr-bulk_load_population:
     new: [ehr_bulk_load/bulk_load-population]
@@ -259,3 +261,175 @@ cases:
     new: *xml_body
   I_EHR_STATUS.update_other_details-round_trip:
     new: [ehr_status_update/update-other_details]
+  I_ITS_REST_ITEM_TAGS.composition_tags_delete-key_scoped:
+    new: [composition_tags/composition_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.composition_tags_delete-second_delete_not_found:
+    new: [composition_tags/composition_tags_delete-repeated]
+  I_ITS_REST_ITEM_TAGS.composition_tags_delete-unknown_key:
+    new: [composition_tags/composition_tags_delete-unknown_key]
+  I_ITS_REST_ITEM_TAGS.composition_tags_delete-version_container_disjoint:
+    new:
+      - ehr_status_tags/ehr_status_tags_delete-version_container_disjoint
+    open: >-
+      The COMPOSITION form, addressed by the versioned_object_uid, is not
+      carried: no released response gives a client that uid for a new
+      COMPOSITION, and the evaluator cannot take it from the version_uid
+      (#667). The behaviour is carried on the EHR_STATUS container.
+  I_ITS_REST_ITEM_TAGS.composition_tags_get-container_target_shape:
+    new: [ehr_status_tags/ehr_status_tags_get-container_target_shape]
+    open: >-
+      The COMPOSITION form, addressed by the versioned_object_uid, is not
+      carried: no released response gives a client that uid for a new
+      COMPOSITION, and the evaluator cannot take it from the version_uid
+      (#667). The behaviour is carried on the EHR_STATUS container.
+      owner_id/type equal to EHR is not judged: the released ITEM_TAG schema
+      types owner_id as an OBJECT_REF and assigns no type value.
+  I_ITS_REST_ITEM_TAGS.composition_tags_get-cross_space_party_uid:
+    new:
+      - composition_tags/composition_tags_get-other_ehr
+      - ehr_status_tags/ehr_status_tags_get-composition_uid
+    open: >-
+      A demographic party's uid on the COMPOSITION route is not carried: it
+      needs a party created through the demographic API as a precondition of
+      an ITEM_TAG row (#667). The EHR-side directions are carried.
+  I_ITS_REST_ITEM_TAGS.composition_tags_get-supersession_does_not_move_tags:
+    new: [ehr_status_tags/ehr_status_tags_get-new_version_untagged]
+    open: >-
+      The COMPOSITION form needs the versioned_object_uid for
+      composition_update and for the container tags, which the evaluator
+      cannot obtain (#667). The behaviour is carried on EHR_STATUS, whose
+      update needs no container uid.
+  I_ITS_REST_ITEM_TAGS.composition_tags_get-version_target_shape:
+    new: [composition_tags/composition_tags_get-version_target_shape]
+    open: >-
+      owner_id/type equal to EHR is not judged: the released ITEM_TAG schema
+      types owner_id as an OBJECT_REF and assigns no type value.
+  I_ITS_REST_ITEM_TAGS.composition_tags_get-xml_not_acceptable:
+    new:
+      - composition_tags_refused/composition_tags_get-xml_not_acceptable
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-duplicate_identity_last_wins:
+    new: [composition_tags/composition_tags_update-duplicate_identity]
+    open: >-
+      Which of the two values is kept is not judged: no released sentence
+      assigns rejection, a merge or an order. The workflow judges that at
+      most one tag is stored, from the key and target_path identity.
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-empty_target_path_absent:
+    new: []
+    open: >-
+      No released sentence makes an empty target_path absent: the released
+      UPDATE_ITEM_TAG schema types target_path as a string with no rule on an
+      empty one, and the docs text is silent.
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-empty_value_invariant:
+    new: []
+    open: >-
+      No released ground for a refusal: the released UPDATE_ITEM_TAG schema
+      puts no length on value, the docs text is silent, and the RM ITEM_TAG
+      invariants are not released text (the Tags chapter is commented out of
+      the RM common specification).
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-key_target_path_identity:
+    new:
+      - composition_tags/composition_tags_update-key_target_path_identity
+    open: >-
+      Carried on the COMPOSITION version; #667 tracks the container form.
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-no_reversioning:
+    new: []
+    open: >-
+      No released sentence states that a tag update creates no new version or
+      CONTRIBUTION. The sentences the case rested on are not in the released
+      RM: the ehr package has no Tags section, and the common Tags chapter is
+      not included in the released common specification.
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-non_array_body:
+    new:
+      - composition_tags_refused/composition_tags_update-non_array_body
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-non_string_target_path:
+    new:
+      - composition_tags_refused/composition_tags_update-non_string_target_path
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-non_string_value:
+    new:
+      - composition_tags_refused/composition_tags_update-non_string_value
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-prefer_identifier:
+    new: [composition_tags/composition_tags_update-return_identifier]
+    open: >-
+      The case expected 204. The workflow judges 200 or 201 as advisory: the
+      identifier body is a SHOULD (Requests_and_responses.md §Prefer only
+      identifier, upstream report #673).
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-undeclared_member:
+    new:
+      - composition_tags_refused/composition_tags_update-undeclared_member
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-unknown_container:
+    new: [composition_tags/composition_tags_update-unknown_uid]
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-version_container_disjoint:
+    new:
+      - ehr_status_tags/ehr_status_tags_update-version_container_disjoint
+    open: >-
+      The COMPOSITION form, addressed by the versioned_object_uid, is not
+      carried: no released response gives a client that uid for a new
+      COMPOSITION, and the evaluator cannot take it from the version_uid
+      (#667). The behaviour is carried on the EHR_STATUS container.
+  I_ITS_REST_ITEM_TAGS.composition_tags_update-wrong_media:
+    new:
+      - composition_tags_refused/composition_tags_update-wrong_media
+  I_ITS_REST_ITEM_TAGS.ehr_status_tags_delete-key_scoped:
+    new: [ehr_status_tags/ehr_status_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.ehr_status_tags_delete-wrong_kind_uid:
+    new: [ehr_status_tags/ehr_status_tags_delete-composition_uid]
+  I_ITS_REST_ITEM_TAGS.ehr_status_tags_get-wrong_kind_uid:
+    new: [ehr_status_tags/ehr_status_tags_get-composition_uid]
+  I_ITS_REST_ITEM_TAGS.ehr_status_tags_update-key_target_path_identity:
+    new:
+      - ehr_status_tags/ehr_status_tags_update-key_target_path_identity
+  I_ITS_REST_ITEM_TAGS.ehr_status_tags_update-non_array_body:
+    new: [ehr_status_tags/ehr_status_tags_update-non_array_body]
+  I_ITS_REST_ITEM_TAGS.ehr_status_tags_update-wrong_kind_uid:
+    new: [ehr_status_tags/ehr_status_tags_update-composition_uid]
+  I_ITS_REST_ITEM_TAGS.ehr_tags_get-ehr_wide_listing:
+    new: [ehr_tags/ehr_tags_get-ehr_wide_listing]
+  I_ITS_REST_ITEM_TAGS.ehr_tags_get-unknown_ehr:
+    new: [ehr_tags/ehr_tags_get-unknown_ehr]
+  I_ITS_REST_REVISION_HISTORY.versioned_ehr_status_revision_history-bad_ehr:
+    new:
+      - ehr_status_versioned/get_versioned_ehr_status-revision_history-unknown_ehr
+  I_ITS_REST_REVISION_HISTORY.versioned_ehr_status_revision_history-two_versions:
+    new:
+      - ehr_status_versioned/get_versioned_ehr_status-revision_history
+    open: >-
+      The order of the items is not judged: the released REVISION_HISTORY
+      class says most-recent-first in its description and most-recent-last on
+      items (upstream report #661).
+pending:
+  - I_ITS_REST_ITEM_TAGS.agent_tags_delete-key_scoped
+  - I_ITS_REST_ITEM_TAGS.agent_tags_delete-unknown_key
+  - I_ITS_REST_ITEM_TAGS.agent_tags_get-unknown_container
+  - I_ITS_REST_ITEM_TAGS.agent_tags_update-non_array_body
+  - I_ITS_REST_ITEM_TAGS.agent_tags_update-unknown_container
+  - I_ITS_REST_ITEM_TAGS.demographic_tags_get-space_wide_listing
+  - I_ITS_REST_ITEM_TAGS.group_tags_delete-key_scoped
+  - I_ITS_REST_ITEM_TAGS.group_tags_delete-unknown_key
+  - I_ITS_REST_ITEM_TAGS.group_tags_get-unknown_container
+  - I_ITS_REST_ITEM_TAGS.group_tags_update-non_array_body
+  - I_ITS_REST_ITEM_TAGS.group_tags_update-unknown_container
+  - I_ITS_REST_ITEM_TAGS.organisation_tags_delete-key_scoped
+  - I_ITS_REST_ITEM_TAGS.organisation_tags_delete-wrong_kind_uid
+  - I_ITS_REST_ITEM_TAGS.organisation_tags_get-wrong_kind_uid
+  - I_ITS_REST_ITEM_TAGS.organisation_tags_update-non_array_body
+  - I_ITS_REST_ITEM_TAGS.organisation_tags_update-wrong_kind_uid
+  - I_ITS_REST_ITEM_TAGS.person_tags_delete-key_scoped
+  - I_ITS_REST_ITEM_TAGS.person_tags_delete-unknown_key
+  - I_ITS_REST_ITEM_TAGS.person_tags_delete-version_container_disjoint
+  - I_ITS_REST_ITEM_TAGS.person_tags_get-container_target_shape
+  - I_ITS_REST_ITEM_TAGS.person_tags_get-cross_space_composition_uid
+  - I_ITS_REST_ITEM_TAGS.person_tags_get-version_target_shape
+  - I_ITS_REST_ITEM_TAGS.person_tags_update-empty_target_path_absent
+  - I_ITS_REST_ITEM_TAGS.person_tags_update-key_target_path_identity
+  - I_ITS_REST_ITEM_TAGS.person_tags_update-non_array_body
+  - I_ITS_REST_ITEM_TAGS.person_tags_update-unknown_container
+  - I_ITS_REST_ITEM_TAGS.person_tags_update-version_container_disjoint
+  - I_ITS_REST_ITEM_TAGS.role_tags_delete-key_scoped
+  - I_ITS_REST_ITEM_TAGS.role_tags_delete-unknown_key
+  - I_ITS_REST_ITEM_TAGS.role_tags_get-unknown_container
+  - I_ITS_REST_ITEM_TAGS.role_tags_update-non_array_body
+  - I_ITS_REST_ITEM_TAGS.role_tags_update-unknown_container
+  - I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-two_versions
+  - I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-unknown_container
+  - I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-two_versions
+  - I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-unknown_container

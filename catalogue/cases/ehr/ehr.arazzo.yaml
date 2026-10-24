@@ -1050,11 +1050,16 @@ workflows:
     description: >-
       Creates an EHR with Prefer return=identifier. The answer is 201 with a
       JSON body that carries the identifier under uid and none of the EHR's
-      own attributes, and that identifier addresses the created EHR.
+      own attributes, and that identifier addresses the created EHR. The
+      released text recommends the identifier body, so the status and body
+      criteria are advisory; a service that declines the preference leaves no
+      identifier to read the EHR back by, and that row is errored.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: Prefer only identifier
-      quote: "This is a variant of preference that implies minimal response semantics, but with a non-empty response body (i.e., the status will be `201 Created` or `200 OK`, never `204 No Content`)."
+      quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+      level: should
+      report: 673
     steps:
       - stepId: create
         description: Create an EHR and ask for its identifier only.
@@ -1063,26 +1068,22 @@ workflows:
           - { name: Prefer, in: header, value: return=identifier }
           - { name: Accept, in: header, value: application/json }
         successCriteria:
-          - condition: $statusCode == 201
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
-              section: description
-              quote: "`201 Created` is returned when the EHR has been successfully created, with the full resource in the body when `Prefer` header is `return=representation`, or only its identifiers when `Prefer` header is `return=identifier`."
-          - context: $response.header.Content-Type
+          - context: $statusCode
             type: regex
-            condition: '^application/json'
-            x-veredictum-cite: *json_content_type
-          - condition: $response.body#/uid != null
-            x-veredictum-cite:
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: &success_status
               source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
-              section: Prefer only identifier
-              quote: "For example, when `application/json` is requested as above, the response body will be a single JSON object with a single `uid` attribute."
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+          - condition: $statusCode == 201
+          - condition: $response.body#/uid != null
           - condition: $response.body#/ehr_id == null
             x-veredictum-cite: &identifier_only
               source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
               section: Prefer only identifier
               quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
               level: should
+              report: 673
           - condition: $response.body#/system_id == null
             x-veredictum-cite: *identifier_only
           - condition: $response.body#/ehr_status == null
@@ -1105,6 +1106,35 @@ workflows:
           - context: $response.body#/ehr_id/value
             type: regex
             condition: '^{$steps.create.outputs.ehr_id}$'
+
+  - workflowId: create_ehr-content_type
+    summary: An EHR create answered with the full resource names it as JSON
+    description: >-
+      Creates an EHR with Prefer return=representation and Accept
+      application/json. The answer is 201 with the EHR in its body, so it
+      carries Content-Type application/json.
+    x-veredictum-cite: *json_content_type
+    steps:
+      - stepId: create
+        description: Create an EHR and ask for the full resource as JSON.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
 
   - workflowId: create_ehr-invalid_status-missing_required
     summary: An EHR_STATUS that lacks a member the request schema requires is refused

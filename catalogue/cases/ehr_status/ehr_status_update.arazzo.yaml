@@ -331,11 +331,16 @@ workflows:
       Creates an EHR, then updates its EHR_STATUS with Prefer
       return=identifier. The answer is 200 with a JSON body that carries the
       identifier under uid and none of the EHR_STATUS attributes, and that
-      identifier is the version the update created.
+      identifier is the version the update created. The released text
+      recommends the identifier body, so the status and body criteria are
+      advisory; a service that declines the preference leaves no identifier
+      to compare, and that row is errored.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: Prefer only identifier
-      quote: "This is a variant of preference that implies minimal response semantics, but with a non-empty response body (i.e., the status will be `201 Created` or `200 OK`, never `204 No Content`)."
+      quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+      level: should
+      report: 673
     inputs:
       type: object
       properties:
@@ -355,25 +360,22 @@ workflows:
           contentType: application/json
           payload: *not_queryable
         successCriteria:
-          - condition: $statusCode == 200
-          - context: $response.header.Content-Type
+          - context: $statusCode
             type: regex
-            condition: '^application/json'
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
-              section: JSON Format
-              quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
-          - condition: $response.body#/uid != null
-            x-veredictum-cite:
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: &success_status
               source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
-              section: Prefer only identifier
-              quote: "For example, when `application/json` is requested as above, the response body will be a single JSON object with a single `uid` attribute."
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+          - condition: $statusCode == 200
+          - condition: $response.body#/uid != null
           - condition: $response.body#/is_queryable == null
             x-veredictum-cite: &identifier_only
               source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
               section: Prefer only identifier
               quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
               level: should
+              report: 673
           - condition: $response.body#/subject == null
             x-veredictum-cite: *identifier_only
         outputs:
@@ -394,6 +396,45 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/schemas/others/Identifier.yaml
               section: /properties/uid/description
               quote: "The (version) resource identifier."
+
+  - workflowId: update-content_type
+    summary: An EHR_STATUS update answered with the full resource names it as JSON
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with Prefer
+      return=representation and Accept application/json. The answer is 200
+      with the EHR_STATUS in its body, so it carries Content-Type
+      application/json.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with is_queryable false and ask for the full resource as JSON.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *not_queryable
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_EHR_STATUS_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the EHR_STATUS is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
 
   - workflowId: update-etag_weak
     summary: An ETag sent on an EHR_STATUS update carries the weakness indicator

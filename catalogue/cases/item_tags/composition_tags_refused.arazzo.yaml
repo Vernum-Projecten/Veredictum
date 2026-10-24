@@ -1,0 +1,435 @@
+# The refused COMPOSITION tag requests: a tag list asked for or sent in a
+# format the service cannot serve or process, and tag bodies that are
+# syntactically invalid, as Arazzo 1.1.0
+# workflows over the released ITS-REST `-validation` OAS. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored
+# file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION tags refused
+  version: 0.1.0
+  description: >-
+    Requests on the ITEM_TAG list of a COMPOSITION version that the service
+    refuses: canonical XML asked for or sent, a payload in a format the
+    operation does not take, and a body that is not a valid tag list. Each
+    refused update leaves the stored list as it was.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: composition_tags_get-xml_not_acceptable
+    summary: A COMPOSITION tag list asked for as XML is answered 406
+    description: >-
+      Tags a COMPOSITION version, then retrieves its tags with Accept
+      application/xml. Canonical XML responses must conform to the published
+      XSDs, and no published XSD declares ITEM_TAG, so no conformant XML tag
+      list exists and the service cannot fulfill the request and answers 406
+      Not Acceptable.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &not_acceptable
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create
+        stepId: create
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: Commit a COMPOSITION and keep the version_uid the identifier preference answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: content case carrier }
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { _type: TEMPLATE_ID, value: cnf.tpl.count_range }
+              rm_version: 1.0.2
+            language:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+              code_string: en
+            territory:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+              code_string: NL
+            category:
+              _type: DV_CODED_TEXT
+              value: event
+              defining_code:
+                _type: CODE_PHRASE
+                terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                code_string: "433"
+            composer: { _type: PARTY_SELF }
+            context:
+              _type: EVENT_CONTEXT
+              start_time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+              setting:
+                _type: DV_CODED_TEXT
+                value: other care
+                defining_code:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                  code_string: "238"
+            content:
+              - _type: OBSERVATION
+                name: { _type: DV_TEXT, value: content observation }
+                archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                  rm_version: 1.0.2
+                language:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                  code_string: en
+                encoding:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                  code_string: UTF-8
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: HISTORY
+                  name: { _type: DV_TEXT, value: history }
+                  archetype_node_id: at0001
+                  origin: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                  events:
+                    - _type: POINT_EVENT
+                      name: { _type: DV_TEXT, value: any event }
+                      archetype_node_id: at0002
+                      time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                      data:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: tree }
+                        archetype_node_id: at0003
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: value }
+                            archetype_node_id: at0004
+                            value: { _type: DV_COUNT, magnitude: 15 }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: &success_status
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+          - condition: $statusCode == 201
+            x-veredictum-cite: &identifier_should
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+          - condition: $response.body#/uid != null
+            x-veredictum-cite: *identifier_should
+        outputs:
+          version_uid: $response.body#/uid
+      - &tag_alpha
+        stepId: tag
+        description: Update the version's tag list with the tag alpha.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: get
+        description: Retrieve the version's tags as XML.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: composition_tags_update-xml_not_acceptable
+    summary: A COMPOSITION tag update asking for its representation as XML is answered 406
+    description: >-
+      Updates the tag list of a COMPOSITION version with Prefer
+      return=representation and Accept application/xml. No published XSD
+      declares ITEM_TAG, so no conformant XML tag list exists and the service
+      cannot answer with the representation in XML and answers 406 Not
+      Acceptable.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *not_acceptable
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - stepId: tag
+        description: Update the version's tag list asking for the representation as XML.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: composition_tags_update-xml_unsupported_media
+    summary: A COMPOSITION tag list sent as XML is answered 415 and stores nothing
+    description: >-
+      Tags a COMPOSITION version with alpha, then updates its tag list with a
+      body sent as application/xml. Canonical XML payloads must conform to the
+      published XSDs, and no published XSD declares ITEM_TAG, so no conformant
+      XML tag list exists and the service cannot process the payload as XML:
+      it answers 415 Unsupported Media Type, and the list still holds alpha
+      alone.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - *tag_alpha
+      - stepId: tag-xml
+        description: Update the version's tag list with an XML body.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="utf-8"?>
+            <items><item><key>beta</key><value>b</value></item></items>
+        successCriteria:
+          - condition: $statusCode == 415
+      - &alpha_alone
+        stepId: get
+        description: Retrieve the version's tags; the refused update changed nothing.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &list_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_ItemTagList_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested ITEM_TAG list is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha']"
+          - condition: $response.body#/1 == null
+
+  - workflowId: composition_tags_update-wrong_media
+    summary: A COMPOSITION tag list sent as text/plain is answered 415 and stores nothing
+    description: >-
+      Tags a COMPOSITION version with alpha, then updates its tag list with a
+      JSON body labelled Content-Type text/plain. The operation takes its
+      body as application/json only, so the payload is in a format the
+      operation does not support: the update is answered 415 Unsupported
+      Media Type, and the list still holds alpha alone.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service is refusing the request because the payload is in a format not supported by this method on the target resource"
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - *tag_alpha
+      - stepId: tag-text
+        description: Update the version's tag list with a body labelled text/plain.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        requestBody:
+          contentType: text/plain
+          payload: '[{"key":"beta","value":"b"}]'
+        successCriteria:
+          - condition: $statusCode == 415
+      - *alpha_alone
+
+  - workflowId: composition_tags_update-non_array_body
+    summary: A COMPOSITION tag update whose body is not an array is answered 400
+    description: >-
+      Tags a COMPOSITION version with alpha, then updates its tag list with a
+      JSON object where the operation's request body is an array of
+      UPDATE_ITEM_TAG. The content is syntactically invalid, so the update is
+      answered 400 Bad Request, and the list still holds alpha alone.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &bad_request
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - *tag_alpha
+      - stepId: tag-invalid
+        description: Update the version's tag list with an object instead of an array.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload: { key: beta, value: b }
+        successCriteria:
+          - condition: $statusCode == 400
+      - *alpha_alone
+
+  - workflowId: composition_tags_update-non_string_value
+    summary: A COMPOSITION tag whose value is not a string is answered 400
+    description: >-
+      Tags a COMPOSITION version with alpha, then updates its tag list with a
+      tag whose value is the number 42, where UPDATE_ITEM_TAG types value as
+      a string. The content is syntactically invalid, so the update is
+      answered 400 Bad Request, and the list still holds alpha alone.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *bad_request
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - *tag_alpha
+      - stepId: tag-invalid
+        description: Update the version's tag list with a numeric value.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: beta, value: 42 }
+        successCriteria:
+          - condition: $statusCode == 400
+      - *alpha_alone
+
+  - workflowId: composition_tags_update-non_string_target_path
+    summary: A COMPOSITION tag whose target_path is not a string is answered 400
+    description: >-
+      Tags a COMPOSITION version with alpha, then updates its tag list with a
+      tag whose target_path is the number 7, where UPDATE_ITEM_TAG types
+      target_path as a string. The content is syntactically invalid, so the
+      update is answered 400 Bad Request, and the list still holds alpha
+      alone.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *bad_request
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - *tag_alpha
+      - stepId: tag-invalid
+        description: Update the version's tag list with a numeric target_path.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: beta, target_path: 7 }
+        successCriteria:
+          - condition: $statusCode == 400
+      - *alpha_alone
+
+  - workflowId: composition_tags_update-undeclared_member
+    summary: A COMPOSITION tag carrying a member UPDATE_ITEM_TAG does not declare is answered 400
+    description: >-
+      Tags a COMPOSITION version with alpha, then updates its tag list with a
+      tag that carries a target member. UPDATE_ITEM_TAG declares key, value
+      and target_path only and admits no other property, so the content is
+      syntactically invalid: the update is answered 400 Bad Request, and the
+      list still holds alpha alone.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *bad_request
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - *tag_alpha
+      - stepId: tag-invalid
+        description: Update the version's tag list with a tag that carries a target member.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: beta, target: anything }
+        successCriteria:
+          - condition: $statusCode == 400
+      - *alpha_alone
+
+  - workflowId: composition_tags_update-missing_key
+    summary: A COMPOSITION tag without a key is answered 400
+    description: >-
+      Tags a COMPOSITION version with alpha, then updates its tag list with a
+      tag that carries a value and no key, which UPDATE_ITEM_TAG requires.
+      The content is syntactically invalid, so the update is answered 400
+      Bad Request, and the list still holds alpha alone.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *bad_request
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - *tag_alpha
+      - stepId: tag-invalid
+        description: Update the version's tag list with a tag that has no key.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { value: b }
+        successCriteria:
+          - condition: $statusCode == 400
+      - *alpha_alone

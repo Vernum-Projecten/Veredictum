@@ -1424,12 +1424,15 @@ fn scalar(value: &Value) -> String {
 /// Merges this component's entries into the id map at `path`.
 fn write_id_map(path: &Path, converted: &[Converted], document: &str) -> Result<(), ConvertError> {
     let mut cases: BTreeMap<String, Value> = BTreeMap::new();
-    if path.is_file()
-        && let Some(Value::Object(existing)) = veredictum::load::yaml_file_to_value(path)?
-            .get("cases")
-            .cloned()
-    {
-        cases.extend(existing);
+    let mut pending: Vec<Value> = Vec::new();
+    if path.is_file() {
+        let existing = veredictum::load::yaml_file_to_value(path)?;
+        if let Some(Value::Object(mapped)) = existing.get("cases").cloned() {
+            cases.extend(mapped);
+        }
+        if let Some(Value::Array(waiting)) = existing.get("pending").cloned() {
+            pending = waiting;
+        }
     }
     let mut fresh: BTreeMap<String, Vec<Value>> = BTreeMap::new();
     for item in converted {
@@ -1438,6 +1441,7 @@ fn write_id_map(path: &Path, converted: &[Converted], document: &str) -> Result<
             ids.push(Value::String(format!("{document}/{id}")));
         }
     }
+    let fresh_ids: BTreeSet<String> = fresh.keys().cloned().collect();
     for (old, new) in fresh {
         if new.is_empty() {
             cases.insert(
@@ -1448,12 +1452,21 @@ fn write_id_map(path: &Path, converted: &[Converted], document: &str) -> Result<
             cases.insert(old, json!({ "new": new }));
         }
     }
+    pending.retain(|id| id.as_str().is_none_or(|id| !fresh_ids.contains(id)));
     let mut text = String::from(
-        "# The old-to-new case id map (#603): every case id of the case-core\n\
-         # catalogue, and the Arazzo case ids (`<document>/<workflowId>`) that\n\
-         # carry it. An entry with no new id names why in `open`.\n",
+        "# The old-to-new case id map (#603): each case id of the case-core\n\
+         # catalogue, and the Arazzo case ids (`<document>/<workflowId>`) that carry\n\
+         # it. An entry with no new id says why in `open`, and an entry that carries\n\
+         # only part of its case names the part it leaves in `open`. Upstream reports\n\
+         # and pull requests that name an old id resolve through this file. `pending`\n\
+         # lists the old ids of a component whose own family is not converted yet\n\
+         # (#603): each moves into `cases` when its family is converted.\n",
     );
-    emit(&json!({ "cases": cases }), 0, &mut text);
+    if pending.is_empty() {
+        emit(&json!({ "cases": cases }), 0, &mut text);
+    } else {
+        emit(&json!({ "cases": cases, "pending": pending }), 0, &mut text);
+    }
     std::fs::write(path, text)?;
     Ok(())
 }

@@ -61,6 +61,9 @@ struct MapEntry {
 #[serde(deny_unknown_fields)]
 struct IdMap {
     cases: std::collections::BTreeMap<String, MapEntry>,
+    /// The old ids of a component whose own family is not converted yet.
+    #[serde(default)]
+    pending: std::collections::BTreeSet<String>,
 }
 
 fn case_ids(dir: &Path, out: &mut Vec<String>) -> std::io::Result<()> {
@@ -110,6 +113,7 @@ fn the_id_map_resolves_on_both_sides_and_covers_each_converted_component()
     let components: std::collections::BTreeSet<&str> = map
         .cases
         .keys()
+        .chain(&map.pending)
         .filter_map(|id| id.split_once('.').map(|(component, _)| component))
         .collect();
     for id in &old {
@@ -117,10 +121,18 @@ fn the_id_map_resolves_on_both_sides_and_covers_each_converted_component()
             && components.contains(component)
         {
             assert!(
-                map.cases.contains_key(id),
+                map.cases.contains_key(id) || map.pending.contains(id),
                 "{id} is missing from the id map"
             );
         }
+    }
+    // TODO(#604): the cut-over refuses any id still listed under `pending`.
+    for id in &map.pending {
+        assert!(old.contains(id), "pending {id} names no case core");
+        assert!(
+            !map.cases.contains_key(id),
+            "{id} is both mapped and pending"
+        );
     }
     for (id, entry) in &map.cases {
         assert!(old.contains(id), "{id} names no case core");
