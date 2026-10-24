@@ -61,13 +61,15 @@ options:
       quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
   composition-xml-read:
     description: >-
-      Whether the service serves a COMPOSITION in canonical XML when a client
-      asks for it with Accept application/xml.
+      Whether the service serves the COMPOSITION resource family (the
+      COMPOSITION, its VERSIONED_COMPOSITION, their versions and the revision
+      history) in canonical XML when a client asks for it with Accept
+      application/xml.
     arms:
       composition-xml-supported:
-        documents: [composition_read_xml]
+        documents: [composition_read_xml, composition_versioned_read_xml]
       composition-xml-unsupported:
-        documents: [composition_read_xml_not_acceptable]
+        documents: [composition_read_xml_not_acceptable, composition_versioned_read_xml_not_acceptable]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
