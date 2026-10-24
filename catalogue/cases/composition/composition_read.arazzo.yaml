@@ -1,0 +1,485 @@
+# The COMPOSITION read by its uid_based_id, as Arazzo 1.1.0 workflows over
+# the released ITS-REST `-validation` OAS: the version a version_uid names,
+# the headers of the answer, and the misses answered 404. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored
+# file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION read
+  version: 0.1.0
+  description: >-
+    Reading a COMPOSITION version by its version_uid in canonical JSON, the
+    headers that answer carries, and the reads of an unknown EHR, an unknown
+    version_uid or versioned_object_uid, a version of another EHR and a
+    version of another versioned object, which are answered 404.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: get_composition-by_version_uid
+    summary: A COMPOSITION read by version_uid serves the committed COMPOSITION
+    description: >-
+      Creates an EHR and commits a COMPOSITION, then retrieves it by the
+      version_uid the commit answered with. The answer is 200, and its
+      content is the COMPOSITION that was committed, apart from the uid the
+      server assigns.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &by_version_uid
+      source: specs/openehr/ITS-REST/specifications/operations/composition_get.yaml
+      section: description
+      quote: "The former is used to retrieve a specific known version of the COMPOSITION (e.g. one identified by `8849182c-82ad-4088-a07f-48ead4180515::openEHRSys.example.com::1`),"
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create
+        stepId: create
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &ehr_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: Commit a COMPOSITION and keep the version_uid of the full representation the create answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &composition
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: content case carrier }
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { _type: TEMPLATE_ID, value: cnf.tpl.count_range }
+              rm_version: 1.0.2
+            language:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+              code_string: en
+            territory:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+              code_string: NL
+            category:
+              _type: DV_CODED_TEXT
+              value: event
+              defining_code:
+                _type: CODE_PHRASE
+                terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                code_string: "433"
+            composer: { _type: PARTY_SELF }
+            context:
+              _type: EVENT_CONTEXT
+              start_time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+              setting:
+                _type: DV_CODED_TEXT
+                value: other care
+                defining_code:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                  code_string: "238"
+            content:
+              - _type: OBSERVATION
+                name: { _type: DV_TEXT, value: content observation }
+                archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                  rm_version: 1.0.2
+                language:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                  code_string: en
+                encoding:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                  code_string: UTF-8
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: HISTORY
+                  name: { _type: DV_TEXT, value: history }
+                  archetype_node_id: at0001
+                  origin: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                  events:
+                    - _type: POINT_EVENT
+                      name: { _type: DV_TEXT, value: any event }
+                      archetype_node_id: at0002
+                      time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                      data:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: tree }
+                        archetype_node_id: at0003
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: value }
+                            archetype_node_id: at0004
+                            value: { _type: DV_COUNT, magnitude: 15 }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &composition_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve the COMPOSITION by the version_uid of the commit.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &composition_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested COMPOSITION is successfully retrieved."
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: equivalent
+              context: $response.body
+              to: *composition
+              ignoring: [uid]
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Contributions
+              quote: "a new `VERSIONED_OBJECT` is created with a first `ORIGINAL_VERSION` whose data is the new item;"
+
+  - workflowId: get_composition-content_type
+    summary: A COMPOSITION read with Accept application/json is answered as JSON
+    description: >-
+      Creates an EHR, commits a COMPOSITION and retrieves it by its
+      version_uid with Accept application/json. The answer carries
+      Content-Type application/json.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - stepId: get
+        description: Retrieve the COMPOSITION by its version_uid as JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *composition_retrieved
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+
+  - workflowId: get_composition-etag_weak
+    summary: An ETag sent on a COMPOSITION read carries the weakness indicator
+    description: >-
+      Creates an EHR, commits a COMPOSITION and retrieves it by its
+      version_uid. If the answer sends an ETag, it is a weak entity tag.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - stepId: get
+        description: Retrieve the COMPOSITION by its version_uid.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *composition_retrieved
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: get_composition-etag_last_modified
+    summary: A COMPOSITION read is answered with ETag and Last-Modified
+    description: >-
+      Creates an EHR, commits a COMPOSITION and retrieves it by its
+      version_uid. A COMPOSITION is a versioned resource, so the answer
+      carries an ETag and a Last-Modified header. The headers are
+      recommended, so a row that lacks them is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: ETag and Last-Modified
+      quote: "Both `ETag` and `Last-Modified` SHOULD be included in responses for VERSION, VERSIONED_OBJECT, or other resources that have versioning or unique state identifiers."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - stepId: get
+        description: Retrieve the COMPOSITION by its version_uid.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *composition_retrieved
+          - condition: $response.header.ETag != null
+          - condition: $response.header.Last-Modified != null
+
+  - workflowId: get_composition-no_location
+    summary: A COMPOSITION read sends no Location header
+    description: >-
+      Creates an EHR, commits a COMPOSITION and retrieves it by its
+      version_uid. A read names no newly created resource, so the answer
+      carries no Location header.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Location
+      quote: "It MUST NOT be used to indicate an alternate representation of an existing resource (e.g. via `GET` method)."
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - stepId: get
+        description: Retrieve the COMPOSITION by its version_uid.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *composition_retrieved
+          - condition: $response.header.Location == null
+
+  - workflowId: get_composition-unknown_ehr
+    summary: A COMPOSITION read by version_uid under an ehr_id no EHR carries is answered 404
+    description: >-
+      Retrieves a COMPOSITION by a well-formed version_uid under a freshly
+      generated ehr_id that no EHR carries. The read is answered with 404
+      Not Found.
+    x-veredictum-cite: &not_found
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when a version of the resource identified by the request parameters (at specified `version_at_time`) does not exist."
+    inputs: &ehr_object_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        object_id: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        description: Retrieve a COMPOSITION by version_uid under an ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: "{$inputs.object_id}::veredictum.example.org::1" }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_composition-unknown_ehr-versioned_object_uid
+    summary: A COMPOSITION read by versioned_object_uid under an ehr_id no EHR carries is answered 404
+    description: >-
+      Retrieves the latest COMPOSITION version of a well-formed
+      versioned_object_uid under a freshly generated ehr_id that no EHR
+      carries. The read is answered with 404 Not Found.
+    x-veredictum-cite: *not_found
+    inputs: *ehr_object_input
+    steps:
+      - stepId: get
+        description: Retrieve a COMPOSITION by versioned_object_uid under an ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $inputs.object_id }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_composition-unknown_ehr-at_time
+    summary: A COMPOSITION read at a time under an ehr_id no EHR carries is answered 404
+    description: >-
+      Retrieves the COMPOSITION version of a well-formed versioned_object_uid
+      extant at a time, under a freshly generated ehr_id that no EHR carries.
+      The read is answered with 404 Not Found.
+    x-veredictum-cite: *not_found
+    inputs: *ehr_object_input
+    steps:
+      - stepId: get
+        description: Retrieve a COMPOSITION at a time under an ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $inputs.object_id }
+          - { name: version_at_time, in: query, value: "2026-01-01T00:00:00.000Z" }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_composition-unknown_version_uid
+    summary: A COMPOSITION read by a version_uid no version carries is answered 404
+    description: >-
+      Creates an EHR, then retrieves a COMPOSITION under it by a well-formed
+      version_uid that names no version. The read is answered with 404 Not
+      Found.
+    x-veredictum-cite: *not_found
+    inputs: *ehr_object_input
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve a COMPOSITION by a version_uid no version carries.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: "{$inputs.object_id}::veredictum.example.org::1" }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_composition-unknown_versioned_object_uid
+    summary: A COMPOSITION read by a versioned_object_uid no container carries is answered 404
+    description: >-
+      Creates an EHR, then retrieves the latest COMPOSITION version of a
+      well-formed versioned_object_uid that names no versioned object. The
+      read is answered with 404 Not Found.
+    x-veredictum-cite: *not_found
+    inputs: *ehr_object_input
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve a COMPOSITION by a versioned_object_uid no container carries.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $inputs.object_id }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_composition-unknown_versioned_object_uid-at_time
+    summary: A COMPOSITION read at a time of a versioned_object_uid no container carries is answered 404
+    description: >-
+      Creates an EHR, then retrieves the COMPOSITION version extant at a time
+      of a well-formed versioned_object_uid that names no versioned object.
+      The read is answered with 404 Not Found.
+    x-veredictum-cite: *not_found
+    inputs: *ehr_object_input
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve a COMPOSITION at a time by a versioned_object_uid no container carries.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $inputs.object_id }
+          - { name: version_at_time, in: query, value: "2026-01-01T00:00:00.000Z" }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_composition-of_other_ehr
+    summary: A COMPOSITION read under one EHR by the version_uid of another EHR's COMPOSITION is answered 404
+    description: >-
+      Creates two EHRs and commits a COMPOSITION to the second, then
+      retrieves it by its version_uid under the first EHR. The operation
+      reads a COMPOSITION associated with the EHR the ehr_id names, and that
+      version belongs to the other EHR, so the read is answered with 404 Not
+      Found.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/composition_get.yaml
+      section: description
+      quote: "Retrieves a version of the COMPOSITION identified by `uid_based_id` and associated with the EHR identified by `ehr_id`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        other_ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: create-other
+        description: Create the second EHR.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.other_ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *ehr_created
+      - stepId: commit
+        description: Commit a COMPOSITION to the second EHR and keep its version_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.other_ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve the second EHR's COMPOSITION under the first EHR.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 404
+            x-veredictum-cite: *not_found
+
+  - workflowId: get_composition-ehr_status_version_uid
+    summary: A COMPOSITION read by the version_uid of the EHR_STATUS is answered 404
+    description: >-
+      Creates an EHR and reads the version_uid of its EHR_STATUS, then
+      retrieves a COMPOSITION by that version_uid. The uid names a version
+      of the VERSIONED_EHR_STATUS, not of any COMPOSITION, so the read is
+      answered with 404 Not Found.
+    x-veredictum-cite: *not_found
+    inputs: *ehr_input
+    steps:
+      - *create
+      - stepId: status-version
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve a COMPOSITION by the EHR_STATUS version_uid.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.status-version.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 404

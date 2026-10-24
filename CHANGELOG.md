@@ -20,6 +20,25 @@ version on.
 
 ### Added
 
+- The COMPOSITION read cases are converted to Arazzo (#603). The 52
+  `I_EHR_COMPOSITION` read cases and the two COMPOSITION revision-history
+  cases become 31 workflows in eight documents under
+  `catalogue/cases/composition/`: `composition_read` (a COMPOSITION read by
+  its version_uid, its headers, and the 404 misses),
+  `composition_versioned_read` (the 404 and 400 refusals of the four
+  VERSIONED_COMPOSITION reads), and `composition_read_xml`,
+  `composition_read_xml_not_acceptable`, `composition_read_flat`,
+  `composition_read_flat_not_acceptable`, `composition_read_structured` and
+  `composition_read_structured_not_acceptable` (the arms of the new
+  `composition-xml-read`, `composition-flat-read` and
+  `composition-structured-read` options). Every
+  criterion quotes the released ITS-REST or RM sentence that assigns it.
+  The 23 cases addressed by the versioned_object_uid of a real container
+  stay under `pending` in `catalogue/id-map.yaml` until a step can derive
+  that uid from a version_uid (#680); `surface.yaml` takes the COMPOSITION
+  tag into scope with those branches as gaps under #678 and the write
+  branches under #675, and the id map says why for each other case without
+  a counterpart.
 - The ITEM_TAG cases of the EHR API are converted to Arazzo (#603). The 30
   `I_ITS_REST_ITEM_TAGS.*` cases on the COMPOSITION, EHR_STATUS and EHR tag
   routes become 58 workflows in four documents under
