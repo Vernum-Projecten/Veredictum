@@ -98,6 +98,22 @@ pub enum RecordError {
         /// The diagnostic, which never carries key material.
         message: String,
     },
+    /// The secret key carries a component whose algorithm the signing path
+    /// refuses, checked before any secret material is decoded.
+    ///
+    /// Admitted: RSA, Ed25519 (RFC 9580 algorithm 27), legacy `EdDSA`, X25519,
+    /// and legacy ECDH over Curve25519. Every other algorithm is refused,
+    /// because decoding or using its secret scalar runs through the
+    /// `elliptic-curve` 0.13 or `cx448` stack, whose `crypto-bigint` 0.5 is
+    /// not constant-time (<https://rustsec.org/advisories/RUSTSEC-2026-0387>).
+    #[error(
+        "signing key: {algorithm} secret keys are refused; sign with an Ed25519 or RSA key \
+         (RUSTSEC-2026-0387)"
+    )]
+    RefusedKeyAlgorithm {
+        /// The refused algorithm, with its curve where one applies.
+        algorithm: String,
+    },
     /// The armored public key did not parse.
     #[error("public key: {message}")]
     PublicKey {
@@ -325,9 +341,10 @@ pub fn manifest(files: &[RecordedFile<'_>]) -> Result<String, RecordError> {
 /// key flag 0x02 marks a component as usable to sign data).
 ///
 /// # Errors
-/// [`RecordError::SigningKey`] when the key does not parse or the passphrase
-/// does not unlock it, and [`RecordError::Signature`] when the signature
-/// cannot be armored.
+/// [`RecordError::RefusedKeyAlgorithm`] when any secret component uses an
+/// algorithm outside the admitted set, [`RecordError::SigningKey`] when the
+/// key does not parse or the passphrase does not unlock it, and
+/// [`RecordError::Signature`] when the signature cannot be armored.
 pub fn sign(
     manifest_bytes: &[u8],
     secret_key_armored: &str,
@@ -338,6 +355,7 @@ pub fn sign(
     use pgp::types::Password;
     use rand::rngs::OsRng;
 
+    refuse_unadmitted_algorithms(secret_key_armored)?;
     let (secret, _) =
         SignedSecretKey::from_string(secret_key_armored).map_err(|e| RecordError::SigningKey {
             message: e.to_string(),
@@ -371,6 +389,106 @@ pub fn sign(
         .map_err(|e| RecordError::Signature {
             message: e.to_string(),
         })
+}
+
+/// Refuses a secret key carrying any component outside the admitted
+/// algorithms, reading only packet headers and the public key prefix.
+///
+/// It runs before `SignedSecretKey` parsing because that parse already decodes
+/// an unencrypted secret scalar into the curve's own type. Every secret key and
+/// secret subkey packet is checked, because the parse decodes them all. Packet
+/// framing follows RFC 9580 §4.2
+/// (<https://www.rfc-editor.org/rfc/rfc9580.html#name-packet-headers>), and
+/// the key prefix follows §5.5.2
+/// (<https://www.rfc-editor.org/rfc/rfc9580.html#name-public-key-packet-formats>).
+fn refuse_unadmitted_algorithms(secret_key_armored: &str) -> Result<(), RecordError> {
+    use std::io::Read as _;
+
+    use pgp::armor::Dearmor;
+    use pgp::packet::PacketHeader;
+    use pgp::types::{PacketLength, Tag};
+
+    let malformed = |message: String| RecordError::SigningKey { message };
+    let mut bytes = Vec::new();
+    Dearmor::new(secret_key_armored.as_bytes())
+        .read_to_end(&mut bytes)
+        .map_err(|e| malformed(e.to_string()))?;
+    let mut rest = bytes.as_slice();
+    while !rest.is_empty() {
+        let header =
+            PacketHeader::try_from_reader(&mut rest).map_err(|e| malformed(e.to_string()))?;
+        let body_len = match header.packet_length() {
+            PacketLength::Fixed(len) => {
+                usize::try_from(len).map_err(|e| malformed(e.to_string()))?
+            }
+            PacketLength::Indeterminate => rest.len(),
+            // NOTE: RFC 9580 §4.2.1.4 allows partial body lengths for data packets
+            // only, so a key packet carrying one is malformed.
+            PacketLength::Partial(_) => {
+                return Err(malformed("partial body length in a key block".to_owned()));
+            }
+        };
+        let (body, tail) = rest
+            .split_at_checked(body_len)
+            .ok_or_else(|| malformed("key packet is truncated".to_owned()))?;
+        rest = tail;
+        if matches!(header.tag(), Tag::SecretKey | Tag::SecretSubkey) {
+            admit_component(body)?;
+        }
+    }
+    Ok(())
+}
+
+/// Admits one secret key packet body by its public key algorithm, and for
+/// legacy ECDH by its curve.
+fn admit_component(body: &[u8]) -> Result<(), RecordError> {
+    use pgp::crypto::ecc_curve::{ECCCurve, ecc_curve_from_oid};
+    use pgp::crypto::public_key::PublicKeyAlgorithm;
+
+    let truncated = || RecordError::SigningKey {
+        message: "secret key packet is truncated".to_owned(),
+    };
+    // NOTE: RFC 9580 §5.5.2: the algorithm octet follows the 4-octet creation time,
+    // after a 2-octet validity in v3, and v6 puts a 4-octet length before the OID.
+    let (algorithm_at, oid_at) = match body.first().copied().ok_or_else(truncated)? {
+        2 | 3 => (7, 8),
+        4 => (5, 6),
+        5 | 6 => (5, 10),
+        version => {
+            return Err(RecordError::SigningKey {
+                message: format!("secret key packet version {version} is not supported"),
+            });
+        }
+    };
+    let algorithm =
+        PublicKeyAlgorithm::from(body.get(algorithm_at).copied().ok_or_else(truncated)?);
+    match algorithm {
+        PublicKeyAlgorithm::RSA
+        | PublicKeyAlgorithm::RSAEncrypt
+        | PublicKeyAlgorithm::RSASign
+        | PublicKeyAlgorithm::EdDSALegacy
+        | PublicKeyAlgorithm::Ed25519
+        | PublicKeyAlgorithm::X25519 => Ok(()),
+        PublicKeyAlgorithm::ECDH => {
+            let oid = body
+                .get(oid_at..)
+                .and_then(|params| params.split_first())
+                .and_then(|(len, oid)| oid.get(..usize::from(*len)))
+                .ok_or_else(truncated)?;
+            match ecc_curve_from_oid(oid) {
+                Some(ECCCurve::Curve25519Legacy) => Ok(()),
+                Some(curve) => Err(RecordError::RefusedKeyAlgorithm {
+                    algorithm: format!("ECDH over {}", curve.name()),
+                }),
+                None => Err(RecordError::RefusedKeyAlgorithm {
+                    algorithm: "ECDH over an unknown curve".to_owned(),
+                }),
+            }
+        }
+        other => Err(RecordError::RefusedKeyAlgorithm {
+            algorithm: format!("{other:?}"),
+        }),
+    }
 }
 
 /// Verifies an armored detached signature over `manifest_bytes` against an
@@ -846,6 +964,114 @@ mod tests {
             panic!("a primary-key signature must verify against its own certificate")
         };
         assert!(!record.signer_fingerprint.is_empty());
+        Ok(())
+    }
+
+    /// Generates an armored secret key of the given type from a fixed seed,
+    /// optionally with one encryption subkey, so the refusal tests are
+    /// deterministic.
+    fn seeded_secret_key(
+        primary: pgp::composed::KeyType,
+        subkey: Option<pgp::composed::KeyType>,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        use pgp::composed::{EncryptionCaps, SecretKeyParamsBuilder, SubkeyParamsBuilder};
+        use rand::SeedableRng as _;
+
+        let mut params = SecretKeyParamsBuilder::default();
+        params
+            .key_type(primary)
+            .can_sign(true)
+            .can_certify(true)
+            .primary_user_id("Veredictum Refusal Test <refusal@test.invalid>".to_owned());
+        if let Some(subkey) = subkey {
+            params.subkey(
+                SubkeyParamsBuilder::default()
+                    .key_type(subkey)
+                    .can_encrypt(EncryptionCaps::All)
+                    .build()?,
+            );
+        }
+        let generated = params
+            .build()?
+            .generate(rand::rngs::StdRng::seed_from_u64(0x5EED))?;
+        Ok(generated.to_armored_string(None.into())?)
+    }
+
+    /// An ECDSA primary key is refused by name before its secret scalar is
+    /// decoded (RUSTSEC-2026-0387).
+    #[test]
+    fn an_ecdsa_signing_key_is_refused_naming_the_algorithm()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use pgp::composed::KeyType;
+        use pgp::crypto::ecc_curve::ECCCurve;
+
+        let secret = seeded_secret_key(KeyType::ECDSA(ECCCurve::P256), None)?;
+        let error = sign(manifest(&documents())?.as_bytes(), &secret, None)
+            .err()
+            .ok_or("an ECDSA key must be refused")?;
+        assert!(
+            matches!(&error, RecordError::RefusedKeyAlgorithm { algorithm } if algorithm == "ECDSA"),
+            "{error:?}"
+        );
+        assert!(error.to_string().contains("ECDSA"), "{error}");
+        Ok(())
+    }
+
+    /// An admitted primary key with a NIST-curve ECDH subkey is still refused,
+    /// because parsing the certificate would decode that subkey's secret too.
+    #[test]
+    fn a_nist_ecdh_subkey_is_refused_even_under_an_ed25519_primary()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use pgp::composed::KeyType;
+        use pgp::crypto::ecc_curve::ECCCurve;
+
+        let secret = seeded_secret_key(KeyType::Ed25519, Some(KeyType::ECDH(ECCCurve::P256)))?;
+        let error = sign(manifest(&documents())?.as_bytes(), &secret, None)
+            .err()
+            .ok_or("a P-256 ECDH subkey must be refused")?;
+        assert!(
+            matches!(&error, RecordError::RefusedKeyAlgorithm { algorithm } if algorithm == "ECDH over NIST P-256"),
+            "{error:?}"
+        );
+        Ok(())
+    }
+
+    /// An X448 subkey is refused: its arithmetic runs through `cx448`.
+    #[test]
+    fn an_x448_subkey_is_refused() -> Result<(), Box<dyn std::error::Error>> {
+        use pgp::composed::KeyType;
+
+        let secret = seeded_secret_key(KeyType::Ed25519, Some(KeyType::X448))?;
+        assert!(matches!(
+            sign(manifest(&documents())?.as_bytes(), &secret, None),
+            Err(RecordError::RefusedKeyAlgorithm { algorithm }) if algorithm == "X448"
+        ));
+        Ok(())
+    }
+
+    /// The common Ed25519 certificate with a Curve25519 ECDH encryption
+    /// subkey is admitted and signs: neither component touches the refused
+    /// stack.
+    #[test]
+    fn an_ed25519_key_with_a_curve25519_ecdh_subkey_signs() -> Result<(), Box<dyn std::error::Error>>
+    {
+        use pgp::composed::{Deserializable as _, KeyType, SignedSecretKey};
+        use pgp::crypto::ecc_curve::ECCCurve;
+
+        let secret = seeded_secret_key(
+            KeyType::Ed25519,
+            Some(KeyType::ECDH(ECCCurve::Curve25519Legacy)),
+        )?;
+        let public = SignedSecretKey::from_string(&secret)?
+            .0
+            .to_public_key()
+            .to_armored_string(None.into())?;
+        let rendered = manifest(&documents())?;
+        let armored = sign(rendered.as_bytes(), &secret, None)?;
+        assert!(matches!(
+            verify(rendered.as_bytes(), &armored, &public)?,
+            SignatureOutcome::Accepted(_)
+        ));
         Ok(())
     }
 

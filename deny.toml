@@ -35,6 +35,17 @@ ignore = [
   # DELETING EVENT: the rsa 0.10 release, taken the day it ships.
   # https://rustsec.org/advisories/RUSTSEC-2023-0071
   { id = "RUSTSEC-2023-0071", reason = "reached only through pgp 0.20's signature VERIFICATION path: public keys only, no private key material and no decryption in this instrument" },
+  # 2026-10-24: timing variability in `crypto-bigint` 0.5.5 operations meant to
+  # be constant-time (fixed in 0.7.6). It reaches this graph only through
+  # `pgp` 0.20's `elliptic-curve` 0.13 stack (ecdsa, p256/p384/p521, k256) and
+  # `cx448`; pgp 0.21 still requires elliptic-curve ^0.13. The signature judge
+  # VERIFIES over public keys, and the run-record signer refuses every secret
+  # key whose components are not RSA, Ed25519, X25519 or Curve25519 ECDH,
+  # before the key is parsed, so no secret integer reaches crypto-bigint 0.5.
+  # DELETING EVENT: #593 removing OpenPGP signing, or a pgp release on
+  # elliptic-curve 0.14 / crypto-bigint >= 0.7.6, whichever lands first.
+  # https://rustsec.org/advisories/RUSTSEC-2026-0387
+  { id = "RUSTSEC-2026-0387", reason = "pgp 0.20's EC stack: verification is over public keys, and run-record signing refuses EC and X448/Ed448 secret keys before parsing, so no secret integer reaches crypto-bigint 0.5" },
   # 2026-08-27: `paste` is archived upstream (unmaintained notice, not a
   # vulnerability). It is a PROC-MACRO crate reached only through the console's
   # leptos rendering stack (tachys), so it runs at compile time and contributes
