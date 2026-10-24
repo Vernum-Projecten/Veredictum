@@ -782,8 +782,10 @@ workflows:
     description: >-
       Creates an EHR, then updates its EHR_STATUS with other_details whose
       ELEMENT value is a DV_PARAGRAPH with an empty items list. The
-      DV_PARAGRAPH invariant requires items, so the update is refused with
-      422 Unprocessable Entity.
+      DV_PARAGRAPH invariant requires items, and the published ITS-JSON
+      schema (openehr_rm_1.1.0_all.json, DV_PARAGRAPH.items, minItems 1)
+      refuses the body, so it is syntactically invalid content and the
+      update is refused with 400 Bad Request.
     x-veredictum-cite:
       source: specs/openehr/RM/docs/UML/classes/dv_paragraph.adoc
       section: DV_PARAGRAPH Class
@@ -823,5 +825,8 @@ workflows:
                   name: { _type: DV_TEXT, value: Note }
                   value: { _type: DV_PARAGRAPH, items: [] }
         successCriteria:
-          - condition: $statusCode == 422
-            x-veredictum-cite: *semantic_error
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
