@@ -104,3 +104,17 @@ options:
       section: Data representation
       quote: "Additionally, the **Simplified Formats** format SHOULD be supported, while other alternative formats MAY be supported as well, depending on the use case."
       level: should
+  composition-xml-write:
+    description: >-
+      Whether the service processes a COMPOSITION sent as canonical XML on the
+      COMPOSITION create, an instance of the composition element the
+      published ITS-XML schema declares.
+    arms:
+      composition-xml-write-accepted:
+        documents: [composition_xml]
+      composition-xml-write-refused:
+        documents: [composition_xml_write_refused]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."

@@ -1,0 +1,1603 @@
+# The COMPOSITION creates a service refuses: an unknown EHR or template, a
+# body the published ITS-JSON schema refuses, a body that breaks an RM
+# invariant, an unsupported media type, and an EHR that is not modifiable,
+# as Arazzo 1.1.0 workflows over the released ITS-REST `-validation` OAS.
+# Every criterion resolves to an `x-veredictum-cite` (its own, else its
+# step's, else its workflow's), and every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION create refusals
+  version: 0.1.0
+  description: >-
+    The COMPOSITION creates that are refused. A body the published ITS-JSON
+    schema (openehr_rm_1.1.0_all.json) refuses is syntactically invalid
+    content and is answered 400; a schema-valid body that breaks an RM
+    invariant or names a template the server does not hold is answered 422.
+    Each defective body is the valid event COMPOSITION of the create
+    document with one defect.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-unknown_ehr
+    summary: A COMPOSITION create in an EHR that does not exist is answered 404
+    description: >-
+      Creates a valid event COMPOSITION under a freshly generated ehr_id that
+      no EHR carries. The create is answered with 404 Not Found.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the event COMPOSITION under an ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: &event
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: create_composition-unknown_template
+    summary: A COMPOSITION that names a template the server does not hold is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION whose archetype_details names
+      the template_id cnf.absent_template.v99, which no workflow uploads. The
+      body is syntactically valid, and the template it names is not known, so
+      the create is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+      section: description
+      quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+    inputs: *ehr_input
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: create
+        description: Create a COMPOSITION that names a template the server does not hold.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /archetype_details/template_id/value, value: cnf.absent_template.v99 }
+            - { target: /content/0/archetype_details/template_id/value, value: cnf.absent_template.v99 }
+        successCriteria:
+          - condition: $statusCode == 422
+
+  - workflowId: create_composition-wrong_media
+    summary: A COMPOSITION create labelled text/plain is answered 415
+    description: >-
+      Creates an EHR, then sends a valid event COMPOSITION labelled
+      Content-Type text/plain. The operation takes a COMPOSITION in the
+      formats its Content-Type parameter lists, and text/plain is none of
+      them, so the create is answered 415 Unsupported Media Type.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service is refusing the request because the payload is in a format not supported by this method on the target resource"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the event COMPOSITION with the body labelled text/plain.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: text/plain
+          payload: '{"_type":"COMPOSITION"}'
+        successCriteria:
+          - condition: $statusCode == 415
+
+  - workflowId: create_composition-ehr_not_modifiable
+    summary: A COMPOSITION create in an EHR whose EHR_STATUS is not modifiable is refused
+    description: >-
+      Creates an EHR, updates its EHR_STATUS to is_modifiable false, then
+      creates a valid event COMPOSITION in it. The contents of an EHR that is
+      not modifiable may not be written to, so the create is refused with a
+      client error. No released sentence names the status code, so any 4xx
+      answer holds.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &not_modifiable
+      source: specs/openehr/RM/docs/UML/classes/ehr_status.adoc
+      section: EHR_STATUS Class
+      quote: "True if the EHR, other than the `EHR_STATUS` object, is allowed to be written to."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &current_status
+        stepId: current-status
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - &deactivate
+        stepId: deactivate
+        description: Update the EHR_STATUS with is_modifiable false under the current version.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current-status.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: false
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|204)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+      - stepId: create
+        description: Create the event COMPOSITION in the EHR that is not modifiable.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^4[0-9][0-9]$'
+
+  - workflowId: create_composition-invalid_event
+    summary: An event COMPOSITION whose EVALUATION has no data is refused with 400
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose EVALUATION
+      carries no data. EVALUATION.data is mandatory, and the published
+      ITS-JSON schema (openehr_rm_1.1.0_all.json, EVALUATION, required data)
+      refuses the body, so it is syntactically invalid content and the create
+      is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &invalid_content
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the event COMPOSITION whose EVALUATION has no data.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+        successCriteria:
+          - &bad_request
+            condition: $statusCode == 400
+
+  - workflowId: create_composition-invalid_persistent
+    summary: A persistent COMPOSITION whose OBSERVATION has no data is refused with 400
+    description: >-
+      Creates an EHR, then creates a persistent COMPOSITION whose OBSERVATION
+      carries no data. OBSERVATION.data is mandatory, and the published
+      ITS-JSON schema (openehr_rm_1.1.0_all.json, OBSERVATION, required data)
+      refuses the body, so it is syntactically invalid content and the create
+      is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.setup.upload_template-persistent_minimal]
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the persistent COMPOSITION whose OBSERVATION has no data.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Persistent minimal }
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id:
+                _type: ARCHETYPE_ID
+                value: openEHR-EHR-COMPOSITION.persistent_minimal.v1
+              template_id: { _type: TEMPLATE_ID, value: persistent_minimal.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.persistent_minimal.v1
+            language:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+              code_string: en
+            territory:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+              code_string: UY
+            category:
+              _type: DV_CODED_TEXT
+              value: persistent
+              defining_code:
+                _type: CODE_PHRASE
+                terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                code_string: "431"
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                _type: PARTY_REF
+                id: { _type: HIER_OBJECT_ID, value: a3dce0d4-fa51-4ff2-9cce-93dd60437842 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. Yamamoto
+            content:
+              - _type: OBSERVATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                language:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                  code_string: en
+                encoding:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                  code_string: UTF-8
+                subject: { _type: PARTY_SELF }
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                  rm_version: "1.0.2"
+        successCriteria:
+          - *bad_request
+
+  - workflowId: create_composition-cluster_no_items
+    summary: A COMPOSITION carrying a CLUSTER with no items is refused with 400
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose ITEM_TREE holds
+      a CLUSTER with no items member. CLUSTER.items is mandatory, and the
+      published ITS-JSON schema (openehr_rm_1.1.0_all.json, CLUSTER, required
+      items) refuses the body, so it is syntactically invalid content and the
+      create is refused with 400 Bad Request. The ITEM_TREE with no items is
+      its accepted twin.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION carrying a CLUSTER with no items.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+                    - _type: CLUSTER
+                      name: { _type: DV_TEXT, value: cluster }
+                      archetype_node_id: at0003
+        successCriteria:
+          - *bad_request
+
+  - workflowId: create_composition-paragraph_no_items
+    summary: A COMPOSITION carrying a DV_PARAGRAPH with no items is refused with 400
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose ELEMENT value is
+      a DV_PARAGRAPH with an empty items list. The DV_PARAGRAPH invariant
+      requires items, and the published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, DV_PARAGRAPH.items, minItems 1) refuses the
+      body, so it is syntactically invalid content and the create is refused
+      with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/dv_paragraph.adoc
+      section: DV_PARAGRAPH Class
+      quote: "__Items_valid__: `not items.is_empty`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION carrying a DV_PARAGRAPH with no items.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value:
+                        _type: DV_PARAGRAPH
+                        items: []
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *invalid_content
+
+  - workflowId: create_composition-links_empty
+    summary: A COMPOSITION whose links is an empty list is refused with 400
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose root carries
+      links as an empty list. The LOCATABLE invariant forbids an empty links
+      list, and the published ITS-JSON schema (openehr_rm_1.1.0_all.json,
+      COMPOSITION.links, minItems 1) refuses the body, so it is syntactically
+      invalid content and the create is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+      section: LOCATABLE Class
+      quote: "__Links_valid__: `links /= Void implies not links.is_empty`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose links is an empty list.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            links: []
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *invalid_content
+
+  - workflowId: create_composition-composer_identifiers_empty
+    summary: A COMPOSITION whose composer has an empty identifiers list is refused with 400
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose PARTY_IDENTIFIED
+      composer carries identifiers as an empty list. The PARTY_IDENTIFIED
+      invariant forbids an empty identifiers list, and the published ITS-JSON
+      schema (openehr_rm_1.1.0_all.json, PARTY_IDENTIFIED.identifiers,
+      minItems 1) refuses the body, so it is syntactically invalid content and
+      the create is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/party_identified.adoc
+      section: PARTY_IDENTIFIED Class
+      quote: "__Identifiers_valid__: `identifiers /= Void implies not identifiers.is_empty`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose composer has an empty identifiers list.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+              identifiers: []
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *invalid_content
+
+  - workflowId: create_composition-foreign_type_in_content
+    summary: A COMPOSITION whose content holds a DV_TEXT is refused with 400
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose content list
+      holds a DV_TEXT before its EVALUATION. COMPOSITION.content is a list of
+      CONTENT_ITEM, and the published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, COMPOSITION.content, the _type of each item)
+      refuses the body, so it is syntactically invalid content and the create
+      is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose content holds a DV_TEXT.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: DV_TEXT
+                value: not a content item
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - *bad_request
+
+  - workflowId: create_composition-unknown_key_root
+    summary: A COMPOSITION carrying a member the RM does not declare is refused with 400
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose root carries the
+      member not_an_rm_attribute. The published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, COMPOSITION, additionalProperties false)
+      refuses the body, so it is syntactically invalid content and the create
+      is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose root carries an undeclared member.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+            not_an_rm_attribute: x
+        successCriteria:
+          - *bad_request
+
+  - workflowId: create_composition-unknown_key_nested
+    summary: A COMPOSITION whose ELEMENT carries a member the RM does not declare is refused with 400
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose ELEMENT carries
+      the member not_an_rm_attribute. The published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, ELEMENT, additionalProperties false) refuses
+      the body, so it is syntactically invalid content and the create is
+      refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose ELEMENT carries an undeclared member.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+                      not_an_rm_attribute: x
+        successCriteria:
+          - *bad_request
+
+  - workflowId: create_composition-feeder_audit_change_type
+    summary: A COMPOSITION whose FEEDER_AUDIT carries change_type is refused with 400
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose FEEDER_AUDITs
+      carry a change_type member. FEEDER_AUDIT declares no change_type, and
+      the published ITS-JSON schema (openehr_rm_1.1.0_all.json, FEEDER_AUDIT,
+      additionalProperties false) refuses the body, so it is syntactically
+      invalid content and the create is refused with 400 Bad Request. The
+      same FEEDER_AUDITs without change_type are created by the round-trip
+      workflow of the create document.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose FEEDER_AUDITs carry change_type.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            feeder_audit:
+              _type: FEEDER_AUDIT
+              originating_system_item_ids:
+                - _type: DV_IDENTIFIER
+                  issuer: Lab Uruguay
+                  assigner: Lab Uruguay
+                  id: ACC-2021-0917
+                  type: accession
+              original_content:
+                _type: DV_PARSABLE
+                value: "MSH|^~\\&|LAB|URY|CDR|URY|20210921215231||ORU^R01|MSG0001|P|2.5"
+                formalism: HL7v2.5
+              originating_system_audit:
+                _type: FEEDER_AUDIT_DETAILS
+                system_id: lab.example.org
+                time: { value: "2021-09-21T21:50:00-03:00" }
+                version_id: final
+                other_details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: feeder meta-data }
+                  archetype_node_id: at0000
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: order id }
+                      archetype_node_id: at0001
+                      value: { _type: DV_TEXT, value: PLC-77421 }
+              feeder_system_audit:
+                _type: FEEDER_AUDIT_DETAILS
+                system_id: gateway.example.org
+                time: { value: "2021-09-21T21:51:00-03:00" }
+              change_type:
+                _type: DV_CODED_TEXT
+                value: synthesised
+                defining_code:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                  code_string: "252"
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+                      feeder_audit:
+                        _type: FEEDER_AUDIT
+                        originating_system_item_ids:
+                          - _type: DV_IDENTIFIER
+                            issuer: Lab Uruguay
+                            assigner: Lab Uruguay
+                            id: OBX-1
+                            type: observation
+                        originating_system_audit:
+                          _type: FEEDER_AUDIT_DETAILS
+                          system_id: lab.example.org
+                          time: { value: "2021-09-21T21:50:00-03:00" }
+        successCriteria:
+          - *bad_request
+
+  - workflowId: create_composition-category_invalid
+    summary: A COMPOSITION whose category is no composition category is refused with 422
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose category
+      defining_code is 999, which the openEHR composition category group does
+      not hold. The body is valid against the published ITS-JSON schema and
+      breaks the COMPOSITION invariant, so the create is refused with 422
+      Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/composition.adoc
+      section: COMPOSITION Class
+      quote: "__Category_validity__: `terminology (Terminology_id_openehr).has_code_for_group_id (Group_id_composition_category, category.defining_code)`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose category code is 999.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /category/defining_code/code_string, value: "999" }
+        successCriteria:
+          - &semantic_error
+            condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The request was well-formed but was unable to be followed due to semantic errors"
+
+  - workflowId: create_composition-language_invalid
+    summary: A COMPOSITION whose language is no ISO 639-1 code is refused with 422
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose language
+      code_string is zz, which the openEHR languages code set does not hold.
+      The body is valid against the published ITS-JSON schema and breaks the
+      COMPOSITION invariant, so the create is refused with 422 Unprocessable
+      Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/composition.adoc
+      section: COMPOSITION Class
+      quote: "__Language_valid__: `code_set(Code_set_id_languages).has_code(language)`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose language code is zz.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /language/code_string, value: zz }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: create_composition-territory_invalid
+    summary: A COMPOSITION whose territory is no ISO 3166-1 code is refused with 422
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose territory
+      code_string is ZZ, which the openEHR countries code set does not hold.
+      The body is valid against the published ITS-JSON schema and breaks the
+      COMPOSITION invariant, so the create is refused with 422 Unprocessable
+      Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/composition.adoc
+      section: COMPOSITION Class
+      quote: "__Territory_valid__: `code_set(Code_set_id_countries).has_code(territory)`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose territory code is ZZ.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /territory/code_string, value: ZZ }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: create_composition-setting_invalid
+    summary: A COMPOSITION whose context setting is no setting code is refused with 422
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose EVENT_CONTEXT
+      setting defining_code is 999, which the openEHR setting group does not
+      hold. The body is valid against the published ITS-JSON schema and breaks
+      the EVENT_CONTEXT invariant, so the create is refused with 422
+      Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/event_context.adoc
+      section: EVENT_CONTEXT Class
+      quote: "__Setting_valid__: `Terminology (Terminology_id_openehr).has_code_for_group_id (Group_id_setting, setting.defining_code)`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose setting code is 999.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /context/setting/defining_code/code_string, value: "999" }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: create_composition-context_location_empty
+    summary: A COMPOSITION whose context location is empty is refused with 422
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose EVENT_CONTEXT
+      location is the empty string. The body is valid against the published
+      ITS-JSON schema and breaks the EVENT_CONTEXT invariant, so the create is
+      refused with 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/event_context.adoc
+      section: EVENT_CONTEXT Class
+      quote: "__location_valid__: `location /= Void implies not location.is_empty`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose context location is empty.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+              location: ""
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: create_composition-item_node_id_empty
+    summary: A COMPOSITION whose ITEM_TREE has an empty archetype_node_id is refused with 422
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose EVALUATION data
+      ITEM_TREE carries an empty archetype_node_id. The body is valid against
+      the published ITS-JSON schema and breaks the LOCATABLE invariant, so the
+      create is refused with 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+      section: LOCATABLE Class
+      quote: "__Archetype_node_id_valid__: `not archetype_node_id.is_empty`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose ITEM_TREE has an empty archetype_node_id.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /content/0/data/archetype_node_id, value: "" }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: create_composition-root_archetype_id_mismatch
+    summary: A COMPOSITION whose archetype_node_id contradicts its archetype_id is refused with 422
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose root
+      archetype_node_id is openEHR-EHR-COMPOSITION.other.v1 while its
+      archetype_details names openEHR-EHR-COMPOSITION.minimal.v1. At an
+      archetype root the two are the same, so the create is refused with 422
+      Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+      section: LOCATABLE Class
+      quote: "At an archetype root point, the value of this attribute is always the stringified form of the `_archetype_id_` found in the `_archetype_details_` object."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose root archetype_node_id differs from its archetype_id.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /archetype_node_id, value: openEHR-EHR-COMPOSITION.other.v1 }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: create_composition-link_target_bad_scheme
+    summary: A COMPOSITION whose LINK target is not an ehr URI is refused with 422
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose EVALUATION
+      carries a LINK with an http target. A LINK target is a DV_EHR_URI, whose
+      scheme is ehr, so the body breaks the DV_EHR_URI invariant while it is
+      valid against the published ITS-JSON schema, and the create is refused
+      with 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/dv_ehr_uri.adoc
+      section: DV_EHR_URI Class
+      quote: "__Scheme_valid__: `scheme.is_equal (Ehr_scheme)`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose LINK target is an http URI.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            links:
+              - _type: LINK
+                meaning: { _type: DV_TEXT, value: follow up on the referral }
+                type: { _type: DV_TEXT, value: issue }
+                target:
+                  _type: DV_EHR_URI
+                  value: "ehr://ehr.example.org/6f1d3a0c-3d2c-4a9c-9d0b-9f6a1d2e4c77"
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                links:
+                  - _type: LINK
+                    meaning: { _type: DV_TEXT, value: follow up on the referral }
+                    type: { _type: DV_TEXT, value: issue }
+                    target:
+                      _type: DV_EHR_URI
+                      value: "http://ehr.example.org/2a4b7f61-58a1-4a08-9a2f-1c53c6e0f9b4"
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: create_composition-participation_function_invalid
+    summary: A COMPOSITION whose participation function is a code of another group is refused with 422
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose context
+      participation function is a DV_CODED_TEXT with defining_code 240, a code
+      of the attestation reason group, not of the participation function
+      group. The body is valid against the published ITS-JSON schema and
+      breaks the PARTICIPATION invariant, so the create is refused with 422
+      Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/participation.adoc
+      section: PARTICIPATION Class
+      quote: "__Function_valid__: `function.generating_type.is_equal (\"DV_CODED_TEXT\") implies terminology (Terminology_id_openehr).has_code_for_group_id (Group_id_participation_function, function.defining_code)`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose participation function code is 240.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function:
+                    _type: DV_CODED_TEXT
+                    value: signed
+                    defining_code: { terminology_id: { value: openehr }, code_string: "240" }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: create_composition-participation_mode_invalid
+    summary: A COMPOSITION whose participation mode is no mode code is refused with 422
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose context
+      participation mode defining_code is 999, which the openEHR participation
+      mode group does not hold. The body is valid against the published
+      ITS-JSON schema and breaks the PARTICIPATION invariant, so the create is
+      refused with 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/participation.adoc
+      section: PARTICIPATION Class
+      quote: "__Mode_valid__: `mode /= Void implies terminology (Terminology_id_openehr).has_code_for_group_id (Group_id_participation_mode, mode.defining_code)`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose participation mode code is 999.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /context/participations/0/mode/defining_code/code_string, value: "999" }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: create_composition-performer_relationship_invalid
+    summary: A COMPOSITION whose PARTY_RELATED performer has a relationship of another group is refused with 422
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose context
+      participation performer is a PARTY_RELATED with relationship
+      defining_code 240, a code of the attestation reason group, not of the
+      subject relationship group. The body is valid against the published
+      ITS-JSON schema and breaks the PARTY_RELATED invariant, so the create is
+      refused with 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/party_related.adoc
+      section: PARTY_RELATED Class
+      quote: "__Relationship_valid__: `terminology (Terminology_id_openehr).has_code_for_group_id (Group_id_subject_relationship, relationship.defining_code)`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose performer relationship code is 240.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /context/participations/0/performer/relationship/value, value: signed }
+            - { target: /context/participations/0/performer/relationship/defining_code/code_string, value: "240" }
+        successCriteria:
+          - *semantic_error

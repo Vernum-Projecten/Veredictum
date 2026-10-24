@@ -1,0 +1,1300 @@
+# Creating a COMPOSITION: the first version it commits, the representation
+# preferences of the create, its committal headers, and the content a read of
+# the new version returns, as Arazzo 1.1.0 workflows over the released
+# ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION create
+  version: 0.1.0
+  description: >-
+    Creating the first version of an event and a persistent COMPOSITION, the
+    minimal, identifier and representation preferences of the create, the
+    ETag and Last-Modified headers it answers with, and the content a read of
+    the created version returns.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-event
+    summary: An event COMPOSITION valid against its template is created
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION that is valid against
+      the uploaded template minimal_evaluation.en.v1, with no Prefer header.
+      The create succeeds: the answer is 201 Created, or 204 No Content,
+      which the minimal preference recommends when no body is returned.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &create_operation
+      source: specs/openehr/ITS-REST/specifications/operations/composition_create.yaml
+      section: description
+      quote: "Creates the first version of a new COMPOSITION in the EHR identified by `ehr_id`."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: create
+        description: Create the event COMPOSITION with no Prefer header.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: &event
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - &created
+            context: $statusCode
+            type: regex
+            condition: '^(201|204)$'
+            x-veredictum-cite: &status_must
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+
+  - workflowId: create_composition-persistent
+    summary: A persistent COMPOSITION valid against its template is created
+    description: >-
+      Creates an EHR, then creates a persistent COMPOSITION that is valid
+      against the uploaded template persistent_minimal.en.v1, with no Prefer
+      header. The create succeeds with 201 Created or 204 No Content.
+    dependsOn: [$sourceDescriptions.setup.upload_template-persistent_minimal]
+    x-veredictum-cite: *create_operation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the persistent COMPOSITION with no Prefer header.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: &persistent
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Persistent minimal }
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id:
+                _type: ARCHETYPE_ID
+                value: openEHR-EHR-COMPOSITION.persistent_minimal.v1
+              template_id: { _type: TEMPLATE_ID, value: persistent_minimal.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.persistent_minimal.v1
+            language:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+              code_string: en
+            territory:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+              code_string: UY
+            category:
+              _type: DV_CODED_TEXT
+              value: persistent
+              defining_code:
+                _type: CODE_PHRASE
+                terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                code_string: "431"
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                _type: PARTY_REF
+                id: { _type: HIER_OBJECT_ID, value: a3dce0d4-fa51-4ff2-9cce-93dd60437842 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. Yamamoto
+            content:
+              - _type: OBSERVATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                language:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                  code_string: en
+                encoding:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                  code_string: UTF-8
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: HISTORY
+                  name: { _type: DV_TEXT, value: Event Series }
+                  archetype_node_id: at0001
+                  origin: { _type: DV_DATE_TIME, value: "2019-04-16T21:08:11,380+00:00" }
+                  events:
+                    - _type: POINT_EVENT
+                      name: { _type: DV_TEXT, value: Cualquier evento }
+                      archetype_node_id: at0002
+                      time: { _type: DV_DATE_TIME, value: "2019-04-16T21:08:11,384+00:00" }
+                      data:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: Arbol }
+                        archetype_node_id: at0003
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: text }
+                            archetype_node_id: at0004
+                            value: { _type: DV_TEXT, value: original value }
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                  rm_version: "1.0.2"
+        successCriteria:
+          - *created
+
+  - workflowId: create_composition-read_back
+    summary: The version an event COMPOSITION create commits is retrievable by its version_uid
+    description: >-
+      Creates an EHR, creates an event COMPOSITION and keeps the version_uid
+      the identifier preference answers with, then retrieves that version.
+      The answer is 200 with the committed COMPOSITION: its archetype_node_id,
+      template_id and category are the ones sent. A server that declines the
+      identifier preference leaves the instrument without a version_uid, and
+      the row is errored rather than failed.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *create_operation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &commit
+        stepId: commit
+        description: Create the event COMPOSITION and keep the version_uid the identifier preference answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - &identifier_answered
+            condition: $response.body#/uid != null
+            x-veredictum-cite: &identifier_only
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+        outputs:
+          version_uid: $response.body#/uid
+      - stepId: read
+        description: Retrieve the committed version by its version_uid.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &retrieved
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested COMPOSITION is successfully retrieved."
+          - context: $response.body#/archetype_node_id
+            type: regex
+            condition: '^openEHR-EHR-COMPOSITION\.minimal\.v1$'
+          - context: $response.body#/archetype_details/template_id/value
+            type: regex
+            condition: '^minimal_evaluation\.en\.v1$'
+          - context: $response.body#/category/defining_code/code_string
+            type: regex
+            condition: '^433$'
+
+  - workflowId: create_composition-persistent-read_back
+    summary: The version a persistent COMPOSITION create commits is retrievable by its version_uid
+    description: >-
+      Creates an EHR, creates a persistent COMPOSITION and keeps the
+      version_uid the identifier preference answers with, then retrieves that
+      version. The answer is 200 with the committed COMPOSITION, whose
+      category is 431|persistent|.
+    dependsOn: [$sourceDescriptions.setup.upload_template-persistent_minimal]
+    x-veredictum-cite: *create_operation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the persistent COMPOSITION and keep the version_uid the identifier preference answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *persistent
+        successCriteria:
+          - *identifier_answered
+        outputs:
+          version_uid: $response.body#/uid
+      - stepId: read
+        description: Retrieve the committed version by its version_uid.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+          - context: $response.body#/archetype_details/template_id/value
+            type: regex
+            condition: '^persistent_minimal\.en\.v1$'
+          - context: $response.body#/category/defining_code/code_string
+            type: regex
+            condition: '^431$'
+
+  - workflowId: create_composition-version_uid_form
+    summary: The identifier a COMPOSITION create answers with is a version_uid in its three-part form
+    description: >-
+      Creates an EHR and an event COMPOSITION under the identifier
+      preference, then retrieves the version by the identifier answered. The
+      identifier has the lexical form object_id::creating_system_id::version_tree_id,
+      and it addresses the committed version.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Identifier types
+      quote: "The `version_uid` uniquely identifies a VERSION, in the lexical form of `object_id :: creating_system_id :: version_tree_id`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the committed version by the identifier, and judge the identifier's form.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+          - context: $steps.commit.outputs.version_uid
+            type: regex
+            condition: '^[^:]+::[^:]+::[^:]+$'
+
+  - workflowId: create_composition-prefer_minimal
+    summary: A COMPOSITION create with Prefer return=minimal answers with an empty body
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION with Prefer
+      return=minimal. The create succeeds, and the answer carries no body.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &minimal_body
+      source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+      section: description
+      quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the event COMPOSITION and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - *created
+          - condition: $response.body == null
+
+  - workflowId: create_composition-prefer_absent
+    summary: A COMPOSITION create with no Prefer header is answered as minimal, with an empty body
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION with no Prefer
+      header. Without the header the minimal preference is assumed, so the
+      create succeeds and the answer carries no body.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Representation details negotiation
+      quote: "If no `Prefer` header is provided, the default behavior is assumed to be `return=minimal`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the event COMPOSITION with no Prefer header.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - *created
+          - condition: $response.body == null
+            x-veredictum-cite: *minimal_body
+
+  - workflowId: create_composition-location
+    summary: A minimal COMPOSITION create answers with a Location header
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION with Prefer
+      return=minimal. The answer carries a Location header pointing at the
+      new resource. The rule is recommended, so a row that answers otherwise
+      is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer minimal, identifier or full representation response
+      quote: "The response SHOULD include a `Location` header pointing to the newly created or updated resource."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the event COMPOSITION and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - *created
+          - context: $response.header.Location
+            type: regex
+            condition: '^.+$'
+
+  - workflowId: create_composition-return_representation
+    summary: A COMPOSITION create with Prefer return=representation answers with the created COMPOSITION
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION with Prefer
+      return=representation and Accept application/json. The create succeeds
+      with 201 or 200, and the body is the COMPOSITION, carrying the
+      archetype_node_id and the category sent. The body rule is recommended,
+      so a row that answers without it is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &full_representation
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer minimal, identifier or full representation response
+      quote: "the response body SHOULD contain the full representation of the resource."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the event COMPOSITION and ask for the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|201)$'
+            x-veredictum-cite: *status_must
+          - context: $response.body#/archetype_node_id
+            type: regex
+            condition: '^openEHR-EHR-COMPOSITION\.minimal\.v1$'
+          - context: $response.body#/category/defining_code/code_string
+            type: regex
+            condition: '^433$'
+
+  - workflowId: create_composition-return_identifier
+    summary: A COMPOSITION create with Prefer return=identifier answers with the new version's uid only
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION with Prefer
+      return=identifier and Accept application/json. The body carries the
+      identifier under uid and none of the COMPOSITION attributes, and that
+      identifier addresses the created version. The identifier rule is
+      recommended, so a row that answers otherwise is advisory; a server
+      that sends no identifier leaves the read without a version_uid, and
+      the row is errored rather than failed.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *identifier_only
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the event COMPOSITION and ask for its identifier only.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - *identifier_answered
+          - condition: $response.body#/archetype_node_id == null
+          - condition: $response.body#/content == null
+        outputs:
+          version_uid: $response.body#/uid
+      - stepId: read
+        description: Retrieve the version the identifier names.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+
+  - workflowId: create_composition-etag_weak
+    summary: An ETag sent on a COMPOSITION create carries the weakness indicator
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION. If the answer sends
+      an ETag, it is a weak entity tag.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the event COMPOSITION with Prefer return=minimal.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - *created
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: create_composition-etag_last_modified
+    summary: A COMPOSITION create answers with ETag and Last-Modified
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION. The answer carries
+      both an ETag and a Last-Modified header. The rule is recommended, so a
+      row that answers without them is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: ETag and Last-Modified
+      quote: "Both `ETag` and `Last-Modified` SHOULD be included in responses for VERSION, VERSIONED_OBJECT, or other resources that have versioning or unique state identifiers."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the event COMPOSITION with Prefer return=minimal.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - *created
+          - context: $response.header.ETag
+            type: regex
+            condition: '^.+$'
+          - context: $response.header.Last-Modified
+            type: regex
+            condition: '^.+$'
+
+  - workflowId: create_composition-datetime_lexical
+    summary: A DV_DATE_TIME a COMPOSITION is created with is read back in the form sent
+    description: >-
+      Creates an EHR and an event COMPOSITION whose context start_time is
+      2021-09-21T21:52:31.927-03:00, then retrieves the created version. The
+      start_time is read back with the same offset and fractional seconds.
+      The rule is recommended, so a row that answers otherwise is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &datetime_kept
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Datetime format
+      quote: "Retrieval or querying those resources SHOULD return date, datetime, or time values in the (original) format provided by underlying backend engine, avoiding any format change."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the committed version and read its start_time.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+          - context: $response.body#/context/start_time/value
+            type: regex
+            condition: '^2021-09-21T21:52:31\.927-03:00$'
+
+  - workflowId: create_composition-datetime_comma_fraction
+    summary: A DV_DATE_TIME whose fraction uses the comma is read back with the comma
+    description: >-
+      Creates an EHR and an event COMPOSITION whose context start_time writes
+      its fractional seconds with the ISO 8601 comma,
+      2021-09-21T21:52:31,927-03:00, then retrieves the created version. The
+      start_time is read back with the comma. The rule is recommended, so a
+      row that answers otherwise is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *datetime_kept
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION with a comma fraction and keep the version_uid the identifier preference answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /context/start_time/value, value: "2021-09-21T21:52:31,927-03:00" }
+        successCriteria:
+          - *identifier_answered
+        outputs:
+          version_uid: $response.body#/uid
+      - stepId: read
+        description: Retrieve the committed version and read its start_time.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+          - context: $response.body#/context/start_time/value
+            type: regex
+            condition: '^2021-09-21T21:52:31,927-03:00$'
+
+  - workflowId: create_composition-null_empty_absent
+    summary: A COMPOSITION read back leaves out the attributes it has no value for
+    description: >-
+      Creates an EHR and an event COMPOSITION whose EVALUATION carries no
+      links, feeder_audit, other_participations or workflow_id, then retrieves
+      the created version. The EVALUATION read back has none of those members,
+      neither as null nor as an empty list. The rule is recommended, so a row
+      that answers otherwise is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "The RM attributes (even required ones) that are `Null` or an empty list (array) SHOULD be absent when serialized as JSON."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the committed version and look for members with no value.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: '$.content[?(!@.links && !@.feeder_audit && !@.other_participations && !@.workflow_id)]'
+
+  - workflowId: create_composition-item_tree_empty
+    summary: A COMPOSITION whose ITEM_TREE holds no items is created
+    description: >-
+      Creates an EHR, then creates an event COMPOSITION whose EVALUATION data
+      is an ITEM_TREE with an empty items list. ITEM_TREE.items admits zero
+      items, the template gives the attribute existence 0..1, and the body is
+      valid against the published ITS-JSON schema, so the create succeeds.
+      It is the valid twin of the CLUSTER refusals.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/item_tree.adoc
+      section: ITEM_TREE Class
+      quote: "Can include 0 or more"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION whose ITEM_TREE holds no items.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items: []
+        successCriteria:
+          - *created
+
+  - workflowId: create_composition-links_roundtrip
+    summary: The LINKs a COMPOSITION is created with are read back unchanged
+    description: >-
+      Creates an EHR and an event COMPOSITION carrying a LINK at its root and
+      one on its EVALUATION, each with a meaning, a type and an ehr: target,
+      then retrieves the created version. Both links are read back with the
+      same meaning, type and target.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *create_operation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION with two LINKs and keep the version_uid the identifier preference answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            links:
+              - _type: LINK
+                meaning: { _type: DV_TEXT, value: follow up on the referral }
+                type: { _type: DV_TEXT, value: issue }
+                target:
+                  _type: DV_EHR_URI
+                  value: "ehr://ehr.example.org/6f1d3a0c-3d2c-4a9c-9d0b-9f6a1d2e4c77"
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                links:
+                  - _type: LINK
+                    meaning: { _type: DV_TEXT, value: follow up on the referral }
+                    type: { _type: DV_TEXT, value: issue }
+                    target:
+                      _type: DV_EHR_URI
+                      value: "ehr://ehr.example.org/2a4b7f61-58a1-4a08-9a2f-1c53c6e0f9b4"
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - *identifier_answered
+        outputs:
+          version_uid: $response.body#/uid
+      - stepId: read
+        description: Retrieve the committed version and read both links.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+          - context: $response.body#/links/0/meaning/value
+            type: regex
+            condition: '^follow up on the referral$'
+          - context: $response.body#/links/0/type/value
+            type: regex
+            condition: '^issue$'
+          - context: $response.body#/links/0/target/value
+            type: regex
+            condition: '^ehr://ehr\.example\.org/6f1d3a0c-3d2c-4a9c-9d0b-9f6a1d2e4c77$'
+          - context: $response.body#/content/0/links/0/meaning/value
+            type: regex
+            condition: '^follow up on the referral$'
+          - context: $response.body#/content/0/links/0/type/value
+            type: regex
+            condition: '^issue$'
+          - context: $response.body#/content/0/links/0/target/value
+            type: regex
+            condition: '^ehr://ehr\.example\.org/2a4b7f61-58a1-4a08-9a2f-1c53c6e0f9b4$'
+
+  - workflowId: create_composition-feeder_audit_roundtrip
+    summary: The FEEDER_AUDITs a COMPOSITION is created with are read back unchanged
+    description: >-
+      Creates an EHR and an event COMPOSITION carrying a FEEDER_AUDIT at its
+      root and one on an ELEMENT, then retrieves the created version. The
+      originating system identifiers and audits are read back unchanged.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *create_operation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION with two FEEDER_AUDITs and keep the version_uid the identifier preference answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            feeder_audit:
+              _type: FEEDER_AUDIT
+              originating_system_item_ids:
+                - _type: DV_IDENTIFIER
+                  issuer: Lab Uruguay
+                  assigner: Lab Uruguay
+                  id: ACC-2021-0917
+                  type: accession
+              original_content:
+                _type: DV_PARSABLE
+                value: "MSH|^~\\&|LAB|URY|CDR|URY|20210921215231||ORU^R01|MSG0001|P|2.5"
+                formalism: HL7v2.5
+              originating_system_audit:
+                _type: FEEDER_AUDIT_DETAILS
+                system_id: lab.example.org
+                time: { value: "2021-09-21T21:50:00-03:00" }
+                version_id: final
+                other_details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: feeder meta-data }
+                  archetype_node_id: at0000
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: order id }
+                      archetype_node_id: at0001
+                      value: { _type: DV_TEXT, value: PLC-77421 }
+              feeder_system_audit:
+                _type: FEEDER_AUDIT_DETAILS
+                system_id: gateway.example.org
+                time: { value: "2021-09-21T21:51:00-03:00" }
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+                      feeder_audit:
+                        _type: FEEDER_AUDIT
+                        originating_system_item_ids:
+                          - _type: DV_IDENTIFIER
+                            issuer: Lab Uruguay
+                            assigner: Lab Uruguay
+                            id: OBX-1
+                            type: observation
+                        originating_system_audit:
+                          _type: FEEDER_AUDIT_DETAILS
+                          system_id: lab.example.org
+                          time: { value: "2021-09-21T21:50:00-03:00" }
+        successCriteria:
+          - *identifier_answered
+        outputs:
+          version_uid: $response.body#/uid
+      - stepId: read
+        description: Retrieve the committed version and read both FEEDER_AUDITs.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+          - context: $response.body#/feeder_audit/originating_system_item_ids/0/id
+            type: regex
+            condition: '^ACC-2021-0917$'
+          - context: $response.body#/feeder_audit/originating_system_audit/system_id
+            type: regex
+            condition: '^lab\.example\.org$'
+          - context: $response.body#/feeder_audit/originating_system_audit/version_id
+            type: regex
+            condition: '^final$'
+          - context: $response.body#/feeder_audit/originating_system_audit/other_details/items/0/value/value
+            type: regex
+            condition: '^PLC-77421$'
+          - context: $response.body#/feeder_audit/original_content/formalism
+            type: regex
+            condition: '^HL7v2\.5$'
+          - context: $response.body#/feeder_audit/feeder_system_audit/system_id
+            type: regex
+            condition: '^gateway\.example\.org$'
+          - context: $response.body#/content/0/data/items/0/feeder_audit/originating_system_item_ids/0/id
+            type: regex
+            condition: '^OBX-1$'
+          - context: $response.body#/content/0/data/items/0/feeder_audit/originating_system_audit/system_id
+            type: regex
+            condition: '^lab\.example\.org$'
+
+  - workflowId: create_composition-participation_time_roundtrip
+    summary: The participation times a COMPOSITION is created with are read back unchanged
+    description: >-
+      Creates an EHR and an event COMPOSITION whose context participation has
+      a bounded DV_INTERVAL time and whose EVALUATION has another
+      participation with an open-ended one, then retrieves the created
+      version. Both intervals are read back unchanged.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *create_operation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION with two timed participations and keep the version_uid the identifier preference answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  time:
+                    _type: DV_INTERVAL
+                    lower: { _type: DV_DATE_TIME, value: "2021-09-21T21:40:00-03:00" }
+                    upper: { _type: DV_DATE_TIME, value: "2021-09-21T22:05:00-03:00" }
+                    lower_unbounded: false
+                    upper_unbounded: false
+                    lower_included: true
+                    upper_included: true
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                other_participations:
+                  - function: { value: assisting nurse }
+                    performer: { _type: PARTY_IDENTIFIED, name: Nurse Bianchi }
+                    time:
+                      _type: DV_INTERVAL
+                      lower: { _type: DV_DATE_TIME, value: "2021-09-21T21:55:00-03:00" }
+                      lower_unbounded: false
+                      upper_unbounded: true
+                      lower_included: true
+                      upper_included: false
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - *identifier_answered
+        outputs:
+          version_uid: $response.body#/uid
+      - stepId: read
+        description: Retrieve the committed version and read both participation times.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+          - condition: $response.body#/context/participations/0/time/lower != null
+          - condition: $response.body#/context/participations/0/time/upper != null
+          - condition: $response.body#/context/participations/0/time/upper_unbounded == false
+          - condition: $response.body#/context/participations/0/time/upper_included == true
+          - condition: $response.body#/content/0/other_participations/0/time/lower != null
+          - condition: $response.body#/content/0/other_participations/0/time/upper_unbounded == true
+          - condition: $response.body#/content/0/other_participations/0/time/lower_included == true
+          - condition: $response.body#/content/0/other_participations/0/time/upper_included == false
+
+  - workflowId: create_composition-subject_external_ref
+    summary: The external_ref of an ENTRY's PARTY_SELF subject is read back unchanged
+    description: >-
+      Creates an EHR and an event COMPOSITION whose EVALUATION subject is a
+      PARTY_SELF with an external_ref, then retrieves the created version.
+      The external_ref is read back with the same id, namespace and type.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *create_operation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION with a referenced PARTY_SELF and keep the version_uid the identifier preference answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject:
+                  _type: PARTY_SELF
+                  external_ref:
+                    id:
+                      _type: HIER_OBJECT_ID
+                      value: "8f2d5a1e-6b47-4c9d-a3e8-70b1c2d4e6f9"
+                    namespace: DEMOGRAPHIC
+                    type: PERSON
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - *identifier_answered
+        outputs:
+          version_uid: $response.body#/uid
+      - stepId: read
+        description: Retrieve the committed version and read the subject's external_ref.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+          - context: $response.body#/content/0/subject/external_ref/id/value
+            type: regex
+            condition: '^8f2d5a1e-6b47-4c9d-a3e8-70b1c2d4e6f9$'
+          - context: $response.body#/content/0/subject/external_ref/namespace
+            type: regex
+            condition: '^DEMOGRAPHIC$'
+          - context: $response.body#/content/0/subject/external_ref/type
+            type: regex
+            condition: '^PERSON$'
+
+  - workflowId: create_composition-two_in_one_ehr
+    summary: Two COMPOSITIONs created in one EHR are each retrievable
+    description: >-
+      Creates an EHR and two event COMPOSITIONs in it, keeping the version_uid
+      the identifier preference answers with for each, then retrieves both
+      versions. Each create makes a new COMPOSITION, so each version_uid
+      addresses a committed COMPOSITION and both reads answer 200.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *create_operation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: commit-second
+        description: Create a second event COMPOSITION and keep its version_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - *identifier_answered
+        outputs:
+          version_uid: $response.body#/uid
+      - stepId: read
+        description: Retrieve the first COMPOSITION by its version_uid.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved
+      - stepId: read-second
+        description: Retrieve the second COMPOSITION by its version_uid.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit-second.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *retrieved

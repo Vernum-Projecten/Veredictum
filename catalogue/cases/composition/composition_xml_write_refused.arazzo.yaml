@@ -1,0 +1,60 @@
+# A COMPOSITION sent as canonical XML, on the arm of the
+# `composition-xml-write` option where the service does not process XML
+# request payloads, as Arazzo 1.1.0 workflows over the released ITS-REST
+# `-validation` OAS. Every criterion resolves to an `x-veredictum-cite` (its
+# own, else its step's, else its workflow's), and every quote is copied
+# verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION create from canonical XML refused
+  version: 0.1.0
+  description: >-
+    A service that cannot process a COMPOSITION request payload as XML
+    answers 415 Unsupported Media Type.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-xml_unsupported_media
+    summary: A COMPOSITION sent as canonical XML is answered 415 by a service that does not process XML
+    description: >-
+      Creates an EHR, then creates a valid event COMPOSITION sent as
+      canonical XML. A service that cannot process the request payload as
+      XML answers 415 Unsupported Media Type.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: create
+        description: Create the COMPOSITION from canonical XML.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <composition archetype_node_id="openEHR-EHR-COMPOSITION.minimal.v1" xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><name><value>Minimal</value></name><archetype_details><archetype_id><value>openEHR-EHR-COMPOSITION.minimal.v1</value></archetype_id><template_id><value>minimal_evaluation.en.v1</value></template_id><rm_version>1.0.2</rm_version></archetype_details><language><terminology_id><value>ISO_639-1</value></terminology_id><code_string>en</code_string></language><territory><terminology_id><value>ISO_3166-1</value></terminology_id><code_string>UY</code_string></territory><category><value>event</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>433</code_string></defining_code></category><composer xsi:type="PARTY_IDENTIFIED"><external_ref><id xsi:type="HIER_OBJECT_ID"><value>fc376c46-29c1-4090-bc01-5cc046af7f26</value></id><namespace>DEMOGRAPHIC</namespace><type>PERSON</type></external_ref><name>Dr. House</name></composer><context><start_time><value>2021-09-21T21:52:31.927-03:00</value></start_time><setting><value>primary medical care</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>228</code_string></defining_code></setting><participations><function><value>legal guardian consent author</value></function><performer xsi:type="PARTY_RELATED"><name>Alexandra Alamo</name><relationship><value>mother</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>10</code_string></defining_code></relationship></performer><mode><value>not specified</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>193</code_string></defining_code></mode></participations></context><content xsi:type="EVALUATION" archetype_node_id="openEHR-EHR-EVALUATION.minimal.v1"><name><value>Minimal</value></name><archetype_details><archetype_id><value>openEHR-EHR-EVALUATION.minimal.v1</value></archetype_id><template_id><value>minimal_evaluation.en.v1</value></template_id><rm_version>1.0.2</rm_version></archetype_details><language><terminology_id><value>ISO_639-1</value></terminology_id><code_string>en</code_string></language><encoding><terminology_id><value>IANA_character-sets</value></terminology_id><code_string>UTF-8</code_string></encoding><subject xsi:type="PARTY_SELF"></subject><data xsi:type="ITEM_TREE" archetype_node_id="at0001"><name><value>Arbol</value></name><items xsi:type="ELEMENT" archetype_node_id="at0002"><name><value>quantity</value></name><value xsi:type="DV_QUANTITY"><magnitude>78.5</magnitude><units>kg</units></value></items></data></content></composition>
+        successCriteria:
+          - condition: $statusCode == 415
