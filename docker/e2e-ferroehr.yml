@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: Veredictum contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# The FerroEHR half of the real-SUT pair, beside docker/e2e-ehrbase.yml: the
+# published FerroEHR image with its own PostgreSQL image, in the pairing and
+# posture of FerroEHR's quickstart (https://github.com/FerroHEALTH/FerroEHR,
+# docker-compose.yml): Basic auth with the quickstart's dev user
+# ferroehr / ferroehr and RBAC disabled. The server applies its migrations at
+# start. The SUT is the thing being graded, so its tag is not an input to any
+# published artifact; it is pinned here only so a parity run names the
+# release it drove.
+#
+# Two departures from the quickstart, both because this is a test server: the
+# usage report is off, so a run sends nothing to the vendor, and the host
+# port defaults to 8093 so it coexists with a FerroEHR quickstart on 8080 and
+# EHRbase on 8090. The database publishes no port at all.
+#
+#   docker compose -p veredictum-ferroehr -f docker/e2e-ferroehr.yml up -d
+#   curl -u ferroehr:ferroehr -X POST -i \
+#     http://127.0.0.1:8093/ferroehr/rest/openehr/v1/ehr
+
+services:
+  ferroehr-postgres:
+    image: ${FERROEHR_POSTGRES_IMAGE:-ghcr.io/ferrohealth/ferroehr-postgres:5.4.0}
+    environment:
+      POSTGRES_PASSWORD: postgres
+      PG_INIT_USER: ferroehr
+      PG_INIT_PASSWORD: ferroehr
+      PG_INIT_DB: ferroehr
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ferroehr -d ferroehr"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  ferroehr:
+    image: ${FERROEHR_IMAGE:-ghcr.io/ferrohealth/ferroehr:5.4.0}
+    depends_on:
+      ferroehr-postgres:
+        condition: service_healthy
+    environment:
+      FERROEHR__DB__URL: postgres://ferroehr:ferroehr@ferroehr-postgres:5432/ferroehr
+      FERROEHR__USAGE_REPORT__ENABLED: "false"
+      FERROEHR__LOG__FORMAT: pretty
+    configs:
+      - source: ferroehr-config
+        target: /etc/ferroehr/ferroehr.toml
+    ports:
+      - "127.0.0.1:${FERROEHR_PORT:-8093}:8080"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/ferroehr", "healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+configs:
+  ferroehr-config:
+    # The quickstart's server configuration, cut to what the conformance
+    # surface needs: the sandbox profile, the dev Basic user, RBAC off.
+    content: |
+      deployment_profile = "sandbox"
+      [server]
+      bind = "0.0.0.0:8080"
+      [auth]
+      enabled = true
+      [[auth.basic.users]]
+      user = "ferroehr"
+      password_hash = "$$argon2id$$v=19$$m=19456,t=2,p=1$$ZmVycm9laHJEZXZTYWx0$$be5nPwWjfUl1qvSrvkvqvdMOuCgM0VFcN/VN4MFLjT8"
+      scopes = ["user/composition-*.cruds", "user/template-*.cruds", "user/aql-*.cruds", "__ferroehr.platform"]
+      [authz.rbac]
+      enabled = false
+      [authz.rbac.basic_roles]
+      ferroehr = ["ADMIN", "USER"]
+      [admin]
+      enabled = true
