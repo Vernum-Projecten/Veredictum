@@ -6,7 +6,7 @@
 //!
 //! The gate refuses what the evaluator would otherwise have to guess about:
 //! a document the official Arazzo schema refuses, a key Arazzo does not
-//! define, an extension outside the two the catalogue allows, a criterion
+//! define, an extension outside the three the catalogue allows, a criterion
 //! with no citation, a citation whose quote is not in its source, a condition
 //! outside the profile, an operation or parameter that does not resolve, and
 //! a construct the evaluator does not drive yet.
@@ -26,6 +26,7 @@ use serde_json::Value;
 
 use crate::arazzo::check::Check;
 use crate::arazzo::cite::{CITE_KEY, Citation, CiteError, QuoteChecker, check_level, citation_of};
+use crate::arazzo::derive::{DERIVE_KEY, DeriveError, derivations_of};
 use crate::arazzo::expr::{Expr, JsonPathCriterion, ParseError, RegexCriterion, SimpleCondition};
 use crate::arazzo::gates::Gate;
 use crate::arazzo::gates::profile::{ProfileHeader, RegexBreach, lint_regex};
@@ -401,6 +402,11 @@ impl ArazzoDocument {
         if let Some(body) = &step.request_body {
             body_findings(body, &mut push);
         }
+        if let Err(error) = derivations_of(step.extensions.as_ref(), |name| {
+            step.outputs.contains_key(name)
+        }) {
+            push(FindingKind::Derive(error));
+        }
         for value in step.outputs.values() {
             match value {
                 ValueOrSelector::Literal(Value::String(text)) => {
@@ -668,7 +674,7 @@ pub enum FindingKind {
     /// A key Arazzo 1.1.0 does not define, which the model would drop.
     #[error("`{0}` is not a field Arazzo 1.1.0 defines here")]
     UnknownKey(String),
-    /// An extension other than the two the catalogue allows, or one in the
+    /// An extension other than the three the catalogue allows, or one in the
     /// wrong place.
     #[error("extension `{0}` is not allowed here")]
     ExtensionNotAllowed(String),
@@ -710,6 +716,9 @@ pub enum FindingKind {
     /// A construct the evaluator does not drive.
     #[error("not driven by the evaluator: {0}")]
     Unsupported(String),
+    /// An `x-veredictum-derive` that does not hold.
+    #[error(transparent)]
+    Derive(DeriveError),
 }
 
 impl FindingKind {
@@ -721,7 +730,9 @@ impl FindingKind {
             Self::UnknownKey(_) | Self::ExtensionNotAllowed(_) => Gate::Keys,
             Self::MissingCitation | Self::Citation(_) => Gate::Citation,
             Self::Level(_) => Gate::Level,
-            Self::Profile(_) | Self::Regex(_) | Self::Unsupported(_) => Gate::Profile,
+            Self::Profile(_) | Self::Regex(_) | Self::Unsupported(_) | Self::Derive(_) => {
+                Gate::Profile
+            }
             Self::Source(_)
             | Self::UnresolvedOperation(_)
             | Self::UnresolvedParameter(_)
@@ -763,7 +774,7 @@ fn unknown_keys(raw: &Value, back: &Value, at: &str, findings: &mut Vec<Finding>
     }
 }
 
-/// Reports every `x-` key that is not one of the catalogue's two extensions
+/// Reports every `x-` key that is not one of the catalogue's three extensions
 /// at a place it is defined for. Request payloads are data and are skipped.
 fn extension_keys(value: &Value, at: &mut Vec<String>, findings: &mut Vec<Finding>) {
     match value {
@@ -773,6 +784,7 @@ fn extension_keys(value: &Value, at: &mut Vec<String>, findings: &mut Vec<Findin
                     let allowed = match key.as_str() {
                         CITE_KEY => is_workflow(at) || is_step(at) || is_criterion(at),
                         CHECK_KEY => is_criterion(at),
+                        DERIVE_KEY => is_step(at),
                         _ => false,
                     };
                     if !allowed {
@@ -935,6 +947,65 @@ mod tests {
         assert!(
             kinds.iter().any(|k| matches!(k, FindingKind::Schema(_))),
             "the official schema refuses the unknown key too: {kinds:?}"
+        );
+    }
+
+    /// The step of `workflow` with `outputs` and an `x-veredictum-derive`
+    /// whose entries are `derive`, written as YAML flow mappings.
+    fn with_derive(derive: &str) -> String {
+        workflow(&cited(), "", "$statusCode == 404").replace(
+            "        successCriteria:\n",
+            &format!(
+                "        outputs: {{ version_uid: $response.body#/uid }}\n        x-veredictum-derive: {{ {derive} }}\n        successCriteria:\n"
+            ),
+        )
+    }
+
+    #[test]
+    fn a_derive_over_a_declared_output_passes_the_gate() {
+        let (dir, doc) = fixture(&with_derive(
+            "vo_uid: { function: object_id, of: version_uid }, tree: { function: version_tree_id, of: version_uid }",
+        ));
+        assert_eq!(kinds(&dir, &doc), Vec::<FindingKind>::new());
+    }
+
+    #[test]
+    fn the_gate_refuses_an_unknown_function_an_undeclared_of_and_a_colliding_name() {
+        for (derive, refused) in [
+            (
+                "vo_uid: { function: is_branch, of: version_uid }",
+                DeriveError::UnknownFunction("is_branch".to_owned()),
+            ),
+            (
+                "vo_uid: { function: object_id, of: uid }",
+                DeriveError::UndeclaredOutput {
+                    name: "vo_uid".to_owned(),
+                    of: "uid".to_owned(),
+                },
+            ),
+            (
+                "version_uid: { function: object_id, of: version_uid }",
+                DeriveError::Collides("version_uid".to_owned()),
+            ),
+        ] {
+            let (dir, doc) = fixture(&with_derive(derive));
+            let kinds = kinds(&dir, &doc);
+            assert!(
+                kinds.contains(&FindingKind::Derive(refused)),
+                "{derive}: {kinds:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_derive_off_a_step_is_not_allowed() {
+        let ext = format!(
+            "{}    x-veredictum-derive: {{ vo_uid: {{ function: object_id, of: version_uid }} }}\n",
+            cited()
+        );
+        let (dir, doc) = fixture(&workflow(&ext, "", "$statusCode == 404"));
+        assert!(
+            kinds(&dir, &doc).contains(&FindingKind::ExtensionNotAllowed(DERIVE_KEY.to_owned()))
         );
     }
 

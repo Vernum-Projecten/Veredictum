@@ -13,6 +13,7 @@
 use serde_json::{Value, json};
 
 use crate::arazzo::cite::{CITE_KEY, EXCLUDED_ROOT, ORACLE_ROOTS};
+use crate::arazzo::derive::DERIVE_KEY;
 use crate::arazzo::document::CHECK_KEY;
 use crate::arazzo::gates::profile::ProfileHeader;
 use crate::arazzo::gates::surface::NegotiationHeader;
@@ -108,7 +109,8 @@ fn check_def() -> Value {
     })
 }
 
-/// The `x-veredictum-cite` and `x-veredictum-check` extension objects.
+/// The `x-veredictum-cite`, `x-veredictum-check` and `x-veredictum-derive`
+/// extension objects.
 #[must_use]
 pub fn extensions_schema() -> Value {
     let roots: Vec<String> = ORACLE_ROOTS
@@ -118,8 +120,8 @@ pub fn extensions_schema() -> Value {
     json!({
         "$schema": DRAFT,
         "$id": urn("arazzo-extensions"),
-        "title": "The Arazzo catalogue's two specification extensions",
-        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state."),
+        "title": "The Arazzo catalogue's three specification extensions",
+        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state."),
         "$defs": {
             "cite": {
                 "type": "object",
@@ -153,7 +155,21 @@ pub fn extensions_schema() -> Value {
                     }
                 }
             },
-            "check": check_def()
+            "check": check_def(),
+            "derive": {
+                "description": "New step outputs by name. Each applies one function of BASE `object_version_id.adoc` to an output the same step declares, whose value has the lexical form `object_id::creating_system_id::version_tree_id`; a value of another form makes the row errored.",
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["function", "of"],
+                    "properties": {
+                        "function": { "enum": tokens(crate::arazzo::derive::DeriveFunction::ALL) },
+                        "of": { "type": "string", "minLength": 1 }
+                    }
+                }
+            }
         }
     })
 }

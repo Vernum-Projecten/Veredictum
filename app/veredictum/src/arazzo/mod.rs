@@ -14,6 +14,7 @@
 pub mod capabilities;
 pub mod check;
 pub mod cite;
+pub mod derive;
 pub mod document;
 pub mod evaluate;
 pub mod expr;
