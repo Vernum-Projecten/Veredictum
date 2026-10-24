@@ -262,6 +262,17 @@ version on.
 
 ### Changed
 
+- `I_EHR_COMPOSITION.create_composition-terminology_binding_unresolvable_fail_open`
+  runs on its own deployment, the `sut_fail_open` instance, the way its
+  fail-closed twin runs on `sut_pgp` (#684). A party that wires one
+  terminology server to each deployment cannot hold a reachable server and an
+  unreachable one on the same instance, so the down branch of register
+  AMB-172 needs a deployment of its own. A party has the case driven by
+  declaring `sut_fail_open` with the `fail_open` posture and the `cnf-ts-down`
+  namespace on a server marked `reachable: false`; a party that declares no
+  such instance gets the cited undeclared-instance not-applicable. The
+  expectation is unchanged.
+
 - The Arazzo catalogue moves from `artifacts/workflows/` to `catalogue/cases/`
   (#603, #624), and the case-core catalogue stays in `artifacts/` until the
   cut-over. `validate --root catalogue` runs only the Arazzo gates over a root

@@ -125,6 +125,34 @@
         ]
       },
       "spec_profile": "stable"
+    },
+    "sut_fail_open": {
+      "base_url": "http://localhost:8083/openehr/v1",
+      "auth": {
+        "mode": "bearer_mint",
+        "subject": "cnf-user",
+        "roles": [
+          "USER"
+        ],
+        "default_scopes": [
+          "user/template-*.cruds",
+          "user/aql-*.cruds"
+        ]
+      },
+      "terminology": {
+        "posture": "fail_open",
+        "servers": [
+          {
+            "name": "unreachable",
+            "reachable": false,
+            "namespaces": [
+              "cnf-ts-down",
+              "http://cnf.example.test/fhir/CodeSystem/ts-down",
+              "http://cnf.example.test/fhir/ValueSet/ts-down-set"
+            ]
+          }
+        ]
+      }
     }
   },
   "containers": {
