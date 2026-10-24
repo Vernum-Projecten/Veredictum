@@ -1,6 +1,8 @@
 # The ITEM_TAG list of a COMPOSITION version, read, replaced and deleted by
-# key, as Arazzo 1.1.0 workflows over the released ITS-REST `-validation`
-# OAS. Every criterion resolves to an `x-veredictum-cite` (its own, else its
+# key, and of its VERSIONED_COMPOSITION container, as Arazzo 1.1.0 workflows
+# over the released ITS-REST `-validation` OAS. A step derives the
+# container's versioned_object_uid from the version_uid a create answers
+# with. Every criterion resolves to an `x-veredictum-cite` (its own, else its
 # step's, else its workflow's), and every quote is copied verbatim from the
 # named vendored file.
 arazzo: 1.1.0
@@ -11,7 +13,10 @@ info:
     The ITEM_TAG list associated with a COMPOSITION version, addressed by its
     version_uid: reading it, replacing it, deleting by key, the identity of a
     tag, the representation preferences of the update, and the misses those
-    calls answer with 404.
+    calls answer with 404. And the list of the VERSIONED_COMPOSITION
+    container, addressed by its versioned_object_uid: the target a container
+    tag names, the version and container lists kept apart, and a new version
+    that moves no tag.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
@@ -798,3 +803,293 @@ workflows:
           - { name: key, in: path, value: alpha }
         successCriteria:
           - condition: $statusCode == 404
+
+  - workflowId: composition_tags_get-container_target_shape
+    summary: A tag of the VERSIONED_COMPOSITION names the container as its target and the EHR as its owner
+    description: >-
+      Commits a COMPOSITION, derives the versioned_object_uid of its
+      container from the version_uid the commit answers with, tags the
+      container by that uid, then reads the container's tags back. The tag's
+      target is an OBJECT_REF whose id carries the container's uid, and its
+      owner_id names the EHR the route addresses.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *tag_target
+    inputs: *ehr_input
+    steps:
+      - *create
+      - &commit_container
+        stepId: commit
+        description: >-
+          Commit a COMPOSITION, keep the version_uid of the full
+          representation the create answers with, and derive the
+          versioned_object_uid of its container from it.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - &tag_container
+        stepId: tag-container
+        description: Update the container's tag list with the tag scope=container.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: scope, value: container }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: *updated_minimal
+      - stepId: get
+        description: Retrieve the container's tags.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - context: $response.body#/0/target/id/value
+            type: regex
+            condition: '^{$steps.commit.outputs.versioned_object_uid}$'
+          - context: $response.body#/0/owner_id/id/value
+            type: regex
+            condition: '^{$inputs.ehr_id}$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/composition_tags_get.yaml
+              section: description
+              quote: "Retrieves the list of all ITEM_TAG resources associated with a given target COMPOSITION version or VERSIONED_COMPOSITION identified by `uid_based_id` and owned by EHR identified by `ehr_id`."
+
+  - workflowId: composition_tags_update-version_container_disjoint
+    summary: The tag lists of a COMPOSITION version and of its container are kept apart
+    description: >-
+      Tags the VERSIONED_COMPOSITION, addressed by the versioned_object_uid
+      derived from the commit's version_uid, with scope=container and the
+      committed version with scope=version. The version form of the
+      uid_based_id addresses the tags of that version and the container form
+      the tags of the container, so each list read back holds its own tag
+      only.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &uid_forms
+      source: specs/openehr/ITS-REST/specifications/operations/composition_tags_get.yaml
+      section: description
+      quote: "whereas the latter (e.g. an identifier like `8849182c-82ad-4088-a07f-48ead4180515`) is be used to get the tags of the target VERSIONED_COMPOSITION container."
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit_container
+      - *tag_container
+      - &tag_version
+        stepId: tag-version
+        description: Update the version's tag list with the tag scope=version.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: scope, value: version }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: *updated_minimal
+      - &container_tags
+        stepId: container-tags
+        description: Retrieve the container's tags; they hold the container's tag only.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'scope' && @.value == 'container']"
+          - condition: $response.body#/1 == null
+      - &first_version_tags
+        stepId: version-tags
+        description: Retrieve the version's tags; they hold the version's tag only.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'scope' && @.value == 'version']"
+          - condition: $response.body#/1 == null
+
+  - workflowId: composition_tags_delete-version_container_disjoint
+    summary: A delete on a COMPOSITION version leaves the container's tag of the same key
+    description: >-
+      Tags the VERSIONED_COMPOSITION, addressed by the derived
+      versioned_object_uid, and the committed COMPOSITION version with the
+      same key scope, then deletes scope from the version. The version's list
+      is empty afterwards, and the container's tag is still there.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *delete_by_key
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit_container
+      - *tag_container
+      - *tag_version
+      - stepId: delete
+        description: Delete the key scope from the version's tags.
+        operationId: $sourceDescriptions.ehr.composition_tags_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: key, in: path, value: scope }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_deleted.yaml
+              section: description
+              quote: "`204 No Content` is returned when the resource identified by the request parameters has been (logically) deleted."
+      - stepId: version-tags
+        description: Retrieve the version's tags; they are empty.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - *list_empty
+      - *container_tags
+
+  - workflowId: composition_tags_get-new_version_untagged
+    summary: A new COMPOSITION version moves no tag
+    description: >-
+      Tags the VERSIONED_COMPOSITION and the first COMPOSITION version, then
+      updates the COMPOSITION, addressed by the derived versioned_object_uid
+      and preconditioned on the first version_uid, which creates a second
+      version. The container keeps its tag, the first version keeps its tag,
+      and the second version, which no tag names as its target, has an empty
+      list.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *uid_forms
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit_container
+      - *tag_container
+      - *tag_version
+      - stepId: update
+        description: >-
+          Update the COMPOSITION, addressed by the derived versioned_object_uid
+          and preconditioned on the first version_uid, to a second version.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *composition
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the COMPOSITION is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+      - stepId: latest
+        description: Read the latest COMPOSITION VERSION for the second version's uid.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - *container_tags
+      - *first_version_tags
+      - stepId: second-version-tags
+        description: Retrieve the second version's tags; no tag names it as its target.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.latest.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - condition: $response.body#/0 == null
+            x-veredictum-cite: *empty_list
+
+  - workflowId: composition_tags_update-container_key_target_path_identity
+    summary: Two container tags with one key and different target_paths are two tags
+    description: >-
+      Updates the tag list of a VERSIONED_COMPOSITION, addressed by the
+      versioned_object_uid derived from the commit's version_uid, with two
+      tags that share the key flag and differ in target_path. A tag is
+      identified by its key and target_path together, so both are stored and
+      both are read back.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *identity
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit_container
+      - stepId: tag
+        description: Update the container's tag list with two flag tags on different target_paths.
+        operationId: $sourceDescriptions.ehr.composition_tags_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: flag, value: start, target_path: /context/start_time/value }
+            - { key: flag, value: setting, target_path: /context/setting/value }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: *updated_minimal
+      - stepId: get
+        description: Retrieve the container's tags.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'flag' && @.target_path == '/context/start_time/value']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'flag' && @.target_path == '/context/setting/value']"
+          - condition: $response.body#/2 == null
