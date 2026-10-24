@@ -50,9 +50,10 @@ gaps:
   - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/json, issue: 659 }
   - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/xml, issue: 659 }
 # The COMPOSITION write branches no workflow reaches yet, covered by #675:
-# the update, which is addressed by the versioned_object_uid; the create's
-# XML Accept and simplified formats; and the 400 and 409 a second delete
-# matches at once.
+# the update's refusals, its other preferences and formats; the create's XML
+# Accept and simplified formats; and the 400 and 409 a second delete matches
+# at once. The JSON update with return=representation is reached as the
+# step that makes a second version for the reads.
   - { api: ehr, operation: composition_create, header: Accept, value: application/openehr.wt.flat+json, issue: 675 }
   - { api: ehr, operation: composition_create, header: Accept, value: application/openehr.wt.structured+json, issue: 675 }
   - { api: ehr, operation: composition_create, header: Accept, value: application/xml, issue: 675 }
@@ -60,46 +61,28 @@ gaps:
   - { api: ehr, operation: composition_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 675 }
   - { api: ehr, operation: composition_delete, status: "400", issue: 675 }
   - { api: ehr, operation: composition_delete, status: "409", issue: 675 }
-  - { api: ehr, operation: composition_update, issue: 675 }
-  - { api: ehr, operation: composition_update, header: Accept, value: application/json, issue: 675 }
   - { api: ehr, operation: composition_update, header: Accept, value: application/openehr.wt.flat+json, issue: 675 }
   - { api: ehr, operation: composition_update, header: Accept, value: application/openehr.wt.structured+json, issue: 675 }
   - { api: ehr, operation: composition_update, header: Accept, value: application/xml, issue: 675 }
-  - { api: ehr, operation: composition_update, header: Content-Type, value: application/json, issue: 675 }
   - { api: ehr, operation: composition_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 675 }
   - { api: ehr, operation: composition_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 675 }
   - { api: ehr, operation: composition_update, header: Content-Type, value: application/xml, issue: 675 }
   - { api: ehr, operation: composition_update, header: Prefer, value: return=identifier, issue: 675 }
   - { api: ehr, operation: composition_update, header: Prefer, value: return=minimal, issue: 675 }
-  - { api: ehr, operation: composition_update, header: Prefer, value: return=representation, issue: 675 }
-  - { api: ehr, operation: composition_update, status: "200", issue: 675 }
   - { api: ehr, operation: composition_update, status: "204", issue: 675 }
   - { api: ehr, operation: composition_update, status: "400", issue: 675 }
   - { api: ehr, operation: composition_update, status: "404", issue: 675 }
   - { api: ehr, operation: composition_update, status: "412", issue: 675 }
   - { api: ehr, operation: composition_update, status: "422", issue: 675 }
-# The COMPOSITION read branches that need the versioned_object_uid of a real
-# container, covered by #678: the 204 of a version deleted at a time, and the
-# answers of the four VERSIONED_COMPOSITION reads with the Accept and the
-# Content-Type values the release declares on them.
-  - { api: ehr, operation: composition_get, status: "204", issue: 678 }
-  - { api: ehr, operation: versioned_composition_get, status: "200", issue: 678 }
-  - { api: ehr, operation: versioned_composition_get, header: Accept, value: application/json, issue: 678 }
-  - { api: ehr, operation: versioned_composition_get, header: Accept, value: application/xml, issue: 678 }
-  - { api: ehr, operation: versioned_composition_get, header: Content-Type, value: application/json, issue: 678 }
-  - { api: ehr, operation: versioned_composition_get, header: Content-Type, value: application/xml, issue: 678 }
-  - { api: ehr, operation: versioned_composition_revision_history, status: "200", issue: 678 }
-  - { api: ehr, operation: versioned_composition_revision_history, header: Accept, value: application/json, issue: 678 }
-  - { api: ehr, operation: versioned_composition_revision_history, header: Accept, value: application/xml, issue: 678 }
-  - { api: ehr, operation: versioned_composition_revision_history, header: Content-Type, value: application/json, issue: 678 }
-  - { api: ehr, operation: versioned_composition_revision_history, header: Content-Type, value: application/xml, issue: 678 }
-  - { api: ehr, operation: versioned_composition_version_get_at_time, status: "200", issue: 678 }
-  - { api: ehr, operation: versioned_composition_version_get_at_time, header: Accept, value: application/json, issue: 678 }
-  - { api: ehr, operation: versioned_composition_version_get_at_time, header: Accept, value: application/xml, issue: 678 }
-  - { api: ehr, operation: versioned_composition_version_get_at_time, header: Content-Type, value: application/json, issue: 678 }
-  - { api: ehr, operation: versioned_composition_version_get_at_time, header: Content-Type, value: application/xml, issue: 678 }
-  - { api: ehr, operation: versioned_composition_version_get_by_id, status: "200", issue: 678 }
-  - { api: ehr, operation: versioned_composition_version_get_by_id, header: Accept, value: application/json, issue: 678 }
-  - { api: ehr, operation: versioned_composition_version_get_by_id, header: Accept, value: application/xml, issue: 678 }
-  - { api: ehr, operation: versioned_composition_version_get_by_id, header: Content-Type, value: application/json, issue: 678 }
-  - { api: ehr, operation: versioned_composition_version_get_by_id, header: Content-Type, value: application/xml, issue: 678 }
+# The Content-Type the release declares on the four body-less
+# VERSIONED_COMPOSITION reads (`parameters/header/ContentType_canonical.yaml`
+# on a GET that carries no payload), held with the same EHR_STATUS question
+# under #659: whether the release declares a request branch there at all.
+  - { api: ehr, operation: versioned_composition_get, header: Content-Type, value: application/json, issue: 659 }
+  - { api: ehr, operation: versioned_composition_get, header: Content-Type, value: application/xml, issue: 659 }
+  - { api: ehr, operation: versioned_composition_revision_history, header: Content-Type, value: application/json, issue: 659 }
+  - { api: ehr, operation: versioned_composition_revision_history, header: Content-Type, value: application/xml, issue: 659 }
+  - { api: ehr, operation: versioned_composition_version_get_at_time, header: Content-Type, value: application/json, issue: 659 }
+  - { api: ehr, operation: versioned_composition_version_get_at_time, header: Content-Type, value: application/xml, issue: 659 }
+  - { api: ehr, operation: versioned_composition_version_get_by_id, header: Content-Type, value: application/json, issue: 659 }
+  - { api: ehr, operation: versioned_composition_version_get_by_id, header: Content-Type, value: application/xml, issue: 659 }

@@ -7,7 +7,8 @@ info:
   title: COMPOSITION read in canonical XML, refused
   version: 0.1.0
   description: >-
-    Reading a COMPOSITION by its version_uid with Accept application/xml
+    Reading a COMPOSITION by its version_uid, and by its versioned_object_uid
+    with and without a version_at_time, with Accept application/xml
     from a service that does not serve it in canonical XML.
 sourceDescriptions:
   - name: ehr
@@ -47,7 +48,9 @@ workflows:
               quote: "`201 Created` is returned when the EHR has been successfully created,"
       - &commit
         stepId: commit
-        description: Commit a COMPOSITION and keep the version_uid of the full representation the create answers with.
+        description: >-
+          Commit a COMPOSITION, keep the version_uid of the full representation
+          the create answers with, and derive the versioned_object_uid from it.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
@@ -134,12 +137,62 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
         outputs:
           version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
       - stepId: get
         description: Retrieve the COMPOSITION by its version_uid in canonical XML.
         operationId: $sourceDescriptions.ehr.composition_get
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
           - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: get_composition-latest-xml_not_acceptable
+    summary: A COMPOSITION read by versioned_object_uid without version_at_time with Accept for canonical XML is refused with 406
+    description: >-
+      Creates an EHR, commits a COMPOSITION in canonical JSON, then retrieves
+      its latest version by the versioned_object_uid derived from the commit's
+      version_uid, asking a service that does not serve it for canonical XML.
+      The read is refused with 406 Not Acceptable.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *refused
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - stepId: get
+        description: Retrieve the latest COMPOSITION by its versioned_object_uid in canonical XML.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: get_composition-at_time-xml_not_acceptable
+    summary: A COMPOSITION read by versioned_object_uid at a time with Accept for canonical XML is refused with 406
+    description: >-
+      Creates an EHR, commits a COMPOSITION in canonical JSON, then retrieves
+      the version extant at 2999-01-01, after the commit, by the
+      versioned_object_uid derived from the commit's version_uid, asking a
+      service that does not serve it for canonical XML. The read is refused
+      with 406 Not Acceptable.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *refused
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit
+      - stepId: get
+        description: Retrieve the COMPOSITION by its versioned_object_uid at a time after the commit in canonical XML.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: version_at_time, in: query, value: "2999-01-01T00:00:00.000Z" }
           - { name: Accept, in: header, value: application/xml }
         successCriteria:
           - condition: $statusCode == 406

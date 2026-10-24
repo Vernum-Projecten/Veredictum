@@ -368,27 +368,46 @@ cases:
     new: [composition_read/get_composition-unknown_versioned_object_uid-at_time]
   I_EHR_COMPOSITION.get_composition_at_time-bad_ehr:
     new: [composition_read/get_composition-unknown_ehr-at_time]
+  I_EHR_COMPOSITION.get_composition_at_time:
+    new: [composition_read_container/get_composition-at_time_future]
+  I_EHR_COMPOSITION.get_composition_at_time-before_first_version:
+    new: [composition_read_container/get_composition-at_time_before_first_version]
+  I_EHR_COMPOSITION.get_composition_at_time-deleted_at_time:
+    new: [composition_read_container/get_composition-deleted-at_time]
+  I_EHR_COMPOSITION.get_composition_at_time-future:
+    new: [composition_read_container/get_composition-at_time_future]
+  I_EHR_COMPOSITION.get_composition_at_time-malformed:
+    new: [composition_read_container/get_composition-at_time_malformed]
+  I_EHR_COMPOSITION.get_composition_at_time-no_time_arg:
+    new: [composition_read_container/get_composition-latest]
   I_EHR_COMPOSITION.get_composition_at_time-simplified_forms:
-    new: &simplified [composition_read_flat/get_composition-flat, composition_read_structured/get_composition-structured]
+    new:
+      - composition_read_flat/get_composition-at_time-flat
+      - composition_read_flat_not_acceptable/get_composition-at_time-flat_not_acceptable
+      - composition_read_structured/get_composition-at_time-structured
+      - composition_read_structured_not_acceptable/get_composition-at_time-structured_not_acceptable
     open: &simplified_part >-
-      The two Simplified Format media types are carried on the read by
-      version_uid; the at-time and latest addressing needs the
-      versioned_object_uid and waits on #680. The equality of the FLAT and STRUCTURED
-      values is not asserted: simplified_formats §Conversion Between Formats
-      gives a conversion algorithm and no released sentence requires a
-      server's two answers to agree.
+      The equality of the FLAT and STRUCTURED values is not asserted:
+      simplified_formats §Conversion Between Formats gives a conversion
+      algorithm and no released sentence requires a server's two answers to
+      agree.
   I_EHR_COMPOSITION.get_composition_at_time-xml:
-    new: &xml [composition_read_xml/get_composition-xml]
+    new:
+      - composition_read_xml/get_composition-at_time-xml
+      - composition_read_xml_not_acceptable/get_composition-at_time-xml_not_acceptable
     open: &xml_part >-
-      Accept application/xml is carried on the read by version_uid; the
-      at-time and latest addressing needs the versioned_object_uid and waits
-      on #680, and the root element of the XML document is not judged
-      because the evaluator reads no XML body (#678).
-  I_EHR_COMPOSITION.get_composition_at_version-deleted_version:
-    new: []
+      The root element of the XML document is not judged: the evaluator
+      reads no XML body (#637).
+  I_EHR_COMPOSITION.get_composition_at_times:
+    new:
+      - composition_read_container/get_composition-at_time_before_first_version
+      - composition_read_container/get_composition-at_time_of_first_version
+      - composition_read_container/get_composition-at_time_future
     open: >-
-      #678: the delete answers the deleted version's version_uid only inside
-      its weak ETag, W/"…", which the evaluator cannot unwrap into a path.
+      The instant between the two commits is the commit time of the first
+      version, read from its VERSION: no Arazzo expression adds to a time.
+  I_EHR_COMPOSITION.get_composition_at_version-deleted_version:
+    new: [composition_read_container/get_composition-deleted-version_uid]
   I_EHR_COMPOSITION.get_composition_at_version-spec_profile_dev_body_development:
     new: []
     open: &spec_profile >-
@@ -405,19 +424,34 @@ cases:
   I_EHR_COMPOSITION.get_composition_at_version-status_uid_kind_mismatch:
     new: [composition_read/get_composition-ehr_status_version_uid]
   I_EHR_COMPOSITION.get_composition_at_version-xml:
-    new: *xml
+    new: &xml [composition_read_xml/get_composition-xml]
     open: &xml_root >-
       The root element of the XML document is not judged: the evaluator
-      reads no XML body (#678).
+      reads no XML body (#637).
+  I_EHR_COMPOSITION.get_composition_latest:
+    new: [composition_read_container/get_composition-latest]
   I_EHR_COMPOSITION.get_composition_latest-bad_composition:
     new: [composition_read/get_composition-unknown_versioned_object_uid]
   I_EHR_COMPOSITION.get_composition_latest-bad_ehr:
     new: [composition_read/get_composition-unknown_ehr-versioned_object_uid]
+  I_EHR_COMPOSITION.get_composition_latest-deleted_head:
+    new: [composition_read_container/get_composition-deleted-latest]
+  I_EHR_COMPOSITION.get_composition_latest-identifier_forms_agree:
+    new: [composition_read_container/get_composition-identifier_forms_agree]
+    open: >-
+      The version count of two is not asserted here; the revision history
+      read of two versions carries it.
   I_EHR_COMPOSITION.get_composition_latest-simplified_forms:
-    new: *simplified
+    new:
+      - composition_read_flat/get_composition-latest-flat
+      - composition_read_flat_not_acceptable/get_composition-latest-flat_not_acceptable
+      - composition_read_structured/get_composition-latest-structured
+      - composition_read_structured_not_acceptable/get_composition-latest-structured_not_acceptable
     open: *simplified_part
   I_EHR_COMPOSITION.get_composition_latest-xml:
-    new: *xml
+    new:
+      - composition_read_xml/get_composition-latest-xml
+      - composition_read_xml_not_acceptable/get_composition-latest-xml_not_acceptable
     open: *xml_part
   I_EHR_COMPOSITION.get_composition_latest-xml_namespace_v1:
     new: []
@@ -444,6 +478,20 @@ cases:
     new: [composition_read/get_composition-unknown_ehr]
   I_EHR_COMPOSITION.get_composition_version-bad_version:
     new: [composition_read/get_composition-unknown_version_uid]
+  I_EHR_COMPOSITION.get_composition_versions:
+    new:
+      - composition_read/get_composition-by_version_uid
+      - composition_read_container/get_composition-superseded_version_uid
+  I_EHR_COMPOSITION.get_versioned_composition:
+    new: [composition_versioned/get_versioned_composition]
+  I_EHR_COMPOSITION.get_versioned_composition-at_time_before_first_version:
+    new: [composition_versioned/get_versioned_composition_version-at_time_before_first_version]
+  I_EHR_COMPOSITION.get_versioned_composition-at_time_future:
+    new: [composition_versioned/get_versioned_composition_version-at_time_future]
+  I_EHR_COMPOSITION.get_versioned_composition-at_time_malformed:
+    new: [composition_versioned/get_versioned_composition_version-at_time_malformed]
+  I_EHR_COMPOSITION.get_versioned_composition-at_time_omitted:
+    new: [composition_versioned/get_versioned_composition_version-latest]
   I_EHR_COMPOSITION.get_versioned_composition-bad_ehr:
     new: [composition_versioned_read/get_versioned_composition-unknown_ehr]
   I_EHR_COMPOSITION.get_versioned_composition-branch_version_uid:
@@ -453,6 +501,13 @@ cases:
       declares, and the catalogue has no source for extension routes yet;
       the case's expectations on the served IMPORTED_VERSION also rest on
       the AMB-198 handling, which no released sentence assigns.
+  I_EHR_COMPOSITION.get_versioned_composition-container_shape:
+    new: [composition_versioned/get_versioned_composition-container_shape]
+    open: >-
+      The namespace, type and id of owner_id are not compared with the EHR:
+      VERSIONED_OBJECT.owner_id names the containing EHR only as "e.g.".
+  I_EHR_COMPOSITION.get_versioned_composition-deleted_version_envelope:
+    new: [composition_versioned/get_versioned_composition_version-by_id-deleted]
   I_EHR_COMPOSITION.get_versioned_composition-imported_version:
     new: []
     open: *imported
@@ -463,6 +518,20 @@ cases:
     new: [composition_versioned_read/get_versioned_composition-malformed_versioned_object_uid]
   I_EHR_COMPOSITION.get_versioned_composition-non_existent:
     new: [composition_versioned_read/get_versioned_composition-unknown_versioned_object_uid]
+  I_EHR_COMPOSITION.get_versioned_composition-version_of_other_container:
+    new: [composition_versioned/get_versioned_composition_version-by_id-of_other_container]
+  I_EHR_COMPOSITION.get_versioned_composition-version_unknown:
+    new: [composition_versioned/get_versioned_composition_version-by_id-unknown_version]
+  I_EHR_COMPOSITION.get_versioned_composition-version_xml_root:
+    new:
+      - composition_versioned_read_xml/get_versioned_composition_version-by_id-xml
+      - composition_versioned_read_xml_not_acceptable/get_versioned_composition_version-by_id-xml_not_acceptable
+    open: *xml_root
+  I_EHR_COMPOSITION.get_versioned_composition-xml:
+    new:
+      - composition_versioned_read_xml/get_versioned_composition-xml
+      - composition_versioned_read_xml_not_acceptable/get_versioned_composition-xml_not_acceptable
+    open: *xml_root
   I_EHR_COMPOSITION.has_composition:
     new: [composition_read/get_composition-by_version_uid]
   I_EHR_COMPOSITION.has_composition-bad_composition:
@@ -862,34 +931,15 @@ cases:
       The order of the items is not judged: the released REVISION_HISTORY
       class says most-recent-first in its description and most-recent-last on
       items (upstream report #661).
+  I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-two_versions:
+    new: [composition_versioned/get_versioned_composition-revision_history]
+    open: >-
+      The order of the items is not judged: the released REVISION_HISTORY
+      class says most-recent-first in its description and most-recent-last on
+      items (upstream report #661).
   I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-unknown_container:
     new: [composition_versioned_read/get_versioned_composition-revision_history-unknown_versioned_object_uid]
 pending:
-  # Container-addressed COMPOSITION reads, converted once #680 lets a step
-  # derive the versioned_object_uid from a version_uid.
-  - I_EHR_COMPOSITION.get_composition_at_time
-  - I_EHR_COMPOSITION.get_composition_at_time-before_first_version
-  - I_EHR_COMPOSITION.get_composition_at_time-deleted_at_time
-  - I_EHR_COMPOSITION.get_composition_at_time-future
-  - I_EHR_COMPOSITION.get_composition_at_time-malformed
-  - I_EHR_COMPOSITION.get_composition_at_time-no_time_arg
-  - I_EHR_COMPOSITION.get_composition_at_times
-  - I_EHR_COMPOSITION.get_composition_latest
-  - I_EHR_COMPOSITION.get_composition_latest-deleted_head
-  - I_EHR_COMPOSITION.get_composition_latest-identifier_forms_agree
-  - I_EHR_COMPOSITION.get_composition_versions
-  - I_EHR_COMPOSITION.get_versioned_composition
-  - I_EHR_COMPOSITION.get_versioned_composition-at_time_before_first_version
-  - I_EHR_COMPOSITION.get_versioned_composition-at_time_future
-  - I_EHR_COMPOSITION.get_versioned_composition-at_time_malformed
-  - I_EHR_COMPOSITION.get_versioned_composition-at_time_omitted
-  - I_EHR_COMPOSITION.get_versioned_composition-container_shape
-  - I_EHR_COMPOSITION.get_versioned_composition-deleted_version_envelope
-  - I_EHR_COMPOSITION.get_versioned_composition-version_of_other_container
-  - I_EHR_COMPOSITION.get_versioned_composition-version_unknown
-  - I_EHR_COMPOSITION.get_versioned_composition-version_xml_root
-  - I_EHR_COMPOSITION.get_versioned_composition-xml
-  - I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-two_versions
   - I_ITS_REST_ITEM_TAGS.agent_tags_delete-key_scoped
   - I_ITS_REST_ITEM_TAGS.agent_tags_delete-unknown_key
   - I_ITS_REST_ITEM_TAGS.agent_tags_get-unknown_container
