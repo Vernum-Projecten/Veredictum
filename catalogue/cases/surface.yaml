@@ -29,9 +29,9 @@ gaps:
   - { api: ehr, operation: ehr_create_with_id, header: Content-Type, value: application/openehr.wt.structured+json, issue: 653 }
   - { api: ehr, operation: ehr_create_with_id, header: Prefer, value: return=minimal, issue: 653 }
   - { api: ehr, operation: ehr_create_with_id, header: Prefer, value: return=identifier, issue: 653 }
-# The EHR_STATUS gaps, covered by #659: the simplified formats, an XML request
+# The EHR_STATUS gaps, covered by #659: the simplified formats and an XML request
 # body on the update (whose accepting arm of `ehr-status-xml-write` has no
-# document), and the Content-Type the release declares on body-less reads.
+# document).
   - { api: ehr, operation: ehr_status_get_at_time, header: Accept, value: application/openehr.wt.flat+json, issue: 659 }
   - { api: ehr, operation: ehr_status_get_at_time, header: Accept, value: application/openehr.wt.structured+json, issue: 659 }
   - { api: ehr, operation: ehr_status_get_by_version_id, header: Accept, value: application/openehr.wt.flat+json, issue: 659 }
@@ -41,14 +41,6 @@ gaps:
   - { api: ehr, operation: ehr_status_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 659 }
   - { api: ehr, operation: ehr_status_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 659 }
   - { api: ehr, operation: ehr_status_update, header: Content-Type, value: application/xml, issue: 659 }
-  - { api: ehr, operation: versioned_ehr_status_get, header: Content-Type, value: application/json, issue: 659 }
-  - { api: ehr, operation: versioned_ehr_status_get, header: Content-Type, value: application/xml, issue: 659 }
-  - { api: ehr, operation: versioned_ehr_status_revision_history, header: Content-Type, value: application/json, issue: 659 }
-  - { api: ehr, operation: versioned_ehr_status_revision_history, header: Content-Type, value: application/xml, issue: 659 }
-  - { api: ehr, operation: versioned_ehr_status_version_get_at_time, header: Content-Type, value: application/json, issue: 659 }
-  - { api: ehr, operation: versioned_ehr_status_version_get_at_time, header: Content-Type, value: application/xml, issue: 659 }
-  - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/json, issue: 659 }
-  - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/xml, issue: 659 }
 # The COMPOSITION write branches no workflow reaches yet, covered by #675:
 # the update's refusals, its other preferences and formats; the create's XML
 # Accept and simplified formats; and the 400 and 409 a second delete matches
@@ -74,15 +66,24 @@ gaps:
   - { api: ehr, operation: composition_update, status: "404", issue: 675 }
   - { api: ehr, operation: composition_update, status: "412", issue: 675 }
   - { api: ehr, operation: composition_update, status: "422", issue: 675 }
-# The Content-Type the release declares on the four body-less
-# VERSIONED_COMPOSITION reads (`parameters/header/ContentType_canonical.yaml`
-# on a GET that carries no payload), held with the same EHR_STATUS question
-# under #659: whether the release declares a request branch there at all.
-  - { api: ehr, operation: versioned_composition_get, header: Content-Type, value: application/json, issue: 659 }
-  - { api: ehr, operation: versioned_composition_get, header: Content-Type, value: application/xml, issue: 659 }
-  - { api: ehr, operation: versioned_composition_revision_history, header: Content-Type, value: application/json, issue: 659 }
-  - { api: ehr, operation: versioned_composition_revision_history, header: Content-Type, value: application/xml, issue: 659 }
-  - { api: ehr, operation: versioned_composition_version_get_at_time, header: Content-Type, value: application/json, issue: 659 }
-  - { api: ehr, operation: versioned_composition_version_get_at_time, header: Content-Type, value: application/xml, issue: 659 }
-  - { api: ehr, operation: versioned_composition_version_get_by_id, header: Content-Type, value: application/json, issue: 659 }
-  - { api: ehr, operation: versioned_composition_version_get_by_id, header: Content-Type, value: application/xml, issue: 659 }
+# The Content-Type the release declares on the body-less VERSIONED_EHR_STATUS
+# and VERSIONED_COMPOSITION GETs: each operation lists
+# `parameters/header/ContentType_canonical.yaml` as a request header on a
+# request with no payload, so there is no request format to negotiate. A
+# defect in the released OAS, upstream report #687.
+  - { api: ehr, operation: versioned_composition_get, header: Content-Type, value: application/json, issue: 687 }
+  - { api: ehr, operation: versioned_composition_get, header: Content-Type, value: application/xml, issue: 687 }
+  - { api: ehr, operation: versioned_composition_revision_history, header: Content-Type, value: application/json, issue: 687 }
+  - { api: ehr, operation: versioned_composition_revision_history, header: Content-Type, value: application/xml, issue: 687 }
+  - { api: ehr, operation: versioned_composition_version_get_at_time, header: Content-Type, value: application/json, issue: 687 }
+  - { api: ehr, operation: versioned_composition_version_get_at_time, header: Content-Type, value: application/xml, issue: 687 }
+  - { api: ehr, operation: versioned_composition_version_get_by_id, header: Content-Type, value: application/json, issue: 687 }
+  - { api: ehr, operation: versioned_composition_version_get_by_id, header: Content-Type, value: application/xml, issue: 687 }
+  - { api: ehr, operation: versioned_ehr_status_get, header: Content-Type, value: application/json, issue: 687 }
+  - { api: ehr, operation: versioned_ehr_status_get, header: Content-Type, value: application/xml, issue: 687 }
+  - { api: ehr, operation: versioned_ehr_status_revision_history, header: Content-Type, value: application/json, issue: 687 }
+  - { api: ehr, operation: versioned_ehr_status_revision_history, header: Content-Type, value: application/xml, issue: 687 }
+  - { api: ehr, operation: versioned_ehr_status_version_get_at_time, header: Content-Type, value: application/json, issue: 687 }
+  - { api: ehr, operation: versioned_ehr_status_version_get_at_time, header: Content-Type, value: application/xml, issue: 687 }
+  - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/json, issue: 687 }
+  - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/xml, issue: 687 }
