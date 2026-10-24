@@ -28,11 +28,10 @@ workflows:
   - workflowId: delete_composition-event
     summary: The latest version of an event COMPOSITION is deleted with 204
     description: >-
-      Creates an EHR and an event COMPOSITION, keeping the version_uid the
-      identifier preference answers with, then deletes the COMPOSITION by
-      that version_uid. The delete is answered 204 No Content. A server that
-      declines the identifier preference leaves the instrument without a
-      version_uid, and the row is errored rather than failed.
+      Creates an EHR and an event COMPOSITION, keeping the version_uid of the
+      full representation the create answers with, then deletes the
+      COMPOSITION by that version_uid. The delete is answered 204 No
+      Content.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite: &deleted
       source: specs/openehr/ITS-REST/specifications/responses/204_version_deleted.yaml
@@ -57,11 +56,11 @@ workflows:
               quote: "`201 Created` is returned when the EHR has been successfully created,"
       - &commit
         stepId: commit
-        description: Create the event COMPOSITION and keep the version_uid the identifier preference answers with.
+        description: Create the event COMPOSITION and keep the version_uid of the full representation it answers with.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/json
@@ -122,16 +121,14 @@ workflows:
                       archetype_node_id: at0002
                       value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
         successCriteria:
-          - &identifier_answered
-            condition: $response.body#/uid != null
+          - &composition_created
+            condition: $statusCode == 201
             x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
-              section: Prefer only identifier
-              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
-              level: should
-              report: 673
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
         outputs:
-          version_uid: $response.body#/uid
+          version_uid: $response.body#/uid/value
       - &delete
         stepId: delete
         description: Delete the COMPOSITION by the version_uid of its latest version.
@@ -148,19 +145,19 @@ workflows:
     summary: The latest version of a persistent COMPOSITION is deleted with 204
     description: >-
       Creates an EHR and a persistent COMPOSITION, keeping the version_uid
-      the identifier preference answers with, then deletes the COMPOSITION
-      by that version_uid. The delete is answered 204 No Content.
+      of the full representation the create answers with, then deletes the
+      COMPOSITION by that version_uid. The delete is answered 204 No Content.
     dependsOn: [$sourceDescriptions.setup.upload_template-persistent_minimal]
     x-veredictum-cite: *deleted
     inputs: *ehr_input
     steps:
       - *create_ehr
       - stepId: commit
-        description: Create the persistent COMPOSITION and keep the version_uid the identifier preference answers with.
+        description: Create the persistent COMPOSITION and keep the version_uid of the full representation it answers with.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/json
@@ -235,9 +232,9 @@ workflows:
                   archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
                   rm_version: "1.0.2"
         successCriteria:
-          - *identifier_answered
+          - *composition_created
         outputs:
-          version_uid: $response.body#/uid
+          version_uid: $response.body#/uid/value
       - *delete
 
   - workflowId: delete_composition-unknown_version

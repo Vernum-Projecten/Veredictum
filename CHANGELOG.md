@@ -296,7 +296,11 @@ version on.
   `composition-structured-write` options carry the simplified request
   bodies. `catalogue/id-map.yaml` says why for each case not carried, and
   `surface.yaml` lists no gap under #675; the 400 of a second delete stays
-  a gap under #681.
+  a gap under #681. The create steps that only learn a version_uid for a
+  later step in `composition_create`, `composition_delete` and
+  `composition_xml` now ask for `return=representation` and read
+  `uid/value`, so a server that declines the advisory identifier
+  preference no longer leaves those rows errored.
 
 ### Changed
 

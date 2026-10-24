@@ -219,11 +219,9 @@ workflows:
     summary: The version an event COMPOSITION create commits is retrievable by its version_uid
     description: >-
       Creates an EHR, creates an event COMPOSITION and keeps the version_uid
-      the identifier preference answers with, then retrieves that version.
-      The answer is 200 with the committed COMPOSITION: its archetype_node_id,
-      template_id and category are the ones sent. A server that declines the
-      identifier preference leaves the instrument without a version_uid, and
-      the row is errored rather than failed.
+      of the full representation the create answers with, then retrieves
+      that version. The answer is 200 with the committed COMPOSITION: its
+      archetype_node_id, template_id and category are the ones sent.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite: *create_operation
     inputs: *ehr_input
@@ -231,26 +229,24 @@ workflows:
       - *create_ehr
       - &commit
         stepId: commit
-        description: Create the event COMPOSITION and keep the version_uid the identifier preference answers with.
+        description: Create the event COMPOSITION and keep the version_uid of the full representation it answers with.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/json
           payload: *event
         successCriteria:
-          - &identifier_answered
-            condition: $response.body#/uid != null
-            x-veredictum-cite: &identifier_only
-              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
-              section: Prefer only identifier
-              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
-              level: should
-              report: 673
+          - &composition_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
         outputs:
-          version_uid: $response.body#/uid
+          version_uid: $response.body#/uid/value
       - stepId: read
         description: Retrieve the committed version by its version_uid.
         operationId: $sourceDescriptions.ehr.composition_get
@@ -279,28 +275,28 @@ workflows:
     summary: The version a persistent COMPOSITION create commits is retrievable by its version_uid
     description: >-
       Creates an EHR, creates a persistent COMPOSITION and keeps the
-      version_uid the identifier preference answers with, then retrieves that
-      version. The answer is 200 with the committed COMPOSITION, whose
-      category is 431|persistent|.
+      version_uid of the full representation the create answers with, then
+      retrieves that version. The answer is 200 with the committed
+      COMPOSITION, whose category is 431|persistent|.
     dependsOn: [$sourceDescriptions.setup.upload_template-persistent_minimal]
     x-veredictum-cite: *create_operation
     inputs: *ehr_input
     steps:
       - *create_ehr
       - stepId: commit
-        description: Create the persistent COMPOSITION and keep the version_uid the identifier preference answers with.
+        description: Create the persistent COMPOSITION and keep the version_uid of the full representation it answers with.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/json
           payload: *persistent
         successCriteria:
-          - *identifier_answered
+          - *composition_created
         outputs:
-          version_uid: $response.body#/uid
+          version_uid: $response.body#/uid/value
       - stepId: read
         description: Retrieve the committed version by its version_uid.
         operationId: $sourceDescriptions.ehr.composition_get
@@ -332,7 +328,27 @@ workflows:
     inputs: *ehr_input
     steps:
       - *create_ehr
-      - *commit
+      - stepId: commit
+        description: Create the event COMPOSITION and keep the version_uid the identifier preference answers with.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *event
+        successCriteria:
+          - &identifier_answered
+            condition: $response.body#/uid != null
+            x-veredictum-cite: &identifier_only
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+        outputs:
+          version_uid: $response.body#/uid
       - stepId: read
         description: Retrieve the committed version by the identifier, and judge the identifier's form.
         operationId: $sourceDescriptions.ehr.composition_get
@@ -615,11 +631,11 @@ workflows:
     steps:
       - *create_ehr
       - stepId: commit
-        description: Create the COMPOSITION with a comma fraction and keep the version_uid the identifier preference answers with.
+        description: Create the COMPOSITION with a comma fraction and keep the version_uid of the full representation it answers with.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/json
@@ -627,9 +643,9 @@ workflows:
           replacements:
             - { target: /context/start_time/value, value: "2021-09-21T21:52:31,927-03:00" }
         successCriteria:
-          - *identifier_answered
+          - *composition_created
         outputs:
-          version_uid: $response.body#/uid
+          version_uid: $response.body#/uid/value
       - stepId: read
         description: Retrieve the committed version and read its start_time.
         operationId: $sourceDescriptions.ehr.composition_get
@@ -765,11 +781,11 @@ workflows:
     steps:
       - *create_ehr
       - stepId: commit
-        description: Create the COMPOSITION with two LINKs and keep the version_uid the identifier preference answers with.
+        description: Create the COMPOSITION with two LINKs and keep the version_uid of the full representation it answers with.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/json
@@ -844,9 +860,9 @@ workflows:
                       archetype_node_id: at0002
                       value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
         successCriteria:
-          - *identifier_answered
+          - *composition_created
         outputs:
-          version_uid: $response.body#/uid
+          version_uid: $response.body#/uid/value
       - stepId: read
         description: Retrieve the committed version and read both links.
         operationId: $sourceDescriptions.ehr.composition_get
@@ -887,11 +903,11 @@ workflows:
     steps:
       - *create_ehr
       - stepId: commit
-        description: Create the COMPOSITION with two FEEDER_AUDITs and keep the version_uid the identifier preference answers with.
+        description: Create the COMPOSITION with two FEEDER_AUDITs and keep the version_uid of the full representation it answers with.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/json
@@ -994,9 +1010,9 @@ workflows:
                           system_id: lab.example.org
                           time: { value: "2021-09-21T21:50:00-03:00" }
         successCriteria:
-          - *identifier_answered
+          - *composition_created
         outputs:
-          version_uid: $response.body#/uid
+          version_uid: $response.body#/uid/value
       - stepId: read
         description: Retrieve the committed version and read both FEEDER_AUDITs.
         operationId: $sourceDescriptions.ehr.composition_get
@@ -1044,11 +1060,11 @@ workflows:
     steps:
       - *create_ehr
       - stepId: commit
-        description: Create the COMPOSITION with two timed participations and keep the version_uid the identifier preference answers with.
+        description: Create the COMPOSITION with two timed participations and keep the version_uid of the full representation it answers with.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/json
@@ -1127,9 +1143,9 @@ workflows:
                       archetype_node_id: at0002
                       value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
         successCriteria:
-          - *identifier_answered
+          - *composition_created
         outputs:
-          version_uid: $response.body#/uid
+          version_uid: $response.body#/uid/value
       - stepId: read
         description: Retrieve the committed version and read both participation times.
         operationId: $sourceDescriptions.ehr.composition_get
@@ -1160,11 +1176,11 @@ workflows:
     steps:
       - *create_ehr
       - stepId: commit
-        description: Create the COMPOSITION with a referenced PARTY_SELF and keep the version_uid the identifier preference answers with.
+        description: Create the COMPOSITION with a referenced PARTY_SELF and keep the version_uid of the full representation it answers with.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/json
@@ -1232,9 +1248,9 @@ workflows:
                       archetype_node_id: at0002
                       value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
         successCriteria:
-          - *identifier_answered
+          - *composition_created
         outputs:
-          version_uid: $response.body#/uid
+          version_uid: $response.body#/uid/value
       - stepId: read
         description: Retrieve the committed version and read the subject's external_ref.
         operationId: $sourceDescriptions.ehr.composition_get
@@ -1258,9 +1274,10 @@ workflows:
     summary: Two COMPOSITIONs created in one EHR are each retrievable
     description: >-
       Creates an EHR and two event COMPOSITIONs in it, keeping the version_uid
-      the identifier preference answers with for each, then retrieves both
-      versions. Each create makes a new COMPOSITION, so each version_uid
-      addresses a committed COMPOSITION and both reads answer 200.
+      of the full representation the create answers with for each, then
+      retrieves both versions. Each create makes a new COMPOSITION, so each
+      version_uid addresses a committed COMPOSITION and both reads answer
+      200.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite: *create_operation
     inputs: *ehr_input
@@ -1272,15 +1289,15 @@ workflows:
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/json
           payload: *event
         successCriteria:
-          - *identifier_answered
+          - *composition_created
         outputs:
-          version_uid: $response.body#/uid
+          version_uid: $response.body#/uid/value
       - stepId: read
         description: Retrieve the first COMPOSITION by its version_uid.
         operationId: $sourceDescriptions.ehr.composition_get
@@ -1327,12 +1344,7 @@ workflows:
           contentType: application/json
           payload: *event
         successCriteria:
-          - &composition_created
-            condition: $statusCode == 201
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
-              section: description
-              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+          - *composition_created
         outputs:
           version_uid: $response.body#/uid/value
         x-veredictum-derive:
