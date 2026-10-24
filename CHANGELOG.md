@@ -20,6 +20,22 @@ version on.
 
 ### Added
 
+- The create and delete cases of the COMPOSITION component are converted to
+  Arazzo (#603). 59 workflows in five documents under
+  `catalogue/cases/composition/` carry 50 of the 66 create and delete
+  cases: `composition_create` (the event and persistent creates, the read
+  of the created version, the representation preferences, the ETag and
+  Last-Modified headers, and the content read back), `composition_create_refused`
+  (an unknown EHR or template, 400 for a body the published ITS-JSON schema
+  refuses, 422 for a schema-valid body that breaks an RM invariant, 415, and
+  an EHR that is not modifiable), `composition_delete`, and `composition_xml`
+  and `composition_xml_write_refused` (the arms of the new
+  `composition-xml-write` option). `_setup/templates.arazzo.yaml` uploads two
+  more templates. The 27 update cases and the version-metadata cases have no
+  workflow yet: the update and the VERSION reads address a COMPOSITION by
+  its `versioned_object_uid`, which becomes derivable with #680.
+  `catalogue/id-map.yaml` gives the reason for every case not carried, and
+  the remaining COMPOSITION gaps in `surface.yaml` are tracked under #675.
 - The COMPOSITION read cases are converted to Arazzo (#603). The 52
   `I_EHR_COMPOSITION` read cases and the two COMPOSITION revision-history
   cases become 31 workflows in eight documents under

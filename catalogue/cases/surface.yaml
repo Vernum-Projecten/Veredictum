@@ -49,21 +49,16 @@ gaps:
   - { api: ehr, operation: versioned_ehr_status_version_get_at_time, header: Content-Type, value: application/xml, issue: 659 }
   - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/json, issue: 659 }
   - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/xml, issue: 659 }
-# The COMPOSITION write branches the read documents do not reach, covered by
-# #675: the update and the delete, and the create's negotiation values, its
-# minimal preference and its 404.
+# The COMPOSITION write branches no workflow reaches yet, covered by #675:
+# the update, which is addressed by the versioned_object_uid; the create's
+# XML Accept and simplified formats; and the 400 and 409 a second delete
+# matches at once.
   - { api: ehr, operation: composition_create, header: Accept, value: application/openehr.wt.flat+json, issue: 675 }
   - { api: ehr, operation: composition_create, header: Accept, value: application/openehr.wt.structured+json, issue: 675 }
   - { api: ehr, operation: composition_create, header: Accept, value: application/xml, issue: 675 }
   - { api: ehr, operation: composition_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 675 }
   - { api: ehr, operation: composition_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 675 }
-  - { api: ehr, operation: composition_create, header: Content-Type, value: application/xml, issue: 675 }
-  - { api: ehr, operation: composition_create, header: Prefer, value: return=minimal, issue: 675 }
-  - { api: ehr, operation: composition_create, status: "404", issue: 675 }
-  - { api: ehr, operation: composition_delete, issue: 675 }
-  - { api: ehr, operation: composition_delete, status: "204", issue: 675 }
   - { api: ehr, operation: composition_delete, status: "400", issue: 675 }
-  - { api: ehr, operation: composition_delete, status: "404", issue: 675 }
   - { api: ehr, operation: composition_delete, status: "409", issue: 675 }
   - { api: ehr, operation: composition_update, issue: 675 }
   - { api: ehr, operation: composition_update, header: Accept, value: application/json, issue: 675 }
