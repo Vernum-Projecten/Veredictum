@@ -104,6 +104,12 @@ the book's screenshots under `website/book/src/console/img/`; a pull request
 touching `src/` or `style/` must commit refreshed captures or carry the
 `no-ui-visual-change` label, which the `ui-screenshot-guard` CI job enforces.
 
+The pinned Chromium is `linux/amd64` and does not start under emulation on
+Apple Silicon, so an author on an ARM machine renders the captures in CI:
+`gh workflow run ui-captures.yml --ref <branch>`, then
+`gh run download <run-id> --name console-captures --dir website/book/src/console/img`.
+The lane never commits; review the image diff and commit it signed yourself.
+
 That same flag serves the console with `VEREDICTUM_CAPTURE_MODE` set, and
 `src/capture.rs` then answers every fact a pass MEASURES OR MINTS as a fixed
 stand-in: the run clock and its estimate, the connect probe's round trip, the
