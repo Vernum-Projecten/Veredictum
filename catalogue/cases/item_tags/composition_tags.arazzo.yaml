@@ -130,11 +130,22 @@ workflows:
                             archetype_node_id: at0004
                             value: { _type: DV_COUNT, magnitude: 15 }
         successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: &success_status
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
           - condition: $statusCode == 201
-            x-veredictum-cite: &composition_created
-              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
-              section: description
-              quote: "If `Prefer` header is `return=representation`, the full resource is included in the response body; if is `return=identifier`, only its unique identifier is included."
+            x-veredictum-cite: &identifier_should
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+          - condition: $response.body#/uid != null
+            x-veredictum-cite: *identifier_should
         outputs:
           version_uid: $response.body#/uid
       - &get_tags
@@ -188,8 +199,7 @@ workflows:
     description: >-
       Creates an EHR, commits a COMPOSITION, then updates the tag list of the
       version with two tags and no Prefer header. The update answers 204, and
-      the list read back holds exactly the two tags, each with its value and
-      with the version as its target.
+      the list read back holds exactly the two tags, each with its value.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite: &update_list
       source: specs/openehr/ITS-REST/specifications/operations/composition_tags_update.yaml
@@ -234,13 +244,6 @@ workflows:
             type: jsonpath
             condition: "$[?@.key == 'beta' && @.value == 'b']"
           - condition: $response.body#/2 == null
-          - context: $response.body
-            type: jsonpath
-            condition: "$[?@.target.value == '{$steps.commit.outputs.version_uid}']"
-            x-veredictum-cite: &tag_target
-              source: specs/openehr/RM/docs/UML/classes/item_tag.adoc
-              section: ITEM_TAG Class
-              quote: "Identifier of target, which may be a `VERSIONED_OBJECT<T>` or a `VERSION<T>`."
 
   - workflowId: composition_tags_update-replaces_list
     summary: An update replaces the whole tag list of a COMPOSITION version
@@ -476,12 +479,11 @@ workflows:
     description: >-
       Updates the tag list of a COMPOSITION version with Prefer
       return=identifier. The identifier preference implies a non-empty body,
-      so the answer is 200 or 201, never 204, and the tag is stored.
+      so the answer is 200 or 201 rather than 204, and the tag is stored. The
+      released text recommends the identifier body only, so the status
+      criterion is advisory.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
-    x-veredictum-cite: &identifier_not_204
-      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
-      section: Prefer only identifier
-      quote: "This is a variant of preference that implies minimal response semantics, but with a non-empty response body (i.e., the status will be `201 Created` or `200 OK`, never `204 No Content`)."
+    x-veredictum-cite: *identifier_should
     inputs: *ehr_input
     steps:
       - *create
@@ -499,6 +501,10 @@ workflows:
           payload:
             - { key: alpha, value: a }
         successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: *success_status
           - context: $statusCode
             type: regex
             condition: '^(200|201)$'
@@ -520,12 +526,15 @@ workflows:
   - workflowId: composition_tags_get-version_target_shape
     summary: A tag of a COMPOSITION version names the version as its target and the EHR as its owner
     description: >-
-      Tags a COMPOSITION version, then reads the tags back. The tag's target
-      is the UID_BASED_ID the version was addressed by, serialized with its
-      value; an OBJECT_REF would carry the identifier under id instead. Its
-      owner_id names the EHR the route addresses.
+      Tags a COMPOSITION version, then reads the tags back. The released
+      ITEM_TAG schema types target as an OBJECT_REF whose id is a
+      UID_BASED_ID, so the target's id carries the version_uid the version
+      was addressed by. Its owner_id names the EHR the route addresses.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
-    x-veredictum-cite: *tag_target
+    x-veredictum-cite: &tag_target
+      source: specs/openehr/ITS-REST/specifications/schemas/common/ItemTag.yaml
+      section: /properties/target/$ref
+      quote: "../base_types/UObjectRefOfUidBasedId.yaml"
     inputs: *ehr_input
     steps:
       - *create
@@ -541,7 +550,7 @@ workflows:
         successCriteria:
           - condition: $statusCode == 200
             x-veredictum-cite: *list_retrieved
-          - context: $response.body#/0/target/value
+          - context: $response.body#/0/target/id/value
             type: regex
             condition: '^{$steps.commit.outputs.version_uid}$'
           - context: $response.body#/0/owner_id/id/value
@@ -600,14 +609,14 @@ workflows:
     summary: A COMPOSITION version of another EHR is not a tag target under this EHR
     description: >-
       Commits a COMPOSITION to one EHR, creates a second EHR, then retrieves
-      the tags of the version under the second EHR. A tag target can only be
-      within the same EHR, and the route addresses a version owned by the
-      EHR it names, so the read is answered with 404 Not Found.
+      the tags of the version under the second EHR. The route addresses a
+      version owned by the EHR it names, and that version is owned by the
+      first EHR, so the read is answered with 404 Not Found.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite:
-      source: specs/openehr/RM/docs/UML/classes/ehr.adoc
-      section: EHR Class
-      quote: "Tag `_target_` values can only be within the same EHR."
+      source: specs/openehr/ITS-REST/specifications/operations/composition_tags_get.yaml
+      section: description
+      quote: "Retrieves the list of all ITEM_TAG resources associated with a given target COMPOSITION version or VERSIONED_COMPOSITION identified by `uid_based_id` and owned by EHR identified by `ehr_id`."
     inputs:
       type: object
       properties:

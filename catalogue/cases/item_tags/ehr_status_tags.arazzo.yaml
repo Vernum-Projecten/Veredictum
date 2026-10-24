@@ -112,8 +112,7 @@ workflows:
     description: >-
       Creates an EHR, then updates the tag list of its EHR_STATUS version
       with two tags and no Prefer header. The update answers 204, and the
-      list read back holds exactly the two tags, each with the version as its
-      target.
+      list read back holds exactly the two tags.
     x-veredictum-cite: &update_list
       source: specs/openehr/ITS-REST/specifications/operations/ehr_status_tags_update.yaml
       section: description
@@ -267,11 +266,15 @@ workflows:
     description: >-
       Updates the tag list of an EHR_STATUS version with Prefer
       return=identifier. The identifier preference implies a non-empty body,
-      so the answer is 200 or 201, never 204, and the tag is stored.
-    x-veredictum-cite:
+      so the answer is 200 or 201 rather than 204, and the tag is stored. The
+      released text recommends the identifier body only, so the status
+      criterion is advisory.
+    x-veredictum-cite: &identifier_should
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: Prefer only identifier
-      quote: "This is a variant of preference that implies minimal response semantics, but with a non-empty response body (i.e., the status will be `201 Created` or `200 OK`, never `204 No Content`)."
+      quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+      level: should
+      report: 673
     inputs: *ehr_input
     steps:
       - *create
@@ -289,6 +292,13 @@ workflows:
           payload:
             - { key: alpha, value: a }
         successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: &success_status
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
           - context: $statusCode
             type: regex
             condition: '^(200|201)$'
@@ -348,10 +358,11 @@ workflows:
   - workflowId: ehr_status_tags_get-xml_not_acceptable
     summary: An EHR_STATUS tag list asked for as XML is answered 406
     description: >-
-      Retrieves the tags of an EHR_STATUS version with Accept
-      application/xml. Canonical XML responses must conform to the published
-      XSDs, and no published XSD declares ITEM_TAG, so the service cannot
-      fulfill the request and answers 406 Not Acceptable.
+      Retrieves the tags of an EHR_STATUS version with Accept application/xml.
+      Canonical XML responses must conform to the published XSDs, and no
+      published XSD declares ITEM_TAG, so no conformant XML tag list exists
+      and the service cannot fulfill the request and answers 406 Not
+      Acceptable.
     x-veredictum-cite: &not_acceptable
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format
@@ -375,8 +386,9 @@ workflows:
     description: >-
       Updates the tag list of an EHR_STATUS version with Prefer
       return=representation and Accept application/xml. No published XSD
-      declares ITEM_TAG, so the service cannot answer with the representation
-      in XML and answers 406 Not Acceptable.
+      declares ITEM_TAG, so no conformant XML tag list exists and the service
+      cannot answer with the representation in XML and answers 406 Not
+      Acceptable.
     x-veredictum-cite: *not_acceptable
     inputs: *ehr_input
     steps:
@@ -402,9 +414,10 @@ workflows:
     description: >-
       Updates the tag list of an EHR_STATUS version with a body sent as
       application/xml. Canonical XML payloads must conform to the published
-      XSDs, and no published XSD declares ITEM_TAG, so the service cannot
-      process the payload as XML: it answers 415 Unsupported Media Type, and
-      the list read back is still empty.
+      XSDs, and no published XSD declares ITEM_TAG, so no conformant XML tag
+      list exists and the service cannot process the payload as XML: it
+      answers 415 Unsupported Media Type, and the list read back is still
+      empty.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format
@@ -577,11 +590,14 @@ workflows:
                             archetype_node_id: at0004
                             value: { _type: DV_COUNT, magnitude: 15 }
         successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: *success_status
           - condition: $statusCode == 201
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
-              section: description
-              quote: "If `Prefer` header is `return=representation`, the full resource is included in the response body; if is `return=identifier`, only its unique identifier is included."
+            x-veredictum-cite: *identifier_should
+          - condition: $response.body#/uid != null
+            x-veredictum-cite: *identifier_should
         outputs:
           version_uid: $response.body#/uid
       - stepId: get
@@ -698,14 +714,14 @@ workflows:
   - workflowId: ehr_status_tags_get-version_target_shape
     summary: A tag of an EHR_STATUS version names the version as its target and the EHR as its owner
     description: >-
-      Tags an EHR_STATUS version, then reads the tags back. The tag's target
-      is the UID_BASED_ID the version was addressed by, serialized with its
-      value; an OBJECT_REF would carry the identifier under id instead. Its
-      owner_id names the EHR the route addresses.
+      Tags an EHR_STATUS version, then reads the tags back. The released
+      ITEM_TAG schema types target as an OBJECT_REF whose id is a
+      UID_BASED_ID, so the target's id carries the version_uid the version
+      was addressed by. Its owner_id names the EHR the route addresses.
     x-veredictum-cite: &tag_target
-      source: specs/openehr/RM/docs/UML/classes/item_tag.adoc
-      section: ITEM_TAG Class
-      quote: "Identifier of target, which may be a `VERSIONED_OBJECT<T>` or a `VERSION<T>`."
+      source: specs/openehr/ITS-REST/specifications/schemas/common/ItemTag.yaml
+      section: /properties/target/$ref
+      quote: "../base_types/UObjectRefOfUidBasedId.yaml"
     inputs: *ehr_input
     steps:
       - *create
@@ -721,7 +737,7 @@ workflows:
         successCriteria:
           - condition: $statusCode == 200
             x-veredictum-cite: *list_retrieved
-          - context: $response.body#/0/target/value
+          - context: $response.body#/0/target/id/value
             type: regex
             condition: '^{$steps.current.outputs.version_uid}$'
           - &owner_is_ehr
@@ -737,9 +753,9 @@ workflows:
     summary: A tag of the VERSIONED_EHR_STATUS names the container as its target and the EHR as its owner
     description: >-
       Learns the uid of an EHR's VERSIONED_EHR_STATUS, tags the container by
-      that uid, then reads the container's tags back. The tag's target is the
-      container's UID_BASED_ID serialized with its value, and its owner_id
-      names the EHR the route addresses.
+      that uid, then reads the container's tags back. The tag's target is an
+      OBJECT_REF whose id carries the container's uid, and its owner_id names
+      the EHR the route addresses.
     x-veredictum-cite: *tag_target
     inputs: *ehr_input
     steps:
@@ -783,7 +799,7 @@ workflows:
         successCriteria:
           - condition: $statusCode == 200
             x-veredictum-cite: *list_retrieved
-          - context: $response.body#/0/target/value
+          - context: $response.body#/0/target/id/value
             type: regex
             condition: '^{$steps.container.outputs.container_uid}$'
           - *owner_is_ehr
@@ -792,9 +808,14 @@ workflows:
     summary: The tag lists of an EHR_STATUS version and of its container are kept apart
     description: >-
       Tags the VERSIONED_EHR_STATUS with scope=container and the current
-      EHR_STATUS version with scope=version. A tag has one target, either the
-      container or a version, so each list read back holds its own tag only.
-    x-veredictum-cite: *tag_target
+      EHR_STATUS version with scope=version. The version form of the
+      uid_based_id addresses the tags of that version and the container form
+      the tags of the container, so each list read back holds its own tag
+      only.
+    x-veredictum-cite: &uid_forms
+      source: specs/openehr/ITS-REST/specifications/operations/ehr_status_tags_get.yaml
+      section: description
+      quote: "whereas the latter (e.g. an identifier like `8849182c-82ad-4088-a07f-48ead4180515`) is be used to get the tags of the target VERSIONED_EHR_STATUS container."
     inputs: *ehr_input
     steps:
       - *create
@@ -892,7 +913,7 @@ workflows:
       updates the EHR_STATUS, which creates a second version. The container
       keeps its tag, the first version keeps its tag, and the second version,
       which no tag names as its target, has an empty list.
-    x-veredictum-cite: *tag_target
+    x-veredictum-cite: *uid_forms
     inputs: *ehr_input
     steps:
       - *create

@@ -66,16 +66,22 @@ workflows:
           contentType: application/json
           payload: $inputs.composition
         successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: &success_status
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
           - condition: $statusCode == 201
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
-              section: description
-              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+            x-veredictum-cite: &identifier_should
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
           - condition: $response.body#/uid != null
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
-              section: description
-              quote: "if is `return=identifier`, only its unique identifier is included."
+            x-veredictum-cite: *identifier_should
         outputs:
           version_uid: $response.body#/uid
       - stepId: read-back

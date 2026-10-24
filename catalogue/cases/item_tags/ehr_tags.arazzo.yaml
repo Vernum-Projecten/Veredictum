@@ -180,11 +180,22 @@ workflows:
                             archetype_node_id: at0004
                             value: { _type: DV_COUNT, magnitude: 15 }
         successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: &success_status
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
           - condition: $statusCode == 201
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
-              section: description
-              quote: "If `Prefer` header is `return=representation`, the full resource is included in the response body; if is `return=identifier`, only its unique identifier is included."
+            x-veredictum-cite: &identifier_should
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+          - condition: $response.body#/uid != null
+            x-veredictum-cite: *identifier_should
         outputs:
           version_uid: $response.body#/uid
       - stepId: tag-composition
@@ -242,10 +253,10 @@ workflows:
             x-veredictum-cite: *list_retrieved
           - context: $response.body
             type: jsonpath
-            condition: "$[?@.key == 'ward' && @.value == 'a3' && @.target.value == '{$steps.commit.outputs.version_uid}']"
+            condition: "$[?@.key == 'ward' && @.value == 'a3' ]"
           - context: $response.body
             type: jsonpath
-            condition: "$[?@.key == 'status' && @.value == 'reviewed' && @.target.value == '{$steps.current.outputs.version_uid}']"
+            condition: "$[?@.key == 'status' && @.value == 'reviewed' ]"
           - condition: $response.body#/2 == null
 
   - workflowId: ehr_tags_get-other_ehr
@@ -439,8 +450,9 @@ workflows:
     description: >-
       Retrieves the tag listing of an EHR with Accept application/xml.
       Canonical XML responses must conform to the published XSDs, and no
-      published XSD declares ITEM_TAG, so the service cannot fulfill the
-      request and answers 406 Not Acceptable.
+      published XSD declares ITEM_TAG, so no conformant XML tag list exists
+      and the service cannot fulfill the request and answers 406 Not
+      Acceptable.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format

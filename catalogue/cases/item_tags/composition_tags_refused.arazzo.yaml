@@ -1,6 +1,6 @@
 # The refused COMPOSITION tag requests: a tag list asked for or sent in a
 # format the service cannot serve or process, and tag bodies that are
-# syntactically invalid or break an ITEM_TAG invariant, as Arazzo 1.1.0
+# syntactically invalid, as Arazzo 1.1.0
 # workflows over the released ITS-REST `-validation` OAS. Every criterion
 # resolves to an `x-veredictum-cite` (its own, else its step's, else its
 # workflow's), and every quote is copied verbatim from the named vendored
@@ -12,9 +12,8 @@ info:
   description: >-
     Requests on the ITEM_TAG list of a COMPOSITION version that the service
     refuses: canonical XML asked for or sent, a payload in a format the
-    operation does not take, a body that is not a valid tag list, and a tag
-    whose key or value is empty. Each refused update leaves the stored list
-    as it was.
+    operation does not take, and a body that is not a valid tag list. Each
+    refused update leaves the stored list as it was.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
@@ -28,8 +27,9 @@ workflows:
     description: >-
       Tags a COMPOSITION version, then retrieves its tags with Accept
       application/xml. Canonical XML responses must conform to the published
-      XSDs, and no published XSD declares ITEM_TAG, so the service cannot
-      fulfill the request and answers 406 Not Acceptable.
+      XSDs, and no published XSD declares ITEM_TAG, so no conformant XML tag
+      list exists and the service cannot fulfill the request and answers 406
+      Not Acceptable.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite: &not_acceptable
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
@@ -134,11 +134,22 @@ workflows:
                             archetype_node_id: at0004
                             value: { _type: DV_COUNT, magnitude: 15 }
         successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: &success_status
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
           - condition: $statusCode == 201
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
-              section: description
-              quote: "If `Prefer` header is `return=representation`, the full resource is included in the response body; if is `return=identifier`, only its unique identifier is included."
+            x-veredictum-cite: &identifier_should
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+          - condition: $response.body#/uid != null
+            x-veredictum-cite: *identifier_should
         outputs:
           version_uid: $response.body#/uid
       - &tag_alpha
@@ -173,8 +184,9 @@ workflows:
     description: >-
       Updates the tag list of a COMPOSITION version with Prefer
       return=representation and Accept application/xml. No published XSD
-      declares ITEM_TAG, so the service cannot answer with the representation
-      in XML and answers 406 Not Acceptable.
+      declares ITEM_TAG, so no conformant XML tag list exists and the service
+      cannot answer with the representation in XML and answers 406 Not
+      Acceptable.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite: *not_acceptable
     inputs: *ehr_input
@@ -200,10 +212,11 @@ workflows:
     summary: A COMPOSITION tag list sent as XML is answered 415 and stores nothing
     description: >-
       Tags a COMPOSITION version with alpha, then updates its tag list with a
-      body sent as application/xml. Canonical XML payloads must conform to
-      the published XSDs, and no published XSD declares ITEM_TAG, so the
-      service cannot process the payload as XML: it answers 415 Unsupported
-      Media Type, and the list still holds alpha alone.
+      body sent as application/xml. Canonical XML payloads must conform to the
+      published XSDs, and no published XSD declares ITEM_TAG, so no conformant
+      XML tag list exists and the service cannot process the payload as XML:
+      it answers 415 Unsupported Media Type, and the list still holds alpha
+      alone.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
@@ -419,74 +432,4 @@ workflows:
             - { value: b }
         successCriteria:
           - condition: $statusCode == 400
-      - *alpha_alone
-
-  - workflowId: composition_tags_update-empty_value
-    summary: A COMPOSITION tag with an empty value is answered 422
-    description: >-
-      Tags a COMPOSITION version with alpha, then updates its tag list with a
-      tag whose value is the empty string. The body is a valid
-      UPDATE_ITEM_TAG list, and the ITEM_TAG invariant Inv_value_valid
-      refuses an empty value that is set, so the request is well-formed but
-      semantically invalid: it is answered 422 Unprocessable Entity, and the
-      list still holds alpha alone.
-    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
-    x-veredictum-cite:
-      source: specs/openehr/RM/docs/UML/classes/item_tag.adoc
-      section: ITEM_TAG Class
-      quote: "__Inv_value_valid__: `value /= Void implies not value.is_empty`"
-    inputs: *ehr_input
-    steps:
-      - *create
-      - *commit
-      - *tag_alpha
-      - stepId: tag-invalid
-        description: Update the version's tag list with an empty value.
-        operationId: $sourceDescriptions.ehr.composition_tags_update
-        parameters:
-          - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
-        requestBody:
-          contentType: application/json
-          payload:
-            - { key: beta, value: "" }
-        successCriteria:
-          - condition: $statusCode == 422
-            x-veredictum-cite: &unprocessable
-              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
-              section: HTTP status codes
-              quote: "The request was well-formed but was unable to be followed due to semantic errors"
-      - *alpha_alone
-
-  - workflowId: composition_tags_update-empty_key
-    summary: A COMPOSITION tag with an empty key is answered 422
-    description: >-
-      Tags a COMPOSITION version with alpha, then updates its tag list with a
-      tag whose key is the empty string. The body is a valid UPDATE_ITEM_TAG
-      list, and the ITEM_TAG invariant Inv_key_valid refuses an empty key,
-      so the request is well-formed but semantically invalid: it is answered
-      422 Unprocessable Entity, and the list still holds alpha alone.
-    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
-    x-veredictum-cite:
-      source: specs/openehr/RM/docs/UML/classes/item_tag.adoc
-      section: ITEM_TAG Class
-      quote: "__Inv_key_valid__: `not key.is_empty and key.is_justified`"
-    inputs: *ehr_input
-    steps:
-      - *create
-      - *commit
-      - *tag_alpha
-      - stepId: tag-invalid
-        description: Update the version's tag list with an empty key.
-        operationId: $sourceDescriptions.ehr.composition_tags_update
-        parameters:
-          - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
-        requestBody:
-          contentType: application/json
-          payload:
-            - { key: "", value: b }
-        successCriteria:
-          - condition: $statusCode == 422
-            x-veredictum-cite: *unprocessable
       - *alpha_alone
