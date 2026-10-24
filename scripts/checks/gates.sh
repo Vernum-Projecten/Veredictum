@@ -54,7 +54,6 @@ gate guard "hosted deploy self-test"  "bash scripts/checks/hosted-deploy-script.
 gate guard "issue fields self-test"   "bash scripts/gh/fields.sh --self-test" jq
 gate guard "CI jobs gate the merge"   "bash scripts/checks/ci-conclusion-complete.sh"
 gate guard "gates cover CI"           "bash scripts/checks/gates-cover-ci.sh"
-gate guard "the command reference"    "bash scripts/checks/cli-surface.sh"
 gate guard "the console's engine pin" "bash scripts/release/check-console-pin.sh"
 gate guard "corpus OPTs reproduce"    "bash scripts/checks/corpus-opt-reproducible.sh"
 gate guard "image labels"             "bash scripts/checks/image-labels.sh"
@@ -72,6 +71,9 @@ gate guard "workflow correctness"     "SHELLCHECK_OPTS='-e SC2016' actionlint" a
 gate guard "REUSE licensing"          "reuse lint" reuse
 
 gate rust  "build"                    "cargo build --workspace --all-targets"
+# After `build`, never in the guard tier: the page is compared with the help
+# of `target/debug/veredictum`, so it must be this tree's binary.
+gate rust  "the command reference"    "bash scripts/checks/cli-surface.sh"
 gate rust  "tests"                    "cargo nextest run --workspace"
 gate rust  "clippy"                   "cargo clippy --workspace --all-targets -- -D warnings"
 gate rust  "fmt"                      "cargo fmt --all --check"
