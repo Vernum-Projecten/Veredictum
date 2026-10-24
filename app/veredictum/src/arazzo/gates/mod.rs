@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The `validate` gates for the Arazzo catalogue under an artifact root.
+//! The `validate` gates for the Arazzo catalogue under a catalogue root.
 //!
-//! The documents are `workflows/<capability>/<topic>.arazzo.yaml`, each rows
+//! The documents are `cases/<capability>/<topic>.arazzo.yaml`, each rows
 //! file sits beside the document whose workflow it feeds as
-//! `<workflowId>.rows.yaml`, and the surface file is `workflows/surface.yaml`. Every file is read once, every finding names its
-//! [`Gate`], and the output is sorted, so two runs over one tree print the
-//! same bytes.
+//! `<workflowId>.rows.yaml`, and the surface file is `cases/surface.yaml`.
+//! Every file is read once, every finding names its [`Gate`], and the output
+//! is sorted, so two runs over one tree print the same bytes.
 
 pub mod aql;
 pub mod profile;
@@ -20,10 +20,15 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use crate::arazzo::capabilities::{CAPABILITIES_FILE, Capabilities};
+use crate::arazzo::cite::{QuoteChecker, check_level};
 use crate::arazzo::document::{ArazzoDocument, source_finding};
 
 /// The suffix every Arazzo document carries.
 pub const DOCUMENT_SUFFIX: &str = ".arazzo.yaml";
+
+/// The folder under a catalogue root that holds the capability folders.
+pub const CASES_DIR: &str = "cases";
 
 /// The gates, one per kind of refusal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -39,12 +44,17 @@ pub enum Gate {
     Source,
     /// A criterion with no citation, or a citation that does not hold.
     Citation,
+    /// A citation whose `level` disagrees with the keywords of its quote.
+    Level,
     /// A condition or expression outside the condition profile.
     Profile,
     /// A rows file that does not validate or bind its workflow's inputs.
     Rows,
     /// A scoped surface element with neither a covering step nor a gap.
     Surface,
+    /// A capabilities file naming a document that does not exist, or one
+    /// document under two arms of an option.
+    Identity,
     /// An AQL query that does not parse outside a step expecting `400`.
     Aql,
 }
@@ -59,9 +69,11 @@ impl Gate {
             Self::Keys => "arazzo-keys",
             Self::Source => "arazzo-source",
             Self::Citation => "arazzo-citation",
+            Self::Level => "arazzo-level",
             Self::Profile => "arazzo-profile",
             Self::Rows => "arazzo-rows",
             Self::Surface => "arazzo-surface",
+            Self::Identity => "arazzo-identity",
             Self::Aql => "arazzo-aql",
         }
     }
@@ -114,7 +126,9 @@ struct Located {
     document: ArazzoDocument,
 }
 
-/// Runs every Arazzo gate over the catalogue under `artifact_root`.
+/// Runs every Arazzo gate over the catalogue under `catalogue_root`, whose
+/// [`CASES_DIR`] folder holds the documents; a root without one yields
+/// nothing.
 ///
 /// `spec_root` is the vendored openEHR tree (`<repo>/specs/openehr`). With
 /// it, every quote is looked up in the files under its repository root
@@ -122,10 +136,10 @@ struct Located {
 /// decomposed ITS-REST OAS; without it, those two checks do not run, the way
 /// every other spec-resolving gate of `validate` does not.
 #[must_use]
-pub fn check_catalogue(artifact_root: &Path, spec_root: Option<&Path>) -> Vec<GateFinding> {
+pub fn check_catalogue(catalogue_root: &Path, spec_root: Option<&Path>) -> Vec<GateFinding> {
     let mut findings = Vec::new();
     let repo_root = spec_root.map(|specs| specs.join("../.."));
-    let workflows = artifact_root.join("workflows");
+    let workflows = catalogue_root.join(CASES_DIR);
     let mut documents: BTreeMap<String, Located> = BTreeMap::new();
     let mut rows_files = Vec::new();
     let surface_file = workflows.join(surface::SURFACE_FILE);
@@ -141,7 +155,7 @@ pub fn check_catalogue(artifact_root: &Path, spec_root: Option<&Path>) -> Vec<Ga
                 &path,
                 "#",
                 format!(
-                    "workflows/ holds `*{DOCUMENT_SUFFIX}` documents, `*{}` rows files and `{}` only",
+                    "{CASES_DIR}/ holds `*{DOCUMENT_SUFFIX}` documents, `*{}` rows files and `{}` only",
                     rows::ROWS_SUFFIX,
                     surface::SURFACE_FILE
                 ),
@@ -153,7 +167,7 @@ pub fn check_catalogue(artifact_root: &Path, spec_root: Option<&Path>) -> Vec<Ga
                 Gate::Load,
                 &path,
                 "#",
-                "a document or rows file sits in `workflows/<capability>/`, never at the top",
+                "a document or rows file sits in `cases/<capability>/`, never at the top",
             ));
             continue;
         }
@@ -178,10 +192,22 @@ pub fn check_catalogue(artifact_root: &Path, spec_root: Option<&Path>) -> Vec<Ga
         }
         documents.insert(id, Located { document });
     }
-    let rows = check_rows_files(&rows_files, &documents, &mut findings);
+    let rows = check_rows_files(&rows_files, &documents, repo_root.as_deref(), &mut findings);
     check_aql(&documents, &rows, &mut findings);
+    let capabilities = check_capabilities(
+        catalogue_root,
+        &documents,
+        repo_root.as_deref(),
+        &mut findings,
+    );
     if let Some(specs) = spec_root {
-        check_surface(&workflows, specs, &documents, &mut findings);
+        check_surface(
+            &workflows,
+            specs,
+            &documents,
+            capabilities.as_ref(),
+            &mut findings,
+        );
     }
     findings.sort();
     findings.dedup();
@@ -245,11 +271,13 @@ fn load_document(
 fn check_rows_files(
     rows_files: &[PathBuf],
     documents: &BTreeMap<String, Located>,
+    repo_root: Option<&Path>,
     findings: &mut Vec<GateFinding>,
 ) -> BTreeMap<(String, String), rows::RowsFile> {
     let mut bound: BTreeMap<(String, String), rows::RowsFile> = BTreeMap::new();
+    let mut quotes = repo_root.map(QuoteChecker::new);
     for path in rows_files {
-        let (found, binds) = check_rows_file(path, documents);
+        let (found, binds) = check_rows_file(path, documents, quotes.as_mut());
         findings.extend(found);
         if let Some((key, file)) = binds {
             bound.insert(key, file);
@@ -289,6 +317,7 @@ type BoundRows = ((String, String), rows::RowsFile);
 fn check_rows_file(
     path: &Path,
     documents: &BTreeMap<String, Located>,
+    mut quotes: Option<&mut QuoteChecker<'_>>,
 ) -> (Vec<GateFinding>, Option<BoundRows>) {
     let refuse = |message: String| GateFinding::new(Gate::Rows, path, "#", message);
     let Some(workflow_id) = rows::workflow_id_of(path) else {
@@ -339,6 +368,22 @@ fn check_rows_file(
     if let Some(workflow) = located.document.workflow(workflow_id) {
         out.extend(rows::check_rows(&file, workflow).into_iter().map(refuse));
     }
+    for (index, aggregate) in file.aggregate.iter().enumerate() {
+        let at = format!("#/aggregate/{index}");
+        if let Err(error) = check_level(&aggregate.cite) {
+            out.push(GateFinding::new(Gate::Level, path, &at, error.to_string()));
+        }
+        if let Some(quotes) = quotes.as_deref_mut()
+            && let Err(error) = quotes.check(&aggregate.cite)
+        {
+            out.push(GateFinding::new(
+                Gate::Citation,
+                path,
+                &at,
+                error.to_string(),
+            ));
+        }
+    }
     (
         out,
         Some(((document_id.clone(), workflow_id.to_owned()), file)),
@@ -367,11 +412,75 @@ fn check_aql(
     }
 }
 
-/// The surface gate, over the scope `workflows/surface.yaml` declares.
+/// The identity gate over `capabilities.yaml`: every document an arm names
+/// exists, no document sits under two arms of one option, and each option's
+/// citation holds. Returns the file when it loads.
+fn check_capabilities(
+    catalogue_root: &Path,
+    documents: &BTreeMap<String, Located>,
+    repo_root: Option<&Path>,
+    findings: &mut Vec<GateFinding>,
+) -> Option<Capabilities> {
+    let path = catalogue_root.join(CAPABILITIES_FILE);
+    if !path.is_file() {
+        return None;
+    }
+    let capabilities = match Capabilities::load(&path) {
+        Ok(capabilities) => capabilities,
+        Err(error) => {
+            findings.push(GateFinding::new(Gate::Load, &path, "#", error.to_string()));
+            return None;
+        }
+    };
+    let mut arms: BTreeMap<(&str, &str), &str> = BTreeMap::new();
+    for (option, arm, document) in capabilities.arm_documents() {
+        let at = format!("#/options/{option}/arms/{arm}");
+        if !documents.contains_key(document) {
+            findings.push(GateFinding::new(
+                Gate::Identity,
+                &path,
+                &at,
+                format!("`{document}` is not a document of the catalogue"),
+            ));
+        }
+        if let Some(other) = arms.insert((option, document), arm) {
+            findings.push(GateFinding::new(
+                Gate::Identity,
+                &path,
+                &at,
+                format!("`{document}` is already under the arm `{other}`"),
+            ));
+        }
+    }
+    let mut quotes = repo_root.map(QuoteChecker::new);
+    for (name, option) in &capabilities.options {
+        let at = format!("#/options/{name}");
+        if let Err(error) = check_level(&option.cite) {
+            findings.push(GateFinding::new(Gate::Level, &path, &at, error.to_string()));
+        }
+        if let Some(quotes) = quotes.as_mut()
+            && let Err(error) = quotes.check(&option.cite)
+        {
+            findings.push(GateFinding::new(
+                Gate::Citation,
+                &path,
+                &at,
+                error.to_string(),
+            ));
+        }
+    }
+    Some(capabilities)
+}
+
+/// The surface gate, over the scope `cases/surface.yaml` declares.
+///
+/// A document under an option's arm covers an element only when every arm of
+/// that option covers it, because a statement runs one arm alone.
 fn check_surface(
     workflows: &Path,
     spec_root: &Path,
     documents: &BTreeMap<String, Located>,
+    capabilities: Option<&Capabilities>,
     findings: &mut Vec<GateFinding>,
 ) {
     let path = workflows.join(surface::SURFACE_FILE);
@@ -412,7 +521,31 @@ fn check_surface(
             error.to_string(),
         ));
     }
-    let covered = surface::covered(documents.values().map(|located| &located.document));
+    let in_option: Vec<&str> = capabilities
+        .map(|c| c.arm_documents().map(|(_, _, d)| d).collect())
+        .unwrap_or_default();
+    let mut covered = surface::covered(
+        documents
+            .iter()
+            .filter(|(id, _)| !in_option.contains(&id.as_str()))
+            .map(|(_, located)| &located.document),
+    );
+    for option in capabilities.iter().flat_map(|c| c.options.values()) {
+        let mut common: Option<std::collections::BTreeSet<surface::Element>> = None;
+        for arm in option.arms.values() {
+            let arm_covered = surface::covered(
+                arm.documents
+                    .iter()
+                    .filter_map(|d| documents.get(d))
+                    .map(|located| &located.document),
+            );
+            common = Some(match common {
+                None => arm_covered,
+                Some(so_far) => so_far.intersection(&arm_covered).cloned().collect(),
+            });
+        }
+        covered.extend(common.unwrap_or_default());
+    }
     for message in surface::judge(&elements, &covered, &file.gaps) {
         findings.push(GateFinding::new(Gate::Surface, &path, "#", message));
     }
@@ -490,14 +623,14 @@ mod tests {
         dir.child("specs/rest-oas/ehr-validation.openapi.yaml")
             .write_str(OAS)
             .unwrap();
-        dir.child("artifacts/workflows/ehr/ehr.arazzo.yaml")
+        dir.child("catalogue/cases/ehr/ehr.arazzo.yaml")
             .write_str(&document(inputs))
             .unwrap();
         dir
     }
 
     fn gates(dir: &assert_fs::TempDir) -> Vec<(Gate, String)> {
-        check_catalogue(&dir.path().join("artifacts"), None)
+        check_catalogue(&dir.path().join("catalogue"), None)
             .into_iter()
             .map(|f| (f.gate, f.message))
             .collect()
@@ -516,7 +649,7 @@ mod tests {
             gates(&dir).as_slice(),
             [(Gate::Rows, message)] if message.contains("`units`")
         ));
-        dir.child("artifacts/workflows/ehr/w.rows.yaml")
+        dir.child("catalogue/cases/ehr/w.rows.yaml")
             .write_str("workflow: ehr/w\niteration: reset_per_row\nrows:\n  - { units: cm }\n")
             .unwrap();
         assert_eq!(gates(&dir), Vec::new());
@@ -527,27 +660,27 @@ mod tests {
         let good = "workflow: ehr/w\niteration: reset_per_row\nrows:\n  - { units: cm }\n";
         for (path, body, fragment) in [
             (
-                "artifacts/workflows/ehr/w.rows.yaml",
+                "catalogue/cases/ehr/w.rows.yaml",
                 "workflow: ehr/w\niteration: reset_per_row\nrows:\n  - { unit: cm }\n",
                 "`unit` is not an input",
             ),
             (
-                "artifacts/workflows/ehr/missing.rows.yaml",
+                "catalogue/cases/ehr/missing.rows.yaml",
                 good,
                 "names no workflow of a document in this folder",
             ),
             (
-                "artifacts/workflows/other/w.rows.yaml",
+                "catalogue/cases/other/w.rows.yaml",
                 good,
                 "names no workflow of a document in this folder",
             ),
             (
-                "artifacts/workflows/ehr/w.rows.yaml",
+                "catalogue/cases/ehr/w.rows.yaml",
                 "workflow: ehr/x\niteration: reset_per_row\nrows:\n  - { units: cm }\n",
                 "`workflow` is `ehr/x`",
             ),
             (
-                "artifacts/workflows/ehr/w.rows.yaml",
+                "catalogue/cases/ehr/w.rows.yaml",
                 "workflow: ehr/w\nrows:\n  - { units: cm }\n",
                 "iteration",
             ),
@@ -567,13 +700,13 @@ mod tests {
     #[test]
     fn stray_misplaced_and_duplicate_documents_are_refused() {
         let dir = world("");
-        dir.child("artifacts/workflows/ehr/ehr.arazo.yaml")
+        dir.child("catalogue/cases/ehr/ehr.arazo.yaml")
             .write_str("x: 1\n")
             .unwrap();
-        dir.child("artifacts/workflows/top.arazzo.yaml")
+        dir.child("catalogue/cases/top.arazzo.yaml")
             .write_str(&document(""))
             .unwrap();
-        dir.child("artifacts/workflows/other/ehr.arazzo.yaml")
+        dir.child("catalogue/cases/other/ehr.arazzo.yaml")
             .write_str(&document(""))
             .unwrap();
         let found = gates(&dir);
@@ -594,7 +727,7 @@ mod tests {
     #[test]
     fn an_unmodelled_document_reports_its_schema_violations() {
         let dir = world("");
-        dir.child("artifacts/workflows/ehr/broken.arazzo.yaml")
+        dir.child("catalogue/cases/ehr/broken.arazzo.yaml")
             .write_str("arazzo: 1.1.0\ninfo: { title: t, version: '1' }\nworkflows: 3\n")
             .unwrap();
         let found = gates(&dir);
@@ -615,7 +748,7 @@ mod tests {
             .create_dir_all()
             .unwrap();
         let found: Vec<Gate> = check_catalogue(
-            &dir.path().join("artifacts"),
+            &dir.path().join("catalogue"),
             Some(&dir.path().join("specs/openehr")),
         )
         .into_iter()
@@ -625,15 +758,79 @@ mod tests {
     }
 
     #[test]
+    fn a_capabilities_file_naming_an_unknown_or_doubled_document_is_refused() {
+        let dir = world("");
+        let caps = "options:\n  o:\n    description: d\n    arms:\n      a: { documents: [ehr, nowhere] }\n      b: { documents: [ehr] }\n    x-veredictum-cite: { source: specs/openehr/x.md, section: s, quote: q }\n";
+        dir.child("catalogue/capabilities.yaml")
+            .write_str(caps)
+            .unwrap();
+        let found = gates(&dir);
+        for fragment in [
+            "`nowhere` is not a document",
+            "`ehr` is already under the arm",
+        ] {
+            assert!(
+                found
+                    .iter()
+                    .any(|(gate, message)| *gate == Gate::Identity && message.contains(fragment)),
+                "{fragment}: {found:?}"
+            );
+        }
+        dir.child("catalogue/capabilities.yaml")
+            .write_str("option: {}\n")
+            .unwrap();
+        assert!(gates(&dir).iter().any(|(gate, _)| *gate == Gate::Load));
+    }
+
+    #[test]
+    fn seeded_aggregate_and_declared_defects_are_refused() {
+        let dir = world(REQUIRED);
+        let cite = "x-veredictum-cite: { source: specs/openehr/x.md, section: s, quote: q }";
+        for (body, fragment) in [
+            (
+                format!("workflow: ehr/w\niteration: reset_per_row\naggregate:\n  - distinct: ehr_id\n    {cite}\nrows:\n  - {{ units: cm }}\n"),
+                "`aggregate` needs `iteration: single_pass`",
+            ),
+            (
+                format!("workflow: ehr/w\niteration: single_pass\naggregate:\n  - distinct: nothing\n    {cite}\nrows:\n  - {{ units: cm }}\n"),
+                "not an output of the workflow",
+            ),
+            (
+                "workflow: ehr/w\niteration: reset_per_row\ndeclared:\n  units: ixit.units\nrows:\n  - { units: cm }\n".to_owned(),
+                "declared by the party and cannot be supplied",
+            ),
+            (
+                "workflow: ehr/w\niteration: reset_per_row\ndeclared:\n  colour: ixit.colour\nrows:\n  - { units: cm }\n".to_owned(),
+                "declared input `colour` is not an input",
+            ),
+            (
+                "workflow: ehr/w\niteration: reset_per_row\ndeclared:\n  units: elsewhere.units\nrows:\n  - { units: cm }\n".to_owned(),
+                "",
+            ),
+        ] {
+            dir.child("catalogue/cases/ehr/w.rows.yaml")
+                .write_str(&body)
+                .unwrap();
+            let found = gates(&dir);
+            assert!(
+                found
+                    .iter()
+                    .any(|(gate, message)| *gate == Gate::Rows && message.contains(fragment)),
+                "{fragment}: {found:?}"
+            );
+        }
+    }
+
+    #[test]
     fn the_aql_gate_reads_each_row_of_a_query_workflow() {
         let dir = assert_fs::TempDir::new().unwrap();
         dir.child("specs/rest-oas/query-validation.openapi.yaml")
             .write_str("openapi: 3.0.3\npaths:\n  /query/aql:\n    get:\n      operationId: query_execute_adhoc_query\n      parameters:\n        - { name: q, in: query, required: true }\n")
             .unwrap();
-        dir.child("artifacts/workflows/query/query.arazzo.yaml")
+        dir.child("catalogue/cases/query/query.arazzo.yaml")
             .write_str("arazzo: 1.1.0\ninfo: { title: t, version: '1' }\nsourceDescriptions:\n  - { name: query, url: ../../../specs/rest-oas/query-validation.openapi.yaml, type: openapi }\nworkflows:\n  - workflowId: adhoc\n    x-veredictum-cite: { source: specs/rest-oas/query-validation.openapi.yaml, section: openapi, quote: x }\n    inputs:\n      type: object\n      required: [q]\n      properties:\n        q: { type: string }\n    steps:\n      - stepId: execute\n        operationId: $sourceDescriptions.query.query_execute_adhoc_query\n        parameters: [{ name: q, in: query, value: $inputs.q }]\n        successCriteria:\n          - condition: $statusCode == 200\n")
             .unwrap();
-        dir.child("artifacts/workflows/query/adhoc.rows.yaml")
+        dir.child("catalogue/cases/query/adhoc.rows.yaml")
             .write_str("workflow: query/adhoc\niteration: single_pass\nrows:\n  - { q: 'SELECT e/ehr_id/value FROM EHR e' }\n  - { q: 'SELECT e/ehr_id/value EHR e' }\n")
             .unwrap();
         let found = gates(&dir);
@@ -651,9 +848,11 @@ mod tests {
             Gate::Keys,
             Gate::Source,
             Gate::Citation,
+            Gate::Level,
             Gate::Profile,
             Gate::Rows,
             Gate::Surface,
+            Gate::Identity,
             Gate::Aql,
         ];
         let mut tokens: Vec<&str> = all.iter().map(|g| g.token()).collect();

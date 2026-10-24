@@ -18,6 +18,11 @@
 # the one thing #466 rules out. The number is derived from the artifacts on
 # every run instead, and a disagreement fails the build.
 #
+# The tree it counts is the case-core catalogue under `artifacts/`, which is
+# the one every surface states numbers for. The Arazzo catalogue under
+# `catalogue/` has no count on any surface yet.
+# TODO(#604): count the Arazzo cases under catalogue/ when the cut-over moves the surfaces to them.
+#
 # Usage: scripts/checks/site-counts.sh [<validate summary line>]
 #   With no argument it runs `cargo run -- validate` itself (the CI test job
 #   passes the line it already produced, so the binary runs once).

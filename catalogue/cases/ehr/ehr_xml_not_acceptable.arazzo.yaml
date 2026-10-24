@@ -1,0 +1,105 @@
+# The EHR read in canonical XML, for a service that does not serve the EHR
+# resource in XML: the refused arm of the choice `ehr_xml.arazzo.yaml` serves.
+# A statement selects one of the two documents. Every quote is copied
+# verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: EHR read in canonical XML, refused
+  version: 0.1.0
+  description: >-
+    Reading an EHR with Accept application/xml from a service that does not
+    serve the EHR resource in canonical XML.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_ehr-xml_not_acceptable
+    summary: An EHR read with Accept application/xml is refused with 406
+    description: >-
+      Creates an EHR, then retrieves it by its ehr_id asking for canonical
+      XML from a service that does not serve the EHR resource in XML. The
+      read is refused with 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: setup
+        description: Create the EHR the read addresses.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: get
+        description: Retrieve the EHR by its ehr_id in canonical XML.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: get_ehr-by_subject-xml_not_acceptable
+    summary: An EHR read by subject with Accept application/xml is refused with 406
+    description: >-
+      Creates an EHR whose EHR_STATUS names a subject, then retrieves the EHR
+      by that subject asking for canonical XML from a service that does not
+      serve the EHR resource in XML. The read is refused with 406 Not
+      Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    inputs:
+      type: object
+      properties:
+        subject_id: { type: string, format: uuid }
+    steps:
+      - stepId: setup
+        description: Create an EHR whose EHR_STATUS names the subject.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject:
+              _type: PARTY_SELF
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: replaced-by-subject_id }
+                namespace: veredictum
+                type: PERSON
+            is_queryable: true
+            is_modifiable: true
+          replacements:
+            - target: /subject/external_ref/id/value
+              value: $inputs.subject_id
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: get
+        description: Retrieve the EHR by the subject's id and namespace in canonical XML.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_subject
+        parameters:
+          - { name: subject_id, in: query, value: $inputs.subject_id }
+          - { name: subject_namespace, in: query, value: veredictum }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406

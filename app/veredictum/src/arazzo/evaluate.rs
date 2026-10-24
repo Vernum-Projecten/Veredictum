@@ -18,6 +18,10 @@
 //!   captured, a judge that cannot decide, a setup workflow that did not pass,
 //!   and every evaluation error Arazzo 1.1.0 §Evaluation Errors would turn
 //!   into *fail*.
+//! - A criterion that does not hold under a `level: should` citation does
+//!   not stop the row. When every criterion that fails in a row is a
+//!   `should`, the row is *failed* and advisory: it carries its explanation
+//!   and never counts against a capability.
 //! - A row the caller's [`Plan`] skips is *skipped* with one reason from the
 //!   closed list and its citation.
 //!
@@ -34,6 +38,7 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::time::Instant;
 
 use roas_arazzo::common::reusable::ReusableOr;
@@ -41,18 +46,19 @@ use roas_arazzo::v1_1::{ParameterLocation, Step, ValueOrSelector, Workflow};
 use serde_json::Value;
 
 use crate::arazzo::check::JudgeEnv;
-use crate::arazzo::cite::{Citation, citation_of};
+use crate::arazzo::cite::{Citation, Level, citation_of};
 use crate::arazzo::document::{ArazzoDocument, CriterionPlan};
 use crate::arazzo::expr::{
     EvalError, Expr, Judgement, RequestView, ResponseView, Scope, value_text,
 };
-use crate::arazzo::gates::rows::{InputShape, RowsFile};
+use crate::arazzo::gates::rows::{Aggregate, Declaration, InputShape, RowsFile};
 use crate::arazzo::har::{self, Har, HarTransport, PageContext, Recorded, RunRole};
 use crate::arazzo::oas::{OasError, ResponseSchemas};
 use crate::arazzo::results::{
-    Engine, ExchangeRef, Explanation, ResultRow, Results, Skip, Status, Whose, Why,
+    Engine, ExchangeRef, Explanation, ResultRow, Results, Skip, SkipReason, Status, Whose, Why,
 };
 use crate::arazzo::rows::Row;
+use crate::arazzo::source::split_qualified;
 use crate::exec::signature::SigningMode;
 use crate::exec::transport::Transport;
 use crate::vocab::{HttpMethod, Iteration};
@@ -77,6 +83,10 @@ pub struct Plan {
     pub rows: BTreeMap<String, RowsFile>,
     /// The workflows not run, by `workflowId`, with the reason and citation.
     pub skips: BTreeMap<String, Skip>,
+    /// The party's IXIT, which a rows file's `declared` inputs read.
+    pub ixit: Option<Value>,
+    /// The party's statement, which a rows file's `declared` inputs read.
+    pub statement: Option<Value>,
 }
 
 /// Why a document cannot be run at all.
@@ -94,6 +104,9 @@ pub enum RunError {
     /// A re-judgement does not line up with the recording.
     #[error("the replay diverged from the recording: {0}")]
     Replay(String),
+    /// A `type: arazzo` source does not load.
+    #[error(transparent)]
+    Document(#[from] crate::arazzo::document::DocumentError),
 }
 
 /// A red outcome inside a step, before it becomes an explanation.
@@ -150,21 +163,40 @@ pub struct Evaluator<'d> {
     schemas: ResponseSchemas,
     har: Har,
     replay: Option<VecDeque<Row>>,
+    externals: BTreeMap<String, (String, Rc<ArazzoDocument>)>,
 }
+
+/// The document a workflow is run from: its case-id prefix and the document.
+type DocumentRef<'a> = (&'a str, &'a ArazzoDocument);
 
 impl<'d> Evaluator<'d> {
     /// Prepares a live run of `document`, whose case ids are prefixed with
     /// `name`; `repo_root` is the root citations are relative to.
     ///
     /// # Errors
-    /// [`RunError::Oas`] when a source's schemas do not load.
+    /// [`RunError::Oas`] when a source's schemas do not load, and
+    /// [`RunError::Document`] when a `type: arazzo` source does not load.
     pub fn new(
         document: &'d ArazzoDocument,
         name: &str,
         config: RunConfig,
         repo_root: &Path,
     ) -> Result<Self, RunError> {
+        let mut externals = BTreeMap::new();
+        for (source, file) in document.workflow_sources() {
+            let prefix = file
+                .file_name()
+                .and_then(std::ffi::OsStr::to_str)
+                .and_then(|n| n.strip_suffix(crate::arazzo::gates::DOCUMENT_SUFFIX))
+                .unwrap_or(source)
+                .to_owned();
+            externals.insert(
+                source.clone(),
+                (prefix, Rc::new(ArazzoDocument::load(file)?)),
+            );
+        }
         Ok(Self {
+            externals,
             document,
             name: name.to_owned(),
             har: Har::new(&config.base_url),
@@ -233,21 +265,45 @@ impl<'d> Evaluator<'d> {
             }]);
         }
         let file = plan.rows.get(&workflow.workflow_id);
-        let rows = file.map_or_else(|| vec![Row::new()], |f| f.rows.clone());
+        let rows = match self.declared_rows(workflow, file, plan, &case) {
+            Ok(rows) => rows,
+            Err(skipped) => return Ok(skipped),
+        };
         let iteration = file.map_or(Iteration::ResetPerRow, |f| f.iteration);
         let mut shared = None;
         if iteration == Iteration::SinglePass {
-            shared = Some(self.setup(workflow, 0, transport, &mut Vec::new())?);
+            let main = self.document;
+            shared = Some(self.setup(
+                (&self.name.clone(), main),
+                workflow,
+                0,
+                transport,
+                &mut Vec::new(),
+            )?);
         }
         let mut out = Vec::new();
+        let mut produced = Vec::new();
         for (index, row) in rows.iter().enumerate() {
-            let setup = match &shared {
-                Some(done) => done.clone(),
-                None => self.setup(workflow, index, transport, &mut Vec::new())?,
+            let setup = if let Some(done) = &shared {
+                done.clone()
+            } else {
+                let main = self.document;
+                let name = self.name.clone();
+                self.setup((&name, main), workflow, index, transport, &mut Vec::new())?
             };
             let outcome = match setup {
                 Ok(workflows) => {
-                    self.run_workflow(workflow, row, index, RunRole::Row, &workflows, transport)?
+                    let main = self.document;
+                    let name = self.name.clone();
+                    self.run_workflow(
+                        (&name, main),
+                        workflow,
+                        row,
+                        index,
+                        RunRole::Row,
+                        &workflows,
+                        transport,
+                    )?
                 }
                 Err(explanation) => WorkflowOutcome {
                     status: Status::Errored,
@@ -257,6 +313,7 @@ impl<'d> Evaluator<'d> {
                     outputs: BTreeMap::new(),
                 },
             };
+            produced.push(outcome.outputs);
             out.push(ResultRow {
                 case: case.clone(),
                 row: index,
@@ -267,13 +324,108 @@ impl<'d> Evaluator<'d> {
                 explanation: outcome.explanation,
             });
         }
+        if let Some(file) = file
+            && out.iter().all(|row| row.status == Status::Passed)
+        {
+            for aggregate in &file.aggregate {
+                if let Some(explanation) = self.judge_distinct(aggregate, &produced)
+                    && let Some(last) = out.last_mut()
+                {
+                    last.status = Status::Failed;
+                    last.explanation = Some(explanation);
+                    break;
+                }
+            }
+        }
         Ok(out)
+    }
+
+    /// The rows a workflow runs with, each completed by the values its rows
+    /// file declares; `Err` carries every row skipped as `not-declared` when
+    /// the party declares one of those values not at all.
+    fn declared_rows(
+        &self,
+        workflow: &Workflow,
+        file: Option<&RowsFile>,
+        plan: &Plan,
+        case: &str,
+    ) -> Result<Vec<Row>, Vec<ResultRow>> {
+        let mut rows = file.map_or_else(|| vec![Row::new()], |f| f.rows.clone());
+        let Some(file) = file.filter(|f| !f.declared.is_empty()) else {
+            return Ok(rows);
+        };
+        if let Some(values) = declared_values(file, plan) {
+            for row in &mut rows {
+                row.extend(values.clone());
+            }
+            return Ok(rows);
+        }
+        let why = first_citation(workflow).map(|c| Why::of(&c, &self.repo_root));
+        Err(rows
+            .iter()
+            .enumerate()
+            .map(|(index, row)| ResultRow {
+                case: case.to_owned(),
+                row: index,
+                status: Status::Skipped,
+                inputs: row.clone(),
+                generated: Vec::new(),
+                skip: why.clone().map(|why| Skip {
+                    reason: SkipReason::NotDeclared,
+                    why,
+                }),
+                explanation: None,
+            })
+            .collect())
+    }
+
+    /// Judges one `distinct` aggregate over every row's workflow outputs;
+    /// `Some` explains the first value two rows share, or an output a row
+    /// did not produce.
+    fn judge_distinct(
+        &self,
+        aggregate: &Aggregate,
+        produced: &[BTreeMap<String, Value>],
+    ) -> Option<Explanation> {
+        let name = &aggregate.distinct;
+        let why = Some(Why::of(&aggregate.cite, &self.repo_root));
+        let explain = |received: String, whose: Whose| Explanation {
+            step: "aggregate".to_owned(),
+            what: format!("No two rows produce the same `{name}`."),
+            why: why.clone(),
+            expected: format!("every row's `{name}` differs"),
+            received,
+            exchange: None,
+            whose,
+        };
+        let mut seen: BTreeMap<String, usize> = BTreeMap::new();
+        for (index, outputs) in produced.iter().enumerate() {
+            let Some(value) = outputs.get(name) else {
+                return Some(explain(
+                    format!("not judged: row {index} produced no `{name}`"),
+                    Whose::Instrument,
+                ));
+            };
+            if let Some(first) = seen.insert(value.to_string(), index) {
+                let whose = if aggregate.cite.level == Level::Should {
+                    Whose::Advisory
+                } else {
+                    Whose::Server
+                };
+                return Some(explain(
+                    format!("rows {first} and {index} both produced {value}"),
+                    whose,
+                ));
+            }
+        }
+        None
     }
 
     /// Runs every workflow `workflow` depends on, depth first; `Err` carries
     /// the explanation of the first one that did not pass.
     fn setup(
         &mut self,
+        (name, document): DocumentRef<'_>,
         workflow: &Workflow,
         row: usize,
         transport: &mut dyn Transport,
@@ -284,18 +436,33 @@ impl<'d> Evaluator<'d> {
             if stack.contains(id) || *id == workflow.workflow_id {
                 return Err(RunError::DependencyCycle(id.clone()));
             }
-            let document = self.document;
-            let dependency = document
-                .workflow(id)
+            // NOTE: Arazzo 1.1.0 §Workflow Object `dependsOn`: a workflow of another
+            // document is named `$sourceDescriptions.<name>.<workflowId>`.
+            let held: Rc<ArazzoDocument>;
+            let (owner, owner_document, workflow_id) = match split_qualified(id) {
+                Some((source, workflow_id)) => {
+                    let (prefix, external) = self
+                        .externals
+                        .get(source)
+                        .ok_or_else(|| RunError::UnknownWorkflow(id.clone()))?;
+                    let prefix = prefix.clone();
+                    held = Rc::clone(external);
+                    (prefix, &*held, workflow_id)
+                }
+                None => (name.to_owned(), document, id.as_str()),
+            };
+            let dependency = owner_document
+                .workflow(workflow_id)
                 .ok_or_else(|| RunError::UnknownWorkflow(id.clone()))?;
             stack.push(workflow.workflow_id.clone());
-            let nested = self.setup(dependency, row, transport, stack)?;
+            let nested = self.setup((&owner, owner_document), dependency, row, transport, stack)?;
             stack.pop();
             let nested = match nested {
                 Ok(nested) => nested,
                 Err(explanation) => return Ok(Err(explanation)),
             };
             let outcome = self.run_workflow(
+                (&owner, owner_document),
                 dependency,
                 &Row::new(),
                 row,
@@ -342,8 +509,13 @@ impl<'d> Evaluator<'d> {
         Ok((inputs, generated))
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one argument per part of a run: the document, the workflow, the row, its role, its setups and the wire"
+    )]
     fn run_workflow(
         &mut self,
+        (name, document): DocumentRef<'_>,
         workflow: &Workflow,
         supplied: &Row,
         row: usize,
@@ -353,7 +525,7 @@ impl<'d> Evaluator<'d> {
     ) -> Result<WorkflowOutcome, RunError> {
         let (inputs, generated) = self.inputs_for(workflow, supplied)?;
         let page = self.har.begin_page(PageContext {
-            case: self.case_id(&workflow.workflow_id),
+            case: format!("{name}/{}", workflow.workflow_id),
             row,
             role,
             inputs: inputs.clone(),
@@ -361,10 +533,12 @@ impl<'d> Evaluator<'d> {
         let workflow_cite = gated_citation(workflow.extensions.as_ref());
         let mut outputs: WorkflowOutputs = BTreeMap::new();
         let mut red = None;
+        let mut advisory = None;
         for step in &workflow.steps {
             let step_cite =
                 gated_citation(step.extensions.as_ref()).or_else(|| workflow_cite.clone());
             let context = StepContext {
+                document,
                 page: &page,
                 step_cite: step_cite.as_ref(),
                 inputs: &inputs,
@@ -372,7 +546,12 @@ impl<'d> Evaluator<'d> {
                 workflows,
             };
             match self.drive_step(step, &context, transport) {
-                Ok(captured) => {
+                Ok((captured, should)) => {
+                    if advisory.is_none()
+                        && let Some(should) = should
+                    {
+                        advisory = Some(self.explain(step, *should));
+                    }
                     outputs.insert(step.step_id.clone(), captured);
                 }
                 Err(found) => {
@@ -410,10 +589,16 @@ impl<'d> Evaluator<'d> {
                 }
             }
         }
+        if red.is_none() {
+            red = advisory.map(|explanation| Explanation {
+                whose: Whose::Advisory,
+                ..explanation
+            });
+        }
         Ok(WorkflowOutcome {
             status: match &red {
                 None => Status::Passed,
-                Some(e) if e.whose == Whose::Server => Status::Failed,
+                Some(e) if matches!(e.whose, Whose::Server | Whose::Advisory) => Status::Failed,
                 Some(_) => Status::Errored,
             },
             explanation: red,
@@ -450,13 +635,14 @@ impl<'d> Evaluator<'d> {
     }
 
     /// Drives one step: composes and sends its request, records it, judges
-    /// its criteria and its response schema, and returns its captured outputs.
+    /// its criteria and its response schema, and returns its captured outputs
+    /// with the first `should` criterion that did not hold, if any.
     fn drive_step(
         &mut self,
         step: &Step,
         context: &StepContext<'_>,
         transport: &mut dyn Transport,
-    ) -> Result<BTreeMap<String, Value>, Box<Red>> {
+    ) -> Result<Driven, Box<Red>> {
         let cite = context.step_cite;
         let errored = |reason: &dyn fmt::Display| {
             Red::errored(cite.cloned(), "the step to be driven", reason)
@@ -468,7 +654,7 @@ impl<'d> Evaluator<'d> {
             exchange: None,
         };
         let composed =
-            compose(self.document, step, &self.config, &scope).map_err(|r| errored(&r))?;
+            compose(context.document, step, &self.config, &scope).map_err(|r| errored(&r))?;
         let body_text = composed
             .body
             .as_ref()
@@ -513,25 +699,30 @@ impl<'d> Evaluator<'d> {
             exchange: Some((&composed.request, &response)),
             ..scope
         };
-        self.judge_criteria(step, cite, &scope)
-            .map_err(|red| red.at(entry))?;
+        let should = self
+            .judge_criteria(step, cite, &scope)
+            .map_err(|red| red.at(entry))?
+            .map(|red| red.at(entry));
         let mut captured = BTreeMap::new();
         for (name, value) in &step.outputs {
             if let Some(value) = output_value(value, &scope).map_err(|e| errored(&e).at(entry))? {
                 captured.insert(name.clone(), value);
             }
         }
-        Ok(captured)
+        Ok((captured, should))
     }
 
-    /// Judges a step's criteria in order; the first that does not hold, or
-    /// cannot be judged, turns the row red.
+    /// Judges a step's criteria in order. The first `must` criterion that
+    /// does not hold, or any criterion that cannot be judged, turns the row
+    /// red; a `should` criterion that does not hold is returned and judging
+    /// goes on, so the row is advisory only when no `must` fails.
     fn judge_criteria(
         &mut self,
         step: &Step,
         cite: Option<&Citation>,
         scope: &Scope<'_>,
-    ) -> Result<(), Box<Red>> {
+    ) -> Result<Option<Box<Red>>, Box<Red>> {
+        let mut should = None;
         let mut env = JudgeEnv {
             signing: self.config.signing.as_ref(),
             schemas: Some(&mut self.schemas),
@@ -550,23 +741,61 @@ impl<'d> Evaluator<'d> {
                     expected,
                     received,
                 }) => {
-                    return Err(Box::new(Red {
+                    let advisory = why.as_ref().is_some_and(|c| c.level == Level::Should);
+                    let red = Box::new(Red {
                         status: Status::Failed,
                         why,
                         expected,
                         received,
                         entry: None,
-                    }));
+                    });
+                    if !advisory {
+                        return Err(red);
+                    }
+                    should.get_or_insert(red);
                 }
                 Err(error) => return Err(Red::errored(why, criterion.condition.clone(), error)),
             }
         }
-        Ok(())
+        Ok(should)
     }
 }
 
+/// The first citation of a workflow, in document order: its own, else its
+/// first step's, else its first criterion's.
+fn first_citation(workflow: &Workflow) -> Option<Citation> {
+    gated_citation(workflow.extensions.as_ref()).or_else(|| {
+        workflow.steps.iter().find_map(|step| {
+            gated_citation(step.extensions.as_ref()).or_else(|| {
+                step.success_criteria
+                    .iter()
+                    .find_map(|c| gated_citation(c.extensions.as_ref()))
+            })
+        })
+    })
+}
+
+/// The values a rows file's `declared` inputs read from the party's
+/// declarations; `None` when the party declares one of them not at all.
+fn declared_values(file: &RowsFile, plan: &Plan) -> Option<Row> {
+    let mut out = Row::new();
+    for (input, declared) in &file.declared {
+        let document = match declared.document {
+            Declaration::Ixit => plan.ixit.as_ref(),
+            Declaration::Statement => plan.statement.as_ref(),
+        }?;
+        out.insert(input.clone(), declared.read(document)?.clone());
+    }
+    Some(out)
+}
+
+/// A driven step: its captured outputs and the first `should` criterion
+/// that did not hold.
+type Driven = (BTreeMap<String, Value>, Option<Box<Red>>);
+
 /// What a step reads from its workflow run.
 struct StepContext<'a> {
+    document: &'a ArazzoDocument,
     page: &'a str,
     step_cite: Option<&'a Citation>,
     inputs: &'a Row,
@@ -972,10 +1201,12 @@ workflows:
                     iteration,
                     literals: Vec::new(),
                     recipe: None,
+                    declared: BTreeMap::new(),
+                    aggregate: Vec::new(),
                     rows: rows.to_vec(),
                 },
             )]),
-            skips: BTreeMap::new(),
+            ..Plan::default()
         }
     }
 
@@ -998,6 +1229,258 @@ workflows:
 
     fn only(results: &Results) -> &ResultRow {
         results.rows.first().unwrap()
+    }
+
+    const SHOULD_DOC: &str = "arazzo: 1.1.0
+info: { title: t, version: '1' }
+sourceDescriptions:
+  - { name: ehr, url: ehr.yaml, type: openapi }
+workflows:
+  - workflowId: read
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    inputs: { type: object, properties: { ehr_id: { type: string, format: uuid } } }
+    steps:
+      - stepId: get
+        description: Read it.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters: [{ name: ehr_id, in: path, value: $inputs.ehr_id }]
+        successCriteria:
+          - condition: $response.header.ETag != null
+            x-veredictum-cite: { source: s, section: d, quote: It SHOULD be sent., level: should }
+          - condition: $statusCode == 200
+";
+
+    fn drive_read(answers: &[(u16, &'static str)]) -> ResultRow {
+        let (dir, document) = load(SHOULD_DOC);
+        let mut transport = Scripted::new(answers);
+        let (results, _) = run_document(
+            &document,
+            "ehr",
+            config(),
+            dir.path(),
+            &Plan::default(),
+            &mut transport,
+        )
+        .unwrap();
+        results.rows.first().unwrap().clone()
+    }
+
+    #[test]
+    fn a_row_whose_only_failing_criteria_are_should_is_failed_and_advisory() {
+        let row = drive_read(&[(200, "")]);
+        assert_eq!(row.status, Status::Failed);
+        let why = row.explanation.unwrap();
+        assert_eq!(why.whose, Whose::Advisory);
+        assert_eq!(why.expected, "$response.header.ETag != null");
+    }
+
+    #[test]
+    fn a_must_failure_after_a_should_failure_counts_against_the_server() {
+        let row = drive_read(&[(404, "")]);
+        assert_eq!(row.status, Status::Failed);
+        let why = row.explanation.unwrap();
+        assert_eq!(why.whose, Whose::Server);
+        assert_eq!(why.expected, "status 200");
+    }
+
+    const CREATE_DOC: &str = "arazzo: 1.1.0
+info: { title: t, version: '1' }
+sourceDescriptions:
+  - { name: ehr, url: ehr.yaml, type: openapi }
+workflows:
+  - workflowId: load
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    inputs: { type: object, properties: { system_id: { type: string }, n: { type: integer } } }
+    steps:
+      - stepId: create
+        description: Create one.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        successCriteria: [{ condition: $statusCode == 201 }]
+        outputs: { ehr_id: $response.body#/ehr_id/value }
+    outputs: { ehr_id: $steps.create.outputs.ehr_id }
+";
+
+    fn rows_file(rows: &[i64], extra: &str) -> RowsFile {
+        let listed = rows
+            .iter()
+            .map(|n| format!("  - {{ n: {n} }}\n"))
+            .collect::<Vec<_>>()
+            .concat();
+        let text = format!("workflow: ehr/load\niteration: single_pass\n{extra}rows:\n{listed}");
+        crate::arazzo::gates::rows::parse(
+            &crate::load::yaml_str_to_value(&text, Path::new("r")).unwrap(),
+        )
+        .unwrap()
+    }
+
+    fn drive_load(file: RowsFile, plan: Plan, answers: &[(u16, &'static str)]) -> Results {
+        let (dir, document) = load(CREATE_DOC);
+        let mut transport = Scripted::new(answers);
+        let plan = Plan {
+            rows: BTreeMap::from([("load".to_owned(), file)]),
+            ..plan
+        };
+        run_document(
+            &document,
+            "ehr",
+            config(),
+            dir.path(),
+            &plan,
+            &mut transport,
+        )
+        .unwrap()
+        .0
+    }
+
+    const DISTINCT: &str = "aggregate:\n  - distinct: ehr_id\n    x-veredictum-cite: { source: s, section: d, quote: q }\n";
+
+    #[test]
+    fn a_distinct_aggregate_fails_the_last_row_when_two_rows_share_a_value() {
+        let results = drive_load(
+            rows_file(&[1, 2, 3], DISTINCT),
+            Plan::default(),
+            &[
+                (201, r#"{"ehr_id":{"value":"a"}}"#),
+                (201, r#"{"ehr_id":{"value":"b"}}"#),
+                (201, r#"{"ehr_id":{"value":"a"}}"#),
+            ],
+        );
+        let statuses: Vec<Status> = results.rows.iter().map(|r| r.status).collect();
+        assert_eq!(statuses, [Status::Passed, Status::Passed, Status::Failed]);
+        let why = results.rows.last().unwrap().explanation.clone().unwrap();
+        assert_eq!(why.step, "aggregate");
+        assert_eq!(why.whose, Whose::Server);
+        assert!(why.received.contains("rows 0 and 2"), "{}", why.received);
+    }
+
+    #[test]
+    fn a_distinct_aggregate_holds_over_distinct_values() {
+        let results = drive_load(
+            rows_file(&[1, 2], DISTINCT),
+            Plan::default(),
+            &[
+                (201, r#"{"ehr_id":{"value":"a"}}"#),
+                (201, r#"{"ehr_id":{"value":"b"}}"#),
+            ],
+        );
+        assert!(results.rows.iter().all(|r| r.status == Status::Passed));
+    }
+
+    #[test]
+    fn a_declared_input_reads_the_ixit_and_an_undeclared_one_skips_every_row() {
+        let declared = "declared:\n  system_id: ixit.system_id\n";
+        let skipped = drive_load(rows_file(&[1, 2], declared), Plan::default(), &[]);
+        assert_eq!(skipped.rows.len(), 2);
+        for row in &skipped.rows {
+            assert_eq!(row.status, Status::Skipped);
+            assert_eq!(row.skip.as_ref().unwrap().reason, SkipReason::NotDeclared);
+        }
+        let plan = Plan {
+            ixit: Some(serde_json::json!({ "system_id": "sys.example" })),
+            ..Plan::default()
+        };
+        let ran = drive_load(
+            rows_file(&[1], declared),
+            plan,
+            &[(201, r#"{"ehr_id":{"value":"a"}}"#)],
+        );
+        let row = ran.rows.first().unwrap();
+        assert_eq!(row.status, Status::Passed);
+        assert_eq!(
+            row.inputs.get("system_id"),
+            Some(&Value::from("sys.example"))
+        );
+    }
+
+    const SHARED_SETUP: &str = "arazzo: 1.1.0
+info: { title: s, version: '1' }
+sourceDescriptions:
+  - { name: ehr, url: ehr.yaml, type: openapi }
+workflows:
+  - workflowId: make
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    steps:
+      - stepId: create
+        operationId: $sourceDescriptions.ehr.ehr_create
+        successCriteria: [{ condition: $statusCode == 201 }]
+";
+
+    const USES_SETUP: &str = "arazzo: 1.1.0
+info: { title: t, version: '1' }
+sourceDescriptions:
+  - { name: ehr, url: ehr.yaml, type: openapi }
+  - { name: setup, url: setup.arazzo.yaml, type: arazzo }
+workflows:
+  - workflowId: read
+    dependsOn: [$sourceDescriptions.setup.make]
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    inputs: { type: object, properties: { ehr_id: { type: string, format: uuid } } }
+    steps:
+      - stepId: get
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters: [{ name: ehr_id, in: path, value: $inputs.ehr_id }]
+        successCriteria: [{ condition: $statusCode == 200 }]
+";
+
+    #[test]
+    fn a_setup_from_an_arazzo_source_runs_before_the_row() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("ehr.yaml").write_str(OAS).unwrap();
+        dir.child("setup.arazzo.yaml")
+            .write_str(SHARED_SETUP)
+            .unwrap();
+        dir.child("doc.yaml").write_str(USES_SETUP).unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("doc.yaml")).unwrap();
+        assert_eq!(document.gate(None), Vec::new());
+        let mut transport = Scripted::new(&[(201, ""), (200, "")]);
+        let (results, har) = run_document(
+            &document,
+            "doc",
+            config(),
+            dir.path(),
+            &Plan::default(),
+            &mut transport,
+        )
+        .unwrap();
+        assert_eq!(only(&results).status, Status::Passed);
+        let (method, url, _) = transport.sent.first().unwrap();
+        assert_eq!(
+            (*method, url.as_str()),
+            (HttpMethod::Post, "http://sut/v1/ehr")
+        );
+        assert!(har.to_text().unwrap().contains("setup/make"));
+        let mut failing = Scripted::new(&[(500, "")]);
+        let (results, _) = run_document(
+            &document,
+            "doc",
+            config(),
+            dir.path(),
+            &Plan::default(),
+            &mut failing,
+        )
+        .unwrap();
+        assert_eq!(only(&results).status, Status::Errored);
+    }
+
+    #[test]
+    fn a_dependency_on_a_missing_arazzo_workflow_is_refused() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("ehr.yaml").write_str(OAS).unwrap();
+        dir.child("setup.arazzo.yaml")
+            .write_str(SHARED_SETUP)
+            .unwrap();
+        dir.child("doc.yaml")
+            .write_str(&USES_SETUP.replace("setup.make", "setup.absent"))
+            .unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("doc.yaml")).unwrap();
+        assert!(
+            document
+                .gate(None)
+                .iter()
+                .any(|f| f.kind.to_string().contains("dependsOn")),
+            "{:?}",
+            document.gate(None)
+        );
     }
 
     #[test]

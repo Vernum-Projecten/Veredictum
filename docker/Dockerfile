@@ -179,6 +179,10 @@ ENV LEPTOS_OUTPUT_NAME=veredictum-console \
 # what the image has at the target). `docker/docker-compose.yml` does exactly
 # that, so the local development loop reads the working tree as before.
 COPY artifacts/ /work/artifacts/
+# The Arazzo catalogue, beside the case-core one until the cut-over (#604).
+# Its documents name their OAS sources as `../../../specs/rest-oas/…`, so it
+# sits one level below /work exactly as it does in the repository.
+COPY catalogue/ /work/catalogue/
 COPY specs/openehr/ /work/specs/openehr/
 # The SECOND root a citation resolves against. `validate` derives it from the
 # specs root's PARENT (`bundle_root`: `/work/specs/openehr` to `/work/specs`),

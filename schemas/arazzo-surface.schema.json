@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:openehr:cnf:schema:arazzo-surface:0.1.0",
   "title": "Surface coverage of the Arazzo catalogue",
-  "description": "Lives at `workflows/surface.yaml`. `scope` names the operation families the catalogue has converted, each an ITS-REST API document and an OAS tag. Inside that scope every released operation, every response it declares and every value of its negotiation headers is covered by a step, or is listed in `gaps` with the issue that tracks it. A gap whose element is covered is refused, so the list only shrinks.",
+  "description": "Lives at `cases/surface.yaml`. `scope` names the operation families the catalogue has converted, each an ITS-REST API document and an OAS tag. Inside that scope every released operation, every response it declares and every value of its negotiation headers is covered by a step, or is listed in `gaps` with the issue that tracks it. A gap whose element is covered is refused, so the list only shrinks.",
   "type": "object",
   "additionalProperties": false,
   "required": [

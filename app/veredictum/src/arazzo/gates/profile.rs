@@ -142,6 +142,7 @@ impl ProfileHeader {
             section: section.to_owned(),
             quote: quote.to_owned(),
             report: None,
+            level: crate::arazzo::cite::Level::Must,
         }
     }
 }

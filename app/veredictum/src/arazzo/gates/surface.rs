@@ -16,7 +16,7 @@
 //! floor: a status the docs text assigns is covered by its own case, and is
 //! never a gap here.
 //!
-//! The scope is declared, never inferred: `workflows/surface.yaml` names each
+//! The scope is declared, never inferred: `cases/surface.yaml` names each
 //! converted family as an API document and an OAS tag, so an unconverted
 //! family cannot fail the build and a converted one cannot quietly shrink.
 
@@ -36,7 +36,7 @@ use crate::arazzo::expr::{CmpOp, Expr, Operand, SimpleCondition};
 use crate::arazzo::gates::published::surface_schema;
 use crate::arazzo::source::split_qualified;
 
-/// Where the surface file sits, relative to the workflows directory.
+/// Where the surface file sits, relative to the cases directory.
 pub const SURFACE_FILE: &str = "surface.yaml";
 
 /// The request headers whose declared values are negotiation branches.

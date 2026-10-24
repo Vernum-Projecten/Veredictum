@@ -15,6 +15,22 @@ fn repo_root() -> std::path::PathBuf {
 }
 
 #[test]
+fn the_arazzo_catalogue_is_clean_under_all_gates() {
+    let specs = repo_root().join("specs/openehr");
+    let loaded = load_root(&repo_root().join("catalogue")).expect("schema compilation");
+    let findings = validate(&Context {
+        set: &loaded.set,
+        load_errors: &loaded.errors,
+        spec_root: Some(&specs),
+    });
+    assert_eq!(
+        findings.iter().map(ToString::to_string).collect::<Vec<_>>(),
+        Vec::<String>::new(),
+        "the Arazzo catalogue must be clean"
+    );
+}
+
+#[test]
 fn pilot_world_is_clean_under_all_gates() {
     let crate_dir = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
     let specs = repo_root().join("specs/openehr");

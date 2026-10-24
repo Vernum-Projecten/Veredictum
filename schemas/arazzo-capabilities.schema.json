@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:arazzo-capabilities:0.1.0",
+  "title": "Options and their arm documents for the Arazzo catalogue",
+  "description": "Lives at `catalogue/capabilities.yaml`. Each option is behaviour the released text leaves to the implementation, citing the sentence that leaves it. Its arms are keyed by the token a statement's `options` list selects one with, and each names the documents, by document id, that test it. The documents of every arm the statement does not select are skipped with `option-not-selected`, and a surface element counts as covered only when every arm of its option covers it. `validate` refuses an arm naming a document the catalogue does not hold, and a document under two arms of one option.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "options": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "description",
+          "arms",
+          "x-veredictum-cite"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "arms": {
+            "type": "object",
+            "minProperties": 2,
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "documents": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_\\-]+$"
+                  }
+                }
+              }
+            }
+          },
+          "x-veredictum-cite": {
+            "description": "The citation, in the `arazzo-extensions` cite shape.",
+            "type": "object",
+            "required": [
+              "source",
+              "section",
+              "quote"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

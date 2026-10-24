@@ -203,6 +203,7 @@ impl ResponseSchemas {
                 section: found.response_pointer,
                 quote: found.quote,
                 report: None,
+                level: crate::arazzo::cite::Level::Must,
             },
             pointer: found.schema_pointer,
             errors,
@@ -608,11 +609,10 @@ components:
         let dir = assert_fs::TempDir::new().unwrap();
         dir.child("specs/rest-oas/ehr.yaml").write_str(OAS).unwrap();
         let doc = "arazzo: 1.1.0\ninfo: { title: t, version: '1' }\nsourceDescriptions:\n  - { name: ehr, url: ../../specs/rest-oas/ehr.yaml, type: openapi }\nworkflows: []\n";
-        dir.child("artifacts/workflows/doc.yaml")
+        dir.child("catalogue/cases/doc.yaml")
             .write_str(doc)
             .unwrap();
-        let document =
-            ArazzoDocument::load(&dir.path().join("artifacts/workflows/doc.yaml")).unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("catalogue/cases/doc.yaml")).unwrap();
         let schemas = ResponseSchemas::load(&document, dir.path()).unwrap();
         (dir, schemas)
     }

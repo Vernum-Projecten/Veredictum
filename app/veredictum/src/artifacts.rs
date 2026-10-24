@@ -84,8 +84,8 @@ pub struct ArtifactSet {
     /// absent here, so a check pairing the two reads the directory both
     /// entries share.
     pub party_ixits: Vec<(PathBuf, crate::ixit::Ixit)>,
-    /// The artifact root this set was loaded from, which the Arazzo gates
-    /// read `workflows/` and `rows/` under. `None` for a set built in memory.
+    /// The root this set was loaded from, which the Arazzo gates read
+    /// `cases/` under. `None` for a set built in memory.
     pub artifact_root: Option<PathBuf>,
 }
 

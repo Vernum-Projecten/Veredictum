@@ -361,7 +361,11 @@ before any SUT is composed:
 
 ```bash
 cargo run -- validate --root artifacts --specs specs/openehr
+cargo run -- validate --root catalogue --specs specs/openehr
 ```
+
+The second root is the Arazzo catalogue (ARCHITECTURE.md §15). Both run until
+the cut-over (#604) retires `artifacts/`, and both must report zero findings.
 
 It is every machine check over the artifact tree — id uniqueness, citation
 resolution against the vendored specs, binding completeness, coverage of the

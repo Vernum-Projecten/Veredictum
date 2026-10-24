@@ -2781,6 +2781,10 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
             "arazzo-surface.schema.json",
             crate::arazzo::gates::published::surface_schema(),
         ),
+        (
+            "arazzo-capabilities.schema.json",
+            crate::arazzo::gates::published::capabilities_schema(),
+        ),
         ("arazzo-results.schema.json", arazzo_results_schema()),
     ]
 }

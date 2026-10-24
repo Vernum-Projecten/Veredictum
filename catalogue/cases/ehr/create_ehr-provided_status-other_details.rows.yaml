@@ -1,0 +1,10 @@
+# The provided-status rows of I_EHR_SERVICE.create_ehr-main with
+# other_details and without a client-supplied ehr_id: every combination of
+# the two EHR_STATUS flags.
+workflow: ehr/create_ehr-provided_status-other_details
+iteration: reset_per_row
+rows:
+  - { is_queryable: true, is_modifiable: true }
+  - { is_queryable: true, is_modifiable: false }
+  - { is_queryable: false, is_modifiable: true }
+  - { is_queryable: false, is_modifiable: false }

@@ -146,6 +146,10 @@ pub fn extensions_schema() -> Value {
                         "description": "The upstream-report issue in this repository that records a defect, contradiction or silence in the cited text.",
                         "type": "integer",
                         "minimum": 1
+                    },
+                    "level": {
+                        "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED. `validate` refuses a level its quote's upper-case keywords disagree with, and a quote whose only keyword is MAY or OPTIONAL. A row whose failing criteria all cite `should` is failed and advisory, and never counts against a capability.",
+                        "enum": tokens(crate::arazzo::cite::Level::ALL)
                     }
                 }
             },
@@ -163,7 +167,7 @@ pub fn profile_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-profile"),
         "title": "The Arazzo catalogue's condition profile",
-        "description": "What the profile pins where Arazzo 1.1.0 leaves evaluation open. A `simple` condition compares a runtime expression with an integer, a boolean or `null`, never a string, because Arazzo makes `simple` string comparison case-insensitive. A `regex` condition uses no lookaround and no backreference. Every runtime expression parses. A step may send a header its operation does not declare only when the header is in `profile_header`. Header names compare case-insensitively.",
+        "description": "What the profile pins where Arazzo 1.1.0 leaves evaluation open. A `simple` condition compares a runtime expression with an integer, a boolean or `null`, never a string, because Arazzo makes `simple` string comparison case-insensitive. A `regex` condition uses no lookaround and no backreference, and one whose context is a response header reads an absent header as the empty string, so a pattern that matches the empty string holds when the header is not sent. Every runtime expression parses. A step may send a header its operation does not declare only when the header is in `profile_header`. Header names compare case-insensitively.",
         "$defs": {
             "criterion": {
                 "type": "object",
@@ -236,10 +240,83 @@ pub fn rows_schema() -> Value {
                 "items": { "type": "string", "minLength": 1 }
             },
             "recipe": recipe_def(),
+            "declared": {
+                "description": "Inputs bound from a value the party declares: each maps an input the workflow declares to `ixit.<member>…` or `statement.<member>…`, a dotted path into the party's IXIT or statement. No row supplies a declared input. A run whose party does not declare the value skips every row with the reason `not-declared`.",
+                "type": "object",
+                "additionalProperties": {
+                    "type": "string",
+                    "pattern": "^(ixit|statement)(\\.[^.]+)+$"
+                }
+            },
+            "aggregate": {
+                "description": "Properties of the whole run, judged once after the last row and only under `single_pass`. `distinct` names a workflow output no two rows may share; each entry carries the citation that assigns the property.",
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["distinct", CITE_KEY],
+                    "properties": {
+                        "distinct": { "type": "string", "minLength": 1 },
+                        CITE_KEY: {
+                            "description": "The citation, in the `arazzo-extensions` cite shape.",
+                            "type": "object",
+                            "required": ["source", "section", "quote"]
+                        }
+                    }
+                }
+            },
             "rows": {
                 "type": "array",
                 "minItems": 1,
                 "items": { "type": "object" }
+            }
+        }
+    })
+}
+
+/// The capabilities file: the options a statement answers, with the
+/// documents that test each arm.
+#[must_use]
+pub fn capabilities_schema() -> Value {
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("arazzo-capabilities"),
+        "title": "Options and their arm documents for the Arazzo catalogue",
+        "description": "Lives at `catalogue/capabilities.yaml`. Each option is behaviour the released text leaves to the implementation, citing the sentence that leaves it. Its arms are keyed by the token a statement's `options` list selects one with, and each names the documents, by document id, that test it. The documents of every arm the statement does not select are skipped with `option-not-selected`, and a surface element counts as covered only when every arm of its option covers it. `validate` refuses an arm naming a document the catalogue does not hold, and a document under two arms of one option.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "options": {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["description", "arms", CITE_KEY],
+                    "properties": {
+                        "description": { "type": "string", "minLength": 1 },
+                        "arms": {
+                            "type": "object",
+                            "minProperties": 2,
+                            "additionalProperties": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "documents": {
+                                        "type": "array",
+                                        "uniqueItems": true,
+                                        "items": { "type": "string", "pattern": WORKFLOW_ID_PATTERN }
+                                    }
+                                }
+                            }
+                        },
+                        CITE_KEY: {
+                            "description": "The citation, in the `arazzo-extensions` cite shape.",
+                            "type": "object",
+                            "required": ["source", "section", "quote"]
+                        }
+                    }
+                }
             }
         }
     })
@@ -254,7 +331,7 @@ pub fn surface_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-surface"),
         "title": "Surface coverage of the Arazzo catalogue",
-        "description": "Lives at `workflows/surface.yaml`. `scope` names the operation families the catalogue has converted, each an ITS-REST API document and an OAS tag. Inside that scope every released operation, every response it declares and every value of its negotiation headers is covered by a step, or is listed in `gaps` with the issue that tracks it. A gap whose element is covered is refused, so the list only shrinks.",
+        "description": "Lives at `cases/surface.yaml`. `scope` names the operation families the catalogue has converted, each an ITS-REST API document and an OAS tag. Inside that scope every released operation, every response it declares and every value of its negotiation headers is covered by a step, or is listed in `gaps` with the issue that tracks it. A gap whose element is covered is refused, so the list only shrinks.",
         "type": "object",
         "additionalProperties": false,
         "required": ["scope"],

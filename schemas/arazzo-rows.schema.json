@@ -89,6 +89,42 @@
         }
       ]
     },
+    "declared": {
+      "description": "Inputs bound from a value the party declares: each maps an input the workflow declares to `ixit.<member>…` or `statement.<member>…`, a dotted path into the party's IXIT or statement. No row supplies a declared input. A run whose party does not declare the value skips every row with the reason `not-declared`.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^(ixit|statement)(\\.[^.]+)+$"
+      }
+    },
+    "aggregate": {
+      "description": "Properties of the whole run, judged once after the last row and only under `single_pass`. `distinct` names a workflow output no two rows may share; each entry carries the citation that assigns the property.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "distinct",
+          "x-veredictum-cite"
+        ],
+        "properties": {
+          "distinct": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x-veredictum-cite": {
+            "description": "The citation, in the `arazzo-extensions` cite shape.",
+            "type": "object",
+            "required": [
+              "source",
+              "section",
+              "quote"
+            ]
+          }
+        }
+      }
+    },
     "rows": {
       "type": "array",
       "minItems": 1,

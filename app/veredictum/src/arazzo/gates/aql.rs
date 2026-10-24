@@ -273,6 +273,8 @@ mod tests {
             iteration: crate::vocab::Iteration::ResetPerRow,
             literals: Vec::new(),
             recipe: None,
+            declared: BTreeMap::new(),
+            aggregate: Vec::new(),
             rows: queries
                 .iter()
                 .map(|q| BTreeMap::from([("q".to_owned(), json!(q))]))

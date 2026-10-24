@@ -22,6 +22,7 @@ use std::path::PathBuf;
 
 use base64::Engine;
 use clap::Parser;
+use veredictum::arazzo::capabilities::Capabilities;
 use veredictum::arazzo::document::ArazzoDocument;
 use veredictum::arazzo::evaluate::{Plan, RunConfig, rejudge, run_document};
 use veredictum::arazzo::har::Har;
@@ -41,7 +42,7 @@ struct Args {
     #[arg(long, default_value = "")]
     password: String,
     /// The Arazzo document to drive.
-    #[arg(long, default_value = "artifacts/workflows/ehr/ehr.arazzo.yaml")]
+    #[arg(long, default_value = "catalogue/cases/ehr/ehr.arazzo.yaml")]
     document: PathBuf,
     /// The repository root citations are relative to.
     #[arg(long, default_value = ".")]
@@ -52,6 +53,66 @@ struct Args {
     /// Re-judge this recording instead of driving a server.
     #[arg(long)]
     rejudge: Option<PathBuf>,
+    /// The party's statement: its `options` select the arm of every option
+    /// in `capabilities.yaml`, and a document of another arm is skipped.
+    #[arg(long)]
+    statement: Option<PathBuf>,
+    /// The party's IXIT, which declared inputs read.
+    #[arg(long)]
+    ixit: Option<PathBuf>,
+    /// The capabilities file the options come from.
+    #[arg(long, default_value = "catalogue/capabilities.yaml")]
+    capabilities: PathBuf,
+}
+
+/// The plan of one run: the party's declarations, the arms its statement
+/// does not select, and every rows file beside the document.
+fn plan_for(
+    args: &Args,
+    document: &ArazzoDocument,
+    name: &str,
+) -> Result<Plan, Box<dyn std::error::Error>> {
+    let mut plan = Plan::default();
+    let read_json = |path: &PathBuf| -> Result<_, Box<dyn std::error::Error>> {
+        Ok(serde_json::from_str(&std::fs::read_to_string(path)?)?)
+    };
+    if let Some(path) = &args.ixit {
+        plan.ixit = Some(read_json(path)?);
+    }
+    if let Some(path) = &args.statement {
+        plan.statement = Some(read_json(path)?);
+    }
+    if args.capabilities.is_file() {
+        let capabilities = Capabilities::load(&args.capabilities)?;
+        let selected: Vec<String> = plan
+            .statement
+            .as_ref()
+            .and_then(|s| s.get("options"))
+            .and_then(|options| options.as_array())
+            .map(|options| {
+                options
+                    .iter()
+                    .filter_map(|option| option.as_str())
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default();
+        if let Some(skip) = capabilities.skip_for(name, &selected, &args.repo_root) {
+            for workflow in &document.description().workflows {
+                plan.skips
+                    .insert(workflow.workflow_id.clone(), skip.clone());
+            }
+        }
+    }
+    for workflow in &document.description().workflows {
+        let path = rows_path(&args.document, &workflow.workflow_id);
+        if path.is_file() {
+            let case_id = format!("{name}/{}", workflow.workflow_id);
+            let rows = rows::load(&path, &case_id, workflow)?;
+            plan.rows.insert(workflow.workflow_id.clone(), rows);
+        }
+    }
+    Ok(plan)
 }
 
 #[expect(
@@ -74,15 +135,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(std::ffi::OsStr::to_str)
         .and_then(|file| file.strip_suffix(".arazzo.yaml"))
         .ok_or("the document's file name does not end in .arazzo.yaml")?;
-    let mut plan = Plan::default();
-    for workflow in &document.description().workflows {
-        let path = rows_path(&args.document, &workflow.workflow_id);
-        if path.is_file() {
-            let case_id = format!("{name}/{}", workflow.workflow_id);
-            let rows = rows::load(&path, &case_id, workflow)?;
-            plan.rows.insert(workflow.workflow_id.clone(), rows);
-        }
-    }
+    let plan = plan_for(&args, &document, name)?;
     let (results, recording) = if let Some(path) = &args.rejudge {
         let recording = Har::read(path)?;
         let results = rejudge(&document, name, &args.repo_root, None, &plan, &recording)?;

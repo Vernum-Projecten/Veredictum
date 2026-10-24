@@ -25,7 +25,7 @@ use roas_arazzo::validation::Validate;
 use serde_json::Value;
 
 use crate::arazzo::check::Check;
-use crate::arazzo::cite::{CITE_KEY, Citation, CiteError, QuoteChecker, citation_of};
+use crate::arazzo::cite::{CITE_KEY, Citation, CiteError, QuoteChecker, check_level, citation_of};
 use crate::arazzo::expr::{Expr, JsonPathCriterion, ParseError, RegexCriterion, SimpleCondition};
 use crate::arazzo::gates::Gate;
 use crate::arazzo::gates::profile::{ProfileHeader, RegexBreach, lint_regex};
@@ -51,8 +51,9 @@ pub enum DocumentError {
         /// The verbatim deserialization failure.
         reason: String,
     },
-    /// A source description is not an explicit `openapi` source.
-    #[error("source `{0}` must declare `type: openapi`")]
+    /// A source description is neither an explicit `openapi` nor an
+    /// explicit `arazzo` source.
+    #[error("source `{0}` must declare `type: openapi` or `type: arazzo`")]
     SourceType(String),
     /// A source description does not index.
     #[error(transparent)]
@@ -70,6 +71,7 @@ pub struct ArazzoDocument {
     description: Description,
     sources: BTreeMap<String, OperationIndex>,
     parameters: BTreeMap<String, ParameterIndex>,
+    workflow_sources: BTreeMap<String, PathBuf>,
 }
 
 impl ArazzoDocument {
@@ -105,17 +107,26 @@ impl ArazzoDocument {
         let base = path.parent().unwrap_or_else(|| Path::new("."));
         let mut sources = BTreeMap::new();
         let mut parameters = BTreeMap::new();
+        let mut workflow_sources = BTreeMap::new();
         let mut problems = Vec::new();
         for source in &description.source_descriptions {
-            if source.type_ != Some(SourceType::Openapi) {
-                problems.push(DocumentError::SourceType(source.name.clone()));
-                continue;
-            }
+            let arazzo = match source.type_ {
+                Some(SourceType::Openapi) => false,
+                Some(SourceType::Arazzo) => true,
+                _ => {
+                    problems.push(DocumentError::SourceType(source.name.clone()));
+                    continue;
+                }
+            };
             if source.url.contains("://") || Path::new(&source.url).is_absolute() {
                 problems.push(SourceError::NotLocal(source.url.clone()).into());
                 continue;
             }
             let file = base.join(&source.url);
+            if arazzo {
+                workflow_sources.insert(source.name.clone(), file);
+                continue;
+            }
             match OperationIndex::load(&file) {
                 Ok(index) => {
                     sources.insert(source.name.clone(), index);
@@ -138,6 +149,7 @@ impl ArazzoDocument {
             description,
             sources,
             parameters,
+            workflow_sources,
         };
         Ok((document, problems))
     }
@@ -167,6 +179,12 @@ impl ArazzoDocument {
             .workflows
             .iter()
             .find(|w| w.workflow_id == workflow_id)
+    }
+
+    /// The file of every `type: arazzo` source, by source name.
+    #[must_use]
+    pub fn workflow_sources(&self) -> &BTreeMap<String, PathBuf> {
+        &self.workflow_sources
     }
 
     /// Resolves a qualified `$sourceDescriptions.<name>.<operationId>`.
@@ -239,13 +257,8 @@ impl ArazzoDocument {
             findings,
         );
         for id in &workflow.depends_on {
-            if self.workflow(id).is_none() {
-                findings.push(Finding::new(
-                    &at,
-                    FindingKind::Unsupported(format!(
-                        "dependsOn `{id}`, which is not a workflow of this document"
-                    )),
-                ));
+            if let Some(problem) = self.dependency_problem(id) {
+                findings.push(Finding::new(&at, FindingKind::Unsupported(problem)));
             }
         }
         if !workflow.success_actions.is_empty()
@@ -285,6 +298,31 @@ impl ArazzoDocument {
                     findings.push(Finding::new(&at, kind));
                 }
             }
+        }
+    }
+
+    /// Why a `dependsOn` entry does not name a workflow: one of this
+    /// document, or `$sourceDescriptions.<name>.<workflowId>` of a
+    /// `type: arazzo` source (Arazzo 1.1.0 §Workflow Object `dependsOn`).
+    fn dependency_problem(&self, id: &str) -> Option<String> {
+        let Some((source, workflow_id)) = split_qualified(id) else {
+            return self
+                .workflow(id)
+                .is_none()
+                .then(|| format!("dependsOn `{id}`, which is not a workflow of this document"));
+        };
+        let Some(file) = self.workflow_sources.get(source) else {
+            return Some(format!(
+                "dependsOn `{id}`, whose source `{source}` is not a `type: arazzo` source"
+            ));
+        };
+        match Self::load(file) {
+            Ok(other) if other.workflow(workflow_id).is_some() => None,
+            Ok(_) => Some(format!(
+                "dependsOn `{id}`, which is not a workflow of `{}`",
+                file.display()
+            )),
+            Err(error) => Some(format!("dependsOn `{id}`: {error}")),
         }
     }
 
@@ -439,6 +477,9 @@ fn cite_at(
 ) -> Option<Citation> {
     match citation_of(extensions) {
         Ok(Some(citation)) => {
+            if let Err(error) = check_level(&citation) {
+                findings.push(Finding::new(at, FindingKind::Level(error)));
+            }
             if let Some(quotes) = quotes
                 && let Err(error) = quotes.check(&citation)
             {
@@ -637,6 +678,9 @@ pub enum FindingKind {
     /// A citation that does not hold.
     #[error(transparent)]
     Citation(CiteError),
+    /// A citation whose `level` disagrees with its quote's keywords.
+    #[error(transparent)]
+    Level(CiteError),
     /// An expression or condition outside the profile.
     #[error(transparent)]
     Profile(ParseError),
@@ -676,6 +720,7 @@ impl FindingKind {
             Self::Schema(_) | Self::Model(_) | Self::WorkflowId(_) => Gate::Schema,
             Self::UnknownKey(_) | Self::ExtensionNotAllowed(_) => Gate::Keys,
             Self::MissingCitation | Self::Citation(_) => Gate::Citation,
+            Self::Level(_) => Gate::Level,
             Self::Profile(_) | Self::Regex(_) | Self::Unsupported(_) => Gate::Profile,
             Self::Source(_)
             | Self::UnresolvedOperation(_)
@@ -787,7 +832,7 @@ mod tests {
         let doc = format!(
             "arazzo: 1.1.0\ninfo: {{ title: t, version: '1' }}\nsourceDescriptions:\n  - {{ name: ehr, url: ../../specs/rest-oas/ehr.yaml, type: openapi }}\nworkflows:\n{workflow}"
         );
-        let file = dir.child("artifacts/workflows/ehr.arazzo.yaml");
+        let file = dir.child("catalogue/cases/ehr.arazzo.yaml");
         file.write_str(&doc).unwrap();
         let loaded = ArazzoDocument::load(file.path()).unwrap();
         (dir, loaded)
@@ -1093,7 +1138,7 @@ mod tests {
     fn a_seeded_source_without_type_openapi_is_reported_not_indexed() {
         let dir = assert_fs::TempDir::new().unwrap();
         dir.child("specs/rest-oas/ehr.yaml").write_str(OAS).unwrap();
-        let file = dir.child("artifacts/workflows/ehr.arazzo.yaml");
+        let file = dir.child("catalogue/cases/ehr.arazzo.yaml");
         file.write_str(&format!(
             "arazzo: 1.1.0\ninfo: {{ title: t, version: '1' }}\nsourceDescriptions:\n  - {{ name: ehr, url: ../../specs/rest-oas/ehr.yaml }}\nworkflows:\n{}",
             workflow(&cited(), "", "$statusCode == 404")

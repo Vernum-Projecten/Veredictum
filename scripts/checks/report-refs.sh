@@ -17,7 +17,7 @@
 #
 # Usage: scripts/checks/report-refs.sh               # the catalogue
 #        scripts/checks/report-refs.sh --self-test   # against a stub tracker
-# Env:   REPORT_REFS_ROOT  the tree to scan (default: artifacts/workflows)
+# Env:   REPORT_REFS_ROOT  the tree to scan (default: catalogue/cases)
 #        GITHUB_REPOSITORY the repository to ask (default: Vernum-Projecten/Veredictum)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -99,4 +99,4 @@ STUB
   exit 0
 fi
 
-check "${REPORT_REFS_ROOT:-artifacts/workflows}" "${GITHUB_REPOSITORY:-Vernum-Projecten/Veredictum}"
+check "${REPORT_REFS_ROOT:-catalogue/cases}" "${GITHUB_REPOSITORY:-Vernum-Projecten/Veredictum}"

@@ -655,8 +655,11 @@ impl RegexCriterion {
 
     /// Judges the criterion in `scope`.
     ///
-    /// An absent or `null` context does not hold: the response was readable
-    /// and did not carry the value (Arazzo 1.1.0 §Regex Conditions).
+    /// An absent or `null` body value does not hold: the response was
+    /// readable and did not carry the value (Arazzo 1.1.0 §Regex
+    /// Conditions). An absent response header is the empty string, so a
+    /// pattern that matches the empty string holds when the header is not
+    /// sent (the profile's rule 9).
     ///
     /// # Errors
     /// [`EvalError`] when a value cannot be read, the context is an object or
@@ -666,7 +669,12 @@ impl RegexCriterion {
         let regex = regex_profile::compile(&pattern)
             .map_err(|error| EvalError::BadRegex(error.pattern, error.reason))?;
         let expected = format!("{} matches /{pattern}/", self.context);
-        let context = scope.eval(&self.context)?;
+        let mut context = scope.eval(&self.context)?;
+        // NOTE: the profile's rule 9 (no openEHR spec governs this — our own design): an absent
+        // response header reads as "", so a pattern that matches "" states "if sent, then".
+        if context.is_none() && matches!(self.context, Expr::ResponseHeader(_)) {
+            context = Some(Value::String(String::new()));
+        }
         let (holds, received) = match &context {
             None | Some(Value::Null) => (false, format!("{} is absent", self.context)),
             Some(value) => {
@@ -868,6 +876,44 @@ mod tests {
                 .unwrap()
                 .holds
         );
+    }
+
+    #[test]
+    fn an_absent_header_reads_as_empty_and_an_absent_body_value_does_not_hold() {
+        let judge = |context: &str, pattern: &str, headers: &[(&str, &str)]| {
+            let (request, mut response) = exchange(201, r#"{"a":"x"}"#);
+            response.headers = headers
+                .iter()
+                .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+                .collect();
+            let inputs = BTreeMap::new();
+            let outputs = BTreeMap::new();
+            let scope = Scope {
+                inputs: &inputs,
+                outputs: &outputs,
+                workflows: &outputs,
+                exchange: Some((&request, &response)),
+            };
+            RegexCriterion::parse(context, pattern)
+                .unwrap()
+                .judge(&scope)
+                .unwrap()
+                .holds
+        };
+        let weak_if_sent = "^(W/\".+\")?$";
+        assert!(judge("$response.header.ETag", weak_if_sent, &[]));
+        assert!(judge(
+            "$response.header.ETag",
+            weak_if_sent,
+            &[("etag", "W/\"1\"")]
+        ));
+        assert!(!judge(
+            "$response.header.ETag",
+            weak_if_sent,
+            &[("etag", "\"1\"")]
+        ));
+        assert!(!judge("$response.header.ETag", "^W/\".+\"$", &[]));
+        assert!(!judge("$response.body#/b", "^(x)?$", &[]));
     }
 
     #[test]

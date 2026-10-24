@@ -1,0 +1,77 @@
+# The committal headers on the EHR create: the EHR_STATUS an EHR create
+# commits is change-controlled content, so the audit details a client supplies
+# are merged into its first version. Every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: Committal headers on EHR create
+  version: 0.1.0
+  description: >-
+    Creating an EHR with openehr-audit-details and reading the committed
+    EHR_STATUS version's audit back.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_ehr-committal_headers
+    summary: The audit details sent on an EHR create are merged into the EHR_STATUS commit
+    description: >-
+      Creates an EHR with an openehr-audit-details header naming a
+      description and a committer, then reads the latest version of its
+      EHR_STATUS. The version's commit_audit carries the supplied description
+      and committer, and the change type of a first version.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "In order to allow clients to provide committal metadata, services MUST accept `openehr-version` and `openehr-audit-details` custom request headers."
+    steps:
+      - stepId: create
+        description: Create an EHR with a description and a committer in openehr-audit-details.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-audit-details, in: header, value: 'description.value="EHR opened at triage",committer.name="Dr Chart"' }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: read-version
+        description: Read the latest version of the EHR's EHR_STATUS.
+        x-veredictum-cite: &merged
+          source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+          section: openehr-version and openehr-audit-details
+          quote: "None of these headers are mandatory, but whatever is provided it MUST be merged with the default VERSION and VERSION.audit_details attributes on commit runtime."
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create.outputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+          - context: $response.body#/commit_audit/description/value
+            type: regex
+            condition: '^EHR opened at triage$'
+          - context: $response.body#/commit_audit/committer/name
+            type: regex
+            condition: '^Dr Chart$'
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^249$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Contributions
+              quote: "a new `VERSIONED_OBJECT` is created with a first `ORIGINAL_VERSION` whose data is the new item; the `ORIGINAL_VERSION._commit_audit_._change_type_` is set to the code `249|creation|`;"
