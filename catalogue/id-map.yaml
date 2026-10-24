@@ -6,6 +6,114 @@
 # lists the old ids of a component whose own family is not converted yet
 # (#603): each moves into `cases` when its family is converted.
 cases:
+  I_EHR_COMPOSITION.get_composition_at_time-bad_composition:
+    new: [composition_read/get_composition-unknown_versioned_object_uid-at_time]
+  I_EHR_COMPOSITION.get_composition_at_time-bad_ehr:
+    new: [composition_read/get_composition-unknown_ehr-at_time]
+  I_EHR_COMPOSITION.get_composition_at_time-simplified_forms:
+    new: &simplified [composition_read_flat/get_composition-flat, composition_read_structured/get_composition-structured]
+    open: &simplified_part >-
+      The two Simplified Format media types are carried on the read by
+      version_uid; the at-time and latest addressing needs the
+      versioned_object_uid and waits on #680. The equality of the FLAT and STRUCTURED
+      values is not asserted: simplified_formats §Conversion Between Formats
+      gives a conversion algorithm and no released sentence requires a
+      server's two answers to agree.
+  I_EHR_COMPOSITION.get_composition_at_time-xml:
+    new: &xml [composition_read_xml/get_composition-xml]
+    open: &xml_part >-
+      Accept application/xml is carried on the read by version_uid; the
+      at-time and latest addressing needs the versioned_object_uid and waits
+      on #680, and the root element of the XML document is not judged
+      because the evaluator reads no XML body (#678).
+  I_EHR_COMPOSITION.get_composition_at_version-deleted_version:
+    new: []
+    open: >-
+      #678: the delete answers the deleted version's version_uid only inside
+      its weak ETag, W/"…", which the evaluator cannot unwrap into a path.
+  I_EHR_COMPOSITION.get_composition_at_version-spec_profile_dev_body_development:
+    new: []
+    open: &spec_profile >-
+      No released text says which generation set of the specifications a
+      server runs or how it is selected; the case pinned the AMB-210 handling
+      of our own design, and its body is RM Release-1.2.0 content, which is
+      not released.
+  I_EHR_COMPOSITION.get_composition_at_version-spec_profile_dev_body_stable_409:
+    new: []
+    open: *spec_profile
+  I_EHR_COMPOSITION.get_composition_at_version-spec_profile_stable_clean_served_under_both:
+    new: []
+    open: *spec_profile
+  I_EHR_COMPOSITION.get_composition_at_version-status_uid_kind_mismatch:
+    new: [composition_read/get_composition-ehr_status_version_uid]
+  I_EHR_COMPOSITION.get_composition_at_version-xml:
+    new: *xml
+    open: &xml_root >-
+      The root element of the XML document is not judged: the evaluator
+      reads no XML body (#678).
+  I_EHR_COMPOSITION.get_composition_latest-bad_composition:
+    new: [composition_read/get_composition-unknown_versioned_object_uid]
+  I_EHR_COMPOSITION.get_composition_latest-bad_ehr:
+    new: [composition_read/get_composition-unknown_ehr-versioned_object_uid]
+  I_EHR_COMPOSITION.get_composition_latest-simplified_forms:
+    new: *simplified
+    open: *simplified_part
+  I_EHR_COMPOSITION.get_composition_latest-xml:
+    new: *xml
+    open: *xml_part
+  I_EHR_COMPOSITION.get_composition_latest-xml_namespace_v1:
+    new: []
+    open: &xml_namespace >-
+      No released text names the XML namespace a service serves or a way for
+      a client to select one: Resources.md §XML Format requires only that the
+      document "MUST conform to the published XSDs", and the media-type
+      version parameter the case sent is no openEHR mechanism.
+  I_EHR_COMPOSITION.get_composition_latest-xml_namespace_v2:
+    new: []
+    open: *xml_namespace
+  I_EHR_COMPOSITION.get_composition_latest-xml_root_namespace:
+    new: []
+    open: *xml_root
+  I_EHR_COMPOSITION.get_composition_version:
+    new: [composition_read/get_composition-by_version_uid]
+    open: >-
+      The RM type of the served object is not asserted on its own: it is read
+      from _type, which Resources.md asks for only with a lower-case "should
+      be used" (upstream report #650). The equivalence judge compares the
+      served COMPOSITION with the committed one, _type included where both
+      carry it.
+  I_EHR_COMPOSITION.get_composition_version-bad_ehr:
+    new: [composition_read/get_composition-unknown_ehr]
+  I_EHR_COMPOSITION.get_composition_version-bad_version:
+    new: [composition_read/get_composition-unknown_version_uid]
+  I_EHR_COMPOSITION.get_versioned_composition-bad_ehr:
+    new: [composition_versioned_read/get_versioned_composition-unknown_ehr]
+  I_EHR_COMPOSITION.get_versioned_composition-branch_version_uid:
+    new: []
+    open: &imported >-
+      The precondition is an EHR import through a route no released OAS
+      declares, and the catalogue has no source for extension routes yet;
+      the case's expectations on the served IMPORTED_VERSION also rest on
+      the AMB-198 handling, which no released sentence assigns.
+  I_EHR_COMPOSITION.get_versioned_composition-imported_version:
+    new: []
+    open: *imported
+  I_EHR_COMPOSITION.get_versioned_composition-imported_version_xml_root:
+    new: []
+    open: *imported
+  I_EHR_COMPOSITION.get_versioned_composition-malformed_uid:
+    new: [composition_versioned_read/get_versioned_composition-malformed_versioned_object_uid]
+  I_EHR_COMPOSITION.get_versioned_composition-non_existent:
+    new: [composition_versioned_read/get_versioned_composition-unknown_versioned_object_uid]
+  I_EHR_COMPOSITION.has_composition:
+    new: [composition_read/get_composition-by_version_uid]
+  I_EHR_COMPOSITION.has_composition-bad_composition:
+    new: [composition_read/get_composition-unknown_version_uid]
+  I_EHR_COMPOSITION.has_composition-bad_ehr:
+    new: [composition_read/get_composition-unknown_ehr]
+  I_EHR_COMPOSITION.has_composition-xml:
+    new: *xml
+    open: *xml_root
   I_EHR_SERVICE.create_ehr-bulk_load_population:
     new: [ehr_bulk_load/bulk_load-population]
   I_EHR_SERVICE.create_ehr-clone_system_id:
@@ -396,7 +504,127 @@ cases:
       The order of the items is not judged: the released REVISION_HISTORY
       class says most-recent-first in its description and most-recent-last on
       items (upstream report #661).
+  I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-unknown_container:
+    new: [composition_versioned_read/get_versioned_composition-revision_history-unknown_versioned_object_uid]
 pending:
+  # Container-addressed COMPOSITION reads, converted once #680 lets a step
+  # derive the versioned_object_uid from a version_uid.
+  - I_EHR_COMPOSITION.get_composition_at_time
+  - I_EHR_COMPOSITION.get_composition_at_time-before_first_version
+  - I_EHR_COMPOSITION.get_composition_at_time-deleted_at_time
+  - I_EHR_COMPOSITION.get_composition_at_time-future
+  - I_EHR_COMPOSITION.get_composition_at_time-malformed
+  - I_EHR_COMPOSITION.get_composition_at_time-no_time_arg
+  - I_EHR_COMPOSITION.get_composition_at_times
+  - I_EHR_COMPOSITION.get_composition_latest
+  - I_EHR_COMPOSITION.get_composition_latest-deleted_head
+  - I_EHR_COMPOSITION.get_composition_latest-identifier_forms_agree
+  - I_EHR_COMPOSITION.get_composition_versions
+  - I_EHR_COMPOSITION.get_versioned_composition
+  - I_EHR_COMPOSITION.get_versioned_composition-at_time_before_first_version
+  - I_EHR_COMPOSITION.get_versioned_composition-at_time_future
+  - I_EHR_COMPOSITION.get_versioned_composition-at_time_malformed
+  - I_EHR_COMPOSITION.get_versioned_composition-at_time_omitted
+  - I_EHR_COMPOSITION.get_versioned_composition-container_shape
+  - I_EHR_COMPOSITION.get_versioned_composition-deleted_version_envelope
+  - I_EHR_COMPOSITION.get_versioned_composition-version_of_other_container
+  - I_EHR_COMPOSITION.get_versioned_composition-version_unknown
+  - I_EHR_COMPOSITION.get_versioned_composition-version_xml_root
+  - I_EHR_COMPOSITION.get_versioned_composition-xml
+  - I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-two_versions
+  - I_EHR_COMPOSITION.create_composition-audit_system_id_declared
+  - I_EHR_COMPOSITION.create_composition-bulk_load_depth
+  - I_EHR_COMPOSITION.create_composition-category_invalid
+  - I_EHR_COMPOSITION.create_composition-client_supplied_uid
+  - I_EHR_COMPOSITION.create_composition-cluster_no_items
+  - I_EHR_COMPOSITION.create_composition-composer_identifiers_empty
+  - I_EHR_COMPOSITION.create_composition-context_location_empty
+  - I_EHR_COMPOSITION.create_composition-datetime_comma_fraction
+  - I_EHR_COMPOSITION.create_composition-datetime_lexical
+  - I_EHR_COMPOSITION.create_composition-deprecated_template_id
+  - I_EHR_COMPOSITION.create_composition-duplicate_member
+  - I_EHR_COMPOSITION.create_composition-ehr_not_modifiable
+  - I_EHR_COMPOSITION.create_composition-event
+  - I_EHR_COMPOSITION.create_composition-event_bad_ehr
+  - I_EHR_COMPOSITION.create_composition-event_bad_opt
+  - I_EHR_COMPOSITION.create_composition-feeder_audit_change_type
+  - I_EHR_COMPOSITION.create_composition-feeder_audit_roundtrip
+  - I_EHR_COMPOSITION.create_composition-foreign_type_in_content
+  - I_EHR_COMPOSITION.create_composition-invalid_event
+  - I_EHR_COMPOSITION.create_composition-invalid_persistent
+  - I_EHR_COMPOSITION.create_composition-item_node_id_empty
+  - I_EHR_COMPOSITION.create_composition-item_tag_wrapper_headers
+  - I_EHR_COMPOSITION.create_composition-item_tree_empty
+  - I_EHR_COMPOSITION.create_composition-language_invalid
+  - I_EHR_COMPOSITION.create_composition-largest_published_form
+  - I_EHR_COMPOSITION.create_composition-link_target_bad_scheme
+  - I_EHR_COMPOSITION.create_composition-links_empty
+  - I_EHR_COMPOSITION.create_composition-links_roundtrip
+  - I_EHR_COMPOSITION.create_composition-null_empty_absent
+  - I_EHR_COMPOSITION.create_composition-paragraph_no_items
+  - I_EHR_COMPOSITION.create_composition-participation_function_invalid
+  - I_EHR_COMPOSITION.create_composition-participation_mode_invalid
+  - I_EHR_COMPOSITION.create_composition-participation_time_roundtrip
+  - I_EHR_COMPOSITION.create_composition-performer_relationship_invalid
+  - I_EHR_COMPOSITION.create_composition-persistent
+  - I_EHR_COMPOSITION.create_composition-prefer_absent
+  - I_EHR_COMPOSITION.create_composition-prefer_minimal
+  - I_EHR_COMPOSITION.create_composition-return_identifier
+  - I_EHR_COMPOSITION.create_composition-root_archetype_id_mismatch
+  - I_EHR_COMPOSITION.create_composition-same_opt_twice
+  - I_EHR_COMPOSITION.create_composition-setting_invalid
+  - I_EHR_COMPOSITION.create_composition-setting_invalid_xml
+  - I_EHR_COMPOSITION.create_composition-single_member
+  - I_EHR_COMPOSITION.create_composition-subject_external_ref
+  - I_EHR_COMPOSITION.create_composition-terminology_binding_member
+  - I_EHR_COMPOSITION.create_composition-terminology_binding_non_member
+  - I_EHR_COMPOSITION.create_composition-terminology_binding_unresolvable_fail_closed
+  - I_EHR_COMPOSITION.create_composition-terminology_binding_unresolvable_fail_open
+  - I_EHR_COMPOSITION.create_composition-territory_invalid
+  - I_EHR_COMPOSITION.create_composition-unknown_key_nested
+  - I_EHR_COMPOSITION.create_composition-unknown_key_root
+  - I_EHR_COMPOSITION.create_composition-version_bare_deprecated
+  - I_EHR_COMPOSITION.create_composition-version_lifecycle
+  - I_EHR_COMPOSITION.create_composition-wrong_media
+  - I_EHR_COMPOSITION.create_composition-xml
+  - I_EHR_COMPOSITION.delete_composition-already_deleted
+  - I_EHR_COMPOSITION.delete_composition-audit_headers
+  - I_EHR_COMPOSITION.delete_composition-contradictory_lifecycle_header
+  - I_EHR_COMPOSITION.delete_composition-ehr_not_modifiable
+  - I_EHR_COMPOSITION.delete_composition-etag_names_new_version
+  - I_EHR_COMPOSITION.delete_composition-event
+  - I_EHR_COMPOSITION.delete_composition-non_existent
+  - I_EHR_COMPOSITION.delete_composition-not_latest_version
+  - I_EHR_COMPOSITION.delete_composition-persistent
+  - I_EHR_COMPOSITION.delete_composition-volunteered_if_match
+  - I_EHR_COMPOSITION.delete_composition-volunteered_if_match_current
+  - I_EHR_COMPOSITION.update_composition-audit_amendment
+  - I_EHR_COMPOSITION.update_composition-audit_bare_deprecated
+  - I_EHR_COMPOSITION.update_composition-audit_change_type_invalid
+  - I_EHR_COMPOSITION.update_composition-audit_change_type_mismatch
+  - I_EHR_COMPOSITION.update_composition-audit_system_id
+  - I_EHR_COMPOSITION.update_composition-body_uid_mismatch
+  - I_EHR_COMPOSITION.update_composition-category_flip
+  - I_EHR_COMPOSITION.update_composition-cluster_no_items
+  - I_EHR_COMPOSITION.update_composition-deleted_lifecycle_header
+  - I_EHR_COMPOSITION.update_composition-ehr_not_modifiable
+  - I_EHR_COMPOSITION.update_composition-event
+  - I_EHR_COMPOSITION.update_composition-feeder_audit_carried
+  - I_EHR_COMPOSITION.update_composition-feeder_audit_removed
+  - I_EHR_COMPOSITION.update_composition-flat
+  - I_EHR_COMPOSITION.update_composition-missing_if_match
+  - I_EHR_COMPOSITION.update_composition-non_existent
+  - I_EHR_COMPOSITION.update_composition-paragraph_no_items
+  - I_EHR_COMPOSITION.update_composition-persistent
+  - I_EHR_COMPOSITION.update_composition-prefer_absent
+  - I_EHR_COMPOSITION.update_composition-prefer_minimal
+  - I_EHR_COMPOSITION.update_composition-return_identifier
+  - I_EHR_COMPOSITION.update_composition-same_content
+  - I_EHR_COMPOSITION.update_composition-stale_if_match
+  - I_EHR_COMPOSITION.update_composition-structured
+  - I_EHR_COMPOSITION.update_composition-unknown_preceding_version
+  - I_EHR_COMPOSITION.update_composition-wrong_template
+  - I_EHR_COMPOSITION.update_composition-xml
   - I_ITS_REST_ITEM_TAGS.agent_tags_delete-key_scoped
   - I_ITS_REST_ITEM_TAGS.agent_tags_delete-unknown_key
   - I_ITS_REST_ITEM_TAGS.agent_tags_get-unknown_container
@@ -429,7 +657,5 @@ pending:
   - I_ITS_REST_ITEM_TAGS.role_tags_get-unknown_container
   - I_ITS_REST_ITEM_TAGS.role_tags_update-non_array_body
   - I_ITS_REST_ITEM_TAGS.role_tags_update-unknown_container
-  - I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-two_versions
-  - I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-unknown_container
   - I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-two_versions
   - I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-unknown_container
