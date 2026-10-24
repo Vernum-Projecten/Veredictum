@@ -61,6 +61,22 @@ version on.
   released key words apply only in capitals, and the lower-case "should be
   used" assigns no refusal (upstream report #650).
 
+- `validate` parses every AQL query the Arazzo catalogue sends with
+  `openehr-query` 0.0.97, a Rust implementation of the released AQL grammar,
+  under a new `arazzo-aql` gate (#626). The gate reads the `q` of
+  `query_execute_adhoc_query` and `query_execute_adhoc_query_body` and the
+  text body of the stored-query `definition_query_store.yaml` operations,
+  from a literal or from each row of the workflow's rows file. A query that
+  does not parse is refused with the case, the row, the query and the
+  parser's token and byte position, unless its step expects
+  `$statusCode == 400`; such a step whose query parses must say in its
+  `description` what else makes the request invalid. The parser is tested
+  against all 18 worked queries of the QUERY Release-1.1.0 examples: the 11
+  the grammar derives parse and round-trip through the printer, and the 7 it
+  refuses are refused at the position the grammar fails. `openehr-query` is
+  BUSL-1.1, admitted by a `deny.toml` licence exception for that crate alone;
+  the README and `NOTICE` state its terms.
+
 - Rows files carry decision-table literals (#638). The published rows schema
   gains `literals`, the columns whose values are read through the
   decision-table literal grammar, and `recipe`, which binds one more input per

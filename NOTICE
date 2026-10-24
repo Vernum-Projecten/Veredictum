@@ -10,3 +10,10 @@ NOTICE file travels with every copy and derivative work per its section 4(d).
 The vendored test corpora under artifacts/corpus keep their upstream terms
 (Apache-2.0 openEHR machine-readable artifacts; CC-BY-SA 3.0/4.0 CKM clinical
 models) as declared per tree in their PROVENANCE.md files.
+
+One dependency is not under a permissive licence: openehr-query
+(https://crates.io/crates/openehr-query), the AQL parser the validate command
+uses, is licensed under the Business Source License 1.1 (SPDX BUSL-1.1), with
+Cadasto B.V. as Licensor. A build that links it, such as the veredictum binary
+and the container image, is subject to those terms for that component. Its use
+here is approved by the crate's owner.

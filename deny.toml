@@ -83,7 +83,15 @@ allow = [
   "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.9
-exceptions = []
+# The one licence outside the allow-list, admitted for one crate only
+# (https://embarkstudios.github.io/cargo-deny/checks/licenses/cfg.html#the-exceptions-field-optional).
+# `openehr-query` is the AQL parser `validate` checks every catalogue query
+# with, and it is BUSL-1.1. Its owner approved its use here on 2026-10-23
+# (#626). It is the only BUSL dependency: BUSL-1.1 stays absent from `allow`,
+# so any other crate carrying it is still refused.
+exceptions = [
+  { allow = ["BUSL-1.1"], crate = "openehr-query" },
+]
 
 [bans]
 multiple-versions = "warn"
