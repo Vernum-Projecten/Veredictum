@@ -2846,7 +2846,9 @@ x-veredictum-cite:
   quote: "Can happen when the supplied `ehr_id` is already used by an existing EHR."
 ```
 
-`section` addresses the element the quote must occur in. In a YAML source it
+An optional `level: should` marks a quote that recommends rather than
+requires (§15.6 rule 10); `must` is the default. `section` addresses the
+element the quote must occur in. In a YAML source it
 is a top-level key or a JSON Pointer (RFC 6901); in a Markdown or AsciiDoc
 source it is a heading title. A criterion without its own citation inherits
 its step's, and a step inherits its workflow's. `validate` refuses a criterion that resolves to no citation,
@@ -2976,25 +2978,55 @@ enforced by `validate` and the evaluator. Every rule stays inside what Arazzo
    *errored*, never *failed*, because the instrument could not judge.
    `validate` catches every statically detectable expression error before a
    run.
+9. **A rule that holds only when a header is sent.** A response header is a
+   string or absent, and a `regex` criterion whose `context` is a response
+   header reads an absent header as the empty string. A pattern that also
+   matches the empty string therefore states "if sent, then": `^(W/".+")?$`
+   holds when no `ETag` is sent and when a weak one is, while `^W/".+"$`
+   also requires the header. Body values keep rule 6.
+10. **Requirement level.** Every citation states the level of the sentence it
+    quotes: `level: must` (MUST, SHALL, REQUIRED, MUST NOT, SHALL NOT, and a
+    definition in the indicative), the default, or `level: should` (SHOULD,
+    RECOMMENDED, SHOULD NOT). Text that only permits (MAY, OPTIONAL) is never
+    asserted. A row whose failing criteria are all `should` is *failed* and
+    marked advisory: it is reported with its explanation and never counts
+    against a capability, because RFC 2119 lets an implementation ignore a
+    SHOULD for a valid reason.
 
 ### 15.7 Data-driven cases
 
-A workflow with `inputs` runs once per row of its rows file. The rows file is
-a small format of our own with a published schema, because Arazzo defines
-inputs but not how a set of them is supplied:
+A workflow with `inputs` runs once per row of its rows file,
+`<workflowId>.rows.yaml` beside its document. The rows file is a small format
+of our own with a published schema, because Arazzo defines inputs but not how a
+set of them is supplied:
 
 ```yaml
 # shape only; the values are illustrative
-workflow: content/create_composition-dv_quantity_magnitude
-iteration: reset_per_row      # or single_pass, when an assertion spans rows
+workflow: content/commit-dv_count_out_of_range
+iteration: reset_per_row          # or single_pass, when the rows share state
+literals: [magnitude]             # columns written in the decision-table literal grammar
+recipe: { name: content_instance, rm_class: DV_COUNT, template_id: count_range, input: payload }
+declared: { system_id: ixit.instances.sut.system_id }
+aggregate:
+  - distinct: ehr_id              # single_pass only: checked once after the last row
+    x-veredictum-cite: { source: …, section: …, quote: … }
 rows:
-  - { magnitude: 5.0, units: cm, expected: accepted }
-  - { magnitude: 11.0, units: cm, expected: rejected, violates: ["constraint(C_DV_QUANTITY.list)"] }
+  - { magnitude: 0 }
+  - { magnitude: 30 }
 ```
 
-Rows use the decision-table literal grammar and violation categories of the
-corpus (§8.8), and a recipe produces an input row or a request body. A
-variant that calls a different operation is its own workflow (§15.5).
+- **The expected outcome belongs to the workflow, not the row.** Rows that
+  share an outcome share a workflow, and a variant with another outcome, or
+  one that calls a different operation, is its own workflow (§15.5).
+- **Literals and recipes.** Columns named in `literals` use the decision-table
+  literal grammar and violation categories of §8.8, and `recipe` builds the
+  input or request body a row sends from them, deterministically.
+- **Declared values.** `declared` binds an input to a value the party's IXIT
+  or statement provides, such as the system id a server stamps. A row whose
+  declared value is absent is skipped with the reason `not-declared`.
+- **Cross-row checks.** `aggregate` states a property of the whole run, such
+  as `distinct` over an output every row produces. It needs `single_pass`, is
+  judged once after the last row, and carries its own citation.
 
 ### 15.8 The evaluator, and what a vendor sees on a red row
 
@@ -3015,6 +3047,7 @@ run, and always carries one reason from a closed list, with its citation:
 | `version-out-of-range` | the case applies to spec versions the statement does not declare |
 | `format-not-claimed` | the case needs a format outside the claimed tech profile |
 | `extension-not-offered` | the case drives an extension route the vendor does not declare |
+| `not-declared` | a value the case needs from the party's IXIT or statement is not declared |
 
 Every red row in `results.json` and in the rendered report carries four parts,
 derived from the case and the recording with nothing extra to author:
@@ -3063,6 +3096,10 @@ vendor reads why a row is red without opening `results.json`.
   verbatim in its file.
 - **Profile**: no `simple` string comparison, no regex lookaround or
   backreferences, and every expression parses.
+- **Level**: a citation's `level` agrees with its quote. A quote carrying
+  SHOULD or RECOMMENDED but no MUST, SHALL or REQUIRED needs `level: should`,
+  and the reverse is refused; a quote whose only keyword is MAY or OPTIONAL is
+  refused outright, because permission is never asserted.
 - **Unknown keys**: a key that is neither an Arazzo field nor one of the two
   extensions is refused. A parser that captures extensions through a catch-all
   map drops a misspelled key such as `succesCriteria` without an error, so the
@@ -3151,6 +3188,40 @@ elsewhere enters through a vendor script, like every vendored tree, into
 commit. Nothing is imported blind: each query is re-adjudicated against the
 QUERY specification before it becomes a row, and a query whose expected result
 the released text does not determine stays out of the rows.
+
+### 15.12 Composing the catalogue
+
+- **Shared setups.** A setup that several documents need (uploading a
+  template, seeding a dataset) is written once, in a document under
+  `catalogue/cases/_setup/`. A document that needs it lists that document as a
+  source of `type: arazzo` and names the workflow in `dependsOn`, as Arazzo
+  1.1.0 §Workflow Object prescribes: "If the workflow is defined in a separate
+  Arazzo Document then the workflow MUST be defined in the
+  `sourceDescriptions` and the `workflowId` MUST be specified using a Runtime
+  Expression".
+- **Options.** Behaviour the released text leaves to the implementation is an
+  option in `capabilities.yaml`: its arms, each naming the documents that test
+  it. The statement answers the option, and the documents of every other arm
+  are skipped with `option-not-selected`. Surface coverage counts an element as
+  covered when every arm covers it.
+- **Capabilities.** The folder of a document names the capability its rows
+  count for. `capabilities.yaml` may list a document under further
+  capabilities it exercises; those count for coverage, never for a verdict.
+- **Version ranges.** `capabilities.yaml` may give a document an `applies`
+  range of specification versions, and the document is skipped with
+  `version-out-of-range` when the statement declares a version outside it. A
+  rule that holds only for some versions is its own workflow in a document
+  with that range.
+- **Deliberately wrong requests.** A request the released OpenAPI defines no
+  operation for, such as an unsupported method on a resource, is declared in
+  `catalogue/sources/veredictum-probes.openapi.yaml`, a source marked as
+  Veredictum's own. Its expectations still cite released openEHR text, such as
+  the ITS-REST rule that a recognized but not allowed method "SHOULD be `405
+  Method Not Allowed`". A rule only another standard states (an HTTP RFC) is
+  asserted only where the openEHR text adopts it.
+- **Two roots.** `veredictum validate --root catalogue` checks the Arazzo
+  catalogue, and `--root artifacts` the former format until the cut-over
+  (#604).
 
 ## Appendix — source register
 
