@@ -204,7 +204,7 @@ fn judging_a_committed_campaign_renders_its_whole_submission_set() -> Fallible {
         assert!(!document.body.is_empty(), "{} is empty", document.name);
     }
 
-    assert_eq!(judgement.results.sut.name, "example-cdr");
+    assert_eq!(judgement.results.sut.name.value, "example-cdr");
     assert_eq!(
         judgement.statement.product.name, "Fixture CDR",
         "the statement travels back with the judgement"
@@ -992,11 +992,9 @@ fn ixit_path() -> PathBuf {
 /// case outcome can stand in for the advisory.
 fn empty_transcript(dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let transcript = veredictum::transcript::RunTranscript {
-        sut: veredictum::party::Sut {
-            name: String::from("selection-gate"),
-            version: String::from("0"),
-        },
+        sut: veredictum::party::Sut::operator(String::from("selection-gate"), String::from("0")),
         schedule_release: String::from("cnf-2.0-w2"),
+        identity: None,
         cases: Vec::new(),
     };
     let path = dir.join("transcript.json");

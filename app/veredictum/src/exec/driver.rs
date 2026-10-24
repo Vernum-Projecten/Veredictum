@@ -347,6 +347,20 @@ impl<'a> HttpDriver<'a> {
         auth: &AuthMode,
         scopes: Option<&[String]>,
     ) -> Result<Option<String>, String> {
+        Self::lane_auth_header(ixit.smart.as_ref(), auth, scopes)
+    }
+
+    /// The `Authorization` header for an auth mode, minting a `bearer_mint`
+    /// token against `smart` when one is declared.
+    ///
+    /// # Errors
+    /// The unset credential variable by name, a `bearer_mint` mode with no
+    /// lane, or the mint's own failure.
+    pub(crate) fn lane_auth_header(
+        smart: Option<&crate::ixit::SmartLane>,
+        auth: &AuthMode,
+        scopes: Option<&[String]>,
+    ) -> Result<Option<String>, String> {
         match auth {
             AuthMode::None => Ok(None),
             AuthMode::Basic {
@@ -371,7 +385,7 @@ impl<'a> HttpDriver<'a> {
                 roles,
                 default_scopes,
             } => {
-                let lane = ixit.smart.as_ref().ok_or_else(|| {
+                let lane = smart.ok_or_else(|| {
                     "instance declares auth mode `bearer_mint` but the ixit declares no `smart` \
                      lane to mint against"
                         .to_owned()

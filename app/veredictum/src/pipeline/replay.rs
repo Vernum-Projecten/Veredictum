@@ -482,10 +482,7 @@ mod tests {
     /// naming no statement.
     fn record(basis: Option<SelectionBasis>, formats: &[FormatName]) -> Results {
         Results {
-            sut: crate::party::Sut {
-                name: String::from("selection-gate"),
-                version: String::from("0"),
-            },
+            sut: crate::party::Sut::operator(String::from("selection-gate"), String::from("0")),
             runner: crate::party::Runner {
                 name: String::from("veredictum"),
                 version: String::from("0"),

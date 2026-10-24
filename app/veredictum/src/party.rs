@@ -267,13 +267,101 @@ pub struct Statement {
 
 // ── the results ─────────────────────────────────────────────────────────────
 
-/// The SUT identity as recorded by the run.
+/// Who supplied one recorded identity field.
+///
+/// No openEHR spec governs this — our own design. The server's own System
+/// OPTIONS document (ITS-REST `specifications/operations/options.yaml`,
+/// "Options and Conformance") outranks the operator's flag, so a field the
+/// server reported is always [`Self::Server`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentitySource {
+    /// The server stated the value in its `Options` document.
+    Server,
+    /// The operator supplied the value, because the server did not state it.
+    Operator,
+}
+
+impl IdentitySource {
+    /// Every source, in vocabulary order (schema emission derives from this).
+    pub const ALL: &[IdentitySource] = &[IdentitySource::Server, IdentitySource::Operator];
+
+    /// The token the record spells.
+    #[must_use]
+    pub const fn token(self) -> &'static str {
+        match self {
+            IdentitySource::Server => "server",
+            IdentitySource::Operator => "operator",
+        }
+    }
+}
+
+/// One recorded identity value and who supplied it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IdentityField {
+    /// The value.
+    pub value: String,
+    /// Who supplied it.
+    pub source: IdentitySource,
+}
+
+impl IdentityField {
+    /// A value the server stated.
+    #[must_use]
+    pub fn server(value: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            source: IdentitySource::Server,
+        }
+    }
+
+    /// A value the operator supplied.
+    #[must_use]
+    pub fn operator(value: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            source: IdentitySource::Operator,
+        }
+    }
+}
+
+/// The SUT identity as recorded by the run, each field with its source.
+///
+/// `name` and `version` are always present: the server's `solution` and
+/// `solution_version` when it reported them, the operator's otherwise.
+/// `vendor` and `restapi_specs_version` are present only when the server
+/// reported them, so their source is always [`IdentitySource::Server`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sut {
     /// SUT name.
-    pub name: String,
+    pub name: IdentityField,
     /// SUT version.
-    pub version: String,
+    pub version: IdentityField,
+    /// The vendor the server reported.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vendor: Option<IdentityField>,
+    /// The ITS-REST release the server reported implementing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restapi_specs_version: Option<IdentityField>,
+}
+
+impl Sut {
+    /// An identity both of whose fields the operator supplied.
+    #[must_use]
+    pub fn operator(name: impl Into<String>, version: impl Into<String>) -> Self {
+        Self {
+            name: IdentityField::operator(name),
+            version: IdentityField::operator(version),
+            vendor: None,
+            restapi_specs_version: None,
+        }
+    }
+
+    /// The name and version as one display label, `name version`.
+    #[must_use]
+    pub fn label(&self) -> String {
+        format!("{} {}", self.name.value, self.version.value)
+    }
 }
 
 /// Whether the runner's own verification pack (the self-check that the runner
@@ -845,7 +933,7 @@ mod tests {
     #[test]
     fn a_results_document_without_the_status_is_refused() {
         let refused = serde_json::from_value::<Results>(serde_json::json!({
-            "sut": { "name": "s", "version": "1" },
+            "sut": { "name": { "value": "s", "source": "operator" }, "version": { "value": "1", "source": "operator" } },
             "runner": { "name": "veredictum", "version": "0.1.7",
                          "verification_pack_status": "passed" },
             "schedule_release": "CNF-2.0",
@@ -857,6 +945,26 @@ mod tests {
             refused.to_string().contains("instrument_status"),
             "{refused}"
         );
+    }
+
+    /// A document whose identity carries no source predates the sourced
+    /// identity and is refused, never read as either source.
+    #[test]
+    fn a_results_document_with_an_unsourced_identity_is_refused() {
+        let refused = serde_json::from_value::<Results>(serde_json::json!({
+            "sut": { "name": "s", "version": "1" },
+            "runner": { "name": "veredictum", "version": "0.1.7",
+                         "verification_pack_status": "passed" },
+            "instrument_status": "pre-approval",
+            "schedule_release": "CNF-2.0",
+            "tech_profile": { "its": "its-rest", "formats": ["canonical-json"] },
+            "ixit_digest": "d"
+        }));
+        assert!(refused.is_err(), "a bare-string identity must not parse");
+        let unknown_source = serde_json::from_value::<IdentityField>(serde_json::json!({
+            "value": "s", "source": "vendor"
+        }));
+        assert!(unknown_source.is_err(), "the source vocabulary is closed");
     }
 
     fn record(rows: Vec<RowOutcome>) -> CaseRecord {
@@ -1017,7 +1125,7 @@ mod tests {
     fn the_document_invariant_reports_every_uncited_outcome() {
         let document = |outcomes: serde_json::Value| -> Results {
             serde_json::from_value(serde_json::json!({
-                "sut": { "name": "s", "version": "1" },
+                "sut": { "name": { "value": "s", "source": "operator" }, "version": { "value": "1", "source": "operator" } },
                 "runner": { "name": "veredictum", "version": "0",
                              "verification_pack_status": "passed" },
                 "instrument_status": "pre-approval",
@@ -1054,7 +1162,7 @@ mod tests {
         let document = |extra: &str| -> Results {
             serde_json::from_str(&format!(
                 r#"{{
-                    "sut": {{ "name": "s", "version": "1" }},
+                    "sut": {{ "name": {{ "value": "s", "source": "operator" }}, "version": {{ "value": "1", "source": "operator" }} }},
                     "runner": {{ "name": "veredictum", "version": "0",
                                  "verification_pack_status": "passed" }},
                     "instrument_status": "pre-approval",
@@ -1101,7 +1209,7 @@ mod tests {
         let document = |extra: &str| -> Results {
             serde_json::from_str(&format!(
                 r#"{{
-                    "sut": {{ "name": "s", "version": "1" }},
+                    "sut": {{ "name": {{ "value": "s", "source": "operator" }}, "version": {{ "value": "1", "source": "operator" }} }},
                     "runner": {{ "name": "veredictum", "version": "0",
                                  "verification_pack_status": "passed" }},
                     "instrument_status": "pre-approval",
@@ -1142,7 +1250,7 @@ mod tests {
     fn profile_document(extra: &str) -> Results {
         serde_json::from_str(&format!(
             r#"{{
-                "sut": {{ "name": "s", "version": "1" }},
+                "sut": {{ "name": {{ "value": "s", "source": "operator" }}, "version": {{ "value": "1", "source": "operator" }} }},
                 "runner": {{ "name": "veredictum", "version": "0",
                              "verification_pack_status": "passed" }},
                 "instrument_status": "pre-approval",
@@ -1182,7 +1290,7 @@ mod tests {
         let declared =
             serde_json::to_string(&profile_document(r#", "source": "declared""#)).unwrap();
         assert!(declared.contains(r#""source":"declared""#), "{declared}");
-        let unknown = serde_json::to_string(&profile_document("")).unwrap();
+        let unknown = serde_json::to_string(&profile_document("").tech_profile).unwrap();
         assert!(
             !unknown.contains("source"),
             "an unknown source writes no member at all: {unknown}"
@@ -1269,7 +1377,7 @@ mod tests {
     #[test]
     fn results_round_trip_and_invariants() {
         let json = serde_json::json!({
-            "sut": { "name": "ferroehr", "version": "3.5.0" },
+            "sut": { "name": { "value": "ferroehr", "source": "operator" }, "version": { "value": "3.5.0", "source": "operator" } },
             "runner": { "name": "veredictum", "version": "0.1.0",
                          "verification_pack_status": "passed" },
             "instrument_status": "pre-approval",

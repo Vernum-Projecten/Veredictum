@@ -26,10 +26,12 @@ pub struct RunRequest<'a> {
     /// The directory a prior `results.json` is read from for measurement
     /// carry-forward, and the one the caller will write this run into.
     pub out_dir: &'a Path,
-    /// The SUT display name recorded in the results.
-    pub sut_name: &'a str,
-    /// The SUT version label recorded in the results.
-    pub sut_version: &'a str,
+    /// The operator's SUT name, recorded only when the server does not state
+    /// its own through System OPTIONS ([`crate::identity::merge`]).
+    pub sut_name: Option<&'a str>,
+    /// The operator's SUT version, recorded only when the server does not
+    /// state its own through System OPTIONS.
+    pub sut_version: Option<&'a str>,
     /// Drive only cases whose id contains this substring.
     pub filter: Option<&'a str>,
     /// The party statement, which turns on ISO/IEC 9646 test selection: an
@@ -67,6 +69,18 @@ pub enum RunWarning<'a> {
         /// and the `validate` gate report in the same words.
         gaps: &'a [crate::verdict::OptionFamilyGap],
     },
+    /// The server stated an identity field the operator also supplied, with
+    /// a different value: the record carries the server's.
+    IdentityOverridden {
+        /// The field and both values.
+        overridden: &'a crate::identity::Overridden,
+    },
+    /// The server's identity could not be read at all, so the record carries
+    /// only what the operator supplied.
+    IdentityUnread {
+        /// Why the read failed.
+        error: &'a crate::identity::IdentityError,
+    },
     /// Measurement records taken at one SUT version are being carried into
     /// a run against another, which the version-binding rule wants either
     /// re-measured or attested as an unchanged surface.
@@ -89,6 +103,10 @@ impl RunWarning<'_> {
     #[must_use]
     pub fn lines(&self) -> Vec<String> {
         match *self {
+            RunWarning::IdentityOverridden { overridden } => vec![overridden.notice()],
+            RunWarning::IdentityUnread { error } => vec![format!(
+                "{error}, so the record carries only the operator's --sut-name and --sut-version"
+            )],
             RunWarning::CarriedMeasurements {
                 count,
                 measured_at,
@@ -236,6 +254,9 @@ pub struct RunOutcome {
     pub exceptions_path: PathBuf,
     /// Where the wire transcript belongs, when the run recorded one.
     pub transcript_path: Option<PathBuf>,
+    /// The System OPTIONS exchange the identity was read through, kept only
+    /// when the run records its exchanges.
+    pub identity_exchange: Option<crate::transcript::RecordedExchange>,
 }
 
 impl RunOutcome {
@@ -277,12 +298,13 @@ impl RunOutcome {
     /// # Errors
     /// [`Error::Serialize`] when the transcript cannot be serialized.
     pub fn transcript_document(&self) -> Result<Option<String>, Error> {
-        if self.report.transcripts.is_empty() {
+        if self.report.transcripts.is_empty() && self.identity_exchange.is_none() {
             return Ok(None);
         }
         let mut transcript = RunTranscript {
             sut: self.results.sut.clone(),
             schedule_release: self.results.schedule_release.clone(),
+            identity: self.identity_exchange.clone(),
             cases: self.report.transcripts.clone(),
         };
         transcript.canonicalize();
@@ -468,6 +490,7 @@ pub fn execute_run(
 ) -> Result<RunOutcome, Error> {
     let loaded = load_clean_root(request.root)?;
     let (ixit, ixit_text) = load_ixit(request.ixit)?;
+    let (sut, identity_exchange) = identify(request, &ixit, warn)?;
     let mut set = loaded.set;
     if let Some(needle) = request.filter {
         set.cases.retain(|(_, c)| c.id.as_str().contains(needle));
@@ -500,12 +523,9 @@ pub fn execute_run(
     }
     let outcomes: Vec<OutcomeRecord> = report.records.iter().map(OutcomeRecord::from).collect();
     let counts = tally(&outcomes);
-    let carried = carried_measurements(request, warn)?;
+    let carried = carried_measurements(request.out_dir, &sut, warn)?;
     let results = RecordedCampaign {
-        sut: crate::party::Sut {
-            name: request.sut_name.to_owned(),
-            version: request.sut_version.to_owned(),
-        },
+        sut,
         schedule_release: crate::party::SCHEDULE_RELEASE.to_owned(),
         selection,
         register: set.register.as_ref().map(|(_, register)| register),
@@ -518,8 +538,9 @@ pub fn execute_run(
     results
         .check_invariants()
         .map_err(Error::RecordedInvariants)?;
-    let transcript_path =
-        (!report.transcripts.is_empty()).then(|| request.out_dir.join(TRANSCRIPT_FILE));
+    let identity_exchange = identity_exchange.filter(|_| request.recording.is_on());
+    let transcript_path = (!report.transcripts.is_empty() || identity_exchange.is_some())
+        .then(|| request.out_dir.join(TRANSCRIPT_FILE));
     Ok(RunOutcome {
         results,
         report,
@@ -527,7 +548,58 @@ pub fn execute_run(
         results_path: request.out_dir.join("results.json"),
         exceptions_path: request.out_dir.join("run-exceptions.json"),
         transcript_path,
+        identity_exchange,
     })
+}
+
+/// Reads the server's identity through System OPTIONS on the ixit's `sut`
+/// instance and merges it with the operator's flags, before anything is
+/// driven.
+///
+/// A read that fails outright is reported and leaves the operator's values;
+/// an answer of any status is classified and never judged.
+///
+/// # Errors
+/// [`Error::Missing`] when the ixit has no `sut` instance,
+/// [`Error::Instrument`] when no HTTP client can be built, and
+/// [`Error::Identity`] when neither the server nor the operator supplies the
+/// name or the version.
+fn identify(
+    request: &RunRequest<'_>,
+    ixit: &crate::ixit::Ixit,
+    warn: &dyn Fn(RunWarning<'_>),
+) -> Result<
+    (
+        crate::party::Sut,
+        Option<crate::transcript::RecordedExchange>,
+    ),
+    Error,
+> {
+    let instance = ixit.default_instance().map_err(Error::Missing)?;
+    let mut transport = crate::exec::transport::HttpTransport::new().map_err(Error::Instrument)?;
+    let attempt = crate::identity::authorization(ixit, &instance.auth).and_then(|authorization| {
+        crate::identity::read(&mut transport, &instance.base_url, authorization.as_deref())
+    });
+    let (read, exchange) = match attempt {
+        Ok(answered) => (Some(answered.read), Some(answered.exchange)),
+        Err(error) => {
+            warn(RunWarning::IdentityUnread { error: &error });
+            (None, None)
+        }
+    };
+    let operator = crate::identity::OperatorIdentity {
+        name: request.sut_name,
+        version: request.sut_version,
+    };
+    let (sut, overridden) = crate::identity::merge(
+        read.as_ref()
+            .and_then(crate::identity::IdentityRead::options),
+        operator,
+    )?;
+    for overridden in &overridden {
+        warn(RunWarning::IdentityOverridden { overridden });
+    }
+    Ok((sut, exchange))
 }
 
 fn tally(outcomes: &[OutcomeRecord]) -> OutcomeCounts {
@@ -576,10 +648,11 @@ pub(crate) fn tech_profile(statement: Option<&Statement>) -> crate::party::Recor
 // exists but will not read or parse is a DEFECT — carrying zero measurements
 // past it would silently drop the measured evidence.
 fn carried_measurements(
-    request: &RunRequest<'_>,
+    out_dir: &Path,
+    sut: &crate::party::Sut,
     warn: &dyn Fn(RunWarning<'_>),
 ) -> Result<Vec<crate::perf::Measurement>, Error> {
-    let prior_path = request.out_dir.join("results.json");
+    let prior_path = out_dir.join("results.json");
     let prior = match std::fs::read_to_string(&prior_path) {
         Ok(text) => match serde_json::from_str::<Results>(&text) {
             Ok(prior) => Some(prior),
@@ -599,14 +672,14 @@ fn carried_measurements(
             )));
         }
     };
-    let Some(prior) = prior.filter(|prior| prior.sut.name == request.sut_name) else {
+    let Some(prior) = prior.filter(|prior| prior.sut.name.value == sut.name.value) else {
         return Ok(Vec::new());
     };
-    if prior.sut.version != request.sut_version && !prior.measurements.is_empty() {
+    if prior.sut.version.value != sut.version.value && !prior.measurements.is_empty() {
         warn(RunWarning::CarriedMeasurements {
             count: prior.measurements.len(),
-            measured_at: &prior.sut.version,
-            running_at: request.sut_version,
+            measured_at: &prior.sut.version.value,
+            running_at: &sut.version.value,
         });
     }
     Ok(prior.measurements)
@@ -629,19 +702,6 @@ mod tests {
         ))
         .expect("the committed example results document");
         serde_json::from_str(&text).expect("the example document parses as results")
-    }
-
-    fn request<'a>(out_dir: &'a Path, sut_name: &'a str, sut_version: &'a str) -> RunRequest<'a> {
-        RunRequest {
-            root: Path::new("artifacts"),
-            ixit: Path::new("ixit.json"),
-            out_dir,
-            sut_name,
-            sut_version,
-            filter: None,
-            statement: None,
-            recording: Recording::Off,
-        }
     }
 
     fn outcome(case: &str, status: OutcomeStatus) -> OutcomeRecord {
@@ -797,6 +857,7 @@ mod tests {
             results_path: PathBuf::from("results.json"),
             exceptions_path: PathBuf::from("run-exceptions.json"),
             transcript_path: None,
+            identity_exchange: None,
         };
         assert!(outcome_of(clean).is_clean());
         assert!(
@@ -1067,7 +1128,8 @@ mod tests {
         let dir = assert_fs::TempDir::new().expect("temp dir");
         let seen = sink();
         let carried = carried_measurements(
-            &request(dir.path(), "example-cdr", "0.0.0-example"),
+            dir.path(),
+            &crate::party::Sut::operator("example-cdr".to_owned(), "0.0.0-example".to_owned()),
             &|warning| seen.borrow_mut().push(format!("{warning:?}")),
         )
         .expect("an absent prior record is absence, never a defect");
@@ -1083,7 +1145,8 @@ mod tests {
         write_prior(dir.path(), &prior);
         let seen = sink();
         let carried = carried_measurements(
-            &request(dir.path(), "another-cdr", "0.0.0-example"),
+            dir.path(),
+            &crate::party::Sut::operator("another-cdr".to_owned(), "0.0.0-example".to_owned()),
             &|warning| seen.borrow_mut().push(format!("{warning:?}")),
         )
         .expect("a foreign prior record is not a defect");
@@ -1101,7 +1164,11 @@ mod tests {
         write_prior(dir.path(), &prior);
         let seen = sink();
         let carried = carried_measurements(
-            &request(dir.path(), &prior.sut.name, &prior.sut.version),
+            dir.path(),
+            &crate::party::Sut::operator(
+                prior.sut.name.value.clone(),
+                prior.sut.version.value.clone(),
+            ),
             &|warning| seen.borrow_mut().push(format!("{warning:?}")),
         )
         .expect("the same SUT at the same version");
@@ -1122,7 +1189,8 @@ mod tests {
         write_prior(dir.path(), &prior);
         let seen = sink();
         let carried = carried_measurements(
-            &request(dir.path(), &prior.sut.name, "9.9.9-next"),
+            dir.path(),
+            &crate::party::Sut::operator(prior.sut.name.value.clone(), "9.9.9-next".to_owned()),
             &|warning| match warning {
                 RunWarning::CarriedMeasurements {
                     count,
@@ -1132,8 +1200,10 @@ mod tests {
                     .borrow_mut()
                     .push(format!("{count} {measured_at} {running_at}")),
                 RunWarning::StatementBlindSelection { .. }
-                | RunWarning::OptionFamilySelection { .. } => {
-                    panic!("carry-forward reports no selection warning")
+                | RunWarning::OptionFamilySelection { .. }
+                | RunWarning::IdentityOverridden { .. }
+                | RunWarning::IdentityUnread { .. } => {
+                    panic!("carry-forward reports no other warning")
                 }
             },
         )
@@ -1144,7 +1214,7 @@ mod tests {
             vec![format!(
                 "{} {} 9.9.9-next",
                 prior.measurements.len(),
-                prior.sut.version
+                prior.sut.version.value
             )]
         );
     }
@@ -1157,8 +1227,12 @@ mod tests {
         let dir = assert_fs::TempDir::new().expect("temp dir");
         std::fs::write(dir.path().join("results.json"), "{ not json")
             .expect("writing the broken record");
-        let error = carried_measurements(&request(dir.path(), "example-cdr", "0.0.0"), &|_| {})
-            .expect_err("a broken prior record must stop the run");
+        let error = carried_measurements(
+            dir.path(),
+            &crate::party::Sut::operator("example-cdr".to_owned(), "0.0.0".to_owned()),
+            &|_| {},
+        )
+        .expect_err("a broken prior record must stop the run");
         let message = error.to_string();
         assert!(
             message.contains("does not parse as results.json"),
@@ -1184,6 +1258,7 @@ mod tests {
             results_path: PathBuf::from("results.json"),
             exceptions_path: PathBuf::from("run-exceptions.json"),
             transcript_path: None,
+            identity_exchange: None,
         };
 
         let document = outcome

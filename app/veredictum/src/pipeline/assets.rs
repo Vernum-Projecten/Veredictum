@@ -49,7 +49,7 @@ pub fn conformance_assets(
     };
     let results: Results = load_party_json(results_path, &results_schema(), "results.schema.json")?;
     let verdicts: VerdictEvidence = read_json(verdicts_path, "verdicts")?;
-    let sut_label = format!("{} {}", results.sut.name, results.sut.version);
+    let sut_label = results.sut.label();
     // An unmapped case id is a taxonomy gap, not a chart to publish: the
     // renderer fails loudly and names the id.
     let chapters = crate::conf_assets::chapter_counts(&results)

@@ -234,7 +234,7 @@ pub mod read {
             .map_err(|e| format!("a result row did not render: {e}"))?;
         red_first(&mut rows);
         Ok(Some(ResultsScreen {
-            sut: format!("{} {}", results.sut.name, results.sut.version),
+            sut: results.sut.label(),
             tallies,
             rows,
         }))
@@ -568,7 +568,7 @@ mod tests {
     /// so the reader is held to the wire form rather than to a value this
     /// crate serialized itself.
     const DOCUMENT: &str = r#"{
-      "sut": { "name": "example-cdr", "version": "0.0.0" },
+      "sut": { "name": { "value": "example-cdr", "source": "operator" }, "version": { "value": "0.0.0", "source": "operator" } },
       "schedule_release": "cnf-2.0-w2",
       "cases": [
         {

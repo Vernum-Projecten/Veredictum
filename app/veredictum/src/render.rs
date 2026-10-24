@@ -58,8 +58,8 @@ pub fn render_report(
         out,
         "SUT: {} {} (sut `{}`) · schedule {} · ITS {}",
         statement.product.name,
-        results.sut.version,
-        results.sut.name,
+        results.sut.version.value,
+        results.sut.name.value,
         results.schedule_release,
         its_token(results),
     );
@@ -458,7 +458,7 @@ pub fn render_certificate(
     let _ = writeln!(
         out,
         "| Solution | {} {} |",
-        results.sut.name, results.sut.version
+        results.sut.name.value, results.sut.version.value
     );
     let _ = writeln!(out, "| Vendor | {} |", statement.product.vendor);
     let _ = writeln!(
@@ -831,7 +831,7 @@ mod tests {
 
     fn results() -> Results {
         serde_json::from_value(serde_json::json!({
-            "sut": { "name": "ferroehr", "version": "3.5.0" },
+            "sut": { "name": { "value": "ferroehr", "source": "operator" }, "version": { "value": "3.5.0", "source": "operator" } },
             "runner": { "name": "veredictum", "version": "0.1.0",
                          "verification_pack_status": "passed" },
             "instrument_status": "pre-approval",

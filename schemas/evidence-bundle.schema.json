@@ -13,6 +13,7 @@
   ],
   "properties": {
     "sut": {
+      "description": "The SUT identity. A field the server stated in its ITS-REST System OPTIONS document (specifications/operations/options.yaml, schemas/others/Options.yaml) carries the server's value with source `server`; the operator supplies only the name or version the server did not state (source `operator`). `vendor` and `restapi_specs_version` are present only when the server stated them.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -21,12 +22,82 @@
       ],
       "properties": {
         "name": {
-          "type": "string",
-          "minLength": 1
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server",
+                "operator"
+              ]
+            }
+          }
         },
         "version": {
-          "type": "string",
-          "minLength": 1
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server",
+                "operator"
+              ]
+            }
+          }
+        },
+        "vendor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server"
+              ]
+            }
+          }
+        },
+        "restapi_specs_version": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server"
+              ]
+            }
+          }
         }
       }
     },

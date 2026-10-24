@@ -1144,7 +1144,7 @@ mod tests {
         // Authored as bytes, the way the engine writes the document the
         // console reads back, so a codec change fails here.
         const RECORD: &str = r#"{
-            "sut": { "name": "sut", "version": "1" },
+            "sut": { "name": { "value": "sut", "source": "operator" }, "version": { "value": "1", "source": "operator" } },
             "runner": {
                 "name": "veredictum",
                 "version": "0",

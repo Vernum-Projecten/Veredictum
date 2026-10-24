@@ -1187,10 +1187,7 @@ mod tests {
     /// A minimal [`Results`] carrying just the outcomes the chart reads.
     fn results_with(outcomes: &[(&str, OutcomeStatus)]) -> Results {
         Results {
-            sut: crate::party::Sut {
-                name: "sut".to_owned(),
-                version: "0".to_owned(),
-            },
+            sut: crate::party::Sut::operator("sut".to_owned(), "0".to_owned()),
             runner: crate::party::Runner {
                 name: "veredictum".to_owned(),
                 version: "0".to_owned(),

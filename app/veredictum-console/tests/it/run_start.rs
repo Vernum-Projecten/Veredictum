@@ -168,6 +168,7 @@ fn starting_a_run_writes_the_ixit_invalidates_the_export_and_moves_the_credentia
             base_url: format!("http://127.0.0.1:{port}"),
             sut_name: String::from("start-gate"),
             sut_version: String::from("0.0.0-gate"),
+            identity: None,
             auth: AuthChoice::Basic,
             credentials: vec![
                 Credential {
@@ -363,6 +364,7 @@ async fn a_hosted_instance_refuses_a_private_target_at_the_start_seam()
             base_url: String::from("http://127.0.0.1:8080/ehrbase/rest/openehr/v1"),
             sut_name: String::from("start-gate"),
             sut_version: String::from("0.0.0-gate"),
+            identity: None,
             auth: AuthChoice::None,
             credentials: Vec::new(),
             probed_ok: true,

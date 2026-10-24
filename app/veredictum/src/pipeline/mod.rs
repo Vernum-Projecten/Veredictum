@@ -134,6 +134,10 @@ pub enum Error {
     /// it, which is the one thing that document may never be.
     #[error("{0}")]
     Evidence(#[from] crate::evidence::EvidenceError),
+    /// The SUT's identity could not be established from the server or the
+    /// operator.
+    #[error("{0}")]
+    Identity(#[from] crate::identity::IdentityError),
 }
 
 fn join_lines<T: std::fmt::Display>(items: &[T]) -> String {

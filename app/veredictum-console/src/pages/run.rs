@@ -8,10 +8,10 @@
 //! values the connect form collects reach only that draft.
 
 use leptos::prelude::{
-    Action, AddAnyAttr, ClassAttribute, CollectView, Effect, ElementChild, Get, GlobalAttributes,
-    IntoAny, IntoView, Memo, OnAttribute, OnTargetAttribute, PropAttribute, Resource, RwSignal,
-    ServerFnError, Set, Show, StyleAttribute, Suspend, Suspense, Transition, Update, With,
-    component, view,
+    Action, AddAnyAttr, AnyView, ClassAttribute, CollectView, Effect, ElementChild, Get,
+    GlobalAttributes, IntoAny, IntoView, Memo, OnAttribute, OnTargetAttribute, PropAttribute,
+    Resource, RwSignal, ServerFnError, Set, Show, StyleAttribute, Suspend, Suspense, Transition,
+    Update, With, component, view,
 };
 use leptos_meta::Title;
 use leptos_router::components::{A, Redirect};
@@ -23,13 +23,14 @@ use crate::components::format_view::{Pane, inline_error};
 use crate::components::page_header::{Crumb, PageHeader};
 use crate::components::surface::{CARD_PAD, CARD_TITLE};
 use crate::components::toast;
+use crate::identity::{FieldEntry, IdentityAnswer, resolve};
 use crate::run_api::fns::{
     cancel_run, compose_claim, fetch_draft, fetch_run, fetch_scope_preview, fetch_tier_counts,
     probe_and_save, save_scope, start_run,
 };
 use crate::run_api::{
-    AuthChoice, ClaimSummary, DigestEncoding, PostureForm, ProbeAnswer, RecordedRun, RunScreen,
-    ScopePreview, ScopeTier, SigningChoice, SpecProfileChoice, StartOutcome, TierRow,
+    AuthChoice, ClaimSummary, ConnectAnswer, DigestEncoding, PostureForm, ProbeAnswer, RecordedRun,
+    RunScreen, ScopePreview, ScopeTier, SigningChoice, SpecProfileChoice, StartOutcome, TierRow,
 };
 use crate::run_job::{JobStatus, JobView, RunId};
 
@@ -80,6 +81,113 @@ struct ProbeInput {
     token: String,
 }
 
+/// A finished probe: the server's answer, and the identity fields neither
+/// the server nor the probe's own inputs supplied.
+#[derive(Debug, Clone)]
+struct Connected {
+    /// What the server answered.
+    connected: ConnectAnswer,
+    /// The fields nobody supplied, by the screen's labels.
+    missing: Vec<&'static str>,
+}
+
+/// One identity field: the server's value read-only when it stated one, the
+/// operator's input otherwise, each labelled with its source.
+fn identity_cell(
+    entry: FieldEntry,
+    label: &'static str,
+    id: &'static str,
+    value: RwSignal<String>,
+) -> AnyView {
+    match entry {
+        FieldEntry::Reported(stated) => {
+            let reported_id = format!("{id}-reported");
+            view! {
+                <div>
+                    <span class=LABEL>{label}</span>
+                    <p id=reported_id class="mt-1 text-sm font-medium text-ink">
+                        {stated}
+                    </p>
+                    <p class="text-xs text-ink-muted">"reported by the server"</p>
+                </div>
+            }
+            .into_any()
+        }
+        FieldEntry::Entered => view! {
+            <div>
+                <label class=LABEL for=id>
+                    {label}
+                </label>
+                <input
+                    id=id
+                    type="text"
+                    class=format!("{INPUT} mt-1 w-full")
+                    prop:value=move || value.get()
+                    on:input:target=move |ev| value.set(ev.target().value())
+                />
+                <p class="text-xs text-ink-muted">"entered by the operator"</p>
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+/// The identity block: name and version, then whatever else the server
+/// stated, or why the operator enters the identity.
+fn identity_fields(
+    identity: Option<&IdentityAnswer>,
+    sut_name: RwSignal<String>,
+    sut_version: RwSignal<String>,
+) -> AnyView {
+    let name = identity_cell(
+        identity.map_or(FieldEntry::Entered, IdentityAnswer::name_entry),
+        "Display name",
+        "sut-name",
+        sut_name,
+    );
+    let version = identity_cell(
+        identity.map_or(FieldEntry::Entered, IdentityAnswer::version_entry),
+        "Version label",
+        "sut-version",
+        sut_version,
+    );
+    let mut stated: Vec<(&'static str, &'static str, String)> = Vec::new();
+    if let Some(vendor) = identity.and_then(IdentityAnswer::vendor) {
+        stated.push(("Vendor", "sut-vendor-reported", vendor.to_owned()));
+    }
+    if let Some(release) = identity.and_then(IdentityAnswer::restapi_specs_version) {
+        stated.push((
+            "REST API specification",
+            "sut-rest-version-reported",
+            release.to_owned(),
+        ));
+    }
+    let extras = stated
+        .into_iter()
+        .map(|(label, id, value)| {
+            view! {
+                <div>
+                    <span class=LABEL>{label}</span>
+                    <p id=id class="mt-1 text-sm font-medium text-ink">
+                        {value}
+                    </p>
+                    <p class="text-xs text-ink-muted">"reported by the server"</p>
+                </div>
+            }
+        })
+        .collect_view();
+    let reason = identity
+        .and_then(IdentityAnswer::fallback_reason)
+        .map(|line| view! { <p class="text-sm text-ink-muted">{line}</p> });
+    view! {
+        <div class="space-y-2">
+            <div class="grid grid-cols-2 gap-3">{name}{version}{extras}</div>
+            {reason}
+        </div>
+    }
+    .into_any()
+}
+
 /// S3 — the connection form and the probe.
 #[expect(
     clippy::must_use_candidate,
@@ -102,10 +210,12 @@ pub fn Connect() -> impl IntoView {
     // its refusal as a notification the way every other mutation here does —
     // a target the posture refuses, or a spent probe budget, must never look
     // like nothing happened.
-    let answer = RwSignal::new(None::<Result<ProbeAnswer, String>>);
+    let answer = RwSignal::new(None::<Result<Connected, String>>);
     let probe = Action::new(move |input: &ProbeInput| {
         let input = input.clone();
         async move {
+            let operator_name = input.sut_name.clone();
+            let operator_version = input.sut_version.clone();
             match probe_and_save(
                 input.base_url,
                 input.sut_name,
@@ -117,7 +227,14 @@ pub fn Connect() -> impl IntoView {
             )
             .await
             {
-                Ok(probed) => answer.set(Some(Ok(probed))),
+                Ok(connected) => {
+                    // The fields neither side supplies are decided against the
+                    // values the draft stored, which are the ones this probe sent.
+                    let missing =
+                        resolve(Some(&connected.identity), &operator_name, &operator_version)
+                            .missing();
+                    answer.set(Some(Ok(Connected { connected, missing })));
+                }
                 Err(e) => {
                     let body = e.to_string();
                     toast::error(
@@ -185,32 +302,16 @@ pub fn Connect() -> impl IntoView {
                         on:input:target=move |ev| base_url.set(ev.target().value())
                     />
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class=LABEL for="sut-name">
-                            "Display name"
-                        </label>
-                        <input
-                            id="sut-name"
-                            type="text"
-                            class=format!("{INPUT} mt-1 w-full")
-                            prop:value=move || sut_name.get()
-                            on:input:target=move |ev| sut_name.set(ev.target().value())
-                        />
-                    </div>
-                    <div>
-                        <label class=LABEL for="sut-version">
-                            "Version label"
-                        </label>
-                        <input
-                            id="sut-version"
-                            type="text"
-                            class=format!("{INPUT} mt-1 w-full")
-                            prop:value=move || sut_version.get()
-                            on:input:target=move |ev| sut_version.set(ev.target().value())
-                        />
-                    </div>
-                </div>
+                {move || {
+                    let identity = answer
+                        .with(|answered| {
+                            answered
+                                .as_ref()
+                                .and_then(|result| result.as_ref().ok())
+                                .map(|done| done.connected.identity.clone())
+                        });
+                    identity_fields(identity.as_ref(), sut_name, sut_version)
+                }}
                 <div>
                     <span class=LABEL>"Authentication"</span>
                     <div class="mt-1 flex items-center gap-2">
@@ -287,7 +388,15 @@ pub fn Connect() -> impl IntoView {
                         .get()
                         .map(|result| {
                             match result {
-                                Ok(ProbeAnswer::Answered { status, elapsed_ms, ok }) => {
+                                Ok(
+                                    Connected {
+                                        connected: ConnectAnswer {
+                                            probe: ProbeAnswer::Answered { status, elapsed_ms, ok },
+                                            ..
+                                        },
+                                        missing,
+                                    },
+                                ) => {
                                     let line = format!(
                                         "{status} · {elapsed_ms} ms · GET …/definition/template/adl1.4",
                                     );
@@ -306,18 +415,38 @@ pub fn Connect() -> impl IntoView {
                                         }
                                             .into_any()
                                     };
+                                    let next = if missing.is_empty() {
+                                        view! {
+                                            <A href="/run/scope" attr:class=BTN_PRIMARY>
+                                                {if ok { "Continue" } else { "Continue anyway" }}
+                                            </A>
+                                        }
+                                            .into_any()
+                                    } else {
+                                        let body = format!(
+                                            "The server did not state its {}: enter it above and probe again.",
+                                            missing.join(" or "),
+                                        );
+                                        view! { <p class="text-sm text-ink">{body}</p> }.into_any()
+                                    };
                                     view! {
                                         <div class="space-y-2">
                                             <Pane label="probe answer" body=line />
                                             {badge}
-                                            <A href="/run/scope" attr:class=BTN_PRIMARY>
-                                                {if ok { "Continue" } else { "Continue anyway" }}
-                                            </A>
+                                            {next}
                                         </div>
                                     }
                                         .into_any()
                                 }
-                                Ok(ProbeAnswer::Unreachable { error }) => {
+                                Ok(
+                                    Connected {
+                                        connected: ConnectAnswer {
+                                            probe: ProbeAnswer::Unreachable { error },
+                                            ..
+                                        },
+                                        ..
+                                    },
+                                ) => {
                                     view! {
                                         <div class="space-y-2">
                                             {inline_error(&error)}

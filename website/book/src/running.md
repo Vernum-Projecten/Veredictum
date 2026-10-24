@@ -81,6 +81,19 @@ The command drives every applicable case against your endpoints and writes
 classified. It also writes `out/run-exceptions.json`, which lists the cases the
 interpreter could not drive at all.
 
+Before it drives anything, the run asks the server who it is: it sends
+`OPTIONS` to the base URL of the ixit's `sut` instance, the ITS-REST System
+operation whose `Options` document carries `solution`, `solution_version`,
+`vendor` and `restapi_specs_version`. Every field the server states is recorded
+with source `server`. `--sut-name` and `--sut-version` fill in only what the
+server left out, and are recorded with source `operator`. When a flag disagrees
+with the server, the server's value is recorded and the run prints a notice
+naming both. When neither side supplies a name or a version, the run refuses to
+start. A server that does not offer the document is within the specification,
+which says only that services SHOULD answer; the read is never judged. Run
+`veredictum identify --base-url <URL>` to see what a server states before you
+drive it.
+
 `results.json` is a record, not a judgement. That separation is the point: the
 recorded exchange stays available for anyone to re-read, and the judgement is
 computed from it in a separate step that touches no network.
