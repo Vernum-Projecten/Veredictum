@@ -263,6 +263,13 @@ code {
   margin: 0 auto 1.9rem;
 }
 
+.hero .status {
+  color: var(--muted);
+  font-size: 0.92rem;
+  max-width: 60ch;
+  margin: -1rem auto 1.9rem;
+}
+
 .hero .actions {
   display: flex;
   justify-content: center;

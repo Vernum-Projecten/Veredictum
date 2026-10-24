@@ -834,6 +834,7 @@ mod tests {
             "sut": { "name": "ferroehr", "version": "3.5.0" },
             "runner": { "name": "veredictum", "version": "0.1.0",
                          "verification_pack_status": "passed" },
+            "instrument_status": "pre-approval",
             "schedule_release": "CNF-2.0",
             "tech_profile": { "its": "its-rest", "formats": ["canonical-json"] },
             "ixit_digest": "d",

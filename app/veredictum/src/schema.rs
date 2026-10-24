@@ -24,7 +24,9 @@ use serde_json::{Value, json};
 use crate::model::capability::Realization;
 use crate::model::vocab_files::{BODY_SELECTOR_TOKENS, HEADER_MATCHER_FORMS};
 use crate::model::wire_surface::SurfaceReason;
-use crate::party::{OutcomeStatus, SelectionBasis, TechProfileSource, VerificationPackStatus};
+use crate::party::{
+    InstrumentStatus, OutcomeStatus, SelectionBasis, TechProfileSource, VerificationPackStatus,
+};
 use crate::vocab::{
     CaseKind, CaseStatus, Component, CorpusFormat, Disposition, FormatName, HttpMethod, Iteration,
     ItsName, OutcomeKind, PlaceholderPolicy, ServerState, SpecComponent, Tier,
@@ -919,6 +921,14 @@ fn outcome_record_def() -> Value {
     })
 }
 
+/// The approval status of the instrument that wrote a results document.
+fn instrument_status_def() -> Value {
+    json!({
+        "enum": tokens(InstrumentStatus::ALL),
+        "description": "The approval status of the instrument that wrote this document, derived from its own version: pre-approval for every 0.x version, which the openEHR SEC has not approved, and sec-approved from 1.0.0, which marks that approval."
+    })
+}
+
 /// `results.json` — the party results (the campaign outcomes).
 #[must_use]
 pub fn results_schema() -> Value {
@@ -929,7 +939,7 @@ pub fn results_schema() -> Value {
         "description": "The campaign outcomes for one technology profile: per-case×format outcome records (with mandatory citations on skipped/not_applicable), the ambiguity dispositions applied, and provenance (SUT/runner/ixit digest).",
         "type": "object",
         "additionalProperties": false,
-        "required": ["sut", "runner", "schedule_release", "tech_profile", "ixit_digest"],
+        "required": ["sut", "runner", "instrument_status", "schedule_release", "tech_profile", "ixit_digest"],
         "properties": {
             "sut": {
                 "type": "object",
@@ -950,6 +960,7 @@ pub fn results_schema() -> Value {
                     "verification_pack_status": { "enum": tokens(VerificationPackStatus::ALL) }
                 }
             },
+            "instrument_status": instrument_status_def(),
             "schedule_release": { "type": "string", "minLength": 1 },
             "tech_profile": recorded_tech_profile_def(),
             "ixit_digest": {
@@ -2666,7 +2677,7 @@ pub fn arazzo_results_schema() -> Value {
         "description": "One row per workflow row of one Arazzo document, each passed, failed, errored or skipped. A failed or errored row carries the four-part explanation (what was checked, why it is required, expected against received with the exchange, whose problem it is); a skipped row carries one reason from the closed list and its citation. Re-judging the HAR recording of the run writes the same bytes.",
         "type": "object",
         "additionalProperties": false,
-        "required": ["document", "engine", "base_url", "rows"],
+        "required": ["document", "engine", "instrument_status", "base_url", "rows"],
         "properties": {
             "document": { "type": "string", "minLength": 1 },
             "engine": {
@@ -2678,6 +2689,7 @@ pub fn arazzo_results_schema() -> Value {
                     "version": { "type": "string", "minLength": 1 }
                 }
             },
+            "instrument_status": instrument_status_def(),
             "base_url": { "type": "string" },
             "rows": {
                 "type": "array",

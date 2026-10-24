@@ -23,6 +23,17 @@ use std::path::{Path, PathBuf};
 /// anything else.
 pub const ENGINE_VERSION: &str = crate::ENGINE_PIN;
 
+/// The exact line the pinned engine's `--version` prints: the program name,
+/// [`ENGINE_VERSION`], and the instrument status, built by the engine's own
+/// [`veredictum::party::version_line`].
+#[must_use]
+pub fn expected_version_report() -> String {
+    format!(
+        "veredictum {}",
+        veredictum::party::version_line(ENGINE_VERSION)
+    )
+}
+
 /// The environment variable that names the engine binary explicitly. Without
 /// it, [`locate`] falls back to `veredictum` on `PATH`.
 pub const ENGINE_ENV: &str = "VEREDICTUM_ENGINE";
@@ -160,7 +171,8 @@ pub enum Error {
     Probe(#[source] std::io::Error),
     /// The binary answered the probe with a different identity.
     #[error(
-        "engine version mismatch: expected `veredictum {ENGINE_VERSION}`, the binary reports `{reported}`"
+        "engine version mismatch: expected `{}`, the binary reports `{reported}`",
+        expected_version_report()
     )]
     VersionMismatch {
         /// What `--version` printed, trimmed.
@@ -216,14 +228,14 @@ impl Engine {
     /// # Errors
     /// [`Error::Probe`] when `--version` cannot run, and
     /// [`Error::VersionMismatch`] when it reports anything other than
-    /// `veredictum {ENGINE_VERSION}`.
+    /// [`expected_version_report`].
     pub fn verified(path: &Path) -> Result<Self, Error> {
         let output = std::process::Command::new(path)
             .arg("--version")
             .output()
             .map_err(Error::Probe)?;
         let reported = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-        if reported == format!("veredictum {ENGINE_VERSION}") {
+        if reported == expected_version_report() {
             Ok(Self {
                 binary: path.to_path_buf(),
             })

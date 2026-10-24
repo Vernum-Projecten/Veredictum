@@ -298,6 +298,98 @@ impl VerificationPackStatus {
     ];
 }
 
+/// The approval status of the instrument that produced a document.
+///
+/// Every 0.x version is [`Self::PreApproval`], and a 1.0.0 or later version
+/// is [`Self::SecApproved`]: 1.0.0 marks the openEHR SEC's approval of the
+/// instrument. The status is a pure function of the crate's own semver major,
+/// so [`Self::CURRENT`] is fixed at compile time and no run can claim another.
+/// No openEHR spec governs this — our own design.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum InstrumentStatus {
+    /// A 0.x instrument, not yet approved by the openEHR SEC.
+    PreApproval,
+    /// A 1.0.0 or later instrument, approved by the openEHR SEC.
+    SecApproved,
+}
+
+/// The crate's semver major, exactly as Cargo sets it.
+const VERSION_MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
+
+/// Whether `text` is a semver major: one or more ASCII digits, no leading zero.
+const fn is_semver_major(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    if bytes.is_empty() || (bytes.len() > 1 && matches!(bytes, [b'0', ..])) {
+        return false;
+    }
+    let mut rest = bytes;
+    while let [first, tail @ ..] = rest {
+        if !first.is_ascii_digit() {
+            return false;
+        }
+        rest = tail;
+    }
+    true
+}
+
+// A major Cargo could not have produced fails the build here, so the match in
+// `InstrumentStatus::CURRENT` reads only a well-formed value.
+const _: () = assert!(
+    is_semver_major(VERSION_MAJOR),
+    "CARGO_PKG_VERSION_MAJOR should be a semver major"
+);
+
+impl InstrumentStatus {
+    /// All variants, in vocabulary order (schema emission derives from this).
+    pub const ALL: &[InstrumentStatus] =
+        &[InstrumentStatus::PreApproval, InstrumentStatus::SecApproved];
+
+    /// The status of this build: [`Self::PreApproval`] for major `0`, and
+    /// [`Self::SecApproved`] for every other (well-formed, hence nonzero)
+    /// major.
+    pub const CURRENT: InstrumentStatus = match VERSION_MAJOR.as_bytes() {
+        b"0" => InstrumentStatus::PreApproval,
+        _ => InstrumentStatus::SecApproved,
+    };
+
+    /// The serialized token, `pre-approval` or `sec-approved`.
+    #[must_use]
+    pub const fn token(self) -> &'static str {
+        match self {
+            InstrumentStatus::PreApproval => "pre-approval",
+            InstrumentStatus::SecApproved => "sec-approved",
+        }
+    }
+
+    /// The status as one plain sentence fragment for a human reader.
+    #[must_use]
+    pub const fn summary(self) -> &'static str {
+        match self {
+            InstrumentStatus::PreApproval => "not yet approved by the openEHR SEC",
+            InstrumentStatus::SecApproved => "approved by the openEHR SEC",
+        }
+    }
+}
+
+impl std::fmt::Display for InstrumentStatus {
+    /// Writes `<token>: <summary>`, the line `veredictum --version` and the
+    /// console banner carry.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.token(), self.summary())
+    }
+}
+
+/// The version line `veredictum --version` prints after the program name:
+/// `version` followed by [`InstrumentStatus::CURRENT`] in parentheses.
+///
+/// The binary and every consumer that verifies its output build the line
+/// here, so the two never disagree on the format.
+#[must_use]
+pub fn version_line(version: &str) -> String {
+    format!("{version} ({})", InstrumentStatus::CURRENT)
+}
+
 /// The runner identity + self-check status.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Runner {
@@ -612,6 +704,9 @@ pub struct Results {
     pub sut: Sut,
     /// The runner + its self-check status.
     pub runner: Runner,
+    /// The approval status of the instrument that produced this document,
+    /// derived from the runner's own version when it wrote the document.
+    pub instrument_status: InstrumentStatus,
     /// The schedule release the campaign ran.
     pub schedule_release: String,
     /// The technology profile this results document covers, and whether it was
@@ -707,6 +802,62 @@ impl Results {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_semver_major_is_digits_without_a_leading_zero() {
+        for good in ["0", "1", "10", "123"] {
+            assert!(is_semver_major(good), "{good} is a semver major");
+        }
+        for bad in ["", "01", "1a", "-1", "1.0", " 1"] {
+            assert!(!is_semver_major(bad), "{bad:?} is not a semver major");
+        }
+    }
+
+    #[test]
+    fn the_current_status_follows_the_crate_major() {
+        let expected = if env!("CARGO_PKG_VERSION_MAJOR") == "0" {
+            InstrumentStatus::PreApproval
+        } else {
+            InstrumentStatus::SecApproved
+        };
+        assert_eq!(InstrumentStatus::CURRENT, expected);
+    }
+
+    #[test]
+    fn the_status_token_is_its_serde_token() {
+        for status in InstrumentStatus::ALL {
+            let value = serde_json::to_value(status).unwrap();
+            assert_eq!(value, serde_json::Value::String(status.token().to_owned()));
+            let back: InstrumentStatus = serde_json::from_value(value).unwrap();
+            assert_eq!(back, *status);
+        }
+        assert_eq!(
+            InstrumentStatus::PreApproval.to_string(),
+            "pre-approval: not yet approved by the openEHR SEC"
+        );
+    }
+
+    #[test]
+    fn an_unknown_status_token_is_refused() {
+        assert!(serde_json::from_str::<InstrumentStatus>("\"approved\"").is_err());
+    }
+
+    #[test]
+    fn a_results_document_without_the_status_is_refused() {
+        let refused = serde_json::from_value::<Results>(serde_json::json!({
+            "sut": { "name": "s", "version": "1" },
+            "runner": { "name": "veredictum", "version": "0.1.7",
+                         "verification_pack_status": "passed" },
+            "schedule_release": "CNF-2.0",
+            "tech_profile": { "its": "its-rest", "formats": ["canonical-json"] },
+            "ixit_digest": "d"
+        }))
+        .expect_err("instrument_status is required");
+        assert!(
+            refused.to_string().contains("instrument_status"),
+            "{refused}"
+        );
+    }
 
     fn record(rows: Vec<RowOutcome>) -> CaseRecord {
         CaseRecord {
@@ -869,6 +1020,7 @@ mod tests {
                 "sut": { "name": "s", "version": "1" },
                 "runner": { "name": "veredictum", "version": "0",
                              "verification_pack_status": "passed" },
+                "instrument_status": "pre-approval",
                 "schedule_release": "CNF-2.0",
                 "tech_profile": { "its": "its-rest", "formats": ["canonical-json"] },
                 "ixit_digest": "d",
@@ -905,6 +1057,7 @@ mod tests {
                     "sut": {{ "name": "s", "version": "1" }},
                     "runner": {{ "name": "veredictum", "version": "0",
                                  "verification_pack_status": "passed" }},
+                    "instrument_status": "pre-approval",
                     "schedule_release": "CNF-2.0",
                     "tech_profile": {{ "its": "its-rest", "formats": ["canonical-json"] }},
                     "ixit_digest": "d"{extra}
@@ -951,6 +1104,7 @@ mod tests {
                     "sut": {{ "name": "s", "version": "1" }},
                     "runner": {{ "name": "veredictum", "version": "0",
                                  "verification_pack_status": "passed" }},
+                    "instrument_status": "pre-approval",
                     "schedule_release": "CNF-2.0",
                     "tech_profile": {{ "its": "its-rest", "formats": ["canonical-json"] }},
                     "ixit_digest": "d"{extra}
@@ -991,6 +1145,7 @@ mod tests {
                 "sut": {{ "name": "s", "version": "1" }},
                 "runner": {{ "name": "veredictum", "version": "0",
                              "verification_pack_status": "passed" }},
+                "instrument_status": "pre-approval",
                 "schedule_release": "CNF-2.0",
                 "tech_profile": {{
                     "its": "its-rest", "formats": ["canonical-json"]{extra}
@@ -1117,6 +1272,7 @@ mod tests {
             "sut": { "name": "ferroehr", "version": "3.5.0" },
             "runner": { "name": "veredictum", "version": "0.1.0",
                          "verification_pack_status": "passed" },
+            "instrument_status": "pre-approval",
             "schedule_release": "CNF-2.0",
             "tech_profile": { "its": "its-rest", "formats": ["canonical-json"] },
             "ixit_digest": "deadbeef",

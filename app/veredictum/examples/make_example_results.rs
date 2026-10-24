@@ -25,8 +25,8 @@ use hdrhistogram::Histogram;
 use veredictum::ids::CaseId;
 use veredictum::ixit::Environment;
 use veredictum::party::{
-    AmbiguityDisposition, OutcomeRecord, OutcomeStatus, RecordedTechProfile, Results, Runner,
-    SelectionBasis, Sut, TechProfileSource, VerificationPackStatus,
+    AmbiguityDisposition, InstrumentStatus, OutcomeRecord, OutcomeStatus, RecordedTechProfile,
+    Results, Runner, SelectionBasis, Sut, TechProfileSource, VerificationPackStatus,
 };
 use veredictum::perf::{Measurement, OperationMeasurement, PerfClass, class_verdict};
 use veredictum::pipeline::conformance::{ixit_digest, statement_digest};
@@ -94,6 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             version: env!("CARGO_PKG_VERSION").to_owned(),
             verification_pack_status: VerificationPackStatus::NotRun,
         },
+        instrument_status: InstrumentStatus::CURRENT,
         schedule_release: "cnf-2.0-w2".to_owned(),
         tech_profile: RecordedTechProfile {
             its: ItsName::ItsRest,

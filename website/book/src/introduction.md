@@ -4,6 +4,9 @@ Veredictum is a conformance instrument for openEHR clinical data repositories.
 You point it at a running CDR and it tells you, with citations, which parts of
 the openEHR specification that server implements.
 
+> **Status:** Veredictum is on 0.x and is not yet approved by the openEHR SEC.
+> Version 1.0.0 will mark that approval.
+
 It executes a machine-readable catalogue of 1146 spec-cited test cases against
 the server's own wire, records every exchange, and computes verdicts as pure
 functions over what it recorded. Functional conformance, measured performance,

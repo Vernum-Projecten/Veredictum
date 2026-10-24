@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::arazzo::cite::Citation;
 use crate::arazzo::rows::Row;
+use crate::party::InstrumentStatus;
 
 /// The four statuses a row ends in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -239,6 +240,8 @@ pub struct Results {
     pub document: String,
     /// The instrument.
     pub engine: Engine,
+    /// The approval status of the instrument that produced the results.
+    pub instrument_status: InstrumentStatus,
     /// The base URL the run was driven against.
     pub base_url: String,
     /// Every row, in document order.

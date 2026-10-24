@@ -1196,6 +1196,7 @@ mod tests {
                 version: "0".to_owned(),
                 verification_pack_status: crate::party::VerificationPackStatus::Passed,
             },
+            instrument_status: crate::party::InstrumentStatus::PreApproval,
             schedule_release: "test".to_owned(),
             tech_profile: crate::party::RecordedTechProfile {
                 its: crate::vocab::ItsName::ItsRest,
