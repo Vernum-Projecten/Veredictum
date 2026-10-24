@@ -48,6 +48,98 @@ pub struct Citation {
     /// number.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report: Option<NonZeroU64>,
+    /// The requirement level of the quoted sentence: `must` unless the
+    /// sentence only recommends.
+    #[serde(default, skip_serializing_if = "Level::is_must")]
+    pub level: Level,
+}
+
+/// The requirement level of a quoted sentence (RFC 2119 §1–§3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Level {
+    /// MUST, SHALL, REQUIRED, their negations, or a definition in the
+    /// indicative.
+    #[default]
+    Must,
+    /// SHOULD, RECOMMENDED, or SHOULD NOT.
+    Should,
+}
+
+impl Level {
+    /// All variants, in vocabulary order (schema emission derives from this).
+    pub const ALL: &[Self] = &[Self::Must, Self::Should];
+
+    /// Whether this is the default level, which a citation leaves unwritten.
+    #[must_use]
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "serde's `skip_serializing_if` passes the field by reference"
+    )]
+    pub fn is_must(&self) -> bool {
+        *self == Self::Must
+    }
+
+    /// The token a citation spells.
+    #[must_use]
+    pub fn token(self) -> &'static str {
+        match self {
+            Self::Must => "must",
+            Self::Should => "should",
+        }
+    }
+}
+
+/// The RFC 2119 keywords a quote carries, read as upper-case words.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct Keywords {
+    requires: bool,
+    recommends: bool,
+    permits: bool,
+}
+
+impl Keywords {
+    fn of(quote: &str) -> Self {
+        let mut out = Self::default();
+        for word in quote.split(|c: char| !c.is_ascii_alphabetic()) {
+            match word {
+                "MUST" | "SHALL" | "REQUIRED" => out.requires = true,
+                "SHOULD" | "RECOMMENDED" => out.recommends = true,
+                "MAY" | "OPTIONAL" => out.permits = true,
+                _ => {}
+            }
+        }
+        out
+    }
+}
+
+/// Checks that a citation's `level` agrees with the keywords of its quote.
+///
+/// A quote that recommends and does not require needs `level: should`; a
+/// `level: should` quote must recommend; a quote whose only keyword permits
+/// is never asserted. RFC 2119 keywords are the upper-case words; a sentence
+/// with none is a definition and stays `must`.
+///
+/// # Errors
+/// [`CiteError::LevelMismatch`] or [`CiteError::PermissionOnly`].
+pub fn check_level(citation: &Citation) -> Result<(), CiteError> {
+    let keywords = Keywords::of(&citation.quote);
+    if keywords.permits && !keywords.requires && !keywords.recommends {
+        return Err(CiteError::PermissionOnly(citation.quote.clone()));
+    }
+    let needed = match citation.level {
+        Level::Should if !keywords.recommends => Some(Level::Must),
+        Level::Must if keywords.recommends && !keywords.requires => Some(Level::Should),
+        _ => None,
+    };
+    match needed {
+        Some(needed) => Err(CiteError::LevelMismatch {
+            level: citation.level.token(),
+            needed: needed.token(),
+            quote: citation.quote.clone(),
+        }),
+        None => Ok(()),
+    }
 }
 
 impl fmt::Display for Citation {
@@ -97,6 +189,23 @@ pub enum CiteError {
         /// How many headings it matches.
         headings: usize,
     },
+    /// The citation's `level` disagrees with the keywords of its quote.
+    #[error(
+        "`level: {level}` disagrees with the quote, which needs `level: {needed}`: \"{quote}\""
+    )]
+    LevelMismatch {
+        /// The level the citation states.
+        level: &'static str,
+        /// The level the quote's keywords call for.
+        needed: &'static str,
+        /// The quote.
+        quote: String,
+    },
+    /// The quote only permits, and a permission is never asserted.
+    #[error(
+        "the quote only permits (MAY or OPTIONAL), and a permission is never asserted: \"{0}\""
+    )]
+    PermissionOnly(String),
     /// The quote does not occur in the named element or section.
     #[error("the quote does not occur in `{file}` `{section}`: \"{quote}\"")]
     QuoteNotFound {
@@ -357,7 +466,50 @@ mod tests {
             section: section.to_owned(),
             quote: quote.to_owned(),
             report: None,
+            level: Level::Must,
         }
+    }
+
+    #[test]
+    fn a_level_must_agree_with_the_keywords_of_its_quote() {
+        let should = |quote: &str| Citation {
+            level: Level::Should,
+            ..cite("specs/openehr/x.md", "s", quote)
+        };
+        let must = |quote: &str| cite("specs/openehr/x.md", "s", quote);
+        assert_eq!(check_level(&must("It MUST be weak.")), Ok(()));
+        assert_eq!(
+            check_level(&must("A definition, in the indicative.")),
+            Ok(())
+        );
+        assert_eq!(check_level(&should("It SHOULD be sent.")), Ok(()));
+        assert_eq!(
+            check_level(&must("It MUST be sent, and it SHOULD be weak.")),
+            Ok(())
+        );
+        assert!(matches!(
+            check_level(&must("It SHOULD be sent.")),
+            Err(CiteError::LevelMismatch {
+                needed: "should",
+                ..
+            })
+        ));
+        assert!(matches!(
+            check_level(&should("It MUST be sent.")),
+            Err(CiteError::LevelMismatch { needed: "must", .. })
+        ));
+        assert!(matches!(
+            check_level(&must("The response MAY include it.")),
+            Err(CiteError::PermissionOnly(_))
+        ));
+        assert!(matches!(
+            check_level(&should("The header is OPTIONAL.")),
+            Err(CiteError::PermissionOnly(_))
+        ));
+        assert_eq!(
+            check_level(&must("a lower-case should is no keyword")),
+            Ok(())
+        );
     }
 
     fn repo() -> assert_fs::TempDir {

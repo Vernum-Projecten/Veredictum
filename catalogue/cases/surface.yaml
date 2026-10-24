@@ -11,13 +11,17 @@ scope:
 # case-core catalogue had no case for it either, so the conversion (#603)
 # could not carry one across: the simplified-format request bodies, the XML
 # response of a create, and the minimal and the client-id identifier
-# preferences.
+# preferences. An XML request body on a create is covered by the refusing arm
+# of the `ehr-xml-write` option only, and an element counts as covered when
+# every arm of its option covers it.
 gaps:
   - { api: ehr, operation: ehr_create, header: Accept, value: application/xml, issue: 603 }
+  - { api: ehr, operation: ehr_create, header: Content-Type, value: application/xml, issue: 603 }
   - { api: ehr, operation: ehr_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 603 }
   - { api: ehr, operation: ehr_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 603 }
   - { api: ehr, operation: ehr_create, header: Prefer, value: return=minimal, issue: 603 }
   - { api: ehr, operation: ehr_create_with_id, header: Accept, value: application/xml, issue: 603 }
+  - { api: ehr, operation: ehr_create_with_id, header: Content-Type, value: application/xml, issue: 603 }
   - { api: ehr, operation: ehr_create_with_id, header: Content-Type, value: application/openehr.wt.flat+json, issue: 603 }
   - { api: ehr, operation: ehr_create_with_id, header: Content-Type, value: application/openehr.wt.structured+json, issue: 603 }
   - { api: ehr, operation: ehr_create_with_id, header: Prefer, value: return=minimal, issue: 603 }

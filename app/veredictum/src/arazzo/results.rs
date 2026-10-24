@@ -62,6 +62,9 @@ pub enum SkipReason {
     FormatNotClaimed,
     /// The case drives an extension route the vendor does not declare.
     ExtensionNotOffered,
+    /// A value the case needs from the party's IXIT or statement is not
+    /// declared.
+    NotDeclared,
 }
 
 impl SkipReason {
@@ -72,6 +75,7 @@ impl SkipReason {
         Self::VersionOutOfRange,
         Self::FormatNotClaimed,
         Self::ExtensionNotOffered,
+        Self::NotDeclared,
     ];
 }
 
@@ -83,6 +87,7 @@ impl fmt::Display for SkipReason {
             Self::VersionOutOfRange => "version-out-of-range",
             Self::FormatNotClaimed => "format-not-claimed",
             Self::ExtensionNotOffered => "extension-not-offered",
+            Self::NotDeclared => "not-declared",
         })
     }
 }
@@ -96,11 +101,14 @@ pub enum Whose {
     /// The instrument could not judge: the row does not count against the
     /// vendor.
     Instrument,
+    /// The server did not follow a SHOULD: the row is failed and advisory,
+    /// and never counts against a capability.
+    Advisory,
 }
 
 impl Whose {
     /// All variants, in vocabulary order (schema emission derives from this).
-    pub const ALL: &[Self] = &[Self::Server, Self::Instrument];
+    pub const ALL: &[Self] = &[Self::Server, Self::Instrument, Self::Advisory];
 }
 
 impl fmt::Display for Whose {
@@ -109,6 +117,9 @@ impl fmt::Display for Whose {
             Self::Server => "the server: a failed row counts against the claimed capability",
             Self::Instrument => {
                 "the instrument could not judge: this row does not count against the vendor"
+            }
+            Self::Advisory => {
+                "advisory: the server did not follow a SHOULD; this row never counts against a capability"
             }
         })
     }

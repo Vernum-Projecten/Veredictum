@@ -89,7 +89,8 @@
                   "option-not-selected",
                   "version-out-of-range",
                   "format-not-claimed",
-                  "extension-not-offered"
+                  "extension-not-offered",
+                  "not-declared"
                 ]
               },
               "why": {
@@ -205,7 +206,8 @@
               "whose": {
                 "enum": [
                   "server",
-                  "instrument"
+                  "instrument",
+                  "advisory"
                 ]
               }
             }

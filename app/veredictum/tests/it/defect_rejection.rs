@@ -155,6 +155,8 @@ defects! {
         ("arazzo-undeclared-header.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-source"),
     arazzo_missing_citation =>
         ("arazzo-missing-citation.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-citation"),
+    arazzo_level_mismatch =>
+        ("arazzo-level-mismatch.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-level"),
     arazzo_simple_string =>
         ("arazzo-simple-string.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-profile"),
     arazzo_rows_unknown_input =>

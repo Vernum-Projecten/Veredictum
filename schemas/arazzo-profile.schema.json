@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:openehr:cnf:schema:arazzo-profile:0.1.0",
   "title": "The Arazzo catalogue's condition profile",
-  "description": "What the profile pins where Arazzo 1.1.0 leaves evaluation open. A `simple` condition compares a runtime expression with an integer, a boolean or `null`, never a string, because Arazzo makes `simple` string comparison case-insensitive. A `regex` condition uses no lookaround and no backreference. Every runtime expression parses. A step may send a header its operation does not declare only when the header is in `profile_header`. Header names compare case-insensitively.",
+  "description": "What the profile pins where Arazzo 1.1.0 leaves evaluation open. A `simple` condition compares a runtime expression with an integer, a boolean or `null`, never a string, because Arazzo makes `simple` string comparison case-insensitive. A `regex` condition uses no lookaround and no backreference, and one whose context is a response header reads an absent header as the empty string, so a pattern that matches the empty string holds when the header is not sent. Every runtime expression parses. A step may send a header its operation does not declare only when the header is in `profile_header`. Header names compare case-insensitively.",
   "$defs": {
     "criterion": {
       "type": "object",

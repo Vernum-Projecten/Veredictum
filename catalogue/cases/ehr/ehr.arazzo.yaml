@@ -14,6 +14,9 @@ sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
     type: openapi
+  - name: probes
+    url: ../../sources/veredictum-probes.openapi.yaml
+    type: openapi
 workflows:
   - workflowId: create_ehr-server_assigned
     summary: An EHR is created with an identifier the server assigns
@@ -42,6 +45,14 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
               quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+          - &etag_weak
+            context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Deprecated headers
+              quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: read-back
@@ -63,6 +74,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/operations/ehr_get_by_id.yaml
               section: description
               quote: "Retrieve the EHR with the specified `ehr_id`."
+          - *etag_weak
 
   - workflowId: create_ehr-with_id
     summary: An EHR is created under the ehr_id the client supplies
@@ -94,6 +106,7 @@ workflows:
           - context: $response.body#/ehr_id/value
             type: regex
             condition: '^{$inputs.ehr_id}$'
+          - *etag_weak
 
   - workflowId: create_ehr-same_ehr_twice-with_id
     summary: An ehr_id already in use is refused on create
@@ -121,6 +134,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
               quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - *etag_weak
       - stepId: create-again
         description: Create an EHR with the same ehr_id again.
         operationId: $sourceDescriptions.ehr.ehr_create_with_id
@@ -147,6 +161,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/parameters/path/ehr_id.yaml
               section: description
               quote: "EHR identifier taken from EHR.ehr_id.value."
+          - *etag_weak
 
   - workflowId: create_ehr-same_ehr_twice-server_assigned
     summary: The ehr_id a server assigned is refused when a client supplies it on create
@@ -176,6 +191,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
               quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+          - *etag_weak
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: create-again
@@ -196,6 +212,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/200_EHR.yaml
               section: description
               quote: "`200 OK` is returned when the requested EHR resource is successfully retrieved."
+          - *etag_weak
 
   - workflowId: create_ehr-invalid_ehr_id
     summary: An ehr_id that is not a HIER_OBJECT_ID is refused on create
@@ -245,6 +262,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
               quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - *etag_weak
       - stepId: get
         description: Retrieve the EHR by its ehr_id.
         operationId: $sourceDescriptions.ehr.ehr_get_by_id
@@ -276,6 +294,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
               section: Location
               quote: "It MUST NOT be used to indicate an alternate representation of an existing resource (e.g. via `GET` method)."
+          - *etag_weak
 
   - workflowId: get_ehr-unknown_ehr_id
     summary: A read of an ehr_id no EHR carries is answered 404
@@ -350,6 +369,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
               quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+          - *etag_weak
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: get
@@ -374,6 +394,7 @@ workflows:
             x-veredictum-cite: *json_content_type
           - condition: $response.header.Location == null
             x-veredictum-cite: *no_location_on_read
+          - *etag_weak
 
   - workflowId: get_ehr-unknown_subject
     summary: A read by a subject no EHR names is answered 404
@@ -435,6 +456,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
               quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+          - *etag_weak
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: create-again
@@ -466,6 +488,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/operations/ehr_get_by_subject.yaml
               section: description
               quote: "These subject parameters will be matched against EHR's EHR_STATUS.subject.external_ref.id.value and EHR_STATUS.subject.external_ref.namespace values."
+          - *etag_weak
 
   - workflowId: create_ehr-status_without_archetype_details
     summary: An EHR_STATUS without archetype_details is refused on create
@@ -537,6 +560,7 @@ workflows:
           - context: $response.body#/ehr_status/type
             type: regex
             condition: '^VERSIONED_EHR_STATUS$'
+          - *etag_weak
 
   - workflowId: create_ehr-ehr_access_reference_type
     summary: A created EHR references its EHR_ACCESS through the versioned object
@@ -563,6 +587,7 @@ workflows:
           - context: $response.body#/ehr_access/type
             type: regex
             condition: '^VERSIONED_EHR_ACCESS$'
+          - *etag_weak
 
   - workflowId: create_ehr-default_status
     summary: An EHR created without an EHR_STATUS gets the default one
@@ -592,6 +617,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
               quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+          - *etag_weak
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: read-status
@@ -635,6 +661,7 @@ workflows:
         successCriteria:
           - condition: $statusCode == 201
             x-veredictum-cite: *ehr_created
+          - *etag_weak
       - stepId: read-status
         description: Read the latest EHR_STATUS of the created EHR.
         operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
@@ -650,9 +677,9 @@ workflows:
       flags the row sets, then reads the EHR_STATUS back. The served flags and
       subject are the ones supplied.
     x-veredictum-cite: &status_supplied
-      source: specs/openehr/ITS-REST/specifications/operations/ehr_create.yaml
-      section: description
-      quote: "This resource MAY be also supplied by the client as the request body."
+      source: specs/openehr/RM/docs/ehr/master04-ehr_package.adoc
+      section: EHR Creation
+      quote: "The initial creation operation has to supply sufficient parameters for creation of these two objects, including:"
     inputs:
       type: object
       required: [is_queryable, is_modifiable]
@@ -682,6 +709,7 @@ workflows:
             x-veredictum-cite: *ehr_created
           - condition: $response.body#/ehr_id/value != null
             x-veredictum-cite: *ehr_representation
+          - *etag_weak
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: read-status
@@ -706,9 +734,9 @@ workflows:
       flags the row sets, then reads the EHR_STATUS back. The served flags and
       subject are the ones supplied.
     x-veredictum-cite: &status_supplied_with_id
-      source: specs/openehr/ITS-REST/specifications/operations/ehr_create_with_id.yaml
-      section: description
-      quote: "This resource MAY be also supplied by the client as the request body."
+      source: specs/openehr/RM/docs/ehr/master04-ehr_package.adoc
+      section: EHR Creation
+      quote: "The initial creation operation has to supply sufficient parameters for creation of these two objects, including:"
     inputs:
       type: object
       required: [is_queryable, is_modifiable]
@@ -730,6 +758,7 @@ workflows:
         successCriteria:
           - condition: $statusCode == 201
             x-veredictum-cite: *ehr_created
+          - *etag_weak
       - stepId: read-status
         description: Read the latest EHR_STATUS of the created EHR.
         operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
@@ -787,6 +816,7 @@ workflows:
             x-veredictum-cite: *ehr_created
           - condition: $response.body#/ehr_id/value != null
             x-veredictum-cite: *ehr_representation
+          - *etag_weak
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: read-status
@@ -836,6 +866,7 @@ workflows:
         successCriteria:
           - condition: $statusCode == 201
             x-veredictum-cite: *ehr_created
+          - *etag_weak
       - stepId: read-status
         description: Read the latest EHR_STATUS of the created EHR.
         operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
@@ -845,17 +876,23 @@ workflows:
         successCriteria: *supplied_details_criteria
 
   - workflowId: create_ehr-distinct_ids
-    summary: Two EHRs created one after the other carry different ehr_ids
+    summary: EHRs created one after another each carry their own ehr_id
     description: >-
-      Creates two EHRs with server-assigned identifiers. The second ehr_id
-      differs from the first.
+      Per row, creates an EHR with a server-assigned identifier. Every row's
+      EHR coexists with the others, and after the last row no two of them
+      share an ehr_id.
     x-veredictum-cite:
       source: specs/openehr/RM/docs/UML/classes/ehr.adoc
       section: EHR Class
       quote: "The unique identifier of this EHR."
+    inputs:
+      type: object
+      required: [load_index]
+      properties:
+        load_index: { type: integer }
     steps:
-      - stepId: first
-        description: Create the first EHR.
+      - stepId: create
+        description: Create an EHR and ask for the full resource in the response.
         operationId: $sourceDescriptions.ehr.ehr_create
         parameters:
           - { name: Prefer, in: header, value: return=representation }
@@ -865,20 +902,115 @@ workflows:
             x-veredictum-cite: *ehr_created
           - condition: $response.body#/ehr_id/value != null
             x-veredictum-cite: *ehr_representation
+          - *etag_weak
         outputs:
           ehr_id: $response.body#/ehr_id/value
-      - stepId: second
-        description: Create the second EHR; its ehr_id is not the first one's.
-        operationId: $sourceDescriptions.ehr.ehr_create
+    outputs:
+      ehr_id: $steps.create.outputs.ehr_id
+
+  - workflowId: create_ehr-etag_last_modified
+    summary: A created and a retrieved EHR are answered with ETag and Last-Modified
+    description: >-
+      Creates an EHR and reads it back. Both answers carry an ETag and a
+      Last-Modified header. The headers are recommended, so a row that lacks
+      them is advisory.
+    x-veredictum-cite: &etag_last_modified
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: ETag and Last-Modified
+      quote: "Both `ETag` and `Last-Modified` SHOULD be included in responses for VERSION, VERSIONED_OBJECT, or other resources that have versioning or unique state identifiers."
+      level: should
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create an EHR under a client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
         parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *ehr_created
+          - &etag_present
+            condition: $response.header.ETag != null
+          - &last_modified_present
+            condition: $response.header.Last-Modified != null
+      - stepId: get
+        description: Retrieve the EHR by its ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *ehr_retrieved
+          - *etag_present
+          - *last_modified_present
+
+  - workflowId: create_ehr-wrong_method
+    summary: A recognized method the EHR collection does not serve is answered 405
+    description: >-
+      Sends DELETE to the EHR collection, a recognized method the released
+      EHR API assigns no operation on that resource. The answer is 405
+      Method Not Allowed. The rule is recommended, so a row that answers
+      otherwise is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP Methods
+      quote: "If a method is recognized but not allowed for the target resource, the response SHOULD be `405 Method Not Allowed` status code."
+      level: should
+    steps:
+      - stepId: delete
+        description: Send DELETE to the EHR collection.
+        operationId: $sourceDescriptions.probes.probe_ehr_delete
+        successCriteria:
+          - condition: $statusCode == 405
+
+  - workflowId: create_ehr-clone_system_id
+    summary: An EHR created under a client-supplied ehr_id carries the server's own system_id
+    description: >-
+      Creates an EHR under a client-supplied ehr_id and reads it back. The
+      EHR's system_id is the identifier of the system it was created in, which
+      the party declares in its IXIT.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/ehr.adoc
+      section: EHR Class
+      quote: "The identifier of the logical EHR management system in which this EHR was created."
+    inputs:
+      type: object
+      required: [system_id]
+      properties:
+        system_id: { type: string }
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the EHR under the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
           - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         successCriteria:
           - condition: $statusCode == 201
             x-veredictum-cite: *ehr_created
-          - context: $response.body#/ehr_id
-            type: jsonpath
-            condition: "$[?@ != '{$steps.first.outputs.ehr_id}']"
+          - context: $response.body#/system_id/value
+            type: regex
+            condition: '^{$inputs.system_id}$'
+          - *etag_weak
+      - stepId: read-back
+        description: Read the EHR back; it still names the server's own system_id.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *ehr_retrieved
+          - context: $response.body#/system_id/value
+            type: regex
+            condition: '^{$inputs.system_id}$'
+          - *etag_weak
 
   - workflowId: create_ehr-same_subject_twice-other_type
     summary: A second EHR for a subject is refused when only the subject's PARTY_REF.type differs
@@ -909,6 +1041,7 @@ workflows:
             x-veredictum-cite: *ehr_created
           - condition: $response.body#/ehr_id/value != null
             x-veredictum-cite: *ehr_representation
+          - *etag_weak
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: create-again
@@ -943,6 +1076,7 @@ workflows:
             type: regex
             condition: '^{$steps.create.outputs.ehr_id}$'
             x-veredictum-cite: *subject_match
+          - *etag_weak
 
   - workflowId: create_ehr-return_identifier
     summary: An EHR create asking for the identifier only answers the ehr_id under uid
@@ -981,10 +1115,12 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
               section: Prefer only identifier
               quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
           - condition: $response.body#/system_id == null
             x-veredictum-cite: *identifier_only
           - condition: $response.body#/ehr_status == null
             x-veredictum-cite: *identifier_only
+          - *etag_weak
         outputs:
           ehr_id: $response.body#/uid
       - stepId: read-back
@@ -1003,6 +1139,7 @@ workflows:
           - context: $response.body#/ehr_id/value
             type: regex
             condition: '^{$steps.create.outputs.ehr_id}$'
+          - *etag_weak
 
   - workflowId: create_ehr-invalid_status-missing_required
     summary: An EHR_STATUS that lacks a member the request schema requires is refused

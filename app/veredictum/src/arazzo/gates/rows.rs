@@ -53,9 +53,81 @@ pub struct RowsFile {
     /// The recipe that binds one more input from each row's literals.
     #[serde(default)]
     pub recipe: Option<RowRecipe>,
+    /// The inputs bound from a value the party declares, by input name.
+    #[serde(default)]
+    pub declared: BTreeMap<String, Declared>,
+    /// The properties of the whole run, judged once after the last row.
+    #[serde(default)]
+    pub aggregate: Vec<Aggregate>,
     /// The rows, each binding input names to values.
     pub rows: Vec<BTreeMap<String, Value>>,
 }
+
+/// Where a declared input's value comes from: a dotted path into the
+/// party's IXIT or into its statement.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(try_from = "String")]
+pub struct Declared {
+    /// Which declaration the value is read from.
+    pub document: Declaration,
+    /// The member names leading to the value.
+    pub path: Vec<String>,
+}
+
+/// The two declarations a party supplies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Declaration {
+    /// The IXIT, `ixit.json`.
+    Ixit,
+    /// The statement, `statement.json`.
+    Statement,
+}
+
+impl TryFrom<String> for Declared {
+    type Error = String;
+
+    fn try_from(text: String) -> Result<Self, Self::Error> {
+        let (head, rest) = text
+            .split_once('.')
+            .ok_or_else(|| format!("`{text}` is not `ixit.<path>` or `statement.<path>`"))?;
+        let document = match head {
+            "ixit" => Declaration::Ixit,
+            "statement" => Declaration::Statement,
+            _ => return Err(format!("`{text}` names neither `ixit` nor `statement`")),
+        };
+        let path: Vec<String> = rest.split('.').map(str::to_owned).collect();
+        if path.iter().any(String::is_empty) {
+            return Err(format!("`{text}` has an empty member name"));
+        }
+        Ok(Self { document, path })
+    }
+}
+
+impl Declared {
+    /// The declared value in `declaration`, if the party declares it.
+    #[must_use]
+    pub fn read<'v>(&self, declaration: &'v Value) -> Option<&'v Value> {
+        self.path
+            .iter()
+            .try_fold(declaration, |value, member| value.get(member))
+            .filter(|value| !value.is_null())
+    }
+}
+
+/// A property of the whole run.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Aggregate {
+    /// The workflow output whose value no two rows may share.
+    pub distinct: String,
+    /// The released sentence that assigns the property.
+    #[serde(rename = "x-veredictum-cite")]
+    pub cite: crate::arazzo::cite::Citation,
+}
+
+/// The value a declared input stands in with when a row is validated; the
+/// evaluator reads the party's own value.
+const DECLARED: &str = "declared";
 
 static VALIDATOR: LazyLock<Result<jsonschema::Validator, String>> =
     LazyLock::new(|| jsonschema::validator_for(&rows_schema()).map_err(|e| e.to_string()));
@@ -220,6 +292,13 @@ pub fn bind(rows: &RowsFile) -> Result<Vec<BTreeMap<String, Value>>, Vec<String>
 /// recipe's input is not a literal column.
 fn check_header(rows: &RowsFile, shape: &InputShape) -> Vec<String> {
     let mut out = Vec::new();
+    for input in rows.declared.keys() {
+        if !shape.declared.contains(input) {
+            out.push(format!(
+                "declared input `{input}` is not an input the workflow declares"
+            ));
+        }
+    }
     for column in &rows.literals {
         if !shape.declared.contains(column) {
             out.push(format!(
@@ -257,6 +336,17 @@ pub fn check_rows(rows: &RowsFile, workflow: &Workflow) -> Vec<String> {
     };
     let shape = InputShape::of(workflow);
     out.extend(check_header(rows, &shape));
+    if !rows.aggregate.is_empty() && rows.iteration != Iteration::SinglePass {
+        out.push("`aggregate` needs `iteration: single_pass`".to_owned());
+    }
+    for aggregate in &rows.aggregate {
+        if !workflow.outputs.contains_key(&aggregate.distinct) {
+            out.push(format!(
+                "`aggregate` names `{}`, which is not an output of the workflow",
+                aggregate.distinct
+            ));
+        }
+    }
     let validator = match jsonschema::validator_for(inputs) {
         Ok(validator) => validator,
         Err(error) => {
@@ -271,6 +361,11 @@ pub fn check_rows(rows: &RowsFile, workflow: &Workflow) -> Vec<String> {
             if !shape.declared.contains(key) {
                 out.push(format!(
                     "row {index}: `{key}` is not an input the workflow declares"
+                ));
+            }
+            if rows.declared.contains_key(key) {
+                out.push(format!(
+                    "row {index}: `{key}` is declared by the party and cannot be supplied"
                 ));
             }
         }
@@ -289,6 +384,11 @@ pub fn check_rows(rows: &RowsFile, workflow: &Workflow) -> Vec<String> {
             instance
                 .entry(name.clone())
                 .or_insert_with(|| Value::String(GENERATED_UUID.to_owned()));
+        }
+        for name in rows.declared.keys() {
+            instance
+                .entry(name.clone())
+                .or_insert_with(|| Value::String(DECLARED.to_owned()));
         }
         let instance = Value::Object(instance);
         for error in validator.iter_errors(&instance) {
@@ -366,6 +466,8 @@ mod tests {
             iteration: Iteration::SinglePass,
             literals: Vec::new(),
             recipe: None,
+            declared: BTreeMap::new(),
+            aggregate: Vec::new(),
             rows: vec![serde_json::from_value(row).unwrap()],
         };
         let w = workflow(&inputs());

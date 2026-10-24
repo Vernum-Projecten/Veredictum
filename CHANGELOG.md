@@ -33,6 +33,29 @@ version on.
   it has none. The `convert_catalogue` example is the one-off converter that
   drafts a component's documents with placeholder citations for hand
   completion.
+- The Arazzo condition profile and rows format gain the composition rules
+  the EHR conversion needs (#603). A `regex` criterion over a response header
+  reads an absent header as the empty string, so `^(W/".+")?$` states the
+  ETag weak-form MUST for every EHR response that sends one.
+  `x-veredictum-cite` gains `level` (`must` by default, or `should`), and the
+  new `arazzo-level` gate refuses a level its quote's RFC 2119 keywords
+  disagree with and any quote that only permits. A row whose failing criteria
+  are all `should` is failed and advisory, and never counts against a
+  capability. Rows files gain `declared`, an input read from the party's IXIT
+  or statement (a party that declares none has the rows skipped as
+  `not-declared`, a new skip reason), and `aggregate: distinct`, a property of
+  a `single_pass` run judged after its last row. A document may name a
+  `type: arazzo` source and depend on its workflows, so the template upload
+  lives once in `catalogue/cases/_setup/`. `catalogue/capabilities.yaml`
+  carries the options a statement answers, with their arm documents; the
+  documents of an arm the statement does not select are skipped as
+  `option-not-selected`, the new `arazzo-identity` gate refuses an arm naming
+  a document that does not exist, and surface coverage counts an element only
+  when every arm covers it. `catalogue/sources/veredictum-probes.openapi.yaml`
+  declares the deliberately wrong requests, marked as Veredictum's own.
+  `create_ehr-clone_system_id`, `create_ehr-wrong_method` and the EHR
+  uniqueness checks are restored on these rules, and an ETag and
+  Last-Modified presence check is added as an advisory row.
 
 - Rows files carry decision-table literals (#638). The published rows schema
   gains `literals`, the columns whose values are read through the

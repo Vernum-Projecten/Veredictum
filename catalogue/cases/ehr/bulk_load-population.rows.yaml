@@ -9,6 +9,17 @@ recipe:
   rm_class: DV_COUNT
   template_id: cnf.tpl.count_range
   input: composition
+aggregate:
+  - distinct: ehr_id
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/ehr.adoc
+      section: EHR Class
+      quote: "The unique identifier of this EHR."
+  - distinct: version_uid
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/version.adoc
+      section: VERSION Class
+      quote: "Unique identifier of this `VERSION`, in the form of an `{object_id, a version_tree_id, creating_system_id}` triple"
 rows:
   - { load_index: 1, magnitude: 11 }
   - { load_index: 2, magnitude: 12 }

@@ -1,0 +1,30 @@
+# Seeded defect: a criterion cites a SHOULD sentence at the default level
+# `must`, so a recommendation would count against a capability. The source
+# url passes through the pristine `ehr` directory the overlay links.
+arazzo: 1.1.0
+info: { title: seeded defect, version: 0.1.0 }
+sourceDescriptions:
+  - name: ehr
+    url: ../ehr/../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_ehr-etag_as_must
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/ehr_get_by_id.yaml
+      section: description
+      quote: "Retrieve the EHR with the specified `ehr_id`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $response.header.ETag != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: ETag and Last-Modified
+              quote: "Both `ETag` and `Last-Modified` SHOULD be included in responses for VERSION, VERSIONED_OBJECT, or other resources that have versioning or unique state identifiers."

@@ -35,6 +35,13 @@
           "description": "The upstream-report issue in this repository that records a defect, contradiction or silence in the cited text.",
           "type": "integer",
           "minimum": 1
+        },
+        "level": {
+          "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED. `validate` refuses a level its quote's upper-case keywords disagree with, and a quote whose only keyword is MAY or OPTIONAL. A row whose failing criteria all cite `should` is failed and advisory, and never counts against a capability.",
+          "enum": [
+            "must",
+            "should"
+          ]
         }
       }
     },

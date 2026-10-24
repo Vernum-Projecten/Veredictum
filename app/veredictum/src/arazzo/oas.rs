@@ -203,6 +203,7 @@ impl ResponseSchemas {
                 section: found.response_pointer,
                 quote: found.quote,
                 report: None,
+                level: crate::arazzo::cite::Level::Must,
             },
             pointer: found.schema_pointer,
             errors,

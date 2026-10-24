@@ -6,10 +6,7 @@ cases:
   I_EHR_SERVICE.create_ehr-bulk_load_population:
     new: [ehr_bulk_load/bulk_load-population]
   I_EHR_SERVICE.create_ehr-clone_system_id:
-    new: []
-    open: >-
-      The expected system_id is a deployment fact a party declares, and an
-      Arazzo workflow has no input a declaration fills.
+    new: [ehr/create_ehr-clone_system_id]
   I_EHR_SERVICE.create_ehr-committal_headers:
     new: [ehr_committal/create_ehr-committal_headers]
   I_EHR_SERVICE.create_ehr-invalid_status:
@@ -28,6 +25,7 @@ cases:
       - ehr/create_ehr-provided_status-other_details
       - ehr/create_ehr-provided_status-other_details-with_id
       - ehr/create_ehr-distinct_ids
+      - ehr/create_ehr-etag_last_modified
   I_EHR_SERVICE.create_ehr-return_identifier:
     new: [ehr/create_ehr-return_identifier]
   I_EHR_SERVICE.create_ehr-same_ehr_twice:
@@ -46,20 +44,14 @@ cases:
   I_EHR_SERVICE.create_ehr-with_ehr_id_subject_taken:
     new: []
     open: >-
-      No released sentence assigns a refusal to a create with a fresh ehr_id
-      whose subject already has an EHR: responses/409_EHR.yaml scopes the
-      subject conflict to ehr_create, and responses/409_EHR_with_id.yaml names
-      only an ehr_id in use.
+      upstream report #649: no released sentence assigns a refusal to a
+      create with a fresh ehr_id whose subject already has an EHR.
   I_EHR_SERVICE.create_ehr-wrong_method:
-    new: []
-    open: >-
-      DELETE /ehr is an operation no released OAS declares, so no Arazzo step
-      can address it, and the Allow header the case asserted is required by
-      RFC 9110, which is not vendored openEHR text.
+    new: [ehr/create_ehr-wrong_method]
   I_EHR_SERVICE.create_ehr-xml:
     new: [ehr_xml_write_refused/create_ehr-xml_unsupported_media]
   I_EHR_SERVICE.get_ehr-existing_ehr_by_ehr_id:
-    new: [ehr/get_ehr-by_id]
+    new: [ehr/get_ehr-by_id, ehr/create_ehr-etag_last_modified]
   I_EHR_SERVICE.get_ehr-existing_ehr_by_subject_id:
     new: [ehr/get_ehr-by_subject]
   I_EHR_SERVICE.get_ehr-get_ehr_by_invalid_ehr_id:

@@ -11,6 +11,7 @@
 //! citation check and every classification are this crate's own code.
 //! Arazzo 1.1.0 is <https://spec.openapis.org/arazzo/v1.1.0.html>.
 
+pub mod capabilities;
 pub mod check;
 pub mod cite;
 pub mod document;
