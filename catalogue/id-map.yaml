@@ -373,7 +373,12 @@ cases:
   I_EHR_COMPOSITION.get_composition_at_time-before_first_version:
     new: [composition_read_container/get_composition-at_time_before_first_version]
   I_EHR_COMPOSITION.get_composition_at_time-deleted_at_time:
-    new: [composition_read_container/get_composition-deleted-at_time]
+    new: []
+    open: >-
+      An instant at which the deleted version is extant can only be the
+      commit time of that version, and RM versioned_object.adoc
+      version_at_time ("Return the version for time a_time") does not say
+      whether a version is extant at its own commit instant.
   I_EHR_COMPOSITION.get_composition_at_time-future:
     new: [composition_read_container/get_composition-at_time_future]
   I_EHR_COMPOSITION.get_composition_at_time-malformed:
@@ -399,13 +404,14 @@ cases:
       The root element of the XML document is not judged: the evaluator
       reads no XML body (#637).
   I_EHR_COMPOSITION.get_composition_at_times:
-    new:
-      - composition_read_container/get_composition-at_time_before_first_version
-      - composition_read_container/get_composition-at_time_of_first_version
-      - composition_read_container/get_composition-at_time_future
+    new: []
     open: >-
-      The instant between the two commits is the commit time of the first
-      version, read from its VERSION: no Arazzo expression adds to a time.
+      No released way forms an instant between two commits: no Arazzo
+      expression adds to a time, and RM versioned_object.adoc version_at_time
+      ("Return the version for time a_time") does not say whether a version
+      is extant at its own commit instant. Its before-first-version and
+      future reads are get_composition_at_time-before_first_version and
+      get_composition_at_time-future.
   I_EHR_COMPOSITION.get_composition_at_version-deleted_version:
     new: [composition_read_container/get_composition-deleted-version_uid]
   I_EHR_COMPOSITION.get_composition_at_version-spec_profile_dev_body_development:

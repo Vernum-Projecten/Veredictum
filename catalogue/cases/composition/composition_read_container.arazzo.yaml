@@ -280,7 +280,7 @@ workflows:
       - *update
       - &latest
         stepId: latest
-        description: Read the latest VERSION for its version_uid and its commit time.
+        description: Read the latest VERSION for its version_uid.
         operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
@@ -294,7 +294,6 @@ workflows:
               quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
         outputs:
           version_uid: $response.body#/uid/value
-          time_committed: $response.body#/commit_audit/time_committed/value
       - stepId: get-implicit
         description: Retrieve the COMPOSITION by its versioned_object_uid.
         operationId: $sourceDescriptions.ehr.composition_get
@@ -342,40 +341,6 @@ workflows:
           - condition: $statusCode == 200
             x-veredictum-cite: *composition_retrieved
           - *is_v2
-
-  - workflowId: get_composition-at_time_of_first_version
-    summary: A COMPOSITION read at the commit time of a superseded version serves that version
-    description: >-
-      Creates an EHR, commits a COMPOSITION, reads the latest VERSION for the
-      time the commit was recorded, updates the COMPOSITION, then retrieves it
-      by its versioned_object_uid at that time. The first version is the one
-      extant then, so its content, the count 15, is served.
-    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
-    x-veredictum-cite: *implicit_form
-    inputs: *ehr_input
-    steps:
-      - *create
-      - *commit
-      - *latest
-      - *update
-      - stepId: get
-        description: Retrieve the COMPOSITION at the commit time of the first version.
-        operationId: $sourceDescriptions.ehr.composition_get
-        parameters:
-          - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
-          - { name: version_at_time, in: query, value: $steps.latest.outputs.time_committed }
-          - { name: Accept, in: header, value: application/json }
-        successCriteria:
-          - condition: $statusCode == 200
-            x-veredictum-cite: *composition_retrieved
-          - &is_v1
-            condition: $statusCode == 200
-            x-veredictum-check:
-              judge: equivalent
-              context: $response.body
-              to: *composition
-              ignoring: [uid]
 
   - workflowId: get_composition-at_time_before_first_version
     summary: A COMPOSITION read at a time before the first version is answered 404
@@ -459,7 +424,12 @@ workflows:
         successCriteria:
           - condition: $statusCode == 200
             x-veredictum-cite: *composition_retrieved
-          - *is_v1
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: equivalent
+              context: $response.body
+              to: *composition
+              ignoring: [uid]
 
   - workflowId: get_composition-deleted-latest
     summary: A COMPOSITION read by versioned_object_uid after a delete is answered 204
@@ -495,32 +465,6 @@ workflows:
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
           - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
-          - { name: Accept, in: header, value: application/json }
-        successCriteria:
-          - condition: $statusCode == 204
-
-  - workflowId: get_composition-deleted-at_time
-    summary: A COMPOSITION read at the time of its delete is answered 204
-    description: >-
-      Creates an EHR, commits a COMPOSITION and deletes it, reads the latest
-      VERSION for the time the delete was recorded, then retrieves the
-      COMPOSITION by its versioned_object_uid at that time. The version
-      extant then is the deleted one, so the read is answered 204 No Content.
-    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
-    x-veredictum-cite: *deleted_read
-    inputs: *ehr_input
-    steps:
-      - *create
-      - *commit
-      - *delete
-      - *latest
-      - stepId: get
-        description: Retrieve the COMPOSITION at the time of the delete.
-        operationId: $sourceDescriptions.ehr.composition_get
-        parameters:
-          - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
-          - { name: version_at_time, in: query, value: $steps.latest.outputs.time_committed }
           - { name: Accept, in: header, value: application/json }
         successCriteria:
           - condition: $statusCode == 204
