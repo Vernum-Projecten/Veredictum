@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: Veredictum contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# .github/workflows/ui-captures.yml
+#
+# Renders the console's committed captures on an amd64 runner, for a branch
+# whose author cannot: the capture pass pins a linux/amd64 Chromium, because
+# the two architectures render text differently, and that image does not start
+# under emulation on Apple Silicon.
+#
+# It NEVER commits. The images come back as an artifact; the author downloads
+# them, reviews the diff and commits them signed. That keeps the premise of
+# `ui-screenshot-guard` in ci.yml: every committed capture was looked at by the
+# person who committed it.
+#
+#   gh workflow run ui-captures.yml --ref <branch>
+#   gh run download <run-id> --name console-captures --dir website/book/src/console/img
+name: Console captures
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ui-captures-${{ github.ref }}
+  cancel-in-progress: true
+
+# No permissions by default; the job grants itself the minimum it needs.
+permissions: {}
+
+jobs:
+  captures:
+    name: console captures
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          target: wasm32-unknown-unknown
+          cache: false
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-nextest
+
+      # The same pinned, checksum-verified binaries as ci.yml's `console
+      # journeys` job, with the versions read from the Dockerfile's ARGs.
+      - name: Fetch cargo-leptos and Tailwind (pinned, checksum-verified)
+        env:
+          DOCKERFILE: docker/Dockerfile
+        run: |
+          set -euo pipefail
+          clv="$(grep -E '^ARG CARGO_LEPTOS_VERSION=' "$DOCKERFILE" | head -1 | cut -d= -f2)"
+          twv="$(grep -E '^ARG TAILWIND_VERSION=' "$DOCKERFILE" | head -1 | cut -d= -f2)"
+          echo "cargo-leptos ${clv}, tailwindcss ${twv}"
+          triple=x86_64-unknown-linux-gnu
+          curl --proto '=https' --tlsv1.2 -fsSLO "https://github.com/leptos-rs/cargo-leptos/releases/download/${clv}/cargo-leptos-${triple}.tar.gz"
+          curl --proto '=https' --tlsv1.2 -fsSLO "https://github.com/leptos-rs/cargo-leptos/releases/download/${clv}/cargo-leptos-${triple}.tar.gz.sha256"
+          sha256sum -c "cargo-leptos-${triple}.tar.gz.sha256"
+          tar -xzf "cargo-leptos-${triple}.tar.gz"
+          sudo install -m 0755 "$(find . -type f -name cargo-leptos | head -1)" /usr/local/bin/cargo-leptos
+          curl --proto '=https' --tlsv1.2 -fsSLo tailwindcss "https://github.com/tailwindlabs/tailwindcss/releases/download/${twv}/tailwindcss-linux-x64"
+          sudo install -m 0755 tailwindcss /usr/local/bin/tailwindcss
+          rm -rf cargo-leptos* tailwindcss
+
+      - name: Run the journeys in capture mode
+        env:
+          UI_E2E_DOCS_SHOTS: "1"
+        run: bash scripts/ui-e2e.sh
+
+      - name: What changed against the branch
+        run: git status --porcelain -- website/book/src/console/img
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: console-captures
+          path: website/book/src/console/img
+          if-no-files-found: error
+          retention-days: 7
