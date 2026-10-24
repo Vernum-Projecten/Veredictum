@@ -18,8 +18,9 @@ use assert_fs::prelude::{FileWriteStr as _, PathChild as _};
 use serde_json::{Value, json};
 use veredictum::exec::driver::HttpDriver;
 use veredictum::exec::state::VarStore;
-use veredictum::exec::{Provisioned, StepDriver};
+use veredictum::exec::{CaseRecord, Provisioned, RowOutcome, StepDriver, run_case};
 use veredictum::ids::CaptureName;
+use veredictum::party::{OutcomeRecord, OutcomeStatus};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, ResponseTemplate};
 
@@ -799,6 +800,159 @@ fn a_commit_set_that_is_neither_a_set_nor_a_composition_is_refused() -> Fallible
         exchanges(&sut),
         vec!["POST /ehr".to_owned()],
         "nothing is committed once the set's shape is refused"
+    );
+    Ok(())
+}
+
+/// A three-row EHR-creation case standing on a template precondition, under
+/// the given iteration.
+fn table_template_case(iteration: &str) -> Value {
+    json!({
+        "id": "WIRE-table", "kind": "functional", "component": "EHR",
+        "sm_operation": "I_EHR_SERVICE.create_ehr",
+        "requires": { "templates": ["cnf.opt.minimal"] },
+        "parameters": {
+            "iteration": iteration,
+            "matrix": { "columns": ["n"], "rows": [["a"], ["b"], ["c"]] }
+        },
+        "test_purpose": "t", "description": "d", "spec_refs": [],
+        "flow": [{ "step": 1, "call": "create_ehr", "expect": "created" }]
+    })
+}
+
+/// Drive the whole three-row case through `run_case` against the fake SUT.
+fn run_table_case(
+    sut: &FakeSut,
+    iteration: &str,
+) -> Result<CaseRecord, Box<dyn std::error::Error>> {
+    let dir = corpus(&[("opt", "<template/>".to_owned())])?;
+    let manifest = json!({ "cnf.opt.minimal": entry("opt.json", "opt-xml") });
+    let mut bindings = upload_bindings();
+    bindings.push(json!({
+        "sm_operation": "I_EHR_SERVICE.create_ehr",
+        "its": "its-rest",
+        "request": { "method": "POST", "path": "/ehr" },
+        "outcomes": { "created": { "status": 201 }, "already_exists": { "status": 409 } }
+    }));
+    let set = artifact_set_over_corpus(&bindings, manifest, dir.path());
+    let topology = ixit(&sut.base_url());
+    let core = case(table_template_case(iteration));
+    let mut driver = HttpDriver::new(&set, &topology, None)?;
+    Ok(run_case(&core, None, &mut driver)?)
+}
+
+/// Under `single_pass` every row stands on the ground row 0 provisions, so a
+/// refused template upload errors EVERY row, and no row's flow reaches the
+/// SUT: traffic over ground that was never established proves nothing.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_refused_shared_upload_errors_every_single_pass_row_and_drives_none() -> Fallible {
+    let sut = FakeSut::start();
+    sut.mount(
+        Mock::given(method("POST"))
+            .and(path("/definition/template/adl1.4"))
+            .respond_with(ResponseTemplate::new(406)),
+    );
+    let record = run_table_case(&sut, "single_pass")?;
+
+    assert_eq!(
+        exchanges(&sut),
+        vec!["POST /definition/template/adl1.4".to_owned()],
+        "only the refused provisioning upload reaches the SUT"
+    );
+    assert_eq!(record.rows.len(), 3);
+    for (index, row) in record.rows.iter().enumerate() {
+        match row {
+            RowOutcome::Errored { step: 0, reason } => {
+                assert!(reason.contains("406"), "row {index}: {reason}");
+            }
+            other => panic!("row {index} must be errored, got {other:?}"),
+        }
+    }
+    let outcome = OutcomeRecord::from(&record);
+    assert_eq!(outcome.status, OutcomeStatus::Errored);
+    assert_eq!(
+        outcome
+            .errored_rows
+            .iter()
+            .map(|r| r.row)
+            .collect::<Vec<_>>(),
+        vec![0, 1, 2]
+    );
+    Ok(())
+}
+
+/// A row errored by its own refused provisioning stays on the outcome record
+/// when a later row FAILED: the failure decides the status, and the errored
+/// row is listed beside it rather than vanishing from `results.json`.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn an_errored_row_stays_on_the_record_beside_a_failed_one() -> Fallible {
+    let sut = FakeSut::start();
+    // Row 0's provisioning upload is refused and every later one succeeds;
+    // the flow's EHR creation answers 409, which its `created` does not hold.
+    sut.mount(
+        Mock::given(method("POST"))
+            .and(path("/definition/template/adl1.4"))
+            .respond_with(ResponseTemplate::new(406))
+            .up_to_n_times(1)
+            .with_priority(1),
+    );
+    sut.mount(
+        Mock::given(method("POST"))
+            .and(path("/definition/template/adl1.4"))
+            .respond_with(ResponseTemplate::new(201))
+            .with_priority(2),
+    );
+    sut.mount(
+        Mock::given(method("POST"))
+            .and(path("/ehr"))
+            .respond_with(ResponseTemplate::new(409)),
+    );
+    let record = run_table_case(&sut, "reset_per_row")?;
+    assert!(
+        matches!(
+            record.rows.first(),
+            Some(RowOutcome::Errored { step: 0, .. })
+        ),
+        "{:?}",
+        record.rows
+    );
+    assert!(
+        matches!(record.rows.get(1), Some(RowOutcome::Failed { step: 1, .. })),
+        "{:?}",
+        record.rows
+    );
+
+    let outcome = OutcomeRecord::from(&record);
+    assert_eq!(outcome.status, OutcomeStatus::Failed);
+    assert_eq!(
+        outcome
+            .failed_rows
+            .iter()
+            .map(|r| r.row)
+            .collect::<Vec<_>>(),
+        vec![1, 2]
+    );
+    assert_eq!(outcome.errored_rows.len(), 1);
+    let errored = outcome
+        .errored_rows
+        .first()
+        .ok_or("the errored row is on the record")?;
+    assert_eq!((errored.row, errored.step), (0, 0));
+    assert!(errored.reason.contains("406"), "{}", errored.reason);
+
+    let written = serde_json::to_value(&outcome)?;
+    assert_eq!(
+        written.pointer("/errored_rows/0/row"),
+        Some(&json!(0)),
+        "{written}"
     );
     Ok(())
 }

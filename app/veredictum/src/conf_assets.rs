@@ -1218,6 +1218,7 @@ mod tests {
                     reason: None,
                     citation: None,
                     failed_rows: Vec::new(),
+                    errored_rows: Vec::new(),
                 })
                 .collect(),
             measurements: Vec::new(),

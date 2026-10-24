@@ -1371,6 +1371,24 @@ workflows:
         assert_eq!(results.rows.get(2).map(|r| r.status), Some(Status::Passed));
     }
 
+    /// Under `single_pass` the one setup run is the ground of every row, so a
+    /// setup that does not pass errors every row and drives none of them.
+    #[test]
+    fn a_single_pass_setup_that_does_not_pass_errors_every_row_undriven() {
+        let (results, transport) = run_setup(Iteration::SinglePass, &[(500, "")]);
+        let statuses: Vec<Status> = results.rows.iter().map(|r| r.status).collect();
+        assert_eq!(
+            statuses,
+            vec![Status::Skipped, Status::Errored, Status::Errored]
+        );
+        assert_eq!(transport.sent.len(), 1, "only the setup reached the server");
+        for row in results.rows.iter().skip(1) {
+            let why = row.explanation.as_ref().unwrap();
+            assert_eq!(why.step, "setup/create");
+            assert_eq!(why.whose, Whose::Instrument);
+        }
+    }
+
     #[test]
     fn re_judging_the_recording_reproduces_the_bytes() {
         let cases: [&[(u16, &'static str)]; 3] = [

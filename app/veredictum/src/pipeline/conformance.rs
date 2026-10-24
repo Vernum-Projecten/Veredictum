@@ -654,6 +654,7 @@ mod tests {
             reason: None,
             citation: Some("citation".to_owned()),
             failed_rows: Vec::new(),
+            errored_rows: Vec::new(),
         }
     }
 

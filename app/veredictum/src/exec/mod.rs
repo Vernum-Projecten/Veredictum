@@ -194,7 +194,9 @@ pub trait StepDriver {
     /// first row and again before every row under `reset_per_row`. Returns
     /// [`Provisioned::RowNotApplicable`] when THIS row's ground cannot be
     /// realized on the technology profile (register-cited) — the row is
-    /// recorded N/A and its steps are not driven.
+    /// recorded N/A and its steps are not driven. A
+    /// [`Provisioned::RowErrored`] errors the row; under `single_pass` it
+    /// errors every row of the case, none of which is then driven.
     ///
     /// # Errors
     /// As [`StepDriver::perform`]: interpreter defects only.
@@ -316,6 +318,43 @@ fn row_from_assertion(step: u32, failure: &AssertionOutcome) -> RowOutcome {
     }
 }
 
+/// The rows of a `single_pass` case whose shared provisioning was refused:
+/// every row is errored at step 0, and none of them is driven.
+// NOTE: no openEHR spec governs this — our own design: under `single_pass`
+// every row stands on row 0's ground, so a row driven without it proves nothing.
+fn unprovisioned_rows(total: usize, reason: &str) -> Vec<RowOutcome> {
+    (0..total)
+        .map(|row| RowOutcome::Errored {
+            step: 0,
+            reason: if row == 0 {
+                reason.to_owned()
+            } else {
+                format!("not driven: the case's shared provisioning (row 0) was refused: {reason}")
+            },
+        })
+        .collect()
+}
+
+/// Law e: evaluates the aggregate assertions once after the last row, when
+/// every row passed, and records the first failure on the last row.
+fn judge_aggregates<D: StepDriver>(
+    case: &CaseCore,
+    driver: &mut D,
+    rows: &mut [RowOutcome],
+    row_states: &[VarStore],
+) -> Result<(), String> {
+    if rows.iter().all(|r| matches!(r, RowOutcome::Passed))
+        && let Some(failure) = driver.aggregates(case, row_states)?.into_iter().next()
+        && let Some(last) = rows.last_mut()
+    {
+        *last = RowOutcome::Failed {
+            step: 0,
+            reason: format!("aggregate: {failure}"),
+        };
+    }
+    Ok(())
+}
+
 /// Run one case×format through the interpreter laws.
 ///
 /// # Errors
@@ -348,10 +387,15 @@ pub fn run_case<D: StepDriver>(
                     rows.push(RowOutcome::NotApplicable { citation });
                     continue;
                 }
-                Provisioned::RowErrored { reason } => {
+                Provisioned::RowErrored { reason } if reset_per_row => {
                     row_states.push(vars.clone());
                     rows.push(RowOutcome::Errored { step: 0, reason });
                     continue;
+                }
+                Provisioned::RowErrored { reason } => {
+                    rows = unprovisioned_rows(total, &reason);
+                    row_states = vec![vars.clone(); total];
+                    break;
                 }
             }
         }
@@ -413,18 +457,7 @@ pub fn run_case<D: StepDriver>(
         rows.push(row_outcome);
     }
 
-    // Law e: aggregates once after the last row.
-    if rows.iter().all(|r| matches!(r, RowOutcome::Passed))
-        && let Some(failure) = driver.aggregates(case, &row_states)?.into_iter().next()
-        && let Some(last) = rows.last_mut()
-    {
-        {
-            *last = RowOutcome::Failed {
-                step: 0,
-                reason: format!("aggregate: {failure}"),
-            };
-        }
-    }
+    judge_aggregates(case, driver, &mut rows, &row_states)?;
 
     Ok(CaseRecord {
         case: case.id.clone(),
@@ -693,6 +726,46 @@ mod tests {
             !record.passed(),
             "an inconclusive row is not a passing case"
         );
+    }
+
+    /// Under `single_pass` row 0's provisioning is the ground of every row, so
+    /// a refused provisioning exchange errors the whole case, and no row's
+    /// steps reach the SUT on ground that was never established.
+    #[test]
+    fn a_refused_shared_provisioning_errors_every_single_pass_row_undriven() {
+        let mut case = two_row_case();
+        if let Some(parameters) = case.parameters.as_mut() {
+            parameters.iteration = crate::vocab::Iteration::SinglePass;
+        }
+        let mut driver = Provisioning {
+            grounds: vec![Provisioned::RowErrored {
+                reason: "template upload answered 406".to_owned(),
+            }],
+            assertion_failures: Vec::new(),
+            postconditions: Vec::new(),
+            performed: 0,
+            cursor: 0,
+        };
+        let record = run_case(&case, None, &mut driver).unwrap();
+
+        assert_eq!(driver.cursor, 1, "single_pass provisions once");
+        assert_eq!(driver.performed, 0, "no row is driven");
+        assert_eq!(record.rows.len(), 2);
+        assert_eq!(
+            record.rows[0],
+            RowOutcome::Errored {
+                step: 0,
+                reason: "template upload answered 406".to_owned()
+            }
+        );
+        match &record.rows[1] {
+            RowOutcome::Errored { step: 0, reason } => {
+                assert!(reason.contains("shared provisioning"), "{reason}");
+                assert!(reason.contains("template upload answered 406"), "{reason}");
+            }
+            other => panic!("row 1 must be errored, got {other:?}"),
+        }
+        assert!(!record.passed());
     }
 
     /// A case whose every row is excused still rolls up as passed: an N/A row

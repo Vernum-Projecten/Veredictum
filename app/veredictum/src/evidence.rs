@@ -347,6 +347,7 @@ mod tests {
             reason: Some(String::from("expected 201, observed 500")),
             citation: None,
             failed_rows: Vec::new(),
+            errored_rows: Vec::new(),
         }
     }
 
