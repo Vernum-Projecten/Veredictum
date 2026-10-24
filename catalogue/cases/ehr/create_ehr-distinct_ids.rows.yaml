@@ -1,4 +1,4 @@
-# Eighteen EHRs, the population of I_EHR_SERVICE.create_ehr-main, created
+# Eighteen EHRs created
 # against one shared server state; after the last row no two share an
 # ehr_id.
 workflow: ehr/create_ehr-distinct_ids

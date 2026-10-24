@@ -1,4 +1,4 @@
-# The rows of CONT-DV_COUNT-validate_range for this expectation; the
+# The DV_COUNT rows for this expectation; the
 # recipe builds each row's composition from its `magnitude` literal.
 workflow: dv_count/commit-dv_count_in_range
 iteration: reset_per_row

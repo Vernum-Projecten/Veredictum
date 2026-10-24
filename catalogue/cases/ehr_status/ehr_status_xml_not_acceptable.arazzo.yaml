@@ -1,0 +1,218 @@
+# The EHR_STATUS family read in canonical XML, for a service that does not
+# serve it in XML: the refused arm of the `ehr-status-xml-read` option, whose
+# served arm is `ehr_status_xml.arazzo.yaml`. Every quote is copied verbatim
+# from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: EHR_STATUS reads in canonical XML, refused
+  version: 0.1.0
+  description: >-
+    Reading an EHR_STATUS, its versions, its VERSIONED_EHR_STATUS and its
+    revision history with Accept application/xml from a service that does
+    not serve them in canonical XML.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_ehr_status-xml_not_acceptable
+    summary: An EHR_STATUS read with Accept application/xml is refused with 406
+    description: >-
+      Creates an EHR, then retrieves the EHR_STATUS asking for canonical XML
+      from a service that does not serve it in XML. The read is refused with
+      406 Not Acceptable.
+    x-veredictum-cite: &refused
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create
+        stepId: create
+        description: Create the EHR with the client-supplied ehr_id and the default EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: get
+        description: Retrieve the EHR_STATUS in canonical XML.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: get_ehr_status-by_version_id-xml_not_acceptable
+    summary: An EHR_STATUS read by version_uid with Accept application/xml is refused with 406
+    description: >-
+      Creates an EHR, then retrieves the EHR_STATUS by its version_uid asking
+      for canonical XML from a service that does not serve it in XML. The read
+      is refused with 406 Not Acceptable.
+    x-veredictum-cite: *refused
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - &current
+        stepId: current
+        description: Read the latest version of the EHR_STATUS in JSON for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve the EHR_STATUS by its version_uid in canonical XML.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.current.outputs.version_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: get_versioned_ehr_status-xml_not_acceptable
+    summary: A VERSIONED_EHR_STATUS read with Accept application/xml is refused with 406
+    description: >-
+      Creates an EHR, then retrieves the VERSIONED_EHR_STATUS asking for
+      canonical XML from a service that does not serve it in XML. The read is
+      refused with 406 Not Acceptable.
+    x-veredictum-cite: *refused
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the VERSIONED_EHR_STATUS in canonical XML.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: get_versioned_ehr_status_version-xml_not_acceptable
+    summary: A VERSION read at a time with Accept application/xml is refused with 406
+    description: >-
+      Creates an EHR, then retrieves the latest VERSION of the EHR_STATUS
+      asking for canonical XML from a service that does not serve it in XML.
+      The read is refused with 406 Not Acceptable.
+    x-veredictum-cite: *refused
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the latest VERSION of the EHR_STATUS in canonical XML.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: get_versioned_ehr_status_version-by_id-xml_not_acceptable
+    summary: A VERSION read by version_uid with Accept application/xml is refused with 406
+    description: >-
+      Creates an EHR, then retrieves the VERSION of the EHR_STATUS by its
+      version_uid asking for canonical XML from a service that does not serve
+      it in XML. The read is refused with 406 Not Acceptable.
+    x-veredictum-cite: *refused
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: get
+        description: Retrieve the VERSION of the EHR_STATUS by its version_uid in canonical XML.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.current.outputs.version_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: get_versioned_ehr_status-revision_history-xml_not_acceptable
+    summary: A revision history read with Accept application/xml is refused with 406
+    description: >-
+      Creates an EHR, then retrieves the revision history of the
+      VERSIONED_EHR_STATUS asking for canonical XML from a service that does
+      not serve it in XML. The read is refused with 406 Not Acceptable.
+    x-veredictum-cite: *refused
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the revision history of the VERSIONED_EHR_STATUS in canonical XML.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_revision_history
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: update-xml_not_acceptable
+    summary: An EHR_STATUS update with Accept application/xml is refused with 406
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with a JSON body, asking
+      for the full representation in canonical XML from a service that does
+      not serve the EHR_STATUS in XML. The update is refused with 406 Not
+      Acceptable.
+    x-veredictum-cite: *refused
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS and ask for the full representation in canonical XML.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: false
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 406

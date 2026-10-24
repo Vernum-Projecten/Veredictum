@@ -1,0 +1,93 @@
+# The EHR_STATUS update with a canonical-XML body, for a service that cannot
+# process an XML request payload for the EHR_STATUS resource: the refused arm
+# of the `ehr-status-xml-write` option. Every quote is copied verbatim from
+# the named vendored file.
+arazzo: 1.1.0
+info:
+  title: EHR_STATUS update with an XML payload, refused
+  version: 0.1.0
+  description: >-
+    Updating an EHR_STATUS with Content-Type application/xml against a
+    service that cannot process XML request payloads for the resource.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: update-xml_unsupported_media
+    summary: An EHR_STATUS update with an XML body is refused as unsupported media and not performed
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with an application/xml body
+      that clears is_queryable, under the current version in If-Match. The
+      update is refused with 415 Unsupported Media Type, and the EHR_STATUS
+      read back is still queryable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the EHR with the client-supplied ehr_id and the default EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: current
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: update
+        description: Update the EHR_STATUS with an XML body that clears is_queryable.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ehr_status xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-EHR-EHR_STATUS.generic.v1">
+              <name><value>EHR status</value></name>
+              <archetype_details><archetype_id><value>openEHR-EHR-EHR_STATUS.generic.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details>
+              <subject xsi:type="PARTY_SELF"/>
+              <is_queryable>false</is_queryable>
+              <is_modifiable>true</is_modifiable>
+            </ehr_status>
+        successCriteria:
+          - condition: $statusCode == 415
+      - stepId: read-back
+        description: Read the latest EHR_STATUS back; the refused update left it queryable.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/ehr_status_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the version extant _at specified time_, otherwise retrieves the _latest_ EHR_STATUS version."
+          - condition: $response.body#/is_queryable == true
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The service is refusing the request because the payload is in a format not supported by this method on the target resource"

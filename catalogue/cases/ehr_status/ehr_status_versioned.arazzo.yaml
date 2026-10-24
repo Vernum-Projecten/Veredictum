@@ -1,0 +1,647 @@
+# The VERSIONED_EHR_STATUS reads: the version container, its versions at a
+# time and by version_uid, and its revision history, as Arazzo 1.1.0
+# workflows over the released ITS-REST `-validation` OAS. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored
+# file.
+arazzo: 1.1.0
+info:
+  title: VERSIONED_EHR_STATUS read
+  version: 0.1.0
+  description: >-
+    Reading an EHR's VERSIONED_EHR_STATUS, the VERSION extant at a time or
+    addressed by version_uid, and the revision history, with the refusals of
+    those reads and the headers their answers carry.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_versioned_ehr_status
+    summary: The VERSIONED_EHR_STATUS of an existing EHR is retrieved with its container identity
+    description: >-
+      Creates an EHR, then retrieves its VERSIONED_EHR_STATUS. The answer is
+      200 in JSON; the container's uid has no version extension, and the
+      container carries its owner and its creation time.
+    x-veredictum-cite: &container_retrieved
+      source: specs/openehr/ITS-REST/specifications/responses/200_VERSIONED_EHR_STATUS.yaml
+      section: description
+      quote: "`200 OK` is returned when the requested VERSIONED_EHR_STATUS is successfully retrieved."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create
+        stepId: create
+        description: Create the EHR with the client-supplied ehr_id and the default EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: get
+        description: Retrieve the VERSIONED_EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+            x-veredictum-cite: &json_content_type
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+              section: JSON Format
+              quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^[^:]+$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/UML/classes/versioned_object.adoc
+              section: VERSIONED_OBJECT Class
+              quote: "Unique identifier of this version container in the form of a UID with no extension."
+          - condition: $response.body#/owner_id != null
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/UML/classes/versioned_object.adoc
+              section: VERSIONED_OBJECT Class
+              quote: "Reference to object to which this version container belongs, e.g. the id of the containing EHR or other relevant owning entity."
+          - condition: $response.body#/time_created/value != null
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/UML/classes/versioned_object.adoc
+              section: VERSIONED_OBJECT Class
+              quote: "Time of initial creation of this versioned object."
+
+  - workflowId: get_versioned_ehr_status-unknown_ehr
+    summary: A read of the VERSIONED_EHR_STATUS of an ehr_id no EHR carries is answered 404
+    description: >-
+      Retrieves the VERSIONED_EHR_STATUS of a freshly generated ehr_id that
+      no EHR carries. The read is answered with 404 Not Found.
+    x-veredictum-cite: &unknown_ehr
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        description: Retrieve the VERSIONED_EHR_STATUS of an ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_versioned_ehr_status_version-latest
+    summary: A VERSION read without version_at_time serves the latest version
+    description: >-
+      Creates an EHR, updates its EHR_STATUS with is_queryable false, then
+      retrieves the VERSION without a version_at_time. The latest version is
+      served, so its data is not queryable.
+    x-veredictum-cite: &latest_version
+      source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+      section: description
+      quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - &current
+        stepId: current
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_version
+        outputs:
+          version_uid: $response.body#/uid/value
+      - &update
+        stepId: update
+        description: Update the EHR_STATUS with is_queryable false.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: false
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_EHR_STATUS_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the EHR_STATUS is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+      - stepId: get
+        description: Retrieve the VERSION without a version_at_time.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &version_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_EHR_STATUS_at_time.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - condition: $response.body#/data/is_queryable == false
+
+  - workflowId: get_versioned_ehr_status_version-at_time_future
+    summary: A VERSION read at a time after the newest version serves the newest version
+    description: >-
+      Creates an EHR, updates its EHR_STATUS, reads the latest VERSION, then
+      retrieves the VERSION at 2999-01-01. Nothing has superseded the newest
+      version at that time, so it is the version extant and is served: its
+      uid is the latest one.
+    x-veredictum-cite: *latest_version
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - *update
+      - stepId: latest
+        description: Read the latest VERSION, for the version the update created.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve the VERSION at a time after the newest version.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_at_time, in: query, value: "2999-01-01T00:00:00.000Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.latest.outputs.version_uid}$'
+
+  - workflowId: get_versioned_ehr_status_version-at_time_before_first_version
+    summary: A VERSION read at a time before the first version is answered 404
+    description: >-
+      Creates an EHR, then retrieves the VERSION of its EHR_STATUS at
+      2000-01-01, long before the EHR was created. No version is extant at
+      that time, so the read is answered with 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when a version of the resource identified by the request parameters (at specified `version_at_time`) does not exist."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the VERSION at a time before the EHR existed.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_at_time, in: query, value: "2000-01-01T00:00:00Z" }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_versioned_ehr_status_version-at_time_malformed
+    summary: A VERSION read whose version_at_time is not an ISO 8601 datetime is refused as a client error
+    description: >-
+      Creates an EHR, then retrieves the VERSION of its EHR_STATUS with a
+      version_at_time that is no datetime at all. The query parameter breaks
+      the extended ISO 8601 format the release requires, so the read is
+      answered 400 Bad Request.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Datetime format
+      quote: "HTTP query parameters and path segments that are dates, datetimes, or times, MUST always use the _extended_ ISO 8601 format."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the VERSION with a malformed version_at_time.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_at_time, in: query, value: not-a-datetime }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+
+  - workflowId: get_versioned_ehr_status_version-by_id
+    summary: A VERSION read by version_uid serves the version that uid identifies
+    description: >-
+      Creates an EHR, notes the version_uid of its first EHR_STATUS version,
+      updates the EHR_STATUS, then retrieves the VERSION by the first
+      version_uid. The served VERSION's uid is the one addressed, and its
+      data is the first EHR_STATUS, which is queryable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_by_id.yaml
+      section: description
+      quote: "Retrieves a VERSION identified by `version_uid` of an EHR_STATUS associated with the EHR identified by `ehr_id`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - *update
+      - stepId: get
+        description: Retrieve the VERSION by the first version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.current.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &version_by_id_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_EHR_STATUS_by_id.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.current.outputs.version_uid}$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+              section: Identifier types
+              quote: "a `version_uid` for identifying a VERSION from the version container, stored under VERSION.uid.value, in a form of an OBJECT_VERSION_ID,"
+          - condition: $response.body#/data/is_queryable == true
+
+  - workflowId: get_versioned_ehr_status_version-of_other_ehr
+    summary: A VERSION read under one EHR by the version_uid of another EHR's EHR_STATUS is answered 404
+    description: >-
+      Creates two EHRs and notes the version_uid of the second one's
+      EHR_STATUS, then retrieves that VERSION under the first EHR. The
+      version belongs to another EHR's VERSIONED_EHR_STATUS, so under the
+      first EHR it does not exist and the read is answered with 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id_or_version_uid.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when the `version_uid` does not exist."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        other_ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: create-other
+        description: Create the second EHR.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.other_ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: other-version
+        description: Read the latest version of the second EHR's EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.other_ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_version
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve the second EHR's version under the first EHR.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.other-version.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_versioned_ehr_status-revision_history
+    summary: The revision history of the VERSIONED_EHR_STATUS lists every version
+    description: >-
+      Creates an EHR, updates its EHR_STATUS once, then retrieves the revision
+      history. The history holds an item for the first version and one for
+      the version the update created. Their order is not judged: the
+      released class contradicts itself on it (upstream report #661).
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/revision_history.adoc
+      section: REVISION_HISTORY Class
+      quote: "Defines the notion of a revision history of audit items, each associated with the version for which that audit was committed."
+      report: 661
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - *update
+      - stepId: latest
+        description: Read the latest version of the EHR_STATUS, for the version the update created.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_version
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve the revision history.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_revision_history
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &history_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_REVISION_HISTORY.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested REVISION_HISTORY is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$.items[?@.version_id.value == '{$steps.current.outputs.version_uid}']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.items[?@.version_id.value == '{$steps.latest.outputs.version_uid}']"
+
+  - workflowId: get_versioned_ehr_status-revision_history-unknown_ehr
+    summary: A read of the revision history of an ehr_id no EHR carries is answered 404
+    description: >-
+      Retrieves the EHR_STATUS revision history of a freshly generated ehr_id
+      that no EHR carries. The read is answered with 404 Not Found.
+    x-veredictum-cite: *unknown_ehr
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        description: Retrieve the revision history of an ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_revision_history
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_versioned_ehr_status-no_location
+    summary: A VERSIONED_EHR_STATUS read sends no Location header
+    description: >-
+      Creates an EHR, then retrieves its VERSIONED_EHR_STATUS. A read names
+      no newly created resource, so the answer carries no Location header.
+    x-veredictum-cite: &no_location_on_read
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Location
+      quote: "It MUST NOT be used to indicate an alternate representation of an existing resource (e.g. via `GET` method)."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the VERSIONED_EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *container_retrieved
+          - &no_location
+            condition: $response.header.Location == null
+
+  - workflowId: get_versioned_ehr_status_version-no_location
+    summary: A VERSION read at a time sends no Location header
+    description: >-
+      Creates an EHR, then retrieves the latest VERSION of its EHR_STATUS. A
+      read names no newly created resource, so the answer carries no
+      Location header.
+    x-veredictum-cite: *no_location_on_read
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the latest VERSION.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+          - *no_location
+
+  - workflowId: get_versioned_ehr_status_version-by_id-no_location
+    summary: A VERSION read by version_uid sends no Location header
+    description: >-
+      Creates an EHR, then retrieves the VERSION of its EHR_STATUS by its
+      version_uid. A read names no newly created resource, so the answer
+      carries no Location header.
+    x-veredictum-cite: *no_location_on_read
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: get
+        description: Retrieve the VERSION by its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.current.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_by_id_retrieved
+          - *no_location
+
+  - workflowId: get_versioned_ehr_status-revision_history-no_location
+    summary: A revision history read sends no Location header
+    description: >-
+      Creates an EHR, then retrieves the revision history of its
+      VERSIONED_EHR_STATUS. A read names no newly created resource, so the
+      answer carries no Location header.
+    x-veredictum-cite: *no_location_on_read
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the revision history.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_revision_history
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *history_retrieved
+          - *no_location
+
+  - workflowId: get_versioned_ehr_status-etag_weak
+    summary: An ETag sent on a VERSIONED_EHR_STATUS read carries the weakness indicator
+    description: >-
+      Creates an EHR, then retrieves its VERSIONED_EHR_STATUS. If the answer
+      sends an ETag, it is a weak entity tag.
+    x-veredictum-cite: &etag_weak_form
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the VERSIONED_EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *container_retrieved
+          - &etag_weak
+            context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: get_versioned_ehr_status_version-etag_weak
+    summary: An ETag sent on a VERSION read at a time carries the weakness indicator
+    description: >-
+      Creates an EHR, then retrieves the latest VERSION of its EHR_STATUS. If
+      the answer sends an ETag, it is a weak entity tag.
+    x-veredictum-cite: *etag_weak_form
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the latest VERSION.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+          - *etag_weak
+
+  - workflowId: get_versioned_ehr_status_version-by_id-etag_weak
+    summary: An ETag sent on a VERSION read by version_uid carries the weakness indicator
+    description: >-
+      Creates an EHR, then retrieves the VERSION of its EHR_STATUS by its
+      version_uid. If the answer sends an ETag, it is a weak entity tag.
+    x-veredictum-cite: *etag_weak_form
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: get
+        description: Retrieve the VERSION by its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.current.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_by_id_retrieved
+          - *etag_weak
+
+  - workflowId: get_versioned_ehr_status-etag_last_modified
+    summary: A VERSIONED_EHR_STATUS read and a VERSION read are answered with ETag and Last-Modified
+    description: >-
+      Creates an EHR, then retrieves its VERSIONED_EHR_STATUS and the VERSION
+      of its EHR_STATUS by version_uid. Both answers carry an ETag and a
+      Last-Modified header. The headers are recommended, so a row that lacks
+      them is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: ETag and Last-Modified
+      quote: "Both `ETag` and `Last-Modified` SHOULD be included in responses for VERSION, VERSIONED_OBJECT, or other resources that have versioning or unique state identifiers."
+      level: should
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: get-container
+        description: Retrieve the VERSIONED_EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *container_retrieved
+          - &etag_present
+            condition: $response.header.ETag != null
+          - &last_modified_present
+            condition: $response.header.Last-Modified != null
+      - stepId: get-version
+        description: Retrieve the VERSION by its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.current.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_by_id_retrieved
+          - *etag_present
+          - *last_modified_present

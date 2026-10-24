@@ -1,0 +1,277 @@
+# The EHR_STATUS flags, is_queryable and is_modifiable, set and cleared
+# through the whole-resource update, as Arazzo 1.1.0 workflows over the
+# released ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: EHR_STATUS flags
+  version: 0.1.0
+  description: >-
+    Clearing and setting the is_queryable and is_modifiable flags of an
+    EHR's EHR_STATUS with a conditional update, and reading the flags back.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: clear_queryable
+    summary: An update that clears is_queryable leaves the EHR_STATUS not queryable
+    description: >-
+      Creates an EHR with the default EHR_STATUS, then updates the EHR_STATUS
+      with is_queryable false under the current version in If-Match. The
+      latest EHR_STATUS read back is not queryable.
+    x-veredictum-cite: &update_op
+      source: specs/openehr/ITS-REST/specifications/operations/ehr_status_update.yaml
+      section: description
+      quote: "Updates EHR_STATUS associated with the EHR identified by `ehr_id`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create
+        stepId: create
+        description: Create the EHR with the client-supplied ehr_id and the default EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &current
+        stepId: current
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &latest_version
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: update
+        description: Update the EHR_STATUS with is_queryable false.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &not_queryable
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: false
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &status_updated
+              source: specs/openehr/ITS-REST/specifications/responses/200_EHR_STATUS_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the EHR_STATUS is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+      - stepId: read-back
+        description: Read the latest EHR_STATUS back.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &latest_status
+              source: specs/openehr/ITS-REST/specifications/operations/ehr_status_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the version extant _at specified time_, otherwise retrieves the _latest_ EHR_STATUS version."
+          - condition: $response.body#/is_queryable == false
+
+  - workflowId: set_queryable
+    summary: An update that sets is_queryable leaves the EHR_STATUS queryable again
+    description: >-
+      Creates an EHR, clears is_queryable with one update, then sets it again
+      with a second update under the version the first one created. The
+      latest EHR_STATUS read back is queryable.
+    x-veredictum-cite: *update_op
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: clear
+        description: Update the EHR_STATUS with is_queryable false.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *not_queryable
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *status_updated
+      - &cleared
+        stepId: cleared
+        description: Read the latest version of the EHR_STATUS again, for the version the first update created.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_version
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: set
+        description: Update the EHR_STATUS with is_queryable true.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.cleared.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &status_body
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *status_updated
+      - stepId: read-back
+        description: Read the latest EHR_STATUS back.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_status
+          - condition: $response.body#/is_queryable == true
+
+  - workflowId: clear_modifiable
+    summary: An update that clears is_modifiable leaves the EHR_STATUS not modifiable
+    description: >-
+      Creates an EHR with the default EHR_STATUS, then updates the EHR_STATUS
+      with is_modifiable false under the current version in If-Match. The
+      latest EHR_STATUS read back is not modifiable.
+    x-veredictum-cite: *update_op
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with is_modifiable false.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &not_modifiable
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: false
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *status_updated
+      - stepId: read-back
+        description: Read the latest EHR_STATUS back.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_status
+          - condition: $response.body#/is_modifiable == false
+
+  - workflowId: set_modifiable-deactivated_ehr
+    summary: The EHR_STATUS of an EHR that is not modifiable can still be updated, and the update reactivates it
+    description: >-
+      Creates an EHR, clears is_modifiable with one update, then sets it again
+      with a second update. The EHR_STATUS is writable whatever its own
+      is_modifiable says, so the second update succeeds and the latest
+      EHR_STATUS read back is modifiable.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/ehr_status.adoc
+      section: EHR_STATUS Class
+      quote: "The `EHR_STATUS` object itself can always be written to."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: deactivate
+        description: Update the EHR_STATUS with is_modifiable false.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *not_modifiable
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *status_updated
+      - *cleared
+      - stepId: reactivate
+        description: Update the EHR_STATUS of the deactivated EHR with is_modifiable true.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.cleared.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *status_body
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: read-back
+        description: Read the latest EHR_STATUS back.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_status
+          - condition: $response.body#/is_modifiable == true

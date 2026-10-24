@@ -1,4 +1,4 @@
-# The population of I_EHR_SERVICE.create_ehr-bulk_load_population: eight
+# The bulk-load population: eight
 # loads that coexist on the server, each with one COMPOSITION the recipe
 # builds from the row's `magnitude` literal.
 workflow: ehr_bulk_load/bulk_load-population

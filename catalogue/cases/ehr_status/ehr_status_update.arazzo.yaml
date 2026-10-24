@@ -1,0 +1,832 @@
+# The EHR_STATUS update: its precondition, its representation preferences,
+# its committal headers, and the bodies it refuses, as Arazzo 1.1.0
+# workflows over the released ITS-REST `-validation` OAS. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored
+# file.
+arazzo: 1.1.0
+info:
+  title: EHR_STATUS update
+  version: 0.1.0
+  description: >-
+    Updating an EHR's EHR_STATUS under the If-Match precondition: a stale or
+    missing precondition, the minimal and identifier preferences, the
+    committal audit details, other_details, a client-supplied uid, and the
+    invalid EHR_STATUS bodies the update refuses.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: update-unknown_ehr
+    summary: An update of the EHR_STATUS of an ehr_id no EHR carries is answered 404
+    description: >-
+      Updates the EHR_STATUS of a freshly generated ehr_id that no EHR
+      carries. The update is answered with 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: update
+        description: Update the EHR_STATUS of an ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$inputs.ehr_id}::veredictum.example.org::1"' }
+        requestBody:
+          contentType: application/json
+          payload: &status_body
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: update-stale_if_match
+    summary: An update whose If-Match names a superseded version is refused with 412 and not performed
+    description: >-
+      Creates an EHR, updates its EHR_STATUS once, then sends a second update
+      that clears is_modifiable under the version the first update
+      superseded. The second update is refused with 412 Precondition Failed,
+      and the EHR_STATUS read back is still modifiable.
+    x-veredictum-cite: &stale_refused
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create
+        stepId: create
+        description: Create the EHR with the client-supplied ehr_id and the default EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &current
+        stepId: current
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &latest_version
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - &first_update
+        stepId: update
+        description: Update the EHR_STATUS with is_queryable false under the current version.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &not_queryable
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: false
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &status_updated
+              source: specs/openehr/ITS-REST/specifications/responses/200_EHR_STATUS_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the EHR_STATUS is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+      - stepId: stale
+        description: Update the EHR_STATUS with is_modifiable false under the superseded version.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: false
+            is_modifiable: false
+        successCriteria:
+          - condition: $statusCode == 412
+            x-veredictum-cite: &precondition_failed
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: If-Match and accidental overwrites
+              quote: "Instead, it MUST respond with HTTP status code `412 Precondition Failed`,"
+      - stepId: read-back
+        description: Read the latest EHR_STATUS back; the refused update left it modifiable.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &latest_status
+              source: specs/openehr/ITS-REST/specifications/operations/ehr_status_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the version extant _at specified time_, otherwise retrieves the _latest_ EHR_STATUS version."
+          - condition: $response.body#/is_modifiable == true
+          - condition: $response.body#/is_queryable == false
+            x-veredictum-cite: *latest_status
+
+  - workflowId: update-stale_if_match-etag_latest
+    summary: A 412 to a stale If-Match names the latest version in its ETag
+    description: >-
+      Creates an EHR, updates its EHR_STATUS once, then sends a second update
+      under the superseded version. The 412 answer carries the latest
+      version_uid in its ETag. The rule is recommended, so a row that answers
+      otherwise is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "SHOULD return also latest `version_uid` in the `ETag` response headers."
+      level: should
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - *first_update
+      - &latest
+        stepId: latest
+        description: Read the latest version of the EHR_STATUS again, for the version the update created.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_version
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: stale
+        description: Update the EHR_STATUS under the superseded version.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *status_body
+        successCriteria:
+          - condition: $statusCode == 412
+            x-veredictum-cite: *precondition_failed
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/)?"{$steps.latest.outputs.version_uid}"$'
+
+  - workflowId: update-stale_if_match-etag_weak
+    summary: An ETag sent on a 412 to a stale If-Match carries the weakness indicator
+    description: >-
+      Creates an EHR, updates its EHR_STATUS once, then sends a second update
+      under the superseded version. If the 412 answer sends an ETag, it is a
+      weak entity tag.
+    x-veredictum-cite: &etag_weak_form
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - *first_update
+      - stepId: stale
+        description: Update the EHR_STATUS under the superseded version.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *status_body
+        successCriteria:
+          - condition: $statusCode == 412
+            x-veredictum-cite: *precondition_failed
+          - &etag_weak
+            context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: update-missing_if_match
+    summary: An update sent without If-Match is refused with 400 and not performed
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with is_queryable false and
+      no If-Match header. The update is refused with 400 Bad Request, and the
+      EHR_STATUS read back is still queryable. The rule is recommended, so a
+      row that answers otherwise is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "When the service expects `If-Match` for an operation, but the client does not provide it, the service SHOULD respond with `400 Bad Request`."
+      level: should
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: update
+        description: Update the EHR_STATUS with is_queryable false and no If-Match.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *not_queryable
+        successCriteria:
+          - condition: $statusCode == 400
+      - stepId: read-back
+        description: Read the latest EHR_STATUS back; the refused update left it queryable.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_status
+          - condition: $response.body#/is_queryable == true
+
+  - workflowId: update-prefer_minimal
+    summary: An update with Prefer return=minimal is answered 204 and committed
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with is_queryable false and
+      Prefer return=minimal. The update is answered with 204 No Content, and
+      the EHR_STATUS read back is not queryable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+      section: description
+      quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with is_queryable false and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *not_queryable
+        successCriteria:
+          - condition: $statusCode == 204
+      - stepId: read-back
+        description: Read the latest EHR_STATUS back; the minimal answer still committed the update.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_status
+          - condition: $response.body#/is_queryable == false
+
+  - workflowId: update-return_identifier
+    summary: An update with Prefer return=identifier answers 200 with the new version's uid only
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with Prefer
+      return=identifier. The answer is 200 with a JSON body that carries the
+      identifier under uid and none of the EHR_STATUS attributes, and that
+      identifier is the version the update created.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer only identifier
+      quote: "This is a variant of preference that implies minimal response semantics, but with a non-empty response body (i.e., the status will be `201 Created` or `200 OK`, never `204 No Content`)."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with is_queryable false and ask for its identifier only.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *not_queryable
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+              section: JSON Format
+              quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+          - condition: $response.body#/uid != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "For example, when `application/json` is requested as above, the response body will be a single JSON object with a single `uid` attribute."
+          - condition: $response.body#/is_queryable == null
+            x-veredictum-cite: &identifier_only
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+          - condition: $response.body#/subject == null
+            x-veredictum-cite: *identifier_only
+        outputs:
+          uid: $response.body#/uid
+      - stepId: latest
+        description: Read the latest version of the EHR_STATUS; its uid is the identifier the update answered.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_version
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.update.outputs.uid}$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/schemas/others/Identifier.yaml
+              section: /properties/uid/description
+              quote: "The (version) resource identifier."
+
+  - workflowId: update-etag_weak
+    summary: An ETag sent on an EHR_STATUS update carries the weakness indicator
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS. If the answer sends an
+      ETag, it is a weak entity tag.
+    x-veredictum-cite: *etag_weak_form
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with is_queryable false.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *not_queryable
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *status_updated
+          - *etag_weak
+
+  - workflowId: update-audit_details
+    summary: The audit details sent on an EHR_STATUS update are merged into the version it commits
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with an
+      openehr-audit-details header naming the change type 250 (amendment) and
+      a description. The committed version's commit_audit carries both.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "None of these headers are mandatory, but whatever is provided it MUST be merged with the default VERSION and VERSION.audit_details attributes on commit runtime."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with a change type and a description in openehr-audit-details.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-audit-details, in: header, value: 'change_type.code_string="250",description.value="EHR_STATUS queryable flag reviewed"' }
+        requestBody:
+          contentType: application/json
+          payload: *not_queryable
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *status_updated
+      - stepId: read-version
+        description: Read the latest version of the EHR_STATUS, the one the update committed.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_version
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^250$'
+          - context: $response.body#/commit_audit/description/value
+            type: regex
+            condition: '^EHR_STATUS queryable flag reviewed$'
+
+  - workflowId: update-other_details
+    summary: An update that supplies other_details commits them
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with an other_details
+      ITEM_TREE holding one ELEMENT. The latest EHR_STATUS read back carries
+      that ELEMENT's value.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/ehr_status.adoc
+      section: EHR_STATUS Class
+      quote: "Any other details of the EHR summary object, in the form of an archetyped `ITEM_STRUCTURE`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with other_details.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: true
+            other_details:
+              _type: ITEM_TREE
+              archetype_node_id: at0001
+              name: { _type: DV_TEXT, value: Details }
+              items:
+                - _type: ELEMENT
+                  archetype_node_id: at0002
+                  name: { _type: DV_TEXT, value: Note }
+                  value: { _type: DV_TEXT, value: EHR_STATUS other_details round trip }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *status_updated
+      - stepId: read-back
+        description: Read the latest EHR_STATUS back; it carries the supplied other_details.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_status
+          - context: $response.body#/other_details/items/0/value/value
+            type: regex
+            condition: '^EHR_STATUS other_details round trip$'
+
+  - workflowId: update-client_supplied_uid
+    summary: A uid the client puts in an updated EHR_STATUS does not become the version's identifier
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with a body that carries a
+      uid naming another versioned object. The update is committed under a
+      version whose object_id is the EHR_STATUS container's own uid, and the
+      client's uid addresses no version.
+    x-veredictum-cite: &object_id_copy
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Version Identification
+      quote: "in which the `__object_id()__` part is a copy of the `__uid__` of the owning `VERSIONED_OBJECT` version container."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: container
+        description: Read the VERSIONED_EHR_STATUS for its uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSIONED_EHR_STATUS.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSIONED_EHR_STATUS is successfully retrieved."
+        outputs:
+          uid: $response.body#/uid/value
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with is_queryable false and a uid of the client's choosing.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            uid: { _type: OBJECT_VERSION_ID, value: "3b6c9f18-0000-4000-8000-0000000004c3::client.example.org::1" }
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: false
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *status_updated
+      - stepId: latest
+        description: Read the latest version; its uid belongs to the EHR_STATUS container and it holds the update.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *latest_version
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.container.outputs.uid}::'
+          - condition: $response.body#/data/is_queryable == false
+            x-veredictum-cite: *latest_version
+      - stepId: client-uid
+        description: Read the EHR_STATUS at the client's uid; no version carries it.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: "3b6c9f18-0000-4000-8000-0000000004c3::client.example.org::1" }
+        successCriteria:
+          - condition: $statusCode == 404
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id_or_version_uid.yaml
+              section: description
+              quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when the `version_uid` does not exist."
+
+  - workflowId: update-invalid_status-missing_required
+    summary: An EHR_STATUS update whose body lacks a member the request schema requires is refused
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with the row's body, which
+      lacks subject, is_queryable or is_modifiable, each of which the
+      released request-body schema requires. The update is refused with 400
+      Bad Request.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/schemas/ehr/EhrStatus.yaml
+      section: required
+      quote: "subject is_queryable is_modifiable"
+    inputs:
+      type: object
+      required: [ehr_status]
+      properties:
+        ehr_status: { type: object }
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with the row's incomplete body.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.ehr_status
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: update-status_without_archetype_details
+    summary: An EHR_STATUS update whose body carries no archetype_details is refused
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with a body that carries no
+      archetype_details. An EHR_STATUS is an archetype root, and an archetype
+      root carries archetype_details, so the update is refused with 422
+      Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+      section: LOCATABLE Class
+      quote: "is_archetype_root xor archetype_details = Void"
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with a body that has no archetype_details.
+        x-veredictum-cite:
+          source: specs/openehr/RM/docs/UML/classes/ehr_status.adoc
+          section: EHR_STATUS Class
+          quote: "__Is_archetype_root__: `is_archetype_root`"
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite: &semantic_error
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The request was well-formed but was unable to be followed due to semantic errors"
+
+  - workflowId: update-rm_version_empty
+    summary: An EHR_STATUS update whose archetype_details carries an empty rm_version is refused
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with a body whose
+      archetype_details names an empty rm_version and is otherwise valid. The
+      ARCHETYPED invariant requires a non-empty rm_version, so the update is
+      refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/archetyped.adoc
+      section: ARCHETYPED Class
+      quote: "__Rm_version_valid__: `not rm_version.is_empty`"
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with an empty rm_version.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: ""
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite: *semantic_error
+
+  - workflowId: update-root_archetype_id_mismatch
+    summary: An EHR_STATUS update whose archetype_node_id contradicts its archetype_id is refused
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with a body whose
+      archetype_node_id names one archetype and whose archetype_details names
+      another. At an archetype root the two are the same, so the update is
+      refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+      section: LOCATABLE Class
+      quote: "At an archetype root point, the value of this attribute is always the stringified form of the `_archetype_id_` found in the `_archetype_details_` object."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with a root archetype_node_id that differs from its archetype_id.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.other.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite: *semantic_error
+
+  - workflowId: update-paragraph_no_items
+    summary: An EHR_STATUS update carrying a DV_PARAGRAPH with no items is refused
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with other_details whose
+      ELEMENT value is a DV_PARAGRAPH with an empty items list. The
+      DV_PARAGRAPH invariant requires items, and the published ITS-JSON
+      schema (openehr_rm_1.1.0_all.json, DV_PARAGRAPH.items, minItems 1)
+      refuses the body, so it is syntactically invalid content and the
+      update is refused with 400 Bad Request.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/dv_paragraph.adoc
+      section: DV_PARAGRAPH Class
+      quote: "__Items_valid__: `not items.is_empty`"
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: Update the EHR_STATUS with a DV_PARAGRAPH whose items list is empty.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: true
+            other_details:
+              _type: ITEM_TREE
+              archetype_node_id: at0001
+              name: { _type: DV_TEXT, value: Details }
+              items:
+                - _type: ELEMENT
+                  archetype_node_id: at0002
+                  name: { _type: DV_TEXT, value: Note }
+                  value: { _type: DV_PARAGRAPH, items: [] }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"

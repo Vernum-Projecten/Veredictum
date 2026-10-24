@@ -84,3 +84,178 @@ cases:
     new: [ehr_xml/get_ehr-xml]
   I_EHR_SERVICE.has_ehr_for_subject-xml:
     new: [ehr_xml/get_ehr-by_subject-xml]
+  I_EHR_STATUS.clear_ehr_modifiable-bad_ehr:
+    new: [ehr_status_update/update-unknown_ehr]
+  I_EHR_STATUS.clear_ehr_modifiable-existing_ehr:
+    new: [ehr_status_flags/clear_modifiable]
+  I_EHR_STATUS.clear_ehr_modifiable-invalid_body:
+    new: &invalid_body
+      - ehr_status_update/update-invalid_status-missing_required
+      - ehr_status_update/update-status_without_archetype_details
+    open: &invalid_other_details >-
+      The row whose other_details carries no _type: upstream report #650.
+      The released key words apply only in capitals, so the lower-case
+      "should be used" of Resources.md assigns no refusal.
+  I_EHR_STATUS.clear_ehr_modifiable-missing_if_match:
+    new: &missing_if_match [ehr_status_update/update-missing_if_match]
+    open: &missing_if_match_level >-
+      Carried as advisory: Requests_and_responses.md §If-Match and accidental
+      overwrites says the service "SHOULD respond with `400 Bad Request`"
+      when a client omits an expected If-Match.
+  I_EHR_STATUS.clear_ehr_modifiable-stale_if_match:
+    new: &stale_if_match
+      - ehr_status_update/update-stale_if_match
+      - ehr_status_update/update-stale_if_match-etag_latest
+      - ehr_status_update/update-stale_if_match-etag_weak
+  I_EHR_STATUS.clear_ehr_modifiable-xml_body:
+    new: &xml_body [ehr_status_xml_write_refused/update-xml_unsupported_media]
+  I_EHR_STATUS.clear_ehr_queryable-bad_ehr:
+    new: [ehr_status_update/update-unknown_ehr]
+  I_EHR_STATUS.clear_ehr_queryable-client_supplied_uid:
+    new: [ehr_status_update/update-client_supplied_uid]
+  I_EHR_STATUS.clear_ehr_queryable-existing_ehr:
+    new: [ehr_status_flags/clear_queryable]
+  I_EHR_STATUS.clear_ehr_queryable-invalid_body:
+    new: *invalid_body
+    open: *invalid_other_details
+  I_EHR_STATUS.clear_ehr_queryable-missing_if_match:
+    new: *missing_if_match
+    open: *missing_if_match_level
+  I_EHR_STATUS.clear_ehr_queryable-stale_if_match:
+    new: *stale_if_match
+  I_EHR_STATUS.clear_ehr_queryable-xml_body:
+    new: *xml_body
+  I_EHR_STATUS.get_ehr_status-at_time_before_first_version:
+    new: [ehr_status/get_ehr_status-at_time_before_first_version]
+  I_EHR_STATUS.get_ehr_status-at_time_future:
+    new: [ehr_status/get_ehr_status-at_time_future]
+  I_EHR_STATUS.get_ehr_status-at_time_malformed:
+    new: [ehr_status/get_ehr_status-at_time_malformed]
+  I_EHR_STATUS.get_ehr_status-at_time_omitted:
+    new: [ehr_status/get_ehr_status-latest]
+  I_EHR_STATUS.get_ehr_status-bad_ehr:
+    new: [ehr_status/get_ehr_status-unknown_ehr]
+  I_EHR_STATUS.get_ehr_status-get_by_ehr_id:
+    new:
+      - ehr_status/get_ehr_status
+      - ehr_status/get_ehr_status-etag_weak
+      - ehr_status/get_ehr_status-no_location
+      - ehr_status/get_ehr_status-etag_last_modified
+    open: &instance_of >-
+      The RM type of the served object is not asserted: it is read from
+      _type, which Resources.md asks for only with a lower-case "should be
+      used" (upstream report #650).
+  I_EHR_STATUS.get_ehr_status-xml:
+    new: [ehr_status_xml/get_ehr_status-xml]
+  I_EHR_STATUS.get_ehr_status-xml_not_acceptable:
+    new: [ehr_status_xml_not_acceptable/get_ehr_status-xml_not_acceptable]
+  I_EHR_STATUS.get_ehr_status_at_version-addressed_version:
+    new:
+      - ehr_status/get_ehr_status-by_version_id
+      - ehr_status/get_ehr_status-by_version_id-etag_weak
+      - ehr_status/get_ehr_status-by_version_id-no_location
+    open: *instance_of
+  I_EHR_STATUS.get_ehr_status_at_version-composition_uid_kind_mismatch:
+    new: [ehr_status/get_ehr_status-by_version_id-composition_uid]
+  I_EHR_STATUS.get_ehr_status_at_version-unknown_version:
+    new: [ehr_status/get_ehr_status-by_version_id-unknown_version]
+  I_EHR_STATUS.get_versioned_ehr_status-at_time_before_first_version:
+    new: [ehr_status_versioned/get_versioned_ehr_status_version-at_time_before_first_version]
+  I_EHR_STATUS.get_versioned_ehr_status-at_time_future:
+    new: [ehr_status_versioned/get_versioned_ehr_status_version-at_time_future]
+  I_EHR_STATUS.get_versioned_ehr_status-at_time_malformed:
+    new: [ehr_status_versioned/get_versioned_ehr_status_version-at_time_malformed]
+  I_EHR_STATUS.get_versioned_ehr_status-at_time_omitted:
+    new:
+      - ehr_status_versioned/get_versioned_ehr_status_version-latest
+      - ehr_status_versioned/get_versioned_ehr_status_version-etag_weak
+      - ehr_status_versioned/get_versioned_ehr_status_version-no_location
+    open: *instance_of
+  I_EHR_STATUS.get_versioned_ehr_status-bad_ehr:
+    new: [ehr_status_versioned/get_versioned_ehr_status-unknown_ehr]
+  I_EHR_STATUS.get_versioned_ehr_status-contained_uid_form:
+    new:
+      - ehr_status_versioned/get_versioned_ehr_status_version-by_id
+      - ehr_status_versioned/get_versioned_ehr_status_version-by_id-etag_weak
+      - ehr_status_versioned/get_versioned_ehr_status_version-by_id-no_location
+    open: >-
+      The uid copied into the contained EHR_STATUS: RM ehr_status.adoc says
+      only "It is strongly recommended", and Resources.md "should be copied",
+      neither in capitals, so no released key word requires the copy or its
+      form. The RM type of the served object is not asserted (upstream
+      report #650).
+  I_EHR_STATUS.get_versioned_ehr_status-container_shape:
+    new:
+      - ehr_status_versioned/get_versioned_ehr_status
+      - ehr_status_versioned/get_versioned_ehr_status-etag_weak
+      - ehr_status_versioned/get_versioned_ehr_status-no_location
+      - ehr_status_versioned/get_versioned_ehr_status-etag_last_modified
+    open: >-
+      The values of owner_id: RM versioned_object.adoc says only "e.g. the id
+      of the containing EHR or other relevant owning entity", so its
+      presence is asserted and its namespace, type and id are not. The RM
+      type of the served object is not asserted (upstream report #650).
+  I_EHR_STATUS.get_versioned_ehr_status-imported_version:
+    new: []
+    open: >-
+      The clone that precedes the read is an EHR import through a route no
+      released OAS declares, and the catalogue has no source for extension
+      routes yet; its expectations also rest on the AMB-198 handling of
+      IMPORTED_VERSION, which no released sentence assigns.
+  I_EHR_STATUS.get_versioned_ehr_status-version_of_other_ehr:
+    new: [ehr_status_versioned/get_versioned_ehr_status_version-of_other_ehr]
+  I_EHR_STATUS.get_versioned_ehr_status-xml:
+    new:
+      - ehr_status_xml/get_versioned_ehr_status-xml
+      - ehr_status_xml/get_versioned_ehr_status_version-by_id-xml
+  I_EHR_STATUS.set_ehr_modifiable-bad_ehr:
+    new: [ehr_status_update/update-unknown_ehr]
+  I_EHR_STATUS.set_ehr_modifiable-deactivated_ehr:
+    new: [ehr_status_flags/set_modifiable-deactivated_ehr]
+  I_EHR_STATUS.set_ehr_modifiable-existing_ehr:
+    new: [ehr_status_flags/set_modifiable-deactivated_ehr]
+  I_EHR_STATUS.set_ehr_modifiable-invalid_body:
+    new: *invalid_body
+    open: *invalid_other_details
+  I_EHR_STATUS.set_ehr_modifiable-missing_if_match:
+    new: *missing_if_match
+    open: *missing_if_match_level
+  I_EHR_STATUS.set_ehr_modifiable-root_archetype_id_mismatch:
+    new: [ehr_status_update/update-root_archetype_id_mismatch]
+  I_EHR_STATUS.set_ehr_modifiable-stale_if_match:
+    new: *stale_if_match
+  I_EHR_STATUS.set_ehr_modifiable-xml_body:
+    new: *xml_body
+  I_EHR_STATUS.set_ehr_queryable-audit_change_type:
+    new: [ehr_status_update/update-audit_details]
+  I_EHR_STATUS.set_ehr_queryable-bad_ehr:
+    new: [ehr_status_update/update-unknown_ehr]
+  I_EHR_STATUS.set_ehr_queryable-cluster_no_items:
+    new: []
+    open: >-
+      No released MUST makes an empty CLUSTER.items invalid: RM cluster.adoc
+      types items 1..1 with no invariant on its size, and the minItems of the
+      ITS-JSON schema binds only through Resources.md's "SHOULD be valid
+      against published JSON-Schemas", which the client is asked to meet.
+  I_EHR_STATUS.set_ehr_queryable-existing_ehr:
+    new: [ehr_status_flags/set_queryable, ehr_status_update/update-etag_weak]
+  I_EHR_STATUS.set_ehr_queryable-invalid_body:
+    new: *invalid_body
+    open: *invalid_other_details
+  I_EHR_STATUS.set_ehr_queryable-missing_if_match:
+    new: *missing_if_match
+    open: *missing_if_match_level
+  I_EHR_STATUS.set_ehr_queryable-paragraph_no_items:
+    new: [ehr_status_update/update-paragraph_no_items]
+  I_EHR_STATUS.set_ehr_queryable-prefer_minimal:
+    new: [ehr_status_update/update-prefer_minimal]
+  I_EHR_STATUS.set_ehr_queryable-return_identifier:
+    new: [ehr_status_update/update-return_identifier]
+  I_EHR_STATUS.set_ehr_queryable-rm_version_empty:
+    new: [ehr_status_update/update-rm_version_empty]
+  I_EHR_STATUS.set_ehr_queryable-stale_if_match:
+    new: *stale_if_match
+  I_EHR_STATUS.set_ehr_queryable-xml_body:
+    new: *xml_body
+  I_EHR_STATUS.update_other_details-round_trip:
+    new: [ehr_status_update/update-other_details]
