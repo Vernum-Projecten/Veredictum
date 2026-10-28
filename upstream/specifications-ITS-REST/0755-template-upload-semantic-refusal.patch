@@ -1,0 +1,40 @@
+diff --git a/specifications/operations/definition_template_adl1.4_upload.yaml b/specifications/operations/definition_template_adl1.4_upload.yaml
+index 394a9afc..5f788839 100644
+--- a/specifications/operations/definition_template_adl1.4_upload.yaml
++++ b/specifications/operations/definition_template_adl1.4_upload.yaml
+@@ -2,6 +2,9 @@ operationId: definition_template_adl1.4_upload
+ summary: Upload a template
+ description: |
+   Upload a new ADL 1.4 operational template (OPT).
++
++  A template that is not valid against the published OPT XML schema is refused with `400 Bad Request`. A template
++  that is valid against it but breaks a rule of the AOM is refused with `422 Unprocessable Entity`.
+ tags:
+   - ADL1.4
+ parameters:
+@@ -82,3 +85,5 @@ responses:
+     $ref: ../responses/400.yaml
+   '409':
+     $ref: ../responses/409_template_already_exists.yaml
++  '422':
++    $ref: ../responses/422.yaml
+diff --git a/specifications/operations/definition_template_adl2_upload.yaml b/specifications/operations/definition_template_adl2_upload.yaml
+index 3ebe3003..5ef8f1d2 100644
+--- a/specifications/operations/definition_template_adl2_upload.yaml
++++ b/specifications/operations/definition_template_adl2_upload.yaml
+@@ -2,6 +2,9 @@ operationId: definition_template_adl2_upload
+ summary: Upload a template
+ description: |
+   Upload a new ADL2 operational template.
++
++  A template that does not parse as ADL2 is refused with `400 Bad Request`. A template that parses but breaks a
++  validity rule of the AOM is refused with `422 Unprocessable Entity`.
+ tags:
+   - ADL2
+ parameters:
+@@ -48,3 +51,5 @@ responses:
+     $ref: ../responses/400.yaml
+   '409':
+     $ref: ../responses/409_template_already_exists.yaml
++  '422':
++    $ref: ../responses/422.yaml

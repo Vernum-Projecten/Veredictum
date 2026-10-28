@@ -97,8 +97,11 @@ In the console, a red run's results screen offers the same document under
    against the running SUT) plus the spec citation, file and section, with the
    decisive sentence quoted. A verdict about somebody else's product is held
    to a higher evidence bar than a verdict about our own.
-6. Spec silence or genuine ambiguity goes to `artifacts/registers/ambiguities.yaml`
-   with a typed `disposition`, never a private resolution.
+6. Spec silence or genuine ambiguity becomes an `upstream-report` issue with
+   its patch (below), and no case asserts the silent behaviour. Behaviour the
+   release leaves to the implementation is an option in
+   `catalogue/capabilities.yaml`. Never a private resolution. The old
+   ambiguity register is frozen and goes with the old tree (#604).
 
 ## Hard rules
 
@@ -129,14 +132,10 @@ In the console, a red run's results screen offers the same document under
   Every row gets the full derivation. No attribution without a citation.
 - Transport faults and step-resolution failures classify as inconclusive
   runner-side rows, never SUT failures.
-- **Ambiguity-register entries are spec-PROVEN, never assumed.** Every entry
-  is confirmed first-hand against the released text; the register is a
-  suspect like any other catalogue artifact. Re-adjudicate before trusting one
-  or attaching an upstream report. A claimed ambiguity the spec actually
-  DEFINES is a catalogue defect: remove the entry and make the case gating,
-  and do not report it upstream. `report_only` and `editorial` entries MUST
-  carry an `upstream_issue` (schema-enforced) so a carried divergence is
-  always reported to openEHR, never silently absorbed.
+- **A claimed silence is spec-PROVEN, never assumed.** It is confirmed
+  first-hand against the released text before a report is filed, and a report
+  is a suspect like any other artifact. A claimed silence the spec actually
+  DEFINES is a catalogue defect: make the case gating and do not report it.
 - Standing test discipline applies: never weaken a test or an expectation to
   go green (`.claude/rules/testing.md`).
 
@@ -144,13 +143,18 @@ In the console, a red run's results screen offers the same document under
 
 An outbound report of a released-spec defect, contradiction, or silence is a
 **GitHub issue labeled `upstream-report`**, never a markdown ledger file. One
-issue per defect; the register entry points at it via `upstream_issue: <number>`;
-the narrative lives only on the issue.
+issue per defect, or per group of closely related defects one patch fixes; a
+citation that rests on the defect names it via `report: <number>` in its
+`x-veredictum-cite` (CI's `scripts/checks/report-refs.sh` refuses a number that
+is not an `upstream-report` issue here); the narrative lives only on the issue.
 
 - **Shape**: a plain opening summary, then `## What the released spec says`
-  with citations and quotes, `## What this implementation does` with the
-  register disposition, `## Resolution sought upstream`. Never ticket-draft
-  framing, and no Channel/Status/Ask fields.
+  with citations and quotes, `## What this implementation does`,
+  `## Resolution sought upstream`, `## What the patch changes`,
+  `## Points for the SEC to decide`. No report exists without its patch under
+  `upstream/<openEHR repository>/`, written against the vendored commit and
+  checked with `git apply --check`. Never ticket-draft framing, and no
+  Channel/Status/Ask fields.
 - **Grounding**: docs text first. The released OAS is citable only where the
   docs text is silent, is always cited as the OAS, and loses every conflict. A
   behaviour the OAS DEFINES is not a reportable silence, and a "defect" that
@@ -161,12 +165,12 @@ the narrative lives only on the issue.
   as genuine it gains `upstream-confirmed`, and once its divergence is fully
   adjudicated here, with nothing further pending on our side, it is CLOSED as
   the standing outbound record: the closed issue stays the durable, linkable
-  target of the register's `upstream_issue`, so nothing is silently absorbed
+  target of every `report:` that names it, so nothing is silently absorbed
   by closing, and the open set stays near zero by design. A confirmed report
   stays open only while something here is genuinely blocked on it, expressed
   as a native `blocked-by` edge. When it turns out to be a docs misreading it
-  closes as refuted, its register entry is removed or re-grounded, and the
-  affected case becomes gating. A proposed fix to the released text is a
+  closes as refuted, every `report:` naming it is removed, and the affected
+  case becomes gating. A proposed fix to the released text is a
   patch under `upstream/<openEHR repository>/`, named after the report. When
   the owner files a report on an openEHR channel, the returned key is
   recorded on the issue without reopening it; when upstream later resolves

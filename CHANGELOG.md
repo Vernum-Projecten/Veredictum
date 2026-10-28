@@ -30,6 +30,20 @@ version on.
   explanation, and every view is byte-deterministic. The CTRF 0.2.0 JSON
   Schema is vendored by `scripts/vendor/ctrf-schema.sh`, and the export is
   tested against it. The command reference carries a GitHub Actions example.
+- The ambiguity register's 191 entries have destinations (#617): each was
+  re-checked against the vendored text and sent to the workflow citation that
+  already carries it, an existing upstream report, a new one, a capability
+  option, or dropped with its reason, in a migration table on #617. Thirteen
+  new upstream reports, #750 to #762, cover the ITEM_TAG operations, the
+  CONTRIBUTION commit, versioned content reads and writes, the directory, the
+  Query API, template uploads, the HTTP overview, the Demographic and Admin
+  APIs, SMART on openEHR, the Simplified Formats and canonical XML, the RM,
+  AQL and BASE, each with its patch under `upstream/`. `capabilities.yaml`
+  gains four options: `aql-undefined-containment`, `aql-nonnumeric-aggregate`,
+  `xml-namespace` and `terminology-binding-unresolvable`. The CI report guard
+  now also checks the `report:` numbers in `capabilities.yaml`, and the id
+  map names upstream reports instead of register entries. The register itself
+  is frozen and is deleted with the old tree (#604).
 - The messaging, security, SMART and performance cases are mapped onto the
   Arazzo catalogue (#603), the last old families, so every old case id is in
   `catalogue/id-map.yaml`. 11 workflows carry the security behaviours the
@@ -510,6 +524,10 @@ version on.
 
 ### Removed
 
+- The one-off `convert_catalogue` example that drafted each component's
+  Arazzo documents (#603). Every component of the case-core catalogue is
+  converted and every old case id is in `catalogue/id-map.yaml`, so the
+  converter has nothing left to convert.
 - The two TDS workflows of the Simplified Formats documents
   (`create_composition-tds2_media_unsupported` and
   `get_template_example-tds2_not_acceptable`) are removed by owner ruling
