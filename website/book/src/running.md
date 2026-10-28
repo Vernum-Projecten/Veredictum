@@ -142,6 +142,51 @@ on any machine, and you get the same bytes out. It writes:
 Nothing in these documents is asserted by hand. A number that appears in them
 was computed from the record in the same run that printed it.
 
+## The Arazzo catalogue
+
+The catalogue under `catalogue/` is the one the case-core catalogue above is
+moving to: every case is a workflow in an [Arazzo 1.1.0] document over the
+released openEHR REST API OpenAPI documents. `veredictum test` drives it:
+
+```bash
+export VEREDICTUM_SUT_USER=… VEREDICTUM_SUT_PASSWORD=…
+veredictum test --base-url https://cdr.example/openehr/v1 --auth basic \
+    --statement mine/statement.json --out out/
+```
+
+The run gates the whole catalogue first and runs nothing while the gate has a
+finding. It writes `out/results.json`, one row per workflow row, and
+`out/recording.har`, every exchange as HAR 1.2. The recording holds the
+server's response bodies verbatim, so it stays where you keep the run.
+`--rejudge out/recording.har` judges the recording again with no server, and
+writes the same `results.json` bytes. The exit status is `0` when every row
+passed or was skipped, `1` when a row failed or errored, and `2` when the run
+could not start, so a CI job goes red on a failed row. An advisory row, a
+SHOULD the server did not follow, is reported and leaves the status at `0`. [`export`](commands.md#export) turns
+`results.json` into JUnit XML, CTRF and a Markdown summary for that job.
+
+The container image carries this catalogue and runs the same subcommand. Mount
+a directory the image's user (uid 65532) can write to, and name it as `--out`:
+
+```bash
+docker run --rm -v "$PWD/out:/work/out" \
+    -e VEREDICTUM_SUT_USER -e VEREDICTUM_SUT_PASSWORD \
+    ghcr.io/vernum-projecten/veredictum:<tag> \
+    test --base-url https://cdr.example/openehr/v1 --auth basic --out /work/out
+```
+
+**What any Arazzo tool can do with it, and what only Veredictum does.** The
+documents are plain Arazzo 1.1.0. Any Arazzo tool can read them, and one that
+runs workflows can smoke-run them against a server: the steps, parameters,
+request bodies and success criteria are standard. A conformance verdict comes
+only from `veredictum`. The citation behind each criterion, the judges a plain
+condition cannot express, the selection of documents by the party's statement,
+and the attribution of each red row to the server or to the instrument live in
+the `x-veredictum-*` extensions and in this pipeline, and a generic runner
+ignores both. Its pass or fail is a second opinion, never a verdict.
+
+[Arazzo 1.1.0]: https://spec.openapis.org/arazzo/v1.1.0.html
+
 ## Measured performance, stress and speed
 
 Those four steps cover functional conformance. Three more instruments produce
