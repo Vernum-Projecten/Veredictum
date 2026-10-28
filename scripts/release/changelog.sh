@@ -430,6 +430,8 @@ EOF
     cmd_assemble "$good" 0.2.1 2026-10-29
 
   # Each bad fragment alone in its own tree, with the reason it must be refused.
+  # The seeded SPDX header below is test data, not this file's licence.
+  # REUSE-IgnoreStart
   local n=0 name body want bad
   while IFS='|' read -r name body want; do
     n=$((n + 1))
@@ -458,6 +460,7 @@ abc-slug.added.md|- x\n|the name is not
 5-slug.added.md|- x\n\tcontinued by a tab\n|neither a list item
 5-slug.added.md|- x\r\n|a carriage return
 EOF
+  # REUSE-IgnoreEnd
   mkdir "$tmp/bad-dir"
   seed_tree "$tmp/bad-dir"
   mkdir "$tmp/bad-dir/changelog.d/5-slug.added.md"
