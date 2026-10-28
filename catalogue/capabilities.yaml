@@ -150,3 +150,58 @@ options:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Simplified Formats
       quote: "If the service cannot process the request payload as the simplified format is not supported, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  contribution-xml-read:
+    description: >-
+      Whether the service serves a CONTRIBUTION in canonical XML when a client
+      asks for it with Accept application/xml.
+    arms:
+      contribution-xml-supported:
+        documents: [contribution_read_xml]
+      contribution-xml-unsupported:
+        documents: [contribution_read_xml_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Services MUST support at least one of the openEHR **XML** or **JSON** canonical formats for resource representation."
+  contribution-xml-write:
+    description: >-
+      Whether the service processes a CONTRIBUTION sent as canonical XML on
+      the CONTRIBUTION create. No published XSD declares a document element
+      for CONTRIBUTION, so the accepting arm has no document yet.
+    arms:
+      contribution-xml-write-accepted:
+        documents: []
+      contribution-xml-write-refused:
+        documents: [contribution_xml_write_refused]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  directory-xml-read:
+    description: >-
+      Whether the service serves the directory FOLDER, latest and by
+      version_uid, in canonical XML when a client asks for it with Accept
+      application/xml.
+    arms:
+      directory-xml-supported:
+        documents: [directory_read_xml]
+      directory-xml-unsupported:
+        documents: [directory_read_xml_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Services MUST support at least one of the openEHR **XML** or **JSON** canonical formats for resource representation."
+  directory-xml-write:
+    description: >-
+      Whether the service processes a directory FOLDER sent as canonical XML
+      on the directory create and update. No published XSD declares a
+      document element for FOLDER, so the accepting arm has no document yet.
+    arms:
+      directory-xml-write-accepted:
+        documents: []
+      directory-xml-write-refused:
+        documents: [directory_xml_write_refused]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
