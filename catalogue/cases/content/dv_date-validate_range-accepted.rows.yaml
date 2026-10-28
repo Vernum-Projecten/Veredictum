@@ -1,0 +1,15 @@
+# The rows of CONT-DV_DATE-validate_range this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_date/dv_date-validate_range-accepted
+iteration: reset_per_row
+literals: ["value", "range.lower", "range.upper"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_DATE
+  template_id: cnf.tpl.dv_date_c_date
+  input: composition
+  template_input: template
+rows:
+  - {"value": "2021", "range.lower": "1900", "range.upper": "2030"}
+  - {"value": "2021-10", "range.lower": "1900-03", "range.upper": "2030-07"}
+  - {"value": "2021-10-24", "range.lower": "1900-03-13", "range.upper": "2030-07-09"}

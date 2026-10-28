@@ -1,0 +1,22 @@
+# The rows of CONT-CLUSTER-items_cardinality this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_cluster/cluster-items_cardinality-accepted
+iteration: reset_per_row
+literals: ["cardinality", "member_count"]
+recipe:
+  name: content_synthesized
+  rm_class: CLUSTER
+  template_id: cnf.tpl.ecc_cluster_items_cardinality
+  input: composition
+  template_input: template
+rows:
+  - {"cardinality": "any", "member_count": 1}
+  - {"cardinality": "any", "member_count": 3}
+  - {"cardinality": "any", "member_count": 6}
+  - {"cardinality": "mand", "member_count": 1}
+  - {"cardinality": "1plus", "member_count": 1}
+  - {"cardinality": "1plus", "member_count": 3}
+  - {"cardinality": "1plus", "member_count": 6}
+  - {"cardinality": "3plus", "member_count": 3}
+  - {"cardinality": "3plus", "member_count": 6}
+  - {"cardinality": "3to5", "member_count": 3}

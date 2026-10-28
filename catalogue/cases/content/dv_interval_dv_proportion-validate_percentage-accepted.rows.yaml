@@ -1,0 +1,12 @@
+# The rows of CONT-DV_INTERVAL_DV_PROPORTION-validate_percentage this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_interval_proportion/dv_interval_dv_proportion-validate_percentage-accepted
+iteration: reset_per_row
+literals: ["lower_type", "lower_numerator", "lower_denominator", "lower_precision", "upper_type", "upper_numerator", "upper_denominator", "upper_precision", "lower_unbounded", "upper_unbounded", "lower_included", "upper_included"]
+recipe:
+  name: content_instance
+  rm_class: DV_INTERVAL
+  template_id: cnf.tpl.interval_proportion_type_percent
+  input: composition
+rows:
+  - {"lower_type": 2, "lower_numerator": 10, "lower_denominator": 100, "lower_precision": 0, "upper_type": 2, "upper_numerator": 20, "upper_denominator": 100, "upper_precision": 0, "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true}

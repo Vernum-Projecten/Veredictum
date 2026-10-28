@@ -1,0 +1,21 @@
+# The rows of CONT-DV_DURATION-validate_fields this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_duration/dv_duration-validate_fields-accepted
+iteration: reset_per_row
+literals: ["value", "years_allowed", "months_allowed", "weeks_allowed", "days_allowed", "hours_allowed", "minutes_allowed", "seconds_allowed", "fractional_seconds_allowed"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_DURATION
+  template_id: cnf.tpl.dv_duration_c_duration
+  input: composition
+  template_input: template
+rows:
+  - {"value": "P1Y", "years_allowed": true, "months_allowed": true, "weeks_allowed": true, "days_allowed": true, "hours_allowed": true, "minutes_allowed": true, "seconds_allowed": true, "fractional_seconds_allowed": true}
+  - {"value": "P1Y3M", "years_allowed": true, "months_allowed": true, "weeks_allowed": true, "days_allowed": true, "hours_allowed": true, "minutes_allowed": true, "seconds_allowed": true, "fractional_seconds_allowed": true}
+  - {"value": "P1Y3M15D", "years_allowed": true, "months_allowed": true, "weeks_allowed": true, "days_allowed": true, "hours_allowed": true, "minutes_allowed": true, "seconds_allowed": true, "fractional_seconds_allowed": true}
+  - {"value": "P1W", "years_allowed": true, "months_allowed": true, "weeks_allowed": true, "days_allowed": true, "hours_allowed": true, "minutes_allowed": true, "seconds_allowed": true, "fractional_seconds_allowed": true}
+  - {"value": "P1Y3M15DT23H", "years_allowed": true, "months_allowed": true, "weeks_allowed": true, "days_allowed": true, "hours_allowed": true, "minutes_allowed": true, "seconds_allowed": true, "fractional_seconds_allowed": true}
+  - {"value": "P1Y3M15DT23H35M", "years_allowed": true, "months_allowed": true, "weeks_allowed": true, "days_allowed": true, "hours_allowed": true, "minutes_allowed": true, "seconds_allowed": true, "fractional_seconds_allowed": true}
+  - {"value": "P1Y3M15DT23H35M22S", "years_allowed": true, "months_allowed": true, "weeks_allowed": true, "days_allowed": true, "hours_allowed": true, "minutes_allowed": true, "seconds_allowed": true, "fractional_seconds_allowed": true}
+  - {"value": "P1Y3M15DT23H35M22.5S", "years_allowed": true, "months_allowed": true, "weeks_allowed": true, "days_allowed": true, "hours_allowed": true, "minutes_allowed": true, "seconds_allowed": true, "fractional_seconds_allowed": true}
+  - {"value": "P1W3D", "years_allowed": true, "months_allowed": true, "weeks_allowed": true, "days_allowed": true, "hours_allowed": true, "minutes_allowed": true, "seconds_allowed": true, "fractional_seconds_allowed": true}

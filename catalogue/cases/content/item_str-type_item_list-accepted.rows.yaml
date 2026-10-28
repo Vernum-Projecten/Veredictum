@@ -1,0 +1,13 @@
+# The rows of CONT-ITEM_STR-type_item_list this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_item_structure/item_str-type_item_list-accepted
+iteration: reset_per_row
+literals: ["slot_type", "committed_type"]
+recipe:
+  name: content_synthesized
+  rm_class: ITEM_STRUCTURE
+  template_id: cnf.tpl.ecc_item_structure_type_narrowing
+  input: composition
+  template_input: template
+rows:
+  - {"slot_type": "ITEM_LIST", "committed_type": "ITEM_LIST"}

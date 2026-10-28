@@ -11,9 +11,9 @@
 //! decision-table literals: each such value parses against the literal
 //! grammar of [`crate::literal`], and one that does not is refused with its
 //! row, its column and the character offset of the production that fails. A
-//! `recipe` then turns the literals of each row into the value of one more
-//! input ([`crate::arazzo::recipe`]), and the row it completes is what the
-//! inputs schema validates.
+//! `recipe` then turns the literals of each row into the values of one or
+//! two more inputs ([`crate::arazzo::recipe`]), and the row it completes is
+//! what the inputs schema validates.
 //!
 //! No openEHR spec governs this — our own design: Arazzo 1.1.0 defines a
 //! workflow's `inputs` as a JSON Schema but not how a set of values for them
@@ -50,7 +50,7 @@ pub struct RowsFile {
     /// The columns whose values are decision-table literals.
     #[serde(default)]
     pub literals: Vec<String>,
-    /// The recipe that binds one more input from each row's literals.
+    /// The recipe that binds more inputs from each row's literals.
     #[serde(default)]
     pub recipe: Option<RowRecipe>,
     /// The inputs bound from a value the party declares, by input name.
@@ -254,27 +254,26 @@ pub fn check_literals(rows: &RowsFile) -> Vec<String> {
 }
 
 /// The rows of `rows` as the workflow receives them: each authored row, plus
-/// the input its recipe binds.
+/// the inputs its recipe binds.
 ///
 /// # Errors
 /// One message per literal that does not parse, per row that already
-/// supplies the recipe's input, and per row the recipe cannot build.
+/// supplies an input the recipe binds, and per row the recipe cannot build.
 pub fn bind(rows: &RowsFile) -> Result<Vec<BTreeMap<String, Value>>, Vec<String>> {
     let mut problems = check_literals(rows);
     let mut bound = Vec::with_capacity(rows.rows.len());
     for (index, row) in rows.rows.iter().enumerate() {
         let mut row = row.clone();
         if let Some(recipe) = &rows.recipe {
-            let input = recipe.input();
-            if row.contains_key(input) {
-                problems.push(format!(
-                    "row {index}: `{input}` is bound by the recipe and cannot be supplied"
-                ));
-            }
-            match recipe.apply(&rows.literals, &row) {
-                Ok(value) => {
-                    row.insert(input.to_owned(), value);
+            for input in recipe.inputs() {
+                if row.contains_key(input) {
+                    problems.push(format!(
+                        "row {index}: `{input}` is bound by the recipe and cannot be supplied"
+                    ));
                 }
+            }
+            match recipe.bindings(&rows.literals, &row) {
+                Ok(values) => row.extend(values),
                 Err(error) => problems.push(format!("row {index}: {error}")),
             }
         }
@@ -288,8 +287,8 @@ pub fn bind(rows: &RowsFile) -> Result<Vec<BTreeMap<String, Value>>, Vec<String>
 }
 
 /// Checks the header of `rows` against the inputs `shape` declares: every
-/// literal column and the recipe's input are declared inputs, and the
-/// recipe's input is not a literal column.
+/// literal column and every input the recipe binds are declared inputs, and
+/// no input the recipe binds is a literal column.
 fn check_header(rows: &RowsFile, shape: &InputShape) -> Vec<String> {
     let mut out = Vec::new();
     for input in rows.declared.keys() {
@@ -307,16 +306,17 @@ fn check_header(rows: &RowsFile, shape: &InputShape) -> Vec<String> {
         }
     }
     if let Some(recipe) = &rows.recipe {
-        let input = recipe.input();
-        if !shape.declared.iter().any(|name| name == input) {
-            out.push(format!(
-                "the recipe binds `{input}`, which is not an input the workflow declares"
-            ));
-        }
-        if rows.literals.iter().any(|column| column == input) {
-            out.push(format!(
-                "the recipe binds `{input}`, which is also a literal column"
-            ));
+        for input in recipe.inputs() {
+            if !shape.declared.iter().any(|name| name == input) {
+                out.push(format!(
+                    "the recipe binds `{input}`, which is not an input the workflow declares"
+                ));
+            }
+            if rows.literals.iter().any(|column| column == input) {
+                out.push(format!(
+                    "the recipe binds `{input}`, which is also a literal column"
+                ));
+            }
         }
     }
     out

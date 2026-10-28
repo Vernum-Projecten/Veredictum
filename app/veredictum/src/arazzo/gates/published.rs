@@ -17,7 +17,7 @@ use crate::arazzo::derive::DERIVE_KEY;
 use crate::arazzo::document::CHECK_KEY;
 use crate::arazzo::gates::profile::ProfileHeader;
 use crate::arazzo::gates::surface::NegotiationHeader;
-use crate::arazzo::recipe::ContentClass;
+use crate::arazzo::recipe::{ContentClass, SynthesizedClass};
 use crate::vocab::Iteration;
 
 const DRAFT: &str = "https://json-schema.org/draft/2020-12/schema";
@@ -233,7 +233,7 @@ pub fn rows_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-rows"),
         "title": "Input rows for one data-driven Arazzo workflow",
-        "description": "Sits beside the Arazzo document whose workflow it feeds, named `<workflowId>.rows.yaml`; `workflow` repeats that workflow's case id. Each row binds the workflow's `inputs` by property name: a key the inputs schema does not name is refused, every `required` input is bound in every row, and each row validates against the inputs schema. An input of `format: uuid` with no value is generated per row. A value under a column `literals` names is a decision-table literal, and `validate` refuses one that does not parse against the literal grammar, naming its row, its column and the character offset of the production that fails. A `recipe` binds one more input per row from the row's literals, and the row it completes is what the inputs schema validates.",
+        "description": "Sits beside the Arazzo document whose workflow it feeds, named `<workflowId>.rows.yaml`; `workflow` repeats that workflow's case id. Each row binds the workflow's `inputs` by property name: a key the inputs schema does not name is refused, every `required` input is bound in every row, and each row validates against the inputs schema. An input of `format: uuid` with no value is generated per row. A value under a column `literals` names is a decision-table literal, and `validate` refuses one that does not parse against the literal grammar, naming its row, its column and the character offset of the production that fails. A `recipe` binds one or two more inputs per row from the row's literals, and the row it completes is what the inputs schema validates.",
         "type": "object",
         "additionalProperties": false,
         "required": ["workflow", "iteration", "rows"],
@@ -395,7 +395,7 @@ pub fn surface_schema() -> Value {
 /// arguments.
 fn recipe_def() -> Value {
     json!({
-        "description": "The registered recipe that turns each row's literals into the value of one more input. `content_instance` builds the composition a content decision-table row commits: the `rm_class` value from the literal columns, in the minimal carrier composition stamped with `template_id`.",
+        "description": "The registered recipe that turns each row's literals into the values of more inputs. `content_instance` builds the composition a content decision-table row commits: the `rm_class` value from the literal columns, in the minimal carrier composition stamped with `template_id`. `content_synthesized` serves a table whose rows vary the template: per row it builds the operational template (OPT 1.4 XML text) from the literal columns, under the id `template_id` followed by a digest of the template the row's constraint columns build, binds it to `template_input`, and binds the composition stamped with that id to `input`.",
         "oneOf": [
             {
                 "type": "object",
@@ -407,6 +407,30 @@ fn recipe_def() -> Value {
                     "template_id": { "type": "string", "minLength": 1 },
                     "input": {
                         "description": "The workflow input the recipe binds; no row supplies it.",
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "rm_class", "template_id", "input", "template_input"],
+                "properties": {
+                    "name": { "const": "content_synthesized" },
+                    "rm_class": { "enum": tokens(SynthesizedClass::ALL) },
+                    "template_id": {
+                        "description": "The template family: each row's template id is this id, a dot and eight hex digits.",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "input": {
+                        "description": "The workflow input the composition is bound to; no row supplies it.",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "template_input": {
+                        "description": "The workflow input the row's operational template is bound to; no row supplies it.",
                         "type": "string",
                         "minLength": 1
                     }

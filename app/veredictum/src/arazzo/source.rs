@@ -9,10 +9,46 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex, PoisonError};
+use std::time::SystemTime;
 
 use serde_json::Value;
 
 use crate::vocab::HttpMethod;
+
+/// A file as last seen: its path, modification time and length.
+type Stamp = (PathBuf, SystemTime, u64);
+
+/// Returns the index of the file at `path`, built once per process for each
+/// version of the file a [`Stamp`] tells apart; a file whose metadata cannot
+/// be read is indexed afresh every time.
+// NOTE: no openEHR spec governs this — our own design: every catalogue
+// document names the same OpenAPI files, and parsing them per document dominated `validate`.
+fn memoized<T: Clone, E>(
+    cache: &Mutex<BTreeMap<Stamp, T>>,
+    path: &Path,
+    build: fn(&Path) -> Result<T, E>,
+) -> Result<T, E> {
+    let stamp = std::fs::metadata(path)
+        .ok()
+        .and_then(|meta| Some((path.to_owned(), meta.modified().ok()?, meta.len())));
+    let Some(stamp) = stamp else {
+        return build(path);
+    };
+    if let Some(hit) = cache
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get(&stamp)
+    {
+        return Ok(hit.clone());
+    }
+    let index = build(path)?;
+    cache
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(stamp, index.clone());
+    Ok(index)
+}
 
 /// One addressable operation of a source.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,6 +112,12 @@ impl OperationIndex {
     /// [`SourceError`] when the file does not load, has no `paths`, uses a
     /// method outside [`HttpMethod`], or repeats an `operationId`.
     pub fn load(path: &Path) -> Result<Self, SourceError> {
+        static INDEXED: LazyLock<Mutex<BTreeMap<Stamp, OperationIndex>>> =
+            LazyLock::new(Mutex::default);
+        memoized(&INDEXED, path, Self::index)
+    }
+
+    fn index(path: &Path) -> Result<Self, SourceError> {
         let document =
             crate::load::yaml_file_to_value(path).map_err(|error| SourceError::Load {
                 path: path.to_owned(),
@@ -272,6 +314,12 @@ impl ParameterIndex {
     /// [`ParameterError`] when the file does not load, a `$ref` does not
     /// resolve inside the document, or a parameter is malformed.
     pub fn load(path: &Path) -> Result<Self, ParameterError> {
+        static INDEXED: LazyLock<Mutex<BTreeMap<Stamp, ParameterIndex>>> =
+            LazyLock::new(Mutex::default);
+        memoized(&INDEXED, path, Self::index)
+    }
+
+    fn index(path: &Path) -> Result<Self, ParameterError> {
         let document =
             crate::load::yaml_file_to_value(path).map_err(|error| SourceError::Load {
                 path: path.to_owned(),
@@ -444,6 +492,25 @@ mod tests {
             ParameterIndex::load(file.path()),
             Err(ParameterError::Malformed { .. })
         ));
+    }
+
+    #[test]
+    fn a_rewritten_source_is_indexed_again() {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        let file = dir.child("oas.yaml");
+        file.write_str("openapi: 3.0.3\npaths:\n  /a:\n    get:\n      operationId: a\n")
+            .unwrap();
+        let first = OperationIndex::load(file.path()).unwrap();
+        assert!(first.get("a").is_some());
+        assert_eq!(OperationIndex::load(file.path()).unwrap(), first);
+        file.write_str("openapi: 3.0.3\npaths:\n  /bb:\n    get:\n      operationId: bb\n")
+            .unwrap();
+        let second = OperationIndex::load(file.path()).unwrap();
+        assert!(second.get("a").is_none());
+        assert!(second.get("bb").is_some());
+        let parameters = ParameterIndex::load(file.path()).unwrap();
+        assert_eq!(parameters, ParameterIndex::load(file.path()).unwrap());
     }
 
     #[test]

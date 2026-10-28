@@ -1,0 +1,12 @@
+# The rows of CONT-DV_TEXT-validate_list this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_text/dv_text-validate_list-c_string_list
+iteration: reset_per_row
+literals: ["value", "C_STRING.pattern", "C_STRING.list"]
+recipe:
+  name: content_instance
+  rm_class: DV_TEXT
+  template_id: cnf.tpl.dv_text_list
+  input: composition
+rows:
+  - {"value": "ABC", "C_STRING.pattern": null, "C_STRING.list": "[XYZ, OPQ]"}

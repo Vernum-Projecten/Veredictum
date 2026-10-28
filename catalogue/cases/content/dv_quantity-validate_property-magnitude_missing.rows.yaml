@@ -1,0 +1,12 @@
+# The rows of CONT-DV_QUANTITY-validate_property this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_quantity/dv_quantity-validate_property-magnitude_missing
+iteration: reset_per_row
+literals: ["magnitude", "units"]
+recipe:
+  name: content_instance
+  rm_class: DV_QUANTITY
+  template_id: cnf.tpl.quantity_property
+  input: composition
+rows:
+  - {"magnitude": null, "units": "cm"}

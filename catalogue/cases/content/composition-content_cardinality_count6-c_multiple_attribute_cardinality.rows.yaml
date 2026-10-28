@@ -1,0 +1,15 @@
+# The rows of CONT-COMPOSITION-content_cardinality_count6 this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_composition/composition-content_cardinality_count6-c_multiple_attribute_cardinality
+iteration: reset_per_row
+literals: ["cardinality", "content_count"]
+recipe:
+  name: content_synthesized
+  rm_class: COMPOSITION
+  template_id: cnf.tpl.ecc_composition_content_cardinality
+  input: composition
+  template_input: template
+rows:
+  - {"cardinality": "opt", "content_count": 6}
+  - {"cardinality": "mand", "content_count": 6}
+  - {"cardinality": "3to5", "content_count": 6}

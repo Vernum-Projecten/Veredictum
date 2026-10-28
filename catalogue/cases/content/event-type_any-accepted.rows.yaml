@@ -1,0 +1,14 @@
+# The rows of CONT-EVENT-type_any this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_event/event-type_any-accepted
+iteration: reset_per_row
+literals: ["slot_type", "committed_type"]
+recipe:
+  name: content_synthesized
+  rm_class: EVENT
+  template_id: cnf.tpl.ecc_event_type_narrowing
+  input: composition
+  template_input: template
+rows:
+  - {"slot_type": "EVENT", "committed_type": "POINT_EVENT"}
+  - {"slot_type": "EVENT", "committed_type": "INTERVAL_EVENT"}

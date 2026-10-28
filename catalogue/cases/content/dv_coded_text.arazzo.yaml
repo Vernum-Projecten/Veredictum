@@ -1,0 +1,824 @@
+# Content validation of DV_CODED_TEXT at a COMPOSITION commit, as
+# Arazzo 1.1.0 workflows over the released ITS-REST `-validation` OAS. Each
+# workflow commits the compositions of its rows file, which the rows file's
+# recipe builds from the decision-table literals, and every row of a workflow
+# shares its outcome. Every criterion resolves to an `x-veredictum-cite`, and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Content validation, DV CODED TEXT
+  version: 0.1.0
+  description: >-
+    Commits DV_CODED_TEXT content against templates that constrain it.
+    Content the template and the RM admit is created (201). A body the
+    published ITS-JSON schema (openehr_rm_1.1.0_all.json) refuses is
+    syntactically invalid content and is answered 400; a schema-valid body
+    the template does not validate, or that breaks an RM invariant, is
+    answered 422.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: definition
+    url: ../../../specs/rest-oas/definition-validation.openapi.yaml
+    type: openapi
+  - name: templates
+    url: ../_setup/content_templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: dv_coded_text-validate_ext_term-code_string_terminology_id_missing
+    summary: "DV_CODED_TEXT against a CONSTRAINT_REF with a constraint_binding: a body with no defining_code is refused with 400"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against a
+      CONSTRAINT_REF with a constraint_binding). Each body lacks a member the
+      RM makes mandatory (no defining_code), which the published ITS-JSON
+      schema (openehr_rm_1.1.0_all.json) refuses, so it is syntactically
+      invalid content and the commit is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.templates.upload_template-dv_coded_text_constraint_ref]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/dv_coded_text.adoc
+      section: "DV_CODED_TEXT Class"
+      quote: "h|*1..1* |*defining_code*: `<<_code_phrase_class,CODE_PHRASE>>`"
+    inputs:
+      type: object
+      required: [composition]
+      properties:
+        "code_string": { type: "null" }
+        "terminology_id": { type: "null" }
+        "value": { type: "null" }
+        "CONSTRAINT_REF.reference": { type: "string" }
+        "constraint_bindings": { type: "string" }
+        composition: { type: object }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: dv_coded_text-validate_ext_term-terminology_id_missing
+    summary: "DV_CODED_TEXT against a CONSTRAINT_REF with a constraint_binding: a body with no terminology_id is refused with 400"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against a
+      CONSTRAINT_REF with a constraint_binding). Each body lacks a member the
+      RM makes mandatory (no terminology_id), which the published ITS-JSON
+      schema (openehr_rm_1.1.0_all.json) refuses, so it is syntactically
+      invalid content and the commit is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.templates.upload_template-dv_coded_text_constraint_ref]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/code_phrase.adoc
+      section: "CODE_PHRASE Class"
+      quote: "h|*1..1* |*terminology_id*: `link:/releases/BASE/{base_release}/base_types.html#_terminology_id_class[TERMINOLOGY_ID^]`"
+    inputs:
+      type: object
+      required: [composition]
+      properties:
+        "code_string": { type: "string" }
+        "terminology_id": { type: "null" }
+        "value": { type: "null" }
+        "CONSTRAINT_REF.reference": { type: "string" }
+        "constraint_bindings": { type: "string" }
+        composition: { type: object }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: dv_coded_text-validate_ext_term-code_string_missing
+    summary: "DV_CODED_TEXT against a CONSTRAINT_REF with a constraint_binding: a body with no code_string is refused with 400"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against a
+      CONSTRAINT_REF with a constraint_binding). Each body lacks a member the
+      RM makes mandatory (no code_string), which the published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json) refuses, so it is syntactically invalid
+      content and the commit is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.templates.upload_template-dv_coded_text_constraint_ref]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/code_phrase.adoc
+      section: "CODE_PHRASE Class"
+      quote: "h|*1..1* |*code_string*: `link:/releases/BASE/{base_release}/foundation_types.html#_string_class[String^]`"
+    inputs:
+      type: object
+      required: [composition]
+      properties:
+        "code_string": { type: "null" }
+        "terminology_id": { type: "string" }
+        "value": { type: "null" }
+        "CONSTRAINT_REF.reference": { type: "string" }
+        "constraint_bindings": { type: "string" }
+        composition: { type: object }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: dv_coded_text-validate_local_codes-accepted
+    summary: "DV_CODED_TEXT against a local-codes C_CODE_PHRASE ([ABC, OPQ] @ local): content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against a
+      local-codes C_CODE_PHRASE ([ABC, OPQ] @ local)). Each row is content the
+      template and the RM admit, so the commit is answered 201 Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "code_string": { type: "string" }
+        "terminology_id": { type: "string" }
+        "value": { type: "string" }
+        "C_CODE_PHRASE.code_list": { type: "string" }
+        "C_CODE_PHRASE.terminology_id": { type: "string" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: dv_coded_text-validate_local_codes-c_code_phrase_terminology_id
+    summary: "DV_CODED_TEXT against a local-codes C_CODE_PHRASE ([ABC, OPQ] @ local): a code from another terminology than the C_CODE_PHRASE names is refused with 422"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against a
+      local-codes C_CODE_PHRASE ([ABC, OPQ] @ local)). Each body passes the
+      published ITS-JSON schema and breaks the rule this workflow cites (a
+      code from another terminology than the C_CODE_PHRASE names), so the
+      commit is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "code_string": { type: "string" }
+        "terminology_id": { type: "string" }
+        "value": { type: "null" }
+        "C_CODE_PHRASE.code_list": { type: "string" }
+        "C_CODE_PHRASE.terminology_id": { type: "string" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: dv_coded_text-validate_local_codes-code_string_terminology_id_missing
+    summary: "DV_CODED_TEXT against a local-codes C_CODE_PHRASE ([ABC, OPQ] @ local): a body with no defining_code is refused with 400"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against a
+      local-codes C_CODE_PHRASE ([ABC, OPQ] @ local)). Each body lacks a
+      member the RM makes mandatory (no defining_code), which the published
+      ITS-JSON schema (openehr_rm_1.1.0_all.json) refuses, so it is
+      syntactically invalid content and the commit is refused with 400 Bad
+      Request.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/dv_coded_text.adoc
+      section: "DV_CODED_TEXT Class"
+      quote: "h|*1..1* |*defining_code*: `<<_code_phrase_class,CODE_PHRASE>>`"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "code_string": { type: "null" }
+        "terminology_id": { type: "null" }
+        "value": { type: "null" }
+        "C_CODE_PHRASE.code_list": { type: "string" }
+        "C_CODE_PHRASE.terminology_id": { type: "string" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: dv_coded_text-validate_local_codes-terminology_id_missing
+    summary: "DV_CODED_TEXT against a local-codes C_CODE_PHRASE ([ABC, OPQ] @ local): a body with no terminology_id is refused with 400"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against a
+      local-codes C_CODE_PHRASE ([ABC, OPQ] @ local)). Each body lacks a
+      member the RM makes mandatory (no terminology_id), which the published
+      ITS-JSON schema (openehr_rm_1.1.0_all.json) refuses, so it is
+      syntactically invalid content and the commit is refused with 400 Bad
+      Request.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/code_phrase.adoc
+      section: "CODE_PHRASE Class"
+      quote: "h|*1..1* |*terminology_id*: `link:/releases/BASE/{base_release}/base_types.html#_terminology_id_class[TERMINOLOGY_ID^]`"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "code_string": { type: "string" }
+        "terminology_id": { type: "null" }
+        "value": { type: "null" }
+        "C_CODE_PHRASE.code_list": { type: "string" }
+        "C_CODE_PHRASE.terminology_id": { type: "string" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: dv_coded_text-validate_local_codes-code_string_missing
+    summary: "DV_CODED_TEXT against a local-codes C_CODE_PHRASE ([ABC, OPQ] @ local): a body with no code_string is refused with 400"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against a
+      local-codes C_CODE_PHRASE ([ABC, OPQ] @ local)). Each body lacks a
+      member the RM makes mandatory (no code_string), which the published
+      ITS-JSON schema (openehr_rm_1.1.0_all.json) refuses, so it is
+      syntactically invalid content and the commit is refused with 400 Bad
+      Request.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/code_phrase.adoc
+      section: "CODE_PHRASE Class"
+      quote: "h|*1..1* |*code_string*: `link:/releases/BASE/{base_release}/foundation_types.html#_string_class[String^]`"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "code_string": { type: "null" }
+        "terminology_id": { type: "string" }
+        "value": { type: "null" }
+        "C_CODE_PHRASE.code_list": { type: "string" }
+        "C_CODE_PHRASE.terminology_id": { type: "string" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: dv_coded_text-validate_open-code_string_terminology_id_missing
+    summary: "DV_CODED_TEXT against an open C_CODE_PHRASE: a body with no defining_code is refused with 400"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against an
+      open C_CODE_PHRASE). Each body lacks a member the RM makes mandatory (no
+      defining_code), which the published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json) refuses, so it is syntactically invalid
+      content and the commit is refused with 400 Bad Request.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/dv_coded_text.adoc
+      section: "DV_CODED_TEXT Class"
+      quote: "h|*1..1* |*defining_code*: `<<_code_phrase_class,CODE_PHRASE>>`"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "code_string": { type: "null" }
+        "terminology_id": { type: "null" }
+        "C_CODE_PHRASE.code_list": { type: "null" }
+        "C_CODE_PHRASE.terminology_id": { type: "null" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: dv_coded_text-validate_open-terminology_id_missing
+    summary: "DV_CODED_TEXT against an open C_CODE_PHRASE: a body with no terminology_id is refused with 400"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against an
+      open C_CODE_PHRASE). Each body lacks a member the RM makes mandatory (no
+      terminology_id), which the published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json) refuses, so it is syntactically invalid
+      content and the commit is refused with 400 Bad Request.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/code_phrase.adoc
+      section: "CODE_PHRASE Class"
+      quote: "h|*1..1* |*terminology_id*: `link:/releases/BASE/{base_release}/base_types.html#_terminology_id_class[TERMINOLOGY_ID^]`"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "code_string": { type: "string" }
+        "terminology_id": { type: "null" }
+        "C_CODE_PHRASE.code_list": { type: "null" }
+        "C_CODE_PHRASE.terminology_id": { type: "null" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: dv_coded_text-validate_open-code_string_missing
+    summary: "DV_CODED_TEXT against an open C_CODE_PHRASE: a body with no code_string is refused with 400"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against an
+      open C_CODE_PHRASE). Each body lacks a member the RM makes mandatory (no
+      code_string), which the published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json) refuses, so it is syntactically invalid
+      content and the commit is refused with 400 Bad Request.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/code_phrase.adoc
+      section: "CODE_PHRASE Class"
+      quote: "h|*1..1* |*code_string*: `link:/releases/BASE/{base_release}/foundation_types.html#_string_class[String^]`"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "code_string": { type: "null" }
+        "terminology_id": { type: "string" }
+        "C_CODE_PHRASE.code_list": { type: "null" }
+        "C_CODE_PHRASE.terminology_id": { type: "null" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."

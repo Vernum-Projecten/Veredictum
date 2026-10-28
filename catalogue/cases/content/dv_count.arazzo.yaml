@@ -1,42 +1,44 @@
-# A DV_COUNT whose magnitude the template constrains to the integer
-# interval 10..20, as Arazzo 1.1.0 workflows over the released ITS-REST
-# `-validation` OAS. Each row's composition is built from its decision-table
-# literals by the rows file's `content_instance` recipe. Every criterion
-# resolves to an `x-veredictum-cite`, and every quote is copied verbatim from
-# the named vendored file.
+# Content validation of DV_COUNT at a COMPOSITION commit, as
+# Arazzo 1.1.0 workflows over the released ITS-REST `-validation` OAS. Each
+# workflow commits the compositions of its rows file, which the rows file's
+# recipe builds from the decision-table literals, and every row of a workflow
+# shares its outcome. Every criterion resolves to an `x-veredictum-cite`, and
+# every quote is copied verbatim from the named vendored file.
 arazzo: 1.1.0
 info:
-  title: DV_COUNT against a C_INTEGER range
+  title: Content validation, DV COUNT
   version: 0.1.0
   description: >-
-    Commits a DV_COUNT against the template cnf.tpl.count_range, whose
-    C_INTEGER.range on the magnitude is 10..20. A magnitude inside the range
-    is accepted, one outside it is refused as semantically invalid, and a
-    DV_COUNT without its mandatory magnitude is refused as invalid content.
+    Commits DV_COUNT content against templates that constrain it.
+    Content the template and the RM admit is created (201). A body the
+    published ITS-JSON schema (openehr_rm_1.1.0_all.json) refuses is
+    syntactically invalid content and is answered 400; a schema-valid body
+    the template does not validate, or that breaks an RM invariant, is
+    answered 422.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
     type: openapi
-  - name: setup
-    url: ../_setup/templates.arazzo.yaml
+  - name: templates
+    url: ../_setup/content_templates.arazzo.yaml
     type: arazzo
 workflows:
-  - workflowId: commit-dv_count_in_range
-    summary: A DV_COUNT whose magnitude lies in the C_INTEGER range is accepted
+  - workflowId: dv_count-validate_list-accepted
+    summary: "DV_COUNT against C_INTEGER.list = [10,15,20]: content the template admits is created"
     description: >-
-      Commits a DV_COUNT whose magnitude lies inside the template's
-      C_INTEGER.range 10..20. The commit sends no Prefer header, so the
-      server answers with its minimal response, 201 or 204.
-    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+      Commits the rows' content against the template (DV_COUNT against
+      C_INTEGER.list = [10,15,20]). Each row is content the template and the
+      RM admit, so the commit is answered 201 Created.
+    dependsOn: [$sourceDescriptions.templates.upload_template-count_list]
     x-veredictum-cite:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
-      section: Interval of Integer
-      quote: "length matches {|950..1050|} -- allow 950 - 1050"
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
     inputs:
       type: object
       required: [composition]
       properties:
-        magnitude: { type: [integer, "null"] }
+        "magnitude": { type: "integer" }
         composition: { type: object }
     steps:
       - stepId: create-ehr
@@ -59,40 +61,40 @@ workflows:
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: commit
-        description: Commit the row's composition against the template.
+        description: Commit the row's composition.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
           - { name: Content-Type, in: header, value: application/json }
         requestBody:
           contentType: application/json
           payload: $inputs.composition
         successCriteria:
-          - context: $statusCode
-            type: regex
-            condition: '^(201|204)$'
+          - condition: $statusCode == 201
             x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
-              section: Prefer minimal, identifier or full representation response
-              quote: "The HTTP status is typically `201 Created`. If no response body is returned, the service SHOULD use `204 No Content`."
-              level: should
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
-  - workflowId: commit-dv_count_out_of_range
-    summary: A DV_COUNT whose magnitude lies outside the C_INTEGER range is refused
+  - workflowId: dv_count-validate_list-c_integer_list
+    summary: "DV_COUNT against C_INTEGER.list = [10,15,20]: a value outside the C_INTEGER list is refused with 422"
     description: >-
-      Commits a DV_COUNT whose magnitude lies outside the template's
-      C_INTEGER.range 10..20. The body converts to a COMPOSITION, and the
-      template does not validate it.
-    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+      Commits the rows' content against the template (DV_COUNT against
+      C_INTEGER.list = [10,15,20]). Each body passes the published ITS-JSON
+      schema and breaks the rule this workflow cites (a value outside the
+      C_INTEGER list), so the commit is refused with 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.templates.upload_template-count_list]
     x-veredictum-cite:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
-      section: Interval of Integer
-      quote: "length matches {|950..1050|} -- allow 950 - 1050"
+      section: "List of Integers"
+      quote: "The first constraint requires the attribute `_length_` to be 1000, while the second limits the value of `_magnitude_` to be 0, 5, or 8 only."
     inputs:
       type: object
       required: [composition]
       properties:
-        magnitude: { type: [integer, "null"] }
+        "magnitude": { type: "integer" }
         composition: { type: object }
     steps:
       - stepId: create-ehr
@@ -115,10 +117,12 @@ workflows:
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: commit
-        description: Commit the row's composition against the template.
+        description: Commit the row's composition.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
           - { name: Content-Type, in: header, value: application/json }
         requestBody:
           contentType: application/json
@@ -127,24 +131,27 @@ workflows:
           - condition: $statusCode == 422
             x-veredictum-cite:
               source: specs/openehr/ITS-REST/specifications/responses/422.yaml
-              section: description
+              section: "description"
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
-  - workflowId: commit-dv_count_magnitude_missing
-    summary: A DV_COUNT without its mandatory magnitude is refused
+  - workflowId: dv_count-validate_list-magnitude_missing
+    summary: "DV_COUNT against C_INTEGER.list = [10,15,20]: a body with no magnitude is refused with 400"
     description: >-
-      Commits a DV_COUNT that carries no magnitude, which the RM makes
-      mandatory, so the body is not a valid DV_COUNT.
-    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+      Commits the rows' content against the template (DV_COUNT against
+      C_INTEGER.list = [10,15,20]). Each body lacks a member the RM makes
+      mandatory (no magnitude), which the published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json) refuses, so it is syntactically invalid
+      content and the commit is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.templates.upload_template-count_list]
     x-veredictum-cite:
       source: specs/openehr/RM/docs/UML/classes/dv_count.adoc
-      section: DV_COUNT Class
+      section: "DV_COUNT Class"
       quote: "h|*1..1* |*magnitude*: `link:/releases/BASE/{base_release}/foundation_types.html#_integer64_class[Integer64^]`"
     inputs:
       type: object
       required: [composition]
       properties:
-        magnitude: { type: [integer, "null"] }
+        "magnitude": { type: "null" }
         composition: { type: object }
     steps:
       - stepId: create-ehr
@@ -167,10 +174,12 @@ workflows:
         outputs:
           ehr_id: $response.body#/ehr_id/value
       - stepId: commit
-        description: Commit the row's composition against the template.
+        description: Commit the row's composition.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
           - { name: Content-Type, in: header, value: application/json }
         requestBody:
           contentType: application/json
@@ -179,5 +188,286 @@ workflows:
           - condition: $statusCode == 400
             x-veredictum-cite:
               source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: dv_count-validate_open-accepted
+    summary: "DV_COUNT against an open constraint ({*}): magnitude mandatory: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (DV_COUNT against an open
+      constraint ({*}): magnitude mandatory). Each row is content the template
+      and the RM admit, so the commit is answered 201 Created.
+    dependsOn: [$sourceDescriptions.templates.upload_template-count_open]
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition]
+      properties:
+        "magnitude": { type: "integer" }
+        composition: { type: object }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: dv_count-validate_open-magnitude_missing
+    summary: "DV_COUNT against an open constraint ({*}): magnitude mandatory: a body with no magnitude is refused with 400"
+    description: >-
+      Commits the rows' content against the template (DV_COUNT against an open
+      constraint ({*}): magnitude mandatory). Each body lacks a member the RM
+      makes mandatory (no magnitude), which the published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json) refuses, so it is syntactically invalid
+      content and the commit is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.templates.upload_template-count_open]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/dv_count.adoc
+      section: "DV_COUNT Class"
+      quote: "h|*1..1* |*magnitude*: `link:/releases/BASE/{base_release}/foundation_types.html#_integer64_class[Integer64^]`"
+    inputs:
+      type: object
+      required: [composition]
+      properties:
+        "magnitude": { type: "null" }
+        composition: { type: object }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: dv_count-validate_range-accepted
+    summary: "DV_COUNT against C_INTEGER.range = 10..20: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (DV_COUNT against
+      C_INTEGER.range = 10..20). Each row is content the template and the RM
+      admit, so the commit is answered 201 Created.
+    dependsOn: [$sourceDescriptions.templates.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition]
+      properties:
+        "magnitude": { type: "integer" }
+        composition: { type: object }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: dv_count-validate_range-c_integer_range
+    summary: "DV_COUNT against C_INTEGER.range = 10..20: a value outside the C_INTEGER range is refused with 422"
+    description: >-
+      Commits the rows' content against the template (DV_COUNT against
+      C_INTEGER.range = 10..20). Each body passes the published ITS-JSON
+      schema and breaks the rule this workflow cites (a value outside the
+      C_INTEGER range), so the commit is refused with 422 Unprocessable
+      Entity.
+    dependsOn: [$sourceDescriptions.templates.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Interval of Integer"
+      quote: "length matches {|950..1050|} -- allow 950 - 1050"
+    inputs:
+      type: object
+      required: [composition]
+      properties:
+        "magnitude": { type: "integer" }
+        composition: { type: object }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: dv_count-validate_range-magnitude_missing
+    summary: "DV_COUNT against C_INTEGER.range = 10..20: a body with no magnitude is refused with 400"
+    description: >-
+      Commits the rows' content against the template (DV_COUNT against
+      C_INTEGER.range = 10..20). Each body lacks a member the RM makes
+      mandatory (no magnitude), which the published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json) refuses, so it is syntactically invalid
+      content and the commit is refused with 400 Bad Request.
+    dependsOn: [$sourceDescriptions.templates.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/dv_count.adoc
+      section: "DV_COUNT Class"
+      quote: "h|*1..1* |*magnitude*: `link:/releases/BASE/{base_release}/foundation_types.html#_integer64_class[Integer64^]`"
+    inputs:
+      type: object
+      required: [composition]
+      properties:
+        "magnitude": { type: "null" }
+        composition: { type: object }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: "description"
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."

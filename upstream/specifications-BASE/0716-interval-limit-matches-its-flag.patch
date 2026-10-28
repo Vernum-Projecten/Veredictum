@@ -1,0 +1,15 @@
+diff --git a/docs/UML/classes/interval.adoc b/docs/UML/classes/interval.adoc
+index 2ebbd36..d5409ef 100755
+--- a/docs/UML/classes/interval.adoc
++++ b/docs/UML/classes/interval.adoc
+@@ -96,4 +96,10 @@ h|
+ 
+ h|
+ 2+a|__Limits_comparable__: `(not upper_unbounded and not lower_unbounded) implies lower.strictly_comparable_to (upper)`
++
++h|
++2+a|__Lower_valid__: `lower_unbounded xor lower /= Void`
++
++h|
++2+a|__Upper_valid__: `upper_unbounded xor upper /= Void`
+ |===

@@ -1,0 +1,13 @@
+# The rows of CONT-DV_PARSABLE-validate_value_formalism this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_parsable/dv_parsable-validate_value_formalism-c_string_list_formalism
+iteration: reset_per_row
+literals: ["value", "formalism", "C_STRING.pattern (value)", "C_STRING.list (value)", "C_STRING.pattern (formalism)", "C_STRING.list (formalism)"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_PARSABLE
+  template_id: cnf.tpl.dv_parsable_c_string
+  input: composition
+  template_input: template
+rows:
+  - {"value": "xxx", "formalism": "abc", "C_STRING.pattern (value)": null, "C_STRING.list (value)": "[xxx, yyy, zzz]", "C_STRING.pattern (formalism)": null, "C_STRING.list (formalism)": "[bbb, aaa]"}
