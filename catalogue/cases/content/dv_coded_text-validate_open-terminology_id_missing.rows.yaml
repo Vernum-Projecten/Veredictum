@@ -1,0 +1,13 @@
+# The rows of CONT-DV_CODED_TEXT-validate_open this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_coded_text/dv_coded_text-validate_open-terminology_id_missing
+iteration: reset_per_row
+literals: ["code_string", "terminology_id", "C_CODE_PHRASE.code_list", "C_CODE_PHRASE.terminology_id"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_CODED_TEXT
+  template_id: cnf.tpl.dv_coded_text_c_code_phrase
+  input: composition
+  template_input: template
+rows:
+  - {"code_string": "ABC", "terminology_id": null, "C_CODE_PHRASE.code_list": null, "C_CODE_PHRASE.terminology_id": null}

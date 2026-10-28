@@ -620,11 +620,22 @@ fn build_limit(inner: &str, row: &RowView<'_>, side: &str) -> Option<Value> {
 
 /// A `terminology::code` cell as a `DV_CODED_TEXT` symbol (RM `data_types`
 /// §`DV_ORDINAL` uses a coded-text symbol whose `defining_code` is that pair).
+///
+/// A cell written `terminology::code (rubric)` carries the term's rubric, which
+/// becomes the symbol's `value` (RM `dv_coded_text.adoc`: "A text item whose
+/// value must be the rubric"); without one, the code stands in for it.
 fn coded_symbol(symbol: &str) -> Value {
-    let (term, code) = symbol.split_once("::").unwrap_or(("local", symbol));
+    let (pair, rubric) = match symbol
+        .strip_suffix(')')
+        .and_then(|rest| rest.split_once(" ("))
+    {
+        Some((pair, rubric)) => (pair, Some(rubric)),
+        None => (symbol, None),
+    };
+    let (term, code) = pair.split_once("::").unwrap_or(("local", pair));
     json!({
         "_type": "DV_CODED_TEXT",
-        "value": code,
+        "value": rubric.unwrap_or(code),
         "defining_code": {
             "_type": "CODE_PHRASE",
             "terminology_id": terminology_id(term),
@@ -651,7 +662,12 @@ fn committed(row: &RowView<'_>, column: &str) -> bool {
 /// keeps the context present — the official tables' fixed condition for the
 /// context-less families.
 fn composition_carrier(template_id: &str, content: Vec<Value>, row: &RowView<'_>) -> Value {
-    let token = row.text("context_committed").unwrap_or("present");
+    // NOTE: no openEHR spec governs this — our own design; the authored `absent` token reads
+    // as the absent sentinel, which here means the row commits no context.
+    let token = match row.cell("context_committed") {
+        Some(MatrixCell::Absent) => "absent",
+        _ => row.text("context_committed").unwrap_or("present"),
+    };
     let mut comp = comp_shell(template_id, content, token != "absent");
     if token == "present_with_other"
         && let Some(ctx) = comp.pointer_mut("/context").and_then(Value::as_object_mut)
@@ -735,10 +751,6 @@ fn min_event(slot_type: &str, with_data: bool, with_state: bool) -> Value {
 
 /// OBSERVATION openEHR-EHR-OBSERVATION.minimal.v1 with an explicit events list
 /// and optional OBSERVATION-level state (HISTORY at0005) / protocol (at0006).
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "args are serialized into the JSON tree"
-)]
 fn min_observation(events: Vec<Value>, state: Option<Value>, protocol: Option<Value>) -> Value {
     let mut obs = serde_json::Map::new();
     obs.insert("_type".to_owned(), Value::String("OBSERVATION".to_owned()));
@@ -758,11 +770,18 @@ fn min_observation(events: Vec<Value>, state: Option<Value>, protocol: Option<Va
     obs.insert("language".to_owned(), json!({ "_type": "CODE_PHRASE", "terminology_id": { "_type": "TERMINOLOGY_ID", "value": "ISO_639-1" }, "code_string": "en" }));
     obs.insert("encoding".to_owned(), json!({ "_type": "CODE_PHRASE", "terminology_id": { "_type": "TERMINOLOGY_ID", "value": "IANA_character-sets" }, "code_string": "UTF-8" }));
     obs.insert("subject".to_owned(), json!({ "_type": "PARTY_SELF" }));
-    obs.insert("data".to_owned(), json!({
+    let mut history = json!({
         "_type": "HISTORY", "name": { "_type": "DV_TEXT", "value": "history" }, "archetype_node_id": "at0001",
-        "origin": { "_type": "DV_DATE_TIME", "value": "2026-01-01T00:00:00Z" },
-        "events": events
-    }));
+        "origin": { "_type": "DV_DATE_TIME", "value": "2026-01-01T00:00:00Z" }
+    });
+    // NOTE: RM history.adoc `events` is 0..1 and Events_valid reads "events /= Void and then not
+    // events.is_empty", so zero events are committed as an absent list, never an empty one.
+    if !events.is_empty()
+        && let Some(map) = history.as_object_mut()
+    {
+        map.insert("events".to_owned(), Value::Array(events));
+    }
+    obs.insert("data".to_owned(), history);
     if let Some(state) = state {
         obs.insert("state".to_owned(), state);
     }
@@ -1851,6 +1870,21 @@ mod tests {
         assert!(dv.get("upper").is_none());
     }
 
+    /// A symbol cell that names the term's rubric commits it as the symbol's
+    /// value; a bare `terminology::code` commits the code.
+    #[test]
+    fn an_ordinal_symbol_carries_its_rubric_when_the_cell_names_one() {
+        let with = coded_symbol("local::at0005 (mild)");
+        assert_eq!(with["value"], json!("mild"));
+        assert_eq!(with["defining_code"]["code_string"], json!("at0005"));
+        assert_eq!(
+            with["defining_code"]["terminology_id"]["value"],
+            json!("local")
+        );
+        let bare = coded_symbol("local::at0005");
+        assert_eq!(bare["value"], json!("at0005"));
+    }
+
     /// The three-state `context_committed` axis drives the carrier's
     /// `EVENT_CONTEXT`: `absent` omits it, `present_with_other` adds
     /// `other_context`, and a missing column keeps the context present.
@@ -1867,6 +1901,17 @@ mod tests {
 
         let absent = carrier(MatrixCell::Literal(json!("absent")));
         assert!(absent.get("context").is_none());
+
+        let sentinel: MatrixCell = serde_json::from_value(json!("absent")).unwrap();
+        assert_eq!(
+            sentinel,
+            MatrixCell::Absent,
+            "the authored token is the sentinel"
+        );
+        assert!(
+            carrier(sentinel).get("context").is_none(),
+            "the authored `absent` token omits the context"
+        );
 
         let present = carrier(MatrixCell::Literal(json!("present")));
         assert_eq!(present["context"]["_type"], json!("EVENT_CONTEXT"));

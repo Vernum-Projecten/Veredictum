@@ -1,0 +1,13 @@
+# The rows of CONT-DV_IDENTIFIER-validate_all_pattern this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_identifier/dv_identifier-validate_all_pattern-id_missing
+iteration: reset_per_row
+literals: ["attribute", "value", "C_STRING.pattern", "C_STRING.list"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_IDENTIFIER
+  template_id: cnf.tpl.dv_identifier_c_string
+  input: composition
+  template_input: template
+rows:
+  - {"attribute": "id", "value": null, "C_STRING.pattern": "XYZ.*", "C_STRING.list": null}

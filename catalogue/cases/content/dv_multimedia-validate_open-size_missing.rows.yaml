@@ -1,0 +1,12 @@
+# The rows of CONT-DV_MULTIMEDIA-validate_open this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_multimedia/dv_multimedia-validate_open-size_missing
+iteration: reset_per_row
+literals: ["media_type", "size"]
+recipe:
+  name: content_instance
+  rm_class: DV_MULTIMEDIA
+  template_id: cnf.tpl.dv_multimedia_constraints
+  input: composition
+rows:
+  - {"media_type": "abc", "size": null}

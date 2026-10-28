@@ -1,0 +1,21 @@
+# The rows of CONT-DV_EHR_URI-validate_open this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_ehr_uri/dv_ehr_uri-validate_open-scheme_valid
+iteration: reset_per_row
+literals: ["value"]
+recipe:
+  name: content_instance
+  rm_class: DV_EHR_URI
+  template_id: cnf.tpl.dv_ehr_uri_open
+  input: composition
+rows:
+  - {"value": "xyz"}
+  - {"value": "ftp://ftp.is.co.za/rfc/rfc1808.txt"}
+  - {"value": "http://www.ietf.org/rfc/rfc2396.txt"}
+  - {"value": "ldap://[2001:db8::7]/c=GB?objectClass?one"}
+  - {"value": "mailto:John.Doe@example.com"}
+  - {"value": "news:comp.infosystems.www.servers.unix"}
+  - {"value": "tel:+1-816-555-1212"}
+  - {"value": "telnet://192.0.2.16:80/"}
+  - {"value": "urn:oasis:names:specification:docbook:dtd:xml:4.1.2"}
+  - {"value": "http://www.carestreamserver/um/webapp_services/wado?requestType=WADO&studyUID=1.2.250.1.59.40211.12345678.678910&seriesUID=1.2.250.1.59.40211.789001276.14556172.67789&objectUID=1.2.250.1.59.40211.2678810.87991027.899772.2&contentType=application%2Fdicom"}

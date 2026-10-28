@@ -1,0 +1,39 @@
+# The rows of CONT-DV_TIME-validate_constraint this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_time/dv_time-validate_constraint-accepted
+iteration: reset_per_row
+literals: ["value", "minute_validity", "second_validity", "millisecond_validity", "timezone_validity"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_TIME
+  template_id: cnf.tpl.dv_time_c_time
+  input: composition
+  template_input: template
+rows:
+  - {"value": "10", "minute_validity": "optional", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10", "minute_validity": "prohibited", "second_validity": "prohibited", "millisecond_validity": "prohibited", "timezone_validity": "prohibited"}
+  - {"value": "10:30", "minute_validity": "mandatory", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30", "minute_validity": "optional", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30", "minute_validity": "mandatory", "second_validity": "prohibited", "millisecond_validity": "prohibited", "timezone_validity": "prohibited"}
+  - {"value": "10:30:47", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47", "minute_validity": "mandatory", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47", "minute_validity": "optional", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "prohibited", "timezone_validity": "prohibited"}
+  - {"value": "10:30:47.5", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "mandatory", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5", "minute_validity": "mandatory", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5", "minute_validity": "optional", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "mandatory", "timezone_validity": "prohibited"}
+  - {"value": "10:30:47Z", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47Z", "minute_validity": "mandatory", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47Z", "minute_validity": "optional", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5Z", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "mandatory", "timezone_validity": "mandatory"}
+  - {"value": "10:30:47.5Z", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "mandatory", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5Z", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5Z", "minute_validity": "mandatory", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5Z", "minute_validity": "optional", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5-03:00", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "mandatory", "timezone_validity": "mandatory"}
+  - {"value": "10:30:47.5-03:00", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "mandatory", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5-03:00", "minute_validity": "mandatory", "second_validity": "mandatory", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5-03:00", "minute_validity": "mandatory", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
+  - {"value": "10:30:47.5-03:00", "minute_validity": "optional", "second_validity": "optional", "millisecond_validity": "optional", "timezone_validity": "optional"}
