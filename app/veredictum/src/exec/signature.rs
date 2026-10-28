@@ -8,16 +8,17 @@
 //! Spec: RM common `master06-change_control_package.adoc` §Digital Signature —
 //! a committed `VERSION` is "serialised into canonical form" over "all
 //! attributes except signature", then hashed (digest mode) or signed (openPGP
-//! mode). openEHR leaves the exact JSON serialisation "an agreed XML, ODIN or
-//! other text format", so the framework PINS the agreed signed form:
+//! mode). The same section says "The exact serialisation is not yet defined by
+//! openEHR", so the signed bytes are a spec silence, and this module verifies
+//! against one form of its own choosing:
 //!
 //!   **canonical form = RFC 8785 (JCS) of the `ORIGINAL_VERSION` ITS-JSON with
 //!   the `signature` member removed, UTF-8 bytes.**
 //!
-//! Grounds: RM common `version.adoc` (`canonical_form`: "all attributes except
-//! signature") + ITS-JSON (the canonical JSON representation) + RFC 8785 (byte
-//! determinism so any language reproduces the bytes identically). This is a
-//! framework-normative pin, not a spec silence.
+//! No openEHR spec governs this — our own design. It takes "all attributes
+//! except signature" from RM common `version.adoc` (`canonical_form`), the
+//! ITS-JSON representation, and RFC 8785 for byte determinism. A server that
+//! signs another serialisation is not refuted by a failed `verifiable` fact.
 
 #![expect(
     clippy::disallowed_types,

@@ -80,7 +80,9 @@ pub enum Check {
         /// The envelope carries a non-empty signature.
         #[serde(default)]
         present: Option<bool>,
-        /// The signature verifies under the declared signing posture.
+        /// The signature verifies under the declared signing posture, over
+        /// the RFC 8785 canonical form [`crate::exec::signature`] fixes; no
+        /// openEHR spec governs this — our own design.
         #[serde(default)]
         verifiable: Option<bool>,
         /// The stored signature equals this value, verbatim.
