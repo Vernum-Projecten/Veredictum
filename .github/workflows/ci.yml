@@ -592,6 +592,38 @@ jobs:
           docker compose -f ./posture-check/docker-compose.yml config --quiet
           rm -rf ./posture-check
           echo "the image carries the committed hosted posture at /app/posture, and it parses"
+      # The same check the release smoke runs on the pushed digest (#768): the
+      # image's own entry point drives the shipped Arazzo catalogue at a port
+      # nothing listens on, inside no network, so every driven row is errored,
+      # none is failed, the exit status is 1, and the offline re-judgement of
+      # the recording writes the same bytes.
+      - name: The image runs the Arazzo catalogue it ships
+        env:
+          IMAGE: veredictum-ci-image-build:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          out="$(mktemp -d)"
+          chmod 0777 "$out"
+          code=0
+          docker run --rm --network none -v "${out}:/work/out" "$IMAGE" \
+            test --base-url http://127.0.0.1:9/ --out /work/out > "${out}/run.log" || code=$?
+          tail -n 4 "${out}/run.log"
+          if [[ "$code" != "1" ]]; then
+            echo "::error::a run against no server exited ${code}, not 1 (a row errored)" >&2; exit 1
+          fi
+          jq -e '[.rows[] | select(.status == "errored")] | length > 0' "${out}/results.json" >/dev/null \
+            || { echo "::error::the run recorded no errored row" >&2; exit 1; }
+          jq -e '[.rows[] | select(.status == "failed")] | length == 0' "${out}/results.json" >/dev/null \
+            || { echo "::error::a refused connection was judged failed; it is errored, never failed" >&2; exit 1; }
+          test -s "${out}/recording.har" || { echo "::error::the run wrote no recording" >&2; exit 1; }
+          code=0
+          docker run --rm --network none -v "${out}:/work/out" "$IMAGE" \
+            test --rejudge /work/out/recording.har --out /work/out/rejudged > /dev/null || code=$?
+          if [[ "$code" != "1" ]]; then
+            echo "::error::the re-judgement exited ${code}, not the recorded run's 1" >&2; exit 1
+          fi
+          cmp "${out}/results.json" "${out}/rejudged/results.json" \
+            || { echo "::error::the re-judgement did not write the recorded run's bytes" >&2; exit 1; }
 
   # ── The Rust tier ───────────────────────────────────────────────────────────
   # rustfmt compiles nothing, so a restored target or registry cache here is

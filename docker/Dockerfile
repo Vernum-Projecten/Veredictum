@@ -12,6 +12,15 @@
 # the runtime stage. The console refuses a binary reporting any version other
 # than its pin, so the two travel as one artifact.
 #
+# The same entry point runs the engine's subcommands: started with an argument
+# other than `healthcheck`, the console binary hands every argument to that
+# engine and exits with its status (#768). That is how the image drives the
+# Arazzo catalogue it ships, writing into a mounted output directory:
+#
+#   docker run --rm -v "$PWD/out:/work/out" \
+#     ghcr.io/vernum-projecten/veredictum:<tag> \
+#     test --base-url https://cdr.example/openehr/v1 --out /work/out
+#
 # The catalogue, the corpora and the vendored specification oracle stay
 # MOUNTED: they are 347 MB the server reads as paths, and an operator may point
 # at their own. Run it locally as
@@ -146,6 +155,8 @@ WORKDIR /app
 # VEREDICTUM_ENGINE names the in-image engine by absolute path rather than
 # leaning on PATH resolution, so an overlay can repoint or disable it with one
 # variable and the console never resolves a different binary by accident.
+# VEREDICTUM_CATALOGUE is the `--root` default of the engine's `test`
+# subcommand, so a run reads the Arazzo catalogue the image ships.
 #
 # The bundle is emitted under content-hashed names (#450), which the server
 # reads back at render time, so LEPTOS_HASH_FILES must be set here as well as
@@ -161,6 +172,7 @@ ENV LEPTOS_OUTPUT_NAME=veredictum-console \
     LEPTOS_SITE_ADDR=0.0.0.0:3000 \
     VEREDICTUM_ENGINE=/usr/local/bin/veredictum \
     VEREDICTUM_ROOT=/work/artifacts \
+    VEREDICTUM_CATALOGUE=/work/catalogue \
     VEREDICTUM_SPECS=/work/specs/openehr \
     VEREDICTUM_OUT=/work/out
 

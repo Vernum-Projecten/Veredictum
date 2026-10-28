@@ -14,25 +14,54 @@
 //! The image is distroless and this binary is PID 1, so it handles SIGTERM
 //! itself for `docker stop` to end it gracefully, and it doubles as its own
 //! health probe (`veredictum-console healthcheck`) because the image carries
-//! no shell and no curl.
+//! no shell and no curl. Any other first argument names an engine subcommand,
+//! which the binary hands to the pinned engine, so `docker run <image> test …`
+//! drives the catalogue the image ships.
+
+/// Serves the console with no argument, probes the running server's
+/// `/healthz` as `veredictum-console healthcheck`, and otherwise runs the
+/// pinned engine with every argument and exits with the engine's own status.
+///
+/// # Errors
+/// Returns an error when the console cannot serve, or the health probe does
+/// not answer healthy.
+#[cfg(feature = "ssr")]
+fn main() -> anyhow::Result<std::process::ExitCode> {
+    let mut args = std::env::args_os().skip(1);
+    match args.next() {
+        None => serve().map(|()| std::process::ExitCode::SUCCESS),
+        Some(mode) if mode == "healthcheck" => {
+            healthcheck().map(|()| std::process::ExitCode::SUCCESS)
+        }
+        Some(subcommand) => Ok(engine_subcommand(std::iter::once(subcommand).chain(args))),
+    }
+}
+
+/// Runs the pinned engine with `args` and exits with its status. A failure
+/// to start it exits `2`, the engine's own code for a run that could not
+/// start, so a red run's `1` keeps its meaning.
+#[cfg(feature = "ssr")]
+fn engine_subcommand(args: impl IntoIterator<Item = std::ffi::OsString>) -> std::process::ExitCode {
+    let status = veredictum_console::engine::locate().and_then(|engine| engine.forward(args));
+    match status {
+        Ok(code) => std::process::ExitCode::from(code),
+        Err(e) => {
+            eprintln!("veredictum-console: {e}");
+            std::process::ExitCode::from(2)
+        }
+    }
+}
 
 /// Serves the console on the configured address (`site-addr`, overridable
-/// through the standard `LEPTOS_SITE_ADDR` environment variable), or, when
-/// invoked as `veredictum-console healthcheck`, probes the running server's
-/// `/healthz` once and exits by the outcome.
+/// through the standard `LEPTOS_SITE_ADDR` environment variable).
 ///
 /// # Errors
 /// Returns an error when the Leptos configuration cannot be read, the
-/// listener cannot bind, the server stops on a fault, or — in healthcheck
-/// mode — the probe does not answer healthy.
+/// listener cannot bind, or the server stops on a fault.
 #[cfg(feature = "ssr")]
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn serve() -> anyhow::Result<()> {
     use leptos::prelude::get_configuration;
-
-    if std::env::args().nth(1).as_deref() == Some("healthcheck") {
-        return healthcheck();
-    }
 
     let conf = get_configuration(None)?;
     let addr = conf.leptos_options.site_addr;

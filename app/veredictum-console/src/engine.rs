@@ -276,6 +276,30 @@ impl Engine {
         &self.binary
     }
 
+    /// Runs the engine with `args` in the foreground, its standard streams
+    /// and environment inherited, and returns its exit code.
+    ///
+    /// The container image's entry point is the console binary, so this is
+    /// how `docker run <image> <subcommand> …` reaches the engine.
+    ///
+    /// # Errors
+    /// [`Error::Execute`] when the process cannot be spawned, or when it ends
+    /// without an exit code (stopped by a signal).
+    pub fn forward(&self, args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<u8, Error> {
+        let status = std::process::Command::new(&self.binary)
+            .args(args)
+            .status()
+            .map_err(Error::Execute)?;
+        status
+            .code()
+            .and_then(|code| u8::try_from(code).ok())
+            .ok_or_else(|| {
+                Error::Execute(std::io::Error::other(format!(
+                    "the engine ended without an exit code: {status}"
+                )))
+            })
+    }
+
     /// Drives one run through the engine, streaming each output line to
     /// `on_line` as it happens, then parses the results record through the
     /// published lib.
