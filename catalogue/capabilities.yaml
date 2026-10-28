@@ -415,10 +415,10 @@ options:
     x-veredictum-cite: *deprecated
   simplified-legacy-write:
     description: >-
-      Whether the service processes a COMPOSITION sent with the legacy media
-      types application/openehr.nc.flat+json and application/openehr.tds2+xml.
-      The release names these formats and defines neither, so the accepting
-      arm has no document; a service that does not process them answers 415.
+      Whether the service processes a COMPOSITION sent with the legacy
+      ECISFLAT media type application/openehr.nc.flat+json. The release names
+      the format and does not define it, so the accepting arm has no
+      document; a service that does not process it answers 415.
     arms:
       simplified-legacy-write-accepted:
         documents: []
@@ -428,16 +428,47 @@ options:
   simplified-legacy-read:
     description: >-
       Whether the service serves a template example when a client asks for it
-      with the legacy media types application/openehr.nc.flat+json and
-      application/openehr.tds2+xml. The release names these formats and
-      defines neither, so the serving arm has no document; a service that
-      does not serve them answers 406.
+      with the legacy ECISFLAT media type application/openehr.nc.flat+json.
+      The release names the format and does not define it, so the serving
+      arm has no document; a service that does not serve it answers 406.
     arms:
       simplified-legacy-supported:
         documents: []
       simplified-legacy-unsupported:
         documents: [legacy_example_not_acceptable]
     x-veredictum-cite: *simplified_should
+  authentication:
+    description: >-
+      Whether the service requires authentication. The release recommends an
+      HTTP authentication framework and mandates no scheme, so a service that
+      requires none has no refusal to test.
+    arms:
+      authentication-required:
+        documents: [authentication_required]
+      authentication-not-required:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Authentication and authorization
+      quote: "Services SHOULD implement and support an HTTP Authentication and Authorization framework, though this specification does not mandate a specific authentication scheme."
+      level: should
+  version-signing:
+    description: >-
+      Whether the service makes a digital signature of each VERSION at
+      committal and stores it in ORIGINAL_VERSION.signature. RM common makes
+      the signature optional and leaves its serialisation to be determined,
+      so the signing arm judges the presence of the signature only, and a
+      service that signs nothing has no document.
+    arms:
+      version-signed:
+        documents: [version_signature]
+      version-unsigned:
+        documents: []
+    # TODO(#749): the quote permits ("can be made"), and the level vocabulary has no `may` to record it.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Digital Signature
+      quote: "At the time of committal of a Version, a digital signature of the object can be made."
   admin-ehr-delete-processing:
     description: >-
       Whether the service processes an EHR delete of the Admin API

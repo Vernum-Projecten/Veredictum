@@ -1,7 +1,7 @@
 # Committing CONTRIBUTIONs a service accepts: the creation of a COMPOSITION,
 # change-sets of several members, a modification of an existing COMPOSITION,
-# EHR_STATUS and directory FOLDER members, the response preferences and the
-# headers of the answer, as Arazzo 1.1.0 workflows over the released ITS-REST
+# EHR_STATUS and directory FOLDER members, the response preferences, the
+# headers of the answer and a time_committed the client sends, as Arazzo 1.1.0 workflows over the released ITS-REST
 # `-validation` OAS. Every criterion resolves to an `x-veredictum-cite` (its
 # own, else its step's, else its workflow's), and every quote is copied
 # verbatim from the named vendored file.
@@ -1481,3 +1481,75 @@ workflows:
             x-veredictum-cite: *contribution_created
           - condition: $response.header.ETag != null
           - condition: $response.header.Last-Modified != null
+
+  - workflowId: commit_contribution-client_time_committed_ignored
+    summary: A time_committed the client sends in the audit is not the one recorded
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose envelope audit carries
+      a time_committed of 1990-01-01T00:00:00Z, and reads the CONTRIBUTION
+      back. The server sets time_committed itself, so the recorded audit
+      carries a time_committed other than the one the client sent, beside
+      the committer.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/contribution_create.yaml
+      section: description
+      quote: "`audit.time_committed`: server will always set it"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: >-
+          Commit a CONTRIBUTION whose envelope audit carries a time_committed,
+          and keep the contribution uid of the representation.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - *creation_member
+            audit:
+              _type: UPDATE_AUDIT
+              change_type:
+                _type: DV_CODED_TEXT
+                value: creation
+                defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+              committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+              time_committed: { _type: DV_DATE_TIME, value: "1990-01-01T00:00:00Z" }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/contribution_create.yaml
+              section: description
+              quote: "We will use the relaxed CONTRIBUTION with the following optional attributes:"
+        outputs:
+          contribution_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve the CONTRIBUTION; its audit time_committed is not the one the client sent.
+        operationId: $sourceDescriptions.ehr.contribution_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: contribution_uid, in: path, value: $steps.commit.outputs.contribution_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_CONTRIBUTION.yaml
+              section: description
+              quote: "`200 OK` is returned when the CONTRIBUTION is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.time_committed.value && @.time_committed.value != '1990-01-01T00:00:00Z']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: openehr-version and openehr-audit-details
+              quote: "The `time_committed` attribute is always set by the server."
+          - condition: $response.body#/audit/committer != null
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/UML/classes/audit_details.adoc
+              section: AUDIT_DETAILS Class
+              quote: "Identity and optional reference into identity management service, of user who committed the item."

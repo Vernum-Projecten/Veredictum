@@ -78,16 +78,18 @@ struct Corpus {
     cases: std::collections::BTreeMap<String, MapEntry>,
 }
 
-fn case_ids(dir: &Path, out: &mut Vec<String>) -> std::io::Result<()> {
+/// The `id` of every case core under `dir`, read from the case file itself.
+fn case_ids(dir: &Path, out: &mut Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
     for entry in std::fs::read_dir(dir)? {
         let path = entry?.path();
         if path.is_dir() {
             case_ids(&path, out)?;
-        } else if let Some(id) = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .and_then(|name| name.strip_suffix(".yaml"))
-        {
+        } else if path.extension().is_some_and(|e| e == "yaml") {
+            let core = veredictum::load::yaml_file_to_value(&path)?;
+            let id = core
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| format!("{} carries no case id", path.display()))?;
             out.push(id.to_owned());
         }
     }
@@ -99,7 +101,7 @@ fn case_ids(dir: &Path, out: &mut Vec<String>) -> std::io::Result<()> {
     clippy::panic_in_result_fn,
     reason = "the Book ch11 test shape: plumbing propagates with `?`, and the assertions are how the test fails"
 )]
-fn the_id_map_resolves_on_both_sides_and_covers_each_converted_component()
+fn the_id_map_resolves_on_both_sides_and_covers_every_old_case()
 -> Result<(), Box<dyn std::error::Error>> {
     let root = repo_root();
     let map: IdMap = serde_json::from_value(veredictum::load::yaml_file_to_value(
@@ -122,21 +124,14 @@ fn the_id_map_resolves_on_both_sides_and_covers_each_converted_component()
     }
     let mut old = Vec::new();
     case_ids(&root.join("artifacts/schedule"), &mut old)?;
-    let components: std::collections::BTreeSet<&str> = map
-        .cases
-        .keys()
-        .chain(&map.pending)
-        .filter_map(|id| id.split_once('.').map(|(component, _)| component))
-        .collect();
+    assert!(!old.is_empty(), "no case core under artifacts/schedule");
     for id in &old {
-        if let Some((component, _)) = id.split_once('.')
-            && components.contains(component)
-        {
-            assert!(
-                map.cases.contains_key(id) || map.pending.contains(id),
-                "{id} is missing from the id map"
-            );
-        }
+        assert!(
+            map.cases.contains_key(id)
+                || map.pending.contains(id)
+                || map.corpora.values().any(|c| c.cases.contains_key(id)),
+            "{id} is missing from the id map"
+        );
     }
     // TODO(#604): the cut-over refuses any id still listed under `pending`.
     for id in &map.pending {
