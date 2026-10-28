@@ -425,16 +425,8 @@ impl ArazzoDocument {
                     });
                 }
             }
-            if let Err(kind) = value_expression(&parameter.value) {
+            for kind in value_findings(&parameter.name, &parameter.value, location) {
                 push(kind);
-            }
-            if matches!(parameter.value, ValueOrSelector::Literal(Value::Array(_)))
-                && location != Some(ParameterIn::Query)
-            {
-                push(FindingKind::Unsupported(format!(
-                    "the list value of `{}` outside a query parameter",
-                    parameter.name
-                )));
             }
         }
         for placeholder in placeholders(&operation.path) {
@@ -571,6 +563,24 @@ fn body_findings(body: &RequestBody, push: &mut impl FnMut(FindingKind)) {
             push(kind);
         }
     }
+}
+
+/// The findings on a parameter's value: an expression outside the profile,
+/// and a list anywhere but in a query parameter.
+fn value_findings(
+    name: &str,
+    value: &ValueOrSelector,
+    location: Option<ParameterIn>,
+) -> Vec<FindingKind> {
+    let mut out: Vec<FindingKind> = value_expression(value).err().into_iter().collect();
+    if matches!(value, ValueOrSelector::Literal(Value::Array(_)))
+        && location != Some(ParameterIn::Query)
+    {
+        out.push(FindingKind::Unsupported(format!(
+            "the list value of `{name}` outside a query parameter"
+        )));
+    }
+    out
 }
 
 /// Checks a parameter or replacement value: a literal, a runtime expression

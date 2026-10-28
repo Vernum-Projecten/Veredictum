@@ -945,37 +945,22 @@ fn compose(
         let ReusableOr::Item(parameter) = parameter else {
             return Err("a reusable parameter".to_owned());
         };
-        if parameter.in_ == Some(ParameterLocation::Query)
-            && let ValueOrSelector::Literal(Value::Array(items)) = &parameter.value
-        {
-            // NOTE: OpenAPI 3.0.3 §Style Examples: an exploded `form` array is one pair per
-            // item (`id=3&id=4&id=5`); the request view keeps the items comma-joined.
-            let mut values = Vec::new();
-            for item in items {
-                let value = resolve_value(&ValueOrSelector::Literal(item.clone()), scope)
-                    .map_err(|e| e.to_string())?;
-                query.push(format!(
-                    "{}={}",
-                    urlencoding::encode(&parameter.name),
-                    urlencoding::encode(&value)
-                ));
-                values.push(value);
-            }
-            request
-                .query
-                .insert(parameter.name.clone(), values.join(","));
-            continue;
-        }
-        if parameter.in_ == Some(ParameterLocation::Query)
-            && let ValueOrSelector::Literal(Value::Object(members)) = &parameter.value
-        {
-            for (name, value) in exploded(members, scope).map_err(|e| e.to_string())? {
+        if parameter.in_ == Some(ParameterLocation::Query) {
+            let pairs = query_pairs(&parameter.name, &parameter.value, scope);
+            for (name, value) in pairs.map_err(|e| e.to_string())? {
                 query.push(format!(
                     "{}={}",
                     urlencoding::encode(&name),
                     urlencoding::encode(&value)
                 ));
-                request.query.insert(name, value);
+                request
+                    .query
+                    .entry(name)
+                    .and_modify(|joined| {
+                        joined.push(',');
+                        joined.push_str(&value);
+                    })
+                    .or_insert(value);
             }
             continue;
         }
@@ -983,14 +968,6 @@ fn compose(
         match parameter.in_ {
             Some(ParameterLocation::Path) => {
                 request.path.insert(parameter.name.clone(), value);
-            }
-            Some(ParameterLocation::Query) => {
-                query.push(format!(
-                    "{}={}",
-                    urlencoding::encode(&parameter.name),
-                    urlencoding::encode(&value)
-                ));
-                request.query.insert(parameter.name.clone(), value);
             }
             Some(ParameterLocation::Header) => {
                 request
@@ -1000,17 +977,7 @@ fn compose(
             other => return Err(format!("parameter location {other:?}")),
         }
     }
-    let mut path = without_query_expansions(&operation.path);
-    for (name, value) in &request.path {
-        path = path.replace(&format!("{{{name}}}"), &urlencoding::encode(value));
-    }
-    if path.contains('{') {
-        return Err(format!("path `{path}` has an unbound parameter"));
-    }
-    request.url = format!("{}{path}", config.base_url.trim_end_matches('/'));
-    if !query.is_empty() {
-        request.url = format!("{}?{}", request.url, query.join("&"));
-    }
+    request.url = request_url(&operation.path, &request.path, &config.base_url, &query)?;
     let mut body = None;
     let mut body_is_json = true;
     if let Some(request_body) = &step.request_body {
@@ -1040,16 +1007,7 @@ fn compose(
         body = Some(payload);
     }
     let mut sent_headers = request.headers.clone();
-    let credential = match principal_of(step.extensions.as_ref()).map_err(|e| e.to_string())? {
-        Some(Principal::Administrative) => Some(
-            config
-                .administrative
-                .as_ref()
-                .ok_or("the administrative principal is not supplied")?,
-        ),
-        None => config.authorization.as_ref(),
-    };
-    if let Some(authorization) = credential {
+    if let Some(authorization) = credential(step, config)? {
         sent_headers
             .entry("authorization".to_owned())
             .or_insert_with(|| authorization.clone());
@@ -1063,6 +1021,64 @@ fn compose(
     })
 }
 
+/// The `Authorization` value a step is sent with: the administrative
+/// principal's when the step names it, else the run's.
+fn credential<'c>(step: &Step, config: &'c RunConfig) -> Result<Option<&'c String>, String> {
+    match principal_of(step.extensions.as_ref()).map_err(|e| e.to_string())? {
+        Some(Principal::Administrative) => config
+            .administrative
+            .as_ref()
+            .map(Some)
+            .ok_or_else(|| "the administrative principal is not supplied".to_owned()),
+        None => Ok(config.authorization.as_ref()),
+    }
+}
+
+/// The name and value pairs a query parameter is sent as. A list is one
+/// pair per item under the parameter's name (OpenAPI 3.0.3 §Style Examples:
+/// an exploded `form` array is `id=3&id=4&id=5`), which the request view
+/// keeps comma-joined; an object is one pair per member.
+fn query_pairs(
+    name: &str,
+    value: &ValueOrSelector,
+    scope: &Scope<'_>,
+) -> Result<Vec<(String, String)>, EvalError> {
+    match value {
+        ValueOrSelector::Literal(Value::Array(items)) => items
+            .iter()
+            .map(|item| {
+                resolve_value(&ValueOrSelector::Literal(item.clone()), scope)
+                    .map(|value| (name.to_owned(), value))
+            })
+            .collect(),
+        ValueOrSelector::Literal(Value::Object(members)) => exploded(members, scope),
+        other => Ok(vec![(name.to_owned(), resolve_value(other, scope)?)]),
+    }
+}
+
+/// The URL a request is sent to: `template` with its path parameters bound
+/// and its query expansions left out, under `base_url`, with `query`.
+fn request_url(
+    template: &str,
+    path_values: &BTreeMap<String, String>,
+    base_url: &str,
+    query: &[String],
+) -> Result<String, String> {
+    let mut path = without_query_expansions(template);
+    for (name, value) in path_values {
+        path = path.replace(&format!("{{{name}}}"), &urlencoding::encode(value));
+    }
+    if path.contains('{') {
+        return Err(format!("path `{path}` has an unbound parameter"));
+    }
+    let url = format!("{}{path}", base_url.trim_end_matches('/'));
+    Ok(if query.is_empty() {
+        url
+    } else {
+        format!("{url}?{}", query.join("&"))
+    })
+}
+
 /// `template` without its RFC 6570 §3.2.8 form-style query expansions
 /// (`{?name*}`) and §3.2.9 continuations (`{&name}`): the query parameters
 /// they name are sent from the step's own query parameters.
@@ -1073,12 +1089,11 @@ fn without_query_expansions(template: &str) -> String {
         let (head, tail) = rest.split_at(start);
         out.push_str(head);
         let expansion = tail.starts_with("{?") || tail.starts_with("{&");
-        match (expansion, tail.find('}')) {
-            (true, Some(end)) => rest = tail.get(end.saturating_add(1)..).unwrap_or_default(),
-            _ => {
-                out.push('{');
-                rest = tail.get(1..).unwrap_or_default();
-            }
+        if let (true, Some(end)) = (expansion, tail.find('}')) {
+            rest = tail.get(end.saturating_add(1)..).unwrap_or_default();
+        } else {
+            out.push('{');
+            rest = tail.get(1..).unwrap_or_default();
         }
     }
     out.push_str(rest);
