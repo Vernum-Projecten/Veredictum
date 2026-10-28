@@ -2,7 +2,8 @@
 #
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 #
-# Read this file honestly: Veredictum has ONE maintainer, so every line below
+# Read this file honestly: Veredictum has one maintainer for the whole tree and
+# one area maintainer, Sebastian Iancu, for the AQL workflows. Every other line
 # names the same person. That is not review theatre, and it is not a claim of
 # capacity the project does not have — it does two real things.
 #
@@ -35,7 +36,12 @@
 # A change here changes the acceptance bar for every party this instrument
 # grades, so it is the highest-consequence area in the repository.
 /artifacts/                         @rubentalstra
+/catalogue/                         @rubentalstra
 /schemas/                           @rubentalstra
+
+# The AQL workflows. Sebastian Iancu wrote the aql-conformance corpus they
+# carry (#695) and maintains them with the maintainer.
+/catalogue/cases/query/             @rubentalstra @sebastian-iancu
 
 # ── The vendored specification text: the oracle ─────────────────────────────
 # Changes only by re-running a vendoring script, never by hand.
