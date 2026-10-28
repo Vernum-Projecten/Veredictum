@@ -41,31 +41,11 @@ gaps:
   - { api: ehr, operation: ehr_status_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 659 }
   - { api: ehr, operation: ehr_status_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 659 }
   - { api: ehr, operation: ehr_status_update, header: Content-Type, value: application/xml, issue: 659 }
-# The COMPOSITION write branches no workflow reaches yet, covered by #675:
-# the update's refusals, its other preferences and formats; the create's XML
-# Accept and simplified formats; and the 400 and 409 a second delete matches
-# at once. The JSON update with return=representation is reached as the
-# step that makes a second version for the reads.
-  - { api: ehr, operation: composition_create, header: Accept, value: application/openehr.wt.flat+json, issue: 675 }
-  - { api: ehr, operation: composition_create, header: Accept, value: application/openehr.wt.structured+json, issue: 675 }
-  - { api: ehr, operation: composition_create, header: Accept, value: application/xml, issue: 675 }
-  - { api: ehr, operation: composition_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 675 }
-  - { api: ehr, operation: composition_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 675 }
-  - { api: ehr, operation: composition_delete, status: "400", issue: 675 }
-  - { api: ehr, operation: composition_delete, status: "409", issue: 675 }
-  - { api: ehr, operation: composition_update, header: Accept, value: application/openehr.wt.flat+json, issue: 675 }
-  - { api: ehr, operation: composition_update, header: Accept, value: application/openehr.wt.structured+json, issue: 675 }
-  - { api: ehr, operation: composition_update, header: Accept, value: application/xml, issue: 675 }
-  - { api: ehr, operation: composition_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 675 }
-  - { api: ehr, operation: composition_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 675 }
-  - { api: ehr, operation: composition_update, header: Content-Type, value: application/xml, issue: 675 }
-  - { api: ehr, operation: composition_update, header: Prefer, value: return=identifier, issue: 675 }
-  - { api: ehr, operation: composition_update, header: Prefer, value: return=minimal, issue: 675 }
-  - { api: ehr, operation: composition_update, status: "204", issue: 675 }
-  - { api: ehr, operation: composition_update, status: "400", issue: 675 }
-  - { api: ehr, operation: composition_update, status: "404", issue: 675 }
-  - { api: ehr, operation: composition_update, status: "412", issue: 675 }
-  - { api: ehr, operation: composition_update, status: "422", issue: 675 }
+# The 400 of a COMPOSITION delete, covered by #681: a second delete of a
+# deleted COMPOSITION matches both the 400 already deleted and the 409 of a
+# version that is not the latest, and the surface gate counts the workflow
+# that accepts either answer for neither branch.
+  - { api: ehr, operation: composition_delete, status: "400", issue: 681 }
 # The Content-Type the release declares on the body-less VERSIONED_EHR_STATUS
 # and VERSIONED_COMPOSITION GETs: each operation lists
 # `parameters/header/ContentType_canonical.yaml` as a request header on a

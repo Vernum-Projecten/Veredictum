@@ -54,11 +54,11 @@ workflows:
               quote: "`201 Created` is returned when the EHR has been successfully created,"
       - &commit
         stepId: commit
-        description: Commit a COMPOSITION and keep the version_uid the identifier preference answers with.
+        description: Commit a COMPOSITION and keep the version_uid of the full representation it answers with.
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/json
@@ -142,16 +142,12 @@ workflows:
               section: HTTP status codes
               quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
           - condition: $statusCode == 201
-            x-veredictum-cite: &identifier_should
-              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
-              section: Prefer only identifier
-              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
-              level: should
-              report: 673
-          - condition: $response.body#/uid != null
-            x-veredictum-cite: *identifier_should
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
         outputs:
-          version_uid: $response.body#/uid
+          version_uid: $response.body#/uid/value
       - &tag_alpha
         stepId: tag
         description: Update the version's tag list with the tag alpha.
