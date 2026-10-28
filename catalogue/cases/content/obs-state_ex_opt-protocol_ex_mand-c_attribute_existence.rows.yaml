@@ -1,0 +1,14 @@
+# The rows of CONT-OBS-state_ex_opt-protocol_ex_mand this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_observation/obs-state_ex_opt-protocol_ex_mand-c_attribute_existence
+iteration: reset_per_row
+literals: ["state_existence", "protocol_existence", "data_committed", "state_committed", "protocol_committed"]
+recipe:
+  name: content_synthesized
+  rm_class: OBSERVATION
+  template_id: cnf.tpl.ecc_observation_state_protocol_existence
+  input: composition
+  template_input: template
+rows:
+  - {"state_existence": "optional", "protocol_existence": "mandatory", "data_committed": "present", "state_committed": "absent", "protocol_committed": "absent"}
+  - {"state_existence": "optional", "protocol_existence": "mandatory", "data_committed": "present", "state_committed": "present", "protocol_committed": "absent"}

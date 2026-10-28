@@ -2848,7 +2848,13 @@ x-veredictum-cite:
 ```
 
 An optional `level: should` marks a quote that recommends rather than
-requires (§15.6 rule 10); `must` is the default. `section` addresses the
+requires (§15.6 rule 10); `must` is the default. An optional `report: <n>`
+names the `upstream-report` issue in this repository that records a defect or
+silence in the quoted text; that issue, with its patch under `upstream/`, is
+the whole record of the defect. This catalogue carries no ambiguity register:
+a behaviour the release leaves unassigned is either an upstream report that no
+workflow asserts, or an option in `capabilities.yaml` that a statement
+answers (#617). `section` addresses the
 element the quote must occur in. In a YAML source it
 is a top-level key or a JSON Pointer (RFC 6901); in a Markdown or AsciiDoc
 source it is a heading title. A criterion without its own citation inherits
@@ -3142,8 +3148,9 @@ vendor reads why a row is red without opening `results.json`.
 - **Identity and links**: unique case ids, resolving payload references, and
   option tags that resolve to options in `capabilities.yaml`. A citation's
   `report:` is a positive issue number; checking that it names an
-  `upstream-report` issue needs the tracker, so it runs in CI rather than in
-  the offline `validate`.
+  `upstream-report` issue needs the tracker, so it runs in CI
+  (`scripts/checks/report-refs.sh`, over the workflow documents and
+  `capabilities.yaml`) rather than in the offline `validate`.
 - **Claims**: capability-depth floors, claim completeness and
   `realization-scope`, as §8.13 defines them.
 

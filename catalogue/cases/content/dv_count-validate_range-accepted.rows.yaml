@@ -1,0 +1,12 @@
+# The rows of CONT-DV_COUNT-validate_range this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_count/dv_count-validate_range-accepted
+iteration: reset_per_row
+literals: ["magnitude"]
+recipe:
+  name: content_instance
+  rm_class: DV_COUNT
+  template_id: cnf.tpl.count_range
+  input: composition
+rows:
+  - {"magnitude": 15}

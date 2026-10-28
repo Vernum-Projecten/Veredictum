@@ -98,7 +98,7 @@ options:
       this one answers 406.
     arms:
       composition-structured-supported:
-        documents: [composition_read_structured, composition_write_structured_accept]
+        documents: [composition_read_structured, composition_write_structured_accept, structured_read]
       composition-structured-unsupported:
         documents: [composition_read_structured_not_acceptable, composition_write_structured_not_acceptable]
     x-veredictum-cite:
@@ -173,7 +173,7 @@ options:
       this one answers 415.
     arms:
       composition-flat-write-accepted:
-        documents: [composition_write_flat]
+        documents: [composition_write_flat, flat_context, flat_mapping, flat_structure, flat_commit_refused]
       composition-flat-write-refused:
         documents: [composition_write_flat_unsupported]
     x-veredictum-cite:
@@ -188,13 +188,29 @@ options:
       process this one answers 415.
     arms:
       composition-structured-write-accepted:
-        documents: [composition_write_structured]
+        documents: [composition_write_structured, structured_commit, structured_read]
       composition-structured-write-refused:
         documents: [composition_write_structured_unsupported]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Simplified Formats
       quote: "If the service cannot process the request payload as the simplified format is not supported, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  content-unmatched-member:
+    description: >-
+      Whether the service refuses a committed member of a container attribute
+      that matches none of the attribute's object constraints. The released AM
+      states the alternative-matching rule for single-valued attributes only,
+      so both postures stay open until upstream report #307 is settled.
+    arms:
+      content-unmatched-member-refused:
+        documents: [content_item_unmatched_refused]
+      content-unmatched-member-accepted:
+        documents: [content_item_unmatched_accepted]
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: Single-valued Attributes
+      quote: "Two or more object blocks introduced by type names appearing after an attribute which is not a container (i.e. for which there is no cardinality constraint) are taken to be *alternative constraints*, only one of which needs to be matched by the data."
+      report: 307
   template-web-template:
     description: >-
       Whether the service serves an ADL 1.4 operational template in the Web
@@ -267,3 +283,283 @@ options:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format
       quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  party-xml-read:
+    description: >-
+      Whether the service serves each of the five PARTY kinds of the
+      Demographic API (PERSON, AGENT, GROUP, ORGANISATION and ROLE) in
+      canonical XML when a client asks for it with Accept application/xml.
+    arms:
+      party-xml-supported:
+        documents: [party_read_xml]
+      party-xml-unsupported:
+        documents: [party_read_xml_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Services MUST support at least one of the openEHR **XML** or **JSON** canonical formats for resource representation."
+  versioned-party-xml-read:
+    description: >-
+      Whether the service serves the VERSIONED_PARTY family of the
+      Demographic API (the VERSIONED_PARTY, its versions and its revision
+      history) in canonical XML when a client asks for it with Accept
+      application/xml.
+    arms:
+      versioned-party-xml-supported:
+        documents: [versioned_party_read_xml]
+      versioned-party-xml-unsupported:
+        documents: [versioned_party_read_xml_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Services MUST support at least one of the openEHR **XML** or **JSON** canonical formats for resource representation."
+  party-xml-write:
+    description: >-
+      Whether the service processes a PARTY sent as canonical XML on the
+      create and update of each PARTY kind. No published XSD declares a
+      document element for a PARTY, so the accepting arm has no document yet.
+    arms:
+      party-xml-write-accepted:
+        documents: []
+      party-xml-write-refused:
+        documents: [party_xml_write_refused]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  contribution-flat-write:
+    description: >-
+      Whether the service processes a CONTRIBUTION sent with Content-Type
+      application/openehr.wt.flat+json, whose canonical envelope carries its
+      members' data in the Simplified Flat JSON format. The release
+      recommends the Simplified Formats, so a service that does not process
+      this one answers 415.
+    arms:
+      contribution-flat-write-accepted:
+        documents: [contribution_write_flat]
+      contribution-flat-write-refused:
+        documents: [contribution_write_flat_unsupported]
+    x-veredictum-cite: &simplified_unsupported
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "If the service cannot process the request payload as the simplified format is not supported, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  contribution-structured-write:
+    description: >-
+      Whether the service processes a CONTRIBUTION sent with Content-Type
+      application/openehr.wt.structured+json, whose canonical envelope
+      carries its members' data in the Simplified Structured JSON format. The
+      release recommends the Simplified Formats, so a service that does not
+      process this one answers 415.
+    arms:
+      contribution-structured-write-accepted:
+        documents: [contribution_write_structured]
+      contribution-structured-write-refused:
+        documents: [contribution_write_structured_unsupported]
+    x-veredictum-cite: *simplified_unsupported
+  contribution-flat-read:
+    description: >-
+      Whether the service serves a CONTRIBUTION when a client asks for it with
+      Accept application/openehr.wt.flat+json. The release recommends the
+      Simplified Formats, so a service that does not serve this one answers
+      406.
+    arms:
+      contribution-flat-supported:
+        documents: [contribution_read_flat]
+      contribution-flat-unsupported:
+        documents: [contribution_read_flat_not_acceptable]
+    x-veredictum-cite: &simplified_should
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Additionally, the **Simplified Formats** format SHOULD be supported, while other alternative formats MAY be supported as well, depending on the use case."
+      level: should
+  contribution-structured-read:
+    description: >-
+      Whether the service serves a CONTRIBUTION when a client asks for it with
+      Accept application/openehr.wt.structured+json. The release recommends
+      the Simplified Formats, so a service that does not serve this one
+      answers 406.
+    arms:
+      contribution-structured-supported:
+        documents: [contribution_read_structured]
+      contribution-structured-unsupported:
+        documents: [contribution_read_structured_not_acceptable]
+    x-veredictum-cite: *simplified_should
+  simplified-deprecated-write:
+    description: >-
+      Whether the service still processes a COMPOSITION sent with the
+      deprecated media types application/openehr.wt.flat.schema+json and
+      application/openehr.wt.structured.schema+json. The release deprecates
+      them in favour of their current equivalents, so a service may have
+      dropped them and then answers 415.
+    arms:
+      simplified-deprecated-write-accepted:
+        documents: [deprecated_write]
+      simplified-deprecated-write-refused:
+        documents: [deprecated_write_refused]
+    x-veredictum-cite: &deprecated
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "> NOTE: The `application/openehr.wt.flat.schema+json` and `application/openehr.wt.structured.schema+json` which were historically available in earlier versions of this specification, are now deprecated and will be removed in a future version of the specification. The equivalent formats `application/openehr.wt.flat+json` and `application/openehr.wt.structured+json` SHOULD be used instead."
+      level: should
+  simplified-deprecated-read:
+    description: >-
+      Whether the service still serves a template example when a client asks
+      for it with the deprecated media types
+      application/openehr.wt.flat.schema+json and
+      application/openehr.wt.structured.schema+json. A service that has
+      dropped them answers 406.
+    arms:
+      simplified-deprecated-supported:
+        documents: [deprecated_example]
+      simplified-deprecated-unsupported:
+        documents: [deprecated_example_not_acceptable]
+    x-veredictum-cite: *deprecated
+  simplified-legacy-write:
+    description: >-
+      Whether the service processes a COMPOSITION sent with the legacy
+      ECISFLAT media type application/openehr.nc.flat+json. The release names
+      the format and does not define it, so the accepting arm has no
+      document; a service that does not process it answers 415.
+    arms:
+      simplified-legacy-write-accepted:
+        documents: []
+      simplified-legacy-write-refused:
+        documents: [legacy_write_refused]
+    x-veredictum-cite: *simplified_should
+  simplified-legacy-read:
+    description: >-
+      Whether the service serves a template example when a client asks for it
+      with the legacy ECISFLAT media type application/openehr.nc.flat+json.
+      The release names the format and does not define it, so the serving
+      arm has no document; a service that does not serve it answers 406.
+    arms:
+      simplified-legacy-supported:
+        documents: []
+      simplified-legacy-unsupported:
+        documents: [legacy_example_not_acceptable]
+    x-veredictum-cite: *simplified_should
+  authentication:
+    description: >-
+      Whether the service requires authentication. The release recommends an
+      HTTP authentication framework and mandates no scheme, so a service that
+      requires none has no refusal to test.
+    arms:
+      authentication-required:
+        documents: [authentication_required]
+      authentication-not-required:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Authentication and authorization
+      quote: "Services SHOULD implement and support an HTTP Authentication and Authorization framework, though this specification does not mandate a specific authentication scheme."
+      level: should
+  version-signing:
+    description: >-
+      Whether the service makes a digital signature of each VERSION at
+      committal and stores it in ORIGINAL_VERSION.signature. RM common makes
+      the signature optional and leaves its serialisation to be determined,
+      so the signing arm judges the presence of the signature only, and a
+      service that signs nothing has no document.
+    arms:
+      version-signed:
+        documents: [version_signature]
+      version-unsigned:
+        documents: []
+    # TODO(#749): the quote permits ("can be made"), and the level vocabulary has no `may` to record it.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Digital Signature
+      quote: "At the time of committal of a Version, a digital signature of the object can be made."
+  admin-ehr-delete-processing:
+    description: >-
+      Whether the service processes an EHR delete of the Admin API
+      synchronously, answering 204 once the EHR is physically deleted, or
+      asynchronously, answering 202 once the delete is accepted. The Admin
+      API is in the DEVELOPMENT state in Release-1.1.0; a service that does
+      not serve it selects neither arm.
+    arms:
+      admin-delete-synchronous:
+        documents: [admin_ehr_delete, admin_ehr_delete_all]
+      admin-delete-asynchronous:
+        documents: [admin_ehr_delete_async, admin_ehr_delete_all_async]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete.yaml
+      section: description
+      quote: "The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`."
+  admin-ehr-delete-all:
+    description: >-
+      Whether the service serves the bulk EHR delete of the Admin API or has
+      it disabled and answers 405.
+    arms:
+      admin-delete-all-enabled:
+        documents: [admin_ehr_delete_all, admin_ehr_delete_all_async, admin_ehr_delete_all_refused]
+      admin-delete-all-disabled:
+        documents: [admin_ehr_delete_all_disabled]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
+      section: description
+      quote: "This functionality is intended primarily for **development** or **testing** purposes and may be disabled in **production** environments, in which case server may respond with `405 Method Not Allowed`."
+  aql-undefined-containment:
+    description: >-
+      Whether the service refuses a query whose CONTAINS names a pair of
+      classes the RM defines no containment for, or executes it to an empty
+      result. AQL assigns neither, so both arms are open until upstream
+      report #161 is settled, and neither arm has a document yet.
+    arms:
+      aql-undefined-containment-refused:
+        documents: []
+      aql-undefined-containment-empty:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Containment
+      quote: "Left-hand operand class expression is the parent object of the right-hand operand class expression"
+      report: 161
+  aql-nonnumeric-aggregate:
+    description: >-
+      Whether the service refuses a SUM or AVG over an input type outside the
+      function's declared types, or executes it. AQL names the types and
+      assigns no outcome to another, so both arms are open until upstream
+      report #229 is settled, and neither arm has a document yet.
+    arms:
+      aql-nonnumeric-aggregate-refused:
+        documents: []
+      aql-nonnumeric-aggregate-executed:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: SUM
+      quote: "Input values type should be either Integer or Real, and it will also determine the return type."
+      report: 229
+  xml-namespace:
+    description: >-
+      Which published canonical XML lineage the service serves: the
+      Release-1.0.2 schemas in namespace http://schemas.openehr.org/v1, or the
+      Release-2.0.0 schemas in http://schemas.openehr.org/v2. The release
+      requires conformance to "the published XSDs" and names neither, so
+      neither arm has a document yet.
+    arms:
+      xml-namespace-v1:
+        documents: []
+      xml-namespace-v2:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "When resources are serialized in **canonical XML** format, both request payloads and responses MUST conform to the [published XSDs](https://specifications.openehr.org/releases/ITS-XML/latest)."
+      report: 759
+  terminology-binding-unresolvable:
+    description: >-
+      What the service does with a committed coded value whose archetype
+      constraint binding it cannot resolve, because the terminology query
+      server is unreachable or does not know the value set: refuse the
+      commit, or accept it. Which terminology servers a service reaches is
+      its own configuration, so neither arm has a document yet.
+    arms:
+      terminology-binding-unresolvable-refused:
+        documents: []
+      terminology-binding-unresolvable-accepted:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/BASE/docs/architecture_overview/master12-terminology.adoc
+      section: Binding Terminology Value-sets to Archetypes
+      quote: "Currently there is no standard for such queries."

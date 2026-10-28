@@ -1,0 +1,22 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index d9ac89d..5720424 100755
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -158,7 +158,7 @@ Standard predicates always have a left-hand operand, an operator and a right-han
+ 
+ === Archetype predicate
+ 
+-An archetype predicate is a shortcut of a standard predicate, i.e. the predicate does not have the left-hand operand and operator. It only has an archetype id, e.g. `[openEHR-EHR-COMPOSITION.encounter.v1]`. The archetype predicate is a specific type of query criterion indicating which archetype instances are relevant to this query. It is used to scope the data source from which the query result data is to be retrieved. Therefore, an archetype predicate is only used within an AQL `FROM` clause, for example,
++An archetype predicate is a shortcut of a standard predicate, i.e. the predicate does not have the left-hand operand and operator. It only has an archetype id, e.g. `[openEHR-EHR-COMPOSITION.encounter.v1]`. The archetype predicate is a specific type of query criterion indicating which archetype instances are relevant to this query. It is used to scope the data source from which the query result data is to be retrieved. It also matches data created with an archetype that specialises the named one, as the Architecture Overview requires of queries based on a parent archetype. Therefore, an archetype predicate is only used within an AQL `FROM` clause, for example,
+ 
+ --------
+ FROM EHR [ehr_id/value='1234']
+@@ -1074,7 +1074,7 @@ FROM
+ The `TOP` will be removed in a future major release of AQL specification.
+ It is not allowed to use `TOP` while also using `LIMIT` clause in the same query.
+ 
+-The `TOP` syntax was borrowed from SQL language for representing the number of result sets that should be returned by the AQL query. It uses `BACKWARD` and `FORWARD` to indicate the direction where to start to get the number of results to be returned.
++The `TOP` syntax was borrowed from SQL language for representing the number of result sets that should be returned by the AQL query. It uses `BACKWARD` and `FORWARD` to indicate the direction where to start to get the number of results to be returned. A direction only has a meaning over the order an `ORDER BY` clause defines; without one, `TOP` selects any `n` rows of the result.
+ 
+ It starts with keyword `TOP`, followed by an integer number and/or the direction (i.e. `BACKWARD`, `FORWARD`), e.g.
+ 

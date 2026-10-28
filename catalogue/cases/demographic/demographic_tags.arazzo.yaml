@@ -1,0 +1,165 @@
+# The ITEM_TAG listing of the whole Demographic space, filtered by key and
+# value, as Arazzo 1.1.0 workflows over the released ITS-REST `-validation` OAS.
+# Every criterion resolves to an `x-veredictum-cite` (its own, else its
+# step's, else its workflow's), and every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: Demographic tags
+  version: 0.1.0
+  description: >-
+    Listing the ITEM_TAGs of the Demographic space. Each workflow tags with a
+    key unique to its run, so the listing is judged on that key alone.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: demographic_tags_get-filter_key
+    summary: The Demographic tag listing filtered by a tag_key holds the PARTY tag of that key
+    description: >-
+      Creates a PERSON and tags its container with a key unique to this run,
+      then lists the Demographic tags filtered by that key. The answer is 200
+      and holds the tag, whose target is the PERSON's container.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/demographic_tags_get.yaml
+      section: description
+      quote: "This list can be filtered by the given one or more `tag_key`, `tag_value`, `tag_target_path` query parameters."
+    inputs: &run_input
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - &create
+        stepId: create
+        description: "Create the PERSON asking for the full representation, keep its version_uid and derive the versioned_object_uid of its container."
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: &v1_body
+          contentType: application/json
+          payload: &party_v1
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+        successCriteria:
+          - &created_status
+            condition: $statusCode == 201
+            x-veredictum-cite: &created
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - &tag
+        stepId: tag
+        description: "Tag the PERSON's container with this run's key."
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: "", value: listed }
+          replacements:
+            - { target: /0/key, value: "vdem-{$inputs.run}" }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: &tags_updated_minimal
+              source: specs/openehr/ITS-REST/specifications/responses/204_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: list
+        description: "List the Demographic tags filtered by this run's key."
+        operationId: $sourceDescriptions.demographic.demographic_tags_get
+        parameters:
+          - { name: tag_key, in: query, value: "vdem-{$inputs.run}" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &demographic_tags_list
+              source: specs/openehr/ITS-REST/specifications/responses/200_PERSON_ItemTagList_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested ITEM_TAG list is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.value == 'listed']"
+            x-veredictum-cite: &demographic_tags
+              source: specs/openehr/ITS-REST/specifications/operations/demographic_tags_get.yaml
+              section: description
+              quote: "Retrieves the list of ITEM_TAG resources associated with any target VERSION or VERSIONED_PARTY within the Demographic space."
+          - context: $response.body#/0/target/id/value
+            type: regex
+            condition: '^{$steps.create.outputs.versioned_object_uid}$'
+            x-veredictum-cite: &tag_target
+              source: specs/openehr/ITS-REST/specifications/schemas/common/ItemTag.yaml
+              section: /properties/target/$ref
+              quote: "../base_types/UObjectRefOfUidBasedId.yaml"
+          - condition: $response.body#/1 == null
+            x-veredictum-cite: &demographic_tags_filter
+              source: specs/openehr/ITS-REST/specifications/operations/demographic_tags_get.yaml
+              section: description
+              quote: "This list can be filtered by the given one or more `tag_key`, `tag_value`, `tag_target_path` query parameters."
+
+  - workflowId: demographic_tags_get-filter_value
+    summary: The Demographic tag listing filtered by a key and another value is empty
+    description: >-
+      Creates a PERSON and tags its container with a key unique to this run
+      and the value listed, then lists the Demographic tags filtered by that
+      key and the value other. No tag matches both, so the answer is 200 with
+      an empty list.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/demographic_tags_get.yaml
+      section: description
+      quote: "This list can be filtered by the given one or more `tag_key`, `tag_value`, `tag_target_path` query parameters."
+    inputs: *run_input
+    steps:
+      - *create
+      - *tag
+      - stepId: list
+        description: "List the Demographic tags filtered by this run's key and another value."
+        operationId: $sourceDescriptions.demographic.demographic_tags_get
+        parameters:
+          - { name: tag_key, in: query, value: "vdem-{$inputs.run}" }
+          - { name: tag_value, in: query, value: other }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *demographic_tags_list
+          - condition: $response.body#/0 == null
+
+  - workflowId: demographic_tags_get-xml_not_acceptable
+    summary: The Demographic tag listing asked for as XML is answered 406
+    description: >-
+      Lists the Demographic tags with Accept application/xml. No published XSD
+      declares ITEM_TAG, so no conformant XML tag list exists and the service
+      answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: list
+        description: List the Demographic tags as XML.
+        operationId: $sourceDescriptions.demographic.demographic_tags_get
+        parameters:
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406

@@ -250,11 +250,14 @@ pub fn normalize_whitespace(text: &str) -> String {
 }
 
 /// Checks citations against the vendored files under one repository root,
-/// reading each file once.
+/// reading each file once and resolving each cited section once.
 #[derive(Debug)]
 pub struct QuoteChecker<'a> {
     repo_root: &'a Path,
     texts: BTreeMap<String, Result<String, String>>,
+    /// The whitespace-normalized text of each `(source, section)` resolved so
+    /// far, or why it does not resolve.
+    sections: BTreeMap<(String, String), Result<String, CiteError>>,
 }
 
 impl<'a> QuoteChecker<'a> {
@@ -264,6 +267,7 @@ impl<'a> QuoteChecker<'a> {
         Self {
             repo_root,
             texts: BTreeMap::new(),
+            sections: BTreeMap::new(),
         }
     }
 
@@ -291,28 +295,16 @@ impl<'a> QuoteChecker<'a> {
         {
             return Err(CiteError::OutsideOracle(source.to_owned()));
         }
-        let text = self.read(source)?;
-        let quote = normalize_whitespace(&citation.quote);
-        let is_yaml = Path::new(source)
-            .extension()
-            .and_then(std::ffi::OsStr::to_str)
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("yaml") || ext.eq_ignore_ascii_case("yml"));
-        let haystack = if is_yaml {
-            yaml_section_text(&text, source, &citation.section)?
+        let key = (source.to_owned(), citation.section.clone());
+        let haystack = if let Some(resolved) = self.sections.get(&key) {
+            resolved.clone()?
         } else {
-            heading_section_text(&text, &citation.section).map_err(|miss| match miss {
-                SectionMiss::NotFound => CiteError::SectionNotFound {
-                    file: source.to_owned(),
-                    section: citation.section.clone(),
-                },
-                SectionMiss::Ambiguous(headings) => CiteError::AmbiguousSection {
-                    file: source.to_owned(),
-                    section: citation.section.clone(),
-                    headings,
-                },
-            })?
+            let resolved = self.section_text(source, &citation.section);
+            self.sections.insert(key, resolved.clone());
+            resolved?
         };
-        if normalize_whitespace(&haystack).contains(&quote) {
+        let quote = normalize_whitespace(&citation.quote);
+        if haystack.contains(&quote) {
             Ok(())
         } else {
             Err(CiteError::QuoteNotFound {
@@ -321,6 +313,31 @@ impl<'a> QuoteChecker<'a> {
                 quote: citation.quote.clone(),
             })
         }
+    }
+
+    /// The whitespace-normalized text of `section` in `source`.
+    fn section_text(&mut self, source: &str, section: &str) -> Result<String, CiteError> {
+        let text = self.read(source)?;
+        let is_yaml = Path::new(source)
+            .extension()
+            .and_then(std::ffi::OsStr::to_str)
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("yaml") || ext.eq_ignore_ascii_case("yml"));
+        let haystack = if is_yaml {
+            yaml_section_text(&text, source, section)?
+        } else {
+            heading_section_text(&text, section).map_err(|miss| match miss {
+                SectionMiss::NotFound => CiteError::SectionNotFound {
+                    file: source.to_owned(),
+                    section: section.to_owned(),
+                },
+                SectionMiss::Ambiguous(headings) => CiteError::AmbiguousSection {
+                    file: source.to_owned(),
+                    section: section.to_owned(),
+                    headings,
+                },
+            })?
+        };
+        Ok(normalize_whitespace(&haystack))
     }
 
     fn read(&mut self, source: &str) -> Result<String, CiteError> {
@@ -569,6 +586,27 @@ mod tests {
             checker.check(&missing),
             Err(CiteError::SectionNotFound { .. })
         ));
+    }
+
+    #[test]
+    fn a_section_resolved_once_judges_every_later_quote_against_it() {
+        let dir = repo();
+        let mut checker = QuoteChecker::new(dir.path());
+        let file = "specs/openehr/ITS-REST/specifications/responses/409.yaml";
+        let found = cite(file, "description", "Can happen when");
+        let not_found = cite(file, "description", "Can happen when deleted");
+        let missing = cite(file, "summary", "Can happen");
+        for _ in 0..2 {
+            assert_eq!(checker.check(&found), Ok(()));
+            assert!(matches!(
+                checker.check(&not_found),
+                Err(CiteError::QuoteNotFound { .. })
+            ));
+            assert!(matches!(
+                checker.check(&missing),
+                Err(CiteError::SectionNotFound { .. })
+            ));
+        }
     }
 
     #[test]

@@ -1,0 +1,15 @@
+diff --git a/docs/simplified_formats/master04-basic_concepts.adoc b/docs/simplified_formats/master04-basic_concepts.adoc
+index 6fe34b35..4c0178b9 100644
+--- a/docs/simplified_formats/master04-basic_concepts.adoc
++++ b/docs/simplified_formats/master04-basic_concepts.adoc
+@@ -930,8 +930,8 @@ Many archetypes deliberately combine a recommended coded list with free-text fal
+ 
+ * On *write*: clients supply the free-text value via `<path>|other: "<text>"`. The server persists the leaf as a `DV_TEXT` in the canonical RM (not as a `DV_CODED_TEXT` with empty `defining_code`).
+ * On *read*: when the leaf carries a `DV_TEXT` whose archetype constraint is `DV_CODED_TEXT` with `listOpen: true`, the server SHOULD emit it via `<path>|other: "<text>"` so that round-trip equality holds at the FLAT level.
+-* `|other` is mutually exclusive with `|code`, `|value` and `|terminology` on the same leaf path; servers MUST reject combinations.
+-* `|other` MUST be rejected when the constraint is closed (`listOpen: false`).
++* `|other` is mutually exclusive with `|code`, `|value` and `|terminology` on the same leaf path; servers MUST reject combinations with `400 Bad Request`.
++* `|other` MUST be rejected when the constraint is closed (`listOpen: false`), with `422 Unprocessable Entity`, because the rejection depends on the template.
+ 
+ The per-suffix table is in the <<DV_CODED_TEXT>> class section.
+ 

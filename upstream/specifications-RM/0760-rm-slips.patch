@@ -1,0 +1,52 @@
+diff --git a/docs/UML/classes/interval_event.adoc b/docs/UML/classes/interval_event.adoc
+index 0a15ae1..a96e772 100755
+--- a/docs/UML/classes/interval_event.adoc
++++ b/docs/UML/classes/interval_event.adoc
+@@ -17,7 +17,7 @@ h|*Attributes*
+ 
+ h|*1..1*
+ |*width*: `link:/releases/RM/{rm_release}/data_types.html#_dv_duration_class[DV_DURATION^]`
+-a|Duration of the time interval during which the values recorded under `data` are true and, if set, the values recorded under `state` are true. Void if an instantaneous event.
++a|Duration of the time interval during which the values recorded under `data` are true and, if set, the values recorded under `state` are true.
+ 
+ h|*0..1*
+ |*sample_count*: `link:/releases/BASE/{base_release}/foundation_types.html#_integer_class[Integer^]`
+diff --git a/docs/UML/classes/original_version.adoc b/docs/UML/classes/original_version.adoc
+index 8c7522a..cbdc631 100755
+--- a/docs/UML/classes/original_version.adoc
++++ b/docs/UML/classes/original_version.adoc
+@@ -50,7 +50,7 @@ h|*Invariants*
+ 2+a|__Attestations_valid__: `attestations /= Void implies not attestations.is_empty`
+ 
+ h|
+-2+a|__Is_merged_validity__: `other_input_version_ids = Void xor is_merged`
++2+a|__Is_merged_validity__: `other_input_version_uids = Void xor is_merged`
+ 
+ h|
+ 2+a|__Other_input_version_uids_valid__: `other_input_version_uids /= Void implies not other_input_version_uids.is_empty`
+diff --git a/docs/common/master06-change_control_package.adoc b/docs/common/master06-change_control_package.adoc
+index 326a5d1..6f470c4 100755
+--- a/docs/common/master06-change_control_package.adoc
++++ b/docs/common/master06-change_control_package.adoc
+@@ -63,7 +63,7 @@ Since a versioned repository (i.e. a collection of `VERSIONED_OBJECTs`) is by de
+ ** if the change is logically a correction (e.g. of wrongly entered data), the `ORIGINAL_VERSION._commit_audit_._change_type_` is set to the code `250|amendment|`;
+ ** if the change is logically a change, addition etc to the content, the `ORIGINAL_VERSION._commit_audit_._change_type_` is set to the code `251|modification|`;
+ * _import of item_: a new `IMPORTED_VERSION` is created, incorporating the received `ORIGINAL_VERSION`; the `IMPORTED_VERSION._commit_audit_._change_type_` is set to the code for `249|creation|`.
+-* _attestation of item_: a new `ATTESTATION` is added to the attestations list of an existing `ORIGINAL_VERSION`; the `ATTESTATION._commit_audit_._change_type_` is set to the code `666|attestation|`.
++* _attestation of item_: a new `ATTESTATION` is added to the attestations list of an existing `ORIGINAL_VERSION`; the `ATTESTATION._change_type_` is set to the code `666|attestation|`.
+ 
+ In a typical application situation, one or more of the above changes may be committed to a repository as a Contribution. For example during a patient encounter, the following might occur:
+ 
+diff --git a/docs/data_types/master09-encapsulated_package.adoc b/docs/data_types/master09-encapsulated_package.adoc
+index 409b04c..a90dc51 100755
+--- a/docs/data_types/master09-encapsulated_package.adoc
++++ b/docs/data_types/master09-encapsulated_package.adoc
+@@ -93,7 +93,7 @@ The following examples show how to use the classes to represent some common enca
+  SHA-2 hash             |`DV_MULTIMEDIA`    |`_data_` = byte array carrying JPG +
+                                              `_media_type_ = "IANA::image/jpeg"` +
+                                              `_integrity_check_` = byte array containing SHA-2 hash +
+-                                             `_integrity_check_algorithm_ = "openehr::SHA-2"` +
++                                             `_integrity_check_algorithm_ = "openehr::SHA-256"` +
+                                              `_size_` = Integer indicating number of bytes of `_data_`.                                             
+ 
+ |===

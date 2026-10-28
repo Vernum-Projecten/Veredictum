@@ -19,8 +19,8 @@ Test discipline is non-negotiable (a standing hard rule, root `CLAUDE.md`).
   spec clause a test encodes, and never adjust an expectation to match an
   implementation's behaviour. A corpus or fixture defect is ADJUDICATED with a
   first-hand spec or schema citation, either as an expected-rejection entry in
-  the owning gate or as an `artifacts/registers/ambiguities.yaml` entry for
-  genuine spec silence (`.claude/rules/cnf-triage.md`). It is never routed
+  the owning gate or, for genuine spec silence, as an `upstream-report` issue
+  with its patch and no case asserting the silent behaviour (`.claude/rules/cnf-triage.md`). It is never routed
   around by editing the case.
 
 ## Tooling
@@ -107,7 +107,8 @@ to one behaviour.
 - **A spec-defined wire behaviour with no case is a COVERAGE GAP, never an
   acceptable omission.** Close it with a new spec-cited case, or, only where
   the spec genuinely puts a behaviour off the wire, record the honest boundary
-  as a statement-declared capability or a register entry. Silence is not
+  as a capability option in `catalogue/capabilities.yaml` or an
+  `upstream-report` issue. Silence is not
   coverage.
 - **Coverage only ratchets up.** Cases are added, never removed to go green.
   Narrowing coverage needs an adjudicated, spec-cited reason.

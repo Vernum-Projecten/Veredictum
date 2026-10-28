@@ -1,0 +1,12 @@
+# The rows of CONT-DV_INTERVAL_DV_SCALE-validate_open this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_interval_scale/dv_interval_dv_scale-validate_open-limits_consistent
+iteration: reset_per_row
+literals: ["lower_symbol", "lower_value", "upper_symbol", "upper_value", "lower_unbounded", "upper_unbounded", "lower_included", "upper_included"]
+recipe:
+  name: content_instance
+  rm_class: DV_INTERVAL
+  template_id: cnf.tpl.interval_scale_open
+  input: composition
+rows:
+  - {"lower_symbol": "local::at0003", "lower_value": 777.1, "upper_symbol": "local::at0004", "upper_value": 666.1, "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true}

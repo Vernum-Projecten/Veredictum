@@ -1,0 +1,25 @@
+# The rows of CONT-ITEM_LIST-items_cardinality this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_item_list/item_list-items_cardinality-accepted
+iteration: reset_per_row
+literals: ["cardinality", "member_count"]
+recipe:
+  name: content_synthesized
+  rm_class: ITEM_LIST
+  template_id: cnf.tpl.ecc_item_list_items_cardinality
+  input: composition
+  template_input: template
+rows:
+  - {"cardinality": "any", "member_count": 0}
+  - {"cardinality": "any", "member_count": 1}
+  - {"cardinality": "any", "member_count": 3}
+  - {"cardinality": "any", "member_count": 6}
+  - {"cardinality": "opt", "member_count": 0}
+  - {"cardinality": "opt", "member_count": 1}
+  - {"cardinality": "mand", "member_count": 1}
+  - {"cardinality": "1plus", "member_count": 1}
+  - {"cardinality": "1plus", "member_count": 3}
+  - {"cardinality": "1plus", "member_count": 6}
+  - {"cardinality": "3plus", "member_count": 3}
+  - {"cardinality": "3plus", "member_count": 6}
+  - {"cardinality": "3to5", "member_count": 3}

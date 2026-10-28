@@ -1,0 +1,12 @@
+# The rows of CONT-DV_TIME-validate_open this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_time/dv_time-validate_open-value_missing
+iteration: reset_per_row
+literals: ["value"]
+recipe:
+  name: content_instance
+  rm_class: DV_TIME
+  template_id: cnf.tpl.dv_time_open
+  input: composition
+rows:
+  - {"value": null}

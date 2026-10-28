@@ -1,0 +1,14 @@
+# The rows of CONT-DV_INTERVAL_DV_QUANTITY-validate_upper_lower this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_interval_quantity/dv_interval_dv_quantity-validate_upper_lower-c_dv_quantity_list
+iteration: reset_per_row
+literals: ["lower", "upper", "lower_unbounded", "upper_unbounded", "lower_included", "upper_included"]
+recipe:
+  name: content_instance
+  rm_class: DV_INTERVAL
+  template_id: cnf.tpl.interval_quantity_temp
+  input: composition
+rows:
+  - {"lower": "-10 Cel", "upper": "100 Cel", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true}
+  - {"lower": "0 Cel", "upper": "200 Cel", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true}
+  - {"lower": "-10 Cel", "upper": "200 Cel", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true}

@@ -1,0 +1,71 @@
+diff --git a/docs/simplified_formats/master04-basic_concepts.adoc b/docs/simplified_formats/master04-basic_concepts.adoc
+index 6fe34b35..0f7a2d49 100644
+--- a/docs/simplified_formats/master04-basic_concepts.adoc
++++ b/docs/simplified_formats/master04-basic_concepts.adoc
+@@ -665,7 +665,7 @@ This feature allows incorporating fully-formed openEHR Reference Model (RM) obje
+   "vital_signs/blood_pressure:0/any_event:0/systolic|raw": {
+     "_type": "DV_QUANTITY",
+     "magnitude": 120,
+-    "unit": "mm[Hg]"
++    "units": "mm[Hg]"
+   }
+ }
+ ----
+diff --git a/docs/simplified_formats/master05-rm_mapping.adoc b/docs/simplified_formats/master05-rm_mapping.adoc
+index 33396b8d..0a19af9a 100644
+--- a/docs/simplified_formats/master05-rm_mapping.adoc
++++ b/docs/simplified_formats/master05-rm_mapping.adoc
+@@ -1028,7 +1028,7 @@ See RM specification of the https://specifications.openehr.org/releases/RM/lates
+ | one one of original_content and original_content_multimedia can be set
+ 
+ | `/originating_system_audit`
+-| <<PARTY_IDENTIFIED,PARTY_IDENTIFIED>>
++| <<FEEDER_AUDIT_DETAILS,FEEDER_AUDIT_DETAILS>>
+ | originating_system_audit
+ | yes
+ |
+@@ -2351,14 +2351,14 @@ See RM specification of the https://specifications.openehr.org/releases/RM/lates
+ | Note
+ 
+ | `\|magnitude`
+-| String
++| Real
+ | magnitude
+ | yes
+ |
+ 
+ | `\|unit`
+-| Real
+-| unit
++| String
++| units
+ | yes
+ |
+ 
+@@ -2970,7 +2970,7 @@ See RM specification of the https://specifications.openehr.org/releases/RM/lates
+ | no
+ | defaults to true
+ 
+-| \meaning
++| `/meaning`
+ | <<DV_TEXT,DV_TEXT>>
+ | meaning
+ | yes
+@@ -3121,7 +3121,7 @@ See RM specification of the https://specifications.openehr.org/releases/RM/lates
+ 
+ | `\|data`
+ | String
+-| dta
++| data
+ | no
+ |
+ 
+@@ -3192,7 +3192,7 @@ See RM specification of the https://specifications.openehr.org/releases/RM/lates
+ 
+ | `\|lower_unbounded`
+ | BOOLEAN
+-| `\|lower_unbounded`
++| lower_unbounded
+ | no
+ | defaults to false. only in output if true
+ 

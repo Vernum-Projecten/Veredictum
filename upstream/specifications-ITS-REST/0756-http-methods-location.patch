@@ -1,0 +1,21 @@
+diff --git a/specifications/docs/overview/Requests_and_responses.md b/specifications/docs/overview/Requests_and_responses.md
+index bc37e680..70277f32 100644
+--- a/specifications/docs/overview/Requests_and_responses.md
++++ b/specifications/docs/overview/Requests_and_responses.md
+@@ -23,6 +23,7 @@ The following subset is used in this specification:
+ 
+ A server receiving an unrecognized or unimplemented method SHOULD respond with the `501 Not Implemented` status code.
+ If a method is recognized but not allowed for the target resource, the response SHOULD be `405 Method Not Allowed` status code.
++A method in the subset above that the target resource does not serve is recognized, so it is answered with `405 Method Not Allowed`; `501 Not Implemented` is for a method outside that subset.
+ 
+ 
+ # Authentication and authorization
+@@ -137,7 +138,7 @@ It MUST NOT be used to indicate an alternate representation of an existing resou
+ 
+ > DEPRECATION: [Prior to Release 1.1.0](https://specifications.openehr.org/releases/ITS-REST/Release-1.0.3/overview.html#tag/Requests_and_responses/HTTP-headers), the `Location` header was used to indicate the canonical location of a representation in a response.
+ > This usage is now deprecated. 
+-> The `Location` header MUST ONLY be used for resource creation (e.g., `201 Created`) or redirect responses.
++> The `Location` header MUST ONLY be used for resource creation (e.g., `201 Created`), for the response to an update of a versioned resource (see `Prefer` below), or for redirect responses.
+ 
+ Example of a `Location` response header:
+ 

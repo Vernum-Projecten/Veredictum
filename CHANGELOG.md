@@ -20,6 +20,117 @@ version on.
 
 ### Added
 
+- The ambiguity register's 191 entries have destinations (#617): each was
+  re-checked against the vendored text and sent to the workflow citation that
+  already carries it, an existing upstream report, a new one, a capability
+  option, or dropped with its reason, in a migration table on #617. Thirteen
+  new upstream reports, #750 to #762, cover the ITEM_TAG operations, the
+  CONTRIBUTION commit, versioned content reads and writes, the directory, the
+  Query API, template uploads, the HTTP overview, the Demographic and Admin
+  APIs, SMART on openEHR, the Simplified Formats and canonical XML, the RM,
+  AQL and BASE, each with its patch under `upstream/`. `capabilities.yaml`
+  gains four options: `aql-undefined-containment`, `aql-nonnumeric-aggregate`,
+  `xml-namespace` and `terminology-binding-unresolvable`. The CI report guard
+  now also checks the `report:` numbers in `capabilities.yaml`, and the id
+  map names upstream reports instead of register entries. The register itself
+  is frozen and is deleted with the old tree (#604).
+- The messaging, security, SMART and performance cases are mapped onto the
+  Arazzo catalogue (#603), the last old families, so every old case id is in
+  `catalogue/id-map.yaml`. 11 workflows carry the security behaviours the
+  release assigns: `catalogue/cases/security/` holds the 401 and
+  `WWW-Authenticate` challenge of a request without valid credentials, the
+  presence of a VERSION signature on a created, modified and deleted
+  COMPOSITION and on the EHR_STATUS, and an anonymous EHR used end to end;
+  `contribution_create` gains a client-sent `time_committed` the server does
+  not record. Two options join `catalogue/capabilities.yaml`:
+  `authentication` and `version-signing`. Not carried, each with its reason:
+  the 34 EHR Extract cases (the release defines no import or export route),
+  the 16 TDD import cases (TDD/TDS is a legacy format of the Ocean tooling,
+  out of scope by owner ruling), the signature verification and client-signature cases (the serialisation is
+  not yet defined by openEHR, and upstream report #744 with its patch records
+  that `UPDATE_VERSION.signature` has no stated meaning), the read-only 403
+  (the release defines no authorization model), the three SMART cases (#745)
+  and the four performance cases, which drive `veredictum perf` (#746).
+- The admin and system cases are converted to Arazzo (#603). Seven
+  documents under `catalogue/cases/admin/` drive the two operations the
+  Release-1.1.0 Admin API declares, `admin_ehr_delete` and
+  `admin_ehr_delete_all`: the 204 of a synchronous delete, the EHR, its
+  COMPOSITION and its CONTRIBUTION gone afterwards, the ehr_id free for a new
+  EHR, a subset of one and of two EHRs with the unnamed EHR kept, 404 for an
+  unknown EHR, 400 for a malformed ehr_id in a subset with nothing deleted,
+  202 for an asynchronous delete and 405 for a disabled bulk delete.
+  `catalogue/cases/system/system_options.arazzo.yaml` drives OPTIONS on the
+  API base path (advisory: the operation says a service SHOULD answer it).
+  Two new options, `admin-ehr-delete-processing` and `admin-ehr-delete-all`,
+  carry the choices the release leaves to the service. The admin and system
+  tags join `surface.yaml`, with their open branches tracked by #737 and
+  #738. `catalogue/id-map.yaml` maps all 57 cases: 9 carried, and 48 not
+  carried because the release has no route for them (archive, dump and
+  load, counts, contribution listing, party delete) or, for the unfiltered
+  bulk delete, because it needs an exclusively owned server (#738). Upstream
+  reports #735 (the bulk delete's subset parameter and path key) and #736
+  (the System API's tag name) carry patches under
+  `upstream/specifications-ITS-REST/`.
+- An Arazzo step may carry `x-veredictum-principal: administrative`: it is
+  sent with the administrative principal's credential instead of the run's
+  own, and a run whose party supplies none skips every workflow with such a
+  step as `not-declared`. `schemas/arazzo-extensions.schema.json` publishes
+  the extension. The evaluator also sends a list-valued query parameter as
+  one pair per item, and leaves an RFC 6570 query expansion (`{?name*}`) in
+  an OAS path key out of the request path.
+- The demographic cases are converted to Arazzo (#603). 353 workflows in 23
+  documents under `catalogue/cases/demographic/` cover the Demographic API of
+  ITS-REST Release-1.1.0 for each of the five PARTY kinds: the create, read,
+  update and delete lifecycle with the three `Prefer` answers, the version
+  conditions (412, 409 and the 400 of a delete by a container uid), the
+  refused bodies (400 for a body the published schemas refuse, 422 for an
+  archetype root without `archetype_details`, a root `archetype_node_id` that
+  differs from its archetype id, and a relationship sourced at another
+  PARTY), the ITEM_TAG lists of a party version and its container, the
+  VERSIONED_PARTY reads, the Demographic tag listing and the demographic
+  CONTRIBUTION. Three options join `catalogue/capabilities.yaml`:
+  `party-xml-read` for the five PARTY kinds, `versioned-party-xml-read` for
+  the VERSIONED_PARTY family, and `party-xml-write`. All 155 demographic case cores are
+  in `catalogue/id-map.yaml` (130 carried, 25 not carried with the reason),
+  and `pending` is empty. The eight Demographic tags join `surface.yaml`, with
+  the open branches tracked by #733, the 404 of the party creates by upstream
+  report #732 and its patch, and the body-less VERSIONED_PARTY Content-Type
+  by #687. Upstream report #741, with its ITS-JSON patch, records that the
+  ITS-JSON definitions of the PARTY kinds and CONTRIBUTION require a `uid`
+  that a create body cannot carry.
+- The Simplified Formats cases are converted to Arazzo (#603). 75 workflows
+  in 20 documents under `catalogue/cases/simplified_formats/` commit flat and
+  structured COMPOSITIONs and judge the context defaults, the RM mappings of
+  each data value type, path indexing and level removal, `|raw`, `|other` and
+  the refusals the release requires, each refusal beside its valid twin; they
+  also cover a CONTRIBUTION written and read in both formats and the
+  deprecated and legacy media types. Four templates are uploaded by the new
+  set-up `_setup/simplified_formats.arazzo.yaml`. Eight new options in
+  `catalogue/capabilities.yaml`: `contribution-flat-write`,
+  `contribution-structured-write`, `contribution-flat-read`,
+  `contribution-structured-read`, `simplified-deprecated-write`,
+  `simplified-deprecated-read`, `simplified-legacy-write` and
+  `simplified-legacy-read`. All 71 old case ids are in `catalogue/id-map.yaml`:
+  63 carried, in whole or in part, and 8 not carried with their reason. Four
+  CONTRIBUTION gaps of #698 close, and the mappings still open are tracked
+  by #722.
+- The content cases are converted to Arazzo (#603). The 134 `CONT-*`
+  decision tables become 360 workflows in 39 documents under
+  `catalogue/cases/content/`, one workflow per case and outcome: content the
+  template admits is created (201), a body the published ITS-JSON schema
+  refuses is answered 400, and a schema-valid body the template does not
+  validate or that breaks an RM invariant is answered 422.
+  `_setup/content_templates.arazzo.yaml` uploads the 52 templates whose
+  constraint every row shares. A new rows recipe, `content_synthesized`,
+  builds each row's operational template beside its composition for the
+  tables whose rows vary the constraint, and the workflow uploads it first;
+  the template id is a digest of the template, so a server never validates
+  against a stale one. The new option `content-unmatched-member` carries the
+  two postures on a container member that matches no constraint (#307).
+  `catalogue/id-map.yaml` maps every content case and names the rows left
+  open, each with its upstream report (#716, #717, #718, #719). Six rows
+  that lack a member the RM makes mandatory and the ITS-JSON schema does
+  not require expect 422 and cite #724.
 - The ADL 1.4 and ADL 2 template cases of the DEFINITION component are
   converted to Arazzo (#603). 32 workflows in four documents under
   `catalogue/cases/definition/` carry 22 of the 82 `I_DEFINITION_ADL14` and
@@ -401,8 +512,37 @@ version on.
   in scope at once, where 0.41 refused only more than 256 declarations on a
   single element.
 
+### Removed
+
+- The one-off `convert_catalogue` example that drafted each component's
+  Arazzo documents (#603). Every component of the case-core catalogue is
+  converted and every old case id is in `catalogue/id-map.yaml`, so the
+  converter has nothing left to convert.
+- The two TDS workflows of the Simplified Formats documents
+  (`create_composition-tds2_media_unsupported` and
+  `get_template_example-tds2_not_acceptable`) are removed by owner ruling
+  (2026-10-28): TDD/TDS is a legacy format of the Ocean tooling and out of
+  scope for the catalogue. The `simplified-legacy-write` and
+  `simplified-legacy-read` options now name the ECISFLAT media type only, and
+  the two old SF-LEGACY TDS ids and the 16 TDD import ids are mapped to no
+  workflow with that reason (#603).
+
 ### Fixed
 
+- The Arazzo evaluator substitutes an embedded `{$…}` expression in every
+  string of a JSON payload or replacement value, at any depth (#740). It
+  substituted only in a payload that was itself a string, so an expression
+  nested in a JSON body reached the server as literal text.
+- Three content-recipe defects the content conversion (#603) found, each a
+  runner fault and none a server one. A row whose `context_committed` cell
+  is `absent` now commits no EVENT_CONTEXT; the authored token read as the
+  absent sentinel and fell back to a present context. A HISTORY with no
+  events omits `events` instead of sending an empty list, which the
+  ITS-JSON schema refuses. The synthesized HISTORY templates give their
+  EVENT node the events cardinality as its occurrences, so a 3..5 HISTORY
+  admits three events (ADL 1.4 VCOC); it was capped at one. An ordinal
+  symbol cell may name its rubric, `local::at0005 (mild)`, which the symbol
+  then carries as its value.
 - The `arazzo-citation` gate refuses a docs `section` that matches more than
   one heading, instead of checking the quote against the first one (#633).
   A repeated heading is named by a path of titles joined by ` > `, each

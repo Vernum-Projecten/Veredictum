@@ -8,6 +8,1092 @@
 # `corpora` does the same for a query collection maintained elsewhere, keyed
 # by that collection's own case ids.
 cases:
+  CONT-CLUSTER-items_cardinality:
+    new:
+      - content_cluster/cluster-items_cardinality-accepted
+      - content_cluster/cluster-items_cardinality-c_multiple_attribute_cardinality
+      - content_cluster/cluster-items_cardinality-items_missing
+  CONT-COMP-content_card_1plus-context_any:
+    new:
+      - content_composition/comp-content_card_1plus-context_any-accepted
+      - content_composition/comp-content_card_1plus-context_any-c_multiple_attribute_cardinality
+  CONT-COMP-content_card_1plus-context_mand:
+    new:
+      - content_composition/comp-content_card_1plus-context_mand-accepted
+      - content_composition/comp-content_card_1plus-context_mand-c_multiple_attribute_cardinality
+      - content_composition/comp-content_card_1plus-context_mand-c_attribute_existence
+  CONT-COMP-content_card_3plus-context_any:
+    new:
+      - content_composition/comp-content_card_3plus-context_any-accepted
+      - content_composition/comp-content_card_3plus-context_any-c_multiple_attribute_cardinality
+  CONT-COMP-content_card_3plus-context_mand:
+    new:
+      - content_composition/comp-content_card_3plus-context_mand-accepted
+      - content_composition/comp-content_card_3plus-context_mand-c_multiple_attribute_cardinality
+      - content_composition/comp-content_card_3plus-context_mand-c_attribute_existence
+  CONT-COMP-content_card_3to5-context_any:
+    new:
+      - content_composition/comp-content_card_3to5-context_any-accepted
+      - content_composition/comp-content_card_3to5-context_any-c_multiple_attribute_cardinality
+  CONT-COMP-content_card_3to5-context_mand:
+    new:
+      - content_composition/comp-content_card_3to5-context_mand-accepted
+      - content_composition/comp-content_card_3to5-context_mand-c_multiple_attribute_cardinality
+      - content_composition/comp-content_card_3to5-context_mand-c_attribute_existence
+  CONT-COMP-content_card_any-context_any:
+    new:
+      - content_composition/comp-content_card_any-context_any-accepted
+  CONT-COMP-content_card_any-context_mand:
+    new:
+      - content_composition/comp-content_card_any-context_mand-accepted
+      - content_composition/comp-content_card_any-context_mand-c_attribute_existence
+  CONT-COMP-content_card_mand-context_any:
+    new:
+      - content_composition/comp-content_card_mand-context_any-accepted
+      - content_composition/comp-content_card_mand-context_any-c_multiple_attribute_cardinality
+  CONT-COMP-content_card_mand-context_mand:
+    new:
+      - content_composition/comp-content_card_mand-context_mand-accepted
+      - content_composition/comp-content_card_mand-context_mand-c_multiple_attribute_cardinality
+      - content_composition/comp-content_card_mand-context_mand-c_attribute_existence
+  CONT-COMP-content_card_opt-context_any:
+    new:
+      - content_composition/comp-content_card_opt-context_any-accepted
+      - content_composition/comp-content_card_opt-context_any-c_multiple_attribute_cardinality
+  CONT-COMP-content_card_opt-context_mand:
+    new:
+      - content_composition/comp-content_card_opt-context_mand-accepted
+      - content_composition/comp-content_card_opt-context_mand-c_attribute_existence
+      - content_composition/comp-content_card_opt-context_mand-c_multiple_attribute_cardinality
+  CONT-COMPOSITION-content_cardinality_count6:
+    new:
+      - content_composition/composition-content_cardinality_count6-accepted
+      - content_composition/composition-content_cardinality_count6-c_multiple_attribute_cardinality
+  CONT-COMPOSITION-context_existence:
+    new:
+      - content_composition/composition-context_existence-accepted
+  CONT-DV_BOOLEAN-anything_allowed:
+    new:
+      - dv_boolean/dv_boolean-anything_allowed-accepted
+  CONT-DV_BOOLEAN-only_false_allowed:
+    new:
+      - dv_boolean/dv_boolean-only_false_allowed-accepted
+      - dv_boolean/dv_boolean-only_false_allowed-c_boolean_true_valid
+  CONT-DV_BOOLEAN-only_true_allowed:
+    new:
+      - dv_boolean/dv_boolean-only_true_allowed-accepted
+      - dv_boolean/dv_boolean-only_true_allowed-c_boolean_false_valid
+  CONT-DV_CODED_TEXT-validate_ext_term:
+    new:
+      - dv_coded_text/dv_coded_text-validate_ext_term-code_string_terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_ext_term-terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_ext_term-code_string_missing
+    open: >-
+      1 row(s) refusing an empty DV_CODED_TEXT value are not carried: RM
+      dv_text.adoc declares no invariant on value, and the ITS-JSON
+      schema admits the empty string. 4 acceptance row(s) whose
+      DV_CODED_TEXT value is not the code's rubric are not carried: RM
+      dv_coded_text.adoc says the value "must be the rubric" and states
+      no invariant, so neither answer follows (upstream report #718).
+  CONT-DV_CODED_TEXT-validate_local_codes:
+    new:
+      - dv_coded_text/dv_coded_text-validate_local_codes-accepted
+      - dv_coded_text/dv_coded_text-validate_local_codes-c_code_phrase_terminology_id
+      - dv_coded_text/dv_coded_text-validate_local_codes-code_string_terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_local_codes-terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_local_codes-code_string_missing
+    open: >-
+      1 row(s) refusing an empty DV_CODED_TEXT value are not carried: RM
+      dv_text.adoc declares no invariant on value, and the ITS-JSON
+      schema admits the empty string. 3 acceptance row(s) whose
+      DV_CODED_TEXT value is not the code's rubric are not carried: RM
+      dv_coded_text.adoc says the value "must be the rubric" and states
+      no invariant, so neither answer follows (upstream report #718).
+  CONT-DV_CODED_TEXT-validate_open:
+    new:
+      - dv_coded_text/dv_coded_text-validate_open-code_string_terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_open-terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_open-code_string_missing
+    open: >-
+      2 acceptance row(s) whose DV_CODED_TEXT value is not the code's
+      rubric are not carried: RM dv_coded_text.adoc says the value "must
+      be the rubric" and states no invariant, so neither answer follows
+      (upstream report #718).
+  CONT-DV_COUNT-validate_list:
+    new:
+      - dv_count/dv_count-validate_list-accepted
+      - dv_count/dv_count-validate_list-c_integer_list
+      - dv_count/dv_count-validate_list-magnitude_missing
+  CONT-DV_COUNT-validate_open:
+    new:
+      - dv_count/dv_count-validate_open-accepted
+      - dv_count/dv_count-validate_open-magnitude_missing
+  CONT-DV_COUNT-validate_range:
+    new:
+      - dv_count/dv_count-validate_range-accepted
+      - dv_count/dv_count-validate_range-c_integer_range
+      - dv_count/dv_count-validate_range-magnitude_missing
+  CONT-DV_DATE-validate_constraint:
+    new:
+      - dv_date/dv_date-validate_constraint-accepted
+      - dv_date/dv_date-validate_constraint-month_validity
+      - dv_date/dv_date-validate_constraint-day_validity
+  CONT-DV_DATE-validate_open:
+    new:
+      - dv_date/dv_date-validate_open-accepted
+      - dv_date/dv_date-validate_open-iso8601
+      - dv_date/dv_date-validate_open-value_missing
+  CONT-DV_DATE-validate_range:
+    new:
+      - dv_date/dv_date-validate_range-accepted
+      - dv_date/dv_date-validate_range-c_date_range
+  CONT-DV_DATE_TIME-validate_constraint:
+    new:
+      - dv_date_time/dv_date_time-validate_constraint-accepted
+      - dv_date_time/dv_date_time-validate_constraint-month_validity
+      - dv_date_time/dv_date_time-validate_constraint-day_validity
+      - dv_date_time/dv_date_time-validate_constraint-hour_validity
+      - dv_date_time/dv_date_time-validate_constraint-minute_validity
+      - dv_date_time/dv_date_time-validate_constraint-second_validity
+      - dv_date_time/dv_date_time-validate_constraint-millisecond_validity
+      - dv_date_time/dv_date_time-validate_constraint-timezone_validity
+    open: >-
+      7 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_DATE_TIME-validate_open:
+    new:
+      - dv_date_time/dv_date_time-validate_open-accepted
+      - dv_date_time/dv_date_time-validate_open-iso8601
+      - dv_date_time/dv_date_time-validate_open-value_missing
+  CONT-DV_DATE_TIME-validate_range:
+    new:
+      - dv_date_time/dv_date_time-validate_range-accepted
+      - dv_date_time/dv_date_time-validate_range-c_date_time_range
+  CONT-DV_DURATION-validate_fields:
+    new:
+      - dv_duration/dv_duration-validate_fields-accepted
+      - dv_duration/dv_duration-validate_fields-c_duration_years_allowed
+      - dv_duration/dv_duration-validate_fields-c_duration_months_allowed
+      - dv_duration/dv_duration-validate_fields-c_duration_days_allowed
+      - dv_duration/dv_duration-validate_fields-c_duration_weeks_allowed
+      - dv_duration/dv_duration-validate_fields-c_duration_hours_allowed
+      - dv_duration/dv_duration-validate_fields-c_duration_minutes_allowed
+    open: >-
+      2 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_DURATION-validate_fields_range:
+    new:
+      - dv_duration/dv_duration-validate_fields_range-accepted
+      - dv_duration/dv_duration-validate_fields_range-c_duration_range_lower
+      - dv_duration/dv_duration-validate_fields_range-c_duration_years_allowed
+      - dv_duration/dv_duration-validate_fields_range-c_duration_months_allowed
+      - dv_duration/dv_duration-validate_fields_range-c_duration_lower
+    open: >-
+      1 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_DURATION-validate_open:
+    new:
+      - dv_duration/dv_duration-validate_open-accepted
+      - dv_duration/dv_duration-validate_open-iso8601
+      - dv_duration/dv_duration-validate_open-value_missing
+  CONT-DV_DURATION-validate_range:
+    new:
+      - dv_duration/dv_duration-validate_range-accepted
+      - dv_duration/dv_duration-validate_range-c_duration_range_lower
+      - dv_duration/dv_duration-validate_range-c_duration_range_upper
+  CONT-DV_EHR_URI-validate_list:
+    new:
+      - dv_ehr_uri/dv_ehr_uri-validate_list-accepted
+      - dv_ehr_uri/dv_ehr_uri-validate_list-c_string_list
+  CONT-DV_EHR_URI-validate_open:
+    new:
+      - dv_ehr_uri/dv_ehr_uri-validate_open-accepted
+      - dv_ehr_uri/dv_ehr_uri-validate_open-value_missing
+      - dv_ehr_uri/dv_ehr_uri-validate_open-scheme_valid
+  CONT-DV_EHR_URI-validate_pattern:
+    new:
+      - dv_ehr_uri/dv_ehr_uri-validate_pattern-accepted
+      - dv_ehr_uri/dv_ehr_uri-validate_pattern-c_string_pattern
+  CONT-DV_IDENTIFIER-validate_all_list:
+    new:
+      - dv_identifier/dv_identifier-validate_all_list-accepted
+      - dv_identifier/dv_identifier-validate_all_list-c_string_list
+      - dv_identifier/dv_identifier-validate_all_list-id_missing
+  CONT-DV_IDENTIFIER-validate_all_pattern:
+    new:
+      - dv_identifier/dv_identifier-validate_all_pattern-accepted
+      - dv_identifier/dv_identifier-validate_all_pattern-c_string_pattern
+      - dv_identifier/dv_identifier-validate_all_pattern-id_missing
+  CONT-DV_INTERVAL_DV_COUNT-validate_lower_upper:
+    new:
+      - dv_interval_count/dv_interval_dv_count-validate_lower_upper-accepted
+      - dv_interval_count/dv_interval_dv_count-validate_lower_upper-c_integer_range
+  CONT-DV_INTERVAL_DV_COUNT-validate_lower_upper_list:
+    new:
+      - dv_interval_count/dv_interval_dv_count-validate_lower_upper_list-accepted
+      - dv_interval_count/dv_interval_dv_count-validate_lower_upper_list-c_integer_list
+  CONT-DV_INTERVAL_DV_COUNT-validate_open:
+    new:
+      - dv_interval_count/dv_interval_dv_count-validate_open-accepted
+      - dv_interval_count/dv_interval_dv_count-validate_open-lower_included_valid
+      - dv_interval_count/dv_interval_dv_count-validate_open-upper_included_valid
+      - dv_interval_count/dv_interval_dv_count-validate_open-limits_consistent
+  CONT-DV_INTERVAL_DV_DATE-validate_lower_upper_constraint:
+    new:
+      - dv_interval_date/dv_interval_dv_date-validate_lower_upper_constraint-accepted
+      - dv_interval_date/dv_interval_dv_date-validate_lower_upper_constraint-month_validity
+      - dv_interval_date/dv_interval_dv_date-validate_lower_upper_constraint-day_validity
+  CONT-DV_INTERVAL_DV_DATE-validate_lower_upper_range:
+    new:
+      - dv_interval_date/dv_interval_dv_date-validate_lower_upper_range-accepted
+      - dv_interval_date/dv_interval_dv_date-validate_lower_upper_range-c_date_range
+  CONT-DV_INTERVAL_DV_DATE-validate_open:
+    new:
+      - dv_interval_date/dv_interval_dv_date-validate_open-accepted
+    open: >-
+      3 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_DATE-validate_open_mixed_precision:
+    new: []
+    open: >-
+      1 row(s) not carried: the interval mixes date or time precisions,
+      and RM defines no magnitude for a partial value, so
+      Limits_consistent cannot be evaluated (upstream report #717).
+  CONT-DV_INTERVAL_DV_DATE_TIME-validate_lower_upper_constraint:
+    new:
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-accepted
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-month_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-timezone_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-day_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-hour_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-minute_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-second_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-millisecond_validity
+    open: >-
+      1 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_INTERVAL_DV_DATE_TIME-validate_lower_upper_range:
+    new:
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_range-accepted
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_range-c_date_time_range
+  CONT-DV_INTERVAL_DV_DATE_TIME-validate_open:
+    new:
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_open-accepted
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_open-iso8601
+    open: >-
+      3 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_DURATION-validate_constraint:
+    new:
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-accepted
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-years_allowed
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-months_allowed
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-weeks_allowed
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-days_allowed
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-hours_allowed
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-minutes_allowed
+    open: >-
+      2 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_INTERVAL_DV_DURATION-validate_open:
+    new:
+      - dv_interval_duration/dv_interval_dv_duration-validate_open-accepted
+      - dv_interval_duration/dv_interval_dv_duration-validate_open-limits_consistent
+    open: >-
+      3 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_DURATION-validate_range:
+    new:
+      - dv_interval_duration/dv_interval_dv_duration-validate_range-accepted
+      - dv_interval_duration/dv_interval_dv_duration-validate_range-c_duration_range
+  CONT-DV_INTERVAL_DV_ORDINAL-validate_constraint:
+    new:
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_constraint-accepted
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_constraint-c_dv_ordinal_list
+  CONT-DV_INTERVAL_DV_ORDINAL-validate_open:
+    new:
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_open-accepted
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_open-symbol_missing
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_open-value_missing
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_open-limits_consistent
+    open: >-
+      1 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_fraction:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_fraction-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_fraction-c_integer_list
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_integer_fraction:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_integer_fraction-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_integer_fraction-c_integer_list
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_open:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_open-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_open-limits_consistent
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_percentage:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_percentage-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_percentage-c_integer_list
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_ratio:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_ratio-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_ratio-c_integer_list
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_ratio_range:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_ratio_range-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_ratio_range-c_real_range
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_unitary:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_unitary-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_unitary-c_integer_list
+  CONT-DV_INTERVAL_DV_QUANTITY-validate_open:
+    new:
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_open-accepted
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_open-lower_included_valid
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_open-upper_included_valid
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_open-limits_consistent
+  CONT-DV_INTERVAL_DV_QUANTITY-validate_upper_lower:
+    new:
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_upper_lower-accepted
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_upper_lower-c_dv_quantity_list
+  CONT-DV_INTERVAL_DV_SCALE-validate_constraint:
+    new:
+      - dv_interval_scale/dv_interval_dv_scale-validate_constraint-accepted
+      - dv_interval_scale/dv_interval_dv_scale-validate_constraint-c_dv_ordinal_list
+  CONT-DV_INTERVAL_DV_SCALE-validate_open:
+    new:
+      - dv_interval_scale/dv_interval_dv_scale-validate_open-accepted
+      - dv_interval_scale/dv_interval_dv_scale-validate_open-symbol_missing
+      - dv_interval_scale/dv_interval_dv_scale-validate_open-value_missing
+      - dv_interval_scale/dv_interval_dv_scale-validate_open-limits_consistent
+    open: >-
+      1 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_TIME-validate_lower_upper_constraint:
+    new:
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_constraint-accepted
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_constraint-minute_validity
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_constraint-second_validity
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_constraint-millisecond_validity
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_constraint-timezone_validity
+  CONT-DV_INTERVAL_DV_TIME-validate_lower_upper_range:
+    new:
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_range-accepted
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_range-c_time_range
+  CONT-DV_INTERVAL_DV_TIME-validate_open:
+    new:
+      - dv_interval_time/dv_interval_dv_time-validate_open-accepted
+    open: >-
+      3 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_TIME-validate_open_mixed_precision:
+    new: []
+    open: >-
+      1 row(s) not carried: the interval mixes date or time precisions,
+      and RM defines no magnitude for a partial value, so
+      Limits_consistent cannot be evaluated (upstream report #717).
+  CONT-DV_MULTIMEDIA-validate_media_type:
+    new:
+      - dv_multimedia/dv_multimedia-validate_media_type-accepted
+      - dv_multimedia/dv_multimedia-validate_media_type-c_integer_list
+      - dv_multimedia/dv_multimedia-validate_media_type-c_integer_range
+      - dv_multimedia/dv_multimedia-validate_media_type-c_code_phrase
+  CONT-DV_MULTIMEDIA-validate_open:
+    new:
+      - dv_multimedia/dv_multimedia-validate_open-accepted
+      - dv_multimedia/dv_multimedia-validate_open-media_type_size_missing
+      - dv_multimedia/dv_multimedia-validate_open-size_missing
+      - dv_multimedia/dv_multimedia-validate_open-media_type_missing
+  CONT-DV_ORDINAL-validate_constraint:
+    new:
+      - dv_ordinal/dv_ordinal-validate_constraint-accepted
+      - dv_ordinal/dv_ordinal-validate_constraint-c_dv_ordinal_list
+  CONT-DV_ORDINAL-validate_open:
+    new:
+      - dv_ordinal/dv_ordinal-validate_open-accepted
+      - dv_ordinal/dv_ordinal-validate_open-value_symbol_missing
+      - dv_ordinal/dv_ordinal-validate_open-symbol_missing
+      - dv_ordinal/dv_ordinal-validate_open-value_missing
+  CONT-DV_PARSABLE-validate_open:
+    new:
+      - dv_parsable/dv_parsable-validate_open-accepted
+      - dv_parsable/dv_parsable-validate_open-value_formalism_missing
+      - dv_parsable/dv_parsable-validate_open-formalism_missing
+      - dv_parsable/dv_parsable-validate_open-value_missing
+  CONT-DV_PARSABLE-validate_value_formalism:
+    new:
+      - dv_parsable/dv_parsable-validate_value_formalism-accepted
+      - dv_parsable/dv_parsable-validate_value_formalism-c_string_pattern_value
+      - dv_parsable/dv_parsable-validate_value_formalism-c_string_pattern_formalism
+      - dv_parsable/dv_parsable-validate_value_formalism-c_string_list_value
+      - dv_parsable/dv_parsable-validate_value_formalism-c_string_list_formalism
+  CONT-DV_PROPORTION-validate_any_fraction:
+    new:
+      - dv_proportion/dv_proportion-validate_any_fraction-accepted
+      - dv_proportion/dv_proportion-validate_any_fraction-c_integer_list
+  CONT-DV_PROPORTION-validate_fraction:
+    new:
+      - dv_proportion/dv_proportion-validate_fraction-accepted
+      - dv_proportion/dv_proportion-validate_fraction-c_integer_list
+  CONT-DV_PROPORTION-validate_integer_fraction:
+    new:
+      - dv_proportion/dv_proportion-validate_integer_fraction-accepted
+      - dv_proportion/dv_proportion-validate_integer_fraction-c_integer_list
+  CONT-DV_PROPORTION-validate_open:
+    new:
+      - dv_proportion/dv_proportion-validate_open-accepted
+      - dv_proportion/dv_proportion-validate_open-valid_denominator
+      - dv_proportion/dv_proportion-validate_open-unitary_validity
+      - dv_proportion/dv_proportion-validate_open-percent_validity
+      - dv_proportion/dv_proportion-validate_open-fraction_validity
+      - dv_proportion/dv_proportion-validate_open-is_integral_validity
+      - dv_proportion/dv_proportion-validate_open-type_validity
+  CONT-DV_PROPORTION-validate_percent:
+    new:
+      - dv_proportion/dv_proportion-validate_percent-accepted
+      - dv_proportion/dv_proportion-validate_percent-c_integer_list
+  CONT-DV_PROPORTION-validate_ratio:
+    new:
+      - dv_proportion/dv_proportion-validate_ratio-accepted
+      - dv_proportion/dv_proportion-validate_ratio-c_integer_list
+  CONT-DV_PROPORTION-validate_ratio_range:
+    new:
+      - dv_proportion/dv_proportion-validate_ratio_range-accepted
+      - dv_proportion/dv_proportion-validate_ratio_range-c_real_range
+  CONT-DV_PROPORTION-validate_unitary:
+    new:
+      - dv_proportion/dv_proportion-validate_unitary-accepted
+      - dv_proportion/dv_proportion-validate_unitary-c_integer_list
+  CONT-DV_QUANTITY-validate_open:
+    new:
+      - dv_quantity/dv_quantity-validate_open-accepted
+      - dv_quantity/dv_quantity-validate_open-magnitude_units_missing
+      - dv_quantity/dv_quantity-validate_open-magnitude_missing
+      - dv_quantity/dv_quantity-validate_open-units_missing
+  CONT-DV_QUANTITY-validate_property:
+    new:
+      - dv_quantity/dv_quantity-validate_property-accepted
+      - dv_quantity/dv_quantity-validate_property-c_dv_quantity_property
+      - dv_quantity/dv_quantity-validate_property-magnitude_units_missing
+      - dv_quantity/dv_quantity-validate_property-magnitude_missing
+      - dv_quantity/dv_quantity-validate_property-units_missing
+  CONT-DV_QUANTITY-validate_property_units:
+    new:
+      - dv_quantity/dv_quantity-validate_property_units-accepted
+      - dv_quantity/dv_quantity-validate_property_units-c_dv_quantity_property
+      - dv_quantity/dv_quantity-validate_property_units-c_dv_quantity_list
+      - dv_quantity/dv_quantity-validate_property_units-magnitude_units_missing
+      - dv_quantity/dv_quantity-validate_property_units-magnitude_missing
+      - dv_quantity/dv_quantity-validate_property_units-units_missing
+  CONT-DV_QUANTITY-validate_property_units_mag:
+    new:
+      - dv_quantity/dv_quantity-validate_property_units_mag-accepted
+      - dv_quantity/dv_quantity-validate_property_units_mag-c_dv_quantity_property
+      - dv_quantity/dv_quantity-validate_property_units_mag-c_dv_quantity_list
+      - dv_quantity/dv_quantity-validate_property_units_mag-magnitude_units_missing
+      - dv_quantity/dv_quantity-validate_property_units_mag-magnitude_missing
+      - dv_quantity/dv_quantity-validate_property_units_mag-units_missing
+  CONT-DV_SCALE-validate_constraint:
+    new:
+      - dv_scale/dv_scale-validate_constraint-accepted
+      - dv_scale/dv_scale-validate_constraint-c_dv_scale_list
+  CONT-DV_SCALE-validate_open:
+    new:
+      - dv_scale/dv_scale-validate_open-accepted
+      - dv_scale/dv_scale-validate_open-value_symbol_missing
+      - dv_scale/dv_scale-validate_open-symbol_missing
+      - dv_scale/dv_scale-validate_open-value_missing
+  CONT-DV_TEXT-validate_list:
+    new:
+      - dv_text/dv_text-validate_list-accepted
+      - dv_text/dv_text-validate_list-c_string_list
+      - dv_text/dv_text-validate_list-value_missing
+  CONT-DV_TEXT-validate_open:
+    new:
+      - dv_text/dv_text-validate_open-accepted
+      - dv_text/dv_text-validate_open-c_string_pattern
+      - dv_text/dv_text-validate_open-value_missing
+  CONT-DV_TEXT-validate_pattern:
+    new:
+      - dv_text/dv_text-validate_pattern-accepted
+      - dv_text/dv_text-validate_pattern-c_string_pattern
+      - dv_text/dv_text-validate_pattern-value_missing
+  CONT-DV_TIME-validate_constraint:
+    new:
+      - dv_time/dv_time-validate_constraint-accepted
+      - dv_time/dv_time-validate_constraint-minute_validity
+      - dv_time/dv_time-validate_constraint-second_validity
+      - dv_time/dv_time-validate_constraint-millisecond_validity
+      - dv_time/dv_time-validate_constraint-timezone_validity
+    open: >-
+      5 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_TIME-validate_open:
+    new:
+      - dv_time/dv_time-validate_open-accepted
+      - dv_time/dv_time-validate_open-iso8601
+      - dv_time/dv_time-validate_open-value_missing
+  CONT-DV_TIME-validate_range:
+    new:
+      - dv_time/dv_time-validate_range-accepted
+      - dv_time/dv_time-validate_range-c_time_range
+  CONT-DV_URI-validate_list:
+    new:
+      - dv_uri/dv_uri-validate_list-accepted
+      - dv_uri/dv_uri-validate_list-c_string_list
+  CONT-DV_URI-validate_open:
+    new:
+      - dv_uri/dv_uri-validate_open-accepted
+      - dv_uri/dv_uri-validate_open-value_missing
+      - dv_uri/dv_uri-validate_open-value_valid
+  CONT-DV_URI-validate_pattern:
+    new:
+      - dv_uri/dv_uri-validate_pattern-accepted
+      - dv_uri/dv_uri-validate_pattern-c_string_pattern
+  CONT-ELEMENT-value_null_flavour_existence:
+    new:
+      - content_element/element-value_null_flavour_existence-accepted
+      - content_element/element-value_null_flavour_existence-inv_null_flavour_indicated
+      - content_element/element-value_null_flavour_existence-c_attribute_existence
+  CONT-EVENT-state_ex_mand:
+    new:
+      - content_event/event-state_ex_mand-accepted
+      - content_event/event-state_ex_mand-c_attribute_existence
+      - content_event/event-state_ex_mand-event_data_missing
+  CONT-EVENT-state_ex_opt:
+    new:
+      - content_event/event-state_ex_opt-accepted
+      - content_event/event-state_ex_opt-event_data_missing
+  CONT-EVENT-type_any:
+    new:
+      - content_event/event-type_any-accepted
+  CONT-EVENT-type_interval_event:
+    new:
+      - content_event/event-type_interval_event-accepted
+      - content_event/event-type_interval_event-c_object_rm_type_name
+  CONT-EVENT-type_point_event:
+    new:
+      - content_event/event-type_point_event-accepted
+      - content_event/event-type_point_event-c_object_rm_type_name
+  CONT-HIST-events_card_1plus-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_1plus-summary_ex_mand-accepted
+      - content_history/hist-events_card_1plus-summary_ex_mand-c_multiple_attribute_cardinality
+      - content_history/hist-events_card_1plus-summary_ex_mand-c_attribute_existence
+  CONT-HIST-events_card_1plus-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_1plus-summary_ex_opt-accepted
+      - content_history/hist-events_card_1plus-summary_ex_opt-c_multiple_attribute_cardinality
+  CONT-HIST-events_card_3plus-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_3plus-summary_ex_mand-accepted
+      - content_history/hist-events_card_3plus-summary_ex_mand-c_multiple_attribute_cardinality
+      - content_history/hist-events_card_3plus-summary_ex_mand-c_attribute_existence
+  CONT-HIST-events_card_3plus-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_3plus-summary_ex_opt-accepted
+      - content_history/hist-events_card_3plus-summary_ex_opt-c_multiple_attribute_cardinality
+  CONT-HIST-events_card_3to5-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_3to5-summary_ex_mand-accepted
+      - content_history/hist-events_card_3to5-summary_ex_mand-c_multiple_attribute_cardinality
+      - content_history/hist-events_card_3to5-summary_ex_mand-c_attribute_existence
+  CONT-HIST-events_card_3to5-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_3to5-summary_ex_opt-accepted
+      - content_history/hist-events_card_3to5-summary_ex_opt-c_multiple_attribute_cardinality
+  CONT-HIST-events_card_any-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_any-summary_ex_mand-accepted
+      - content_history/hist-events_card_any-summary_ex_mand-c_attribute_existence
+  CONT-HIST-events_card_any-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_any-summary_ex_opt-accepted
+      - content_history/hist-events_card_any-summary_ex_opt-events_valid
+  CONT-HIST-events_card_mand-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_mand-summary_ex_mand-accepted
+      - content_history/hist-events_card_mand-summary_ex_mand-c_multiple_attribute_cardinality
+      - content_history/hist-events_card_mand-summary_ex_mand-c_attribute_existence
+  CONT-HIST-events_card_mand-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_mand-summary_ex_opt-accepted
+      - content_history/hist-events_card_mand-summary_ex_opt-c_multiple_attribute_cardinality
+  CONT-HIST-events_card_opt-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_opt-summary_ex_mand-accepted
+      - content_history/hist-events_card_opt-summary_ex_mand-c_attribute_existence
+      - content_history/hist-events_card_opt-summary_ex_mand-c_multiple_attribute_cardinality
+  CONT-HIST-events_card_opt-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_opt-summary_ex_opt-accepted
+      - content_history/hist-events_card_opt-summary_ex_opt-events_valid
+      - content_history/hist-events_card_opt-summary_ex_opt-c_multiple_attribute_cardinality
+  CONT-HISTORY-events_cardinality_count6:
+    new:
+      - content_history/history-events_cardinality_count6-accepted
+      - content_history/history-events_cardinality_count6-c_multiple_attribute_cardinality
+  CONT-ITEM-type_any:
+    new:
+      - content_item/item-type_any-accepted
+  CONT-ITEM-type_cluster:
+    new:
+      - content_item/item-type_cluster-accepted
+  CONT-ITEM-type_element:
+    new:
+      - content_item/item-type_element-accepted
+  CONT-ITEM-unmatched_member_accepted:
+    new:
+      - content_item_unmatched_accepted/item-unmatched_member_accepted-accepted
+    open: >-
+      One arm of the option content-unmatched-member: AM states the
+      alternative-matching rule for single-valued attributes only
+      (upstream report #307).
+  CONT-ITEM-unmatched_member_refused:
+    new:
+      - content_item_unmatched_refused/item-unmatched_member_refused-c_object_rm_type_name
+    open: >-
+      One arm of the option content-unmatched-member: AM states the
+      alternative-matching rule for single-valued attributes only
+      (upstream report #307).
+  CONT-ITEM_LIST-items_cardinality:
+    new:
+      - content_item_list/item_list-items_cardinality-accepted
+      - content_item_list/item_list-items_cardinality-c_multiple_attribute_cardinality
+  CONT-ITEM_STR-type_any:
+    new:
+      - content_item_structure/item_str-type_any-accepted
+  CONT-ITEM_STR-type_item_list:
+    new:
+      - content_item_structure/item_str-type_item_list-accepted
+      - content_item_structure/item_str-type_item_list-c_object_rm_type_name
+  CONT-ITEM_STR-type_item_single:
+    new:
+      - content_item_structure/item_str-type_item_single-accepted
+      - content_item_structure/item_str-type_item_single-c_object_rm_type_name
+  CONT-ITEM_STR-type_item_table:
+    new:
+      - content_item_structure/item_str-type_item_table-accepted
+      - content_item_structure/item_str-type_item_table-c_object_rm_type_name
+  CONT-ITEM_STR-type_item_tree:
+    new:
+      - content_item_structure/item_str-type_item_tree-accepted
+      - content_item_structure/item_str-type_item_tree-c_object_rm_type_name
+  CONT-ITEM_TABLE-rows_cardinality:
+    new:
+      - content_item_table/item_table-rows_cardinality-accepted
+      - content_item_table/item_table-rows_cardinality-c_multiple_attribute_cardinality
+  CONT-ITEM_TREE-items_cardinality:
+    new:
+      - content_item_tree/item_tree-items_cardinality-accepted
+      - content_item_tree/item_tree-items_cardinality-c_multiple_attribute_cardinality
+  CONT-OBS-state_ex_mand-protocol_ex_mand:
+    new:
+      - content_observation/obs-state_ex_mand-protocol_ex_mand-accepted
+      - content_observation/obs-state_ex_mand-protocol_ex_mand-c_attribute_existence
+      - content_observation/obs-state_ex_mand-protocol_ex_mand-observation_data_missing
+  CONT-OBS-state_ex_mand-protocol_ex_opt:
+    new:
+      - content_observation/obs-state_ex_mand-protocol_ex_opt-accepted
+      - content_observation/obs-state_ex_mand-protocol_ex_opt-c_attribute_existence
+      - content_observation/obs-state_ex_mand-protocol_ex_opt-observation_data_missing
+  CONT-OBS-state_ex_opt-protocol_ex_mand:
+    new:
+      - content_observation/obs-state_ex_opt-protocol_ex_mand-accepted
+      - content_observation/obs-state_ex_opt-protocol_ex_mand-c_attribute_existence
+      - content_observation/obs-state_ex_opt-protocol_ex_mand-observation_data_missing
+  CONT-OBS-state_ex_opt-protocol_ex_opt:
+    new:
+      - content_observation/obs-state_ex_opt-protocol_ex_opt-accepted
+      - content_observation/obs-state_ex_opt-protocol_ex_opt-observation_data_missing
+  I_ADMIN_ARCHIVE.archive_ehrs-archive_selected:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-archive_twice:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-archive_unknown:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-empty_list:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-forbidden:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-malformed_id:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-unauthenticated:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-archive_selected:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-archive_twice:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-archive_unknown:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-empty_list:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-forbidden:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-malformed_id:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-relationship_id_refused:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-unauthenticated:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-compression_7z:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-encoding_unrepresentable:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-export_all:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-export_formats:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-forbidden:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-format_not_a_member:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-logical_format_xml:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-no_location:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-segment_split_size_non_positive:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-unauthenticated:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.load_ehrs-container_7z:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.load_ehrs-container_zip:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.load_ehrs-load_archive:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.load_ehrs-logical_format_xml:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.load_ehrs-no_location:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.composition_version_count-all:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.composition_version_count-interval_not_a_pair:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.composition_version_count-time_range:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.contribution_count-all:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.contribution_count-forbidden:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.contribution_count-interval_bound_not_iso:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.contribution_count-time_range:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.contribution_count-unauthenticated:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.list_contributions-all:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.list_contributions-non_content_service:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.list_contributions-service_not_a_member:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.list_contributions-time_range:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_all_cascade:
+    new:
+      - admin_ehr_delete_all/delete_all-composition_gone
+      - admin_ehr_delete_all/delete_all-contribution_gone
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_all_malformed_id:
+    new: [admin_ehr_delete_all_refused/delete_all-malformed_id]
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_all_subset:
+    new:
+      - admin_ehr_delete_all/delete_all-subset
+      - admin_ehr_delete_all/delete_all-subset-read_back
+      - admin_ehr_delete_all_async/delete_all-accepted
+      - admin_ehr_delete_all_disabled/delete_all-disabled
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_all_subset_repeated:
+    new: [admin_ehr_delete_all/delete_all-subset_repeated]
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_all_unfiltered:
+    new: []
+    open: >-
+      Not carried: the unfiltered bulk delete deletes every EHR on the
+      server, and every Arazzo workflow runs on identifiers it generates
+      beside other workflows, so it needs an exclusively owned server
+      the catalogue cannot declare yet (#738).
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_existing:
+    new:
+      - admin_ehr_delete/delete_ehr
+      - admin_ehr_delete/delete_ehr-read_back
+      - admin_ehr_delete_async/delete_ehr-accepted
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_existing_cascade:
+    new:
+      - admin_ehr_delete/delete_ehr-composition_gone
+      - admin_ehr_delete/delete_ehr-contribution_gone
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_existing_recreate:
+    new: [admin_ehr_delete/delete_ehr-recreate]
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_non_existing:
+    new: [admin_ehr_delete_refused/delete_ehr-unknown]
+  I_ADMIN_SERVICE.physical_party_delete-delete_existing:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.physical_party_delete-delete_non_existing:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.versioned_composition_count-all:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.versioned_composition_count-interval_lower_after_upper:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.versioned_composition_count-time_range:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
   I_DEFINITION_ADL14.delete_archetype-clinical_forbidden:
     new: []
     open: &adl14_archetype >-
@@ -444,6 +1530,316 @@ cases:
       converted yet, tracked by #711.
   I_DEFINITION_QUERY.valid_query-valid:
     new: [definition_query/store_version-read_back]
+  I_DEMOGRAPHIC_SERVICE.create_party-aaaa:
+    new: [person/create_person, person/create_person-representation]
+  I_DEMOGRAPHIC_SERVICE.create_party-agent_contact_addresses_empty:
+    new: [agent_refused/create_agent-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-agent_identities_empty:
+    new: [agent_refused/create_agent-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-archetype_node_id_mismatch:
+    new: [person_refused/create_person-archetype_node_id_mismatch]
+  I_DEMOGRAPHIC_SERVICE.create_party-archetype_root_missing:
+    new: [person_refused/create_person-archetype_details_missing]
+  I_DEMOGRAPHIC_SERVICE.create_party-archetyped_content_accepted:
+    new: [person/create_person-archetyped_content]
+  I_DEMOGRAPHIC_SERVICE.create_party-bbbb:
+    new: [person_refused/create_person-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-capabilities_present_empty:
+    new: [role_refused/create_role-capabilities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-client_supplied_uid:
+    new: []
+    open: >-
+      person_create.yaml says nothing of a body uid on a create, the
+      silence upstream report #221 records for the content-object
+      creates, so neither keeping nor refusing the client's value is
+      assigned.
+  I_DEMOGRAPHIC_SERVICE.create_party-cluster_no_items:
+    new: [person_refused/create_person-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.create_party-contacts_present_empty:
+    new: [person_refused/create_person-contacts_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-error_body_content_type:
+    new: []
+    open: >-
+      The error body is a MAY (Requests_and_responses.md, HTTP status
+      codes), so a 400 without a body is conformant, and no criterion
+      can judge the Content-Type of a body only when one is present.
+  I_DEMOGRAPHIC_SERVICE.create_party-group_contact_addresses_empty:
+    new: [group_refused/create_group-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-group_identities_empty:
+    new: [group_refused/create_group-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-identity_details_missing:
+    new: [person_refused/create_person-identity_details_missing]
+  I_DEMOGRAPHIC_SERVICE.create_party-identity_details_wrong_type:
+    new: [person_refused/create_person-identity_details_wrong_type]
+  I_DEMOGRAPHIC_SERVICE.create_party-inline_relationships_verbatim:
+    new: [person/update_person-relationship_source_self]
+    open: >-
+      Carried on the update: a relationship must be sourced at its PARTY
+      (RM party.adoc, Relationships_validity), and a create cannot name
+      the container uid the server has not yet assigned. The case's own
+      body sourced the relationship at an unrelated literal, which
+      breaks that invariant.
+  I_DEMOGRAPHIC_SERVICE.create_party-item_tag_wrapper_headers:
+    new: [person_tags/person_tags_create-wrapper_headers]
+  I_DEMOGRAPHIC_SERVICE.create_party-kind_parity_agent:
+    new:
+      - agent/create_agent-read_back
+      - agent/create_agent-representation
+  I_DEMOGRAPHIC_SERVICE.create_party-kind_parity_group:
+    new:
+      - group/create_group-read_back
+      - group/create_group-representation
+  I_DEMOGRAPHIC_SERVICE.create_party-kind_parity_organisation:
+    new:
+      - organisation/create_organisation-read_back
+      - organisation/create_organisation-representation
+  I_DEMOGRAPHIC_SERVICE.create_party-kind_parity_role:
+    new: [role/create_role-read_back, role/create_role-representation]
+  I_DEMOGRAPHIC_SERVICE.create_party-organisation_contact_addresses_empty:
+    new:
+      - organisation_refused/create_organisation-contact_addresses_empty
+  I_DEMOGRAPHIC_SERVICE.create_party-organisation_identities_empty:
+    new: [organisation_refused/create_organisation-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-paragraph_no_items:
+    new: [person_refused/create_person-paragraph_no_items]
+  I_DEMOGRAPHIC_SERVICE.create_party-person_contact_addresses_empty:
+    new: [person_refused/create_person-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-person_identities_empty:
+    new: [person_refused/create_person-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-prefer_minimal:
+    new: [person/create_person-prefer_minimal]
+  I_DEMOGRAPHIC_SERVICE.create_party-relationship_source_foreign_container:
+    new: [person_refused/update_person-relationship_source_foreign]
+    open: >-
+      Carried on the update, where the PERSON's own container uid is
+      known; the create half rested on a client-supplied uid (see
+      create_party-client_supplied_uid).
+  I_DEMOGRAPHIC_SERVICE.create_party-relationship_source_is_the_container:
+    new: [person/update_person-relationship_source_self]
+    open: >-
+      Carried on the update; the create half rested on a client-supplied
+      uid, which the release does not assign (upstream report #221).
+  I_DEMOGRAPHIC_SERVICE.create_party-relationships_present_empty:
+    new: [person_refused/create_person-relationships_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-return_identifier:
+    new: [person/create_person-return_identifier]
+  I_DEMOGRAPHIC_SERVICE.create_party-role_contact_addresses_empty:
+    new: [role_refused/create_role-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-role_identities_empty:
+    new: [role_refused/create_role-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-role_root_identity_mismatch:
+    new: [role_refused/create_role-archetype_node_id_mismatch]
+  I_DEMOGRAPHIC_SERVICE.create_party-roles_present_empty:
+    new: [person_refused/create_person-roles_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-simplified_content_type:
+    new: []
+    open: >-
+      A PARTY in a Simplified Format needs an option whose accepting arm
+      sends one, which needs a demographic template. Tracked by #733.
+  I_DEMOGRAPHIC_SERVICE.create_party-version_lifecycle:
+    new: [versioned_party/create_person-version_lifecycle]
+  I_DEMOGRAPHIC_SERVICE.create_party-wrong_subtype_body:
+    new: [person_refused/create_person-wrong_type]
+  I_DEMOGRAPHIC_SERVICE.create_party-xml:
+    new: [party_xml_write_refused/create_person-xml_refused]
+  I_DEMOGRAPHIC_SERVICE.create_party_relationship-aaaa:
+    new: []
+    open: &no_relationship_route >-
+      The release defines no PARTY_RELATIONSHIP resource: the
+      Demographic API's routes are the five PARTY kinds,
+      VERSIONED_PARTY, CONTRIBUTION and the tag routes, and a
+      relationship is stored by value in the PARTY it is sourced at (RM
+      demographic master02-demographic_package.adoc, Party
+      Relationships). The by-value form is carried by
+      person/update_person-relationship_source_self and its refused
+      twin.
+  I_DEMOGRAPHIC_SERVICE.create_party_relationship-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.create_party_relationship-readonly_forbidden:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.create_party_relationship-root_identity_mismatch:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.create_party_relationship-unauthenticated:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.delete_party-aaaa:
+    new: [person/delete_person]
+  I_DEMOGRAPHIC_SERVICE.delete_party-already_deleted:
+    new: [person/delete_person-already_deleted]
+  I_DEMOGRAPHIC_SERVICE.delete_party-bbbb:
+    new: [person/delete_person-unknown]
+  I_DEMOGRAPHIC_SERVICE.delete_party-stale_version_conflict:
+    new: [person/delete_person-superseded_version]
+  I_DEMOGRAPHIC_SERVICE.delete_party_relationship-aaaa:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.delete_party_relationship-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.delete_party_relationship-stale_version_conflict:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party-aaaa:
+    new: [person/create_person-read_back]
+  I_DEMOGRAPHIC_SERVICE.get_party-bbbb:
+    new: [person/get_person-unknown]
+  I_DEMOGRAPHIC_SERVICE.get_party-wrong_kind_container:
+    new: [person/get_person-agent_route]
+  I_DEMOGRAPHIC_SERVICE.get_party-xml:
+    new: [party_read_xml/get_person-xml]
+  I_DEMOGRAPHIC_SERVICE.get_party-xml_not_acceptable:
+    new: [party_read_xml_not_acceptable/get_person-xml_not_acceptable]
+  I_DEMOGRAPHIC_SERVICE.get_party_at_time-aaaa:
+    new: [person/get_person-at_time, person/get_person-latest]
+  I_DEMOGRAPHIC_SERVICE.get_party_at_time-bbbb:
+    new:
+      - person/get_person-unknown
+      - person/get_person-at_time_before_first_version
+  I_DEMOGRAPHIC_SERVICE.get_party_at_time-deleted_current:
+    new: [person/delete_person-read_after]
+  I_DEMOGRAPHIC_SERVICE.get_party_at_time-xml:
+    new: [versioned_party_read_xml/get_versioned_party_version-xml]
+    open: >-
+      The XML read of the PERSON itself is by version_uid
+      (party_read_xml/get_person-xml); the read at a time is carried as
+      the latest VERSION of the container.
+  I_DEMOGRAPHIC_SERVICE.get_party_at_version-aaaa:
+    new: [person/create_person-read_back]
+  I_DEMOGRAPHIC_SERVICE.get_party_at_version-bbbb:
+    new: [person/get_person-unknown_version]
+  I_DEMOGRAPHIC_SERVICE.get_party_at_version-xml:
+    new: [party_read_xml/get_person-xml]
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship-aaaa:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship_at_time-aaaa:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship_at_time-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship_at_version-aaaa:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship_at_version-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.update_party-aaaa:
+    new: [person/update_person, person/update_person-read_back]
+  I_DEMOGRAPHIC_SERVICE.update_party-agent_cluster_no_items:
+    new: [agent_refused/update_agent-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-agent_contact_addresses_empty:
+    new: [agent_refused/update_agent-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-agent_identities_empty:
+    new: [agent_refused/update_agent-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-agent_valid:
+    new: [agent/update_agent, agent/update_agent-read_back]
+  I_DEMOGRAPHIC_SERVICE.update_party-bbbb:
+    new: [person/update_person-stale_if_match]
+  I_DEMOGRAPHIC_SERVICE.update_party-case_variant_if_match:
+    new: []
+    open: >-
+      BASE master05-identification_package.adoc states the case rule
+      with a lower-case should ("should follow two rules with regard to
+      case"), and the evaluator has no way to change the case of a
+      captured identifier.
+  I_DEMOGRAPHIC_SERVICE.update_party-cluster_no_items:
+    new: [person_refused/update_person-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-contact_addresses_empty:
+    new: [person_refused/update_person-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-contacts_present_empty:
+    new: [person_refused/update_person-contacts_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-group_cluster_no_items:
+    new: [group_refused/update_group-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-group_contact_addresses_empty:
+    new: [group_refused/update_group-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-group_identities_empty:
+    new: [group_refused/update_group-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-group_valid:
+    new: [group/update_group, group/update_group-read_back]
+  I_DEMOGRAPHIC_SERVICE.update_party-identities_empty:
+    new: [person_refused/update_person-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-invalid_body:
+    new: [person_refused/update_person-identities_empty]
+    open: >-
+      The case's body is the empty identities list. RM party.adoc
+      defines no invariant on identities; the ITS-JSON schema's minItems
+      refuses the body, so the expectation is 400.
+  I_DEMOGRAPHIC_SERVICE.update_party-missing_if_match:
+    new: [person/update_person-missing_if_match]
+  I_DEMOGRAPHIC_SERVICE.update_party-organisation_cluster_no_items:
+    new: [organisation_refused/update_organisation-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-organisation_contact_addresses_empty:
+    new:
+      - organisation_refused/update_organisation-contact_addresses_empty
+  I_DEMOGRAPHIC_SERVICE.update_party-organisation_identities_empty:
+    new: [organisation_refused/update_organisation-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-organisation_valid:
+    new:
+      - organisation/update_organisation
+      - organisation/update_organisation-read_back
+  I_DEMOGRAPHIC_SERVICE.update_party-paragraph_no_items:
+    new: [person_refused/update_person-paragraph_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-prefer_minimal:
+    new: [person/update_person-prefer_minimal]
+  I_DEMOGRAPHIC_SERVICE.update_party-role_cluster_no_items:
+    new: [role_refused/update_role-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-role_contact_addresses_empty:
+    new: [role_refused/update_role-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-role_identities_empty:
+    new: [role_refused/update_role-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-role_valid:
+    new: [role/update_role, role/update_role-read_back]
+  I_DEMOGRAPHIC_SERVICE.update_party-root_identity_mismatch:
+    new: [person_refused/update_person-archetype_node_id_mismatch]
+  I_DEMOGRAPHIC_SERVICE.update_party-unknown_container:
+    new: [person/update_person-unknown]
+  I_DEMOGRAPHIC_SERVICE.update_party-unknown_preceding_version:
+    new: [person/update_person-unknown_preceding_version]
+  I_DEMOGRAPHIC_SERVICE.update_party-weak_etag_accepted:
+    new: []
+    open: >-
+      If-Match.yaml says "The format is always an `version_uid`
+      identifier enclosed by double quotes", and no released sentence
+      says how a service compares a weak entity tag sent in If-Match.
+  I_DEMOGRAPHIC_SERVICE.update_party-weak_etag_stale:
+    new: [person/update_person-stale_if_match]
+    open: >-
+      The stale If-Match is sent in the strong form the release
+      prescribes.
+  I_DEMOGRAPHIC_SERVICE.update_party-xml:
+    new: [party_xml_write_refused/update_person-xml_refused]
+  I_DEMOGRAPHIC_SERVICE.update_party_relationship-aaaa:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.update_party_relationship-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.update_party_relationship-invalid_body:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.update_party_relationship-missing_if_match:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.update_party_relationship-root_identity_mismatch:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.versioned_party_version_at_time:
+    new:
+      - versioned_party/get_versioned_party_version-latest
+      - versioned_party/get_versioned_party_version-at_time_future
+  I_DEMOGRAPHIC_SERVICE.versioned_party_version_read:
+    new: [versioned_party/get_versioned_party_version-by_id]
+  I_DEMOGRAPHIC_SERVICE.versioned_party_version_unknown:
+    new:
+      - versioned_party/get_versioned_party_version-unknown_version
+      - versioned_party/get_versioned_party_version-at_time_before_first_version
   I_EHR_COMPOSITION.create_composition-audit_system_id_declared:
     new: [composition_create/create_composition-audit_system_id_declared]
   I_EHR_COMPOSITION.create_composition-bulk_load_depth:
@@ -873,7 +2269,7 @@ cases:
     new: []
     open: &spec_profile >-
       No released text says which generation set of the specifications a
-      server runs or how it is selected; the case pinned the AMB-210 handling
+      server runs or how it is selected; the case pinned a handling
       of our own design, and its body is RM Release-1.2.0 content, which is
       not released.
   I_EHR_COMPOSITION.get_composition_at_version-spec_profile_dev_body_stable_409:
@@ -961,7 +2357,8 @@ cases:
       The precondition is an EHR import through a route no released OAS
       declares, and the catalogue has no source for extension routes yet;
       the case's expectations on the served IMPORTED_VERSION also rest on
-      the AMB-198 handling, which no released sentence assigns.
+      a served IMPORTED_VERSION shape no released sentence assigns (upstream
+      report #752).
   I_EHR_COMPOSITION.get_versioned_composition-container_shape:
     new: [composition_versioned/get_versioned_composition-container_shape]
     open: >-
@@ -1006,7 +2403,7 @@ cases:
     new: []
     open: >-
       The target is an IMPORTED_VERSION, which only an EHR import through a
-      route no released OAS declares can establish (register AMB-34), and the
+      route no released OAS declares can establish, and the
       attestation member it commits is the shape #690 tracks.
   I_EHR_CONTRIBUTION.commit_contribution-attestation_attested_view:
     new: []
@@ -1021,7 +2418,7 @@ cases:
     open: >-
       A commit_audit typed ATTESTATION: UpdateAudit.yaml names UPDATE_AUDIT,
       AUDIT_DETAILS or no _type for that slot, and no released sentence says
-      a server takes the RM subtype there (register AMB-179).
+      a server takes the RM subtype there (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-attestation_description_coded:
     new: []
     open: *attestation
@@ -1070,7 +2467,7 @@ cases:
       The workflow judges a COMPOSITION the published ITS-JSON schema
       refuses, answered 400. No released sentence names the code for content
       that is schema-valid but misses data its archetypes make mandatory
-      (register AMB-194), so that half is not carried.
+      (upstream report #751), so that half is not carried.
   I_EHR_CONTRIBUTION.commit_contribution-creation_with_preceding_version:
     new: [contribution_create_refused/commit_contribution-creation_with_preceding_version]
   I_EHR_CONTRIBUTION.commit_contribution-deactivating_mixed_change_set:
@@ -1079,7 +2476,7 @@ cases:
       No released sentence says when EHR_STATUS.is_modifiable is evaluated
       against a CONTRIBUTION that carries an EHR_STATUS member beside content
       members: against the state the commit finds or the state it leaves
-      (register AMB-225). The single-kind halves are
+      (upstream report #215). The single-kind halves are
       commit_contribution-ehr_not_modifiable and
       commit_contribution-ehr_status_deactivated_ehr.
   I_EHR_CONTRIBUTION.commit_contribution-deactivating_mixed_change_set_composition_container:
@@ -1091,7 +2488,7 @@ cases:
       RM master06 §Logical Deletion deletes by committing a version whose
       data is removed, while the released commit DTO (UpdateVersion.yaml)
       requires data on every member, so no released shape commits a deletion
-      through a CONTRIBUTION (register AMB-85).
+      through a CONTRIBUTION (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-delete_directory:
     new: []
     open: *deleted_member
@@ -1104,6 +2501,28 @@ cases:
   I_EHR_CONTRIBUTION.commit_contribution-deleted_member_with_data:
     new: []
     open: *deleted_member
+  I_EHR_CONTRIBUTION.commit_contribution-demographic:
+    new:
+      - demographic_contribution/commit_demographic_contribution
+      - demographic_contribution/commit_demographic_contribution-read_back
+      - demographic_contribution/get_demographic_contribution
+  I_EHR_CONTRIBUTION.commit_contribution-demographic_client_uid:
+    new:
+      - demographic_contribution/commit_demographic_contribution-client_uid
+      - demographic_contribution/commit_demographic_contribution-client_uid_in_use
+  I_EHR_CONTRIBUTION.commit_contribution-demographic_cluster_no_items:
+    new:
+      - demographic_contribution/commit_demographic_contribution-cluster_no_items
+  I_EHR_CONTRIBUTION.commit_contribution-demographic_invalid_change_types:
+    new:
+      - demographic_contribution/commit_demographic_contribution-first_version_modification
+      - demographic_contribution/commit_demographic_contribution-first_version_amendment
+    open: >-
+      The modification and amendment rows expect 400
+      (400_CONTRIBUTION.yaml). The rows whose member carries change_type
+      or lifecycle_state 523 deleted are not carried: the released
+      commit DTO requires data on every member, so it has no deletion
+      shape.
   I_EHR_CONTRIBUTION.commit_contribution-demographic_kind_in_ehr:
     new: [contribution_create_refused/commit_contribution-demographic_kind]
   I_EHR_CONTRIBUTION.commit_contribution-deprecated_text_forms:
@@ -1114,12 +2533,19 @@ cases:
       content conversion, and the CONTRIBUTION adds no released branch of its
       own beyond commit_contribution-composition and
       commit_contribution-invalid_composition.
+  I_EHR_CONTRIBUTION.commit_contribution-ehr_kind_in_demographic:
+    new:
+      - demographic_contribution/commit_demographic_contribution-folder_member
+    open: >-
+      The demographic member data is a oneOf of the five PARTY kinds
+      (schemas/demographic/UVersionable.yaml), so a FOLDER member is a
+      body the schema refuses: 400, where the case expected 422.
   I_EHR_CONTRIBUTION.commit_contribution-ehr_not_modifiable:
     new: [contribution_create_refused/commit_contribution-ehr_not_modifiable]
     open: >-
       The status code: RM ehr_status.adoc assigns that the contents may not be
       written to and no released sentence names the code, so any 4xx holds
-      (register AMB-82).
+      (upstream report #752).
   I_EHR_CONTRIBUTION.commit_contribution-ehr_status_incomplete_lifecycle:
     new: [contribution_create/commit_contribution-ehr_status_incomplete]
   I_EHR_CONTRIBUTION.commit_contribution-ehr_status_invalid_change_type:
@@ -1186,7 +2612,7 @@ cases:
       The released commit wire has no IMPORTED_VERSION shape, and
       UpdateVersion.yaml does not refuse undeclared members, so no released
       text assigns the refusal of a member carrying item, uid or an
-      IMPORTED_VERSION _type (register AMB-89).
+      IMPORTED_VERSION _type (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-imported_version_type:
     new: []
     open: *imported_member
@@ -1196,7 +2622,7 @@ cases:
       The workflow commits a complete COMPOSITION in the incomplete state.
       Content missing archetype-mandatory data is not carried: no released
       sentence names the answer or relaxes the published schema for it
-      (register AMB-194).
+      (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-incomplete_wrong_data:
     new: []
     open: *incomplete
@@ -1212,7 +2638,7 @@ cases:
     open: &contribution_last_modified >-
       Carried as advisory: Requests_and_responses.md §ETag and Last-Modified
       says both headers "SHOULD be included", and whether a CONTRIBUTION is a
-      resource with a unique state identifier is register AMB-87. The audit
+      resource with a unique state identifier is upstream report #756. The audit
       instant the header derives from is not compared.
   I_EHR_CONTRIBUTION.commit_contribution-last_modified_minimal:
     new: [contribution_create/commit_contribution-etag_last_modified]
@@ -1223,7 +2649,7 @@ cases:
       No released sentence assigns the wire treatment of version lifecycle
       transitions: RM master06 enumerates three states while TERM carries
       five, and the transition table the case follows is not released text
-      (register AMB-195).
+      (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-lifecycle_deactivate:
     new: []
     open: *lifecycle
@@ -1246,7 +2672,7 @@ cases:
     open: >-
       The released commit DTO declares no merge shape and does not refuse
       undeclared members, so no released text assigns the refusal of a member
-      carrying other_input_version_uids (register AMB-196).
+      carrying other_input_version_uids (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-minimal_ehr_status:
     new: [contribution_create/commit_contribution-ehr_status]
   I_EHR_CONTRIBUTION.commit_contribution-mixed_change_set_stays_deactivated:
@@ -1269,7 +2695,7 @@ cases:
     open: >-
       The rows whose member carries change_type or lifecycle_state 523
       deleted are not carried: the released commit DTO requires data on
-      every member, so it has no deletion shape (register AMB-85).
+      every member, so it has no deletion shape (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-one_commit_invalid_change_types_persistent:
     new: [contribution_create_refused/commit_contribution-first_version_modification_persistent]
   I_EHR_CONTRIBUTION.commit_contribution-paragraph_no_items:
@@ -1303,7 +2729,7 @@ cases:
       RM versioned_object.adoc commit_original_version requires only
       `all_version_ids.has (a_preceding_version_uid)`, which a superseded
       version satisfies, and contribution_create declares no 412; no released
-      sentence refuses a member that branches from it (register AMB-54).
+      sentence refuses a member that branches from it.
   I_EHR_CONTRIBUTION.commit_contribution-text_family_invalid:
     new: []
     open: *content_family
@@ -1348,6 +2774,9 @@ cases:
     new: [contribution_read/get_contribution-unknown_contribution]
   I_EHR_CONTRIBUTION.get_contribution-bad_ehr:
     new: [contribution_read/get_contribution-unknown_ehr]
+  I_EHR_CONTRIBUTION.get_contribution-demographic_unknown:
+    new:
+      - demographic_contribution/get_demographic_contribution-unknown
   I_EHR_CONTRIBUTION.get_contribution-empty_ehr:
     new: [contribution_read/get_contribution-empty_ehr]
   I_EHR_CONTRIBUTION.get_contribution-existing:
@@ -1362,12 +2791,12 @@ cases:
     open: >-
       Carried as advisory, and the uid inside the ETag is not compared:
       whether the SHOULD of Requests_and_responses.md §ETag and Last-Modified
-      reaches a CONTRIBUTION is register AMB-87.
+      reaches a CONTRIBUTION is upstream report #756.
   I_EHR_CONTRIBUTION.get_contribution-import_contribution:
     new: []
     open: >-
       The CONTRIBUTION is the one an EHR-Extract import creates, through a
-      route no released OAS declares (register AMB-34).
+      route no released OAS declares.
   I_EHR_CONTRIBUTION.get_contribution-malformed_contribution_uid:
     new: [contribution_read/get_contribution-malformed_uid]
   I_EHR_CONTRIBUTION.get_contribution-resolve_refs:
@@ -1381,7 +2810,7 @@ cases:
     open: >-
       The type of each versions[i] reference is not judged: the RM calls them
       references to Versions while the released schema example types them by
-      the data class (register AMB-88).
+      the data class (upstream report #751).
   I_EHR_CONTRIBUTION.get_contribution-xml_not_acceptable:
     new: &contribution_xml
       - contribution_read_xml/get_contribution-xml
@@ -1405,8 +2834,7 @@ cases:
     new: []
     open: &no_list >-
       The list of an EHR's CONTRIBUTIONs has no released route: the
-      CONTRIBUTION collection of ehr.openapi.yaml takes only POST
-      (register AMB-22).
+      CONTRIBUTION collection of ehr.openapi.yaml takes only POST.
   I_EHR_CONTRIBUTION.list_contributions-ehr_containing_ehr_status:
     new: []
     open: *no_list
@@ -1424,14 +2852,14 @@ cases:
     open: >-
       No released sentence says whether a logically deleted directory still
       occupies the EHR's directory, and directory_create declares no branch
-      for an EHR that has one (register AMB-79).
+      for an EHR that has one (upstream report #753).
   I_EHR_DIRECTORY.create_directory-bad_ehr:
     new: [directory_create_refused/create_directory-unknown_ehr]
   I_EHR_DIRECTORY.create_directory-client_supplied_uid:
     new: []
     open: >-
       No released sentence assigns what a directory create does with a
-      client-supplied FOLDER.uid (register AMB-226).
+      client-supplied FOLDER.uid (upstream report #221).
   I_EHR_DIRECTORY.create_directory-cluster_no_items:
     new: [directory_create_refused/create_directory-cluster_no_items]
   I_EHR_DIRECTORY.create_directory-details_not_item_structure:
@@ -1441,14 +2869,14 @@ cases:
     open: &folder_not_modifiable >-
       The status code: RM ehr_status.adoc assigns that the contents may not be
       written to and no released sentence names the code, so any 4xx holds
-      (register AMB-82).
+      (upstream report #752).
   I_EHR_DIRECTORY.create_directory-ehr_with_directory:
     new: []
     open: >-
       directory_create declares 201, 400 and 404 only, RM ehr.adoc lets an
       EHR hold several FOLDER structures, and the precondition that the EHR
       has no directory is the SM's, which has no role in this catalogue
-      (register AMB-79).
+      (upstream report #753).
   I_EHR_DIRECTORY.create_directory-empty_ehr:
     new:
       - directory_create/create_directory
@@ -1477,7 +2905,7 @@ cases:
       No released sentence assigns the resolvability of a FOLDER.items
       reference: FOLDER declares no invariants, and BASE object_ref.adoc lets
       the target "exist locally or be maintained outside the current
-      namespace" (register AMB-211).
+      namespace" (upstream report #753).
   I_EHR_DIRECTORY.create_directory-paragraph_no_items:
     new: [directory_create_refused/create_directory-paragraph_no_items]
   I_EHR_DIRECTORY.create_directory-prefer_minimal:
@@ -1496,8 +2924,7 @@ cases:
     open: >-
       The released OAS types FOLDER.items ids as HIER_OBJECT_ID or
       OBJECT_VERSION_ID only (Folder.yaml), so a GENERIC_ID id is outside the
-      declared request body, and the docs text says nothing wider (register
-      AMB-186).
+      declared request body, and the docs text says nothing wider (upstream report #751).
   I_EHR_DIRECTORY.create_directory-with_items:
     new: [directory_create/create_directory-with_items]
   I_EHR_DIRECTORY.create_directory-xml:
@@ -1519,7 +2946,7 @@ cases:
     open: >-
       The 204 of directory_delete (204_deleted.yaml) declares no ETag or
       Last-Modified, and no released sentence says which version a delete's
-      ETag would name (register AMB-75).
+      ETag would name (upstream report #753).
   I_EHR_DIRECTORY.delete_directory-missing_if_match:
     new: [directory_delete/delete_directory-missing_if_match]
   I_EHR_DIRECTORY.delete_directory-stale_if_match:
@@ -1602,7 +3029,7 @@ cases:
     open: >-
       directory_get_by_version_id declares 200 and 404 only, and no released
       sentence says what a read of a deleted version by its version_uid
-      answers (register AMB-74).
+      answers (upstream report #753).
   I_EHR_DIRECTORY.get_directory_at_version-directory_with_two_versions:
     new:
       - directory_read/get_directory_version
@@ -1632,7 +3059,7 @@ cases:
     new: []
     open: &no_versioned_folder >-
       The VERSIONED_FOLDER has no released route: ehr.openapi.yaml serves
-      the directory FOLDER and its versions only (register AMB-24).
+      the directory FOLDER and its versions only (upstream report #753).
   I_EHR_DIRECTORY.get_versioned_directory-directory_with_two_versions:
     new: []
     open: *no_versioned_folder
@@ -1666,7 +3093,7 @@ cases:
     open: &root_path >-
       The root path `/` is not sent: the path parameter is "slash-separated
       values of the name attribute of FOLDERs", and no released sentence says
-      which path names the root FOLDER (register AMB-81).
+      which path names the root FOLDER (upstream report #753).
   I_EHR_DIRECTORY.has_path-empty_ehr:
     new: [directory_read/get_directory-no_directory]
   I_EHR_DIRECTORY.has_path-folder_structure:
@@ -1912,8 +3339,8 @@ cases:
     open: >-
       The clone that precedes the read is an EHR import through a route no
       released OAS declares, and the catalogue has no source for extension
-      routes yet; its expectations also rest on the AMB-198 handling of
-      IMPORTED_VERSION, which no released sentence assigns.
+      routes yet; its expectations also rest on a served IMPORTED_VERSION
+      shape no released sentence assigns (upstream report #752).
   I_EHR_STATUS.get_versioned_ehr_status-version_of_other_ehr:
     new: [ehr_status_versioned/get_versioned_ehr_status_version-of_other_ehr]
   I_EHR_STATUS.get_versioned_ehr_status-xml:
@@ -1971,6 +3398,16 @@ cases:
     new: *xml_body
   I_EHR_STATUS.update_other_details-round_trip:
     new: [ehr_status_update/update-other_details]
+  I_ITS_REST_ITEM_TAGS.agent_tags_delete-key_scoped:
+    new: [agent_tags/agent_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.agent_tags_delete-unknown_key:
+    new: [agent_tags/agent_tags_delete-unknown_key]
+  I_ITS_REST_ITEM_TAGS.agent_tags_get-unknown_container:
+    new: [agent_tags/agent_tags_get-unknown_uid]
+  I_ITS_REST_ITEM_TAGS.agent_tags_update-non_array_body:
+    new: [agent_tags/agent_tags_update-non_array_body]
+  I_ITS_REST_ITEM_TAGS.agent_tags_update-unknown_container:
+    new: [agent_tags/agent_tags_update-unknown_uid]
   I_ITS_REST_ITEM_TAGS.composition_tags_delete-key_scoped:
     new: [composition_tags/composition_tags_delete-key_scoped]
   I_ITS_REST_ITEM_TAGS.composition_tags_delete-second_delete_not_found:
@@ -1994,10 +3431,9 @@ cases:
       - ehr_status_tags/ehr_status_tags_get-composition_uid
     open: >-
       A demographic party's uid on the COMPOSITION route is not carried: the
-      only route that creates a party is the demographic API, which the
-      release does not ship as stable ("This specification is in the
-      `DEVELOPMENT` state", ITS-REST docs/demographic/Description.md). The
-      EHR-side directions are carried.
+      only route that creates a party is the demographic API, a capability a
+      statement may leave unclaimed, and these EHR workflows depend on no
+      such capability. The EHR-side directions are carried.
   I_ITS_REST_ITEM_TAGS.composition_tags_get-supersession_does_not_move_tags:
     new:
       - composition_tags/composition_tags_get-new_version_untagged
@@ -2067,6 +3503,12 @@ cases:
   I_ITS_REST_ITEM_TAGS.composition_tags_update-wrong_media:
     new:
       - composition_tags_refused/composition_tags_update-wrong_media
+  I_ITS_REST_ITEM_TAGS.demographic_tags_get-space_wide_listing:
+    new: [demographic_tags/demographic_tags_get-filter_key]
+    open: >-
+      The listing is filtered by a key unique to the run; the unfiltered
+      listing of a shared server holds whatever other parties stored and
+      is not judged.
   I_ITS_REST_ITEM_TAGS.ehr_status_tags_delete-key_scoped:
     new: [ehr_status_tags/ehr_status_tags_delete-key_scoped]
   I_ITS_REST_ITEM_TAGS.ehr_status_tags_delete-wrong_kind_uid:
@@ -2084,6 +3526,67 @@ cases:
     new: [ehr_tags/ehr_tags_get-ehr_wide_listing]
   I_ITS_REST_ITEM_TAGS.ehr_tags_get-unknown_ehr:
     new: [ehr_tags/ehr_tags_get-unknown_ehr]
+  I_ITS_REST_ITEM_TAGS.group_tags_delete-key_scoped:
+    new: [group_tags/group_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.group_tags_delete-unknown_key:
+    new: [group_tags/group_tags_delete-unknown_key]
+  I_ITS_REST_ITEM_TAGS.group_tags_get-unknown_container:
+    new: [group_tags/group_tags_get-unknown_uid]
+  I_ITS_REST_ITEM_TAGS.group_tags_update-non_array_body:
+    new: [group_tags/group_tags_update-non_array_body]
+  I_ITS_REST_ITEM_TAGS.group_tags_update-unknown_container:
+    new: [group_tags/group_tags_update-unknown_uid]
+  I_ITS_REST_ITEM_TAGS.organisation_tags_delete-key_scoped:
+    new: [organisation_tags/organisation_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.organisation_tags_delete-wrong_kind_uid:
+    new: [organisation_tags/organisation_tags_delete-person_uid]
+  I_ITS_REST_ITEM_TAGS.organisation_tags_get-wrong_kind_uid:
+    new: [organisation_tags/organisation_tags_get-person_uid]
+  I_ITS_REST_ITEM_TAGS.organisation_tags_update-non_array_body:
+    new: [organisation_tags/organisation_tags_update-non_array_body]
+  I_ITS_REST_ITEM_TAGS.organisation_tags_update-wrong_kind_uid:
+    new: [organisation_tags/organisation_tags_update-person_uid]
+  I_ITS_REST_ITEM_TAGS.person_tags_delete-key_scoped:
+    new: [person_tags/person_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.person_tags_delete-unknown_key:
+    new: [person_tags/person_tags_delete-unknown_key]
+  I_ITS_REST_ITEM_TAGS.person_tags_delete-version_container_disjoint:
+    new: [person_tags/person_tags_delete-version_container_disjoint]
+  I_ITS_REST_ITEM_TAGS.person_tags_get-container_target_shape:
+    new: [person_tags/person_tags_get-container_target_shape]
+    open: >-
+      owner_id is not judged: the released ITEM_TAG schema types it as
+      an OBJECT_REF and the demographic tag operations name no owner.
+  I_ITS_REST_ITEM_TAGS.person_tags_get-cross_space_composition_uid:
+    new: [person_tags/person_tags_get-ehr_status_uid]
+    open: >-
+      The EHR-space uid is an EHR_STATUS version_uid, which needs no
+      template upload, instead of a COMPOSITION's.
+  I_ITS_REST_ITEM_TAGS.person_tags_get-version_target_shape:
+    new: [person_tags/person_tags_get-version_target_shape]
+  I_ITS_REST_ITEM_TAGS.person_tags_update-empty_target_path_absent:
+    new: []
+    open: >-
+      The OAS types target_path as a string with no rule on an empty
+      one, and the docs text is silent.
+  I_ITS_REST_ITEM_TAGS.person_tags_update-key_target_path_identity:
+    new: [person_tags/person_tags_update-key_target_path_identity]
+  I_ITS_REST_ITEM_TAGS.person_tags_update-non_array_body:
+    new: [person_tags/person_tags_update-non_array_body]
+  I_ITS_REST_ITEM_TAGS.person_tags_update-unknown_container:
+    new: [person_tags/person_tags_update-unknown_uid]
+  I_ITS_REST_ITEM_TAGS.person_tags_update-version_container_disjoint:
+    new: [person_tags/person_tags_update-version_container_disjoint]
+  I_ITS_REST_ITEM_TAGS.role_tags_delete-key_scoped:
+    new: [role_tags/role_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.role_tags_delete-unknown_key:
+    new: [role_tags/role_tags_delete-unknown_key]
+  I_ITS_REST_ITEM_TAGS.role_tags_get-unknown_container:
+    new: [role_tags/role_tags_get-unknown_uid]
+  I_ITS_REST_ITEM_TAGS.role_tags_update-non_array_body:
+    new: [role_tags/role_tags_update-non_array_body]
+  I_ITS_REST_ITEM_TAGS.role_tags_update-unknown_container:
+    new: [role_tags/role_tags_update-unknown_uid]
   I_ITS_REST_REVISION_HISTORY.versioned_ehr_status_revision_history-bad_ehr:
     new:
       - ehr_status_versioned/get_versioned_ehr_status-revision_history-unknown_ehr
@@ -2102,6 +3605,27 @@ cases:
       items (upstream report #661).
   I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-unknown_container:
     new: [composition_versioned_read/get_versioned_composition-revision_history-unknown_versioned_object_uid]
+  I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-two_versions:
+    new: [versioned_party/get_versioned_party_revision_history]
+  I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-unknown_container:
+    new:
+      - versioned_party/get_versioned_party_revision_history-unknown
+  I_ITS_REST_SYSTEM.options-conformance_manifest:
+    new:
+      - system_options/options
+      - system_options/options-allow
+      - system_options/options-manifest
+  I_ITS_REST_VERSIONED_PARTY.versioned_party_get-container_shape:
+    new:
+      - versioned_party/get_versioned_party
+      - versioned_party/get_versioned_party-container_shape
+  I_ITS_REST_VERSIONED_PARTY.versioned_party_get-unknown_container:
+    new: [versioned_party/get_versioned_party-unknown]
+  I_ITS_REST_VERSIONED_PARTY.versioned_party_get-xml:
+    new: [versioned_party_read_xml/get_versioned_party-xml]
+  I_ITS_REST_VERSIONED_PARTY.versioned_party_get-xml_not_acceptable:
+    new:
+      - versioned_party_read_xml_not_acceptable/get_versioned_party-xml_not_acceptable
   I_QUERY_SERVICE.execute_ad_hoc_query-aggregates:
     new: [aql_semantics/aggregate-count, aql_semantics/aggregate-count_distinct, aql_semantics/aggregate-min, aql_semantics/aggregate-max, aql_semantics/aggregate-sum, aql_semantics/aggregate-avg]
   I_QUERY_SERVICE.execute_ad_hoc_query-aggregates_empty_set:
@@ -2402,6 +3926,561 @@ cases:
 # The 236 cases of the AQL conformance corpus (#695), by their own ids: each
 # names the Arazzo case ids that carry it, or says in `open` why it is not
 # carried. A case a workflow already covered maps onto that workflow.
+  SF-CONTRIB-flat_commit:
+    new:
+      - contribution_write_flat/commit_contribution-flat
+      - contribution_write_flat_unsupported/commit_contribution-flat_unsupported_media
+    open: &sf_contribution_template >-
+      Carried on the template minimal_evaluation.en.v1, whose COMPOSITION is
+      judged by the composer the member's context names; the ACTION
+      current_state of the old carrier is judged on the COMPOSITION create
+      (flat_context/create_composition-flat-ism_transition).
+  SF-CONTRIB-flat_read:
+    new:
+      - contribution_read_flat/get_contribution-flat
+      - contribution_read_flat_not_acceptable/get_contribution-flat_not_acceptable
+    open: &sf_contribution_audit >-
+      The audit's time_committed is not judged here; the canonical read of a
+      CONTRIBUTION judges it (contribution_read/get_contribution-audit).
+  SF-CONTRIB-structured_commit:
+    new:
+      - contribution_write_structured/commit_contribution-structured
+      - contribution_write_structured_unsupported/commit_contribution-structured_unsupported_media
+    open: *sf_contribution_template
+  SF-CONTRIB-structured_read:
+    new:
+      - contribution_read_structured/get_contribution-structured
+      - contribution_read_structured_not_acceptable/get_contribution-structured_not_acceptable
+    open: *sf_contribution_audit
+  SF-CTX-composer_name:
+    new: [flat_context/create_composition-flat-composer_name]
+  SF-CTX-composer_self:
+    new: [flat_context/create_composition-flat-composer_self]
+  SF-CTX-missing_mandatory:
+    new: [flat_commit_refused/create_composition-flat-territory_missing]
+  SF-CTX-participation_missing_function:
+    new: [flat_commit_refused/create_composition-flat-participation_function_missing]
+  SF-CTX-participations_forms:
+    new:
+      - flat_context/create_composition-flat-participation_identifiers_compact
+      - flat_context/create_composition-flat-participation_identifiers_expanded
+  SF-CTX-vocabulary_mapping:
+    new:
+      - flat_context/create_composition-flat-language_territory
+      - flat_context/create_composition-flat-ctx_time_default
+      - flat_context/create_composition-flat-ctx_setting_default
+      - flat_context/create_composition-flat-participations
+    open: &sf_setting_value >-
+      The default setting is judged by its value, other care, which is what
+      master06 §setting names; the code 238 is not asserted.
+  SF-DEPRECATED-accept_unsupported:
+    new:
+      - deprecated_example_not_acceptable/get_template_example-flat_deprecated_media_not_acceptable
+      - deprecated_example/get_template_example-flat_deprecated_media
+  SF-DEPRECATED-media_supported:
+    new: [deprecated_write/create_composition-flat_deprecated_media]
+  SF-DEPRECATED-media_unsupported:
+    new: [deprecated_write_refused/create_composition-flat_deprecated_media_unsupported]
+  SF-DEPRECATED-structured_accept_unsupported:
+    new:
+      - deprecated_example_not_acceptable/get_template_example-structured_deprecated_media_not_acceptable
+      - deprecated_example/get_template_example-structured_deprecated_media
+  SF-DEPRECATED-structured_media_unsupported:
+    new:
+      - deprecated_write_refused/create_composition-structured_deprecated_media_unsupported
+      - deprecated_write/create_composition-structured_deprecated_media
+  SF-EXAMPLE-accept_forms:
+    new: [template_adl14/get_template_example]
+    open: >-
+      The canonical JSON example is carried; its XML and simplified-format
+      Accept values are the example gaps of the ADL 1.4 templates, #714.
+  SF-EXAMPLE-roundtrip:
+    new: []
+    open: >-
+      No released sentence requires an example to commit: the
+      definition_template_adl1.4_example_get.yaml description says only that
+      a required example is "expected to be committable without adjustment",
+      with no key word, and that "The implementation and completeness of
+      these examples are not specified".
+  SF-EXAMPLE-unsupported_accept:
+    new: [template_adl14/get_template_example-web_template_not_acceptable]
+  SF-FIELDID-structure:
+    new:
+      - flat_mapping/create_composition-flat-normal_range
+      - flat_mapping/create_composition-flat-dv_quantity
+      - flat_structure/create_composition-flat-instance_index
+  SF-FLAT-adl2_commit:
+    new: []
+    open: &sf_adl2 >-
+      Needs a stored ADL 2 operational template, and none of the committed
+      ADL 2 sources is valid by AM; the ADL 2 template work is #714.
+  SF-FLAT-adl2_reject_cardinality:
+    new: []
+    open: *sf_adl2
+  SF-FLAT-commit_roundtrip_ctx_defaults:
+    new:
+      - flat_context/create_composition-flat-ctx_time_default
+      - flat_context/create_composition-flat-ctx_setting_default
+      - flat_context/create_composition-flat-ism_transition
+    open: &sf_equality >-
+      The equality of the flat and structured read-backs with the committed
+      document is not asserted: master04 §Conversion Between Formats gives a
+      conversion algorithm, and no released sentence requires a server's
+      answer to equal the document it was sent.
+  SF-FLAT-malformed_path:
+    new: [flat_commit_refused/create_composition-flat-path_malformed]
+  SF-FLAT-missing_template_id:
+    new: [flat_commit_refused/create_composition-flat-template_id_missing]
+  SF-FLAT-reject_cardinality:
+    new: [flat_commit_refused/create_composition-flat-cardinality]
+    open: &sf_validation_should >-
+      Carried as advisory: master04 §Validation says implementations "SHOULD
+      validate" this; the refusal code is 422, the template not validating
+      the supplied resource (responses/422.yaml).
+  SF-FLAT-reject_datatype_mismatch:
+    new: [flat_commit_refused/create_composition-flat-data_type_mismatch]
+    open: *sf_validation_should
+  SF-FLAT-reject_other_closed_list:
+    new: [flat_commit_refused/create_composition-flat-other_closed_value_set]
+  SF-FLAT-reject_other_with_code:
+    new: [flat_commit_refused/create_composition-flat-other_with_code]
+  SF-FLAT-reject_terminology_binding:
+    new: [flat_commit_refused/create_composition-flat-terminology_binding]
+    open: *sf_validation_should
+  SF-FLAT-reject_unknown_field:
+    new: [flat_commit_refused/create_composition-flat-unknown_field]
+    open: *sf_validation_should
+  SF-INDEX-multi_event_commit:
+    new: [flat_structure/create_composition-flat-event_index]
+  SF-INDEX-semantics:
+    new: [flat_structure/create_composition-flat-instance_index]
+  SF-LEGACY-nc_flat_accept_unsupported:
+    new: [legacy_example_not_acceptable/get_template_example-nc_flat_not_acceptable]
+  SF-LEGACY-nc_flat_media_supported:
+    new: []
+    open: >-
+      Resources.md §Alternative data formats names the ECISFLAT format and
+      defines it outside the release, so no released text says what a valid
+      document of it is; the accepting arm of `simplified-legacy-write` has no
+      document.
+  SF-LEGACY-nc_flat_media_unsupported:
+    new: [legacy_write_refused/create_composition-nc_flat_media_unsupported]
+  SF-LEGACY-tds2_accept_unsupported:
+    new: []
+    open: &tdd_out_of_scope >-
+      TDD/TDS is a legacy format of the Ocean tooling; out of scope by owner ruling (2026-10-28).
+  SF-LEGACY-tds2_media_unsupported:
+    new: []
+    open: *tdd_out_of_scope
+  SF-LEVELS-collapsed_wrappers:
+    new: [flat_mapping/create_composition-flat-collapsed_wrappers]
+  SF-LEVELS-container_attribute_elision:
+    new: [flat_mapping/create_composition-flat-container_attributes]
+  SF-LEVELS-lab_panel_example:
+    new: [flat_mapping/create_composition-flat-nested_clusters]
+  SF-MAP-attribute_suffix_table:
+    new:
+      - flat_mapping/create_composition-flat-dv_quantity
+      - flat_mapping/create_composition-flat-dv_coded_text
+  SF-MAP-context:
+    new:
+      - flat_context/create_composition-flat-ctx_time_default
+      - flat_context/create_composition-flat-ctx_setting_default
+      - flat_context/create_composition-flat-participations
+      - flat_context/create_composition-flat-ism_transition
+    open: *sf_setting_value
+  SF-MAP-dv_ordinal_proportion_count:
+    new:
+      - flat_mapping/create_composition-flat-dv_ordinal
+      - flat_mapping/create_composition-flat-dv_proportion
+      - flat_mapping/create_composition-flat-dv_count
+  SF-MAP-dv_quantity:
+    new: [flat_mapping/create_composition-flat-dv_quantity]
+    open: >-
+      The RM attributes are judged from master04 §Attribute Suffixes and the
+      RM: the master05 §DV_QUANTITY table names the RM path `unit` and swaps
+      the flat types (upstream report #721).
+  SF-MAP-dv_text_coded:
+    new:
+      - flat_mapping/create_composition-flat-dv_text
+      - flat_mapping/create_composition-flat-dv_coded_text
+  SF-MAP-entries:
+    new:
+      - flat_mapping/create_composition-flat-entries
+      - flat_context/create_composition-flat-language_territory
+  SF-MAP-events_audit:
+    new: [flat_structure/create_composition-flat-feeder_audit]
+  SF-MAP-instruction_details:
+    new: [flat_context/create_composition-flat-instruction_details]
+  SF-MAP-interval_event:
+    new: [flat_structure/create_composition-flat-interval_event]
+  SF-MAP-interval_reference_range:
+    new: [flat_mapping/create_composition-flat-dv_interval]
+    open: >-
+      The DV_INTERVAL boundary flags and the REFERENCE_RANGE rows of master05
+      have no workflow yet, #722.
+  SF-MAP-multimedia_parsable:
+    new:
+      - flat_mapping/create_composition-flat-dv_multimedia
+      - flat_mapping/create_composition-flat-dv_parsable
+  SF-MAP-party:
+    new:
+      - flat_context/create_composition-flat-composer_name
+      - flat_context/create_composition-flat-participations
+  SF-MAP-simple_values:
+    new:
+      - flat_mapping/create_composition-flat-dv_boolean
+      - flat_mapping/create_composition-flat-dv_identifier
+      - flat_mapping/create_composition-flat-dv_uri
+  SF-MAP-structure:
+    new:
+      - flat_mapping/create_composition-flat-element_value
+      - flat_mapping/create_composition-flat-nested_clusters
+  SF-MAP-temporal:
+    new:
+      - flat_mapping/create_composition-flat-dv_date
+      - flat_mapping/create_composition-flat-dv_date_time
+      - flat_mapping/create_composition-flat-dv_time
+      - flat_mapping/create_composition-flat-dv_duration
+  SF-NODEID-generation_rules:
+    new:
+      - flat_structure/create_composition-flat-vitals
+      - flat_mapping/create_composition-flat-entries
+    open: &sf_web_template >-
+      The node ids are judged through the flat paths a server accepts; the
+      members of a Web Template document are not judged, because master04
+      §Web Template Metadata says "Specification of Web Template metadata is
+      separate from the data serialization format described in this
+      specification" and the release specifies it nowhere else.
+  SF-NODEID-web_template_ids:
+    new:
+      - template_adl14_web_template/get_template-web_template
+      - template_adl14_web_template_not_acceptable/get_template-web_template_not_acceptable
+    open: *sf_web_template
+  SF-RAW-embedding:
+    new: [flat_mapping/create_composition-flat-raw]
+  SF-RAW-missing_type:
+    new: [flat_commit_refused/create_composition-flat-raw_without_type]
+  SF-RAW-structured_embedding:
+    new: [structured_commit/create_composition-structured-raw]
+  SF-RMATTR-normal_range_commit:
+    new: [flat_mapping/create_composition-flat-normal_range]
+  SF-RMATTR-underscore_mapping:
+    new: [flat_mapping/create_composition-flat-normal_range]
+  SF-SCOPE-demographic_no_simplified:
+    new: []
+    open: &sf_scope >-
+      No released sentence refuses a simplified form of this resource: its
+      operation declares the Simplified Formats among its Accept values
+      (parameters/header/Accept_LOCATABLE.yaml), while master05 maps no
+      class outside the COMPOSITION content (upstream report #352).
+  SF-SCOPE-directory_no_simplified:
+    new: []
+    open: *sf_scope
+  SF-SCOPE-ehr_status_no_simplified:
+    new: []
+    open: *sf_scope
+  SF-STRUCT-arrays_single_cardinality:
+    new: [structured_commit/create_composition-structured-vitals]
+    open: *sf_equality
+  SF-STRUCT-empty_object_omission:
+    new: [structured_read/get_composition-structured-empty_omitted]
+    open: &sf_ctx_output >-
+      The ctx property of the answer is not judged: master06 defines the ctx
+      values as defaults a client sends, and no released sentence requires a
+      server to return them.
+  SF-STRUCT-style_rules:
+    new: [structured_read/get_composition-structured-nested_arrays]
+    open: *sf_ctx_output
+  SF-STRUCTURED-commit_roundtrip:
+    new: [structured_commit/create_composition-structured-vitals]
+    open: *sf_equality
+  SF-WT-web_template_get:
+    new:
+      - template_adl14_web_template/get_template-web_template
+      - template_adl14_web_template_not_acceptable/get_template-web_template_not_acceptable
+    open: *sf_web_template
+  SF-WT-web_template_json_accept:
+    new: []
+    open: >-
+      No released schema defines a JSON form of an ADL 1.4 operational
+      template, so no sentence assigns the answer to Accept
+      application/json on a template read; the branch is a gap of the ADL
+      1.4 templates, #714.
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-by_spec:
+    new: []
+    open: &no_extract_route >-
+      The release defines no EHR Extract import or export route: no
+      released ITS-REST OAS declares one and no ITS-REST docs text names
+      one, so the SM operation has no wire form. The case drove a
+      /message route of one server's own design.
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-criteria_foreign_formalism:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-criteria_selects_primary_set:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-empty_manifest:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-latest_across_lineages:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-readonly_allowed:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-spec_named_extract_type:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-term_coded_extract_type:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-unknown_ehr:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-unknown_extract_type:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-unresolvable_entity:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-version_spec_contradiction:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehrs-export_existing:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehrs-export_unknown:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehrs-malformed_ehr_id:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehrs-reexport_of_an_import:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehrs-unauthenticated:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-duplicate:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-local_chronology:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-malformed:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-new:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-with_id:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-wrong_media:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-append_later_trunk_version:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-cluster_no_items:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-into_branched_lineage:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-into_existing:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-invalid:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-manifest_no_entities:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-masked_with_item:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-paragraph_no_items:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-readonly_forbidden:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-second_status:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-unknown_ehr:
+    new: []
+    open: *no_extract_route
+  I_TDD_SERVICE.import_tdd-invalid:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-nonconforming_body:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-readonly_forbidden:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-unauthenticated:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-unknown_ehr:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-unprovisioned_template:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-valid:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-wrong_media:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-atomicity_state_proof:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-bulk_invalid:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-bulk_valid:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-empty_batch:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-empty_batch_unknown_ehr:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-nonconforming_body:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-unknown_ehr:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-wrong_media:
+    new: []
+    open: *tdd_out_of_scope
+  PERF-hospital_sim-class_L:
+    new: []
+    open: &perf_measured >-
+      A measured performance case, not a conformance case: no released
+      openEHR text assigns its class, offered load or thresholds, and
+      `veredictum perf` reads it. The Arazzo catalogue holds conformance
+      workflows, and the measured instruments run from the CLI; where the
+      case lives once the old catalogue is deleted is #746.
+  PERF-hospital_sim-class_POC:
+    new: []
+    open: *perf_measured
+  PERF-hospital_sim-class_R:
+    new: []
+    open: *perf_measured
+  PERF-hospital_sim-class_S:
+    new: []
+    open: *perf_measured
+  SEC-ANONYMOUS_EHRS-anonymous_lifecycle:
+    new:
+      - anonymous_ehr/anonymous_ehr-lifecycle
+  SEC-AUDIT_ACCOUNTABILITY-server_set_commit_audit:
+    new:
+      - contribution_create/commit_contribution-client_time_committed_ignored
+  SEC-AUTHENTICATED_ACCESS-unauthenticated_sweep:
+    new:
+      - authentication_required/ehr_create-invalid_credentials
+      - authentication_required/composition_get-invalid_credentials
+      - authentication_required/query_adhoc-invalid_credentials
+      - authentication_required/template_upload-invalid_credentials
+  SEC-AUTHENTICATED_ACCESS-www_authenticate_challenge:
+    new:
+      - authentication_required/ehr_get-invalid_credentials
+  SEC-AUTHORIZATION_SEPARATION-readonly_write_denied:
+    new: []
+    open: >-
+      The release defines no authorization model: Requests_and_responses.md
+      assigns 403 to a request the service "understood" and "refuses to
+      authorize", and names no principal, role or permission a client could
+      present, so no write is one every service that requires authorization
+      must refuse. The SMART scopes that would name one are #745.
+  SEC-EHR_DEMOGRAPHIC_SEPARATION-status_subject_opaque:
+    new:
+      - ehr/create_ehr-default_status
+    open: >-
+      The absent subject external_ref is not carried: ehr_create.yaml says
+      only that the default subject is "a PARTY_SELF object", and RM
+      PARTY_PROXY.external_ref is optional, so no released text says the
+      default subject carries none.
+  SIG-VERSION-across_version_kinds:
+    new:
+      - version_signature/composition_create-signature_present
+      - version_signature/composition_update-signature_present
+      - version_signature/composition_delete-signature_present
+  SIG-VERSION-at_committal_attestation_signed:
+    new: []
+    open: &signature_serialisation >-
+      Not carried: RM common master06 §Digital Signature says "The exact
+      serialisation is not yet defined by openEHR", so no released text
+      fixes the bytes a signature is computed over, and neither its
+      verification nor its difference between versions can be judged.
+  SIG-VERSION-client_supplied_verbatim:
+    new: []
+    open: &client_signature >-
+      UPDATE_VERSION declares a signature member, and neither the operation
+      files nor RM common say what a service does with a client-supplied
+      one, so storing it verbatim is not assigned (upstream report #744).
+  SIG-VERSION-client_supplied_verbatim-pgp:
+    new: []
+    open: *client_signature
+  SIG-VERSION-directory_signature_present:
+    new: []
+    open: >-
+      The release serves no directory VERSION: the EHR API has no
+      versioned FOLDER route, so the signature of a FOLDER version is not
+      on the wire.
+  SIG-VERSION-directory_verifiable:
+    new: []
+    open: *signature_serialisation
+  SIG-VERSION-distinct_per_version:
+    new: []
+    open: *signature_serialisation
+  SIG-VERSION-distinct_per_version-pgp:
+    new: []
+    open: *signature_serialisation
+  SIG-VERSION-ehr_status_signature:
+    new:
+      - version_signature/ehr_status-signature_present
+    open: &signature_presence_only >-
+      The presence of the signature is carried; its verification is not,
+      because RM common master06 §Digital Signature says "The exact
+      serialisation is not yet defined by openEHR".
+  SIG-VERSION-ehr_status_signature-pgp:
+    new:
+      - version_signature/ehr_status-signature_present
+    open: *signature_presence_only
+  SIG-VERSION-signature_present:
+    new:
+      - version_signature/composition_create-signature_present
+  SIG-VERSION-verifiable:
+    new: []
+    open: *signature_serialisation
+  SIG-VERSION-verifiable-pgp:
+    new: []
+    open: *signature_serialisation
+  SMART-DISCOVERY-document_shape:
+    new: []
+    open: >-
+      Not carried yet: master04-service_discovery.adoc serves the document
+      "relative to the _Platform_ base URL", which differs from the
+      openEHR REST base the evaluator addresses, and no released OAS
+      declares the route; #745.
+  SMART-RESOURCE_SCOPES-granted_scope_permits:
+    new: []
+    open: &smart_scopes >-
+      Not carried yet: each row presents a Bearer token whose scope claim
+      is the row's value (master08-scopes.adoc §Resource Scopes), and the
+      evaluator sends one fixed credential per run; #745.
+  SMART-RESOURCE_SCOPES-scope_deny_403:
+    new: []
+    open: *smart_scopes
 corpora:
   aql-conformance:
     source: https://github.com/Cadasto/aql-conformance
@@ -3492,44 +5571,3 @@ corpora:
         open: >-
           Not carried (level sensible). A VERSION class operand has no released
           semantics, upstream report #168.
-pending:
-  - I_EHR_CONTRIBUTION.commit_contribution-demographic
-  - I_EHR_CONTRIBUTION.commit_contribution-demographic_client_uid
-  - I_EHR_CONTRIBUTION.commit_contribution-demographic_cluster_no_items
-  - I_EHR_CONTRIBUTION.commit_contribution-demographic_invalid_change_types
-  - I_EHR_CONTRIBUTION.commit_contribution-ehr_kind_in_demographic
-  - I_EHR_CONTRIBUTION.get_contribution-demographic_unknown
-  - I_ITS_REST_ITEM_TAGS.agent_tags_delete-key_scoped
-  - I_ITS_REST_ITEM_TAGS.agent_tags_delete-unknown_key
-  - I_ITS_REST_ITEM_TAGS.agent_tags_get-unknown_container
-  - I_ITS_REST_ITEM_TAGS.agent_tags_update-non_array_body
-  - I_ITS_REST_ITEM_TAGS.agent_tags_update-unknown_container
-  - I_ITS_REST_ITEM_TAGS.demographic_tags_get-space_wide_listing
-  - I_ITS_REST_ITEM_TAGS.group_tags_delete-key_scoped
-  - I_ITS_REST_ITEM_TAGS.group_tags_delete-unknown_key
-  - I_ITS_REST_ITEM_TAGS.group_tags_get-unknown_container
-  - I_ITS_REST_ITEM_TAGS.group_tags_update-non_array_body
-  - I_ITS_REST_ITEM_TAGS.group_tags_update-unknown_container
-  - I_ITS_REST_ITEM_TAGS.organisation_tags_delete-key_scoped
-  - I_ITS_REST_ITEM_TAGS.organisation_tags_delete-wrong_kind_uid
-  - I_ITS_REST_ITEM_TAGS.organisation_tags_get-wrong_kind_uid
-  - I_ITS_REST_ITEM_TAGS.organisation_tags_update-non_array_body
-  - I_ITS_REST_ITEM_TAGS.organisation_tags_update-wrong_kind_uid
-  - I_ITS_REST_ITEM_TAGS.person_tags_delete-key_scoped
-  - I_ITS_REST_ITEM_TAGS.person_tags_delete-unknown_key
-  - I_ITS_REST_ITEM_TAGS.person_tags_delete-version_container_disjoint
-  - I_ITS_REST_ITEM_TAGS.person_tags_get-container_target_shape
-  - I_ITS_REST_ITEM_TAGS.person_tags_get-cross_space_composition_uid
-  - I_ITS_REST_ITEM_TAGS.person_tags_get-version_target_shape
-  - I_ITS_REST_ITEM_TAGS.person_tags_update-empty_target_path_absent
-  - I_ITS_REST_ITEM_TAGS.person_tags_update-key_target_path_identity
-  - I_ITS_REST_ITEM_TAGS.person_tags_update-non_array_body
-  - I_ITS_REST_ITEM_TAGS.person_tags_update-unknown_container
-  - I_ITS_REST_ITEM_TAGS.person_tags_update-version_container_disjoint
-  - I_ITS_REST_ITEM_TAGS.role_tags_delete-key_scoped
-  - I_ITS_REST_ITEM_TAGS.role_tags_delete-unknown_key
-  - I_ITS_REST_ITEM_TAGS.role_tags_get-unknown_container
-  - I_ITS_REST_ITEM_TAGS.role_tags_update-non_array_body
-  - I_ITS_REST_ITEM_TAGS.role_tags_update-unknown_container
-  - I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-two_versions
-  - I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-unknown_container

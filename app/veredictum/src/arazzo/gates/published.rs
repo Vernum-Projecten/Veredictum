@@ -17,7 +17,8 @@ use crate::arazzo::derive::DERIVE_KEY;
 use crate::arazzo::document::CHECK_KEY;
 use crate::arazzo::gates::profile::ProfileHeader;
 use crate::arazzo::gates::surface::NegotiationHeader;
-use crate::arazzo::recipe::ContentClass;
+use crate::arazzo::principal::PRINCIPAL_KEY;
+use crate::arazzo::recipe::{ContentClass, SynthesizedClass};
 use crate::vocab::Iteration;
 
 const DRAFT: &str = "https://json-schema.org/draft/2020-12/schema";
@@ -109,8 +110,8 @@ fn check_def() -> Value {
     })
 }
 
-/// The `x-veredictum-cite`, `x-veredictum-check` and `x-veredictum-derive`
-/// extension objects.
+/// The `x-veredictum-cite`, `x-veredictum-check`, `x-veredictum-derive` and
+/// `x-veredictum-principal` extension objects.
 #[must_use]
 pub fn extensions_schema() -> Value {
     let roots: Vec<String> = ORACLE_ROOTS
@@ -120,8 +121,8 @@ pub fn extensions_schema() -> Value {
     json!({
         "$schema": DRAFT,
         "$id": urn("arazzo-extensions"),
-        "title": "The Arazzo catalogue's three specification extensions",
-        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state."),
+        "title": "The Arazzo catalogue's four specification extensions",
+        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state."),
         "$defs": {
             "cite": {
                 "type": "object",
@@ -156,6 +157,10 @@ pub fn extensions_schema() -> Value {
                 }
             },
             "check": check_def(),
+            "principal": {
+                "description": "The principal a step is sent as: `administrative` is a principal the service authorizes for its administrative operations.",
+                "enum": tokens(crate::arazzo::principal::Principal::ALL)
+            },
             "derive": {
                 "description": "New step outputs by name. Each applies one function of BASE `object_version_id.adoc` to an output the same step declares, whose value has the lexical form `object_id::creating_system_id::version_tree_id`; a value of another form makes the row errored.",
                 "type": "object",
@@ -233,7 +238,7 @@ pub fn rows_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-rows"),
         "title": "Input rows for one data-driven Arazzo workflow",
-        "description": "Sits beside the Arazzo document whose workflow it feeds, named `<workflowId>.rows.yaml`; `workflow` repeats that workflow's case id. Each row binds the workflow's `inputs` by property name: a key the inputs schema does not name is refused, every `required` input is bound in every row, and each row validates against the inputs schema. An input of `format: uuid` with no value is generated per row. A value under a column `literals` names is a decision-table literal, and `validate` refuses one that does not parse against the literal grammar, naming its row, its column and the character offset of the production that fails. A `recipe` binds one more input per row from the row's literals, and the row it completes is what the inputs schema validates.",
+        "description": "Sits beside the Arazzo document whose workflow it feeds, named `<workflowId>.rows.yaml`; `workflow` repeats that workflow's case id. Each row binds the workflow's `inputs` by property name: a key the inputs schema does not name is refused, every `required` input is bound in every row, and each row validates against the inputs schema. An input of `format: uuid` with no value is generated per row. A value under a column `literals` names is a decision-table literal, and `validate` refuses one that does not parse against the literal grammar, naming its row, its column and the character offset of the production that fails. A `recipe` binds one or two more inputs per row from the row's literals, and the row it completes is what the inputs schema validates.",
         "type": "object",
         "additionalProperties": false,
         "required": ["workflow", "iteration", "rows"],
@@ -395,7 +400,7 @@ pub fn surface_schema() -> Value {
 /// arguments.
 fn recipe_def() -> Value {
     json!({
-        "description": "The registered recipe that turns each row's literals into the value of one more input. `content_instance` builds the composition a content decision-table row commits: the `rm_class` value from the literal columns, in the minimal carrier composition stamped with `template_id`.",
+        "description": "The registered recipe that turns each row's literals into the values of more inputs. `content_instance` builds the composition a content decision-table row commits: the `rm_class` value from the literal columns, in the minimal carrier composition stamped with `template_id`. `content_synthesized` serves a table whose rows vary the template: per row it builds the operational template (OPT 1.4 XML text) from the literal columns, under the id `template_id` followed by a digest of the template the row's constraint columns build, binds it to `template_input`, and binds the composition stamped with that id to `input`.",
         "oneOf": [
             {
                 "type": "object",
@@ -407,6 +412,30 @@ fn recipe_def() -> Value {
                     "template_id": { "type": "string", "minLength": 1 },
                     "input": {
                         "description": "The workflow input the recipe binds; no row supplies it.",
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "rm_class", "template_id", "input", "template_input"],
+                "properties": {
+                    "name": { "const": "content_synthesized" },
+                    "rm_class": { "enum": tokens(SynthesizedClass::ALL) },
+                    "template_id": {
+                        "description": "The template family: each row's template id is this id, a dot and eight hex digits.",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "input": {
+                        "description": "The workflow input the composition is bound to; no row supplies it.",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "template_input": {
+                        "description": "The workflow input the row's operational template is bound to; no row supplies it.",
                         "type": "string",
                         "minLength": 1
                     }

@@ -1,0 +1,52 @@
+diff --git a/docs/smart_app_launch/master04-service_discovery.adoc b/docs/smart_app_launch/master04-service_discovery.adoc
+index 6d1f679b..0f3ebb1a 100644
+--- a/docs/smart_app_launch/master04-service_discovery.adoc
++++ b/docs/smart_app_launch/master04-service_discovery.adoc
+@@ -63,7 +63,7 @@ Responses to `/.well-known/smart-configuration` endpoint must be served with the
+     "client_credentials"
+   ],
+   "registration_endpoint": "https://platform.example.com/auth/register",
+-  "scopes_supported": ["openid", "profile", "launch", "launch/patient", "patient/*.rs", "user/*.rs", "offline_access"],
++  "scopes_supported": ["openid", "profile", "launch", "launch/patient", "patient/composition-*.rs", "user/composition-*.rs", "offline_access"],
+   "response_types_supported": ["code"],
+   "management_endpoint": "https://platform.example.com/user/manage",
+   "introspection_endpoint": "https://platform.example.com/user/introspect",
+@@ -88,7 +88,7 @@ The details of the `/.well-known/smart-configuration` are described in the secti
+ 
+ == Authentication Endpoints
+ 
+-The following attributes in the `.well-known/openid-configuration` must match those defined in the OAuth 2.0 + https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig[OpenID Connect Discovery^] specification as well as the {hl7_fhir}/smart-app-launch/conformance.html#metadata[FHIR SMART metadata^] specification:
++The following attributes in the `.well-known/smart-configuration` must match those defined in the OAuth 2.0 + https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig[OpenID Connect Discovery^] specification as well as the {hl7_fhir}/smart-app-launch/conformance.html#metadata[FHIR SMART metadata^] specification:
+ 
+ - `issuer`
+ - `jwks_uri`
+diff --git a/docs/smart_app_launch/master08-scopes.adoc b/docs/smart_app_launch/master08-scopes.adoc
+index cdb65d0e..3dbed325 100644
+--- a/docs/smart_app_launch/master08-scopes.adoc
++++ b/docs/smart_app_launch/master08-scopes.adoc
+@@ -13,7 +13,7 @@ The _Platform_ must validate requested scopes against the _Application_ registra
+ 
+ == Resource Scopes
+ 
+-The _Application_ can request access to the _Platform_ resources using the scope syntax `<compartment>/<resource>.<permission>` where:
++The _Application_ can request access to the _Platform_ resources using the scope syntax `<compartment>/<resource>.<permissions>` where:
+ 
+ - `<compartment>` indicates the scope of access delegation:
+   * `patient`: Access is limited to the current EHR and Patient is present in the context.
+@@ -34,7 +34,7 @@ The following {openehr_its_rest_releases}[openEHR REST APIs] `<resource>` types
+ - `composition-<templateId>` - Access to compositions of a given template matching `<templateId>` expression.
+ - `aql-<queryName>` - Access to pre-defined (matching `<queryName>` expression) or ad-hoc (using wildcard `*`) AQL queries.
+ 
+-The `<templateId>` and `<queryName>` support wildcard and pattern-based matching using `\*` and `**`, as follows:
++The `<templateId>` and `<queryName>` support wildcard and pattern-based matching using `\*` and `**`, as follows. A `*` matches any run of characters that contains no `::`, and a `**` matches any run of characters.
+ 
+ [width="100%",cols="2,2",options="header"]
+ |=======================================================================
+@@ -44,6 +44,7 @@ The `<templateId>` and `<queryName>` support wildcard and pattern-based matching
+ | `*::Template.v0` | Template.v0 from any namespace
+ | `MyHospital::*` | Any template within MyHospital namespace
+ | `*` | All available templates or queries
++| `**::Template.v0` | Template.v0 in any namespace, where `**` also matches `::`
+ |=======================================================================
+ 
+ The following permission expressions are supported:

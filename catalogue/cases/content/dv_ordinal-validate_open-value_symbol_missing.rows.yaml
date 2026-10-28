@@ -1,0 +1,12 @@
+# The rows of CONT-DV_ORDINAL-validate_open this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_ordinal/dv_ordinal-validate_open-value_symbol_missing
+iteration: reset_per_row
+literals: ["symbol", "value"]
+recipe:
+  name: content_instance
+  rm_class: DV_ORDINAL
+  template_id: cnf.tpl.ordinal_open
+  input: composition
+rows:
+  - {"symbol": null, "value": null}

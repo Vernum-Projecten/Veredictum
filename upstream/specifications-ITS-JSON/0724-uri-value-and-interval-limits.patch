@@ -1,0 +1,258 @@
+diff --git a/components/RM/Release-1.1.0/Data_types/DV_EHR_URI.json b/components/RM/Release-1.1.0/Data_types/DV_EHR_URI.json
+index 3544b40..eade728 100644
+--- a/components/RM/Release-1.1.0/Data_types/DV_EHR_URI.json
++++ b/components/RM/Release-1.1.0/Data_types/DV_EHR_URI.json
+@@ -5,6 +5,7 @@
+         "DV_EHR_URI": {
+             "type": "object",
+             "required": [
++                "value"
+             ],
+             "properties": {
+                 "value": {
+diff --git a/components/RM/Release-1.1.0/Data_types/DV_INTERVAL.json b/components/RM/Release-1.1.0/Data_types/DV_INTERVAL.json
+index 0201e6a..fa6896f 100644
+--- a/components/RM/Release-1.1.0/Data_types/DV_INTERVAL.json
++++ b/components/RM/Release-1.1.0/Data_types/DV_INTERVAL.json
+@@ -12,10 +12,102 @@
+             ],
+             "properties": {
+                 "lower": {
+-                    "type": "object"
++                    "allOf": [
++                        {
++                            "required": ["_type"],
++                            "properties": {
++                                "_type": {
++                                    "type": "string",
++                                    "enum": ["DV_COUNT", "DV_QUANTITY", "DV_PROPORTION", "DV_ORDINAL", "DV_SCALE", "DV_DATE", "DV_TIME", "DV_DATE_TIME", "DV_DURATION"]
++                                }
++                            }
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_COUNT"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_COUNT.json#/definitions/DV_COUNT"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_QUANTITY"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_QUANTITY.json#/definitions/DV_QUANTITY"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_PROPORTION"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_PROPORTION.json#/definitions/DV_PROPORTION"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_ORDINAL"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_ORDINAL.json#/definitions/DV_ORDINAL"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_SCALE"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_SCALE.json#/definitions/DV_SCALE"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DATE"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_DATE.json#/definitions/DV_DATE"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_TIME"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_TIME.json#/definitions/DV_TIME"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DATE_TIME"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_DATE_TIME.json#/definitions/DV_DATE_TIME"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DURATION"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_DURATION.json#/definitions/DV_DURATION"}
++                        }
++                    ]
+                 },
+                 "upper": {
+-                    "type": "object"
++                    "allOf": [
++                        {
++                            "required": ["_type"],
++                            "properties": {
++                                "_type": {
++                                    "type": "string",
++                                    "enum": ["DV_COUNT", "DV_QUANTITY", "DV_PROPORTION", "DV_ORDINAL", "DV_SCALE", "DV_DATE", "DV_TIME", "DV_DATE_TIME", "DV_DURATION"]
++                                }
++                            }
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_COUNT"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_COUNT.json#/definitions/DV_COUNT"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_QUANTITY"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_QUANTITY.json#/definitions/DV_QUANTITY"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_PROPORTION"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_PROPORTION.json#/definitions/DV_PROPORTION"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_ORDINAL"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_ORDINAL.json#/definitions/DV_ORDINAL"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_SCALE"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_SCALE.json#/definitions/DV_SCALE"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DATE"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_DATE.json#/definitions/DV_DATE"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_TIME"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_TIME.json#/definitions/DV_TIME"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DATE_TIME"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_DATE_TIME.json#/definitions/DV_DATE_TIME"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DURATION"}}},
++                            "then": {"$ref": "https://specifications.openehr.org/releases/ITS-JSON/latest/components/RM/Release-1.1.0/Data_types/DV_DURATION.json#/definitions/DV_DURATION"}
++                        }
++                    ]
+                 },
+                 "lower_unbounded": {
+                     "type": "boolean"
+diff --git a/components/RM/Release-1.1.0/Data_types/DV_URI.json b/components/RM/Release-1.1.0/Data_types/DV_URI.json
+index 944a912..ecc4b54 100644
+--- a/components/RM/Release-1.1.0/Data_types/DV_URI.json
++++ b/components/RM/Release-1.1.0/Data_types/DV_URI.json
+@@ -5,6 +5,7 @@
+         "DV_URI": {
+             "type": "object",
+             "required": [
++                "value"
+             ],
+             "properties": {
+                 "value": {
+diff --git a/components/openehr_rm_1.1.0_all.json b/components/openehr_rm_1.1.0_all.json
+index ed2b0a0..fd7ecbd 100644
+--- a/components/openehr_rm_1.1.0_all.json
++++ b/components/openehr_rm_1.1.0_all.json
+@@ -11207,10 +11207,102 @@
+             ],
+             "properties": {
+                 "lower": {
+-                    "type": "object"
++                    "allOf": [
++                        {
++                            "required": ["_type"],
++                            "properties": {
++                                "_type": {
++                                    "type": "string",
++                                    "enum": ["DV_COUNT", "DV_QUANTITY", "DV_PROPORTION", "DV_ORDINAL", "DV_SCALE", "DV_DATE", "DV_TIME", "DV_DATE_TIME", "DV_DURATION"]
++                                }
++                            }
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_COUNT"}}},
++                            "then": {"$ref": "#/definitions/DV_COUNT"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_QUANTITY"}}},
++                            "then": {"$ref": "#/definitions/DV_QUANTITY"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_PROPORTION"}}},
++                            "then": {"$ref": "#/definitions/DV_PROPORTION"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_ORDINAL"}}},
++                            "then": {"$ref": "#/definitions/DV_ORDINAL"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_SCALE"}}},
++                            "then": {"$ref": "#/definitions/DV_SCALE"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DATE"}}},
++                            "then": {"$ref": "#/definitions/DV_DATE"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_TIME"}}},
++                            "then": {"$ref": "#/definitions/DV_TIME"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DATE_TIME"}}},
++                            "then": {"$ref": "#/definitions/DV_DATE_TIME"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DURATION"}}},
++                            "then": {"$ref": "#/definitions/DV_DURATION"}
++                        }
++                    ]
+                 },
+                 "upper": {
+-                    "type": "object"
++                    "allOf": [
++                        {
++                            "required": ["_type"],
++                            "properties": {
++                                "_type": {
++                                    "type": "string",
++                                    "enum": ["DV_COUNT", "DV_QUANTITY", "DV_PROPORTION", "DV_ORDINAL", "DV_SCALE", "DV_DATE", "DV_TIME", "DV_DATE_TIME", "DV_DURATION"]
++                                }
++                            }
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_COUNT"}}},
++                            "then": {"$ref": "#/definitions/DV_COUNT"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_QUANTITY"}}},
++                            "then": {"$ref": "#/definitions/DV_QUANTITY"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_PROPORTION"}}},
++                            "then": {"$ref": "#/definitions/DV_PROPORTION"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_ORDINAL"}}},
++                            "then": {"$ref": "#/definitions/DV_ORDINAL"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_SCALE"}}},
++                            "then": {"$ref": "#/definitions/DV_SCALE"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DATE"}}},
++                            "then": {"$ref": "#/definitions/DV_DATE"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_TIME"}}},
++                            "then": {"$ref": "#/definitions/DV_TIME"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DATE_TIME"}}},
++                            "then": {"$ref": "#/definitions/DV_DATE_TIME"}
++                        },
++                        {
++                            "if": {"properties": {"_type": {"const": "DV_DURATION"}}},
++                            "then": {"$ref": "#/definitions/DV_DURATION"}
++                        }
++                    ]
+                 },
+                 "lower_unbounded": {
+                     "type": "boolean"
+@@ -13728,6 +13820,7 @@
+         "DV_EHR_URI": {
+             "type": "object",
+             "required": [
++                "value"
+             ],
+             "properties": {
+                 "value": {
+@@ -15868,6 +15961,7 @@
+         "DV_URI": {
+             "type": "object",
+             "required": [
++                "value"
+             ],
+             "properties": {
+                 "value": {

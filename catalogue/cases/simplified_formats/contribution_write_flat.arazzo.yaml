@@ -1,0 +1,117 @@
+# A CONTRIBUTION committed with Content-Type application/openehr.wt.flat+json, whose
+# canonical envelope carries a COMPOSITION in the Simplified Flat JSON format, for a
+# service that processes it: the accepting arm of the
+# `contribution-flat-write` option, whose other arm is
+# `contribution_write_flat_unsupported.arazzo.yaml`, as an Arazzo 1.1.0
+# workflow over the released ITS-REST `-validation` OAS. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: CONTRIBUTION create with a Simplified Flat JSON member
+  version: 0.1.0
+  description: >-
+    A CONTRIBUTION whose envelope is canonical JSON and whose member data is
+    a COMPOSITION of the template minimal_evaluation.en.v1 in the Simplified Flat JSON
+    format, sent to a service that processes the format.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: commit_contribution-flat
+    summary: A CONTRIBUTION whose member is a Simplified Flat JSON COMPOSITION creates that COMPOSITION
+    description: >-
+      Creates an EHR, then commits with Content-Type application/openehr.wt.flat+json a
+      CONTRIBUTION whose canonical envelope holds one member whose data is a
+      COMPOSITION of the template minimal_evaluation.en.v1 in the Simplified Flat JSON
+      format, naming the composer Dr. Flat. The commit is answered 201, and the
+      COMPOSITION read back by the version_uid the CONTRIBUTION references has
+      the composer Dr. Flat.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/contribution_create.yaml
+      section: description
+      quote: "When a Simplified Formats MIME type is used, the **CONTRIBUTION envelope itself remains canonical JSON** (i.e. `uid`, `versions[]` metadata, and `audit` follow the canonical RM serialization)."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: commit
+        description: Commit a CONTRIBUTION whose one member creates a COMPOSITION, keeping its uid and the version_uid it references.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_evaluation.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit: &creation_audit
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data:
+                  ctx/language: en
+                  ctx/territory: UY
+                  ctx/composer_name: Dr. Flat
+                  minimal/minimal:0/quantity|magnitude: 78.5
+                  minimal/minimal:0/quantity|unit: kg
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_CONTRIBUTION.yaml
+              section: description
+              quote: "`201 Created` is returned when the CONTRIBUTION is successfully created."
+          - condition: $response.body#/uid/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_CONTRIBUTION.yaml
+              section: description
+              quote: "If `Prefer` header is `return=representation`, the full resource is included in the response body;"
+        outputs:
+          version_uid: $response.body#/versions/0/id/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by the version_uid the CONTRIBUTION references, in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested COMPOSITION is successfully retrieved."
+          - context: $response.body#/composer/name
+            type: regex
+            condition: '^Dr\. Flat$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+              section: Composer
+              quote: "`composer_name`: sets composer to party identified and sets the name"

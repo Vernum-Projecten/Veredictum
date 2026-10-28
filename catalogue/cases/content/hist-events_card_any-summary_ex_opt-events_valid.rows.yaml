@@ -1,0 +1,13 @@
+# The rows of CONT-HIST-events_card_any-summary_ex_opt this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_history/hist-events_card_any-summary_ex_opt-events_valid
+iteration: reset_per_row
+literals: ["cardinality", "summary_committed", "events_count"]
+recipe:
+  name: content_synthesized
+  rm_class: HISTORY
+  template_id: cnf.tpl.ecc_history_events_cardinality
+  input: composition
+  template_input: template
+rows:
+  - {"cardinality": "any", "summary_committed": "absent", "events_count": 0}

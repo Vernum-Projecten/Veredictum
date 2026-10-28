@@ -1,0 +1,418 @@
+# The refused GROUP writes of the Demographic API: bodies the published schemas
+# refuse (400) and schema-valid bodies that break an RM invariant (422), on
+# the create and on the update, as Arazzo 1.1.0 workflows over the released
+# ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Group writes refused
+  version: 0.1.0
+  description: >-
+    Creating and updating a GROUP with content the service refuses. Each
+    refused body differs from the valid GROUP of the lifecycle document in one
+    defect, and each refused update leaves the latest version as the create
+    committed it. A 400 rests on the published ITS-JSON schema below the root;
+    its requirement of a uid on GROUP is not applied to a body whose uid the
+    service assigns (upstream report #741).
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_group-wrong_type
+    summary: A PERSON body on the GROUP create is refused with 400
+    description: >-
+      Creates a GROUP with a body whose _type is PERSON. The operation's
+      request schema admits _type GROUP only, so the content is syntactically
+      invalid and the create is answered 400 Bad Request.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/schemas/demographic/Group.yaml
+      section: /properties/_type/enum
+      quote: "GROUP"
+    steps:
+      - stepId: create
+        description: Create the refused GROUP.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: &other_kind
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: &bad_request
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+
+  - workflowId: create_group-identities_empty
+    summary: A GROUP whose identities list is empty is refused with 400
+    description: >-
+      Creates a GROUP whose identities list is present and empty. The
+      published ITS-JSON schema (openehr_rm_1.1.0_all.json, GROUP.identities,
+      minItems 1) refuses the body, so it is syntactically invalid content,
+      and the create is answered 400 Bad Request.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    steps:
+      - stepId: create
+        description: Create the refused GROUP.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: &identities_empty
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.group.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-GROUP.group.v1 }, rm_version: "1.1.0" }
+            identities: []
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
+  - workflowId: create_group-contact_addresses_empty
+    summary: A GROUP whose CONTACT has an empty addresses list is refused with 400
+    description: >-
+      Creates a GROUP with one CONTACT whose addresses list is present and
+      empty. The published ITS-JSON schema (openehr_rm_1.1.0_all.json,
+      CONTACT.addresses, minItems 1) refuses the body, so it is syntactically
+      invalid content, and the create is answered 400 Bad Request.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    steps:
+      - stepId: create
+        description: Create the refused GROUP.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: &addresses_empty
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.group.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-GROUP.group.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Group One }
+            contacts:
+              - _type: CONTACT
+                name: { _type: DV_TEXT, value: daytime phone }
+                archetype_node_id: at0010
+                addresses: []
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
+  - workflowId: create_group-archetype_details_missing
+    summary: A GROUP archetype root without archetype_details is refused with 422
+    description: >-
+      Creates a GROUP whose archetype_node_id is the archetype id
+      openEHR-DEMOGRAPHIC-GROUP.group.v1 and which carries no
+      archetype_details. Every PARTY is an archetype root, and an archetype
+      root carries archetype_details, so the schema-valid body breaks an RM
+      invariant and the create is answered 422. The valid GROUP of the
+      lifecycle document, which carries archetype_details, is its accepted
+      twin.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/party.adoc
+      section: PARTY Class
+      quote: "__Is_archetype_root__: `is_archetype_root`"
+    steps:
+      - stepId: create
+        description: Create the refused GROUP.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: &no_archetype_details
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.group.v1
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Group One }
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite: &archetyped_valid
+              source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+              section: LOCATABLE Class
+              quote: "is_archetype_root xor archetype_details = Void"
+
+  - workflowId: update_group-identities_empty
+    summary: A GROUP update whose identities list is empty is refused with 400
+    description: >-
+      Creates a GROUP, then updates it with content whose identities list is
+      present and empty. The published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, GROUP.identities, minItems 1) refuses the
+      body, so it is syntactically invalid content, so the update is answered
+      400 Bad Request and the latest version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    steps:
+      - &create
+        stepId: create
+        description: "Create the GROUP asking for the full representation, keep its version_uid and derive the versioned_object_uid of its container."
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: &v1_body
+          contentType: application/json
+          payload: &party_v1
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.group.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-GROUP.group.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Group One }
+        successCriteria:
+          - &created_status
+            condition: $statusCode == 201
+            x-veredictum-cite: &created
+              source: specs/openehr/ITS-REST/specifications/responses/201_GROUP.yaml
+              section: description
+              quote: "`201 Created` is returned when the GROUP is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the GROUP with the refused content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *identities_empty
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+      - &still_created
+        stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &version_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_PARTY_at_time.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.create.outputs.version_uid}$'
+            x-veredictum-cite: &stale_refused
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: If-Match and accidental overwrites
+              quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+
+  - workflowId: update_group-contact_addresses_empty
+    summary: A GROUP update whose CONTACT has an empty addresses list is refused with 400
+    description: >-
+      Creates a GROUP, then updates it with content holding one CONTACT whose
+      addresses list is empty. The published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, CONTACT.addresses, minItems 1) refuses the
+      body, so it is syntactically invalid content, so the update is answered
+      400 Bad Request and the latest version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    steps:
+      - *create
+      - stepId: update
+        description: Update the GROUP with the refused content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *addresses_empty
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+      - *still_created
+
+  - workflowId: update_group-cluster_no_items
+    summary: A GROUP update holding a CLUSTER with no items is refused with 400
+    description: >-
+      Creates a GROUP, then updates it with content whose identity details
+      hold a CLUSTER with an empty items list. The published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, CLUSTER.items, minItems 1) refuses the body,
+      so it is syntactically invalid content, so the update is answered 400
+      Bad Request and the latest version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    steps:
+      - *create
+      - stepId: update
+        description: Update the GROUP with the refused content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: &cluster_no_items
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.group.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-GROUP.group.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Group One }
+                    - _type: CLUSTER
+                      name: { _type: DV_TEXT, value: extra }
+                      archetype_node_id: at0004
+                      items: []
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+      - *still_created
+
+  - workflowId: update_group-archetype_details_missing
+    summary: A GROUP update whose archetype root has no archetype_details is refused with 422
+    description: >-
+      Creates a GROUP, then updates it with content whose archetype_node_id is
+      an archetype id and which carries no archetype_details. The schema-valid
+      body breaks an RM invariant, so the update is answered 422 and the
+      latest version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/party.adoc
+      section: PARTY Class
+      quote: "__Is_archetype_root__: `is_archetype_root`"
+    steps:
+      - *create
+      - stepId: update
+        description: Update the GROUP with the refused content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *no_archetype_details
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite: *archetyped_valid
+      - *still_created
+
+  - workflowId: create_group-archetype_node_id_mismatch
+    summary: A GROUP whose root archetype_node_id differs from its archetype_id is refused with 422
+    description: >-
+      Creates a GROUP whose archetype_details names
+      openEHR-DEMOGRAPHIC-GROUP.group.v1 while its archetype_node_id is
+      openEHR-DEMOGRAPHIC-GROUP.other.v1. At an archetype root the node id is
+      the archetype_id, so the schema-valid body breaks an RM rule and the
+      create is answered 422.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+      section: LOCATABLE Class
+      quote: "At an archetype root point, the value of this attribute is always the stringified form of the `_archetype_id_` found in the `_archetype_details_` object."
+    steps:
+      - stepId: create
+        description: Create the refused GROUP.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: &node_id_mismatch
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.other.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-GROUP.group.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Group One }
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite: &semantic_error
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The request was well-formed but was unable to be followed due to semantic errors"

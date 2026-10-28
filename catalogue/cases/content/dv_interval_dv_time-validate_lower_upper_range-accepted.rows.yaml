@@ -1,0 +1,19 @@
+# The rows of CONT-DV_INTERVAL_DV_TIME-validate_lower_upper_range this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_interval_time/dv_interval_dv_time-validate_lower_upper_range-accepted
+iteration: reset_per_row
+literals: ["lower", "upper", "lower_unbounded", "upper_unbounded", "lower_included", "upper_included", "c_time_range_lower", "c_time_range_upper"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_INTERVAL
+  template_id: cnf.tpl.interval_time_range
+  input: composition
+  template_input: template
+rows:
+  - {"lower": "10", "upper": "11", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true, "c_time_range_lower": "[09, 11]", "c_time_range_upper": "[10, 12]"}
+  - {"lower": "10:00", "upper": "11:00", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true, "c_time_range_lower": "[09:00, 11:00]", "c_time_range_upper": "[10:00, 12:00]"}
+  - {"lower": "10:00:00", "upper": "11:00:00", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true, "c_time_range_lower": "[09:00:00, 11:00:00]", "c_time_range_upper": "[10:00:00, 12:00:00]"}
+  - {"lower": "10:00:00.5", "upper": "11:00:00.5", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true, "c_time_range_lower": "[09:00:00.0, 11:00:00.0]", "c_time_range_upper": "[10:00:00.0, 12:00:00.0]"}
+  - {"lower": "10:00:00.5Z", "upper": "11:00:00.5Z", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true, "c_time_range_lower": "[09:00:00.0, 11:00:00.0Z]", "c_time_range_upper": "[10:00:00.0Z, 12:00:00.0Z]"}
+  - {"lower": null, "upper": "11", "lower_unbounded": true, "upper_unbounded": false, "lower_included": false, "upper_included": true, "c_time_range_lower": "[09, 11]", "c_time_range_upper": "[10, 12]"}
+  - {"lower": "10", "upper": null, "lower_unbounded": false, "upper_unbounded": true, "lower_included": true, "upper_included": false, "c_time_range_lower": "[09, 11]", "c_time_range_upper": "[10, 12]"}

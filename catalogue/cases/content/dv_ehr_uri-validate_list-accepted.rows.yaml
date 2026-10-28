@@ -1,0 +1,12 @@
+# The rows of CONT-DV_EHR_URI-validate_list this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_ehr_uri/dv_ehr_uri-validate_list-accepted
+iteration: reset_per_row
+literals: ["value", "C_STRING.list"]
+recipe:
+  name: content_instance
+  rm_class: DV_EHR_URI
+  template_id: cnf.tpl.dv_ehr_uri_list
+  input: composition
+rows:
+  - {"value": "ehr:/89c0752e-0815-47d7-8b3c-b3aaea2cea7a", "C_STRING.list": "[ehr:/89c0752e-0815-47d7-8b3c-b3aaea2cea7a, ehr://CLOUD_EHRSERVER/89c0752e-0815-47d7-8b3c-b3aaea2cea7a]"}

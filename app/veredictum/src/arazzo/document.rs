@@ -30,6 +30,7 @@ use crate::arazzo::derive::{DERIVE_KEY, DeriveError, derivations_of};
 use crate::arazzo::expr::{Expr, JsonPathCriterion, ParseError, RegexCriterion, SimpleCondition};
 use crate::arazzo::gates::Gate;
 use crate::arazzo::gates::profile::{ProfileHeader, RegexBreach, lint_regex};
+use crate::arazzo::principal::{PRINCIPAL_KEY, PrincipalError, principal_of};
 use crate::arazzo::source::{
     DeclaredParameter, Operation, OperationIndex, ParameterError, ParameterIn, ParameterIndex,
     SourceError, split_qualified,
@@ -424,7 +425,7 @@ impl ArazzoDocument {
                     });
                 }
             }
-            if let Err(kind) = value_expression(&parameter.value) {
+            for kind in value_findings(&parameter.name, &parameter.value, location) {
                 push(kind);
             }
         }
@@ -445,6 +446,9 @@ impl ArazzoDocument {
             step.outputs.contains_key(name)
         }) {
             push(FindingKind::Derive(error));
+        }
+        if let Err(error) = principal_of(step.extensions.as_ref()) {
+            push(FindingKind::Principal(error));
         }
         for value in step.outputs.values() {
             match value {
@@ -561,6 +565,24 @@ fn body_findings(body: &RequestBody, push: &mut impl FnMut(FindingKind)) {
     }
 }
 
+/// The findings on a parameter's value: an expression outside the profile,
+/// and a list anywhere but in a query parameter.
+fn value_findings(
+    name: &str,
+    value: &ValueOrSelector,
+    location: Option<ParameterIn>,
+) -> Vec<FindingKind> {
+    let mut out: Vec<FindingKind> = value_expression(value).err().into_iter().collect();
+    if matches!(value, ValueOrSelector::Literal(Value::Array(_)))
+        && location != Some(ParameterIn::Query)
+    {
+        out.push(FindingKind::Unsupported(format!(
+            "the list value of `{name}` outside a query parameter"
+        )));
+    }
+    out
+}
+
 /// Checks a parameter or replacement value: a literal, a runtime expression
 /// that parses, or a string whose embedded `{$…}` expressions all parse.
 fn value_expression(value: &ValueOrSelector) -> Result<(), FindingKind> {
@@ -571,6 +593,9 @@ fn value_expression(value: &ValueOrSelector) -> Result<(), FindingKind> {
         ValueOrSelector::Literal(Value::String(text)) => {
             embedded_expressions(text).map_err(FindingKind::Profile)
         }
+        ValueOrSelector::Literal(Value::Array(items)) => items
+            .iter()
+            .try_for_each(|item| value_expression(&ValueOrSelector::Literal(item.clone()))),
         ValueOrSelector::Literal(_) => Ok(()),
         ValueOrSelector::Selector(_) => {
             Err(FindingKind::Unsupported("a selector value".to_owned()))
@@ -595,11 +620,16 @@ fn embedded_expressions(text: &str) -> Result<(), ParseError> {
 }
 
 /// The `{name}` placeholders of a path template.
+///
+/// An RFC 6570 §3.2.8 form-style query expansion (`{?name*}`) or §3.2.9
+/// continuation (`{&name}`) names a query parameter, not a path segment, so
+/// it is no placeholder.
 fn placeholders(template: &str) -> Vec<String> {
     template
         .split('{')
         .skip(1)
         .filter_map(|part| part.split_once('}').map(|(name, _)| name.to_owned()))
+        .filter(|name| !name.starts_with(['?', '&']))
         .collect()
 }
 
@@ -757,6 +787,9 @@ pub enum FindingKind {
     /// An `x-veredictum-derive` that does not hold.
     #[error(transparent)]
     Derive(DeriveError),
+    /// An `x-veredictum-principal` that does not hold.
+    #[error(transparent)]
+    Principal(PrincipalError),
 }
 
 impl FindingKind {
@@ -768,9 +801,11 @@ impl FindingKind {
             Self::UnknownKey(_) | Self::ExtensionNotAllowed(_) => Gate::Keys,
             Self::MissingCitation | Self::Citation(_) => Gate::Citation,
             Self::Level(_) => Gate::Level,
-            Self::Profile(_) | Self::Regex(_) | Self::Unsupported(_) | Self::Derive(_) => {
-                Gate::Profile
-            }
+            Self::Profile(_)
+            | Self::Regex(_)
+            | Self::Unsupported(_)
+            | Self::Derive(_)
+            | Self::Principal(_) => Gate::Profile,
             Self::Source(_)
             | Self::UnresolvedOperation(_)
             | Self::UnresolvedParameter(_)
@@ -822,7 +857,7 @@ fn extension_keys(value: &Value, at: &mut Vec<String>, findings: &mut Vec<Findin
                     let allowed = match key.as_str() {
                         CITE_KEY => is_workflow(at) || is_step(at) || is_criterion(at),
                         CHECK_KEY => is_criterion(at),
-                        DERIVE_KEY => is_step(at),
+                        DERIVE_KEY | PRINCIPAL_KEY => is_step(at),
                         _ => false,
                     };
                     if !allowed {
@@ -911,6 +946,47 @@ mod tests {
     fn a_criterion_inherits_its_workflow_citation() {
         let (dir, doc) = fixture(&workflow(&cited(), "", "$statusCode == 404"));
         assert_eq!(doc.check(dir.path()), Vec::new());
+    }
+
+    #[test]
+    fn a_principal_outside_the_vocabulary_and_a_list_path_value_are_refused() {
+        let named = |principal: &str| {
+            workflow(&cited(), "", "$statusCode == 404").replace(
+                "        operationId: $sourceDescriptions.ehr.ehr_get_by_id\n",
+                &format!(
+                    "        operationId: $sourceDescriptions.ehr.ehr_get_by_id\n        x-veredictum-principal: {principal}\n"
+                ),
+            )
+        };
+        let (dir, doc) = fixture(&named("administrative"));
+        assert_eq!(doc.check(dir.path()), Vec::new());
+        let (dir, doc) = fixture(&named("root"));
+        assert!(
+            kinds(&dir, &doc).contains(&FindingKind::Principal(PrincipalError::Unknown(
+                "root".to_owned()
+            ))),
+            "{:?}",
+            kinds(&dir, &doc)
+        );
+        let listed = workflow(&cited(), "", "$statusCode == 404")
+            .replace("value: $inputs.ehr_id", "value: [$inputs.ehr_id]");
+        let (dir, doc) = fixture(&listed);
+        assert!(
+            kinds(&dir, &doc).iter().any(
+                |k| matches!(k, FindingKind::Unsupported(text) if text.contains("list value"))
+            ),
+            "{:?}",
+            kinds(&dir, &doc)
+        );
+    }
+
+    #[test]
+    fn a_query_expansion_in_a_path_template_is_no_placeholder() {
+        assert_eq!(
+            placeholders("/admin/ehr/all{?ehr_id*}"),
+            Vec::<String>::new()
+        );
+        assert_eq!(placeholders("/ehr/{ehr_id}{&x}"), vec!["ehr_id".to_owned()]);
     }
 
     #[test]

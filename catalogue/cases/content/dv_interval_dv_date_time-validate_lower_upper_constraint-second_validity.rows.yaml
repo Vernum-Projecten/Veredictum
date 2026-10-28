@@ -1,0 +1,13 @@
+# The rows of CONT-DV_INTERVAL_DV_DATE_TIME-validate_lower_upper_constraint this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-second_validity
+iteration: reset_per_row
+literals: ["lower", "upper", "month_validity_lower", "day_validity_lower", "month_validity_upper", "day_validity_upper", "hour_validity_lower", "minute_validity_lower", "second_validity_lower", "millisecond_validity_lower", "timezone_validity_lower", "hour_validity_upper", "minute_validity_upper", "second_validity_upper", "millisecond_validity_upper", "timezone_validity_upper", "lower_unbounded", "upper_unbounded", "lower_included", "upper_included"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_INTERVAL
+  template_id: cnf.tpl.interval_date_time_field_validity
+  input: composition
+  template_input: template
+rows:
+  - {"lower": "2021-10-24T22:10", "upper": "2022-10-24T07:47", "month_validity_lower": "mandatory", "day_validity_lower": "mandatory", "month_validity_upper": "mandatory", "day_validity_upper": "mandatory", "hour_validity_lower": "mandatory", "minute_validity_lower": "mandatory", "second_validity_lower": "mandatory", "millisecond_validity_lower": "mandatory", "timezone_validity_lower": "mandatory", "hour_validity_upper": "mandatory", "minute_validity_upper": "mandatory", "second_validity_upper": "mandatory", "millisecond_validity_upper": "mandatory", "timezone_validity_upper": "mandatory", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true}
