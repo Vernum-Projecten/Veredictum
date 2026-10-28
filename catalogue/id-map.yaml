@@ -4066,9 +4066,12 @@ cases:
   SF-LEGACY-nc_flat_media_unsupported:
     new: [legacy_write_refused/create_composition-nc_flat_media_unsupported]
   SF-LEGACY-tds2_accept_unsupported:
-    new: [legacy_example_not_acceptable/get_template_example-tds2_not_acceptable]
+    new: []
+    open: &tdd_out_of_scope >-
+      TDD/TDS is a legacy format of the Ocean tooling; out of scope by owner ruling (2026-10-28).
   SF-LEGACY-tds2_media_unsupported:
-    new: [legacy_write_refused/create_composition-tds2_media_unsupported]
+    new: []
+    open: *tdd_out_of_scope
   SF-LEVELS-collapsed_wrappers:
     new: [flat_mapping/create_composition-flat-collapsed_wrappers]
   SF-LEVELS-container_attribute_elision:
@@ -4204,6 +4207,280 @@ cases:
       template, so no sentence assigns the answer to Accept
       application/json on a template read; the branch is a gap of the ADL
       1.4 templates, #714.
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-by_spec:
+    new: []
+    open: &no_extract_route >-
+      The release defines no EHR Extract import or export route: no
+      released ITS-REST OAS declares one and no ITS-REST docs text names
+      one, so the SM operation has no wire form. The case drove a
+      /message route of one server's own design.
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-criteria_foreign_formalism:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-criteria_selects_primary_set:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-empty_manifest:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-latest_across_lineages:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-readonly_allowed:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-spec_named_extract_type:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-term_coded_extract_type:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-unknown_ehr:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-unknown_extract_type:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-unresolvable_entity:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehr_extracts-version_spec_contradiction:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehrs-export_existing:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehrs-export_unknown:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehrs-malformed_ehr_id:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehrs-reexport_of_an_import:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.export_ehrs-unauthenticated:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-duplicate:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-local_chronology:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-malformed:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-new:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-with_id:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr-wrong_media:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-append_later_trunk_version:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-cluster_no_items:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-into_branched_lineage:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-into_existing:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-invalid:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-manifest_no_entities:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-masked_with_item:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-paragraph_no_items:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-readonly_forbidden:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-second_status:
+    new: []
+    open: *no_extract_route
+  I_EHR_EXTRACT_SERVICE.import_ehr_extract-unknown_ehr:
+    new: []
+    open: *no_extract_route
+  I_TDD_SERVICE.import_tdd-invalid:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-nonconforming_body:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-readonly_forbidden:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-unauthenticated:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-unknown_ehr:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-unprovisioned_template:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-valid:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdd-wrong_media:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-atomicity_state_proof:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-bulk_invalid:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-bulk_valid:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-empty_batch:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-empty_batch_unknown_ehr:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-nonconforming_body:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-unknown_ehr:
+    new: []
+    open: *tdd_out_of_scope
+  I_TDD_SERVICE.import_tdds-wrong_media:
+    new: []
+    open: *tdd_out_of_scope
+  PERF-hospital_sim-class_L:
+    new: []
+    open: &perf_measured >-
+      A measured performance case, not a conformance case: no released
+      openEHR text assigns its class, offered load or thresholds, and
+      `veredictum perf` reads it. The Arazzo catalogue holds conformance
+      workflows, and the measured instruments run from the CLI; where the
+      case lives once the old catalogue is deleted is #746.
+  PERF-hospital_sim-class_POC:
+    new: []
+    open: *perf_measured
+  PERF-hospital_sim-class_R:
+    new: []
+    open: *perf_measured
+  PERF-hospital_sim-class_S:
+    new: []
+    open: *perf_measured
+  SEC-ANONYMOUS_EHRS-anonymous_lifecycle:
+    new:
+      - anonymous_ehr/anonymous_ehr-lifecycle
+  SEC-AUDIT_ACCOUNTABILITY-server_set_commit_audit:
+    new:
+      - contribution_create/commit_contribution-client_time_committed_ignored
+  SEC-AUTHENTICATED_ACCESS-unauthenticated_sweep:
+    new:
+      - authentication_required/ehr_create-invalid_credentials
+      - authentication_required/composition_get-invalid_credentials
+      - authentication_required/query_adhoc-invalid_credentials
+      - authentication_required/template_upload-invalid_credentials
+  SEC-AUTHENTICATED_ACCESS-www_authenticate_challenge:
+    new:
+      - authentication_required/ehr_get-invalid_credentials
+  SEC-AUTHORIZATION_SEPARATION-readonly_write_denied:
+    new: []
+    open: >-
+      The release defines no authorization model: Requests_and_responses.md
+      assigns 403 to a request the service "understood" and "refuses to
+      authorize", and names no principal, role or permission a client could
+      present, so no write is one every service that requires authorization
+      must refuse. The SMART scopes that would name one are #745.
+  SEC-EHR_DEMOGRAPHIC_SEPARATION-status_subject_opaque:
+    new:
+      - ehr/create_ehr-default_status
+    open: >-
+      The absent subject external_ref is not carried: ehr_create.yaml says
+      only that the default subject is "a PARTY_SELF object", and RM
+      PARTY_PROXY.external_ref is optional, so no released text says the
+      default subject carries none.
+  SIG-VERSION-across_version_kinds:
+    new:
+      - version_signature/composition_create-signature_present
+      - version_signature/composition_update-signature_present
+      - version_signature/composition_delete-signature_present
+  SIG-VERSION-at_committal_attestation_signed:
+    new: []
+    open: &signature_serialisation >-
+      Not carried: RM common master06 §Digital Signature says "The exact
+      serialisation is not yet defined by openEHR", so no released text
+      fixes the bytes a signature is computed over, and neither its
+      verification nor its difference between versions can be judged.
+  SIG-VERSION-client_supplied_verbatim:
+    new: []
+    open: &client_signature >-
+      UPDATE_VERSION declares a signature member, and neither the operation
+      files nor RM common say what a service does with a client-supplied
+      one, so storing it verbatim is not assigned (upstream report #744).
+  SIG-VERSION-client_supplied_verbatim-pgp:
+    new: []
+    open: *client_signature
+  SIG-VERSION-directory_signature_present:
+    new: []
+    open: >-
+      The release serves no directory VERSION: the EHR API has no
+      versioned FOLDER route, so the signature of a FOLDER version is not
+      on the wire.
+  SIG-VERSION-directory_verifiable:
+    new: []
+    open: *signature_serialisation
+  SIG-VERSION-distinct_per_version:
+    new: []
+    open: *signature_serialisation
+  SIG-VERSION-distinct_per_version-pgp:
+    new: []
+    open: *signature_serialisation
+  SIG-VERSION-ehr_status_signature:
+    new:
+      - version_signature/ehr_status-signature_present
+    open: &signature_presence_only >-
+      The presence of the signature is carried; its verification is not,
+      because RM common master06 §Digital Signature says "The exact
+      serialisation is not yet defined by openEHR".
+  SIG-VERSION-ehr_status_signature-pgp:
+    new:
+      - version_signature/ehr_status-signature_present
+    open: *signature_presence_only
+  SIG-VERSION-signature_present:
+    new:
+      - version_signature/composition_create-signature_present
+  SIG-VERSION-verifiable:
+    new: []
+    open: *signature_serialisation
+  SIG-VERSION-verifiable-pgp:
+    new: []
+    open: *signature_serialisation
+  SMART-DISCOVERY-document_shape:
+    new: []
+    open: >-
+      Not carried yet: master04-service_discovery.adoc serves the document
+      "relative to the _Platform_ base URL", which differs from the
+      openEHR REST base the evaluator addresses, and no released OAS
+      declares the route; #745.
+  SMART-RESOURCE_SCOPES-granted_scope_permits:
+    new: []
+    open: &smart_scopes >-
+      Not carried yet: each row presents a Bearer token whose scope claim
+      is the row's value (master08-scopes.adoc §Resource Scopes), and the
+      evaluator sends one fixed credential per run; #745.
+  SMART-RESOURCE_SCOPES-scope_deny_403:
+    new: []
+    open: *smart_scopes
 corpora:
   aql-conformance:
     source: https://github.com/Cadasto/aql-conformance

@@ -18,6 +18,7 @@ the commit `specs/openehr/ITS-REST/` vendors.
 | `0732-party-creates-declare-no-404.patch` | #732 |
 | `0735-admin-ehr-delete-all-subset-parameter.patch` | #735 |
 | `0736-system-options-tag.patch` | #736 |
+| `0744-update-version-signature-semantics.patch` | #744 |
 | `0750-item-tag-refusals-filters-identity.patch` | #750 |
 | `0751-contribution-commit-shapes.patch` | #751 |
 | `0752-versioned-content-reads-and-writes.patch` | #752 |

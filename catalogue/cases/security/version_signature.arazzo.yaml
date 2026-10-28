@@ -1,0 +1,261 @@
+# The signature of each committed VERSION, for a service that makes one at
+# committal. RM common makes the signature optional and leaves its
+# serialisation to be determined, so a statement selects this document
+# through the `version-signing` option, and only the presence of the
+# signature is judged. Every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: VERSION signature
+  version: 0.1.0
+  description: >-
+    The ORIGINAL_VERSION of a created, a modified and a deleted COMPOSITION,
+    and of the EHR_STATUS an EHR create commits, each read back and carrying
+    a signature.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: composition_create-signature_present
+    summary: The VERSION a COMPOSITION create commits carries a signature
+    description: >-
+      Creates an EHR and an event COMPOSITION, then reads the latest VERSION
+      of the COMPOSITION, the one the create committed. The VERSION carries a
+      signature.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &signed_at_committal
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Digital Signature
+      quote: "At the time of committal of a Version, a digital signature of the object can be made."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: >-
+          Create the event COMPOSITION, keep the version_uid of the full
+          representation it answers with, and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &event
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION; it carries a signature.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: &latest_parameters
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &latest_version
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+          - &signature_present
+            condition: $statusCode == 200
+            x-veredictum-check:
+              judge: signature
+              context: $response.body
+              present: true
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Digital Signature
+              quote: "In a versioned EHR system, it also acts as a non-repudiation measure, since the signature is stored permanently with the data."
+
+  - workflowId: composition_update-signature_present
+    summary: The VERSION a COMPOSITION update commits carries a signature
+    description: >-
+      Creates an EHR and an event COMPOSITION, updates it under the created
+      version, then reads the latest VERSION, which follows the created one.
+      The VERSION the update committed carries a signature.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *signed_at_committal
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: update
+        description: Update the COMPOSITION with composer Dr. Cuddy under the created version.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *event
+          replacements:
+            - { target: /composer/name, value: Dr. Cuddy }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|204)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION; it follows the created one and carries a signature.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - *signature_present
+          - context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Contributions
+              quote: "a new `ORIGINAL_VERSION` whose data contains the updated form of the item content is added to an existing `VERSIONED_OBJECT`;"
+
+  - workflowId: composition_delete-signature_present
+    summary: The VERSION a COMPOSITION delete commits carries a signature
+    description: >-
+      Creates an EHR and an event COMPOSITION, deletes it, then reads the
+      latest VERSION, which follows the created one. The VERSION the delete
+      committed carries a signature.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *signed_at_committal
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: delete
+        description: Delete the COMPOSITION by the version_uid of its latest version.
+        operationId: $sourceDescriptions.ehr.composition_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_deleted.yaml
+              section: description
+              quote: "`204 No Content` is returned for a successful delete operation."
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION; it follows the created one and carries a signature.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters: *latest_parameters
+        successCriteria:
+          - *latest_version
+          - *signature_present
+          - context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Contributions
+              quote: "a new `ORIGINAL_VERSION` whose data attribute is set to Void is added to an existing `VERSIONED_OBJECT`;"
+
+  - workflowId: ehr_status-signature_present
+    summary: The EHR_STATUS VERSION an EHR create commits carries a signature
+    description: >-
+      Creates an EHR, then reads the latest VERSION of its EHR_STATUS, the one
+      the create committed. The VERSION carries a signature.
+    x-veredictum-cite: *signed_at_committal
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: latest
+        description: Read the latest VERSION of the EHR_STATUS; it carries a signature.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+          - *signature_present

@@ -1,0 +1,28 @@
+diff --git a/specifications/schemas/demographic/UpdateVersion.yaml b/specifications/schemas/demographic/UpdateVersion.yaml
+--- a/specifications/schemas/demographic/UpdateVersion.yaml
++++ b/specifications/schemas/demographic/UpdateVersion.yaml
+@@ -11,6 +11,10 @@
+     $ref: ../base_types/ObjectVersionId.yaml
+   signature:
+     type: string
++    description: |
++      A signature the client made of the version at committal. When supplied, the service stores
++      it unchanged as the `signature` of the `ORIGINAL_VERSION` it commits, and does not replace
++      it with a signature of its own.
+   lifecycle_state:
+     $ref: ../data_types/DvCodedText.yaml
+   attestations:
+diff --git a/specifications/schemas/ehr/UpdateVersion.yaml b/specifications/schemas/ehr/UpdateVersion.yaml
+--- a/specifications/schemas/ehr/UpdateVersion.yaml
++++ b/specifications/schemas/ehr/UpdateVersion.yaml
+@@ -9,6 +9,10 @@
+     $ref: ../base_types/ObjectVersionId.yaml
+   signature:
+     type: string
++    description: |
++      A signature the client made of the version at committal. When supplied, the service stores
++      it unchanged as the `signature` of the `ORIGINAL_VERSION` it commits, and does not replace
++      it with a signature of its own.
+   lifecycle_state:
+     $ref: ../data_types/DvCodedText.yaml
+   attestations:
