@@ -1,0 +1,857 @@
+# The ROLE lifecycle of the Demographic API: create, read, update and delete,
+# the representation preferences, the misses and refusals of the version
+# conditions, as Arazzo 1.1.0 workflows over the released ITS-REST
+# `-validation` OAS. Every criterion resolves to an `x-veredictum-cite` (its
+# own, else its step's, else its workflow's), and every quote is copied
+# verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Role lifecycle
+  version: 0.1.0
+  description: >-
+    Creating, reading, updating and deleting a ROLE in canonical JSON. The
+    ROLE is an archetype root named role v1 and is updated to role v2. The
+    version_uid a create answers with is read from the uid of the
+    representation, and the versioned_object_uid of the container is derived
+    from it with x-veredictum-derive. The create body carries no uid, which
+    the service assigns, although the ITS-JSON definition of ROLE requires one
+    (upstream report #741). Every ROLE is performed by a PERSON the workflow
+    creates first.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_role
+    summary: A ROLE is created and answered 201 with its representation
+    description: >-
+      Creates a ROLE whose archetype root carries archetype_details, asking
+      for the full representation. The create is answered 201 Created.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_ROLE.yaml
+      section: description
+      quote: "`201 Created` is returned when the ROLE is successfully created."
+    steps:
+      - &performer
+        stepId: performer
+        description: Create the PERSON that plays the ROLE and keep the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &performer_person
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role Performer }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &performer_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - &create
+        stepId: create
+        description: "Create the ROLE asking for the full representation, keep its version_uid and derive the versioned_object_uid of its container."
+        operationId: $sourceDescriptions.demographic.role_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: &v1_body
+          contentType: application/json
+          payload: &party_v1
+            _type: ROLE
+            name: { _type: DV_TEXT, value: role v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ROLE.role.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ROLE.role.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role One }
+            performer:
+              _type: PARTY_REF
+              namespace: demographic
+              type: PERSON
+              id: { _type: HIER_OBJECT_ID, value: "" }
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - &created_status
+            condition: $statusCode == 201
+            x-veredictum-cite: &created
+              source: specs/openehr/ITS-REST/specifications/responses/201_ROLE.yaml
+              section: description
+              quote: "`201 Created` is returned when the ROLE is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+
+  - workflowId: create_role-representation
+    summary: The representation a ROLE create answers with is the ROLE sent
+    description: >-
+      Creates a ROLE asking for the full representation. The body is a ROLE
+      carrying the name and the archetype_node_id sent.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_ROLE.yaml
+      section: description
+      quote: "`201 Created` is returned when the ROLE is successfully created."
+    steps:
+      - *performer
+      - stepId: create
+        description: Create the ROLE asking for the full representation.
+        operationId: $sourceDescriptions.demographic.role_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - context: $response.body#/_type
+            type: regex
+            condition: '^ROLE$'
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^role v1$'
+          - context: $response.body#/archetype_node_id
+            type: regex
+            condition: '^openEHR-DEMOGRAPHIC-ROLE\.role\.v1$'
+
+  - workflowId: create_role-read_back
+    summary: A created ROLE is retrieved by the version_uid of its create
+    description: >-
+      Creates a ROLE, then retrieves it by the version_uid the create answered
+      with. The read is answered 200 with the ROLE created.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_ROLE_retrieved.yaml
+      section: description
+      quote: "`200 OK` is returned when the requested ROLE is successfully retrieved."
+    steps:
+      - *performer
+      - *create
+      - stepId: get
+        description: Retrieve the ROLE.
+        operationId: $sourceDescriptions.demographic.role_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite: &retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_ROLE_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested ROLE is successfully retrieved."
+          - context: $response.body#/_type
+            type: regex
+            condition: '^ROLE$'
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^role v1$'
+
+  - workflowId: create_role-prefer_minimal
+    summary: "A ROLE create with Prefer return=minimal answers 201 with an empty body"
+    description: >-
+      Creates a ROLE with Prefer return=minimal. The create is answered 201
+      Created with no body.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_ROLE.yaml
+      section: description
+      quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+    steps:
+      - *performer
+      - stepId: create
+        description: Create the ROLE asking for the minimal response.
+        operationId: $sourceDescriptions.demographic.role_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - condition: $response.body == null
+
+  - workflowId: create_role-prefer_absent
+    summary: A ROLE create with no Prefer header answers 201 with an empty body
+    description: >-
+      Creates a ROLE with no Prefer header. Without the header the minimal
+      preference is assumed, so the create is answered 201 Created with no
+      body.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Representation details negotiation
+      quote: "If no `Prefer` header is provided, the default behavior is assumed to be `return=minimal`."
+    steps:
+      - *performer
+      - stepId: create
+        description: Create the ROLE with no Prefer header.
+        operationId: $sourceDescriptions.demographic.role_create
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - condition: $response.body == null
+            x-veredictum-cite: &minimal_body
+              source: specs/openehr/ITS-REST/specifications/responses/201_ROLE.yaml
+              section: description
+              quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+
+  - workflowId: create_role-return_identifier
+    summary: "A ROLE create with Prefer return=identifier answers with the identifier"
+    description: >-
+      Creates a ROLE with Prefer return=identifier. The create is answered 201
+      Created, and the body should carry only the identifier of the new
+      version; the body is a recommendation, so a row lacking it is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer only identifier
+      quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+      level: should
+      report: 673
+    steps:
+      - *performer
+      - stepId: create
+        description: Create the ROLE asking for its identifier only.
+        operationId: $sourceDescriptions.demographic.role_create
+        parameters:
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - condition: $response.body#/uid != null
+          - condition: $response.body#/identities == null
+
+  - workflowId: get_role-latest
+    summary: A ROLE read by versioned_object_uid serves the latest version
+    description: >-
+      Creates a ROLE and updates it to its second content, then retrieves it
+      by the versioned_object_uid of its container without a version_at_time.
+      The latest version is served.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/role_get.yaml
+      section: description
+      quote: "otherwise retrieves the _latest_ ROLE version."
+    steps:
+      - *performer
+      - *create
+      - &update_minimal
+        stepId: update
+        description: Update the ROLE to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody: &v2_body
+          contentType: application/json
+          payload: &party_v2
+            _type: ROLE
+            name: { _type: DV_TEXT, value: role v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ROLE.role.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ROLE.role.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role Two }
+            performer:
+              _type: PARTY_REF
+              namespace: demographic
+              type: PERSON
+              id: { _type: HIER_OBJECT_ID, value: "" }
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - &no_content_updated
+            condition: $statusCode == 204
+            x-veredictum-cite: &minimal_updated
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: get
+        description: Retrieve the ROLE.
+        operationId: $sourceDescriptions.demographic.role_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^role v2$'
+
+  - workflowId: get_role-at_time
+    summary: A ROLE read at a time after its last version serves that version
+    description: >-
+      Creates a ROLE and updates it, then retrieves it by the
+      versioned_object_uid of its container at 2999-01-01. Nothing supersedes
+      the second version by then, so it is served.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/role_get.yaml
+      section: description
+      quote: "if the `version_at_time` is supplied, retrieves the version extant _at specified time_"
+    steps:
+      - *performer
+      - *create
+      - *update_minimal
+      - stepId: get
+        description: Retrieve the ROLE.
+        operationId: $sourceDescriptions.demographic.role_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_at_time, in: query, value: "2999-01-01T00:00:00.000Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^role v2$'
+
+  - workflowId: get_role-at_time_before_first_version
+    summary: A ROLE read at a time before its first version is answered 404
+    description: >-
+      Creates a ROLE, then retrieves it by the versioned_object_uid of its
+      container at 2000-01-01, long before the create. No version exists at
+      that time, so the read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    steps:
+      - *performer
+      - *create
+      - stepId: get
+        description: Retrieve the ROLE.
+        operationId: $sourceDescriptions.demographic.role_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_at_time, in: query, value: "2000-01-01T00:00:00Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_role-unknown
+    summary: A ROLE read by a versioned_object_uid no container carries is answered 404
+    description: >-
+      Retrieves a ROLE by a freshly generated versioned_object_uid that no
+      container carries. The read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    inputs: &unknown_input
+      type: object
+      properties:
+        unknown: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        description: Retrieve the ROLE.
+        operationId: $sourceDescriptions.demographic.role_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $inputs.unknown }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_role-unknown_version
+    summary: A ROLE read by a version_uid no version carries is answered 404
+    description: >-
+      Retrieves a ROLE by a version_uid built from a freshly generated
+      object_id, which no version carries. The read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    inputs: *unknown_input
+    steps:
+      - stepId: get
+        description: Retrieve the ROLE.
+        operationId: $sourceDescriptions.demographic.role_get
+        parameters:
+          - { name: uid_based_id, in: path, value: '{$inputs.unknown}::veredictum.example.org::1' }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: update_role
+    summary: A ROLE update under the latest version is answered 200 with the new ROLE
+    description: >-
+      Creates a ROLE, then updates it under the version_uid of the create,
+      asking for the full representation. The update is answered 200 with the
+      ROLE of the second content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_ROLE_updated.yaml
+      section: description
+      quote: "`200 OK` is returned when the ROLE is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+    steps:
+      - *performer
+      - *create
+      - &update_repr
+        stepId: update
+        description: Update the ROLE to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: *v2_body
+        successCriteria:
+          - &ok_updated
+            condition: $statusCode == 200
+            x-veredictum-cite: &updated
+              source: specs/openehr/ITS-REST/specifications/responses/200_ROLE_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the ROLE is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^role v2$'
+
+  - workflowId: update_role-read_back
+    summary: The ROLE read after an update is the updated ROLE
+    description: >-
+      Creates a ROLE, updates it, then retrieves it by the
+      versioned_object_uid of its container. The read serves the second
+      content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/role_get.yaml
+      section: description
+      quote: "otherwise retrieves the _latest_ ROLE version."
+    steps:
+      - *performer
+      - *create
+      - *update_repr
+      - stepId: get
+        description: Retrieve the ROLE.
+        operationId: $sourceDescriptions.demographic.role_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^role v2$'
+
+  - workflowId: update_role-prefer_minimal
+    summary: "A ROLE update with Prefer return=minimal is answered 204"
+    description: >-
+      Creates a ROLE, then updates it under the version_uid of the create with
+      Prefer return=minimal. The update is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+      section: description
+      quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+    steps:
+      - *performer
+      - *create
+      - *update_minimal
+
+  - workflowId: update_role-prefer_absent
+    summary: A ROLE update with no Prefer header is answered 204
+    description: >-
+      Creates a ROLE, then updates it under the version_uid of the create with
+      no Prefer header. The update is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+      section: description
+      quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+    steps:
+      - *performer
+      - *create
+      - stepId: update
+        description: Update the ROLE to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody: *v2_body
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: update_role-return_identifier
+    summary: "A ROLE update with Prefer return=identifier answers with the identifier"
+    description: >-
+      Creates a ROLE, then updates it with Prefer return=identifier. The
+      update succeeds with a 2xx status, and the body should carry only the
+      identifier of the new version; the body is a recommendation, so a row
+      lacking it is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+    steps:
+      - *performer
+      - *create
+      - stepId: update
+        description: Update the ROLE to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: *v2_body
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+          - condition: $response.body#/uid != null
+            x-veredictum-cite: &identifier_only
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+
+  - workflowId: update_role-stale_if_match
+    summary: A ROLE update whose If-Match names a superseded version is refused with 412
+    description: >-
+      Creates a ROLE, updates it once, then sends a second update under the
+      version the first update superseded. The second update is refused with
+      412 Precondition Failed and not performed: the latest version still
+      holds the second content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+    steps:
+      - *performer
+      - *create
+      - *update_minimal
+      - stepId: stale
+        description: Update the ROLE under the superseded version_uid of the create.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - &precondition_failed
+            condition: $statusCode == 412
+            x-veredictum-cite: &precondition
+              source: specs/openehr/ITS-REST/specifications/responses/412_ROLE.yaml
+              section: description
+              quote: "`412 Precondition Failed` is returned when `If-Match` request header doesn't match the latest version on the service side."
+      - stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &version_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_PARTY_at_time.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - context: $response.body#/data/name/value
+            type: regex
+            condition: '^role v2$'
+
+  - workflowId: update_role-unknown_preceding_version
+    summary: A ROLE update whose If-Match names a version the container never had is refused with 412
+    description: >-
+      Creates a ROLE, then updates it under an If-Match naming version 99 of
+      its container, which the container never had. The condition is false, so
+      the update is refused with 412 Precondition Failed and the latest
+      version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+    steps:
+      - *performer
+      - *create
+      - stepId: update
+        description: Update the ROLE under an If-Match naming a version its container never had.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.versioned_object_uid}::veredictum.example.org::99"' }
+        requestBody: *v2_body
+        successCriteria:
+          - *precondition_failed
+      - &still_created
+        stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.create.outputs.version_uid}$'
+            x-veredictum-cite: &stale_refused
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: If-Match and accidental overwrites
+              quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+
+  - workflowId: update_role-missing_if_match
+    summary: A ROLE update sent without If-Match is refused with 400
+    description: >-
+      Creates a ROLE, then updates it with no If-Match header. The update is
+      refused with 400 Bad Request and the latest version is still the created
+      one. The rule is recommended, so a row that answers otherwise is
+      advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "When the service expects `If-Match` for an operation, but the client does not provide it, the service SHOULD respond with `400 Bad Request`."
+      level: should
+    steps:
+      - *performer
+      - *create
+      - stepId: update
+        description: Update the ROLE with no If-Match.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+        requestBody: *v2_body
+        successCriteria:
+          - condition: $statusCode == 400
+      - *still_created
+
+  - workflowId: update_role-unknown
+    summary: An update of a versioned_object_uid no ROLE carries is answered 404
+    description: >-
+      Updates a ROLE at a freshly generated versioned_object_uid that no
+      container carries, under an If-Match naming its first version. The
+      update is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404.yaml
+      section: description
+      quote: "`404 Not Found` is returned when, based on the request parameters, the server did not find a current representation of a target resource, or is not willing to disclose that one exists."
+    inputs: *unknown_input
+    steps:
+      - *performer
+      - stepId: update
+        description: Update a ROLE no container carries.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $inputs.unknown }
+          - { name: If-Match, in: header, value: '"{$inputs.unknown}::veredictum.example.org::1"' }
+        requestBody:
+          contentType: application/json
+          payload: *party_v2
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: delete_role
+    summary: The latest version of a ROLE is deleted with 204
+    description: >-
+      Creates a ROLE, then deletes it by the version_uid of the create. The
+      delete is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_deleted.yaml
+      section: description
+      quote: "`204 No Content` is returned for a successful delete operation."
+    steps:
+      - *performer
+      - *create
+      - &delete
+        stepId: delete
+        description: Delete the ROLE.
+        operationId: $sourceDescriptions.demographic.role_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: delete_role-read_after
+    summary: A ROLE read by versioned_object_uid after a delete is answered 204
+    description: >-
+      Creates a ROLE and deletes it, then retrieves it by the
+      versioned_object_uid of its container. The latest version is the deleted
+      one, so the read is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_deleted_at_time.yaml
+      section: description
+      quote: "`204 No Content` is returned when the resource identified by the request parameters (at specified `version_at_time`) time has been deleted."
+    steps:
+      - *performer
+      - *create
+      - *delete
+      - stepId: get
+        description: Retrieve the ROLE.
+        operationId: $sourceDescriptions.demographic.role_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: delete_role-already_deleted
+    summary: A second delete of a deleted ROLE is refused
+    description: >-
+      Creates a ROLE, deletes it, then sends the same delete again. The ROLE
+      is already deleted, so the second delete is refused with 400 Bad
+      Request. The version_uid it names is no longer the latest version, for
+      which the operation declares 409 Conflict, so either answer holds.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/400_already_deleted.yaml
+      section: description
+      quote: "or when the resource identified by the request parameters is already deleted."
+    steps:
+      - *performer
+      - *create
+      - *delete
+      - stepId: delete-again
+        description: Delete the ROLE by the same version_uid again.
+        operationId: $sourceDescriptions.demographic.role_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(400|409)$'
+
+  - workflowId: delete_role-superseded_version
+    summary: A ROLE delete that names a superseded version is refused with 409 and not performed
+    description: >-
+      Creates a ROLE, updates it, then deletes it by the version_uid of the
+      create, which is no longer the latest version. The delete is refused
+      with 409 Conflict, and the latest version still holds the second
+      content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/409_ROLE_with_uid_based_id.yaml
+      section: description
+      quote: "`409 Conflict` is returned when supplied `uid_based_id` doesn't match the latest version."
+    steps:
+      - *performer
+      - *create
+      - *update_minimal
+      - stepId: delete
+        description: Delete the ROLE.
+        operationId: $sourceDescriptions.demographic.role_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 409
+      - stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+          - context: $response.body#/data/name/value
+            type: regex
+            condition: '^role v2$'
+            x-veredictum-cite: *stale_refused
+
+  - workflowId: delete_role-unknown
+    summary: A delete of a version_uid no ROLE carries is answered 404
+    description: >-
+      Deletes a ROLE by a version_uid built from a freshly generated
+      object_id, which no version carries. The delete is answered 404 Not
+      Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404.yaml
+      section: description
+      quote: "`404 Not Found` is returned when, based on the request parameters, the server did not find a current representation of a target resource, or is not willing to disclose that one exists."
+    inputs: *unknown_input
+    steps:
+      - stepId: delete
+        description: Delete the ROLE.
+        operationId: $sourceDescriptions.demographic.role_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: '{$inputs.unknown}::veredictum.example.org::1' }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: delete_role-versioned_object_uid
+    summary: A ROLE delete addressed by a versioned_object_uid is refused with 400
+    description: >-
+      Creates a ROLE, then deletes it addressing the versioned_object_uid of
+      its container, where the operation takes the version_uid of the latest
+      version. The parameter is invalid, so the delete is answered 400 Bad
+      Request and the ROLE is not deleted.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/role_delete.yaml
+      section: description
+      quote: "The `uid_based_id` MUST be in a form of an OBJECT_VERSION_ID identifier taken from the last (most recent) VERSION.uid.value, representing the `preceding_version_uid` to be deleted."
+    steps:
+      - *performer
+      - *create
+      - stepId: delete
+        description: Delete the ROLE.
+        operationId: $sourceDescriptions.demographic.role_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: &invalid_parameter
+              source: specs/openehr/ITS-REST/specifications/responses/400_already_deleted.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)"
+      - *still_created

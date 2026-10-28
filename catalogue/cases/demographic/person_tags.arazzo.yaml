@@ -1,0 +1,935 @@
+# The ITEM_TAG lists of a PERSON version and of its VERSIONED_PARTY container:
+# read, replaced and deleted by key, the representation preferences, the
+# misses and the refused formats, as Arazzo 1.1.0 workflows over the
+# released ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Person tags
+  version: 0.1.0
+  description: >-
+    The ITEM_TAG list associated with a PERSON version, addressed by its
+    version_uid, and with its VERSIONED_PARTY container, addressed by its
+    versioned_object_uid.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: person_tags_get-empty
+    summary: A PERSON version no tag was written to has an empty tag list
+    description: >-
+      Creates a PERSON, then retrieves the tags of the version the create
+      committed. Nothing has been associated with it, so the answer is 200
+      with an empty list.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/person_tags_get.yaml
+      section: description
+      quote: "This will return an empty list when there is no ITEM_TAG associated with the given target."
+    steps:
+      - &create
+        stepId: create
+        description: "Create the PERSON asking for the full representation, keep its version_uid and derive the versioned_object_uid of its container."
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: &v1_body
+          contentType: application/json
+          payload: &party_v1
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+        successCriteria:
+          - &created_status
+            condition: $statusCode == 201
+            x-veredictum-cite: &created
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &tags_list
+              source: specs/openehr/ITS-REST/specifications/responses/200_PERSON_ItemTagList_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested ITEM_TAG list is successfully retrieved."
+          - &list_empty
+            condition: $response.body#/0 == null
+
+  - workflowId: person_tags_update-stores_tags
+    summary: "The tags a PERSON version's tag list is updated with are read back"
+    description: >-
+      Creates a PERSON, then updates the tag list of its version with two tags
+      and no Prefer header. The update answers 204, and the list read back
+      holds exactly the two tags.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/person_tags_update.yaml
+      section: description
+      quote: "Updates the list of all ITEM_TAG resources associated with a given target PERSON version or VERSIONED_PARTY identified by `uid_based_id`."
+    steps:
+      - *create
+      - &tag_alpha_beta
+        stepId: tag
+        description: "Update the tag list of the PERSON version with the tags alpha and beta, sending no Prefer header."
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+            - { key: beta, value: b }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: &tags_updated_minimal
+              source: specs/openehr/ITS-REST/specifications/responses/204_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha' && @.value == 'a']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'beta' && @.value == 'b']"
+          - condition: $response.body#/2 == null
+
+  - workflowId: person_tags_update-return_representation
+    summary: "A PERSON tag update with Prefer return=representation answers with the stored list"
+    description: >-
+      Updates the tag list of a PERSON version with Prefer
+      return=representation. The answer is 200 in JSON with the list the
+      update stored. The released text recommends the representation, so the
+      row is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer minimal, identifier or full representation response
+      quote: "The response MAY include a `Location` header, and the response body SHOULD contain the full representation of the resource."
+      level: should
+    steps:
+      - *create
+      - stepId: tag
+        description: Update the tag list of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &tags_list_updated
+              source: specs/openehr/ITS-REST/specifications/responses/200_PERSON_ItemTagList_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested ITEM_TAG list is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha' && @.value == 'a']"
+
+  - workflowId: person_tags_update-return_minimal
+    summary: "A PERSON tag update with Prefer return=minimal answers 204"
+    description: >-
+      Updates the tag list of a PERSON version with Prefer return=minimal. The
+      update answers 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_updated.yaml
+      section: description
+      quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+    steps:
+      - *create
+      - stepId: tag
+        description: Update the tag list of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: person_tags_update-return_identifier
+    summary: "A PERSON tag update with Prefer return=identifier is not answered 204"
+    description: >-
+      Updates the tag list of a PERSON version with Prefer return=identifier.
+      The identifier preference implies a non-empty body, so the answer is 200
+      or 201 rather than 204, and the tag is stored. The released text
+      recommends the identifier body only, so the status criterion is
+      advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer only identifier
+      quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+      level: should
+      report: 673
+    steps:
+      - *create
+      - stepId: tag
+        description: Update the tag list of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: &status_must
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+          - context: $statusCode
+            type: regex
+            condition: '^(200|201)$'
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha' && @.value == 'a']"
+            x-veredictum-cite: &tags_update
+              source: specs/openehr/ITS-REST/specifications/operations/person_tags_update.yaml
+              section: description
+              quote: "Updates the list of all ITEM_TAG resources associated with a given target PERSON version or VERSIONED_PARTY identified by `uid_based_id`."
+
+  - workflowId: person_tags_get-unknown_uid
+    summary: A PERSON tag read of a uid_based_id nothing carries is answered 404
+    description: >-
+      Retrieves the PERSON tags of a freshly generated uid_based_id. That
+      uid_based_id does not exist, so the read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_uid_based_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when the `uid_based_id` does not exist."
+    inputs: &unknown_input
+      type: object
+      properties:
+        unknown: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $inputs.unknown }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: person_tags_update-unknown_uid
+    summary: A PERSON tag update of a uid_based_id nothing carries is answered 404
+    description: >-
+      Updates the PERSON tags of a freshly generated uid_based_id. That
+      uid_based_id does not exist, so the update is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_uid_based_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when the `uid_based_id` does not exist."
+    inputs: *unknown_input
+    steps:
+      - stepId: tag
+        description: Update the tag list of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $inputs.unknown }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: orphan }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: person_tags_delete-key_scoped
+    summary: A PERSON tag delete removes the tags of the addressed key only
+    description: >-
+      Tags a PERSON version with alpha and beta, then deletes the key alpha.
+      The delete answers 204, and the list read back holds beta only.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/person_tags_delete.yaml
+      section: description
+      quote: "Deletes the ITEM_TAG resource(s) identified by `tag_key`, associated with a given target PERSON version or VERSIONED_PARTY identified by `uid_based_id`."
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: delete
+        description: "Delete the key alpha from the version's tags."
+        operationId: $sourceDescriptions.demographic.person_tags_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: key, in: path, value: alpha }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: &tags_deleted
+              source: specs/openehr/ITS-REST/specifications/responses/204_deleted.yaml
+              section: description
+              quote: "`204 No Content` is returned when the resource identified by the request parameters has been (logically) deleted."
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'beta']"
+          - condition: $response.body#/1 == null
+
+  - workflowId: person_tags_delete-unknown_key
+    summary: A PERSON tag delete of a key no tag carries is answered 404 and removes nothing
+    description: >-
+      Tags a PERSON version with alpha and beta, then deletes the key gamma,
+      which no tag carries. The delete is answered 404 Not Found, and both
+      tags are still read back.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_uid_based_id_or_key.yaml
+      section: description
+      quote: "`404 Not Found` is returned when the `uid_based_id` does not exist, or when the ITEM_TAG identified by the `key` does not exist."
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: delete
+        description: "Delete the key gamma from the version's tags."
+        operationId: $sourceDescriptions.demographic.person_tags_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: key, in: path, value: gamma }
+        successCriteria:
+          - condition: $statusCode == 404
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'beta']"
+
+  - workflowId: person_tags_update-non_array_body
+    summary: A PERSON tag update whose body is not an array is answered 400
+    description: >-
+      Tags a PERSON version with alpha and beta, then updates its tag list
+      with a JSON object where the operation's request body is an array of
+      UPDATE_ITEM_TAG. The content is syntactically invalid, so the update is
+      answered 400 Bad Request, and the list still holds both tags.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: tag-invalid
+        description: Update the tag list of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload: { key: gamma, value: c }
+        successCriteria:
+          - condition: $statusCode == 400
+      - &unchanged
+        stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha']"
+          - condition: $response.body#/2 == null
+
+  - workflowId: person_tags_get-xml_not_acceptable
+    summary: A PERSON tag list asked for as XML is answered 406
+    description: >-
+      Tags a PERSON version, then retrieves its tags with Accept
+      application/xml. Canonical XML responses must conform to the published
+      XSDs, and no published XSD declares ITEM_TAG, so no conformant XML tag
+      list exists and the service answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: person_tags_update-xml_not_acceptable
+    summary: A PERSON tag update asking for its representation as XML is answered 406
+    description: >-
+      Updates the tag list of a PERSON version with Prefer
+      return=representation and Accept application/xml. No published XSD
+      declares ITEM_TAG, so the service cannot answer with the representation
+      in XML and answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - *create
+      - stepId: tag
+        description: Update the tag list of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: person_tags_update-xml_unsupported_media
+    summary: A PERSON tag list sent as XML is answered 415 and stores nothing
+    description: >-
+      Tags a PERSON version with alpha and beta, then updates its tag list
+      with a body sent as application/xml. No published XSD declares ITEM_TAG,
+      so the service cannot process the payload as XML: it answers 415
+      Unsupported Media Type, and the list still holds both tags.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: tag-xml
+        description: Update the tag list of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="utf-8"?>
+            <items><item><key>gamma</key><value>c</value></item></items>
+        successCriteria:
+          - condition: $statusCode == 415
+      - *unchanged
+
+  - workflowId: person_tags_update-replaces_list
+    summary: An update replaces the whole tag list of a PERSON version
+    description: >-
+      Tags a PERSON version with alpha and beta, then updates its tag list
+      with gamma alone. The list read back holds gamma only: the update
+      replaced the list, it did not add to it.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP Methods
+      quote: "Replace all current representations of the target resource with the request payload."
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: replace
+        description: Update the tag list of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: gamma, value: c }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: *tags_updated_minimal
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'gamma']"
+          - condition: $response.body#/1 == null
+
+  - workflowId: person_tags_update-empty_list
+    summary: An update with an empty list removes every tag of a PERSON version
+    description: >-
+      Tags a PERSON version with alpha and beta, then updates its tag list
+      with an empty list. The list read back is empty.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/person_tags_update.yaml
+      section: description
+      quote: "Providing an empty list will effectively remove all ITEM_TAG associated with the given target."
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: clear
+        description: Update the tag list of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload: []
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: *tags_updated_minimal
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - *list_empty
+
+  - workflowId: person_tags_update-key_target_path_identity
+    summary: Two PERSON tags with one key and different target_paths are two tags
+    description: >-
+      Updates the tag list of a PERSON version with two tags that share the
+      key flag and differ in target_path. A tag is identified by its key and
+      target_path together, so both are stored and both are read back.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-item-tag and openehr-version-item-tag
+      quote: "More than one ITEM_TAG may be associated with a single target, in which case they are uniquely identified by their `key` and `target_path` pair attributes."
+    steps:
+      - *create
+      - stepId: tag
+        description: Update the tag list of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: flag, value: name, target_path: "/name/value" }
+            - { key: flag, value: identity, target_path: "/identities[at0001]/details" }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: *tags_updated_minimal
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'flag' && @.target_path == '/name/value']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'flag' && @.target_path == '/identities[at0001]/details']"
+          - condition: $response.body#/2 == null
+
+  - workflowId: person_tags_get-version_target_shape
+    summary: A tag of a PERSON version names the version as its target
+    description: >-
+      Tags a PERSON version, then reads the tags back. The released ITEM_TAG
+      schema types target as an OBJECT_REF whose id is a UID_BASED_ID, so the
+      target's id carries the version_uid the version was addressed by.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/schemas/common/ItemTag.yaml
+      section: /properties/target/$ref
+      quote: "../base_types/UObjectRefOfUidBasedId.yaml"
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body#/0/target/id/value
+            type: regex
+            condition: '^{$steps.create.outputs.version_uid}$'
+
+  - workflowId: person_tags_get-container_target_shape
+    summary: A tag of the VERSIONED_PARTY names the container as its target
+    description: >-
+      Creates a PERSON, tags its container by the versioned_object_uid derived
+      from the create's version_uid, then reads the container's tags back. The
+      tag's target is an OBJECT_REF whose id carries the container's uid.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/schemas/common/ItemTag.yaml
+      section: /properties/target/$ref
+      quote: "../base_types/UObjectRefOfUidBasedId.yaml"
+    steps:
+      - *create
+      - &tag_container
+        stepId: tag-container
+        description: "Update the container's tag list with the tag scope=container."
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: scope, value: container }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: *tags_updated_minimal
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body#/0/target/id/value
+            type: regex
+            condition: '^{$steps.create.outputs.versioned_object_uid}$'
+
+  - workflowId: person_tags_update-version_container_disjoint
+    summary: The tag lists of a PERSON version and of its container are kept apart
+    description: >-
+      Tags the VERSIONED_PARTY with scope=container and the PERSON version
+      with scope=version. The version form of the uid_based_id addresses the
+      tags of that version and the container form the tags of the container,
+      so each list read back holds its own tag only.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/person_tags_get.yaml
+      section: description
+      quote: "is be used to get the tags of the target VERSIONED_PARTY container."
+    steps:
+      - *create
+      - *tag_container
+      - &tag_version
+        stepId: tag-version
+        description: "Update the version's tag list with the tag scope=version."
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: scope, value: version }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: *tags_updated_minimal
+      - &container_tags
+        stepId: container-tags
+        description: "Retrieve the container's tags; they hold the container's tag only."
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'scope' && @.value == 'container']"
+          - condition: $response.body#/1 == null
+      - stepId: version-tags
+        description: "Retrieve the version's tags; they hold the version's tag only."
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'scope' && @.value == 'version']"
+          - condition: $response.body#/1 == null
+
+  - workflowId: person_tags_delete-version_container_disjoint
+    summary: "A delete on a PERSON version leaves the container's tag of the same key"
+    description: >-
+      Tags the VERSIONED_PARTY and the PERSON version with the same key scope,
+      then deletes scope from the version. The version's list is empty
+      afterwards, and the container's tag is still there.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/person_tags_delete.yaml
+      section: description
+      quote: "Deletes the ITEM_TAG resource(s) identified by `tag_key`, associated with a given target PERSON version or VERSIONED_PARTY identified by `uid_based_id`."
+    steps:
+      - *create
+      - *tag_container
+      - *tag_version
+      - stepId: delete
+        description: "Delete the key scope from the version's tags."
+        operationId: $sourceDescriptions.demographic.person_tags_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: key, in: path, value: scope }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: *tags_deleted
+      - stepId: version-tags
+        description: "Retrieve the version's tags; they are empty."
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - *list_empty
+      - *container_tags
+
+  - workflowId: person_tags_get-new_version_untagged
+    summary: A new PERSON version moves no tag
+    description: >-
+      Tags the VERSIONED_PARTY and the first PERSON version, then updates the
+      PERSON, which commits a second version. The container keeps its tag, and
+      the second version, which no tag names as its target, has an empty list.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/person_tags_get.yaml
+      section: description
+      quote: "is be used to get the tags of the target VERSIONED_PARTY container."
+    steps:
+      - *create
+      - *tag_container
+      - *tag_version
+      - stepId: update
+        description: Update the PERSON to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody: &v2_body
+          contentType: application/json
+          payload: &party_v2
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person Two }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: &minimal_updated
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &version_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_PARTY_at_time.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - *container_tags
+      - stepId: second-version-tags
+        description: "Retrieve the second version's tags; no tag names it as its target."
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.latest.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - condition: $response.body#/0 == null
+            x-veredictum-cite: &tags_empty
+              source: specs/openehr/ITS-REST/specifications/operations/person_tags_get.yaml
+              section: description
+              quote: "This will return an empty list when there is no ITEM_TAG associated with the given target."
+
+  - workflowId: person_tags_create-wrapper_headers
+    summary: "The tag headers of a PERSON create land in the container's and the version's lists"
+    description: >-
+      Creates a PERSON with openehr-item-tag category=final and
+      openehr-version-item-tag reviewed=true. The first header's tags are
+      associated with the VERSIONED_PARTY and the second's with the version,
+      so each list read back holds its own tag only.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Usage in Requests
+      quote: "When used as request headers for creation or update operations (`PUT`, `POST`), the header instructs the system which ITEM_TAG list should be associated with the target VERSION or VERSIONED_OBJECT resource (depending on the header name)."
+    steps:
+      - stepId: create
+        description: "Create the PERSON with both tag headers, keep its version_uid and derive the container's uid."
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-item-tag, in: header, value: 'key="category",value="final"' }
+          - { name: openehr-version-item-tag, in: header, value: 'key="reviewed",value="true"' }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: container-tags
+        description: "Retrieve the container's tags."
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'category' && @.value == 'final']"
+          - condition: $response.body#/1 == null
+      - stepId: version-tags
+        description: "Retrieve the version's tags."
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'reviewed' && @.value == 'true']"
+          - condition: $response.body#/1 == null
+
+  - workflowId: person_tags_get-ehr_status_uid
+    summary: A PERSON tag read of an EHR_STATUS version_uid is answered 404
+    description: >-
+      Creates an EHR, reads the version_uid of its EHR_STATUS, then retrieves
+      the PERSON tags of that uid_based_id. No PERSON version or
+      VERSIONED_PARTY carries it, so the read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_uid_based_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when the `uid_based_id` does not exist."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create-ehr
+        description: Create an EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &ehr_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: status
+        description: Read the latest EHR_STATUS version for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &ehr_status_version
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve the tags of the PERSON.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.status.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404

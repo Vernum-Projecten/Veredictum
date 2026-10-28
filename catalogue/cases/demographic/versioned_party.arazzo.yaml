@@ -1,0 +1,415 @@
+# The VERSIONED_PARTY of a PERSON: the container, its VERSIONs latest, at a
+# time and by version_uid, and its revision history, as Arazzo 1.1.0 workflows
+# over the released ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: VERSIONED_PARTY
+  version: 0.1.0
+  description: >-
+    Reading the VERSIONED_PARTY container of a PERSON and its versions in
+    canonical JSON. The PERSON is created as person v1 and updated to person
+    v2.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_versioned_party
+    summary: The VERSIONED_PARTY of a PERSON is retrieved by its versioned_object_uid
+    description: >-
+      Creates a PERSON, then retrieves its VERSIONED_PARTY by the
+      versioned_object_uid derived from the create's version_uid. The read is
+      answered 200 with the container, whose uid is that versioned_object_uid.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_VERSIONED_PARTY.yaml
+      section: description
+      quote: "`200 OK` is returned when the requested VERSIONED_PARTY is successfully retrieved."
+    steps:
+      - &create
+        stepId: create
+        description: "Create the PERSON asking for the full representation, keep its version_uid and derive the versioned_object_uid of its container."
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: &v1_body
+          contentType: application/json
+          payload: &party_v1
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+        successCriteria:
+          - &created_status
+            condition: $statusCode == 201
+            x-veredictum-cite: &created
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: get
+        description: Retrieve the VERSIONED_PARTY by the derived versioned_object_uid.
+        operationId: $sourceDescriptions.demographic.versioned_party_get
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.create.outputs.versioned_object_uid}$'
+            x-veredictum-cite: &versioned_object_uid
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+              section: Identifier types
+              quote: "a `versioned_object_uid` for identifying a VERSIONED_OBJECT (i.e. a version container), stored under VERSIONED_OBJECT.uid.value, in a form of a HIER_OBJECT_ID,"
+
+  - workflowId: get_versioned_party-container_shape
+    summary: "The VERSIONED_PARTY carries a uid with no extension, its owner and its creation time"
+    description: >-
+      Creates a PERSON, then retrieves its VERSIONED_PARTY. The container's
+      uid has no version extension, and the container carries its owner and
+      its creation time.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_VERSIONED_PARTY.yaml
+      section: description
+      quote: "`200 OK` is returned when the requested VERSIONED_PARTY is successfully retrieved."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the VERSIONED_PARTY.
+        operationId: $sourceDescriptions.demographic.versioned_party_get
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^[^:]+$'
+            x-veredictum-cite: &vo_no_extension
+              source: specs/openehr/RM/docs/UML/classes/versioned_object.adoc
+              section: VERSIONED_OBJECT Class
+              quote: "Unique identifier of this version container in the form of a UID with no extension."
+          - condition: $response.body#/owner_id != null
+            x-veredictum-cite: &vo_owner
+              source: specs/openehr/RM/docs/UML/classes/versioned_object.adoc
+              section: VERSIONED_OBJECT Class
+              quote: "Reference to object to which this version container belongs, e.g. the id of the containing EHR or other relevant owning entity."
+          - condition: $response.body#/time_created/value != null
+            x-veredictum-cite: &vo_time_created
+              source: specs/openehr/RM/docs/UML/classes/versioned_object.adoc
+              section: VERSIONED_OBJECT Class
+              quote: "Time of initial creation of this versioned object."
+
+  - workflowId: get_versioned_party-unknown
+    summary: A VERSIONED_PARTY read of a versioned_object_uid no container carries is answered 404
+    description: >-
+      Retrieves the VERSIONED_PARTY of a freshly generated
+      versioned_object_uid that no container carries. The read is answered 404
+      Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404.yaml
+      section: description
+      quote: "`404 Not Found` is returned when, based on the request parameters, the server did not find a current representation of a target resource, or is not willing to disclose that one exists."
+    inputs: &unknown_input
+      type: object
+      properties:
+        unknown: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        description: Retrieve an unknown VERSIONED_PARTY.
+        operationId: $sourceDescriptions.demographic.versioned_party_get
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $inputs.unknown }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_versioned_party_version-latest
+    summary: A VERSIONED_PARTY VERSION read without version_at_time serves the latest version
+    description: >-
+      Creates a PERSON and updates it, then retrieves the VERSION of its
+      container without a version_at_time. The latest version is served, so
+      its data is the second content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/versioned_party_version_get_at_time.yaml
+      section: description
+      quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+    steps:
+      - *create
+      - &update_minimal
+        stepId: update
+        description: Update the PERSON to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody: &v2_body
+          contentType: application/json
+          payload: &party_v2
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person Two }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: &minimal_updated
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: get
+        description: Retrieve the VERSION without a version_at_time.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &version_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_PARTY_at_time.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - context: $response.body#/data/name/value
+            type: regex
+            condition: '^person v2$'
+
+  - workflowId: get_versioned_party_version-at_time_future
+    summary: A VERSIONED_PARTY VERSION read at a time after the newest version serves the newest version
+    description: >-
+      Creates a PERSON and updates it, then retrieves the VERSION of its
+      container at 2999-01-01. Nothing supersedes the newest version by then,
+      so it is served.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/versioned_party_version_get_at_time.yaml
+      section: description
+      quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+    steps:
+      - *create
+      - *update_minimal
+      - stepId: get
+        description: Retrieve the VERSION at a time after the newest version.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_at_time, in: query, value: "2999-01-01T00:00:00.000Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+          - context: $response.body#/data/name/value
+            type: regex
+            condition: '^person v2$'
+
+  - workflowId: get_versioned_party_version-at_time_before_first_version
+    summary: A VERSIONED_PARTY VERSION read at a time before the first version is answered 404
+    description: >-
+      Creates a PERSON, then retrieves the VERSION of its container at
+      2000-01-01, long before the create. No version exists at that time, so
+      the read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the VERSION at a time before the PERSON existed.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_at_time, in: query, value: "2000-01-01T00:00:00Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_versioned_party_version-unknown_container
+    summary: A VERSIONED_PARTY VERSION read of a versioned_object_uid no container carries is answered 404
+    description: >-
+      Retrieves the latest VERSION of a freshly generated versioned_object_uid
+      that no container carries. The read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    inputs: *unknown_input
+    steps:
+      - stepId: get
+        description: Retrieve the latest VERSION of an unknown container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $inputs.unknown }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_versioned_party_version-by_id
+    summary: A VERSIONED_PARTY VERSION read by version_uid serves the version that uid identifies
+    description: >-
+      Creates a PERSON and updates it, then retrieves the VERSION of its
+      container by the version_uid of the create. The first version is served:
+      its uid is that version_uid and its data is the first content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_PARTY_by_id.yaml
+      section: description
+      quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+    steps:
+      - *create
+      - *update_minimal
+      - stepId: get
+        description: Retrieve the VERSION by the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_by_id
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_uid, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.create.outputs.version_uid}$'
+          - context: $response.body#/data/name/value
+            type: regex
+            condition: '^person v1$'
+
+  - workflowId: get_versioned_party_version-unknown_version
+    summary: A VERSIONED_PARTY VERSION read by a version_uid that names no version of the container is answered 404
+    description: >-
+      Creates a PERSON, then retrieves the VERSION of its container by a
+      version_uid naming version 99, which the container never had. The read
+      is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404.yaml
+      section: description
+      quote: "`404 Not Found` is returned when, based on the request parameters, the server did not find a current representation of a target resource, or is not willing to disclose that one exists."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve a VERSION the container never had.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_by_id
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_uid, in: path, value: '{$steps.create.outputs.versioned_object_uid}::veredictum.example.org::99' }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_versioned_party_revision_history
+    summary: The revision history of a VERSIONED_PARTY lists every version
+    description: >-
+      Creates a PERSON and updates it, then retrieves the revision history of
+      its container. The answer is 200 and lists two items, one per version.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_REVISION_HISTORY.yaml
+      section: description
+      quote: "`200 OK` is returned when the requested REVISION_HISTORY is successfully retrieved."
+    steps:
+      - *create
+      - *update_minimal
+      - stepId: get
+        description: Retrieve the revision history.
+        operationId: $sourceDescriptions.demographic.versioned_party_revision_history
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body#/items/1 != null
+          - condition: $response.body#/items/2 == null
+
+  - workflowId: get_versioned_party_revision_history-unknown
+    summary: The revision history of a versioned_object_uid no container carries is answered 404
+    description: >-
+      Retrieves the revision history of a freshly generated
+      versioned_object_uid that no container carries. The read is answered 404
+      Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404.yaml
+      section: description
+      quote: "`404 Not Found` is returned when, based on the request parameters, the server did not find a current representation of a target resource, or is not willing to disclose that one exists."
+    inputs: *unknown_input
+    steps:
+      - stepId: get
+        description: Retrieve the revision history of an unknown container.
+        operationId: $sourceDescriptions.demographic.versioned_party_revision_history
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $inputs.unknown }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: create_person-version_lifecycle
+    summary: A lifecycle_state sent in openehr-version on a PERSON create is merged into the version it commits
+    description: >-
+      Creates a PERSON with an openehr-version header naming the
+      lifecycle_state 553 (incomplete), then reads the committed VERSION from
+      its container. The VERSION carries the lifecycle_state 553.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-version and openehr-audit-details
+      quote: "None of these headers are mandatory, but whatever is provided it MUST be merged with the default VERSION and VERSION.audit_details attributes on commit runtime."
+    steps:
+      - stepId: create
+        description: Create the PERSON with the lifecycle_state 553 in openehr-version.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version, in: header, value: 'lifecycle_state.code_string="553"' }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: version
+        description: Read the committed VERSION and its lifecycle_state.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_by_id
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_uid, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &version_by_id_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_PARTY_by_id.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^553$'

@@ -1,0 +1,138 @@
+# The VERSIONED_PARTY of a PERSON, its VERSIONs and its revision history read
+# in canonical XML, for a service that does not serve them in XML: the refused
+# arm of the `versioned-party-xml-read` option, whose served arm is
+# `versioned_party_read_xml.arazzo.yaml`. Every quote is copied verbatim from
+# the named vendored file.
+arazzo: 1.1.0
+info:
+  title: VERSIONED_PARTY reads in canonical XML refused
+  version: 0.1.0
+  description: >-
+    Reading the VERSIONED_PARTY of a PERSON, its VERSIONs and its revision
+    history with Accept application/xml from a service that does not serve
+    canonical XML. The resources are created in canonical JSON.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_versioned_party-xml_not_acceptable
+    summary: "A PERSON's VERSIONED_PARTY read with Accept application/xml is refused with 406"
+    description: >-
+      Creates a PERSON, then retrieves the VERSIONED_PARTY of its container
+      asking for canonical XML. A service that does not serve XML answers 406
+      Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - &create
+        stepId: create
+        description: Create the PERSON in canonical JSON and keep the version_uid of its representation.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &person_v1
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &person_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: get
+        description: Retrieve the VERSIONED_PARTY in canonical XML.
+        operationId: $sourceDescriptions.demographic.versioned_party_get
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: get_versioned_party_version-xml_not_acceptable
+    summary: "A PERSON's latest VERSION read with Accept application/xml is refused with 406"
+    description: >-
+      Creates a PERSON, then retrieves the latest VERSION of its container
+      asking for canonical XML. A service that does not serve XML answers 406
+      Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the latest VERSION in canonical XML.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: get_versioned_party_version_by_id-xml_not_acceptable
+    summary: "A PERSON's VERSION by version_uid read with Accept application/xml is refused with 406"
+    description: >-
+      Creates a PERSON, then retrieves the VERSION by version_uid of its
+      container asking for canonical XML. A service that does not serve XML
+      answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the VERSION by version_uid in canonical XML.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_by_id
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_uid, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: get_versioned_party_revision_history-xml_not_acceptable
+    summary: "A PERSON's revision history read with Accept application/xml is refused with 406"
+    description: >-
+      Creates a PERSON, then retrieves the revision history of its container
+      asking for canonical XML. A service that does not serve XML answers 406
+      Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the revision history in canonical XML.
+        operationId: $sourceDescriptions.demographic.versioned_party_revision_history
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406

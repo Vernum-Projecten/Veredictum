@@ -7,6 +7,7 @@ at master, commit `5acae056248e917a4b4c56f7e712f4fcfeb616a6`, which is the commi
 | Patch | Report |
 |---|---|
 | `0724-uri-value-and-interval-limits.patch` | #724 |
+| `0741-party-and-contribution-uid-not-required.patch` | #741 |
 
 A patch is named after its report's number. Apply one in a checkout of that
 repository with `git apply <patch>`.

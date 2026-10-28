@@ -1,0 +1,591 @@
+# Committing demographic CONTRIBUTIONs: the creation of a PERSON, the read of
+# the CONTRIBUTION, the preferences, a client uid, and the refused commits,
+# as Arazzo 1.1.0 workflows over the released ITS-REST `-validation` OAS.
+# Every criterion resolves to an `x-veredictum-cite` (its own, else its
+# step's, else its workflow's), and every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: Demographic CONTRIBUTION
+  version: 0.1.0
+  description: >-
+    Committing a CONTRIBUTION to the Demographic API in canonical JSON. Every
+    member and every envelope audit is the commit DTO the released OAS
+    declares (schemas/demographic/NewContribution.yaml, UpdateVersion.yaml and
+    schemas/common/UpdateAudit.yaml). A CONTRIBUTION or PERSON body without a
+    uid is valid for the operation, although the ITS-JSON definitions of both
+    require one (upstream report #741).
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: commit_demographic_contribution
+    summary: A demographic CONTRIBUTION creating a PERSON is answered 201 with the CONTRIBUTION
+    description: >-
+      Commits a CONTRIBUTION whose one member creates a PERSON, asking for the
+      full representation. The commit is answered 201 Created, and the body is
+      the CONTRIBUTION with its uid and a reference to the version it created.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_demographic_CONTRIBUTION.yaml
+      section: description
+      quote: "`201 Created` is returned when the CONTRIBUTION is successfully created."
+    steps:
+      - &commit
+        stepId: commit
+        description: Commit a demographic CONTRIBUTION whose one member creates a PERSON.
+        operationId: $sourceDescriptions.demographic.contribution_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &contribution
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit:
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data:
+                  _type: PERSON
+                  name: { _type: DV_TEXT, value: person v1 }
+                  archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+                  archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+                  identities:
+                    - _type: PARTY_IDENTITY
+                      name: { _type: DV_TEXT, value: legal identity }
+                      archetype_node_id: at0001
+                      details:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: identity }
+                        archetype_node_id: at0002
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: name }
+                            archetype_node_id: at0003
+                            value: { _type: DV_TEXT, value: Person Contributed }
+            audit:
+              _type: UPDATE_AUDIT
+              change_type:
+                _type: DV_CODED_TEXT
+                value: creation
+                defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+              committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+        successCriteria:
+          - &created
+            condition: $statusCode == 201
+          - condition: $response.body#/uid/value != null
+          - condition: $response.body#/versions/0/id/value != null
+        outputs:
+          contribution_uid: $response.body#/uid/value
+          version_uid: $response.body#/versions/0/id/value
+
+  - workflowId: commit_demographic_contribution-read_back
+    summary: The PERSON a demographic CONTRIBUTION created is retrieved by the version it reports
+    description: >-
+      Commits a CONTRIBUTION creating a PERSON, then retrieves the PERSON by
+      the version_uid the CONTRIBUTION reports. The read is answered 200 with
+      the PERSON committed.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_PERSON_retrieved.yaml
+      section: description
+      quote: "`200 OK` is returned when the requested PERSON is successfully retrieved."
+    steps:
+      - *commit
+      - stepId: get
+        description: Retrieve the PERSON by the version_uid the CONTRIBUTION reports.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.body#/identities/0/details/items/0/value/value
+            type: regex
+            condition: '^Person Contributed$'
+
+  - workflowId: get_demographic_contribution
+    summary: A demographic CONTRIBUTION is retrieved by its uid
+    description: >-
+      Commits a CONTRIBUTION creating a PERSON, then retrieves the
+      CONTRIBUTION by its uid. The read is answered 200 with the CONTRIBUTION,
+      which references the version it created.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_CONTRIBUTION.yaml
+      section: description
+      quote: "`200 OK` is returned when the CONTRIBUTION is successfully retrieved."
+    steps:
+      - *commit
+      - stepId: get
+        description: Retrieve the CONTRIBUTION by its uid.
+        operationId: $sourceDescriptions.demographic.contribution_get
+        parameters:
+          - { name: contribution_uid, in: path, value: $steps.commit.outputs.contribution_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.contribution_uid}$'
+          - context: $response.body#/versions/0/id/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+
+  - workflowId: get_demographic_contribution-unknown
+    summary: A demographic CONTRIBUTION read of a uid no CONTRIBUTION carries is answered 404
+    description: >-
+      Retrieves a demographic CONTRIBUTION by a freshly generated uid that no
+      CONTRIBUTION carries. The read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_demographic_CONTRIBUTION.yaml
+      section: description
+      quote: "`404 Not Found` is returned when a CONTRIBUTION with `contribution_uid` does not exist."
+    inputs:
+      type: object
+      properties:
+        unknown: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        description: Retrieve an unknown CONTRIBUTION.
+        operationId: $sourceDescriptions.demographic.contribution_get
+        parameters:
+          - { name: contribution_uid, in: path, value: $inputs.unknown }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: commit_demographic_contribution-prefer_minimal
+    summary: "A demographic CONTRIBUTION commit with Prefer return=minimal answers 201 with an empty body"
+    description: >-
+      Commits a demographic CONTRIBUTION with Prefer return=minimal. The
+      commit is answered 201 Created with no body.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_demographic_CONTRIBUTION.yaml
+      section: description
+      quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+    steps:
+      - stepId: commit
+        description: Commit the CONTRIBUTION asking for the minimal response.
+        operationId: $sourceDescriptions.demographic.contribution_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &contribution_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_demographic_CONTRIBUTION.yaml
+              section: description
+              quote: "`201 Created` is returned when the CONTRIBUTION is successfully created."
+          - condition: $response.body == null
+
+  - workflowId: commit_demographic_contribution-prefer_absent
+    summary: A demographic CONTRIBUTION commit with no Prefer header answers 201 with an empty body
+    description: >-
+      Commits a demographic CONTRIBUTION with no Prefer header. Without the
+      header the minimal preference is assumed, so the commit is answered 201
+      Created with no body.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Representation details negotiation
+      quote: "If no `Prefer` header is provided, the default behavior is assumed to be `return=minimal`."
+    steps:
+      - stepId: commit
+        description: Commit the CONTRIBUTION with no Prefer header.
+        operationId: $sourceDescriptions.demographic.contribution_create
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - condition: $response.body == null
+            x-veredictum-cite: &contribution_minimal
+              source: specs/openehr/ITS-REST/specifications/responses/201_demographic_CONTRIBUTION.yaml
+              section: description
+              quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+
+  - workflowId: commit_demographic_contribution-return_identifier
+    summary: "A demographic CONTRIBUTION commit with Prefer return=identifier answers with the identifier"
+    description: >-
+      Commits a demographic CONTRIBUTION with Prefer return=identifier. The
+      commit is answered 201 Created, and the body should carry only the
+      identifier; the body is a recommendation, so a row lacking it is
+      advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer only identifier
+      quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+      level: should
+      report: 673
+    steps:
+      - stepId: commit
+        description: Commit the CONTRIBUTION asking for its identifier only.
+        operationId: $sourceDescriptions.demographic.contribution_create
+        parameters:
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - condition: $response.body#/uid != null
+          - condition: $response.body#/versions == null
+
+  - workflowId: commit_demographic_contribution-client_uid
+    summary: A demographic CONTRIBUTION with a client uid not in use is created under that uid
+    description: >-
+      Commits a demographic CONTRIBUTION carrying a freshly generated uid,
+      which no CONTRIBUTION carries yet. The uid is accepted, so the commit is
+      answered 201 and the CONTRIBUTION is retrieved by it.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/demographic_contribution_create.yaml
+      section: description
+      quote: "`uid`: when provided, it will be accepted in case is not in-use, otherwise error will be returned"
+    inputs: &uid_input
+      type: object
+      properties:
+        contribution_uid: { type: string, format: uuid }
+    steps:
+      - &commit_with_uid
+        stepId: commit
+        description: Commit the CONTRIBUTION with the client uid.
+        operationId: $sourceDescriptions.demographic.contribution_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: &contribution_with_uid
+            uid: { _type: HIER_OBJECT_ID, value: "" }
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit:
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data:
+                  _type: PERSON
+                  name: { _type: DV_TEXT, value: person v1 }
+                  archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+                  archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+                  identities:
+                    - _type: PARTY_IDENTITY
+                      name: { _type: DV_TEXT, value: legal identity }
+                      archetype_node_id: at0001
+                      details:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: identity }
+                        archetype_node_id: at0002
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: name }
+                            archetype_node_id: at0003
+                            value: { _type: DV_TEXT, value: Person Contributed }
+            audit:
+              _type: UPDATE_AUDIT
+              change_type:
+                _type: DV_CODED_TEXT
+                value: creation
+                defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+              committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+          replacements:
+            - { target: /uid/value, value: $inputs.contribution_uid }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+      - stepId: get
+        description: Retrieve the CONTRIBUTION by the client uid.
+        operationId: $sourceDescriptions.demographic.contribution_get
+        parameters:
+          - { name: contribution_uid, in: path, value: $inputs.contribution_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &contribution_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_CONTRIBUTION.yaml
+              section: description
+              quote: "`200 OK` is returned when the CONTRIBUTION is successfully retrieved."
+
+  - workflowId: commit_demographic_contribution-client_uid_in_use
+    summary: A demographic CONTRIBUTION with a client uid already in use is refused with 409
+    description: >-
+      Commits a demographic CONTRIBUTION carrying a freshly generated uid,
+      then commits a second one carrying the same uid. That uid is in use, so
+      the second commit is answered 409 Conflict.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/demographic_contribution_create.yaml
+      section: description
+      quote: "`uid`: when provided, it will be accepted in case is not in-use, otherwise error will be returned"
+    inputs: *uid_input
+    steps:
+      - *commit_with_uid
+      - stepId: commit-again
+        description: Commit a second CONTRIBUTION with the same uid.
+        operationId: $sourceDescriptions.demographic.contribution_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *contribution_with_uid
+          replacements:
+            - { target: /uid/value, value: $inputs.contribution_uid }
+        successCriteria:
+          - condition: $statusCode == 409
+            x-veredictum-cite: &conflict_409
+              source: specs/openehr/ITS-REST/specifications/responses/409.yaml
+              section: description
+              quote: "`409 Conflict` is returned when a resource with same identifier(s) already exists."
+
+  - workflowId: commit_demographic_contribution-first_version_modification
+    summary: A demographic member that modifies a PARTY no version precedes is refused with 400
+    description: >-
+      Commits a demographic CONTRIBUTION whose one member carries the
+      change_type 251 modification and no preceding_version_uid, so the
+      version it would add is the first version of a modification. The commit
+      is answered 400.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/400_CONTRIBUTION.yaml
+      section: description
+      quote: "or the modification type does not match the operation - i.e. first version of a MODIFICATION)."
+    steps:
+      - stepId: commit
+        description: Commit the refused CONTRIBUTION.
+        operationId: $sourceDescriptions.demographic.contribution_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: &first_modification
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit:
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: modification
+                    defining_code: { terminology_id: { value: openehr }, code_string: "251" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data:
+                  _type: PERSON
+                  name: { _type: DV_TEXT, value: person v1 }
+                  archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+                  archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+                  identities:
+                    - _type: PARTY_IDENTITY
+                      name: { _type: DV_TEXT, value: legal identity }
+                      archetype_node_id: at0001
+                      details:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: identity }
+                        archetype_node_id: at0002
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: name }
+                            archetype_node_id: at0003
+                            value: { _type: DV_TEXT, value: Person One }
+            audit:
+              _type: UPDATE_AUDIT
+              change_type:
+                _type: DV_CODED_TEXT
+                value: modification
+                defining_code: { terminology_id: { value: openehr }, code_string: "251" }
+              committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: &bad_request
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+
+  - workflowId: commit_demographic_contribution-first_version_amendment
+    summary: A demographic member that amends a PARTY no version precedes is refused with 400
+    description: >-
+      Commits a demographic CONTRIBUTION whose one member carries the
+      change_type 250 amendment and no preceding_version_uid. An amendment
+      modifies an existing item, so the version it would add is the first
+      version of a modification and the commit is answered 400.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/400_CONTRIBUTION.yaml
+      section: description
+      quote: "or the modification type does not match the operation - i.e. first version of a MODIFICATION)."
+    steps:
+      - stepId: commit
+        description: Commit the refused CONTRIBUTION.
+        operationId: $sourceDescriptions.demographic.contribution_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: &first_amendment
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit:
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: amendment
+                    defining_code: { terminology_id: { value: openehr }, code_string: "250" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data:
+                  _type: PERSON
+                  name: { _type: DV_TEXT, value: person v1 }
+                  archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+                  archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+                  identities:
+                    - _type: PARTY_IDENTITY
+                      name: { _type: DV_TEXT, value: legal identity }
+                      archetype_node_id: at0001
+                      details:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: identity }
+                        archetype_node_id: at0002
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: name }
+                            archetype_node_id: at0003
+                            value: { _type: DV_TEXT, value: Person One }
+            audit:
+              _type: UPDATE_AUDIT
+              change_type:
+                _type: DV_CODED_TEXT
+                value: amendment
+                defining_code: { terminology_id: { value: openehr }, code_string: "250" }
+              committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
+  - workflowId: commit_demographic_contribution-cluster_no_items
+    summary: A demographic CONTRIBUTION whose PERSON holds a CLUSTER with no items is refused with 400
+    description: >-
+      Commits a demographic CONTRIBUTION whose PERSON member holds a CLUSTER
+      with an empty items list in its identity details. The published ITS-JSON
+      schema (openehr_rm_1.1.0_all.json, CLUSTER.items, minItems 1) refuses
+      the body, so it is syntactically invalid content and the commit is
+      answered 400.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    steps:
+      - stepId: commit
+        description: Commit the refused CONTRIBUTION.
+        operationId: $sourceDescriptions.demographic.contribution_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: &cluster_no_items
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit:
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data:
+                  _type: PERSON
+                  name: { _type: DV_TEXT, value: person v1 }
+                  archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+                  archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+                  identities:
+                    - _type: PARTY_IDENTITY
+                      name: { _type: DV_TEXT, value: legal identity }
+                      archetype_node_id: at0001
+                      details:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: identity }
+                        archetype_node_id: at0002
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: name }
+                            archetype_node_id: at0003
+                            value: { _type: DV_TEXT, value: Person One }
+                          - _type: CLUSTER
+                            name: { _type: DV_TEXT, value: extra }
+                            archetype_node_id: at0004
+                            items: []
+            audit:
+              _type: UPDATE_AUDIT
+              change_type:
+                _type: DV_CODED_TEXT
+                value: creation
+                defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+              committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+        successCriteria:
+          - condition: $statusCode == 400
+
+  - workflowId: commit_demographic_contribution-folder_member
+    summary: A demographic CONTRIBUTION whose member is a FOLDER is refused with 400
+    description: >-
+      Commits a demographic CONTRIBUTION whose one member's data is a
+      directory FOLDER. The demographic member data is one of the five PARTY
+      kinds, so the body is one the operation's request schema refuses:
+      syntactically invalid content, answered 400.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/schemas/demographic/UVersionable.yaml
+      section: /oneOf
+      quote: "../demographic/UMPerson.yaml"
+    steps:
+      - stepId: commit
+        description: Commit the refused CONTRIBUTION.
+        operationId: $sourceDescriptions.demographic.contribution_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: &folder_member
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit:
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data:
+                  _type: FOLDER
+                  name: { _type: DV_TEXT, value: root }
+                  archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                  archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }, rm_version: "1.1.0" }
+            audit:
+              _type: UPDATE_AUDIT
+              change_type:
+                _type: DV_CODED_TEXT
+                value: creation
+                defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+              committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request

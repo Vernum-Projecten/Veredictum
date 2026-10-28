@@ -1,0 +1,1166 @@
+# The PERSON lifecycle of the Demographic API: create, read, update and delete,
+# the representation preferences, the misses and refusals of the version
+# conditions, as Arazzo 1.1.0 workflows over the released ITS-REST
+# `-validation` OAS. Every criterion resolves to an `x-veredictum-cite` (its
+# own, else its step's, else its workflow's), and every quote is copied
+# verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Person lifecycle
+  version: 0.1.0
+  description: >-
+    Creating, reading, updating and deleting a PERSON in canonical JSON. The
+    PERSON is an archetype root named person v1 and is updated to person v2.
+    The version_uid a create answers with is read from the uid of the
+    representation, and the versioned_object_uid of the container is derived
+    from it with x-veredictum-derive. The create body carries no uid, which
+    the service assigns, although the ITS-JSON definition of PERSON requires
+    one (upstream report #741).
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_person
+    summary: A PERSON is created and answered 201 with its representation
+    description: >-
+      Creates a PERSON whose archetype root carries archetype_details, asking
+      for the full representation. The create is answered 201 Created.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+      section: description
+      quote: "`201 Created` is returned when the PERSON is successfully created."
+    steps:
+      - &create
+        stepId: create
+        description: "Create the PERSON asking for the full representation, keep its version_uid and derive the versioned_object_uid of its container."
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: &v1_body
+          contentType: application/json
+          payload: &party_v1
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+        successCriteria:
+          - &created_status
+            condition: $statusCode == 201
+            x-veredictum-cite: &created
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+
+  - workflowId: create_person-representation
+    summary: The representation a PERSON create answers with is the PERSON sent
+    description: >-
+      Creates a PERSON asking for the full representation. The body is a
+      PERSON carrying the name and the archetype_node_id sent.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+      section: description
+      quote: "`201 Created` is returned when the PERSON is successfully created."
+    steps:
+      - stepId: create
+        description: Create the PERSON asking for the full representation.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - context: $response.body#/_type
+            type: regex
+            condition: '^PERSON$'
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^person v1$'
+          - context: $response.body#/archetype_node_id
+            type: regex
+            condition: '^openEHR-DEMOGRAPHIC-PERSON\.person\.v1$'
+
+  - workflowId: create_person-read_back
+    summary: A created PERSON is retrieved by the version_uid of its create
+    description: >-
+      Creates a PERSON, then retrieves it by the version_uid the create
+      answered with. The read is answered 200 with the PERSON created.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_PERSON_retrieved.yaml
+      section: description
+      quote: "`200 OK` is returned when the requested PERSON is successfully retrieved."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the PERSON.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite: &retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_PERSON_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested PERSON is successfully retrieved."
+          - context: $response.body#/_type
+            type: regex
+            condition: '^PERSON$'
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^person v1$'
+
+  - workflowId: create_person-prefer_minimal
+    summary: "A PERSON create with Prefer return=minimal answers 201 with an empty body"
+    description: >-
+      Creates a PERSON with Prefer return=minimal. The create is answered 201
+      Created with no body.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+      section: description
+      quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+    steps:
+      - stepId: create
+        description: Create the PERSON asking for the minimal response.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - condition: $response.body == null
+
+  - workflowId: create_person-prefer_absent
+    summary: A PERSON create with no Prefer header answers 201 with an empty body
+    description: >-
+      Creates a PERSON with no Prefer header. Without the header the minimal
+      preference is assumed, so the create is answered 201 Created with no
+      body.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Representation details negotiation
+      quote: "If no `Prefer` header is provided, the default behavior is assumed to be `return=minimal`."
+    steps:
+      - stepId: create
+        description: Create the PERSON with no Prefer header.
+        operationId: $sourceDescriptions.demographic.person_create
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - condition: $response.body == null
+            x-veredictum-cite: &minimal_body
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+
+  - workflowId: create_person-return_identifier
+    summary: "A PERSON create with Prefer return=identifier answers with the identifier"
+    description: >-
+      Creates a PERSON with Prefer return=identifier. The create is answered
+      201 Created, and the body should carry only the identifier of the new
+      version; the body is a recommendation, so a row lacking it is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer only identifier
+      quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+      level: should
+      report: 673
+    steps:
+      - stepId: create
+        description: Create the PERSON asking for its identifier only.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - condition: $response.body#/uid != null
+          - condition: $response.body#/identities == null
+
+  - workflowId: get_person-latest
+    summary: A PERSON read by versioned_object_uid serves the latest version
+    description: >-
+      Creates a PERSON and updates it to its second content, then retrieves it
+      by the versioned_object_uid of its container without a version_at_time.
+      The latest version is served.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/person_get.yaml
+      section: description
+      quote: "otherwise retrieves the _latest_ PERSON version."
+    steps:
+      - *create
+      - &update_minimal
+        stepId: update
+        description: Update the PERSON to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody: &v2_body
+          contentType: application/json
+          payload: &party_v2
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person Two }
+        successCriteria:
+          - &no_content_updated
+            condition: $statusCode == 204
+            x-veredictum-cite: &minimal_updated
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: get
+        description: Retrieve the PERSON.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^person v2$'
+
+  - workflowId: get_person-at_time
+    summary: A PERSON read at a time after its last version serves that version
+    description: >-
+      Creates a PERSON and updates it, then retrieves it by the
+      versioned_object_uid of its container at 2999-01-01. Nothing supersedes
+      the second version by then, so it is served.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/person_get.yaml
+      section: description
+      quote: "if the `version_at_time` is supplied, retrieves the version extant _at specified time_"
+    steps:
+      - *create
+      - *update_minimal
+      - stepId: get
+        description: Retrieve the PERSON.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_at_time, in: query, value: "2999-01-01T00:00:00.000Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^person v2$'
+
+  - workflowId: get_person-at_time_before_first_version
+    summary: A PERSON read at a time before its first version is answered 404
+    description: >-
+      Creates a PERSON, then retrieves it by the versioned_object_uid of its
+      container at 2000-01-01, long before the create. No version exists at
+      that time, so the read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the PERSON.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_at_time, in: query, value: "2000-01-01T00:00:00Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_person-unknown
+    summary: A PERSON read by a versioned_object_uid no container carries is answered 404
+    description: >-
+      Retrieves a PERSON by a freshly generated versioned_object_uid that no
+      container carries. The read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    inputs: &unknown_input
+      type: object
+      properties:
+        unknown: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        description: Retrieve the PERSON.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $inputs.unknown }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_person-unknown_version
+    summary: A PERSON read by a version_uid no version carries is answered 404
+    description: >-
+      Retrieves a PERSON by a version_uid built from a freshly generated
+      object_id, which no version carries. The read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    inputs: *unknown_input
+    steps:
+      - stepId: get
+        description: Retrieve the PERSON.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: '{$inputs.unknown}::veredictum.example.org::1' }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: update_person
+    summary: A PERSON update under the latest version is answered 200 with the new PERSON
+    description: >-
+      Creates a PERSON, then updates it under the version_uid of the create,
+      asking for the full representation. The update is answered 200 with the
+      PERSON of the second content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_PERSON_updated.yaml
+      section: description
+      quote: "`200 OK` is returned when the PERSON is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+    steps:
+      - *create
+      - &update_repr
+        stepId: update
+        description: Update the PERSON to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: *v2_body
+        successCriteria:
+          - &ok_updated
+            condition: $statusCode == 200
+            x-veredictum-cite: &updated
+              source: specs/openehr/ITS-REST/specifications/responses/200_PERSON_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the PERSON is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^person v2$'
+
+  - workflowId: update_person-read_back
+    summary: The PERSON read after an update is the updated PERSON
+    description: >-
+      Creates a PERSON, updates it, then retrieves it by the
+      versioned_object_uid of its container. The read serves the second
+      content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/person_get.yaml
+      section: description
+      quote: "otherwise retrieves the _latest_ PERSON version."
+    steps:
+      - *create
+      - *update_repr
+      - stepId: get
+        description: Retrieve the PERSON.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^person v2$'
+
+  - workflowId: update_person-prefer_minimal
+    summary: "A PERSON update with Prefer return=minimal is answered 204"
+    description: >-
+      Creates a PERSON, then updates it under the version_uid of the create
+      with Prefer return=minimal. The update is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+      section: description
+      quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+    steps:
+      - *create
+      - *update_minimal
+
+  - workflowId: update_person-prefer_absent
+    summary: A PERSON update with no Prefer header is answered 204
+    description: >-
+      Creates a PERSON, then updates it under the version_uid of the create
+      with no Prefer header. The update is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+      section: description
+      quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+    steps:
+      - *create
+      - stepId: update
+        description: Update the PERSON to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody: *v2_body
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: update_person-return_identifier
+    summary: "A PERSON update with Prefer return=identifier answers with the identifier"
+    description: >-
+      Creates a PERSON, then updates it with Prefer return=identifier. The
+      update succeeds with a 2xx status, and the body should carry only the
+      identifier of the new version; the body is a recommendation, so a row
+      lacking it is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+    steps:
+      - *create
+      - stepId: update
+        description: Update the PERSON to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: *v2_body
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+          - condition: $response.body#/uid != null
+            x-veredictum-cite: &identifier_only
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+
+  - workflowId: update_person-stale_if_match
+    summary: A PERSON update whose If-Match names a superseded version is refused with 412
+    description: >-
+      Creates a PERSON, updates it once, then sends a second update under the
+      version the first update superseded. The second update is refused with
+      412 Precondition Failed and not performed: the latest version still
+      holds the second content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+    steps:
+      - *create
+      - *update_minimal
+      - stepId: stale
+        description: Update the PERSON under the superseded version_uid of the create.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - &precondition_failed
+            condition: $statusCode == 412
+            x-veredictum-cite: &precondition
+              source: specs/openehr/ITS-REST/specifications/responses/412_PERSON.yaml
+              section: description
+              quote: "`412 Precondition Failed` is returned when `If-Match` request header doesn't match the latest version on the service side."
+      - stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &version_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_PARTY_at_time.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - context: $response.body#/data/name/value
+            type: regex
+            condition: '^person v2$'
+
+  - workflowId: update_person-unknown_preceding_version
+    summary: A PERSON update whose If-Match names a version the container never had is refused with 412
+    description: >-
+      Creates a PERSON, then updates it under an If-Match naming version 99 of
+      its container, which the container never had. The condition is false, so
+      the update is refused with 412 Precondition Failed and the latest
+      version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+    steps:
+      - *create
+      - stepId: update
+        description: Update the PERSON under an If-Match naming a version its container never had.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.versioned_object_uid}::veredictum.example.org::99"' }
+        requestBody: *v2_body
+        successCriteria:
+          - *precondition_failed
+      - &still_created
+        stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.create.outputs.version_uid}$'
+            x-veredictum-cite: &stale_refused
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: If-Match and accidental overwrites
+              quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+
+  - workflowId: update_person-missing_if_match
+    summary: A PERSON update sent without If-Match is refused with 400
+    description: >-
+      Creates a PERSON, then updates it with no If-Match header. The update is
+      refused with 400 Bad Request and the latest version is still the created
+      one. The rule is recommended, so a row that answers otherwise is
+      advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "When the service expects `If-Match` for an operation, but the client does not provide it, the service SHOULD respond with `400 Bad Request`."
+      level: should
+    steps:
+      - *create
+      - stepId: update
+        description: Update the PERSON with no If-Match.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+        requestBody: *v2_body
+        successCriteria:
+          - condition: $statusCode == 400
+      - *still_created
+
+  - workflowId: update_person-unknown
+    summary: An update of a versioned_object_uid no PERSON carries is answered 404
+    description: >-
+      Updates a PERSON at a freshly generated versioned_object_uid that no
+      container carries, under an If-Match naming its first version. The
+      update is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404.yaml
+      section: description
+      quote: "`404 Not Found` is returned when, based on the request parameters, the server did not find a current representation of a target resource, or is not willing to disclose that one exists."
+    inputs: *unknown_input
+    steps:
+      - stepId: update
+        description: Update a PERSON no container carries.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $inputs.unknown }
+          - { name: If-Match, in: header, value: '"{$inputs.unknown}::veredictum.example.org::1"' }
+        requestBody:
+          contentType: application/json
+          payload: *party_v2
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: delete_person
+    summary: The latest version of a PERSON is deleted with 204
+    description: >-
+      Creates a PERSON, then deletes it by the version_uid of the create. The
+      delete is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_deleted.yaml
+      section: description
+      quote: "`204 No Content` is returned for a successful delete operation."
+    steps:
+      - *create
+      - &delete
+        stepId: delete
+        description: Delete the PERSON.
+        operationId: $sourceDescriptions.demographic.person_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: delete_person-read_after
+    summary: A PERSON read by versioned_object_uid after a delete is answered 204
+    description: >-
+      Creates a PERSON and deletes it, then retrieves it by the
+      versioned_object_uid of its container. The latest version is the deleted
+      one, so the read is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_deleted_at_time.yaml
+      section: description
+      quote: "`204 No Content` is returned when the resource identified by the request parameters (at specified `version_at_time`) time has been deleted."
+    steps:
+      - *create
+      - *delete
+      - stepId: get
+        description: Retrieve the PERSON.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: delete_person-already_deleted
+    summary: A second delete of a deleted PERSON is refused
+    description: >-
+      Creates a PERSON, deletes it, then sends the same delete again. The
+      PERSON is already deleted, so the second delete is refused with 400 Bad
+      Request. The version_uid it names is no longer the latest version, for
+      which the operation declares 409 Conflict, so either answer holds.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/400_already_deleted.yaml
+      section: description
+      quote: "or when the resource identified by the request parameters is already deleted."
+    steps:
+      - *create
+      - *delete
+      - stepId: delete-again
+        description: Delete the PERSON by the same version_uid again.
+        operationId: $sourceDescriptions.demographic.person_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(400|409)$'
+
+  - workflowId: delete_person-superseded_version
+    summary: A PERSON delete that names a superseded version is refused with 409 and not performed
+    description: >-
+      Creates a PERSON, updates it, then deletes it by the version_uid of the
+      create, which is no longer the latest version. The delete is refused
+      with 409 Conflict, and the latest version still holds the second
+      content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/409_PERSON_with_uid_based_id.yaml
+      section: description
+      quote: "`409 Conflict` is returned when supplied `uid_based_id` doesn't match the latest version."
+    steps:
+      - *create
+      - *update_minimal
+      - stepId: delete
+        description: Delete the PERSON.
+        operationId: $sourceDescriptions.demographic.person_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 409
+      - stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+          - context: $response.body#/data/name/value
+            type: regex
+            condition: '^person v2$'
+            x-veredictum-cite: *stale_refused
+
+  - workflowId: delete_person-unknown
+    summary: A delete of a version_uid no PERSON carries is answered 404
+    description: >-
+      Deletes a PERSON by a version_uid built from a freshly generated
+      object_id, which no version carries. The delete is answered 404 Not
+      Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404.yaml
+      section: description
+      quote: "`404 Not Found` is returned when, based on the request parameters, the server did not find a current representation of a target resource, or is not willing to disclose that one exists."
+    inputs: *unknown_input
+    steps:
+      - stepId: delete
+        description: Delete the PERSON.
+        operationId: $sourceDescriptions.demographic.person_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: '{$inputs.unknown}::veredictum.example.org::1' }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: delete_person-versioned_object_uid
+    summary: A PERSON delete addressed by a versioned_object_uid is refused with 400
+    description: >-
+      Creates a PERSON, then deletes it addressing the versioned_object_uid of
+      its container, where the operation takes the version_uid of the latest
+      version. The parameter is invalid, so the delete is answered 400 Bad
+      Request and the PERSON is not deleted.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/person_delete.yaml
+      section: description
+      quote: "The `uid_based_id` MUST be in a form of an OBJECT_VERSION_ID identifier taken from the last (most recent) VERSION.uid.value, representing the `preceding_version_uid` to be deleted."
+    steps:
+      - *create
+      - stepId: delete
+        description: Delete the PERSON.
+        operationId: $sourceDescriptions.demographic.person_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: &invalid_parameter
+              source: specs/openehr/ITS-REST/specifications/responses/400_already_deleted.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)"
+      - *still_created
+
+  - workflowId: create_person-etag_weak
+    summary: An ETag sent on a PERSON create carries the weakness indicator
+    description: >-
+      Creates a PERSON. If the answer sends an ETag, it is a weak entity tag.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    steps:
+      - stepId: create
+        description: "Create the PERSON with Prefer return=minimal."
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: create_person-location
+    summary: A minimal PERSON create answers with a Location header
+    description: >-
+      Creates a PERSON with Prefer return=minimal. The answer carries a
+      Location header pointing at the new resource. The rule is recommended,
+      so a row that answers otherwise is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer minimal, identifier or full representation response
+      quote: "The response SHOULD include a `Location` header pointing to the newly created or updated resource."
+      level: should
+    steps:
+      - stepId: create
+        description: "Create the PERSON with Prefer return=minimal."
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - context: $response.header.Location
+            type: regex
+            condition: '^.+$'
+
+  - workflowId: get_person-content_type
+    summary: A PERSON read with Accept application/json is answered as JSON
+    description: >-
+      Creates a PERSON, then retrieves it with Accept application/json. The
+      answer carries Content-Type application/json.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the PERSON as JSON.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+
+  - workflowId: get_person-no_location
+    summary: A PERSON read sends no Location header
+    description: >-
+      Creates a PERSON, then retrieves it. A read names no newly created
+      resource, so the answer carries no Location header.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Location
+      quote: "It MUST NOT be used to indicate an alternate representation of an existing resource (e.g. via `GET` method)."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the PERSON.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - condition: $response.header.Location == null
+
+  - workflowId: get_person-agent_route
+    summary: A PERSON read on the AGENT route is answered 404
+    description: >-
+      Creates a PERSON, then retrieves the AGENT identified by the
+      versioned_object_uid of the PERSON's container. No AGENT carries that
+      identifier, so the read is answered 404 Not Found, while the PERSON
+      route still serves it.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    steps:
+      - *create
+      - stepId: get-agent
+        description: "Retrieve the AGENT the PERSON's versioned_object_uid would identify."
+        operationId: $sourceDescriptions.demographic.agent_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+      - stepId: get
+        description: Retrieve the PERSON by the same versioned_object_uid.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+
+  - workflowId: update_person-etag_weak
+    summary: An ETag sent on a PERSON update carries the weakness indicator
+    description: >-
+      Creates a PERSON, then updates it. If the answer sends an ETag, it is a
+      weak entity tag.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    steps:
+      - *create
+      - stepId: update
+        description: Update the PERSON to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody: *v2_body
+        successCriteria:
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: update_person-stale_if_match-etag_latest
+    summary: A 412 to a stale If-Match names the latest version in its ETag
+    description: >-
+      Creates a PERSON, updates it once, reads the latest VERSION for the
+      version the update created, then sends a second update under the
+      superseded version. The 412 answer carries the latest version_uid in its
+      ETag. The rule is recommended, so a row that answers otherwise is
+      advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "SHOULD return also latest `version_uid` in the `ETag` response headers."
+      level: should
+    steps:
+      - *create
+      - *update_minimal
+      - stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: stale
+        description: Update the PERSON under the superseded version_uid of the create.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - *precondition_failed
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/)?"{$steps.latest.outputs.version_uid}"$'
+
+  - workflowId: delete_person-etag_weak
+    summary: An ETag sent on a PERSON delete carries the weakness indicator
+    description: >-
+      Creates a PERSON, then deletes it. If the 204 answer sends an ETag, it
+      is a weak entity tag.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    steps:
+      - *create
+      - stepId: delete
+        description: Delete the PERSON.
+        operationId: $sourceDescriptions.demographic.person_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: &deleted
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_deleted.yaml
+              section: description
+              quote: "`204 No Content` is returned for a successful delete operation."
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: create_person-archetyped_content
+    summary: A PERSON with contacts and details is created and read back with them
+    description: >-
+      Creates a PERSON whose contacts hold one CONTACT with one ADDRESS and
+      whose details hold an ITEM_TREE, then retrieves it by the version_uid of
+      the create. The read serves the CONTACT, its ADDRESS and the details
+      sent.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_PERSON_retrieved.yaml
+      section: description
+      quote: "`200 OK` is returned when the requested PERSON is successfully retrieved."
+    steps:
+      - stepId: create
+        description: Create the PERSON with contacts and details.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &party_archetyped
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person archetyped }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+            contacts:
+              - _type: CONTACT
+                name: { _type: DV_TEXT, value: daytime phone }
+                archetype_node_id: at0010
+                addresses:
+                  - _type: ADDRESS
+                    name: { _type: DV_TEXT, value: electronic }
+                    archetype_node_id: at0011
+                    details:
+                      _type: ITEM_TREE
+                      name: { _type: DV_TEXT, value: address }
+                      archetype_node_id: at0012
+                      items:
+                        - _type: ELEMENT
+                          name: { _type: DV_TEXT, value: number }
+                          archetype_node_id: at0013
+                          value: { _type: DV_TEXT, value: "+31 10 000 0000" }
+            details:
+              _type: ITEM_TREE
+              name: { _type: DV_TEXT, value: person details }
+              archetype_node_id: at0020
+              items:
+                - _type: ELEMENT
+                  name: { _type: DV_TEXT, value: date of birth }
+                  archetype_node_id: at0021
+                  value: { _type: DV_DATE, value: "1970-01-01" }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve the PERSON by the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.body#/contacts/0/addresses/0/details/items/0/value/value
+            type: regex
+            condition: '^\+31 10 000 0000$'
+          - context: $response.body#/details/items/0/value/value
+            type: regex
+            condition: '^1970-01-01$'
+
+  - workflowId: update_person-relationship_source_self
+    summary: A PERSON updated with a relationship it is the source of serves the relationship
+    description: >-
+      Creates two PERSONs, then updates the first with a PARTY_RELATIONSHIP
+      whose source is the first PERSON's container and whose target is the
+      second's. The relationship is stored by value in its source, so the
+      update is answered 200 and the PERSON read back carries it with both
+      references.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/demographic/master02-demographic_package.adoc
+      section: Party Relationships
+      quote: "`PARTY_RELATIONSHIPs` are stored as part of the data of the `PARTY` designated as the source."
+    steps:
+      - *create
+      - &target
+        stepId: target
+        description: "Create the PERSON the relationship targets and keep the versioned_object_uid of its container."
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the first PERSON with the relationship it is the source of.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &party_related
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person Two }
+            relationships:
+              - _type: PARTY_RELATIONSHIP
+                name: { _type: DV_TEXT, value: employment }
+                archetype_node_id: at0030
+                source:
+                  _type: PARTY_REF
+                  namespace: demographic
+                  type: PERSON
+                  id: { _type: HIER_OBJECT_ID, value: "" }
+                target:
+                  _type: PARTY_REF
+                  namespace: demographic
+                  type: PERSON
+                  id: { _type: HIER_OBJECT_ID, value: "" }
+          replacements:
+            - { target: /relationships/0/source/id/value, value: $steps.create.outputs.versioned_object_uid }
+            - { target: /relationships/0/target/id/value, value: $steps.target.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *updated
+      - stepId: get
+        description: "Retrieve the first PERSON's latest version."
+        operationId: $sourceDescriptions.demographic.person_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.body#/relationships/0/source/id/value
+            type: regex
+            condition: '^{$steps.create.outputs.versioned_object_uid}$'
+          - context: $response.body#/relationships/0/target/id/value
+            type: regex
+            condition: '^{$steps.target.outputs.versioned_object_uid}$'
