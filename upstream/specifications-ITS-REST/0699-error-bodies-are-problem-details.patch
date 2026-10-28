@@ -1,0 +1,679 @@
+diff --git a/specifications/docs/overview/Requests_and_responses.md b/specifications/docs/overview/Requests_and_responses.md
+index bc37e680..373a8c16 100644
+--- a/specifications/docs/overview/Requests_and_responses.md
++++ b/specifications/docs/overview/Requests_and_responses.md
+@@ -239,33 +239,41 @@ To indicate the status of a request or operation, an appropriate HTTP status cod
+ Status code `400` indicates normally a bad request, as well as a generic client-side error, used when no other `4xx` error code is appropriate.
+ The client SHOULD NOT repeat the request without modifications.
+ 
+-For `4xx` and `5xx` status codes, services MAY return additional error details if the `Prefer: return=representation` header is present in the request.
++## Error responses
++
++When a service returns a body with a `4xx` or `5xx` status code, the body MUST be a problem details object as defined in [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457). Its media type is `application/problem+json`, or `application/problem+xml` ([RFC 9457, Appendix B](https://www.rfc-editor.org/rfc/rfc9457#appendix-B)) when the request negotiated an XML representation. Services SHOULD return a problem details body with every `4xx` and `5xx` status code. When the `status` member is present, it MUST equal the HTTP status code of the response.
++
++The `type` member identifies the problem. Where one of the problem types below applies, services SHOULD use its type URI. Otherwise they use `about:blank`, which means the problem has no meaning beyond its HTTP status code ([RFC 9457, Section 4.2.1](https://www.rfc-editor.org/rfc/rfc9457#section-4.2.1)).
++
++| Type URI                                                                    | Status | Problem                                                                                                         |
++|-----------------------------------------------------------------------------|--------|-----------------------------------------------------------------------------------------------------------------|
++| `https://specifications.openehr.org/problems/its-rest/validation-failed`     | 422    | The resource is well-formed, but it fails RM or template validation; `validationErrors` lists the failures       |
++| `https://specifications.openehr.org/problems/its-rest/unknown-ehr`           | 404    | No EHR with the given `ehr_id` exists                                                                           |
++| `https://specifications.openehr.org/problems/its-rest/unknown-template`      | 404    | No template with the given `template_id` exists                                                                 |
++| `https://specifications.openehr.org/problems/its-rest/ehr-already-exists`    | 409    | An EHR with the given `ehr_id`, or with the same subject id and namespace, already exists                        |
++| `https://specifications.openehr.org/problems/its-rest/template-already-exists` | 409  | A template with the same `template_id` already exists                                                           |
++| `https://specifications.openehr.org/problems/its-rest/query-version-exists`  | 409    | A stored query with the given `qualified_query_name` and `version` already exists                               |
++| `https://specifications.openehr.org/problems/its-rest/version-conflict`      | 412    | The `If-Match` request header does not name the latest version; the `ETag` header carries the latest `version_uid` |
++| `https://specifications.openehr.org/problems/its-rest/already-deleted`       | 400    | The resource identified by the request is already deleted                                                       |
++| `https://specifications.openehr.org/problems/its-rest/invalid-query`         | 400    | The query cannot be executed because of invalid input, such as malformed AQL or a missing or invalid parameter  |
++| `https://specifications.openehr.org/problems/its-rest/query-timeout`         | 408    | The query reached the maximum execution time and the service aborted it                                         |
++
++Services MAY add extension members ([RFC 9457, Section 3.2](https://www.rfc-editor.org/rfc/rfc9457#section-3.2)). This specification defines one, `validationErrors`: a list with one entry per validation failure, each with a `message` and, where the failure concerns a node of the submitted resource, the RM `path` of that node.
++
++A problem details body SHOULD NOT carry clinical content or implementation internals such as stack traces ([RFC 9457, Section 5](https://www.rfc-editor.org/rfc/rfc9457#section-5)).
++
+ Example error response:
+ 
+ ```json
+ {
+-    "message": "Error message",
+-    "code": 90000,
+-    "errors": [
+-        {
+-            "_type": "DV_CODED_TEXT",
+-            "value": "Error message",
+-            "defining_code": {
+-                "terminology_id": {
+-                    "value": "local"
+-                },
+-                "code_string": "9000"
+-            }
+-        },
++    "type": "https://specifications.openehr.org/problems/its-rest/validation-failed",
++    "title": "Validation failed",
++    "status": 422,
++    "detail": "The COMPOSITION does not validate against template vital_signs.v1.",
++    "validationErrors": [
+         {
+-            "_type": "DV_CODED_TEXT",
+-            "value": "Secondary error message",
+-            "defining_code": {
+-                "terminology_id": {
+-                    "value": "local"
+-                },
+-                "code_string": "8000"
+-            }
++            "message": "Missing mandatory node",
++            "path": "/content[openEHR-EHR-OBSERVATION.blood_pressure.v2]/data[at0001]"
+         }
+     ]
+ }
+diff --git a/specifications/responses/400.yaml b/specifications/responses/400.yaml
+index 2708605e..0c4ff650 100644
+--- a/specifications/responses/400.yaml
++++ b/specifications/responses/400.yaml
+@@ -2,6 +2,6 @@ description: |
+   `400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content). 
+   The response body MAY contain error details.
+ content:
+-  application/json:
++  application/problem+json:
+     schema:
+       $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/400_CONTRIBUTION.yaml b/specifications/responses/400_CONTRIBUTION.yaml
+index 4adf07e5..48c32ddd 100644
+--- a/specifications/responses/400_CONTRIBUTION.yaml
++++ b/specifications/responses/400_CONTRIBUTION.yaml
+@@ -2,6 +2,6 @@ description: |
+   `400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content, or the modification type does not match the operation - i.e. first version of a MODIFICATION).
+   The response body MAY contain error details.
+ content:
+-  application/json:
++  application/problem+json:
+     schema:
+       $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/400_Query.yaml b/specifications/responses/400_Query.yaml
+index 8d55c2d8..3379bef1 100644
+--- a/specifications/responses/400_Query.yaml
++++ b/specifications/responses/400_Query.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `400 Bad Request` is returned when the server was unable to execute the query due to invalid input, e.g. a required parameter is missing, or at least one of the parameters has an invalid syntax.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/400_already_deleted.yaml b/specifications/responses/400_already_deleted.yaml
+index 5870c672..6a02a4f4 100644
+--- a/specifications/responses/400_already_deleted.yaml
++++ b/specifications/responses/400_already_deleted.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content) or when the resource identified by the request parameters is already deleted.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404.yaml b/specifications/responses/404.yaml
+index 375ebd43..acedf7a7 100644
+--- a/specifications/responses/404.yaml
++++ b/specifications/responses/404.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when, based on the request parameters, the server did not find a current representation of a target resource, or is not willing to disclose that one exists.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_CONTRIBUTION.yaml b/specifications/responses/404_CONTRIBUTION.yaml
+index b24770c4..00fc7461 100644
+--- a/specifications/responses/404_CONTRIBUTION.yaml
++++ b/specifications/responses/404_CONTRIBUTION.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when a CONTRIBUTION with `contribution_uid` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_EHR_subject.yaml b/specifications/responses/404_EHR_subject.yaml
+index 34c81a4a..dc4f246b 100644
+--- a/specifications/responses/404_EHR_subject.yaml
++++ b/specifications/responses/404_EHR_subject.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with supplied subject parameters does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_Query.yaml b/specifications/responses/404_Query.yaml
+index 3a4e84ca..115e4421 100644
+--- a/specifications/responses/404_Query.yaml
++++ b/specifications/responses/404_Query.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when a stored query with `qualified_query_name` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_Query_version.yaml b/specifications/responses/404_Query_version.yaml
+index d45767d5..240d9af8 100644
+--- a/specifications/responses/404_Query_version.yaml
++++ b/specifications/responses/404_Query_version.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when a stored query with `qualified_query_name` and `version` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_demographic_CONTRIBUTION.yaml b/specifications/responses/404_demographic_CONTRIBUTION.yaml
+index a9141488..52575272 100644
+--- a/specifications/responses/404_demographic_CONTRIBUTION.yaml
++++ b/specifications/responses/404_demographic_CONTRIBUTION.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when a CONTRIBUTION with `contribution_uid` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml b/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml
+index eb1d9c73..b2b89b68 100644
+--- a/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml
++++ b/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when a directory does not exist at the specified `version_at_time`, or when `path` does not exist within the directory.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_directory_unknown_ehr_id_or_no_version_uid_or_no_path.yaml b/specifications/responses/404_directory_unknown_ehr_id_or_no_version_uid_or_no_path.yaml
+index 9b9f809d..43333230 100644
+--- a/specifications/responses/404_directory_unknown_ehr_id_or_no_version_uid_or_no_path.yaml
++++ b/specifications/responses/404_directory_unknown_ehr_id_or_no_version_uid_or_no_path.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when a directory with `version_uid` does not exist, or when `path` does not exist within the directory.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_not_found_or_no_version_at_time.yaml b/specifications/responses/404_not_found_or_no_version_at_time.yaml
+index 0e5eeae1..b4208374 100644
+--- a/specifications/responses/404_not_found_or_no_version_at_time.yaml
++++ b/specifications/responses/404_not_found_or_no_version_at_time.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_ehr_id.yaml b/specifications/responses/404_unknown_ehr_id.yaml
+index 4e6abfe1..a5d65f7b 100644
+--- a/specifications/responses/404_unknown_ehr_id.yaml
++++ b/specifications/responses/404_unknown_ehr_id.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with `ehr_id` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_ehr_id_or_no_version_at_time.yaml b/specifications/responses/404_unknown_ehr_id_or_no_version_at_time.yaml
+index bd532cf0..23acb7b3 100644
+--- a/specifications/responses/404_unknown_ehr_id_or_no_version_at_time.yaml
++++ b/specifications/responses/404_unknown_ehr_id_or_no_version_at_time.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when a version of the resource identified by the request parameters (at specified `version_at_time`) does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_ehr_id_or_uid_based_id.yaml b/specifications/responses/404_unknown_ehr_id_or_uid_based_id.yaml
+index 21d1e21f..d2e020ff 100644
+--- a/specifications/responses/404_unknown_ehr_id_or_uid_based_id.yaml
++++ b/specifications/responses/404_unknown_ehr_id_or_uid_based_id.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when the `uid_based_id` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_ehr_id_or_uid_based_id_or_key.yaml b/specifications/responses/404_unknown_ehr_id_or_uid_based_id_or_key.yaml
+index c0368e30..7312e3f3 100644
+--- a/specifications/responses/404_unknown_ehr_id_or_uid_based_id_or_key.yaml
++++ b/specifications/responses/404_unknown_ehr_id_or_uid_based_id_or_key.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when the `uid_based_id` does not exist, or when the ITEM_TAG identified by the `key` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_ehr_id_or_version_uid.yaml b/specifications/responses/404_unknown_ehr_id_or_version_uid.yaml
+index 2916cb5f..cdff9b9d 100644
+--- a/specifications/responses/404_unknown_ehr_id_or_version_uid.yaml
++++ b/specifications/responses/404_unknown_ehr_id_or_version_uid.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when the `version_uid` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid.yaml b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid.yaml
+index 227757a6..b44145c8 100644
+--- a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid.yaml
++++ b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when the `versioned_object_uid` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_no_version_at_time.yaml b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_no_version_at_time.yaml
+index 1237efd4..3f631465 100644
+--- a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_no_version_at_time.yaml
++++ b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_no_version_at_time.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when `versioned_object_uid` does not exist, or when a version of the resource does not exist at the specified `version_at_time`.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_version_uid.yaml b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_version_uid.yaml
+index 66500939..46cd9606 100644
+--- a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_version_uid.yaml
++++ b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_version_uid.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when `versioned_object_uid` does not exist, or when a VERSION with `version_uid` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_template_id.yaml b/specifications/responses/404_unknown_template_id.yaml
+index 1535862a..b06374f8 100644
+--- a/specifications/responses/404_unknown_template_id.yaml
++++ b/specifications/responses/404_unknown_template_id.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when a template with the specified `template_id` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_template_id_or_version.yaml b/specifications/responses/404_unknown_template_id_or_version.yaml
+index 2877785f..ef8eb11e 100644
+--- a/specifications/responses/404_unknown_template_id_or_version.yaml
++++ b/specifications/responses/404_unknown_template_id_or_version.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when a template with the specified `template_id` at given `version` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_uid_based_id.yaml b/specifications/responses/404_unknown_uid_based_id.yaml
+index 6376206e..2f554f11 100644
+--- a/specifications/responses/404_unknown_uid_based_id.yaml
++++ b/specifications/responses/404_unknown_uid_based_id.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when the `uid_based_id` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/404_unknown_uid_based_id_or_key.yaml b/specifications/responses/404_unknown_uid_based_id_or_key.yaml
+index fd299a85..cf38cde6 100644
+--- a/specifications/responses/404_unknown_uid_based_id_or_key.yaml
++++ b/specifications/responses/404_unknown_uid_based_id_or_key.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `404 Not Found` is returned when the `uid_based_id` does not exist, or when the ITEM_TAG identified by the `key` does not exist.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/405.yaml b/specifications/responses/405.yaml
+index ccbe5540..dcea6e50 100644
+--- a/specifications/responses/405.yaml
++++ b/specifications/responses/405.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `405 Method Not Allowed` is returned when the service knows the request method, but the target resource doesn't support this method (e.g. due to security concerns). 
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/406.yaml b/specifications/responses/406.yaml
+index db4f4675..38ba9f6a 100644
+--- a/specifications/responses/406.yaml
++++ b/specifications/responses/406.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `406 Not Acceptable` is returned when the service cannot produce a response matching `Accept` request header, i.e. content type or format is not supported.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/408_Query.yaml b/specifications/responses/408_Query.yaml
+index 586e7a28..5ce527a2 100644
+--- a/specifications/responses/408_Query.yaml
++++ b/specifications/responses/408_Query.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `408 Request Timeout` is returned when there is a query execution timeout (i.e. maximum query execution time reached, therefore the server aborted the execution of the query).
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/409.yaml b/specifications/responses/409.yaml
+index a26add27..c7189cdf 100644
+--- a/specifications/responses/409.yaml
++++ b/specifications/responses/409.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `409 Conflict` is returned when a resource with same identifier(s) already exists.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/409_AGENT_with_uid_based_id.yaml b/specifications/responses/409_AGENT_with_uid_based_id.yaml
+index 2076459e..435d89ca 100644
+--- a/specifications/responses/409_AGENT_with_uid_based_id.yaml
++++ b/specifications/responses/409_AGENT_with_uid_based_id.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/409_COMPOSITION_with_uid_based_id.yaml b/specifications/responses/409_COMPOSITION_with_uid_based_id.yaml
+index a1de778d..fd535e09 100644
+--- a/specifications/responses/409_COMPOSITION_with_uid_based_id.yaml
++++ b/specifications/responses/409_COMPOSITION_with_uid_based_id.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag_COMPOSITION.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/409_EHR.yaml b/specifications/responses/409_EHR.yaml
+index 6f0fe534..717042df 100644
+--- a/specifications/responses/409_EHR.yaml
++++ b/specifications/responses/409_EHR.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `409 Conflict` Unable to create a new EHR due to a conflict with an already existing EHR with the same subject id, namespace pair, whenever EHR_STATUS is supplied.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/409_EHR_with_id.yaml b/specifications/responses/409_EHR_with_id.yaml
+index 5b325bce..44650ec7 100644
+--- a/specifications/responses/409_EHR_with_id.yaml
++++ b/specifications/responses/409_EHR_with_id.yaml
+@@ -1,3 +1,7 @@
+ description: |
+   `409 Conflict` Unable to create a new EHR due to a conflict with an already existing EHR. 
+   Can happen when the supplied `ehr_id` is already used by an existing EHR.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/409_GROUP_with_uid_based_id.yaml b/specifications/responses/409_GROUP_with_uid_based_id.yaml
+index 2076459e..435d89ca 100644
+--- a/specifications/responses/409_GROUP_with_uid_based_id.yaml
++++ b/specifications/responses/409_GROUP_with_uid_based_id.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/409_ORGANISATION_with_uid_based_id.yaml b/specifications/responses/409_ORGANISATION_with_uid_based_id.yaml
+index 2076459e..435d89ca 100644
+--- a/specifications/responses/409_ORGANISATION_with_uid_based_id.yaml
++++ b/specifications/responses/409_ORGANISATION_with_uid_based_id.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/409_PERSON_with_uid_based_id.yaml b/specifications/responses/409_PERSON_with_uid_based_id.yaml
+index 2076459e..435d89ca 100644
+--- a/specifications/responses/409_PERSON_with_uid_based_id.yaml
++++ b/specifications/responses/409_PERSON_with_uid_based_id.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/409_ROLE_with_uid_based_id.yaml b/specifications/responses/409_ROLE_with_uid_based_id.yaml
+index 2076459e..435d89ca 100644
+--- a/specifications/responses/409_ROLE_with_uid_based_id.yaml
++++ b/specifications/responses/409_ROLE_with_uid_based_id.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/409_StoredQuery_version.yaml b/specifications/responses/409_StoredQuery_version.yaml
+index 77b92c1d..0531d9df 100644
+--- a/specifications/responses/409_StoredQuery_version.yaml
++++ b/specifications/responses/409_StoredQuery_version.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `409 Conflict` is returned when a query with the given `qualified_query_name` and `version` already exists on the server.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/409_template_already_exists.yaml b/specifications/responses/409_template_already_exists.yaml
+index 43accbdc..4f11288b 100644
+--- a/specifications/responses/409_template_already_exists.yaml
++++ b/specifications/responses/409_template_already_exists.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `409 Conflict` is returned when a template with same `template_id` already exists.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/412_AGENT.yaml b/specifications/responses/412_AGENT.yaml
+index 224cb88b..0aee10d2 100644
+--- a/specifications/responses/412_AGENT.yaml
++++ b/specifications/responses/412_AGENT.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/412_COMPOSITION.yaml b/specifications/responses/412_COMPOSITION.yaml
+index 7ea79eb5..4482ffe9 100644
+--- a/specifications/responses/412_COMPOSITION.yaml
++++ b/specifications/responses/412_COMPOSITION.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag_COMPOSITION.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/412_EHR_STATUS.yaml b/specifications/responses/412_EHR_STATUS.yaml
+index 224cb88b..0aee10d2 100644
+--- a/specifications/responses/412_EHR_STATUS.yaml
++++ b/specifications/responses/412_EHR_STATUS.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/412_GROUP.yaml b/specifications/responses/412_GROUP.yaml
+index 224cb88b..0aee10d2 100644
+--- a/specifications/responses/412_GROUP.yaml
++++ b/specifications/responses/412_GROUP.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/412_ORGANISATION.yaml b/specifications/responses/412_ORGANISATION.yaml
+index 224cb88b..0aee10d2 100644
+--- a/specifications/responses/412_ORGANISATION.yaml
++++ b/specifications/responses/412_ORGANISATION.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/412_PERSON.yaml b/specifications/responses/412_PERSON.yaml
+index 224cb88b..0aee10d2 100644
+--- a/specifications/responses/412_PERSON.yaml
++++ b/specifications/responses/412_PERSON.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/412_ROLE.yaml b/specifications/responses/412_ROLE.yaml
+index 224cb88b..0aee10d2 100644
+--- a/specifications/responses/412_ROLE.yaml
++++ b/specifications/responses/412_ROLE.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/412_directory.yaml b/specifications/responses/412_directory.yaml
+index e7d2f26c..23d86bbf 100644
+--- a/specifications/responses/412_directory.yaml
++++ b/specifications/responses/412_directory.yaml
+@@ -6,3 +6,7 @@ headers:
+     $ref: ../headers/ETag_FOLDER.yaml
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/responses/422.yaml b/specifications/responses/422.yaml
+index 906ef132..3009cff4 100644
+--- a/specifications/responses/422.yaml
++++ b/specifications/responses/422.yaml
+@@ -1,2 +1,6 @@
+ description: |
+   `422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource.
++content:
++  application/problem+json:
++    schema:
++      $ref: ../schemas/others/Error.yaml
+diff --git a/specifications/schemas/others/Error.yaml b/specifications/schemas/others/Error.yaml
+index b257c61b..7b3ed7c7 100644
+--- a/specifications/schemas/others/Error.yaml
++++ b/specifications/schemas/others/Error.yaml
+@@ -1,18 +1,52 @@
+ title: Error
+-required:
+-  - message
+-  - validationErrors
++description: |
++  A problem details object, as defined in RFC 9457 §3. Members not listed here are
++  extension members (RFC 9457 §3.2); a client ignores an extension member it does
++  not recognise.
+ type: object
+ properties:
+-  message:
++  type:
+     type: string
++    format: uri-reference
++    default: about:blank
++    description: |
++      A URI reference that identifies the problem type. `about:blank` means the
++      problem has no meaning beyond its HTTP status code.
++  title:
++    type: string
++    description: A short, human-readable summary of the problem type.
++  status:
++    type: integer
++    minimum: 400
++    maximum: 599
++    description: The HTTP status code of the response.
++  detail:
++    type: string
++    description: A human-readable explanation specific to this occurrence of the problem.
++  instance:
++    type: string
++    format: uri-reference
++    description: A URI reference that identifies this occurrence of the problem.
+   validationErrors:
+     type: array
++    description: |
++      Extension member: the validation failures of a submitted resource, one
++      entry per failure.
+     items:
+-      type: string
+-    description: ''
++      type: object
++      required:
++        - message
++      properties:
++        message:
++          type: string
++        path:
++          type: string
++          description: The RM path of the node the failure concerns, where it concerns one.
+ example:
+-  message: Error message
++  type: https://specifications.openehr.org/problems/its-rest/validation-failed
++  title: Validation failed
++  status: 422
++  detail: The COMPOSITION does not validate against template vital_signs.v1.
+   validationErrors:
+-    - error1
+-    - error2
++    - message: Missing mandatory node
++      path: /content[openEHR-EHR-OBSERVATION.blood_pressure.v2]/data[at0001]
