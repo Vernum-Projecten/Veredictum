@@ -2866,7 +2866,7 @@ when both the condition and the judge hold:
 
 | Judge | What it decides |
 |---|---|
-| `result_set` | AQL result equality under the RESULT_SET bag, order, cell and NULL rules (§8.6) |
+| `result_set` | AQL result equality under the RESULT_SET bag, order, cell and NULL rules (§8.6); a row cell may be a runtime expression (§15.11) |
 | `equivalent` | Two RM documents are equal, ignoring a named set of server-assigned fields |
 | `signature` | `ORIGINAL_VERSION.signature` facts (RM common §Digital Signature) |
 | `schema` | The response conforms to the schema its operation declares in the `-validation` OAS for that status |
@@ -3209,11 +3209,22 @@ works around it. Queries that the grammar refuses are kept as their own
 refusal cases.
 
 **External query collections.** A query and dataset collection maintained
-elsewhere enters through a vendor script, like every vendored tree, into
-`catalogue/datasets/<name>/` with a `PROVENANCE.md` naming its source and
-commit. Nothing is imported blind: each query is re-adjudicated against the
-QUERY specification before it becomes a row, and a query whose expected result
-the released text does not determine stays out of the rows.
+elsewhere enters as workflows: its fixtures become set-ups in a document under
+`catalogue/cases/_setup/`, a provenance file in `catalogue/` names its
+source, commit and licences, and its cases become workflows that name those set-ups
+(the aql-conformance corpus: `_setup/aql_conformance.arazzo.yaml` and
+`cases/query/aqlc_*.arazzo.yaml`). Nothing is imported blind: each query is
+re-adjudicated against the QUERY specification before it becomes a workflow,
+and a query whose expected result the released text does not determine stays
+out, with its reason and its upstream report under `corpora` in
+`catalogue/id-map.yaml`, which names every case of the collection by its own id.
+
+**Identifiers in expected rows.** A `result_set` row may name a value the run
+learns, such as the version uid a set-up was answered with: a cell that is a
+string starting with `$` is a runtime expression, read from the run before the
+rows are compared, and `validate` refuses one that does not parse. A query
+that needs such a value takes it as a query parameter, or, in a GET `q`, as an
+embedded `{$…}` expression, which the parser check reads as a placeholder.
 
 ### 15.12 Composing the catalogue
 

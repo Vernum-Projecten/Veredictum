@@ -369,19 +369,25 @@ impl RowRecipe {
         literals: &[String],
         row: &Row,
     ) -> Result<Vec<(String, Value)>, RecipeError> {
-        let mut out = vec![(self.input().to_owned(), self.apply(literals, row)?)];
-        if let Self::ContentSynthesized {
-            rm_class,
-            template_id,
-            template_input,
-            ..
-        } = self
-        {
-            let cells = cells(literals, row)?;
-            let (_, xml) = synthesize_row(template_id, *rm_class, literals, &cells)?;
-            out.push((template_input.clone(), Value::String(xml)));
+        match self {
+            Self::ContentInstance { input, .. } => {
+                Ok(vec![(input.clone(), self.apply(literals, row)?)])
+            }
+            Self::ContentSynthesized {
+                rm_class,
+                template_id,
+                input,
+                template_input,
+            } => {
+                let cells = cells(literals, row)?;
+                let (id, xml) = synthesize_row(template_id, *rm_class, literals, &cells)?;
+                let composition = content_instance(rm_class.name(), &id, literals, &cells);
+                Ok(vec![
+                    (input.clone(), composition),
+                    (template_input.clone(), Value::String(xml)),
+                ])
+            }
         }
-        Ok(out)
     }
 }
 

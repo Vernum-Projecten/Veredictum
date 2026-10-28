@@ -11,7 +11,7 @@
 //! outside the profile, an operation or parameter that does not resolve, and
 //! a construct the evaluator does not drive yet.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
@@ -235,16 +235,47 @@ impl ArazzoDocument {
         }
         extension_keys(&self.raw, &mut Vec::new(), &mut findings);
         let mut quotes = repo_root.map(QuoteChecker::new);
+        let dependencies = self.dependency_sources();
         for workflow in &self.description.workflows {
-            self.check_workflow(workflow, quotes.as_mut(), &mut findings);
+            self.check_workflow(workflow, quotes.as_mut(), &dependencies, &mut findings);
         }
         findings
+    }
+
+    /// Loads each `type: arazzo` source a `dependsOn` names once, keeping
+    /// its workflow ids or the reason it did not load.
+    fn dependency_sources(&self) -> BTreeMap<&str, Result<BTreeSet<String>, String>> {
+        let mut loaded = BTreeMap::new();
+        for workflow in &self.description.workflows {
+            for id in &workflow.depends_on {
+                let Some((source, _)) = split_qualified(id) else {
+                    continue;
+                };
+                let Some((name, file)) = self.workflow_sources.get_key_value(source) else {
+                    continue;
+                };
+                loaded.entry(name.as_str()).or_insert_with(|| {
+                    Self::load(file)
+                        .map(|other| {
+                            other
+                                .description
+                                .workflows
+                                .iter()
+                                .map(|w| w.workflow_id.clone())
+                                .collect()
+                        })
+                        .map_err(|error| error.to_string())
+                });
+            }
+        }
+        loaded
     }
 
     fn check_workflow(
         &self,
         workflow: &Workflow,
         mut quotes: Option<&mut QuoteChecker<'_>>,
+        dependencies: &BTreeMap<&str, Result<BTreeSet<String>, String>>,
         findings: &mut Vec<Finding>,
     ) {
         let at = workflow.workflow_id.clone();
@@ -258,7 +289,7 @@ impl ArazzoDocument {
             findings,
         );
         for id in &workflow.depends_on {
-            if let Some(problem) = self.dependency_problem(id) {
+            if let Some(problem) = self.dependency_problem(id, dependencies) {
                 findings.push(Finding::new(&at, FindingKind::Unsupported(problem)));
             }
         }
@@ -305,7 +336,11 @@ impl ArazzoDocument {
     /// Why a `dependsOn` entry does not name a workflow: one of this
     /// document, or `$sourceDescriptions.<name>.<workflowId>` of a
     /// `type: arazzo` source (Arazzo 1.1.0 §Workflow Object `dependsOn`).
-    fn dependency_problem(&self, id: &str) -> Option<String> {
+    fn dependency_problem(
+        &self,
+        id: &str,
+        dependencies: &BTreeMap<&str, Result<BTreeSet<String>, String>>,
+    ) -> Option<String> {
         let Some((source, workflow_id)) = split_qualified(id) else {
             return self
                 .workflow(id)
@@ -317,13 +352,17 @@ impl ArazzoDocument {
                 "dependsOn `{id}`, whose source `{source}` is not a `type: arazzo` source"
             ));
         };
-        match Self::load(file) {
-            Ok(other) if other.workflow(workflow_id).is_some() => None,
-            Ok(_) => Some(format!(
+        match dependencies.get(source) {
+            Some(Ok(workflows)) if workflows.contains(workflow_id) => None,
+            Some(Ok(_)) => Some(format!(
                 "dependsOn `{id}`, which is not a workflow of `{}`",
                 file.display()
             )),
-            Err(error) => Some(format!("dependsOn `{id}`: {error}")),
+            Some(Err(error)) => Some(format!("dependsOn `{id}`: {error}")),
+            None => Some(format!(
+                "dependsOn `{id}`: `{}` was not loaded",
+                file.display()
+            )),
         }
     }
 

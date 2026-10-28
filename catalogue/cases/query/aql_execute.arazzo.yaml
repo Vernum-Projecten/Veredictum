@@ -1,0 +1,527 @@
+# The ad-hoc AQL execution operations over the wire: paging, an empty EHR, and the shape and headers of the RESULT_SET
+# answer, each judged over the dataset `_setup/templates.arazzo.yaml` seeds.
+# Every quote is copied verbatim from the named vendored file.
+arazzo: "1.1.0"
+info:
+  title: AQL execution
+  version: "0.1.0"
+  description: >-
+    The ad-hoc AQL GET and POST: offset and fetch, an EHR with no
+    COMPOSITION, and the RESULT_SET schema, Content-Type, ETag and Location of
+    the answer.
+sourceDescriptions:
+  - name: query
+    url: "../../../specs/rest-oas/query-validation.openapi.yaml"
+    type: openapi
+  - name: ehr
+    url: "../../../specs/rest-oas/ehr-validation.openapi.yaml"
+    type: openapi
+  - name: setup
+    url: "../_setup/templates.arazzo.yaml"
+    type: arazzo
+workflows:
+  - workflowId: get-offset_fetch
+    summary: offset and fetch page an ad-hoc GET result
+    description: >-
+      Executes the dataset magnitudes ORDER BY magnitude with GET, offset 1
+      and fetch 2. The ordered result 12, 15, 15, 18 is paged to [15, 15].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/query/Request.md
+      section: Common Headers and Query Parameters
+      quote: "All query execution requests SHOULD support at least the following parameters:"
+      level: should
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query with offset 1 and fetch 2.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
+              OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] ORDER BY
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+          - name: ehr_id
+            in: query
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: offset, in: query, value: 1 }
+          - { name: fetch, in: query, value: 2 }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: ordered
+              rows: [[15], [15]]
+
+  - workflowId: get-fetch
+    summary: fetch limits an ad-hoc GET result
+    description: >-
+      Executes the dataset magnitudes ORDER BY magnitude with GET and fetch 2
+      and no offset. The offset defaults to 0, so the result is [12, 15].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/query/Request.md
+      section: Common Headers and Query Parameters
+      quote: "All query execution requests SHOULD support at least the following parameters:"
+      level: should
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query with fetch 2.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
+              OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] ORDER BY
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+          - name: ehr_id
+            in: query
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: fetch, in: query, value: 2 }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: ordered
+              rows: [[12], [15]]
+
+  - workflowId: post-offset_fetch
+    summary: offset and fetch in the body page an ad-hoc POST result
+    description: >-
+      Executes the dataset magnitudes ORDER BY magnitude with POST, offset 1
+      and fetch 2 in the request body. The ordered result 12, 15, 15, 18 is
+      paged to [15, 15].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/query/Request.md
+      section: Common Headers and Query Parameters
+      quote: "All query execution requests SHOULD support at least the following parameters:"
+      level: should
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query with offset 1 and fetch 2 in the body.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS
+              COMPOSITION c CONTAINS OBSERVATION
+              o[openEHR-EHR-OBSERVATION.minimal.v1] ORDER BY
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+            offset: 1
+            fetch: 2
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: ordered
+              rows: [[15], [15]]
+
+  - workflowId: get-empty_ehr
+    summary: A query over an EHR with no COMPOSITION returns no rows
+    description: >-
+      Creates an EHR and commits nothing, then queries its COMPOSITIONs scoped
+      by the ehr_id query parameter. The result is an empty RESULT_SET,
+      answered 200.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+      section: description
+      quote: "`200 OK` is returned when the server is able to execute the query."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 201"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: query
+        description: >-
+          Execute the query scoped to the new EHR.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT c/name/value AS name FROM EHR e[ehr_id/value='{$inputs.ehr_id}'] CONTAINS COMPOSITION c
+          - name: ehr_id
+            in: query
+            value: $inputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 0
+
+  - workflowId: post-result_set_schema
+    summary: An ad-hoc POST answers a RESULT_SET of the declared schema
+    description: >-
+      Executes a query over the dataset with POST. The 200 body validates
+      against the RESULT_SET schema the operation declares.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+      section: description
+      quote: "`200 OK` is returned when the server is able to execute the query."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query over the dataset.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS
+              COMPOSITION c CONTAINS OBSERVATION
+              o[openEHR-EHR-OBSERVATION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: schema
+              against: oas
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: content
+              quote: "../schemas/query/ResultSet.yaml"
+
+  - workflowId: get-result_set_schema
+    summary: An ad-hoc GET answers a RESULT_SET of the declared schema
+    description: >-
+      Executes a query over the dataset with GET, scoped by the ehr_id query
+      parameter. The 200 body validates against the RESULT_SET schema the
+      operation declares.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+      section: description
+      quote: "`200 OK` is returned when the server is able to execute the query."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query over the dataset.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
+              OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1]
+          - name: ehr_id
+            in: query
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: schema
+              against: oas
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: content
+              quote: "../schemas/query/ResultSet.yaml"
+
+  - workflowId: get-content_type
+    summary: An ad-hoc GET answers with Content-Type application/json
+    description: >-
+      Executes a query over the dataset with GET and Accept application/json.
+      The 200 carries Content-Type application/json.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query and read the Content-Type.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
+              OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1]
+          - name: ehr_id
+            in: query
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - context: $response.header.Content-Type
+            type: regex
+            condition: "^application/json(;.*)?$"
+
+  - workflowId: get-etag_weak
+    summary: An ad-hoc GET that sends an ETag sends a weak one
+    description: >-
+      Executes a query over the dataset with GET. An ETag on the 200, which
+      identifies the RESULT_SET, carries the weakness indicator W/.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query and read the ETag.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
+              OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1]
+          - name: ehr_id
+            in: query
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - context: $response.header.ETag
+            type: regex
+            condition: "^(W/\".+\")?$"
+
+  - workflowId: get-no_location
+    summary: An ad-hoc GET answers without a Location header
+    description: >-
+      Executes a query over the dataset with GET. The 200 creates no resource
+      and redirects nowhere, so it carries no Location header.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Location
+      quote: "The `Location` header MUST ONLY be used for resource creation (e.g., `201 Created`) or redirect responses."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query and read the Location header.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
+              OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1]
+          - name: ehr_id
+            in: query
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - context: $response.header.Location
+            type: regex
+            condition: "^$"
+
+  - workflowId: post-content_type
+    summary: An ad-hoc POST answers with Content-Type application/json
+    description: >-
+      Executes a query over the dataset with POST and Accept application/json.
+      The 200 carries Content-Type application/json.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query and read the Content-Type.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS
+              COMPOSITION c CONTAINS OBSERVATION
+              o[openEHR-EHR-OBSERVATION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - context: $response.header.Content-Type
+            type: regex
+            condition: "^application/json(;.*)?$"
+
+  - workflowId: post-etag_weak
+    summary: An ad-hoc POST that sends an ETag sends a weak one
+    description: >-
+      Executes a query over the dataset with POST. An ETag on the 200, which
+      identifies the RESULT_SET, carries the weakness indicator W/.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query and read the ETag.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS
+              COMPOSITION c CONTAINS OBSERVATION
+              o[openEHR-EHR-OBSERVATION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - context: $response.header.ETag
+            type: regex
+            condition: "^(W/\".+\")?$"
+
+  - workflowId: post-no_location
+    summary: An ad-hoc POST answers without a Location header
+    description: >-
+      Executes a query over the dataset with POST. The 200 creates no resource
+      and redirects nowhere, so it carries no Location header.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Location
+      quote: "The `Location` header MUST ONLY be used for resource creation (e.g., `201 Created`) or redirect responses."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query and read the Location header.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS
+              COMPOSITION c CONTAINS OBSERVATION
+              o[openEHR-EHR-OBSERVATION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - context: $response.header.Location
+            type: regex
+            condition: "^$"

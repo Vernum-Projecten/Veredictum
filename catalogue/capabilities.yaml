@@ -120,6 +120,51 @@ options:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format
       quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  query-ehr-scope:
+    description: >-
+      Whether the service restricts an ad-hoc query to the EHR the ehr_id
+      query parameter names. The release lets the backend use the parameter
+      for routing and optimisation, so a service that treats it as a hint
+      declares the other arm, which has no document.
+    arms:
+      query-ehr-scope-filters:
+        documents: [aql_ehr_scope]
+      query-ehr-scope-hint:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/query/Request.md
+      section: About the ehr_id parameter
+      quote: "The `ehr_id` parameter SHOULD be supplied by clients when executing single EHR queries and MAY be used by the underlying backend to perform routing, optimizations or similar."
+      level: should
+  aql-top:
+    description: >-
+      Whether the service executes the deprecated TOP modifier. Release 1.1.0
+      deprecates TOP and announces its removal in a future major release, so a
+      service that declines it declares the other arm, which has no document.
+    arms:
+      aql-top-supported:
+        documents: [aqlc_top]
+      aql-top-declined:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: TOP
+      quote: "The `TOP` will be removed in a future major release of AQL specification."
+  aql-terminology:
+    description: >-
+      Whether the service resolves a TERMINOLOGY() call against an external
+      terminology server. Which servers a service reaches is its own
+      configuration, so a service that reaches none declares the other arm,
+      which has no document.
+    arms:
+      aql-terminology-supported:
+        documents: [aqlc_terminology]
+      aql-terminology-declined:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: TERMINOLOGY
+      quote: "The `TERMINOLOGY` function is used to invoke operations of an external terminology server and return the results for further processing by AQL."
   composition-flat-write:
     description: >-
       Whether the service processes a COMPOSITION sent in the Simplified Flat
@@ -166,3 +211,58 @@ options:
       section: Single-valued Attributes
       quote: "Two or more object blocks introduced by type names appearing after an attribute which is not a container (i.e. for which there is no cardinality constraint) are taken to be *alternative constraints*, only one of which needs to be matched by the data."
       report: 307
+  contribution-xml-read:
+    description: >-
+      Whether the service serves a CONTRIBUTION in canonical XML when a client
+      asks for it with Accept application/xml.
+    arms:
+      contribution-xml-supported:
+        documents: [contribution_read_xml]
+      contribution-xml-unsupported:
+        documents: [contribution_read_xml_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Services MUST support at least one of the openEHR **XML** or **JSON** canonical formats for resource representation."
+  contribution-xml-write:
+    description: >-
+      Whether the service processes a CONTRIBUTION sent as canonical XML on
+      the CONTRIBUTION create. No published XSD declares a document element
+      for CONTRIBUTION, so the accepting arm has no document yet.
+    arms:
+      contribution-xml-write-accepted:
+        documents: []
+      contribution-xml-write-refused:
+        documents: [contribution_xml_write_refused]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  directory-xml-read:
+    description: >-
+      Whether the service serves the directory FOLDER, latest and by
+      version_uid, in canonical XML when a client asks for it with Accept
+      application/xml.
+    arms:
+      directory-xml-supported:
+        documents: [directory_read_xml]
+      directory-xml-unsupported:
+        documents: [directory_read_xml_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Services MUST support at least one of the openEHR **XML** or **JSON** canonical formats for resource representation."
+  directory-xml-write:
+    description: >-
+      Whether the service processes a directory FOLDER sent as canonical XML
+      on the directory create and update. No published XSD declares a
+      document element for FOLDER, so the accepting arm has no document yet.
+    arms:
+      directory-xml-write-accepted:
+        documents: []
+      directory-xml-write-refused:
+        documents: [directory_xml_write_refused]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
