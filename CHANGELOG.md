@@ -47,6 +47,22 @@ version on.
   the extension. The evaluator also sends a list-valued query parameter as
   one pair per item, and leaves an RFC 6570 query expansion (`{?name*}`) in
   an OAS path key out of the request path.
+- The Simplified Formats cases are converted to Arazzo (#603). 75 workflows
+  in 20 documents under `catalogue/cases/simplified_formats/` commit flat and
+  structured COMPOSITIONs and judge the context defaults, the RM mappings of
+  each data value type, path indexing and level removal, `|raw`, `|other` and
+  the refusals the release requires, each refusal beside its valid twin; they
+  also cover a CONTRIBUTION written and read in both formats and the
+  deprecated and legacy media types. Four templates are uploaded by the new
+  set-up `_setup/simplified_formats.arazzo.yaml`. Eight new options in
+  `catalogue/capabilities.yaml`: `contribution-flat-write`,
+  `contribution-structured-write`, `contribution-flat-read`,
+  `contribution-structured-read`, `simplified-deprecated-write`,
+  `simplified-deprecated-read`, `simplified-legacy-write` and
+  `simplified-legacy-read`. All 71 old case ids are in `catalogue/id-map.yaml`:
+  63 carried, in whole or in part, and 8 not carried with their reason. Four
+  CONTRIBUTION gaps of #698 close, and the mappings still open are tracked
+  by #722.
 - The content cases are converted to Arazzo (#603). The 134 `CONT-*`
   decision tables become 360 workflows in 39 documents under
   `catalogue/cases/content/`, one workflow per case and outcome: content the
@@ -447,6 +463,10 @@ version on.
 
 ### Fixed
 
+- The Arazzo evaluator substitutes an embedded `{$…}` expression in every
+  string of a JSON payload or replacement value, at any depth (#740). It
+  substituted only in a payload that was itself a string, so an expression
+  nested in a JSON body reached the server as literal text.
 - Three content-recipe defects the content conversion (#603) found, each a
   runner fault and none a server one. A row whose `context_committed` cell
   is `absent` now commits no EVENT_CONTEXT; the authored token read as the
