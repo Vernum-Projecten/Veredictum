@@ -51,7 +51,7 @@ icondata_core = "0.1"
 # kit). Its `ssr` feature MUST ride the ssr gate below or its browser
 # primitives compile the wasm path into the native binary and panic at SSR
 # (a lesson learned live in FerroEHR's console).
-leptos-use = "0.19"
+leptos-use = "0.20"
 
 # The read seam's typed rows serialize across the server-fn wire on both
 # targets.
