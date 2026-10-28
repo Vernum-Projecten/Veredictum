@@ -70,6 +70,16 @@ precedence = "override"
 SPDX-FileCopyrightText = ["openEHR Foundation", "the respective archetype authors"]
 SPDX-License-Identifier = "CC-BY-SA-3.0 AND CC-BY-SA-4.0"
 
+# ── The performance schedule's payloads ─────────────────────────────────────
+# The request bodies and operational templates the measured instruments send,
+# copied byte-identically from the corpus entries of the same keys, so they
+# carry the declaration the corpus tree gives them.
+[[annotations]]
+path = "perf/payloads/**"
+precedence = "override"
+SPDX-FileCopyrightText = ["openEHR Foundation", "the respective archetype authors"]
+SPDX-License-Identifier = "CC-BY-SA-3.0 AND CC-BY-SA-4.0"
+
 # ── The embedded bench fixtures: third-party bytes inside our own tree ──────
 # A bench pack is compiled into the binary, so the bytes it offers a system
 # live under `app/` where the catch-all above would claim them for Veredictum.
