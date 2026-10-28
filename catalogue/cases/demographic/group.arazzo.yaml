@@ -1,0 +1,769 @@
+# The GROUP lifecycle of the Demographic API: create, read, update and delete,
+# the representation preferences, the misses and refusals of the version
+# conditions, as Arazzo 1.1.0 workflows over the released ITS-REST
+# `-validation` OAS. Every criterion resolves to an `x-veredictum-cite` (its
+# own, else its step's, else its workflow's), and every quote is copied
+# verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Group lifecycle
+  version: 0.1.0
+  description: >-
+    Creating, reading, updating and deleting a GROUP in canonical JSON. The
+    GROUP is an archetype root named group v1 and is updated to group v2. The
+    version_uid a create answers with is read from the uid of the
+    representation, and the versioned_object_uid of the container is derived
+    from it with x-veredictum-derive.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_group
+    summary: A GROUP is created and answered 201 with its representation
+    description: >-
+      Creates a GROUP whose archetype root carries archetype_details, asking
+      for the full representation. The create is answered 201 Created.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_GROUP.yaml
+      section: description
+      quote: "`201 Created` is returned when the GROUP is successfully created."
+    steps:
+      - &create
+        stepId: create
+        description: "Create the GROUP asking for the full representation, keep its version_uid and derive the versioned_object_uid of its container."
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: &v1_body
+          contentType: application/json
+          payload: &party_v1
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.group.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-GROUP.group.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Group One }
+        successCriteria:
+          - &created_status
+            condition: $statusCode == 201
+            x-veredictum-cite: &created
+              source: specs/openehr/ITS-REST/specifications/responses/201_GROUP.yaml
+              section: description
+              quote: "`201 Created` is returned when the GROUP is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+
+  - workflowId: create_group-representation
+    summary: The representation a GROUP create answers with is the GROUP sent
+    description: >-
+      Creates a GROUP asking for the full representation. The body is a GROUP
+      carrying the name and the archetype_node_id sent.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_GROUP.yaml
+      section: description
+      quote: "`201 Created` is returned when the GROUP is successfully created."
+    steps:
+      - stepId: create
+        description: Create the GROUP asking for the full representation.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - context: $response.body#/_type
+            type: regex
+            condition: '^GROUP$'
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^group v1$'
+          - context: $response.body#/archetype_node_id
+            type: regex
+            condition: '^openEHR-DEMOGRAPHIC-GROUP\.group\.v1$'
+
+  - workflowId: create_group-read_back
+    summary: A created GROUP is retrieved by the version_uid of its create
+    description: >-
+      Creates a GROUP, then retrieves it by the version_uid the create
+      answered with. The read is answered 200 with the GROUP created.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_GROUP_retrieved.yaml
+      section: description
+      quote: "`200 OK` is returned when the requested GROUP is successfully retrieved."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the GROUP.
+        operationId: $sourceDescriptions.demographic.group_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite: &retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_GROUP_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested GROUP is successfully retrieved."
+          - context: $response.body#/_type
+            type: regex
+            condition: '^GROUP$'
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^group v1$'
+
+  - workflowId: create_group-prefer_minimal
+    summary: "A GROUP create with Prefer return=minimal answers 201 with an empty body"
+    description: >-
+      Creates a GROUP with Prefer return=minimal. The create is answered 201
+      Created with no body.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_GROUP.yaml
+      section: description
+      quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+    steps:
+      - stepId: create
+        description: Create the GROUP asking for the minimal response.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - condition: $response.body == null
+
+  - workflowId: create_group-prefer_absent
+    summary: A GROUP create with no Prefer header answers 201 with an empty body
+    description: >-
+      Creates a GROUP with no Prefer header. Without the header the minimal
+      preference is assumed, so the create is answered 201 Created with no
+      body.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Representation details negotiation
+      quote: "If no `Prefer` header is provided, the default behavior is assumed to be `return=minimal`."
+    steps:
+      - stepId: create
+        description: Create the GROUP with no Prefer header.
+        operationId: $sourceDescriptions.demographic.group_create
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - condition: $response.body == null
+            x-veredictum-cite: &minimal_body
+              source: specs/openehr/ITS-REST/specifications/responses/201_GROUP.yaml
+              section: description
+              quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+
+  - workflowId: create_group-return_identifier
+    summary: "A GROUP create with Prefer return=identifier answers with the identifier"
+    description: >-
+      Creates a GROUP with Prefer return=identifier. The create is answered
+      201 Created, and the body should carry only the identifier of the new
+      version; the body is a recommendation, so a row lacking it is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer only identifier
+      quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+      level: should
+      report: 673
+    steps:
+      - stepId: create
+        description: Create the GROUP asking for its identifier only.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *created
+          - condition: $response.body#/uid != null
+          - condition: $response.body#/identities == null
+
+  - workflowId: get_group-latest
+    summary: A GROUP read by versioned_object_uid serves the latest version
+    description: >-
+      Creates a GROUP and updates it to its second content, then retrieves it
+      by the versioned_object_uid of its container without a version_at_time.
+      The latest version is served.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/group_get.yaml
+      section: description
+      quote: "otherwise retrieves the _latest_ GROUP version."
+    steps:
+      - *create
+      - &update_minimal
+        stepId: update
+        description: Update the GROUP to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody: &v2_body
+          contentType: application/json
+          payload: &party_v2
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.group.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-GROUP.group.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Group Two }
+        successCriteria:
+          - &no_content_updated
+            condition: $statusCode == 204
+            x-veredictum-cite: &minimal_updated
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: get
+        description: Retrieve the GROUP.
+        operationId: $sourceDescriptions.demographic.group_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^group v2$'
+
+  - workflowId: get_group-at_time
+    summary: A GROUP read at a time after its last version serves that version
+    description: >-
+      Creates a GROUP and updates it, then retrieves it by the
+      versioned_object_uid of its container at 2999-01-01. Nothing supersedes
+      the second version by then, so it is served.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/group_get.yaml
+      section: description
+      quote: "if the `version_at_time` is supplied, retrieves the version extant _at specified time_"
+    steps:
+      - *create
+      - *update_minimal
+      - stepId: get
+        description: Retrieve the GROUP.
+        operationId: $sourceDescriptions.demographic.group_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_at_time, in: query, value: "2999-01-01T00:00:00.000Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^group v2$'
+
+  - workflowId: get_group-at_time_before_first_version
+    summary: A GROUP read at a time before its first version is answered 404
+    description: >-
+      Creates a GROUP, then retrieves it by the versioned_object_uid of its
+      container at 2000-01-01, long before the create. No version exists at
+      that time, so the read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the GROUP.
+        operationId: $sourceDescriptions.demographic.group_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: version_at_time, in: query, value: "2000-01-01T00:00:00Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_group-unknown
+    summary: A GROUP read by a versioned_object_uid no container carries is answered 404
+    description: >-
+      Retrieves a GROUP by a freshly generated versioned_object_uid that no
+      container carries. The read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    inputs: &unknown_input
+      type: object
+      properties:
+        unknown: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        description: Retrieve the GROUP.
+        operationId: $sourceDescriptions.demographic.group_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $inputs.unknown }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: get_group-unknown_version
+    summary: A GROUP read by a version_uid no version carries is answered 404
+    description: >-
+      Retrieves a GROUP by a version_uid built from a freshly generated
+      object_id, which no version carries. The read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
+      section: description
+      quote: "`404 Not Found` is returned when either the URL configured doesn't exist at all, or the targeted resource doesn't exist, or when a VERSION of the resource does not exist at the specified `version_at_time`."
+    inputs: *unknown_input
+    steps:
+      - stepId: get
+        description: Retrieve the GROUP.
+        operationId: $sourceDescriptions.demographic.group_get
+        parameters:
+          - { name: uid_based_id, in: path, value: '{$inputs.unknown}::veredictum.example.org::1' }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: update_group
+    summary: A GROUP update under the latest version is answered 200 with the new GROUP
+    description: >-
+      Creates a GROUP, then updates it under the version_uid of the create,
+      asking for the full representation. The update is answered 200 with the
+      GROUP of the second content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_GROUP_updated.yaml
+      section: description
+      quote: "`200 OK` is returned when the GROUP is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+    steps:
+      - *create
+      - &update_repr
+        stepId: update
+        description: Update the GROUP to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: *v2_body
+        successCriteria:
+          - &ok_updated
+            condition: $statusCode == 200
+            x-veredictum-cite: &updated
+              source: specs/openehr/ITS-REST/specifications/responses/200_GROUP_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the GROUP is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^group v2$'
+
+  - workflowId: update_group-read_back
+    summary: The GROUP read after an update is the updated GROUP
+    description: >-
+      Creates a GROUP, updates it, then retrieves it by the
+      versioned_object_uid of its container. The read serves the second
+      content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/group_get.yaml
+      section: description
+      quote: "otherwise retrieves the _latest_ GROUP version."
+    steps:
+      - *create
+      - *update_repr
+      - stepId: get
+        description: Retrieve the GROUP.
+        operationId: $sourceDescriptions.demographic.group_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^group v2$'
+
+  - workflowId: update_group-prefer_minimal
+    summary: "A GROUP update with Prefer return=minimal is answered 204"
+    description: >-
+      Creates a GROUP, then updates it under the version_uid of the create
+      with Prefer return=minimal. The update is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+      section: description
+      quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+    steps:
+      - *create
+      - *update_minimal
+
+  - workflowId: update_group-prefer_absent
+    summary: A GROUP update with no Prefer header is answered 204
+    description: >-
+      Creates a GROUP, then updates it under the version_uid of the create
+      with no Prefer header. The update is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+      section: description
+      quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+    steps:
+      - *create
+      - stepId: update
+        description: Update the GROUP to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody: *v2_body
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: update_group-return_identifier
+    summary: "A GROUP update with Prefer return=identifier answers with the identifier"
+    description: >-
+      Creates a GROUP, then updates it with Prefer return=identifier. The
+      update succeeds with a 2xx status, and the body should carry only the
+      identifier of the new version; the body is a recommendation, so a row
+      lacking it is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+    steps:
+      - *create
+      - stepId: update
+        description: Update the GROUP to its second content under the version_uid of the create.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: *v2_body
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+          - condition: $response.body#/uid != null
+            x-veredictum-cite: &identifier_only
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+
+  - workflowId: update_group-stale_if_match
+    summary: A GROUP update whose If-Match names a superseded version is refused with 412
+    description: >-
+      Creates a GROUP, updates it once, then sends a second update under the
+      version the first update superseded. The second update is refused with
+      412 Precondition Failed and not performed: the latest version still
+      holds the second content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+    steps:
+      - *create
+      - *update_minimal
+      - stepId: stale
+        description: Update the GROUP under the superseded version_uid of the create.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *party_v1
+        successCriteria:
+          - &precondition_failed
+            condition: $statusCode == 412
+            x-veredictum-cite: &precondition
+              source: specs/openehr/ITS-REST/specifications/responses/412_GROUP.yaml
+              section: description
+              quote: "`412 Precondition Failed` is returned when `If-Match` request header doesn't match the latest version on the service side."
+      - stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &version_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_PARTY_at_time.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - context: $response.body#/data/name/value
+            type: regex
+            condition: '^group v2$'
+
+  - workflowId: update_group-unknown_preceding_version
+    summary: A GROUP update whose If-Match names a version the container never had is refused with 412
+    description: >-
+      Creates a GROUP, then updates it under an If-Match naming version 99 of
+      its container, which the container never had. The condition is false, so
+      the update is refused with 412 Precondition Failed and the latest
+      version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+    steps:
+      - *create
+      - stepId: update
+        description: Update the GROUP under an If-Match naming a version its container never had.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.versioned_object_uid}::veredictum.example.org::99"' }
+        requestBody: *v2_body
+        successCriteria:
+          - *precondition_failed
+      - &still_created
+        stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.create.outputs.version_uid}$'
+            x-veredictum-cite: &stale_refused
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: If-Match and accidental overwrites
+              quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+
+  - workflowId: update_group-missing_if_match
+    summary: A GROUP update sent without If-Match is refused with 400
+    description: >-
+      Creates a GROUP, then updates it with no If-Match header. The update is
+      refused with 400 Bad Request and the latest version is still the created
+      one. The rule is recommended, so a row that answers otherwise is
+      advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "When the service expects `If-Match` for an operation, but the client does not provide it, the service SHOULD respond with `400 Bad Request`."
+      level: should
+    steps:
+      - *create
+      - stepId: update
+        description: Update the GROUP with no If-Match.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+        requestBody: *v2_body
+        successCriteria:
+          - condition: $statusCode == 400
+      - *still_created
+
+  - workflowId: update_group-unknown
+    summary: An update of a versioned_object_uid no GROUP carries is answered 404
+    description: >-
+      Updates a GROUP at a freshly generated versioned_object_uid that no
+      container carries, under an If-Match naming its first version. The
+      update is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404.yaml
+      section: description
+      quote: "`404 Not Found` is returned when, based on the request parameters, the server did not find a current representation of a target resource, or is not willing to disclose that one exists."
+    inputs: *unknown_input
+    steps:
+      - stepId: update
+        description: Update a GROUP no container carries.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $inputs.unknown }
+          - { name: If-Match, in: header, value: '"{$inputs.unknown}::veredictum.example.org::1"' }
+        requestBody:
+          contentType: application/json
+          payload: *party_v2
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: delete_group
+    summary: The latest version of a GROUP is deleted with 204
+    description: >-
+      Creates a GROUP, then deletes it by the version_uid of the create. The
+      delete is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_deleted.yaml
+      section: description
+      quote: "`204 No Content` is returned for a successful delete operation."
+    steps:
+      - *create
+      - &delete
+        stepId: delete
+        description: Delete the GROUP.
+        operationId: $sourceDescriptions.demographic.group_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: delete_group-read_after
+    summary: A GROUP read by versioned_object_uid after a delete is answered 204
+    description: >-
+      Creates a GROUP and deletes it, then retrieves it by the
+      versioned_object_uid of its container. The latest version is the deleted
+      one, so the read is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_deleted_at_time.yaml
+      section: description
+      quote: "`204 No Content` is returned when the resource identified by the request parameters (at specified `version_at_time`) time has been deleted."
+    steps:
+      - *create
+      - *delete
+      - stepId: get
+        description: Retrieve the GROUP.
+        operationId: $sourceDescriptions.demographic.group_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: delete_group-already_deleted
+    summary: A second delete of a deleted GROUP is refused
+    description: >-
+      Creates a GROUP, deletes it, then sends the same delete again. The GROUP
+      is already deleted, so the second delete is refused with 400 Bad
+      Request. The version_uid it names is no longer the latest version, for
+      which the operation declares 409 Conflict, so either answer holds.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/400_already_deleted.yaml
+      section: description
+      quote: "or when the resource identified by the request parameters is already deleted."
+    steps:
+      - *create
+      - *delete
+      - stepId: delete-again
+        description: Delete the GROUP by the same version_uid again.
+        operationId: $sourceDescriptions.demographic.group_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(400|409)$'
+
+  - workflowId: delete_group-superseded_version
+    summary: A GROUP delete that names a superseded version is refused with 409 and not performed
+    description: >-
+      Creates a GROUP, updates it, then deletes it by the version_uid of the
+      create, which is no longer the latest version. The delete is refused
+      with 409 Conflict, and the latest version still holds the second
+      content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/409_GROUP_with_uid_based_id.yaml
+      section: description
+      quote: "`409 Conflict` is returned when supplied `uid_based_id` doesn't match the latest version."
+    steps:
+      - *create
+      - *update_minimal
+      - stepId: delete
+        description: Delete the GROUP.
+        operationId: $sourceDescriptions.demographic.group_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        successCriteria:
+          - condition: $statusCode == 409
+      - stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *version_retrieved
+          - context: $response.body#/data/name/value
+            type: regex
+            condition: '^group v2$'
+            x-veredictum-cite: *stale_refused
+
+  - workflowId: delete_group-unknown
+    summary: A delete of a version_uid no GROUP carries is answered 404
+    description: >-
+      Deletes a GROUP by a version_uid built from a freshly generated
+      object_id, which no version carries. The delete is answered 404 Not
+      Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404.yaml
+      section: description
+      quote: "`404 Not Found` is returned when, based on the request parameters, the server did not find a current representation of a target resource, or is not willing to disclose that one exists."
+    inputs: *unknown_input
+    steps:
+      - stepId: delete
+        description: Delete the GROUP.
+        operationId: $sourceDescriptions.demographic.group_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: '{$inputs.unknown}::veredictum.example.org::1' }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: delete_group-versioned_object_uid
+    summary: A GROUP delete addressed by a versioned_object_uid is refused with 400
+    description: >-
+      Creates a GROUP, then deletes it addressing the versioned_object_uid of
+      its container, where the operation takes the version_uid of the latest
+      version. The parameter is invalid, so the delete is answered 400 Bad
+      Request and the GROUP is not deleted.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/group_delete.yaml
+      section: description
+      quote: "The `uid_based_id` MUST be in a form of an OBJECT_VERSION_ID identifier taken from the last (most recent) VERSION.uid.value, representing the `preceding_version_uid` to be deleted."
+    steps:
+      - *create
+      - stepId: delete
+        description: Delete the GROUP.
+        operationId: $sourceDescriptions.demographic.group_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: &invalid_parameter
+              source: specs/openehr/ITS-REST/specifications/responses/400_already_deleted.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)"
+      - *still_created

@@ -1,0 +1,521 @@
+# Each PARTY kind written in canonical XML, for a service that does not
+# process XML request payloads on them: the refused arm of the
+# `party-xml-write` option. Every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: Party writes in canonical XML refused
+  version: 0.1.0
+  description: >-
+    Creating and updating each PARTY kind with a body labelled Content-Type
+    application/xml at a service that cannot process the payload as XML. No
+    published XSD declares a document element for a PARTY, so the payload
+    names its root element after the RM class.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_person-xml_refused
+    summary: A PERSON create in XML is refused with 415
+    description: >-
+      Creates a PERSON with a body labelled Content-Type application/xml at a
+      service that cannot process the payload as XML. The create is answered
+      415 Unsupported Media Type.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - stepId: create
+        description: Create the PERSON labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <person xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-PERSON.person.v1"><name><value>person v1</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-PERSON.person.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Person One</value></value></items></details></identities></person>
+        successCriteria:
+          - condition: $statusCode == 415
+
+  - workflowId: update_person-xml_refused
+    summary: A PERSON update in XML is refused with 415 and changes nothing
+    description: >-
+      Creates a PERSON in canonical JSON, then updates it with a body labelled
+      Content-Type application/xml at a service that cannot process the
+      payload as XML. The update is answered 415 Unsupported Media Type, and
+      the latest version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - stepId: create
+        description: Create the PERSON in canonical JSON and keep its version_uid.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &person_v1
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &person_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the PERSON with a body labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <person xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-PERSON.person.v1"><name><value>person v2</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-PERSON.person.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Person One</value></value></items></details></identities></person>
+        successCriteria:
+          - condition: $statusCode == 415
+      - &still_created
+        stepId: latest
+        description: Read the latest VERSION of the container.
+        operationId: $sourceDescriptions.demographic.versioned_party_version_get_at_time
+        parameters:
+          - { name: versioned_object_uid, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &version_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_PARTY_at_time.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$steps.create.outputs.version_uid}$'
+            x-veredictum-cite: &stale_refused
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: If-Match and accidental overwrites
+              quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
+
+  - workflowId: create_agent-xml_refused
+    summary: A AGENT create in XML is refused with 415
+    description: >-
+      Creates a AGENT with a body labelled Content-Type application/xml at a
+      service that cannot process the payload as XML. The create is answered
+      415 Unsupported Media Type.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - stepId: create
+        description: Create the AGENT labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.demographic.agent_create
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <agent xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-AGENT.agent.v1"><name><value>agent v1</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-AGENT.agent.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Agent One</value></value></items></details></identities></agent>
+        successCriteria:
+          - condition: $statusCode == 415
+
+  - workflowId: update_agent-xml_refused
+    summary: A AGENT update in XML is refused with 415 and changes nothing
+    description: >-
+      Creates a AGENT in canonical JSON, then updates it with a body labelled
+      Content-Type application/xml at a service that cannot process the
+      payload as XML. The update is answered 415 Unsupported Media Type, and
+      the latest version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - stepId: create
+        description: Create the AGENT in canonical JSON and keep its version_uid.
+        operationId: $sourceDescriptions.demographic.agent_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &agent_v1
+            _type: AGENT
+            name: { _type: DV_TEXT, value: agent v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-AGENT.agent.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-AGENT.agent.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Agent One }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &agent_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_AGENT.yaml
+              section: description
+              quote: "`201 Created` is returned when the AGENT is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the AGENT with a body labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.demographic.agent_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <agent xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-AGENT.agent.v1"><name><value>agent v2</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-AGENT.agent.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Agent One</value></value></items></details></identities></agent>
+        successCriteria:
+          - condition: $statusCode == 415
+      - *still_created
+
+  - workflowId: create_group-xml_refused
+    summary: A GROUP create in XML is refused with 415
+    description: >-
+      Creates a GROUP with a body labelled Content-Type application/xml at a
+      service that cannot process the payload as XML. The create is answered
+      415 Unsupported Media Type.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - stepId: create
+        description: Create the GROUP labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <group xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-GROUP.group.v1"><name><value>group v1</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-GROUP.group.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Group One</value></value></items></details></identities></group>
+        successCriteria:
+          - condition: $statusCode == 415
+
+  - workflowId: update_group-xml_refused
+    summary: A GROUP update in XML is refused with 415 and changes nothing
+    description: >-
+      Creates a GROUP in canonical JSON, then updates it with a body labelled
+      Content-Type application/xml at a service that cannot process the
+      payload as XML. The update is answered 415 Unsupported Media Type, and
+      the latest version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - stepId: create
+        description: Create the GROUP in canonical JSON and keep its version_uid.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &group_v1
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.group.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-GROUP.group.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Group One }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &group_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_GROUP.yaml
+              section: description
+              quote: "`201 Created` is returned when the GROUP is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the GROUP with a body labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <group xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-GROUP.group.v1"><name><value>group v2</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-GROUP.group.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Group One</value></value></items></details></identities></group>
+        successCriteria:
+          - condition: $statusCode == 415
+      - *still_created
+
+  - workflowId: create_organisation-xml_refused
+    summary: A ORGANISATION create in XML is refused with 415
+    description: >-
+      Creates a ORGANISATION with a body labelled Content-Type application/xml
+      at a service that cannot process the payload as XML. The create is
+      answered 415 Unsupported Media Type.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - stepId: create
+        description: Create the ORGANISATION labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.demographic.organisation_create
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <organisation xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1"><name><value>organisation v1</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Organisation One</value></value></items></details></identities></organisation>
+        successCriteria:
+          - condition: $statusCode == 415
+
+  - workflowId: update_organisation-xml_refused
+    summary: A ORGANISATION update in XML is refused with 415 and changes nothing
+    description: >-
+      Creates a ORGANISATION in canonical JSON, then updates it with a body
+      labelled Content-Type application/xml at a service that cannot process
+      the payload as XML. The update is answered 415 Unsupported Media Type,
+      and the latest version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - stepId: create
+        description: Create the ORGANISATION in canonical JSON and keep its version_uid.
+        operationId: $sourceDescriptions.demographic.organisation_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &organisation_v1
+            _type: ORGANISATION
+            name: { _type: DV_TEXT, value: organisation v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Organisation One }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &organisation_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_ORGANISATION.yaml
+              section: description
+              quote: "`201 Created` is returned when the ORGANISATION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the ORGANISATION with a body labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.demographic.organisation_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <organisation xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1"><name><value>organisation v2</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Organisation One</value></value></items></details></identities></organisation>
+        successCriteria:
+          - condition: $statusCode == 415
+      - *still_created
+
+  - workflowId: create_role-xml_refused
+    summary: A ROLE create in XML is refused with 415
+    description: >-
+      Creates a ROLE with a body labelled Content-Type application/xml at a
+      service that cannot process the payload as XML. The create is answered
+      415 Unsupported Media Type.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - &performer
+        stepId: performer
+        description: Create the PERSON that plays the ROLE and keep the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &performer_person
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role Performer }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &performer_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: create
+        description: Create the ROLE labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.demographic.role_create
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <role xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-ROLE.role.v1"><name><value>role v1</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-ROLE.role.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Role One</value></value></items></details></identities><performer><id xsi:type="HIER_OBJECT_ID"><value>{$steps.performer.outputs.versioned_object_uid}</value></id><namespace>demographic</namespace><type>PERSON</type></performer></role>
+        successCriteria:
+          - condition: $statusCode == 415
+
+  - workflowId: update_role-xml_refused
+    summary: A ROLE update in XML is refused with 415 and changes nothing
+    description: >-
+      Creates a ROLE in canonical JSON, then updates it with a body labelled
+      Content-Type application/xml at a service that cannot process the
+      payload as XML. The update is answered 415 Unsupported Media Type, and
+      the latest version is still the created one.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - *performer
+      - stepId: create
+        description: Create the ROLE in canonical JSON and keep its version_uid.
+        operationId: $sourceDescriptions.demographic.role_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &role_v1
+            _type: ROLE
+            name: { _type: DV_TEXT, value: role v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ROLE.role.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ROLE.role.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role One }
+            performer:
+              _type: PARTY_REF
+              namespace: demographic
+              type: PERSON
+              id: { _type: HIER_OBJECT_ID, value: "" }
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &role_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_ROLE.yaml
+              section: description
+              quote: "`201 Created` is returned when the ROLE is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the ROLE with a body labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <role xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-ROLE.role.v1"><name><value>role v2</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-ROLE.role.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Role One</value></value></items></details></identities><performer><id xsi:type="HIER_OBJECT_ID"><value>{$steps.performer.outputs.versioned_object_uid}</value></id><namespace>demographic</namespace><type>PERSON</type></performer></role>
+        successCriteria:
+          - condition: $statusCode == 415
+      - *still_created

@@ -1,0 +1,612 @@
+# The ITEM_TAG lists of a ORGANISATION version and of its VERSIONED_PARTY container:
+# read, replaced and deleted by key, the representation preferences, the
+# misses and the refused formats, as Arazzo 1.1.0 workflows over the
+# released ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Organisation tags
+  version: 0.1.0
+  description: >-
+    The ITEM_TAG list associated with a ORGANISATION version, addressed by its
+    version_uid, and with its VERSIONED_PARTY container, addressed by its
+    versioned_object_uid.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: organisation_tags_get-empty
+    summary: A ORGANISATION version no tag was written to has an empty tag list
+    description: >-
+      Creates a ORGANISATION, then retrieves the tags of the version the
+      create committed. Nothing has been associated with it, so the answer is
+      200 with an empty list.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/organisation_tags_get.yaml
+      section: description
+      quote: "This will return an empty list when there is no ITEM_TAG associated with the given target."
+    steps:
+      - &create
+        stepId: create
+        description: "Create the ORGANISATION asking for the full representation, keep its version_uid and derive the versioned_object_uid of its container."
+        operationId: $sourceDescriptions.demographic.organisation_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody: &v1_body
+          contentType: application/json
+          payload: &party_v1
+            _type: ORGANISATION
+            name: { _type: DV_TEXT, value: organisation v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Organisation One }
+        successCriteria:
+          - &created_status
+            condition: $statusCode == 201
+            x-veredictum-cite: &created
+              source: specs/openehr/ITS-REST/specifications/responses/201_ORGANISATION.yaml
+              section: description
+              quote: "`201 Created` is returned when the ORGANISATION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: get
+        description: Retrieve the tags of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &tags_list
+              source: specs/openehr/ITS-REST/specifications/responses/200_ORGANISATION_ItemTagList_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested ITEM_TAG list is successfully retrieved."
+          - &list_empty
+            condition: $response.body#/0 == null
+
+  - workflowId: organisation_tags_update-stores_tags
+    summary: "The tags a ORGANISATION version's tag list is updated with are read back"
+    description: >-
+      Creates a ORGANISATION, then updates the tag list of its version with
+      two tags and no Prefer header. The update answers 204, and the list read
+      back holds exactly the two tags.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/organisation_tags_update.yaml
+      section: description
+      quote: "Updates the list of all ITEM_TAG resources associated with a given target ORGANISATION version or VERSIONED_PARTY identified by `uid_based_id`."
+    steps:
+      - *create
+      - &tag_alpha_beta
+        stepId: tag
+        description: "Update the tag list of the ORGANISATION version with the tags alpha and beta, sending no Prefer header."
+        operationId: $sourceDescriptions.demographic.organisation_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+            - { key: beta, value: b }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: &tags_updated_minimal
+              source: specs/openehr/ITS-REST/specifications/responses/204_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: get
+        description: Retrieve the tags of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha' && @.value == 'a']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'beta' && @.value == 'b']"
+          - condition: $response.body#/2 == null
+
+  - workflowId: organisation_tags_update-return_representation
+    summary: "A ORGANISATION tag update with Prefer return=representation answers with the stored list"
+    description: >-
+      Updates the tag list of a ORGANISATION version with Prefer
+      return=representation. The answer is 200 in JSON with the list the
+      update stored. The released text recommends the representation, so the
+      row is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer minimal, identifier or full representation response
+      quote: "The response MAY include a `Location` header, and the response body SHOULD contain the full representation of the resource."
+      level: should
+    steps:
+      - *create
+      - stepId: tag
+        description: Update the tag list of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &tags_list_updated
+              source: specs/openehr/ITS-REST/specifications/responses/200_ORGANISATION_ItemTagList_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested ITEM_TAG list is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha' && @.value == 'a']"
+
+  - workflowId: organisation_tags_update-return_minimal
+    summary: "A ORGANISATION tag update with Prefer return=minimal answers 204"
+    description: >-
+      Updates the tag list of a ORGANISATION version with Prefer
+      return=minimal. The update answers 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_updated.yaml
+      section: description
+      quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+    steps:
+      - *create
+      - stepId: tag
+        description: Update the tag list of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: organisation_tags_update-return_identifier
+    summary: "A ORGANISATION tag update with Prefer return=identifier is not answered 204"
+    description: >-
+      Updates the tag list of a ORGANISATION version with Prefer
+      return=identifier. The identifier preference implies a non-empty body,
+      so the answer is 200 or 201 rather than 204, and the tag is stored. The
+      released text recommends the identifier body only, so the status
+      criterion is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer only identifier
+      quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+      level: should
+      report: 673
+    steps:
+      - *create
+      - stepId: tag
+        description: Update the tag list of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: &status_must
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+          - context: $statusCode
+            type: regex
+            condition: '^(200|201)$'
+      - stepId: get
+        description: Retrieve the tags of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha' && @.value == 'a']"
+            x-veredictum-cite: &tags_update
+              source: specs/openehr/ITS-REST/specifications/operations/organisation_tags_update.yaml
+              section: description
+              quote: "Updates the list of all ITEM_TAG resources associated with a given target ORGANISATION version or VERSIONED_PARTY identified by `uid_based_id`."
+
+  - workflowId: organisation_tags_get-unknown_uid
+    summary: A ORGANISATION tag read of a uid_based_id nothing carries is answered 404
+    description: >-
+      Retrieves the ORGANISATION tags of a freshly generated uid_based_id.
+      That uid_based_id does not exist, so the read is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_uid_based_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when the `uid_based_id` does not exist."
+    inputs: &unknown_input
+      type: object
+      properties:
+        unknown: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        description: Retrieve the tags of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $inputs.unknown }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: organisation_tags_update-unknown_uid
+    summary: A ORGANISATION tag update of a uid_based_id nothing carries is answered 404
+    description: >-
+      Updates the ORGANISATION tags of a freshly generated uid_based_id. That
+      uid_based_id does not exist, so the update is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_uid_based_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when the `uid_based_id` does not exist."
+    inputs: *unknown_input
+    steps:
+      - stepId: tag
+        description: Update the tag list of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $inputs.unknown }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: orphan }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: organisation_tags_delete-key_scoped
+    summary: A ORGANISATION tag delete removes the tags of the addressed key only
+    description: >-
+      Tags a ORGANISATION version with alpha and beta, then deletes the key
+      alpha. The delete answers 204, and the list read back holds beta only.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/organisation_tags_delete.yaml
+      section: description
+      quote: "Deletes the ITEM_TAG resource(s) identified by `tag_key`, associated with a given target ORGANISATION version or VERSIONED_PARTY identified by `uid_based_id`."
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: delete
+        description: "Delete the key alpha from the version's tags."
+        operationId: $sourceDescriptions.demographic.organisation_tags_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: key, in: path, value: alpha }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: &tags_deleted
+              source: specs/openehr/ITS-REST/specifications/responses/204_deleted.yaml
+              section: description
+              quote: "`204 No Content` is returned when the resource identified by the request parameters has been (logically) deleted."
+      - stepId: get
+        description: Retrieve the tags of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'beta']"
+          - condition: $response.body#/1 == null
+
+  - workflowId: organisation_tags_delete-unknown_key
+    summary: A ORGANISATION tag delete of a key no tag carries is answered 404 and removes nothing
+    description: >-
+      Tags a ORGANISATION version with alpha and beta, then deletes the key
+      gamma, which no tag carries. The delete is answered 404 Not Found, and
+      both tags are still read back.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_uid_based_id_or_key.yaml
+      section: description
+      quote: "`404 Not Found` is returned when the `uid_based_id` does not exist, or when the ITEM_TAG identified by the `key` does not exist."
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: delete
+        description: "Delete the key gamma from the version's tags."
+        operationId: $sourceDescriptions.demographic.organisation_tags_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: key, in: path, value: gamma }
+        successCriteria:
+          - condition: $statusCode == 404
+      - stepId: get
+        description: Retrieve the tags of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'beta']"
+
+  - workflowId: organisation_tags_update-non_array_body
+    summary: A ORGANISATION tag update whose body is not an array is answered 400
+    description: >-
+      Tags a ORGANISATION version with alpha and beta, then updates its tag
+      list with a JSON object where the operation's request body is an array
+      of UPDATE_ITEM_TAG. The content is syntactically invalid, so the update
+      is answered 400 Bad Request, and the list still holds both tags.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: tag-invalid
+        description: Update the tag list of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload: { key: gamma, value: c }
+        successCriteria:
+          - condition: $statusCode == 400
+      - &unchanged
+        stepId: get
+        description: Retrieve the tags of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *tags_list
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha']"
+          - condition: $response.body#/2 == null
+
+  - workflowId: organisation_tags_get-xml_not_acceptable
+    summary: A ORGANISATION tag list asked for as XML is answered 406
+    description: >-
+      Tags a ORGANISATION version, then retrieves its tags with Accept
+      application/xml. Canonical XML responses must conform to the published
+      XSDs, and no published XSD declares ITEM_TAG, so no conformant XML tag
+      list exists and the service answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: get
+        description: Retrieve the tags of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: organisation_tags_update-xml_not_acceptable
+    summary: A ORGANISATION tag update asking for its representation as XML is answered 406
+    description: >-
+      Updates the tag list of a ORGANISATION version with Prefer
+      return=representation and Accept application/xml. No published XSD
+      declares ITEM_TAG, so the service cannot answer with the representation
+      in XML and answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - *create
+      - stepId: tag
+        description: Update the tag list of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: organisation_tags_update-xml_unsupported_media
+    summary: A ORGANISATION tag list sent as XML is answered 415 and stores nothing
+    description: >-
+      Tags a ORGANISATION version with alpha and beta, then updates its tag
+      list with a body sent as application/xml. No published XSD declares
+      ITEM_TAG, so the service cannot process the payload as XML: it answers
+      415 Unsupported Media Type, and the list still holds both tags.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - *create
+      - *tag_alpha_beta
+      - stepId: tag-xml
+        description: Update the tag list of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.version_uid }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="utf-8"?>
+            <items><item><key>gamma</key><value>c</value></item></items>
+        successCriteria:
+          - condition: $statusCode == 415
+      - *unchanged
+
+  - workflowId: organisation_tags_get-person_uid
+    summary: "An ORGANISATION tag read of a PERSON's uid is answered 404"
+    description: >-
+      Creates a PERSON, then retrieves the ORGANISATION tags of the PERSON's
+      version. No ORGANISATION carries that uid_based_id, so the read is
+      answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_uid_based_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when the `uid_based_id` does not exist."
+    steps:
+      - &person
+        stepId: person
+        description: Create a PERSON and keep the version_uid of its representation.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &a_person
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &person_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve the tags of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.person.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: organisation_tags_update-person_uid
+    summary: "An ORGANISATION tag update of a PERSON's uid is answered 404"
+    description: >-
+      Creates a PERSON, then updates the ORGANISATION tags of the PERSON's
+      version. No ORGANISATION carries that uid_based_id, so the update is
+      answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_uid_based_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when the `uid_based_id` does not exist."
+    steps:
+      - *person
+      - stepId: tag
+        description: Update the tag list of the ORGANISATION.
+        operationId: $sourceDescriptions.demographic.organisation_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.person.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: organisation_tags_delete-person_uid
+    summary: "An ORGANISATION tag delete on a PERSON's uid is answered 404"
+    description: >-
+      Creates a PERSON and tags its version with alpha on the PERSON route,
+      then deletes the key alpha through the ORGANISATION route. No
+      ORGANISATION carries that uid_based_id, so the delete is answered 404
+      Not Found, and the PERSON's tag is still there.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_uid_based_id_or_key.yaml
+      section: description
+      quote: "`404 Not Found` is returned when the `uid_based_id` does not exist, or when the ITEM_TAG identified by the `key` does not exist."
+    steps:
+      - *person
+      - stepId: tag
+        description: Tag the PERSON version with alpha on the PERSON route.
+        operationId: $sourceDescriptions.demographic.person_tags_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.person.outputs.version_uid }
+        requestBody:
+          contentType: application/json
+          payload:
+            - { key: alpha, value: a }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite: *tags_updated_minimal
+      - stepId: delete
+        description: Delete the key alpha through the ORGANISATION route.
+        operationId: $sourceDescriptions.demographic.organisation_tags_delete
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.person.outputs.version_uid }
+          - { name: key, in: path, value: alpha }
+        successCriteria:
+          - condition: $statusCode == 404
+      - stepId: get
+        description: "Retrieve the PERSON version's tags."
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.person.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &person_tags_list
+              source: specs/openehr/ITS-REST/specifications/responses/200_PERSON_ItemTagList_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested ITEM_TAG list is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'alpha']"
+            x-veredictum-cite: &tags_delete
+              source: specs/openehr/ITS-REST/specifications/operations/organisation_tags_delete.yaml
+              section: description
+              quote: "Deletes the ITEM_TAG resource(s) identified by `tag_key`, associated with a given target ORGANISATION version or VERSIONED_PARTY identified by `uid_based_id`."

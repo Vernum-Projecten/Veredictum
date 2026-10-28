@@ -16,6 +16,14 @@ scope:
   - { api: definition, tag: Query }
   - { api: ehr, tag: DIRECTORY }
   - { api: ehr, tag: CONTRIBUTION }
+  - { api: demographic, tag: PERSON }
+  - { api: demographic, tag: AGENT }
+  - { api: demographic, tag: GROUP }
+  - { api: demographic, tag: ORGANISATION }
+  - { api: demographic, tag: ROLE }
+  - { api: demographic, tag: VERSIONED_PARTY }
+  - { api: demographic, tag: CONTRIBUTION }
+  - { api: demographic, tag: ITEM_TAG }
 # Each gap is a branch of the scoped surface no workflow reaches yet, and
 # names the issue that tracks it. An element counts as covered when every
 # arm of its option covers it.
@@ -149,3 +157,99 @@ gaps:
   - { api: ehr, operation: directory_get_at_time, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
   - { api: ehr, operation: directory_get_by_version_id, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
   - { api: ehr, operation: directory_get_by_version_id, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
+# The Demographic API gaps, covered by #733: the Simplified Formats on the
+# party operations, the XML answer of a party write, an XML request body on a
+# party write (whose accepting arm of `party-xml-write` has no document), XML
+# on the demographic CONTRIBUTION, and the 400 of the Demographic tag
+# listing, which no request provokes.
+  - { api: demographic, operation: agent_create, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: agent_create, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: agent_create, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: agent_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: agent_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: agent_create, header: Content-Type, value: application/xml, issue: 733 }
+  - { api: demographic, operation: agent_get, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: agent_get, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: agent_update, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: agent_update, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: agent_update, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: agent_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: agent_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: agent_update, header: Content-Type, value: application/xml, issue: 733 }
+  - { api: demographic, operation: contribution_create, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: contribution_create, header: Content-Type, value: application/xml, issue: 733 }
+  - { api: demographic, operation: contribution_get, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: demographic_tags_get, status: "400", issue: 733 }
+  - { api: demographic, operation: group_create, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: group_create, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: group_create, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: group_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: group_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: group_create, header: Content-Type, value: application/xml, issue: 733 }
+  - { api: demographic, operation: group_get, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: group_get, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: group_update, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: group_update, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: group_update, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: group_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: group_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: group_update, header: Content-Type, value: application/xml, issue: 733 }
+  - { api: demographic, operation: organisation_create, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: organisation_create, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: organisation_create, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: organisation_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: organisation_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: organisation_create, header: Content-Type, value: application/xml, issue: 733 }
+  - { api: demographic, operation: organisation_get, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: organisation_get, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: organisation_update, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: organisation_update, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: organisation_update, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: organisation_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: organisation_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: organisation_update, header: Content-Type, value: application/xml, issue: 733 }
+  - { api: demographic, operation: person_create, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: person_create, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: person_create, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: person_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: person_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: person_create, header: Content-Type, value: application/xml, issue: 733 }
+  - { api: demographic, operation: person_get, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: person_get, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: person_update, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: person_update, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: person_update, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: person_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: person_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: person_update, header: Content-Type, value: application/xml, issue: 733 }
+  - { api: demographic, operation: role_create, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: role_create, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: role_create, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: role_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: role_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: role_create, header: Content-Type, value: application/xml, issue: 733 }
+  - { api: demographic, operation: role_get, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: role_get, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: role_update, header: Accept, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: role_update, header: Accept, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: role_update, header: Accept, value: application/xml, issue: 733 }
+  - { api: demographic, operation: role_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 733 }
+  - { api: demographic, operation: role_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 733 }
+  - { api: demographic, operation: role_update, header: Content-Type, value: application/xml, issue: 733 }
+# The 404 the five party creates declare on a path with no parameter, which
+# no request can provoke: upstream report #732.
+  - { api: demographic, operation: agent_create, status: "404", issue: 732 }
+  - { api: demographic, operation: group_create, status: "404", issue: 732 }
+  - { api: demographic, operation: organisation_create, status: "404", issue: 732 }
+  - { api: demographic, operation: person_create, status: "404", issue: 732 }
+  - { api: demographic, operation: role_create, status: "404", issue: 732 }
+# The Content-Type the release declares on the body-less VERSIONED_PARTY
+# GETs: upstream report #687.
+  - { api: demographic, operation: versioned_party_get, header: Content-Type, value: application/json, issue: 687 }
+  - { api: demographic, operation: versioned_party_get, header: Content-Type, value: application/xml, issue: 687 }
+  - { api: demographic, operation: versioned_party_revision_history, header: Content-Type, value: application/json, issue: 687 }
+  - { api: demographic, operation: versioned_party_revision_history, header: Content-Type, value: application/xml, issue: 687 }
+  - { api: demographic, operation: versioned_party_version_get_at_time, header: Content-Type, value: application/json, issue: 687 }
+  - { api: demographic, operation: versioned_party_version_get_at_time, header: Content-Type, value: application/xml, issue: 687 }
+  - { api: demographic, operation: versioned_party_version_get_by_id, header: Content-Type, value: application/json, issue: 687 }
+  - { api: demographic, operation: versioned_party_version_get_by_id, header: Content-Type, value: application/xml, issue: 687 }

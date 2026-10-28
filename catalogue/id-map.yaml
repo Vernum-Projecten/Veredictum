@@ -444,6 +444,316 @@ cases:
       converted yet, tracked by #711.
   I_DEFINITION_QUERY.valid_query-valid:
     new: [definition_query/store_version-read_back]
+  I_DEMOGRAPHIC_SERVICE.create_party-aaaa:
+    new: [person/create_person, person/create_person-representation]
+  I_DEMOGRAPHIC_SERVICE.create_party-agent_contact_addresses_empty:
+    new: [agent_refused/create_agent-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-agent_identities_empty:
+    new: [agent_refused/create_agent-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-archetype_node_id_mismatch:
+    new: [person_refused/create_person-archetype_node_id_mismatch]
+  I_DEMOGRAPHIC_SERVICE.create_party-archetype_root_missing:
+    new: [person_refused/create_person-archetype_details_missing]
+  I_DEMOGRAPHIC_SERVICE.create_party-archetyped_content_accepted:
+    new: [person/create_person-archetyped_content]
+  I_DEMOGRAPHIC_SERVICE.create_party-bbbb:
+    new: [person_refused/create_person-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-capabilities_present_empty:
+    new: [role_refused/create_role-capabilities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-client_supplied_uid:
+    new: []
+    open: >-
+      person_create.yaml says nothing of a body uid on a create, the
+      silence upstream report #221 records for the content-object
+      creates, so neither keeping nor refusing the client's value is
+      assigned.
+  I_DEMOGRAPHIC_SERVICE.create_party-cluster_no_items:
+    new: [person_refused/create_person-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.create_party-contacts_present_empty:
+    new: [person_refused/create_person-contacts_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-error_body_content_type:
+    new: []
+    open: >-
+      The error body is a MAY (Requests_and_responses.md, HTTP status
+      codes), so a 400 without a body is conformant, and no criterion
+      can judge the Content-Type of a body only when one is present.
+  I_DEMOGRAPHIC_SERVICE.create_party-group_contact_addresses_empty:
+    new: [group_refused/create_group-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-group_identities_empty:
+    new: [group_refused/create_group-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-identity_details_missing:
+    new: [person_refused/create_person-identity_details_missing]
+  I_DEMOGRAPHIC_SERVICE.create_party-identity_details_wrong_type:
+    new: [person_refused/create_person-identity_details_wrong_type]
+  I_DEMOGRAPHIC_SERVICE.create_party-inline_relationships_verbatim:
+    new: [person/update_person-relationship_source_self]
+    open: >-
+      Carried on the update: a relationship must be sourced at its PARTY
+      (RM party.adoc, Relationships_validity), and a create cannot name
+      the container uid the server has not yet assigned. The case's own
+      body sourced the relationship at an unrelated literal, which
+      breaks that invariant.
+  I_DEMOGRAPHIC_SERVICE.create_party-item_tag_wrapper_headers:
+    new: [person_tags/person_tags_create-wrapper_headers]
+  I_DEMOGRAPHIC_SERVICE.create_party-kind_parity_agent:
+    new:
+      - agent/create_agent-read_back
+      - agent/create_agent-representation
+  I_DEMOGRAPHIC_SERVICE.create_party-kind_parity_group:
+    new:
+      - group/create_group-read_back
+      - group/create_group-representation
+  I_DEMOGRAPHIC_SERVICE.create_party-kind_parity_organisation:
+    new:
+      - organisation/create_organisation-read_back
+      - organisation/create_organisation-representation
+  I_DEMOGRAPHIC_SERVICE.create_party-kind_parity_role:
+    new: [role/create_role-read_back, role/create_role-representation]
+  I_DEMOGRAPHIC_SERVICE.create_party-organisation_contact_addresses_empty:
+    new:
+      - organisation_refused/create_organisation-contact_addresses_empty
+  I_DEMOGRAPHIC_SERVICE.create_party-organisation_identities_empty:
+    new: [organisation_refused/create_organisation-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-paragraph_no_items:
+    new: [person_refused/create_person-paragraph_no_items]
+  I_DEMOGRAPHIC_SERVICE.create_party-person_contact_addresses_empty:
+    new: [person_refused/create_person-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-person_identities_empty:
+    new: [person_refused/create_person-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-prefer_minimal:
+    new: [person/create_person-prefer_minimal]
+  I_DEMOGRAPHIC_SERVICE.create_party-relationship_source_foreign_container:
+    new: [person_refused/update_person-relationship_source_foreign]
+    open: >-
+      Carried on the update, where the PERSON's own container uid is
+      known; the create half rested on a client-supplied uid (see
+      create_party-client_supplied_uid).
+  I_DEMOGRAPHIC_SERVICE.create_party-relationship_source_is_the_container:
+    new: [person/update_person-relationship_source_self]
+    open: >-
+      Carried on the update; the create half rested on a client-supplied
+      uid, which the release does not assign (upstream report #221).
+  I_DEMOGRAPHIC_SERVICE.create_party-relationships_present_empty:
+    new: [person_refused/create_person-relationships_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-return_identifier:
+    new: [person/create_person-return_identifier]
+  I_DEMOGRAPHIC_SERVICE.create_party-role_contact_addresses_empty:
+    new: [role_refused/create_role-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-role_identities_empty:
+    new: [role_refused/create_role-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-role_root_identity_mismatch:
+    new: [role_refused/create_role-archetype_node_id_mismatch]
+  I_DEMOGRAPHIC_SERVICE.create_party-roles_present_empty:
+    new: [person_refused/create_person-roles_empty]
+  I_DEMOGRAPHIC_SERVICE.create_party-simplified_content_type:
+    new: []
+    open: >-
+      A PARTY in a Simplified Format needs an option whose accepting arm
+      sends one, which needs a demographic template. Tracked by #733.
+  I_DEMOGRAPHIC_SERVICE.create_party-version_lifecycle:
+    new: [versioned_party/create_person-version_lifecycle]
+  I_DEMOGRAPHIC_SERVICE.create_party-wrong_subtype_body:
+    new: [person_refused/create_person-wrong_type]
+  I_DEMOGRAPHIC_SERVICE.create_party-xml:
+    new: [party_xml_write_refused/create_person-xml_refused]
+  I_DEMOGRAPHIC_SERVICE.create_party_relationship-aaaa:
+    new: []
+    open: &no_relationship_route >-
+      The release defines no PARTY_RELATIONSHIP resource: the
+      Demographic API's routes are the five PARTY kinds,
+      VERSIONED_PARTY, CONTRIBUTION and the tag routes, and a
+      relationship is stored by value in the PARTY it is sourced at (RM
+      demographic master02-demographic_package.adoc, Party
+      Relationships). The by-value form is carried by
+      person/update_person-relationship_source_self and its refused
+      twin.
+  I_DEMOGRAPHIC_SERVICE.create_party_relationship-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.create_party_relationship-readonly_forbidden:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.create_party_relationship-root_identity_mismatch:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.create_party_relationship-unauthenticated:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.delete_party-aaaa:
+    new: [person/delete_person]
+  I_DEMOGRAPHIC_SERVICE.delete_party-already_deleted:
+    new: [person/delete_person-already_deleted]
+  I_DEMOGRAPHIC_SERVICE.delete_party-bbbb:
+    new: [person/delete_person-unknown]
+  I_DEMOGRAPHIC_SERVICE.delete_party-stale_version_conflict:
+    new: [person/delete_person-superseded_version]
+  I_DEMOGRAPHIC_SERVICE.delete_party_relationship-aaaa:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.delete_party_relationship-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.delete_party_relationship-stale_version_conflict:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party-aaaa:
+    new: [person/create_person-read_back]
+  I_DEMOGRAPHIC_SERVICE.get_party-bbbb:
+    new: [person/get_person-unknown]
+  I_DEMOGRAPHIC_SERVICE.get_party-wrong_kind_container:
+    new: [person/get_person-agent_route]
+  I_DEMOGRAPHIC_SERVICE.get_party-xml:
+    new: [party_read_xml/get_person-xml]
+  I_DEMOGRAPHIC_SERVICE.get_party-xml_not_acceptable:
+    new: [party_read_xml_not_acceptable/get_person-xml_not_acceptable]
+  I_DEMOGRAPHIC_SERVICE.get_party_at_time-aaaa:
+    new: [person/get_person-at_time, person/get_person-latest]
+  I_DEMOGRAPHIC_SERVICE.get_party_at_time-bbbb:
+    new:
+      - person/get_person-unknown
+      - person/get_person-at_time_before_first_version
+  I_DEMOGRAPHIC_SERVICE.get_party_at_time-deleted_current:
+    new: [person/delete_person-read_after]
+  I_DEMOGRAPHIC_SERVICE.get_party_at_time-xml:
+    new: [party_read_xml/get_versioned_party_version-xml]
+    open: >-
+      The XML read of the PERSON itself is by version_uid
+      (party_read_xml/get_person-xml); the read at a time is carried as
+      the latest VERSION of the container.
+  I_DEMOGRAPHIC_SERVICE.get_party_at_version-aaaa:
+    new: [person/create_person-read_back]
+  I_DEMOGRAPHIC_SERVICE.get_party_at_version-bbbb:
+    new: [person/get_person-unknown_version]
+  I_DEMOGRAPHIC_SERVICE.get_party_at_version-xml:
+    new: [party_read_xml/get_person-xml]
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship-aaaa:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship_at_time-aaaa:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship_at_time-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship_at_version-aaaa:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.get_party_relationship_at_version-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.update_party-aaaa:
+    new: [person/update_person, person/update_person-read_back]
+  I_DEMOGRAPHIC_SERVICE.update_party-agent_cluster_no_items:
+    new: [agent_refused/update_agent-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-agent_contact_addresses_empty:
+    new: [agent_refused/update_agent-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-agent_identities_empty:
+    new: [agent_refused/update_agent-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-agent_valid:
+    new: [agent/update_agent, agent/update_agent-read_back]
+  I_DEMOGRAPHIC_SERVICE.update_party-bbbb:
+    new: [person/update_person-stale_if_match]
+  I_DEMOGRAPHIC_SERVICE.update_party-case_variant_if_match:
+    new: []
+    open: >-
+      BASE master05-identification_package.adoc states the case rule
+      with a lower-case should ("should follow two rules with regard to
+      case"), and the evaluator has no way to change the case of a
+      captured identifier.
+  I_DEMOGRAPHIC_SERVICE.update_party-cluster_no_items:
+    new: [person_refused/update_person-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-contact_addresses_empty:
+    new: [person_refused/update_person-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-contacts_present_empty:
+    new: [person_refused/update_person-contacts_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-group_cluster_no_items:
+    new: [group_refused/update_group-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-group_contact_addresses_empty:
+    new: [group_refused/update_group-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-group_identities_empty:
+    new: [group_refused/update_group-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-group_valid:
+    new: [group/update_group, group/update_group-read_back]
+  I_DEMOGRAPHIC_SERVICE.update_party-identities_empty:
+    new: [person_refused/update_person-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-invalid_body:
+    new: [person_refused/update_person-identities_empty]
+    open: >-
+      The case's body is the empty identities list. RM party.adoc
+      defines no invariant on identities; the ITS-JSON schema's minItems
+      refuses the body, so the expectation is 400.
+  I_DEMOGRAPHIC_SERVICE.update_party-missing_if_match:
+    new: [person/update_person-missing_if_match]
+  I_DEMOGRAPHIC_SERVICE.update_party-organisation_cluster_no_items:
+    new: [organisation_refused/update_organisation-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-organisation_contact_addresses_empty:
+    new:
+      - organisation_refused/update_organisation-contact_addresses_empty
+  I_DEMOGRAPHIC_SERVICE.update_party-organisation_identities_empty:
+    new: [organisation_refused/update_organisation-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-organisation_valid:
+    new:
+      - organisation/update_organisation
+      - organisation/update_organisation-read_back
+  I_DEMOGRAPHIC_SERVICE.update_party-paragraph_no_items:
+    new: [person_refused/update_person-paragraph_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-prefer_minimal:
+    new: [person/update_person-prefer_minimal]
+  I_DEMOGRAPHIC_SERVICE.update_party-role_cluster_no_items:
+    new: [role_refused/update_role-cluster_no_items]
+  I_DEMOGRAPHIC_SERVICE.update_party-role_contact_addresses_empty:
+    new: [role_refused/update_role-contact_addresses_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-role_identities_empty:
+    new: [role_refused/update_role-identities_empty]
+  I_DEMOGRAPHIC_SERVICE.update_party-role_valid:
+    new: [role/update_role, role/update_role-read_back]
+  I_DEMOGRAPHIC_SERVICE.update_party-root_identity_mismatch:
+    new: [person_refused/update_person-archetype_node_id_mismatch]
+  I_DEMOGRAPHIC_SERVICE.update_party-unknown_container:
+    new: [person/update_person-unknown]
+  I_DEMOGRAPHIC_SERVICE.update_party-unknown_preceding_version:
+    new: [person/update_person-unknown_preceding_version]
+  I_DEMOGRAPHIC_SERVICE.update_party-weak_etag_accepted:
+    new: []
+    open: >-
+      If-Match.yaml says "The format is always an `version_uid`
+      identifier enclosed by double quotes", and no released sentence
+      says how a service compares a weak entity tag sent in If-Match.
+  I_DEMOGRAPHIC_SERVICE.update_party-weak_etag_stale:
+    new: [person/update_person-stale_if_match]
+    open: >-
+      The stale If-Match is sent in the strong form the release
+      prescribes.
+  I_DEMOGRAPHIC_SERVICE.update_party-xml:
+    new: [party_xml_write_refused/update_person-xml_refused]
+  I_DEMOGRAPHIC_SERVICE.update_party_relationship-aaaa:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.update_party_relationship-bbbb:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.update_party_relationship-invalid_body:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.update_party_relationship-missing_if_match:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.update_party_relationship-root_identity_mismatch:
+    new: []
+    open: *no_relationship_route
+  I_DEMOGRAPHIC_SERVICE.versioned_party_version_at_time:
+    new:
+      - versioned_party/get_versioned_party_version-latest
+      - versioned_party/get_versioned_party_version-at_time_future
+  I_DEMOGRAPHIC_SERVICE.versioned_party_version_read:
+    new: [versioned_party/get_versioned_party_version-by_id]
+  I_DEMOGRAPHIC_SERVICE.versioned_party_version_unknown:
+    new:
+      - versioned_party/get_versioned_party_version-unknown_version
+      - versioned_party/get_versioned_party_version-at_time_before_first_version
   I_EHR_COMPOSITION.create_composition-audit_system_id_declared:
     new: [composition_create/create_composition-audit_system_id_declared]
   I_EHR_COMPOSITION.create_composition-bulk_load_depth:
@@ -1104,6 +1414,28 @@ cases:
   I_EHR_CONTRIBUTION.commit_contribution-deleted_member_with_data:
     new: []
     open: *deleted_member
+  I_EHR_CONTRIBUTION.commit_contribution-demographic:
+    new:
+      - demographic_contribution/commit_demographic_contribution
+      - demographic_contribution/commit_demographic_contribution-read_back
+      - demographic_contribution/get_demographic_contribution
+  I_EHR_CONTRIBUTION.commit_contribution-demographic_client_uid:
+    new:
+      - demographic_contribution/commit_demographic_contribution-client_uid
+      - demographic_contribution/commit_demographic_contribution-client_uid_in_use
+  I_EHR_CONTRIBUTION.commit_contribution-demographic_cluster_no_items:
+    new:
+      - demographic_contribution/commit_demographic_contribution-cluster_no_items
+  I_EHR_CONTRIBUTION.commit_contribution-demographic_invalid_change_types:
+    new:
+      - demographic_contribution/commit_demographic_contribution-first_version_modification
+      - demographic_contribution/commit_demographic_contribution-first_version_amendment
+    open: >-
+      The modification and amendment rows expect 400
+      (400_CONTRIBUTION.yaml). The rows whose member carries change_type
+      or lifecycle_state 523 deleted are not carried: the released
+      commit DTO requires data on every member, so it has no deletion
+      shape.
   I_EHR_CONTRIBUTION.commit_contribution-demographic_kind_in_ehr:
     new: [contribution_create_refused/commit_contribution-demographic_kind]
   I_EHR_CONTRIBUTION.commit_contribution-deprecated_text_forms:
@@ -1114,6 +1446,13 @@ cases:
       content conversion, and the CONTRIBUTION adds no released branch of its
       own beyond commit_contribution-composition and
       commit_contribution-invalid_composition.
+  I_EHR_CONTRIBUTION.commit_contribution-ehr_kind_in_demographic:
+    new:
+      - demographic_contribution/commit_demographic_contribution-folder_member
+    open: >-
+      The demographic member data is a oneOf of the five PARTY kinds
+      (schemas/demographic/UVersionable.yaml), so a FOLDER member is a
+      body the schema refuses: 400, where the case expected 422.
   I_EHR_CONTRIBUTION.commit_contribution-ehr_not_modifiable:
     new: [contribution_create_refused/commit_contribution-ehr_not_modifiable]
     open: >-
@@ -1348,6 +1687,9 @@ cases:
     new: [contribution_read/get_contribution-unknown_contribution]
   I_EHR_CONTRIBUTION.get_contribution-bad_ehr:
     new: [contribution_read/get_contribution-unknown_ehr]
+  I_EHR_CONTRIBUTION.get_contribution-demographic_unknown:
+    new:
+      - demographic_contribution/get_demographic_contribution-unknown
   I_EHR_CONTRIBUTION.get_contribution-empty_ehr:
     new: [contribution_read/get_contribution-empty_ehr]
   I_EHR_CONTRIBUTION.get_contribution-existing:
@@ -1971,6 +2313,16 @@ cases:
     new: *xml_body
   I_EHR_STATUS.update_other_details-round_trip:
     new: [ehr_status_update/update-other_details]
+  I_ITS_REST_ITEM_TAGS.agent_tags_delete-key_scoped:
+    new: [agent_tags/agent_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.agent_tags_delete-unknown_key:
+    new: [agent_tags/agent_tags_delete-unknown_key]
+  I_ITS_REST_ITEM_TAGS.agent_tags_get-unknown_container:
+    new: [agent_tags/agent_tags_get-unknown_uid]
+  I_ITS_REST_ITEM_TAGS.agent_tags_update-non_array_body:
+    new: [agent_tags/agent_tags_update-non_array_body]
+  I_ITS_REST_ITEM_TAGS.agent_tags_update-unknown_container:
+    new: [agent_tags/agent_tags_update-unknown_uid]
   I_ITS_REST_ITEM_TAGS.composition_tags_delete-key_scoped:
     new: [composition_tags/composition_tags_delete-key_scoped]
   I_ITS_REST_ITEM_TAGS.composition_tags_delete-second_delete_not_found:
@@ -2067,6 +2419,12 @@ cases:
   I_ITS_REST_ITEM_TAGS.composition_tags_update-wrong_media:
     new:
       - composition_tags_refused/composition_tags_update-wrong_media
+  I_ITS_REST_ITEM_TAGS.demographic_tags_get-space_wide_listing:
+    new: [demographic_tags/demographic_tags_get-filter_key]
+    open: >-
+      The listing is filtered by a key unique to the run; the unfiltered
+      listing of a shared server holds whatever other parties stored and
+      is not judged.
   I_ITS_REST_ITEM_TAGS.ehr_status_tags_delete-key_scoped:
     new: [ehr_status_tags/ehr_status_tags_delete-key_scoped]
   I_ITS_REST_ITEM_TAGS.ehr_status_tags_delete-wrong_kind_uid:
@@ -2084,6 +2442,67 @@ cases:
     new: [ehr_tags/ehr_tags_get-ehr_wide_listing]
   I_ITS_REST_ITEM_TAGS.ehr_tags_get-unknown_ehr:
     new: [ehr_tags/ehr_tags_get-unknown_ehr]
+  I_ITS_REST_ITEM_TAGS.group_tags_delete-key_scoped:
+    new: [group_tags/group_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.group_tags_delete-unknown_key:
+    new: [group_tags/group_tags_delete-unknown_key]
+  I_ITS_REST_ITEM_TAGS.group_tags_get-unknown_container:
+    new: [group_tags/group_tags_get-unknown_uid]
+  I_ITS_REST_ITEM_TAGS.group_tags_update-non_array_body:
+    new: [group_tags/group_tags_update-non_array_body]
+  I_ITS_REST_ITEM_TAGS.group_tags_update-unknown_container:
+    new: [group_tags/group_tags_update-unknown_uid]
+  I_ITS_REST_ITEM_TAGS.organisation_tags_delete-key_scoped:
+    new: [organisation_tags/organisation_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.organisation_tags_delete-wrong_kind_uid:
+    new: [organisation_tags/organisation_tags_delete-person_uid]
+  I_ITS_REST_ITEM_TAGS.organisation_tags_get-wrong_kind_uid:
+    new: [organisation_tags/organisation_tags_get-person_uid]
+  I_ITS_REST_ITEM_TAGS.organisation_tags_update-non_array_body:
+    new: [organisation_tags/organisation_tags_update-non_array_body]
+  I_ITS_REST_ITEM_TAGS.organisation_tags_update-wrong_kind_uid:
+    new: [organisation_tags/organisation_tags_update-person_uid]
+  I_ITS_REST_ITEM_TAGS.person_tags_delete-key_scoped:
+    new: [person_tags/person_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.person_tags_delete-unknown_key:
+    new: [person_tags/person_tags_delete-unknown_key]
+  I_ITS_REST_ITEM_TAGS.person_tags_delete-version_container_disjoint:
+    new: [person_tags/person_tags_delete-version_container_disjoint]
+  I_ITS_REST_ITEM_TAGS.person_tags_get-container_target_shape:
+    new: [person_tags/person_tags_get-container_target_shape]
+    open: >-
+      owner_id is not judged: the released ITEM_TAG schema types it as
+      an OBJECT_REF and the demographic tag operations name no owner.
+  I_ITS_REST_ITEM_TAGS.person_tags_get-cross_space_composition_uid:
+    new: [person_tags/person_tags_get-ehr_status_uid]
+    open: >-
+      The EHR-space uid is an EHR_STATUS version_uid, which needs no
+      template upload, instead of a COMPOSITION's.
+  I_ITS_REST_ITEM_TAGS.person_tags_get-version_target_shape:
+    new: [person_tags/person_tags_get-version_target_shape]
+  I_ITS_REST_ITEM_TAGS.person_tags_update-empty_target_path_absent:
+    new: []
+    open: >-
+      The OAS types target_path as a string with no rule on an empty
+      one, and the docs text is silent.
+  I_ITS_REST_ITEM_TAGS.person_tags_update-key_target_path_identity:
+    new: [person_tags/person_tags_update-key_target_path_identity]
+  I_ITS_REST_ITEM_TAGS.person_tags_update-non_array_body:
+    new: [person_tags/person_tags_update-non_array_body]
+  I_ITS_REST_ITEM_TAGS.person_tags_update-unknown_container:
+    new: [person_tags/person_tags_update-unknown_uid]
+  I_ITS_REST_ITEM_TAGS.person_tags_update-version_container_disjoint:
+    new: [person_tags/person_tags_update-version_container_disjoint]
+  I_ITS_REST_ITEM_TAGS.role_tags_delete-key_scoped:
+    new: [role_tags/role_tags_delete-key_scoped]
+  I_ITS_REST_ITEM_TAGS.role_tags_delete-unknown_key:
+    new: [role_tags/role_tags_delete-unknown_key]
+  I_ITS_REST_ITEM_TAGS.role_tags_get-unknown_container:
+    new: [role_tags/role_tags_get-unknown_uid]
+  I_ITS_REST_ITEM_TAGS.role_tags_update-non_array_body:
+    new: [role_tags/role_tags_update-non_array_body]
+  I_ITS_REST_ITEM_TAGS.role_tags_update-unknown_container:
+    new: [role_tags/role_tags_update-unknown_uid]
   I_ITS_REST_REVISION_HISTORY.versioned_ehr_status_revision_history-bad_ehr:
     new:
       - ehr_status_versioned/get_versioned_ehr_status-revision_history-unknown_ehr
@@ -2102,6 +2521,22 @@ cases:
       items (upstream report #661).
   I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-unknown_container:
     new: [composition_versioned_read/get_versioned_composition-revision_history-unknown_versioned_object_uid]
+  I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-two_versions:
+    new: [versioned_party/get_versioned_party_revision_history]
+  I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-unknown_container:
+    new:
+      - versioned_party/get_versioned_party_revision_history-unknown
+  I_ITS_REST_VERSIONED_PARTY.versioned_party_get-container_shape:
+    new:
+      - versioned_party/get_versioned_party
+      - versioned_party/get_versioned_party-container_shape
+  I_ITS_REST_VERSIONED_PARTY.versioned_party_get-unknown_container:
+    new: [versioned_party/get_versioned_party-unknown]
+  I_ITS_REST_VERSIONED_PARTY.versioned_party_get-xml:
+    new: [party_read_xml/get_versioned_party-xml]
+  I_ITS_REST_VERSIONED_PARTY.versioned_party_get-xml_not_acceptable:
+    new:
+      - party_read_xml_not_acceptable/get_versioned_party-xml_not_acceptable
   I_QUERY_SERVICE.execute_ad_hoc_query-aggregates:
     new: [aql_semantics/aggregate-count, aql_semantics/aggregate-count_distinct, aql_semantics/aggregate-min, aql_semantics/aggregate-max, aql_semantics/aggregate-sum, aql_semantics/aggregate-avg]
   I_QUERY_SERVICE.execute_ad_hoc_query-aggregates_empty_set:
@@ -3492,44 +3927,3 @@ corpora:
         open: >-
           Not carried (level sensible). A VERSION class operand has no released
           semantics, upstream report #168.
-pending:
-  - I_EHR_CONTRIBUTION.commit_contribution-demographic
-  - I_EHR_CONTRIBUTION.commit_contribution-demographic_client_uid
-  - I_EHR_CONTRIBUTION.commit_contribution-demographic_cluster_no_items
-  - I_EHR_CONTRIBUTION.commit_contribution-demographic_invalid_change_types
-  - I_EHR_CONTRIBUTION.commit_contribution-ehr_kind_in_demographic
-  - I_EHR_CONTRIBUTION.get_contribution-demographic_unknown
-  - I_ITS_REST_ITEM_TAGS.agent_tags_delete-key_scoped
-  - I_ITS_REST_ITEM_TAGS.agent_tags_delete-unknown_key
-  - I_ITS_REST_ITEM_TAGS.agent_tags_get-unknown_container
-  - I_ITS_REST_ITEM_TAGS.agent_tags_update-non_array_body
-  - I_ITS_REST_ITEM_TAGS.agent_tags_update-unknown_container
-  - I_ITS_REST_ITEM_TAGS.demographic_tags_get-space_wide_listing
-  - I_ITS_REST_ITEM_TAGS.group_tags_delete-key_scoped
-  - I_ITS_REST_ITEM_TAGS.group_tags_delete-unknown_key
-  - I_ITS_REST_ITEM_TAGS.group_tags_get-unknown_container
-  - I_ITS_REST_ITEM_TAGS.group_tags_update-non_array_body
-  - I_ITS_REST_ITEM_TAGS.group_tags_update-unknown_container
-  - I_ITS_REST_ITEM_TAGS.organisation_tags_delete-key_scoped
-  - I_ITS_REST_ITEM_TAGS.organisation_tags_delete-wrong_kind_uid
-  - I_ITS_REST_ITEM_TAGS.organisation_tags_get-wrong_kind_uid
-  - I_ITS_REST_ITEM_TAGS.organisation_tags_update-non_array_body
-  - I_ITS_REST_ITEM_TAGS.organisation_tags_update-wrong_kind_uid
-  - I_ITS_REST_ITEM_TAGS.person_tags_delete-key_scoped
-  - I_ITS_REST_ITEM_TAGS.person_tags_delete-unknown_key
-  - I_ITS_REST_ITEM_TAGS.person_tags_delete-version_container_disjoint
-  - I_ITS_REST_ITEM_TAGS.person_tags_get-container_target_shape
-  - I_ITS_REST_ITEM_TAGS.person_tags_get-cross_space_composition_uid
-  - I_ITS_REST_ITEM_TAGS.person_tags_get-version_target_shape
-  - I_ITS_REST_ITEM_TAGS.person_tags_update-empty_target_path_absent
-  - I_ITS_REST_ITEM_TAGS.person_tags_update-key_target_path_identity
-  - I_ITS_REST_ITEM_TAGS.person_tags_update-non_array_body
-  - I_ITS_REST_ITEM_TAGS.person_tags_update-unknown_container
-  - I_ITS_REST_ITEM_TAGS.person_tags_update-version_container_disjoint
-  - I_ITS_REST_ITEM_TAGS.role_tags_delete-key_scoped
-  - I_ITS_REST_ITEM_TAGS.role_tags_delete-unknown_key
-  - I_ITS_REST_ITEM_TAGS.role_tags_get-unknown_container
-  - I_ITS_REST_ITEM_TAGS.role_tags_update-non_array_body
-  - I_ITS_REST_ITEM_TAGS.role_tags_update-unknown_container
-  - I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-two_versions
-  - I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-unknown_container
