@@ -55,6 +55,7 @@ use crate::arazzo::expr::{
 use crate::arazzo::gates::rows::{Aggregate, Declaration, InputShape, RowsFile};
 use crate::arazzo::har::{self, Har, HarTransport, PageContext, Recorded, RunRole};
 use crate::arazzo::oas::{OasError, ResponseSchemas};
+use crate::arazzo::principal::{Principal, principal_of};
 use crate::arazzo::results::{
     Engine, ExchangeRef, Explanation, ResultRow, Results, Skip, SkipReason, Status, Whose, Why,
 };
@@ -75,6 +76,12 @@ pub struct RunConfig {
     /// The deployment's declared signing posture, which the `signature`
     /// judge's `verifiable` fact reads.
     pub signing: Option<SigningMode>,
+    /// The `Authorization` header value sent on a step whose
+    /// `x-veredictum-principal` is `administrative`, if the party supplies
+    /// one. It is never recorded, and such a step is errored without it, so
+    /// a caller skips those workflows first
+    /// ([`crate::arazzo::principal::undeclared_skips`]).
+    pub administrative: Option<String>,
 }
 
 /// What the caller decides about the document's workflows before a run.
@@ -939,6 +946,27 @@ fn compose(
             return Err("a reusable parameter".to_owned());
         };
         if parameter.in_ == Some(ParameterLocation::Query)
+            && let ValueOrSelector::Literal(Value::Array(items)) = &parameter.value
+        {
+            // NOTE: OpenAPI 3.0.3 §Style Examples: an exploded `form` array is one pair per
+            // item (`id=3&id=4&id=5`); the request view keeps the items comma-joined.
+            let mut values = Vec::new();
+            for item in items {
+                let value = resolve_value(&ValueOrSelector::Literal(item.clone()), scope)
+                    .map_err(|e| e.to_string())?;
+                query.push(format!(
+                    "{}={}",
+                    urlencoding::encode(&parameter.name),
+                    urlencoding::encode(&value)
+                ));
+                values.push(value);
+            }
+            request
+                .query
+                .insert(parameter.name.clone(), values.join(","));
+            continue;
+        }
+        if parameter.in_ == Some(ParameterLocation::Query)
             && let ValueOrSelector::Literal(Value::Object(members)) = &parameter.value
         {
             for (name, value) in exploded(members, scope).map_err(|e| e.to_string())? {
@@ -972,7 +1000,7 @@ fn compose(
             other => return Err(format!("parameter location {other:?}")),
         }
     }
-    let mut path = operation.path.clone();
+    let mut path = without_query_expansions(&operation.path);
     for (name, value) in &request.path {
         path = path.replace(&format!("{{{name}}}"), &urlencoding::encode(value));
     }
@@ -1012,7 +1040,16 @@ fn compose(
         body = Some(payload);
     }
     let mut sent_headers = request.headers.clone();
-    if let Some(authorization) = &config.authorization {
+    let credential = match principal_of(step.extensions.as_ref()).map_err(|e| e.to_string())? {
+        Some(Principal::Administrative) => Some(
+            config
+                .administrative
+                .as_ref()
+                .ok_or("the administrative principal is not supplied")?,
+        ),
+        None => config.authorization.as_ref(),
+    };
+    if let Some(authorization) = credential {
         sent_headers
             .entry("authorization".to_owned())
             .or_insert_with(|| authorization.clone());
@@ -1024,6 +1061,28 @@ fn compose(
         body,
         body_is_json,
     })
+}
+
+/// `template` without its RFC 6570 §3.2.8 form-style query expansions
+/// (`{?name*}`) and §3.2.9 continuations (`{&name}`): the query parameters
+/// they name are sent from the step's own query parameters.
+fn without_query_expansions(template: &str) -> String {
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(start) = rest.find('{') {
+        let (head, tail) = rest.split_at(start);
+        out.push_str(head);
+        let expansion = tail.starts_with("{?") || tail.starts_with("{&");
+        match (expansion, tail.find('}')) {
+            (true, Some(end)) => rest = tail.get(end.saturating_add(1)..).unwrap_or_default(),
+            _ => {
+                out.push('{');
+                rest = tail.get(1..).unwrap_or_default();
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 /// A payload or replacement value as sent: a string that is a runtime
@@ -1129,6 +1188,7 @@ pub fn rejudge(
         base_url: recording.log.veredictum.base_url.clone(),
         authorization: None,
         signing,
+        administrative: Some(har::REDACTED.to_owned()),
     };
     let mut evaluator = Evaluator::new(document, name, config, repo_root)?;
     evaluator.replay = Some(
@@ -1275,6 +1335,7 @@ workflows:
             base_url: "http://sut/v1/".to_owned(),
             authorization: Some("Basic eDp5".to_owned()),
             signing: None,
+            administrative: Some("Basic YWRtaW46eA==".to_owned()),
         }
     }
 
@@ -2156,5 +2217,119 @@ workflows:
             Err(RunError::Replay(_))
         ));
         drop(dir);
+    }
+
+    const ADMIN_OAS: &str = "openapi: 3.0.3
+info: { title: t, version: '1' }
+paths:
+  /admin/ehr/{ehr_id}:
+    delete:
+      operationId: admin_ehr_delete
+      parameters: [{ name: ehr_id, in: path, required: true, schema: { type: string } }]
+      responses: { '204': { description: Deleted. } }
+  /admin/ehr/all{?ehr_id*}:
+    delete:
+      operationId: admin_ehr_delete_all
+      parameters: [{ name: ehr_id, in: query, style: form, explode: true, schema: { type: string } }]
+      responses: { '204': { description: Deleted. } }
+";
+
+    const ADMIN_DOC: &str = "arazzo: 1.1.0
+info: { title: t, version: '1' }
+sourceDescriptions:
+  - { name: admin, url: admin.yaml, type: openapi }
+workflows:
+  - workflowId: delete
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    inputs: { type: object, properties: { a: { type: string }, b: { type: string } } }
+    steps:
+      - stepId: one
+        description: Delete one.
+        operationId: $sourceDescriptions.admin.admin_ehr_delete
+        x-veredictum-principal: administrative
+        parameters: [{ name: ehr_id, in: path, value: $inputs.a }]
+        successCriteria: [{ condition: $statusCode == 204 }]
+      - stepId: some
+        description: Delete a subset.
+        operationId: $sourceDescriptions.admin.admin_ehr_delete_all
+        x-veredictum-principal: administrative
+        parameters: [{ name: ehr_id, in: query, value: [$inputs.a, '{$inputs.b}'] }]
+        successCriteria: [{ condition: $statusCode == 204 }]
+";
+
+    fn admin_document() -> (assert_fs::TempDir, ArazzoDocument) {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("admin.yaml").write_str(ADMIN_OAS).unwrap();
+        dir.child("doc.yaml").write_str(ADMIN_DOC).unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("doc.yaml")).unwrap();
+        (dir, document)
+    }
+
+    fn admin_plan() -> Plan {
+        let row = Row::from([
+            ("a".to_owned(), Value::from("e-1")),
+            ("b".to_owned(), Value::from("e 2")),
+        ]);
+        plan_with("delete", &[row], Iteration::ResetPerRow)
+    }
+
+    #[test]
+    fn an_administrative_step_is_sent_with_the_administrative_credential_and_a_list_query_explodes()
+    {
+        let (dir, document) = admin_document();
+        let mut transport = Scripted::new(&[(204, ""), (204, "")]);
+        let (results, har) = run_document(
+            &document,
+            "admin",
+            config(),
+            dir.path(),
+            &admin_plan(),
+            &mut transport,
+        )
+        .unwrap();
+        assert_eq!(only(&results).status, Status::Passed, "{results:?}");
+        let (_, url, headers) = transport.sent.first().unwrap();
+        assert_eq!(url, "http://sut/v1/admin/ehr/e-1");
+        assert_eq!(
+            headers.get("authorization").map(String::as_str),
+            Some("Basic YWRtaW46eA==")
+        );
+        let (_, url, _) = transport.sent.get(1).unwrap();
+        assert_eq!(url, "http://sut/v1/admin/ehr/all?ehr_id=e-1&ehr_id=e%202");
+        let text = har.to_text().unwrap();
+        assert!(!text.contains("YWRtaW46eA"), "{text}");
+        let replayed = rejudge(&document, "admin", dir.path(), None, &admin_plan(), &har).unwrap();
+        assert_eq!(replayed.to_text().unwrap(), results.to_text().unwrap());
+    }
+
+    #[test]
+    fn an_administrative_step_without_the_principal_is_errored_never_failed() {
+        let (dir, document) = admin_document();
+        let mut transport = Scripted::new(&[]);
+        let config = RunConfig {
+            administrative: None,
+            ..config()
+        };
+        let (results, _) = run_document(
+            &document,
+            "admin",
+            config,
+            dir.path(),
+            &admin_plan(),
+            &mut transport,
+        )
+        .unwrap();
+        assert_eq!(only(&results).status, Status::Errored);
+        assert!(transport.sent.is_empty());
+    }
+
+    #[test]
+    fn a_query_expansion_leaves_the_path_and_a_path_brace_stays() {
+        assert_eq!(
+            without_query_expansions("/admin/ehr/all{?ehr_id*}"),
+            "/admin/ehr/all"
+        );
+        assert_eq!(without_query_expansions("/a/{id}/b{&x}"), "/a/{id}/b");
+        assert_eq!(without_query_expansions("/a/{id"), "/a/{id");
     }
 }

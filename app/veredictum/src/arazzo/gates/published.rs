@@ -17,6 +17,7 @@ use crate::arazzo::derive::DERIVE_KEY;
 use crate::arazzo::document::CHECK_KEY;
 use crate::arazzo::gates::profile::ProfileHeader;
 use crate::arazzo::gates::surface::NegotiationHeader;
+use crate::arazzo::principal::PRINCIPAL_KEY;
 use crate::arazzo::recipe::{ContentClass, SynthesizedClass};
 use crate::vocab::Iteration;
 
@@ -109,8 +110,8 @@ fn check_def() -> Value {
     })
 }
 
-/// The `x-veredictum-cite`, `x-veredictum-check` and `x-veredictum-derive`
-/// extension objects.
+/// The `x-veredictum-cite`, `x-veredictum-check`, `x-veredictum-derive` and
+/// `x-veredictum-principal` extension objects.
 #[must_use]
 pub fn extensions_schema() -> Value {
     let roots: Vec<String> = ORACLE_ROOTS
@@ -120,8 +121,8 @@ pub fn extensions_schema() -> Value {
     json!({
         "$schema": DRAFT,
         "$id": urn("arazzo-extensions"),
-        "title": "The Arazzo catalogue's three specification extensions",
-        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state."),
+        "title": "The Arazzo catalogue's four specification extensions",
+        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state."),
         "$defs": {
             "cite": {
                 "type": "object",
@@ -156,6 +157,10 @@ pub fn extensions_schema() -> Value {
                 }
             },
             "check": check_def(),
+            "principal": {
+                "description": "The principal a step is sent as: `administrative` is a principal the service authorizes for its administrative operations.",
+                "enum": tokens(crate::arazzo::principal::Principal::ALL)
+            },
             "derive": {
                 "description": "New step outputs by name. Each applies one function of BASE `object_version_id.adoc` to an output the same step declares, whose value has the lexical form `object_id::creating_system_id::version_tree_id`; a value of another form makes the row errored.",
                 "type": "object",

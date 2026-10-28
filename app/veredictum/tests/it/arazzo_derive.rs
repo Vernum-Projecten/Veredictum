@@ -94,6 +94,7 @@ fn a_request_is_addressed_by_the_object_id_a_step_derives() -> Fallible {
         base_url: format!("{}/v1", sut.base_url()),
         authorization: None,
         signing: None,
+        administrative: None,
     };
     let (results, _) = run_document(
         &document,

@@ -13,7 +13,8 @@
 //! ```text
 //! cargo run --example arazzo_spike -- \
 //!     --base-url http://127.0.0.1:8080/ehrbase/rest/openehr/v1 \
-//!     --user alice --password secret --out target/arazzo-run
+//!     --user alice --password secret --admin-user root --admin-password secret \
+//!     --out target/arazzo-run
 //! cargo run --example arazzo_spike -- --rejudge target/arazzo-run/recording.har
 //! ```
 
@@ -26,6 +27,7 @@ use veredictum::arazzo::capabilities::Capabilities;
 use veredictum::arazzo::document::ArazzoDocument;
 use veredictum::arazzo::evaluate::{Plan, RunConfig, rejudge, run_document};
 use veredictum::arazzo::har::Har;
+use veredictum::arazzo::principal::{self, Principal};
 use veredictum::arazzo::rows::{self, rows_path};
 use veredictum::exec::transport::HttpTransport;
 
@@ -41,6 +43,13 @@ struct Args {
     /// The basic-auth password.
     #[arg(long, default_value = "")]
     password: String,
+    /// The basic-auth user of the administrative principal; without it,
+    /// every workflow with an administrative step is skipped as not declared.
+    #[arg(long)]
+    admin_user: Option<String>,
+    /// The basic-auth password of the administrative principal.
+    #[arg(long, default_value = "")]
+    admin_password: String,
     /// The Arazzo document to drive.
     #[arg(long, default_value = "catalogue/cases/ehr/ehr.arazzo.yaml")]
     document: PathBuf,
@@ -104,6 +113,29 @@ fn plan_for(
             }
         }
     }
+    // A recording ran the administrative workflows exactly when the recorded
+    // run was given the administrative principal.
+    let administrative = match &args.rejudge {
+        Some(path) => {
+            let recording = Har::read(path)?;
+            let prefix = format!("{name}/");
+            recording.log.pages.iter().any(|page| {
+                page.veredictum
+                    .case
+                    .strip_prefix(&prefix)
+                    .and_then(|id| document.workflow(id))
+                    .is_some_and(|w| principal::names(w, Principal::Administrative))
+            })
+        }
+        None => args.admin_user.is_some(),
+    };
+    if !administrative {
+        for (workflow, skip) in
+            principal::undeclared_skips(document, Principal::Administrative, &args.repo_root)
+        {
+            plan.skips.entry(workflow).or_insert(skip);
+        }
+    }
     for workflow in &document.description().workflows {
         let path = rows_path(&args.document, &workflow.workflow_id);
         if path.is_file() {
@@ -141,17 +173,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let results = rejudge(&document, name, &args.repo_root, None, &plan, &recording)?;
         (results, None)
     } else {
-        let authorization = args.user.as_ref().map(|user| {
-            let pair = format!("{user}:{}", args.password);
+        let basic = |user: &String, password: &str| {
+            let pair = format!("{user}:{password}");
             format!(
                 "Basic {}",
                 base64::engine::general_purpose::STANDARD.encode(pair)
             )
-        });
+        };
         let config = RunConfig {
             base_url: args.base_url.clone().ok_or("--base-url is required")?,
-            authorization,
+            authorization: args.user.as_ref().map(|user| basic(user, &args.password)),
             signing: None,
+            administrative: args
+                .admin_user
+                .as_ref()
+                .map(|user| basic(user, &args.admin_password)),
         };
         let mut transport = HttpTransport::new()?;
         let (results, recording) = run_document(
