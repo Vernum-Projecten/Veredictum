@@ -1,19 +1,19 @@
-# Template examples asked for with the legacy alternative media types, for a
-# service that does not serve them: the refusing arm of the
+# A template example asked for with the legacy ECISFLAT media type, for a
+# service that does not serve it: the refusing arm of the
 # `simplified-legacy-read` option, whose serving arm has no document because
-# the release defines neither format, as Arazzo 1.1.0 workflows over the
-# released ITS-REST `-validation` OAS.
+# the release does not define the format, as an Arazzo 1.1.0 workflow over
+# the released ITS-REST `-validation` OAS.
 # Every criterion resolves to an `x-veredictum-cite` (its own, else its
 # step's, else its workflow's), and every quote is copied verbatim from the
 # named vendored file.
 arazzo: 1.1.0
 info:
-  title: Template examples in the legacy alternative media types, not acceptable
+  title: Template examples in the legacy ECISFLAT media type, not acceptable
   version: 0.1.0
   description: >-
     An example of the template minimal_evaluation.en.v1 asked for as
-    application/openehr.nc.flat+json and as application/openehr.tds2+xml
-    from a service that does not serve those formats.
+    application/openehr.nc.flat+json from a service that does not serve
+    that format.
 sourceDescriptions:
   - name: definition
     url: ../../../specs/rest-oas/definition-validation.openapi.yaml
@@ -41,24 +41,5 @@ workflows:
         parameters:
           - { name: template_id, in: path, value: minimal_evaluation.en.v1 }
           - { name: Accept, in: header, value: application/openehr.nc.flat+json }
-        successCriteria:
-          - condition: $statusCode == 406
-
-  - workflowId: get_template_example-tds2_not_acceptable
-    summary: A template example asked for as application/openehr.tds2+xml is refused with 406
-    description: >-
-      Retrieves an example of the template minimal_evaluation.en.v1 with
-      Accept application/openehr.tds2+xml from a service that does not
-      serve the legacy TDS format. The read is answered 406 Not
-      Acceptable.
-    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
-    x-veredictum-cite: *not_acceptable
-    steps:
-      - stepId: example
-        description: Retrieve an example of the template minimal_evaluation.en.v1 with Accept application/openehr.tds2+xml.
-        operationId: $sourceDescriptions.definition.definition_template_adl1.4_example_get
-        parameters:
-          - { name: template_id, in: path, value: minimal_evaluation.en.v1 }
-          - { name: Accept, in: header, value: application/openehr.tds2+xml }
         successCriteria:
           - condition: $statusCode == 406

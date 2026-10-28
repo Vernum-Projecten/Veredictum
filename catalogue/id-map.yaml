@@ -4067,9 +4067,12 @@ cases:
   SF-LEGACY-nc_flat_media_unsupported:
     new: [legacy_write_refused/create_composition-nc_flat_media_unsupported]
   SF-LEGACY-tds2_accept_unsupported:
-    new: [legacy_example_not_acceptable/get_template_example-tds2_not_acceptable]
+    new: []
+    open: &tdd_out_of_scope >-
+      TDD/TDS is a legacy format of the Ocean tooling; out of scope by owner ruling (2026-10-28).
   SF-LEGACY-tds2_media_unsupported:
-    new: [legacy_write_refused/create_composition-tds2_media_unsupported]
+    new: []
+    open: *tdd_out_of_scope
   SF-LEVELS-collapsed_wrappers:
     new: [flat_mapping/create_composition-flat-collapsed_wrappers]
   SF-LEVELS-container_attribute_elision:
@@ -4313,57 +4316,52 @@ cases:
     open: *no_extract_route
   I_TDD_SERVICE.import_tdd-invalid:
     new: []
-    open: &no_tdd_route >-
-      The release defines no TDD import route: no released ITS-REST OAS
-      declares one, and Resources.md §Alternative data formats lists
-      application/openehr.tds2+xml only among the legacy or experimental
-      formats, bound to no operation. The case drove a /message/tdd
-      route of one server's own design.
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdd-nonconforming_body:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdd-readonly_forbidden:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdd-unauthenticated:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdd-unknown_ehr:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdd-unprovisioned_template:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdd-valid:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdd-wrong_media:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdds-atomicity_state_proof:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdds-bulk_invalid:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdds-bulk_valid:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdds-empty_batch:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdds-empty_batch_unknown_ehr:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdds-nonconforming_body:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdds-unknown_ehr:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   I_TDD_SERVICE.import_tdds-wrong_media:
     new: []
-    open: *no_tdd_route
+    open: *tdd_out_of_scope
   PERF-hospital_sim-class_L:
     new: []
     open: &perf_measured >-

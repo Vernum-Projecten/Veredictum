@@ -415,10 +415,10 @@ options:
     x-veredictum-cite: *deprecated
   simplified-legacy-write:
     description: >-
-      Whether the service processes a COMPOSITION sent with the legacy media
-      types application/openehr.nc.flat+json and application/openehr.tds2+xml.
-      The release names these formats and defines neither, so the accepting
-      arm has no document; a service that does not process them answers 415.
+      Whether the service processes a COMPOSITION sent with the legacy
+      ECISFLAT media type application/openehr.nc.flat+json. The release names
+      the format and does not define it, so the accepting arm has no
+      document; a service that does not process it answers 415.
     arms:
       simplified-legacy-write-accepted:
         documents: []
@@ -428,10 +428,9 @@ options:
   simplified-legacy-read:
     description: >-
       Whether the service serves a template example when a client asks for it
-      with the legacy media types application/openehr.nc.flat+json and
-      application/openehr.tds2+xml. The release names these formats and
-      defines neither, so the serving arm has no document; a service that
-      does not serve them answers 406.
+      with the legacy ECISFLAT media type application/openehr.nc.flat+json.
+      The release names the format and does not define it, so the serving
+      arm has no document; a service that does not serve it answers 406.
     arms:
       simplified-legacy-supported:
         documents: []
