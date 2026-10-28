@@ -12,14 +12,16 @@ info:
     Creating and updating a PERSON with content the service refuses. Each
     refused body differs from the valid PERSON of the lifecycle document in
     one defect, and each refused update leaves the latest version as the
-    create committed it.
+    create committed it. A 400 rests on the published ITS-JSON schema below
+    the root; its requirement of a uid on PERSON is not applied to a body
+    whose uid the service assigns (upstream report #741).
 sourceDescriptions:
   - name: demographic
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
     type: openapi
 workflows:
   - workflowId: create_person-wrong_type
-    summary: A AGENT body on the PERSON create is refused with 400
+    summary: An AGENT body on the PERSON create is refused with 400
     description: >-
       Creates a PERSON with a body whose _type is AGENT. The operation's
       request schema admits _type PERSON only, so the content is syntactically

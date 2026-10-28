@@ -12,8 +12,10 @@ info:
     Creating and updating a ROLE with content the service refuses. Each
     refused body differs from the valid ROLE of the lifecycle document in one
     defect, and each refused update leaves the latest version as the create
-    committed it. Every ROLE is performed by a PERSON the workflow creates
-    first.
+    committed it. A 400 rests on the published ITS-JSON schema below the root;
+    its requirement of a uid on ROLE is not applied to a body whose uid the
+    service assigns (upstream report #741). Every ROLE is performed by a
+    PERSON the workflow creates first.
 sourceDescriptions:
   - name: demographic
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml

@@ -124,9 +124,9 @@ workflows:
               quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
 
   - workflowId: create_agent-xml_refused
-    summary: A AGENT create in XML is refused with 415
+    summary: An AGENT create in XML is refused with 415
     description: >-
-      Creates a AGENT with a body labelled Content-Type application/xml at a
+      Creates an AGENT with a body labelled Content-Type application/xml at a
       service that cannot process the payload as XML. The create is answered
       415 Unsupported Media Type.
     x-veredictum-cite:
@@ -148,9 +148,9 @@ workflows:
           - condition: $statusCode == 415
 
   - workflowId: update_agent-xml_refused
-    summary: A AGENT update in XML is refused with 415 and changes nothing
+    summary: An AGENT update in XML is refused with 415 and changes nothing
     description: >-
-      Creates a AGENT in canonical JSON, then updates it with a body labelled
+      Creates an AGENT in canonical JSON, then updates it with a body labelled
       Content-Type application/xml at a service that cannot process the
       payload as XML. The update is answered 415 Unsupported Media Type, and
       the latest version is still the created one.
@@ -300,9 +300,9 @@ workflows:
       - *still_created
 
   - workflowId: create_organisation-xml_refused
-    summary: A ORGANISATION create in XML is refused with 415
+    summary: An ORGANISATION create in XML is refused with 415
     description: >-
-      Creates a ORGANISATION with a body labelled Content-Type application/xml
+      Creates an ORGANISATION with a body labelled Content-Type application/xml
       at a service that cannot process the payload as XML. The create is
       answered 415 Unsupported Media Type.
     x-veredictum-cite:
@@ -324,9 +324,9 @@ workflows:
           - condition: $statusCode == 415
 
   - workflowId: update_organisation-xml_refused
-    summary: A ORGANISATION update in XML is refused with 415 and changes nothing
+    summary: An ORGANISATION update in XML is refused with 415 and changes nothing
     description: >-
-      Creates a ORGANISATION in canonical JSON, then updates it with a body
+      Creates an ORGANISATION in canonical JSON, then updates it with a body
       labelled Content-Type application/xml at a service that cannot process
       the payload as XML. The update is answered 415 Unsupported Media Type,
       and the latest version is still the created one.

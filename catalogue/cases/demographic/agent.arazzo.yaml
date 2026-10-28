@@ -9,20 +9,22 @@ info:
   title: Agent lifecycle
   version: 0.1.0
   description: >-
-    Creating, reading, updating and deleting a AGENT in canonical JSON. The
+    Creating, reading, updating and deleting an AGENT in canonical JSON. The
     AGENT is an archetype root named agent v1 and is updated to agent v2. The
     version_uid a create answers with is read from the uid of the
     representation, and the versioned_object_uid of the container is derived
-    from it with x-veredictum-derive.
+    from it with x-veredictum-derive. The create body carries no uid, which
+    the service assigns, although the ITS-JSON definition of AGENT requires
+    one (upstream report #741).
 sourceDescriptions:
   - name: demographic
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
     type: openapi
 workflows:
   - workflowId: create_agent
-    summary: A AGENT is created and answered 201 with its representation
+    summary: An AGENT is created and answered 201 with its representation
     description: >-
-      Creates a AGENT whose archetype root carries archetype_details, asking
+      Creates an AGENT whose archetype root carries archetype_details, asking
       for the full representation. The create is answered 201 Created.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/201_AGENT.yaml
@@ -69,9 +71,9 @@ workflows:
           versioned_object_uid: { function: object_id, of: version_uid }
 
   - workflowId: create_agent-representation
-    summary: The representation a AGENT create answers with is the AGENT sent
+    summary: The representation an AGENT create answers with is the AGENT sent
     description: >-
-      Creates a AGENT asking for the full representation. The body is a AGENT
+      Creates an AGENT asking for the full representation. The body is an AGENT
       carrying the name and the archetype_node_id sent.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/201_AGENT.yaml
@@ -103,7 +105,7 @@ workflows:
   - workflowId: create_agent-read_back
     summary: A created AGENT is retrieved by the version_uid of its create
     description: >-
-      Creates a AGENT, then retrieves it by the version_uid the create
+      Creates an AGENT, then retrieves it by the version_uid the create
       answered with. The read is answered 200 with the AGENT created.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/200_AGENT_retrieved.yaml
@@ -132,9 +134,9 @@ workflows:
             condition: '^agent v1$'
 
   - workflowId: create_agent-prefer_minimal
-    summary: "A AGENT create with Prefer return=minimal answers 201 with an empty body"
+    summary: "An AGENT create with Prefer return=minimal answers 201 with an empty body"
     description: >-
-      Creates a AGENT with Prefer return=minimal. The create is answered 201
+      Creates an AGENT with Prefer return=minimal. The create is answered 201
       Created with no body.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/201_AGENT.yaml
@@ -155,9 +157,9 @@ workflows:
           - condition: $response.body == null
 
   - workflowId: create_agent-prefer_absent
-    summary: A AGENT create with no Prefer header answers 201 with an empty body
+    summary: An AGENT create with no Prefer header answers 201 with an empty body
     description: >-
-      Creates a AGENT with no Prefer header. Without the header the minimal
+      Creates an AGENT with no Prefer header. Without the header the minimal
       preference is assumed, so the create is answered 201 Created with no
       body.
     x-veredictum-cite:
@@ -181,9 +183,9 @@ workflows:
               quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
 
   - workflowId: create_agent-return_identifier
-    summary: "A AGENT create with Prefer return=identifier answers with the identifier"
+    summary: "An AGENT create with Prefer return=identifier answers with the identifier"
     description: >-
-      Creates a AGENT with Prefer return=identifier. The create is answered
+      Creates an AGENT with Prefer return=identifier. The create is answered
       201 Created, and the body should carry only the identifier of the new
       version; the body is a recommendation, so a row lacking it is advisory.
     x-veredictum-cite:
@@ -209,9 +211,9 @@ workflows:
           - condition: $response.body#/identities == null
 
   - workflowId: get_agent-latest
-    summary: A AGENT read by versioned_object_uid serves the latest version
+    summary: An AGENT read by versioned_object_uid serves the latest version
     description: >-
-      Creates a AGENT and updates it to its second content, then retrieves it
+      Creates an AGENT and updates it to its second content, then retrieves it
       by the versioned_object_uid of its container without a version_at_time.
       The latest version is served.
     x-veredictum-cite:
@@ -269,9 +271,9 @@ workflows:
             condition: '^agent v2$'
 
   - workflowId: get_agent-at_time
-    summary: A AGENT read at a time after its last version serves that version
+    summary: An AGENT read at a time after its last version serves that version
     description: >-
-      Creates a AGENT and updates it, then retrieves it by the
+      Creates an AGENT and updates it, then retrieves it by the
       versioned_object_uid of its container at 2999-01-01. Nothing supersedes
       the second version by then, so it is served.
     x-veredictum-cite:
@@ -296,9 +298,9 @@ workflows:
             condition: '^agent v2$'
 
   - workflowId: get_agent-at_time_before_first_version
-    summary: A AGENT read at a time before its first version is answered 404
+    summary: An AGENT read at a time before its first version is answered 404
     description: >-
-      Creates a AGENT, then retrieves it by the versioned_object_uid of its
+      Creates an AGENT, then retrieves it by the versioned_object_uid of its
       container at 2000-01-01, long before the create. No version exists at
       that time, so the read is answered 404 Not Found.
     x-veredictum-cite:
@@ -318,9 +320,9 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: get_agent-unknown
-    summary: A AGENT read by a versioned_object_uid no container carries is answered 404
+    summary: An AGENT read by a versioned_object_uid no container carries is answered 404
     description: >-
-      Retrieves a AGENT by a freshly generated versioned_object_uid that no
+      Retrieves an AGENT by a freshly generated versioned_object_uid that no
       container carries. The read is answered 404 Not Found.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
@@ -341,9 +343,9 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: get_agent-unknown_version
-    summary: A AGENT read by a version_uid no version carries is answered 404
+    summary: An AGENT read by a version_uid no version carries is answered 404
     description: >-
-      Retrieves a AGENT by a version_uid built from a freshly generated
+      Retrieves an AGENT by a version_uid built from a freshly generated
       object_id, which no version carries. The read is answered 404 Not Found.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/404_not_found_or_no_version_at_time.yaml
@@ -361,9 +363,9 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: update_agent
-    summary: A AGENT update under the latest version is answered 200 with the new AGENT
+    summary: An AGENT update under the latest version is answered 200 with the new AGENT
     description: >-
-      Creates a AGENT, then updates it under the version_uid of the create,
+      Creates an AGENT, then updates it under the version_uid of the create,
       asking for the full representation. The update is answered 200 with the
       AGENT of the second content.
     x-veredictum-cite:
@@ -396,7 +398,7 @@ workflows:
   - workflowId: update_agent-read_back
     summary: The AGENT read after an update is the updated AGENT
     description: >-
-      Creates a AGENT, updates it, then retrieves it by the
+      Creates an AGENT, updates it, then retrieves it by the
       versioned_object_uid of its container. The read serves the second
       content.
     x-veredictum-cite:
@@ -420,9 +422,9 @@ workflows:
             condition: '^agent v2$'
 
   - workflowId: update_agent-prefer_minimal
-    summary: "A AGENT update with Prefer return=minimal is answered 204"
+    summary: "An AGENT update with Prefer return=minimal is answered 204"
     description: >-
-      Creates a AGENT, then updates it under the version_uid of the create
+      Creates an AGENT, then updates it under the version_uid of the create
       with Prefer return=minimal. The update is answered 204 No Content.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
@@ -433,9 +435,9 @@ workflows:
       - *update_minimal
 
   - workflowId: update_agent-prefer_absent
-    summary: A AGENT update with no Prefer header is answered 204
+    summary: An AGENT update with no Prefer header is answered 204
     description: >-
-      Creates a AGENT, then updates it under the version_uid of the create
+      Creates an AGENT, then updates it under the version_uid of the create
       with no Prefer header. The update is answered 204 No Content.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
@@ -454,9 +456,9 @@ workflows:
           - condition: $statusCode == 204
 
   - workflowId: update_agent-return_identifier
-    summary: "A AGENT update with Prefer return=identifier answers with the identifier"
+    summary: "An AGENT update with Prefer return=identifier answers with the identifier"
     description: >-
-      Creates a AGENT, then updates it with Prefer return=identifier. The
+      Creates an AGENT, then updates it with Prefer return=identifier. The
       update succeeds with a 2xx status, and the body should carry only the
       identifier of the new version; the body is a recommendation, so a row
       lacking it is advisory.
@@ -488,9 +490,9 @@ workflows:
               report: 673
 
   - workflowId: update_agent-stale_if_match
-    summary: A AGENT update whose If-Match names a superseded version is refused with 412
+    summary: An AGENT update whose If-Match names a superseded version is refused with 412
     description: >-
-      Creates a AGENT, updates it once, then sends a second update under the
+      Creates an AGENT, updates it once, then sends a second update under the
       version the first update superseded. The second update is refused with
       412 Precondition Failed and not performed: the latest version still
       holds the second content.
@@ -534,9 +536,9 @@ workflows:
             condition: '^agent v2$'
 
   - workflowId: update_agent-unknown_preceding_version
-    summary: A AGENT update whose If-Match names a version the container never had is refused with 412
+    summary: An AGENT update whose If-Match names a version the container never had is refused with 412
     description: >-
-      Creates a AGENT, then updates it under an If-Match naming version 99 of
+      Creates an AGENT, then updates it under an If-Match naming version 99 of
       its container, which the container never had. The condition is false, so
       the update is refused with 412 Precondition Failed and the latest
       version is still the created one.
@@ -574,9 +576,9 @@ workflows:
               quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
 
   - workflowId: update_agent-missing_if_match
-    summary: A AGENT update sent without If-Match is refused with 400
+    summary: An AGENT update sent without If-Match is refused with 400
     description: >-
-      Creates a AGENT, then updates it with no If-Match header. The update is
+      Creates an AGENT, then updates it with no If-Match header. The update is
       refused with 400 Bad Request and the latest version is still the created
       one. The rule is recommended, so a row that answers otherwise is
       advisory.
@@ -600,7 +602,7 @@ workflows:
   - workflowId: update_agent-unknown
     summary: An update of a versioned_object_uid no AGENT carries is answered 404
     description: >-
-      Updates a AGENT at a freshly generated versioned_object_uid that no
+      Updates an AGENT at a freshly generated versioned_object_uid that no
       container carries, under an If-Match naming its first version. The
       update is answered 404 Not Found.
     x-veredictum-cite:
@@ -610,7 +612,7 @@ workflows:
     inputs: *unknown_input
     steps:
       - stepId: update
-        description: Update a AGENT no container carries.
+        description: Update an AGENT no container carries.
         operationId: $sourceDescriptions.demographic.agent_update
         parameters:
           - { name: uid_based_id, in: path, value: $inputs.unknown }
@@ -622,9 +624,9 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: delete_agent
-    summary: The latest version of a AGENT is deleted with 204
+    summary: The latest version of an AGENT is deleted with 204
     description: >-
-      Creates a AGENT, then deletes it by the version_uid of the create. The
+      Creates an AGENT, then deletes it by the version_uid of the create. The
       delete is answered 204 No Content.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/204_version_deleted.yaml
@@ -642,9 +644,9 @@ workflows:
           - condition: $statusCode == 204
 
   - workflowId: delete_agent-read_after
-    summary: A AGENT read by versioned_object_uid after a delete is answered 204
+    summary: An AGENT read by versioned_object_uid after a delete is answered 204
     description: >-
-      Creates a AGENT and deletes it, then retrieves it by the
+      Creates an AGENT and deletes it, then retrieves it by the
       versioned_object_uid of its container. The latest version is the deleted
       one, so the read is answered 204 No Content.
     x-veredictum-cite:
@@ -666,7 +668,7 @@ workflows:
   - workflowId: delete_agent-already_deleted
     summary: A second delete of a deleted AGENT is refused
     description: >-
-      Creates a AGENT, deletes it, then sends the same delete again. The AGENT
+      Creates an AGENT, deletes it, then sends the same delete again. The AGENT
       is already deleted, so the second delete is refused with 400 Bad
       Request. The version_uid it names is no longer the latest version, for
       which the operation declares 409 Conflict, so either answer holds.
@@ -688,9 +690,9 @@ workflows:
             condition: '^(400|409)$'
 
   - workflowId: delete_agent-superseded_version
-    summary: A AGENT delete that names a superseded version is refused with 409 and not performed
+    summary: An AGENT delete that names a superseded version is refused with 409 and not performed
     description: >-
-      Creates a AGENT, updates it, then deletes it by the version_uid of the
+      Creates an AGENT, updates it, then deletes it by the version_uid of the
       create, which is no longer the latest version. The delete is refused
       with 409 Conflict, and the latest version still holds the second
       content.
@@ -725,7 +727,7 @@ workflows:
   - workflowId: delete_agent-unknown
     summary: A delete of a version_uid no AGENT carries is answered 404
     description: >-
-      Deletes a AGENT by a version_uid built from a freshly generated
+      Deletes an AGENT by a version_uid built from a freshly generated
       object_id, which no version carries. The delete is answered 404 Not
       Found.
     x-veredictum-cite:
@@ -743,9 +745,9 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: delete_agent-versioned_object_uid
-    summary: A AGENT delete addressed by a versioned_object_uid is refused with 400
+    summary: An AGENT delete addressed by a versioned_object_uid is refused with 400
     description: >-
-      Creates a AGENT, then deletes it addressing the versioned_object_uid of
+      Creates an AGENT, then deletes it addressing the versioned_object_uid of
       its container, where the operation takes the version_uid of the latest
       version. The parameter is invalid, so the delete is answered 400 Bad
       Request and the AGENT is not deleted.

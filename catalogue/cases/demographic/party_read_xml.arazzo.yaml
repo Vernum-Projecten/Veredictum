@@ -76,9 +76,9 @@ workflows:
             condition: '^application/xml'
 
   - workflowId: get_agent-xml
-    summary: A AGENT read with Accept application/xml is served in XML
+    summary: An AGENT read with Accept application/xml is served in XML
     description: >-
-      Creates a AGENT, then retrieves it by the version_uid of the create
+      Creates an AGENT, then retrieves it by the version_uid of the create
       asking for canonical XML. A service that serves XML answers 200 with
       Content-Type application/xml.
     x-veredictum-cite:
@@ -194,9 +194,9 @@ workflows:
             condition: '^application/xml'
 
   - workflowId: get_organisation-xml
-    summary: A ORGANISATION read with Accept application/xml is served in XML
+    summary: An ORGANISATION read with Accept application/xml is served in XML
     description: >-
-      Creates a ORGANISATION, then retrieves it by the version_uid of the
+      Creates an ORGANISATION, then retrieves it by the version_uid of the
       create asking for canonical XML. A service that serves XML answers 200
       with Content-Type application/xml.
     x-veredictum-cite:

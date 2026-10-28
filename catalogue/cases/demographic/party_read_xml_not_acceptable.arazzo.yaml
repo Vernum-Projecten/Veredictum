@@ -73,9 +73,9 @@ workflows:
           - condition: $statusCode == 406
 
   - workflowId: get_agent-xml_not_acceptable
-    summary: A AGENT read with Accept application/xml is refused with 406
+    summary: An AGENT read with Accept application/xml is refused with 406
     description: >-
-      Creates a AGENT, then retrieves it by the version_uid of the create
+      Creates an AGENT, then retrieves it by the version_uid of the create
       asking for canonical XML. A service that does not serve XML answers 406
       Not Acceptable.
     x-veredictum-cite:
@@ -185,9 +185,9 @@ workflows:
           - condition: $statusCode == 406
 
   - workflowId: get_organisation-xml_not_acceptable
-    summary: A ORGANISATION read with Accept application/xml is refused with 406
+    summary: An ORGANISATION read with Accept application/xml is refused with 406
     description: >-
-      Creates a ORGANISATION, then retrieves it by the version_uid of the
+      Creates an ORGANISATION, then retrieves it by the version_uid of the
       create asking for canonical XML. A service that does not serve XML
       answers 406 Not Acceptable.
     x-veredictum-cite:

@@ -13,7 +13,9 @@ info:
     GROUP is an archetype root named group v1 and is updated to group v2. The
     version_uid a create answers with is read from the uid of the
     representation, and the versioned_object_uid of the container is derived
-    from it with x-veredictum-derive.
+    from it with x-veredictum-derive. The create body carries no uid, which
+    the service assigns, although the ITS-JSON definition of GROUP requires
+    one (upstream report #741).
 sourceDescriptions:
   - name: demographic
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml

@@ -12,7 +12,9 @@ info:
     Committing a CONTRIBUTION to the Demographic API in canonical JSON. Every
     member and every envelope audit is the commit DTO the released OAS
     declares (schemas/demographic/NewContribution.yaml, UpdateVersion.yaml and
-    schemas/common/UpdateAudit.yaml).
+    schemas/common/UpdateAudit.yaml). A CONTRIBUTION or PERSON body without a
+    uid is valid for the operation, although the ITS-JSON definitions of both
+    require one (upstream report #741).
 sourceDescriptions:
   - name: demographic
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml

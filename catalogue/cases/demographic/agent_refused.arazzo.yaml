@@ -9,10 +9,12 @@ info:
   title: Agent writes refused
   version: 0.1.0
   description: >-
-    Creating and updating a AGENT with content the service refuses. Each
+    Creating and updating an AGENT with content the service refuses. Each
     refused body differs from the valid AGENT of the lifecycle document in one
     defect, and each refused update leaves the latest version as the create
-    committed it.
+    committed it. A 400 rests on the published ITS-JSON schema below the root;
+    its requirement of a uid on AGENT is not applied to a body whose uid the
+    service assigns (upstream report #741).
 sourceDescriptions:
   - name: demographic
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
@@ -21,7 +23,7 @@ workflows:
   - workflowId: create_agent-wrong_type
     summary: A PERSON body on the AGENT create is refused with 400
     description: >-
-      Creates a AGENT with a body whose _type is PERSON. The operation's
+      Creates an AGENT with a body whose _type is PERSON. The operation's
       request schema admits _type AGENT only, so the content is syntactically
       invalid and the create is answered 400 Bad Request.
     x-veredictum-cite:
@@ -62,9 +64,9 @@ workflows:
               quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
 
   - workflowId: create_agent-identities_empty
-    summary: A AGENT whose identities list is empty is refused with 400
+    summary: An AGENT whose identities list is empty is refused with 400
     description: >-
-      Creates a AGENT whose identities list is present and empty. The
+      Creates an AGENT whose identities list is present and empty. The
       published ITS-JSON schema (openehr_rm_1.1.0_all.json, AGENT.identities,
       minItems 1) refuses the body, so it is syntactically invalid content,
       and the create is answered 400 Bad Request.
@@ -91,9 +93,9 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_agent-contact_addresses_empty
-    summary: A AGENT whose CONTACT has an empty addresses list is refused with 400
+    summary: An AGENT whose CONTACT has an empty addresses list is refused with 400
     description: >-
-      Creates a AGENT with one CONTACT whose addresses list is present and
+      Creates an AGENT with one CONTACT whose addresses list is present and
       empty. The published ITS-JSON schema (openehr_rm_1.1.0_all.json,
       CONTACT.addresses, minItems 1) refuses the body, so it is syntactically
       invalid content, and the create is answered 400 Bad Request.
@@ -137,9 +139,9 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_agent-archetype_details_missing
-    summary: A AGENT archetype root without archetype_details is refused with 422
+    summary: An AGENT archetype root without archetype_details is refused with 422
     description: >-
-      Creates a AGENT whose archetype_node_id is the archetype id
+      Creates an AGENT whose archetype_node_id is the archetype id
       openEHR-DEMOGRAPHIC-AGENT.agent.v1 and which carries no
       archetype_details. Every PARTY is an archetype root, and an archetype
       root carries archetype_details, so the schema-valid body breaks an RM
@@ -183,9 +185,9 @@ workflows:
               quote: "is_archetype_root xor archetype_details = Void"
 
   - workflowId: update_agent-identities_empty
-    summary: A AGENT update whose identities list is empty is refused with 400
+    summary: An AGENT update whose identities list is empty is refused with 400
     description: >-
-      Creates a AGENT, then updates it with content whose identities list is
+      Creates an AGENT, then updates it with content whose identities list is
       present and empty. The published ITS-JSON schema
       (openehr_rm_1.1.0_all.json, AGENT.identities, minItems 1) refuses the
       body, so it is syntactically invalid content, so the update is answered
@@ -267,9 +269,9 @@ workflows:
               quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
 
   - workflowId: update_agent-contact_addresses_empty
-    summary: A AGENT update whose CONTACT has an empty addresses list is refused with 400
+    summary: An AGENT update whose CONTACT has an empty addresses list is refused with 400
     description: >-
-      Creates a AGENT, then updates it with content holding one CONTACT whose
+      Creates an AGENT, then updates it with content holding one CONTACT whose
       addresses list is empty. The published ITS-JSON schema
       (openehr_rm_1.1.0_all.json, CONTACT.addresses, minItems 1) refuses the
       body, so it is syntactically invalid content, so the update is answered
@@ -295,9 +297,9 @@ workflows:
       - *still_created
 
   - workflowId: update_agent-cluster_no_items
-    summary: A AGENT update holding a CLUSTER with no items is refused with 400
+    summary: An AGENT update holding a CLUSTER with no items is refused with 400
     description: >-
-      Creates a AGENT, then updates it with content whose identity details
+      Creates an AGENT, then updates it with content whose identity details
       hold a CLUSTER with an empty items list. The published ITS-JSON schema
       (openehr_rm_1.1.0_all.json, CLUSTER.items, minItems 1) refuses the body,
       so it is syntactically invalid content, so the update is answered 400
@@ -344,9 +346,9 @@ workflows:
       - *still_created
 
   - workflowId: update_agent-archetype_details_missing
-    summary: A AGENT update whose archetype root has no archetype_details is refused with 422
+    summary: An AGENT update whose archetype root has no archetype_details is refused with 422
     description: >-
-      Creates a AGENT, then updates it with content whose archetype_node_id is
+      Creates an AGENT, then updates it with content whose archetype_node_id is
       an archetype id and which carries no archetype_details. The schema-valid
       body breaks an RM invariant, so the update is answered 422 and the
       latest version is still the created one.
@@ -371,9 +373,9 @@ workflows:
       - *still_created
 
   - workflowId: create_agent-archetype_node_id_mismatch
-    summary: A AGENT whose root archetype_node_id differs from its archetype_id is refused with 422
+    summary: An AGENT whose root archetype_node_id differs from its archetype_id is refused with 422
     description: >-
-      Creates a AGENT whose archetype_details names
+      Creates an AGENT whose archetype_details names
       openEHR-DEMOGRAPHIC-AGENT.agent.v1 while its archetype_node_id is
       openEHR-DEMOGRAPHIC-AGENT.other.v1. At an archetype root the node id is
       the archetype_id, so the schema-valid body breaks an RM rule and the

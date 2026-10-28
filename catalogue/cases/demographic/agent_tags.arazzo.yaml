@@ -1,4 +1,4 @@
-# The ITEM_TAG lists of a AGENT version and of its VERSIONED_PARTY container:
+# The ITEM_TAG lists of an AGENT version and of its VERSIONED_PARTY container:
 # read, replaced and deleted by key, the representation preferences, the
 # misses and the refused formats, as Arazzo 1.1.0 workflows over the
 # released ITS-REST `-validation` OAS. Every criterion resolves to an
@@ -9,7 +9,7 @@ info:
   title: Agent tags
   version: 0.1.0
   description: >-
-    The ITEM_TAG list associated with a AGENT version, addressed by its
+    The ITEM_TAG list associated with an AGENT version, addressed by its
     version_uid, and with its VERSIONED_PARTY container, addressed by its
     versioned_object_uid.
 sourceDescriptions:
@@ -18,9 +18,9 @@ sourceDescriptions:
     type: openapi
 workflows:
   - workflowId: agent_tags_get-empty
-    summary: A AGENT version no tag was written to has an empty tag list
+    summary: An AGENT version no tag was written to has an empty tag list
     description: >-
-      Creates a AGENT, then retrieves the tags of the version the create
+      Creates an AGENT, then retrieves the tags of the version the create
       committed. Nothing has been associated with it, so the answer is 200
       with an empty list.
     x-veredictum-cite:
@@ -82,9 +82,9 @@ workflows:
             condition: $response.body#/0 == null
 
   - workflowId: agent_tags_update-stores_tags
-    summary: "The tags a AGENT version's tag list is updated with are read back"
+    summary: "The tags an AGENT version's tag list is updated with are read back"
     description: >-
-      Creates a AGENT, then updates the tag list of its version with two tags
+      Creates an AGENT, then updates the tag list of its version with two tags
       and no Prefer header. The update answers 204, and the list read back
       holds exactly the two tags.
     x-veredictum-cite:
@@ -128,9 +128,9 @@ workflows:
           - condition: $response.body#/2 == null
 
   - workflowId: agent_tags_update-return_representation
-    summary: "A AGENT tag update with Prefer return=representation answers with the stored list"
+    summary: "An AGENT tag update with Prefer return=representation answers with the stored list"
     description: >-
-      Updates the tag list of a AGENT version with Prefer
+      Updates the tag list of an AGENT version with Prefer
       return=representation. The answer is 200 in JSON with the list the
       update stored. The released text recommends the representation, so the
       row is advisory.
@@ -163,9 +163,9 @@ workflows:
             condition: "$[?@.key == 'alpha' && @.value == 'a']"
 
   - workflowId: agent_tags_update-return_minimal
-    summary: "A AGENT tag update with Prefer return=minimal answers 204"
+    summary: "An AGENT tag update with Prefer return=minimal answers 204"
     description: >-
-      Updates the tag list of a AGENT version with Prefer return=minimal. The
+      Updates the tag list of an AGENT version with Prefer return=minimal. The
       update answers 204 No Content.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/204_updated.yaml
@@ -187,9 +187,9 @@ workflows:
           - condition: $statusCode == 204
 
   - workflowId: agent_tags_update-return_identifier
-    summary: "A AGENT tag update with Prefer return=identifier is not answered 204"
+    summary: "An AGENT tag update with Prefer return=identifier is not answered 204"
     description: >-
-      Updates the tag list of a AGENT version with Prefer return=identifier.
+      Updates the tag list of an AGENT version with Prefer return=identifier.
       The identifier preference implies a non-empty body, so the answer is 200
       or 201 rather than 204, and the tag is stored. The released text
       recommends the identifier body only, so the status criterion is
@@ -242,7 +242,7 @@ workflows:
               quote: "Updates the list of all ITEM_TAG resources associated with a given target AGENT version or VERSIONED_PARTY identified by `uid_based_id`."
 
   - workflowId: agent_tags_get-unknown_uid
-    summary: A AGENT tag read of a uid_based_id nothing carries is answered 404
+    summary: An AGENT tag read of a uid_based_id nothing carries is answered 404
     description: >-
       Retrieves the AGENT tags of a freshly generated uid_based_id. That
       uid_based_id does not exist, so the read is answered 404 Not Found.
@@ -265,7 +265,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: agent_tags_update-unknown_uid
-    summary: A AGENT tag update of a uid_based_id nothing carries is answered 404
+    summary: An AGENT tag update of a uid_based_id nothing carries is answered 404
     description: >-
       Updates the AGENT tags of a freshly generated uid_based_id. That
       uid_based_id does not exist, so the update is answered 404 Not Found.
@@ -288,9 +288,9 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: agent_tags_delete-key_scoped
-    summary: A AGENT tag delete removes the tags of the addressed key only
+    summary: An AGENT tag delete removes the tags of the addressed key only
     description: >-
-      Tags a AGENT version with alpha and beta, then deletes the key alpha.
+      Tags an AGENT version with alpha and beta, then deletes the key alpha.
       The delete answers 204, and the list read back holds beta only.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/operations/agent_tags_delete.yaml
@@ -326,9 +326,9 @@ workflows:
           - condition: $response.body#/1 == null
 
   - workflowId: agent_tags_delete-unknown_key
-    summary: A AGENT tag delete of a key no tag carries is answered 404 and removes nothing
+    summary: An AGENT tag delete of a key no tag carries is answered 404 and removes nothing
     description: >-
-      Tags a AGENT version with alpha and beta, then deletes the key gamma,
+      Tags an AGENT version with alpha and beta, then deletes the key gamma,
       which no tag carries. The delete is answered 404 Not Found, and both
       tags are still read back.
     x-veredictum-cite:
@@ -363,9 +363,9 @@ workflows:
             condition: "$[?@.key == 'beta']"
 
   - workflowId: agent_tags_update-non_array_body
-    summary: A AGENT tag update whose body is not an array is answered 400
+    summary: An AGENT tag update whose body is not an array is answered 400
     description: >-
-      Tags a AGENT version with alpha and beta, then updates its tag list with
+      Tags an AGENT version with alpha and beta, then updates its tag list with
       a JSON object where the operation's request body is an array of
       UPDATE_ITEM_TAG. The content is syntactically invalid, so the update is
       answered 400 Bad Request, and the list still holds both tags.
@@ -402,9 +402,9 @@ workflows:
           - condition: $response.body#/2 == null
 
   - workflowId: agent_tags_get-xml_not_acceptable
-    summary: A AGENT tag list asked for as XML is answered 406
+    summary: An AGENT tag list asked for as XML is answered 406
     description: >-
-      Tags a AGENT version, then retrieves its tags with Accept
+      Tags an AGENT version, then retrieves its tags with Accept
       application/xml. Canonical XML responses must conform to the published
       XSDs, and no published XSD declares ITEM_TAG, so no conformant XML tag
       list exists and the service answers 406 Not Acceptable.
@@ -425,9 +425,9 @@ workflows:
           - condition: $statusCode == 406
 
   - workflowId: agent_tags_update-xml_not_acceptable
-    summary: A AGENT tag update asking for its representation as XML is answered 406
+    summary: An AGENT tag update asking for its representation as XML is answered 406
     description: >-
-      Updates the tag list of a AGENT version with Prefer
+      Updates the tag list of an AGENT version with Prefer
       return=representation and Accept application/xml. No published XSD
       declares ITEM_TAG, so the service cannot answer with the representation
       in XML and answers 406 Not Acceptable.
@@ -452,9 +452,9 @@ workflows:
           - condition: $statusCode == 406
 
   - workflowId: agent_tags_update-xml_unsupported_media
-    summary: A AGENT tag list sent as XML is answered 415 and stores nothing
+    summary: An AGENT tag list sent as XML is answered 415 and stores nothing
     description: >-
-      Tags a AGENT version with alpha and beta, then updates its tag list with
+      Tags an AGENT version with alpha and beta, then updates its tag list with
       a body sent as application/xml. No published XSD declares ITEM_TAG, so
       the service cannot process the payload as XML: it answers 415
       Unsupported Media Type, and the list still holds both tags.
