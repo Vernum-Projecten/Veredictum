@@ -181,6 +181,65 @@ fn the_id_map_resolves_on_both_sides_and_covers_each_converted_component()
     Ok(())
 }
 
+/// Every relative `$ref` of the decomposed ITS-REST OAS under `dir`, as the
+/// referring file and the reference without its fragment.
+fn oas_references(dir: &Path, out: &mut Vec<(PathBuf, String)>) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            oas_references(&path, out)?;
+        } else if path.extension().is_some_and(|e| e == "yaml") {
+            for line in std::fs::read_to_string(&path)?.lines() {
+                let line = line.trim_start().trim_start_matches("- ");
+                let Some(value) = line.strip_prefix("$ref:") else {
+                    continue;
+                };
+                let value = value.trim().trim_matches(['\'', '"']);
+                let file = value.split('#').next().unwrap_or_default();
+                if !file.is_empty() && !file.contains("://") {
+                    out.push((path.clone(), file.to_owned()));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The surface gate enumerates the released operations by following the
+/// decomposed OAS's `$ref`s, and a reference whose case differs from the
+/// vendored file name resolves on a case-insensitive file system only.
+#[test]
+fn every_decomposed_oas_reference_names_its_file_in_the_same_case() {
+    let root = repo_root().join("specs/openehr/ITS-REST/specifications");
+    let mut references = Vec::new();
+    oas_references(&root, &mut references).unwrap();
+    assert!(!references.is_empty(), "no $ref under {}", root.display());
+    for (from, reference) in references {
+        let mut dir = from.parent().unwrap().to_path_buf();
+        for part in reference.split('/') {
+            match part {
+                "." | "" => {}
+                ".." => {
+                    dir.pop();
+                }
+                name => {
+                    let names: Vec<String> = std::fs::read_dir(&dir)
+                        .unwrap()
+                        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+                        .collect();
+                    assert!(
+                        names.iter().any(|n| n == name),
+                        "{}: `{reference}` names `{name}`, which `{}` does not hold in that case",
+                        from.display(),
+                        dir.display()
+                    );
+                    dir.push(name);
+                }
+            }
+        }
+    }
+}
+
 #[test]
 fn the_ehr_document_carries_the_worked_example() {
     let root = repo_root();

@@ -211,6 +211,23 @@ options:
       section: Single-valued Attributes
       quote: "Two or more object blocks introduced by type names appearing after an attribute which is not a container (i.e. for which there is no cardinality constraint) are taken to be *alternative constraints*, only one of which needs to be matched by the data."
       report: 307
+  template-web-template:
+    description: >-
+      Whether the service serves an ADL 1.4 operational template in the Web
+      Template format when a client asks for it with Accept, on the template
+      read and as the representation of an upload. The release recommends
+      the Simplified Formats, so a service that does not serve this one
+      answers 406.
+    arms:
+      template-web-template-supported:
+        documents: [template_adl14_web_template]
+      template-web-template-unsupported:
+        documents: [template_adl14_web_template_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Additionally, the **Simplified Formats** format SHOULD be supported, while other alternative formats MAY be supported as well, depending on the use case."
+      level: should
   contribution-xml-read:
     description: >-
       Whether the service serves a CONTRIBUTION in canonical XML when a client

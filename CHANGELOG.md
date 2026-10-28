@@ -34,7 +34,29 @@ version on.
   against a stale one. The new option `content-unmatched-member` carries the
   two postures on a container member that matches no constraint (#307).
   `catalogue/id-map.yaml` maps every content case and names the rows left
-  open, each with its upstream report (#716, #717, #718, #719).
+  open, each with its upstream report (#716, #717, #718, #719). Six rows
+  that lack a member the RM makes mandatory and the ITS-JSON schema does
+  not require expect 422 and cite #724.
+- The ADL 1.4 and ADL 2 template cases of the DEFINITION component are
+  converted to Arazzo (#603). 32 workflows in four documents under
+  `catalogue/cases/definition/` carry 22 of the 82 `I_DEFINITION_ADL14` and
+  `I_DEFINITION_ADL2` cases: `template_adl14` (six valid OPTs uploaded and
+  found in the listing, the three `Prefer` answers of an upload, Location,
+  the weak ETag, 409 for a second upload, 400 for a body that does not
+  parse, 415 for an OPT declared as JSON, the read in XML, 404, 406, and the
+  generated example at each type and detail level), `template_adl2` (the
+  listing, 404 for an unknown template, 400 and 415 on upload), and
+  `template_adl14_web_template` and `template_adl14_web_template_not_acceptable`
+  (the arms of the new `template-web-template` option). An upload names a
+  fresh `template_id` from a generated input, so no workflow needs an empty
+  server. `catalogue/id-map.yaml` gives the reason for every case not
+  carried: no released archetype, delete or count operation, an ADL 1.4
+  version the release leaves undefined (upstream report #715), and the
+  ADL 2 and invalid-OPT cases tracked by #714, which also tracks the
+  DEFINITION gaps in `surface.yaml`.
+- The Arazzo evaluator substitutes runtime expressions embedded in a text
+  request body (`{$inputs.run}` inside an OPT), as Arazzo 1.1.0 allows for
+  any string value.
 
 - The QUERY and DEFINITION query cases are converted to Arazzo (#603), and
   the AQL conformance corpus (github.com/Cadasto/aql-conformance, MIT) is

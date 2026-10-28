@@ -252,20 +252,20 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_ordinal-validate_open-symbol_missing
-    summary: "DV_INTERVAL<DV_ORDINAL> open ({*}): symbol/value mandatory, comparable limits: no symbol is refused"
+    summary: "DV_INTERVAL<DV_ORDINAL> open ({*}): symbol/value mandatory, comparable limits: no symbol is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_ORDINAL>
       open ({*}): symbol/value mandatory, comparable limits). Each body lacks
-      a member the RM makes mandatory (no symbol), so the commit is refused.
-      The published ITS-JSON schema (openehr_rm_1.1.0_all.json) does not
-      require the member, so the body is not syntactically invalid by that
-      schema, and no released text decides between 400 and 422 for it; either
-      refusal holds.
+      a member the RM makes mandatory (no symbol). The published ITS-JSON
+      schema (openehr_rm_1.1.0_all.json) does not require the member, so the
+      body is schema-valid and breaks the RM, and the commit is refused with
+      422 Unprocessable Entity.
     dependsOn: [$sourceDescriptions.templates.upload_template-interval_ordinal_open]
     x-veredictum-cite:
       source: specs/openehr/RM/docs/UML/classes/dv_ordinal.adoc
       section: "DV_ORDINAL Class"
       quote: "h|*1..1* |*symbol*: `<<_dv_coded_text_class,DV_CODED_TEXT>>`"
+      report: 724
     inputs:
       type: object
       required: [composition]
@@ -311,29 +311,27 @@ workflows:
           contentType: application/json
           payload: $inputs.composition
         successCriteria:
-          - context: $statusCode
-            type: regex
-            condition: '^(400|422)$'
+          - condition: $statusCode == 422
             x-veredictum-cite:
-              source: specs/openehr/RM/docs/UML/classes/dv_ordinal.adoc
-              section: "DV_ORDINAL Class"
-              quote: "h|*1..1* |*symbol*: `<<_dv_coded_text_class,DV_CODED_TEXT>>`"
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_ordinal-validate_open-value_missing
-    summary: "DV_INTERVAL<DV_ORDINAL> open ({*}): symbol/value mandatory, comparable limits: no value is refused"
+    summary: "DV_INTERVAL<DV_ORDINAL> open ({*}): symbol/value mandatory, comparable limits: no value is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_ORDINAL>
       open ({*}): symbol/value mandatory, comparable limits). Each body lacks
-      a member the RM makes mandatory (no value), so the commit is refused.
-      The published ITS-JSON schema (openehr_rm_1.1.0_all.json) does not
-      require the member, so the body is not syntactically invalid by that
-      schema, and no released text decides between 400 and 422 for it; either
-      refusal holds.
+      a member the RM makes mandatory (no value). The published ITS-JSON
+      schema (openehr_rm_1.1.0_all.json) does not require the member, so the
+      body is schema-valid and breaks the RM, and the commit is refused with
+      422 Unprocessable Entity.
     dependsOn: [$sourceDescriptions.templates.upload_template-interval_ordinal_open]
     x-veredictum-cite:
       source: specs/openehr/RM/docs/UML/classes/dv_ordinal.adoc
       section: "DV_ORDINAL Class"
       quote: "h|*1..1* |*value*: `link:/releases/BASE/{base_release}/foundation_types.html#_integer_class[Integer^]`"
+      report: 724
     inputs:
       type: object
       required: [composition]
@@ -379,13 +377,11 @@ workflows:
           contentType: application/json
           payload: $inputs.composition
         successCriteria:
-          - context: $statusCode
-            type: regex
-            condition: '^(400|422)$'
+          - condition: $statusCode == 422
             x-veredictum-cite:
-              source: specs/openehr/RM/docs/UML/classes/dv_ordinal.adoc
-              section: "DV_ORDINAL Class"
-              quote: "h|*1..1* |*value*: `link:/releases/BASE/{base_release}/foundation_types.html#_integer_class[Integer^]`"
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_ordinal-validate_open-limits_consistent
     summary: "DV_INTERVAL<DV_ORDINAL> open ({*}): symbol/value mandatory, comparable limits: a breach of the Limits_consistent invariant is refused with 422"

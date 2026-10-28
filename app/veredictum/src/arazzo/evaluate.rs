@@ -1027,7 +1027,8 @@ fn compose(
 }
 
 /// A payload or replacement value as sent: a string that is a runtime
-/// expression is its value, and anything else is itself.
+/// expression is its value, a string with embedded `{$…}` expressions is
+/// that string with each one substituted, and anything else is itself.
 fn body_value(value: &Value, scope: &Scope<'_>) -> Result<Value, String> {
     match value {
         Value::String(text) if text.starts_with('$') => Expr::parse(text)
@@ -1037,6 +1038,12 @@ fn body_value(value: &Value, scope: &Scope<'_>) -> Result<Value, String> {
                     .eval(&expr)?
                     .ok_or(EvalError::MissingOutput(text.clone()))
             })
+            .map_err(|e| e.to_string()),
+        // NOTE: Arazzo 1.1.0 §Runtime Expressions: expressions "can be embedded into string
+        // values by surrounding the expression with {} curly braces"; a text payload is one.
+        Value::String(text) => scope
+            .substitute(text, str::to_owned)
+            .map(Value::String)
             .map_err(|e| e.to_string()),
         literal => Ok(literal.clone()),
     }
@@ -1635,6 +1642,33 @@ workflows:
         assert_eq!(only(&results).status, Status::Passed);
         assert_eq!(transport.bodies.first(), Some(&Some(body)));
         assert_eq!(transport.bodies.get(1), Some(&None));
+    }
+
+    #[test]
+    fn a_text_payload_sends_its_embedded_expressions_substituted() {
+        let doc = DOC.replace(
+            "          - { name: Authorization, in: header, value: Bearer step-token }\n",
+            "          - { name: Authorization, in: header, value: Bearer step-token }\n        requestBody: { contentType: application/xml, payload: '<id>t-{$inputs.ehr_id}</id>' }\n",
+        );
+        let (dir, document) = load(&doc);
+        let mut transport =
+            Scripted::new(&[(201, ""), (409, ""), (200, r#"{"ehr_id":{"value":"abc"}}"#)]);
+        let row = Row::from([("ehr_id".to_owned(), Value::from("abc"))]);
+        let plan = plan_with("twice", &[row], Iteration::ResetPerRow);
+        let (results, _) = run_document(
+            &document,
+            "ehr",
+            config(),
+            dir.path(),
+            &plan,
+            &mut transport,
+        )
+        .unwrap();
+        assert_eq!(only(&results).status, Status::Passed);
+        assert_eq!(
+            transport.bodies.first(),
+            Some(&Some(Value::from("<id>t-abc</id>")))
+        );
     }
 
     #[test]

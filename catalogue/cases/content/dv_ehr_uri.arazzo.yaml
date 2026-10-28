@@ -192,19 +192,19 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_ehr_uri-validate_open-value_missing
-    summary: "DV_EHR_URI open: the scheme='ehr' invariant: no value is refused"
+    summary: "DV_EHR_URI open: the scheme='ehr' invariant: no value is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_EHR_URI open: the
       scheme='ehr' invariant). Each body lacks a member the RM makes mandatory
-      (no value), so the commit is refused. The published ITS-JSON schema
-      (openehr_rm_1.1.0_all.json) does not require the member, so the body is
-      not syntactically invalid by that schema, and no released text decides
-      between 400 and 422 for it; either refusal holds.
+      (no value). The published ITS-JSON schema (openehr_rm_1.1.0_all.json)
+      does not require the member, so the body is schema-valid and breaks the
+      RM, and the commit is refused with 422 Unprocessable Entity.
     dependsOn: [$sourceDescriptions.templates.upload_template-dv_ehr_uri_open]
     x-veredictum-cite:
       source: specs/openehr/RM/docs/UML/classes/dv_uri.adoc
       section: "DV_URI Class"
       quote: "h|*1..1* |*value*: `link:/releases/BASE/{base_release}/foundation_types.html#_string_class[String^]`"
+      report: 724
     inputs:
       type: object
       required: [composition]
@@ -243,13 +243,11 @@ workflows:
           contentType: application/json
           payload: $inputs.composition
         successCriteria:
-          - context: $statusCode
-            type: regex
-            condition: '^(400|422)$'
+          - condition: $statusCode == 422
             x-veredictum-cite:
-              source: specs/openehr/RM/docs/UML/classes/dv_uri.adoc
-              section: "DV_URI Class"
-              quote: "h|*1..1* |*value*: `link:/releases/BASE/{base_release}/foundation_types.html#_string_class[String^]`"
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_ehr_uri-validate_open-scheme_valid
     summary: "DV_EHR_URI open: the scheme='ehr' invariant: a breach of the Scheme_valid invariant is refused with 422"
