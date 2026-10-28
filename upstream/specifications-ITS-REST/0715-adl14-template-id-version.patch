@@ -1,0 +1,28 @@
+diff --git a/specifications/parameters/path/template_id.yaml b/specifications/parameters/path/template_id.yaml
+index 9245d302..6176081f 100644
+--- a/specifications/parameters/path/template_id.yaml
++++ b/specifications/parameters/path/template_id.yaml
+@@ -1,7 +1,9 @@
+ name: template_id
+ in: path
+ description: |
+-  Template identifier or partial reference. A partial `template_id` will resolve to “latest” major version of that template
++  Template identifier or partial reference. A partial `template_id` will resolve to “latest” major version of that template.
++  A `template_id` that names a stored template exactly resolves to that template.
++  An ADL 1.4 `template_id` is partial when it omits the trailing `.v{major}` segment of stored templates: `vital_signs` resolves to the highest of `vital_signs.v1` and `vital_signs.v2`.
+ required: true
+ style: simple
+ schema:
+diff --git a/specifications/parameters/query/filter_version.yaml b/specifications/parameters/query/filter_version.yaml
+index 4e7bceeb..5ac2f52b 100644
+--- a/specifications/parameters/query/filter_version.yaml
++++ b/specifications/parameters/query/filter_version.yaml
+@@ -2,6 +2,8 @@ name: version
+ in: query
+ description: |
+   Filter by version (e.g. `1.2.*` or use `*` for all versions), taken from `template_id`; if missing, then only the latest version will be returned.
++  The version of an ADL 2 `template_id` is the version of its HRID (`major.minor.patch`).
++  The version of an ADL 1.4 `template_id` is its trailing `.v{major}` segment, as in `vital_signs.v1`, so that a `template_id` without such a segment has no version: a `version` filter other than `*` does not match it, and it is listed as its own latest version.
+ style: form
+ schema:
+   type: string

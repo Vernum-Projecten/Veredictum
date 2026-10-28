@@ -245,7 +245,12 @@ fn placeholders(text: &str) -> Option<String> {
 /// skipped and the query is still checked.
 fn body(step: &Step, scope: &Scope<'_>, carrier: &str) -> Option<Value> {
     let request_body = step.request_body.as_ref()?;
-    let mut payload = request_body.payload.clone()?;
+    let mut payload = match request_body.payload.clone()? {
+        Value::String(text) if !text.starts_with('$') => {
+            Value::String(scope.substitute(&text, str::to_owned).ok()?)
+        }
+        other => other,
+    };
     for replacement in &request_body.replacements {
         let touches_query = overlaps(&replacement.target, carrier);
         // NOTE: no openEHR spec governs this — our own design; an undetermined value is not

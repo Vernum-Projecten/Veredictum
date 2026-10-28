@@ -1,0 +1,9 @@
+# The example rows: the input example at each of the three detail levels the
+# example operation declares, and the output example at the default level.
+workflow: template_adl14/get_template_example
+iteration: reset_per_row
+rows:
+  - { type: input, detail_level: required }
+  - { type: input, detail_level: medium }
+  - { type: input, detail_level: complete }
+  - { type: output, detail_level: required }
