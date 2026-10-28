@@ -44,6 +44,7 @@ mod pipeline_seams;
 mod postconditions;
 mod provisioning_wire;
 mod rederivation;
+mod results_export;
 mod run_execution;
 mod run_transcript;
 mod schema_drift;

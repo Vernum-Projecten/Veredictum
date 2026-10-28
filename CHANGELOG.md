@@ -20,6 +20,16 @@ version on.
 
 ### Added
 
+- `veredictum export` renders the `results.json` the Arazzo evaluator writes
+  as the three views a vendor's CI shows (#602): JUnit XML (a workflow is a
+  `testsuite`, a row a `testcase`, with `<failure>`, `<error>` and
+  `<skipped>`), CTRF JSON at `specVersion` 0.2.0 (*errored* is `other`; the
+  case id, skip reason, citation and upstream report link are in `extra`),
+  and a Markdown summary appended to `$GITHUB_STEP_SUMMARY` when GitHub
+  Actions sets it. A red row's text in every view is its four-part
+  explanation, and every view is byte-deterministic. The CTRF 0.2.0 JSON
+  Schema is vendored by `scripts/vendor/ctrf-schema.sh`, and the export is
+  tested against it. The command reference carries a GitHub Actions example.
 - The messaging, security, SMART and performance cases are mapped onto the
   Arazzo catalogue (#603), the last old families, so every old case id is in
   `catalogue/id-map.yaml`. 11 workflows carry the security behaviours the

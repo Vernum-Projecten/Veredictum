@@ -1,0 +1,74 @@
+---
+source: app/veredictum/tests/it/results_export.rs
+expression: markdown(&fixture())
+---
+# Veredictum results: ehr
+
+veredictum 0.1.7 (pre-approval: not yet approved by the openEHR SEC), driven against http://sut/ehrbase/rest/openehr/v1.
+
+| Status | Rows |
+| --- | ---: |
+| Passed | 1 |
+| Failed | 2 |
+| Errored | 1 |
+| Skipped | 1 |
+| Total | 5 |
+
+Only a failed row counts against the server. An errored row is one the instrument could not judge, and a skipped row was not run.
+
+## Failed and errored rows
+
+<details>
+<summary>FAILED ehr/create_twice row 1, step create-again</summary>
+
+```text
+FAILED   ehr/create_twice   step create-again
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         "Can happen when the supplied `ehr_id` is already used by an existing EHR."
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received status 201
+Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
+Whose    the server: a failed row counts against the claimed capability
+         the cited text has a known spec gap: upstream report #42
+```
+
+</details>
+
+<details>
+<summary>FAILED ehr/etag row 0, step read</summary>
+
+```text
+FAILED   ehr/etag   step read
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         "The server SHOULD send an ETag."
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received no ETag header
+Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
+Whose    advisory: the server did not follow a SHOULD; this row never counts against a capability
+```
+
+</details>
+
+<details>
+<summary>ERRORED ehr/escape row 0, step create &lt;first&gt; &amp; "second"</summary>
+
+````text
+ERRORED  ehr/escape   step create <first> & "second"
+What     Create an EHR with the same ehr_id again.
+Why      (no citation resolved)
+Expected status 409
+Received the body | did not parse: ```
+Whose    the instrument could not judge: this row does not count against the vendor
+````
+
+</details>
+
+## Skipped rows
+
+| Row | Reason | Citation |
+| --- | --- | --- |
+| ehr/admin\_delete row 0 | not-declared | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description |

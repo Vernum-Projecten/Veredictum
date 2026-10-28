@@ -148,6 +148,10 @@ wiremock = "0.6.5"
 # current-thread runtime for setup and readback. Already in the lock through
 # reqwest, so this adds no crate to the graph.
 tokio = { version = "1.53.1", default-features = false, features = ["rt", "time"] }
+# Snapshots of the emitted CI views (JUnit XML, CTRF, the Markdown summary),
+# reviewed before acceptance. Without the default `colors` feature, which
+# only colours a diff on a terminal.
+insta = { version = "1.49.0", default-features = false }
 
 [lints]
 workspace = true
