@@ -1,0 +1,66 @@
+# A TERMINOLOGY call inside a matches value list, on the arm of the aql-terminology option that serves it. Each workflow carries one case of the AQL conformance corpus
+# (github.com/Cadasto/aql-conformance at d5b8c554fece), named in its
+# description; catalogue/id-map.yaml maps every case of the corpus. The case's
+# own data is committed by the set-up it names in
+# _setup/aql_conformance.arazzo.yaml, and its runtime identifiers reach the
+# query as query parameters. Every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: 'AQL conformance: TERMINOLOGY'
+  version: 0.1.0
+  description: A TERMINOLOGY call inside a matches value list, on the arm of the aql-terminology option
+    that serves it.
+sourceDescriptions:
+  - name: query
+    url: ../../../specs/rest-oas/query-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/aql_conformance.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: matches-a_terminology_call_merges_into_a_value_list
+    summary: MATCHES over a value list that merges a value with a TERMINOLOGY call keeps the composition
+      the value names
+    description: 'Carries aql-conformance case WHERE.matches.a_terminology_call_merges_into_a_value_list
+      (level optional, corpus/cases/WHERE/matches_terminology.yaml): over the set-up seed-vital_signs-repeated_types_single,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs-repeated_types_single
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: TERMINOLOGY
+      quote: The `TERMINOLOGY` function is used to invoke operations of an external terminology server
+        and return the results for further processing by AQL.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c WHERE c/name/value MATCHES {'example',
+              TERMINOLOGY('expand', 'hl7.org/fhir/4.0', 'url=http://hl7.org/fhir/ValueSet/administrative-gender')}
+              AND e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs-repeated_types_single.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - $workflows.$sourceDescriptions.setup.seed-vital_signs-repeated_types_single.outputs.c1
