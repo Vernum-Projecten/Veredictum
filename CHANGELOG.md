@@ -20,6 +20,20 @@ version on.
 
 ### Added
 
+- The ambiguity register's 191 entries have destinations (#617): each was
+  re-checked against the vendored text and sent to the workflow citation that
+  already carries it, an existing upstream report, a new one, a capability
+  option, or dropped with its reason, in a migration table on #617. Thirteen
+  new upstream reports, #750 to #762, cover the ITEM_TAG operations, the
+  CONTRIBUTION commit, versioned content reads and writes, the directory, the
+  Query API, template uploads, the HTTP overview, the Demographic and Admin
+  APIs, SMART on openEHR, the Simplified Formats and canonical XML, the RM,
+  AQL and BASE, each with its patch under `upstream/`. `capabilities.yaml`
+  gains four options: `aql-undefined-containment`, `aql-nonnumeric-aggregate`,
+  `xml-namespace` and `terminology-binding-unresolvable`. The CI report guard
+  now also checks the `report:` numbers in `capabilities.yaml`, and the id
+  map names upstream reports instead of register entries. The register itself
+  is frozen and is deleted with the old tree (#604).
 - The admin and system cases are converted to Arazzo (#603). Seven
   documents under `catalogue/cases/admin/` drive the two operations the
   Release-1.1.0 Admin API declares, `admin_ehr_delete` and

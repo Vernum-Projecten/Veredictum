@@ -1,0 +1,24 @@
+diff --git a/specifications/operations/admin_ehr_delete.yaml b/specifications/operations/admin_ehr_delete.yaml
+index 777ccaf7..d451316a 100644
+--- a/specifications/operations/admin_ehr_delete.yaml
++++ b/specifications/operations/admin_ehr_delete.yaml
+@@ -7,6 +7,7 @@ description: |
+ 
+   The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`.
+   If the deletion is processed synchronously and completes successfully, the server returns status `204 No Content`.
++  Once the deletion has completed, a request that names the deleted `ehr_id` is answered as for an EHR that does not exist.
+ 
+ tags:
+   - EHR
+diff --git a/specifications/operations/admin_ehr_delete_all.yaml b/specifications/operations/admin_ehr_delete_all.yaml
+index e1feb56a..8197d1e0 100644
+--- a/specifications/operations/admin_ehr_delete_all.yaml
++++ b/specifications/operations/admin_ehr_delete_all.yaml
+@@ -10,6 +10,7 @@ description: |
+   
+   The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`.
+   If the deletion is processed synchronously and completes successfully, the server returns status `204 No Content`.
++  Once the deletion has completed, a request that names a deleted `ehr_id` is answered as for an EHR that does not exist.
+ 
+ tags:
+   - EHR

@@ -18,6 +18,16 @@ the commit `specs/openehr/ITS-REST/` vendors.
 | `0732-party-creates-declare-no-404.patch` | #732 |
 | `0735-admin-ehr-delete-all-subset-parameter.patch` | #735 |
 | `0736-system-options-tag.patch` | #736 |
+| `0750-item-tag-refusals-filters-identity.patch` | #750 |
+| `0751-contribution-commit-shapes.patch` | #751 |
+| `0752-versioned-content-reads-and-writes.patch` | #752 |
+| `0753-directory-branches-and-path.patch` | #753 |
+| `0754-query-execution-and-stored-queries.patch` | #754 |
+| `0755-template-upload-semantic-refusal.patch` | #755 |
+| `0756-http-methods-location.patch` | #756 |
+| `0757-admin-delete-effect.patch` | #757 |
+| `0758-smart-discovery-and-scopes.patch` | #758 |
+| `0759-simplified-other-rejections.patch` | #759 |
 
 A patch is named after its report's number. Apply one in a checkout of that
 repository with `git apply <patch>`.

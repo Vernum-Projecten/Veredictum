@@ -2269,7 +2269,7 @@ cases:
     new: []
     open: &spec_profile >-
       No released text says which generation set of the specifications a
-      server runs or how it is selected; the case pinned the AMB-210 handling
+      server runs or how it is selected; the case pinned a handling
       of our own design, and its body is RM Release-1.2.0 content, which is
       not released.
   I_EHR_COMPOSITION.get_composition_at_version-spec_profile_dev_body_stable_409:
@@ -2357,7 +2357,8 @@ cases:
       The precondition is an EHR import through a route no released OAS
       declares, and the catalogue has no source for extension routes yet;
       the case's expectations on the served IMPORTED_VERSION also rest on
-      the AMB-198 handling, which no released sentence assigns.
+      a served IMPORTED_VERSION shape no released sentence assigns (upstream
+      report #752).
   I_EHR_COMPOSITION.get_versioned_composition-container_shape:
     new: [composition_versioned/get_versioned_composition-container_shape]
     open: >-
@@ -2402,7 +2403,7 @@ cases:
     new: []
     open: >-
       The target is an IMPORTED_VERSION, which only an EHR import through a
-      route no released OAS declares can establish (register AMB-34), and the
+      route no released OAS declares can establish, and the
       attestation member it commits is the shape #690 tracks.
   I_EHR_CONTRIBUTION.commit_contribution-attestation_attested_view:
     new: []
@@ -2417,7 +2418,7 @@ cases:
     open: >-
       A commit_audit typed ATTESTATION: UpdateAudit.yaml names UPDATE_AUDIT,
       AUDIT_DETAILS or no _type for that slot, and no released sentence says
-      a server takes the RM subtype there (register AMB-179).
+      a server takes the RM subtype there (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-attestation_description_coded:
     new: []
     open: *attestation
@@ -2466,7 +2467,7 @@ cases:
       The workflow judges a COMPOSITION the published ITS-JSON schema
       refuses, answered 400. No released sentence names the code for content
       that is schema-valid but misses data its archetypes make mandatory
-      (register AMB-194), so that half is not carried.
+      (upstream report #751), so that half is not carried.
   I_EHR_CONTRIBUTION.commit_contribution-creation_with_preceding_version:
     new: [contribution_create_refused/commit_contribution-creation_with_preceding_version]
   I_EHR_CONTRIBUTION.commit_contribution-deactivating_mixed_change_set:
@@ -2475,7 +2476,7 @@ cases:
       No released sentence says when EHR_STATUS.is_modifiable is evaluated
       against a CONTRIBUTION that carries an EHR_STATUS member beside content
       members: against the state the commit finds or the state it leaves
-      (register AMB-225). The single-kind halves are
+      (upstream report #215). The single-kind halves are
       commit_contribution-ehr_not_modifiable and
       commit_contribution-ehr_status_deactivated_ehr.
   I_EHR_CONTRIBUTION.commit_contribution-deactivating_mixed_change_set_composition_container:
@@ -2487,7 +2488,7 @@ cases:
       RM master06 §Logical Deletion deletes by committing a version whose
       data is removed, while the released commit DTO (UpdateVersion.yaml)
       requires data on every member, so no released shape commits a deletion
-      through a CONTRIBUTION (register AMB-85).
+      through a CONTRIBUTION (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-delete_directory:
     new: []
     open: *deleted_member
@@ -2544,7 +2545,7 @@ cases:
     open: >-
       The status code: RM ehr_status.adoc assigns that the contents may not be
       written to and no released sentence names the code, so any 4xx holds
-      (register AMB-82).
+      (upstream report #752).
   I_EHR_CONTRIBUTION.commit_contribution-ehr_status_incomplete_lifecycle:
     new: [contribution_create/commit_contribution-ehr_status_incomplete]
   I_EHR_CONTRIBUTION.commit_contribution-ehr_status_invalid_change_type:
@@ -2611,7 +2612,7 @@ cases:
       The released commit wire has no IMPORTED_VERSION shape, and
       UpdateVersion.yaml does not refuse undeclared members, so no released
       text assigns the refusal of a member carrying item, uid or an
-      IMPORTED_VERSION _type (register AMB-89).
+      IMPORTED_VERSION _type (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-imported_version_type:
     new: []
     open: *imported_member
@@ -2621,7 +2622,7 @@ cases:
       The workflow commits a complete COMPOSITION in the incomplete state.
       Content missing archetype-mandatory data is not carried: no released
       sentence names the answer or relaxes the published schema for it
-      (register AMB-194).
+      (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-incomplete_wrong_data:
     new: []
     open: *incomplete
@@ -2637,7 +2638,7 @@ cases:
     open: &contribution_last_modified >-
       Carried as advisory: Requests_and_responses.md §ETag and Last-Modified
       says both headers "SHOULD be included", and whether a CONTRIBUTION is a
-      resource with a unique state identifier is register AMB-87. The audit
+      resource with a unique state identifier is upstream report #756. The audit
       instant the header derives from is not compared.
   I_EHR_CONTRIBUTION.commit_contribution-last_modified_minimal:
     new: [contribution_create/commit_contribution-etag_last_modified]
@@ -2648,7 +2649,7 @@ cases:
       No released sentence assigns the wire treatment of version lifecycle
       transitions: RM master06 enumerates three states while TERM carries
       five, and the transition table the case follows is not released text
-      (register AMB-195).
+      (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-lifecycle_deactivate:
     new: []
     open: *lifecycle
@@ -2671,7 +2672,7 @@ cases:
     open: >-
       The released commit DTO declares no merge shape and does not refuse
       undeclared members, so no released text assigns the refusal of a member
-      carrying other_input_version_uids (register AMB-196).
+      carrying other_input_version_uids (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-minimal_ehr_status:
     new: [contribution_create/commit_contribution-ehr_status]
   I_EHR_CONTRIBUTION.commit_contribution-mixed_change_set_stays_deactivated:
@@ -2694,7 +2695,7 @@ cases:
     open: >-
       The rows whose member carries change_type or lifecycle_state 523
       deleted are not carried: the released commit DTO requires data on
-      every member, so it has no deletion shape (register AMB-85).
+      every member, so it has no deletion shape (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-one_commit_invalid_change_types_persistent:
     new: [contribution_create_refused/commit_contribution-first_version_modification_persistent]
   I_EHR_CONTRIBUTION.commit_contribution-paragraph_no_items:
@@ -2728,7 +2729,7 @@ cases:
       RM versioned_object.adoc commit_original_version requires only
       `all_version_ids.has (a_preceding_version_uid)`, which a superseded
       version satisfies, and contribution_create declares no 412; no released
-      sentence refuses a member that branches from it (register AMB-54).
+      sentence refuses a member that branches from it.
   I_EHR_CONTRIBUTION.commit_contribution-text_family_invalid:
     new: []
     open: *content_family
@@ -2790,12 +2791,12 @@ cases:
     open: >-
       Carried as advisory, and the uid inside the ETag is not compared:
       whether the SHOULD of Requests_and_responses.md §ETag and Last-Modified
-      reaches a CONTRIBUTION is register AMB-87.
+      reaches a CONTRIBUTION is upstream report #756.
   I_EHR_CONTRIBUTION.get_contribution-import_contribution:
     new: []
     open: >-
       The CONTRIBUTION is the one an EHR-Extract import creates, through a
-      route no released OAS declares (register AMB-34).
+      route no released OAS declares.
   I_EHR_CONTRIBUTION.get_contribution-malformed_contribution_uid:
     new: [contribution_read/get_contribution-malformed_uid]
   I_EHR_CONTRIBUTION.get_contribution-resolve_refs:
@@ -2809,7 +2810,7 @@ cases:
     open: >-
       The type of each versions[i] reference is not judged: the RM calls them
       references to Versions while the released schema example types them by
-      the data class (register AMB-88).
+      the data class (upstream report #751).
   I_EHR_CONTRIBUTION.get_contribution-xml_not_acceptable:
     new: &contribution_xml
       - contribution_read_xml/get_contribution-xml
@@ -2833,8 +2834,7 @@ cases:
     new: []
     open: &no_list >-
       The list of an EHR's CONTRIBUTIONs has no released route: the
-      CONTRIBUTION collection of ehr.openapi.yaml takes only POST
-      (register AMB-22).
+      CONTRIBUTION collection of ehr.openapi.yaml takes only POST.
   I_EHR_CONTRIBUTION.list_contributions-ehr_containing_ehr_status:
     new: []
     open: *no_list
@@ -2852,14 +2852,14 @@ cases:
     open: >-
       No released sentence says whether a logically deleted directory still
       occupies the EHR's directory, and directory_create declares no branch
-      for an EHR that has one (register AMB-79).
+      for an EHR that has one (upstream report #753).
   I_EHR_DIRECTORY.create_directory-bad_ehr:
     new: [directory_create_refused/create_directory-unknown_ehr]
   I_EHR_DIRECTORY.create_directory-client_supplied_uid:
     new: []
     open: >-
       No released sentence assigns what a directory create does with a
-      client-supplied FOLDER.uid (register AMB-226).
+      client-supplied FOLDER.uid (upstream report #221).
   I_EHR_DIRECTORY.create_directory-cluster_no_items:
     new: [directory_create_refused/create_directory-cluster_no_items]
   I_EHR_DIRECTORY.create_directory-details_not_item_structure:
@@ -2869,14 +2869,14 @@ cases:
     open: &folder_not_modifiable >-
       The status code: RM ehr_status.adoc assigns that the contents may not be
       written to and no released sentence names the code, so any 4xx holds
-      (register AMB-82).
+      (upstream report #752).
   I_EHR_DIRECTORY.create_directory-ehr_with_directory:
     new: []
     open: >-
       directory_create declares 201, 400 and 404 only, RM ehr.adoc lets an
       EHR hold several FOLDER structures, and the precondition that the EHR
       has no directory is the SM's, which has no role in this catalogue
-      (register AMB-79).
+      (upstream report #753).
   I_EHR_DIRECTORY.create_directory-empty_ehr:
     new:
       - directory_create/create_directory
@@ -2905,7 +2905,7 @@ cases:
       No released sentence assigns the resolvability of a FOLDER.items
       reference: FOLDER declares no invariants, and BASE object_ref.adoc lets
       the target "exist locally or be maintained outside the current
-      namespace" (register AMB-211).
+      namespace" (upstream report #753).
   I_EHR_DIRECTORY.create_directory-paragraph_no_items:
     new: [directory_create_refused/create_directory-paragraph_no_items]
   I_EHR_DIRECTORY.create_directory-prefer_minimal:
@@ -2924,8 +2924,7 @@ cases:
     open: >-
       The released OAS types FOLDER.items ids as HIER_OBJECT_ID or
       OBJECT_VERSION_ID only (Folder.yaml), so a GENERIC_ID id is outside the
-      declared request body, and the docs text says nothing wider (register
-      AMB-186).
+      declared request body, and the docs text says nothing wider (upstream report #751).
   I_EHR_DIRECTORY.create_directory-with_items:
     new: [directory_create/create_directory-with_items]
   I_EHR_DIRECTORY.create_directory-xml:
@@ -2947,7 +2946,7 @@ cases:
     open: >-
       The 204 of directory_delete (204_deleted.yaml) declares no ETag or
       Last-Modified, and no released sentence says which version a delete's
-      ETag would name (register AMB-75).
+      ETag would name (upstream report #753).
   I_EHR_DIRECTORY.delete_directory-missing_if_match:
     new: [directory_delete/delete_directory-missing_if_match]
   I_EHR_DIRECTORY.delete_directory-stale_if_match:
@@ -3030,7 +3029,7 @@ cases:
     open: >-
       directory_get_by_version_id declares 200 and 404 only, and no released
       sentence says what a read of a deleted version by its version_uid
-      answers (register AMB-74).
+      answers (upstream report #753).
   I_EHR_DIRECTORY.get_directory_at_version-directory_with_two_versions:
     new:
       - directory_read/get_directory_version
@@ -3060,7 +3059,7 @@ cases:
     new: []
     open: &no_versioned_folder >-
       The VERSIONED_FOLDER has no released route: ehr.openapi.yaml serves
-      the directory FOLDER and its versions only (register AMB-24).
+      the directory FOLDER and its versions only (upstream report #753).
   I_EHR_DIRECTORY.get_versioned_directory-directory_with_two_versions:
     new: []
     open: *no_versioned_folder
@@ -3094,7 +3093,7 @@ cases:
     open: &root_path >-
       The root path `/` is not sent: the path parameter is "slash-separated
       values of the name attribute of FOLDERs", and no released sentence says
-      which path names the root FOLDER (register AMB-81).
+      which path names the root FOLDER (upstream report #753).
   I_EHR_DIRECTORY.has_path-empty_ehr:
     new: [directory_read/get_directory-no_directory]
   I_EHR_DIRECTORY.has_path-folder_structure:
@@ -3340,8 +3339,8 @@ cases:
     open: >-
       The clone that precedes the read is an EHR import through a route no
       released OAS declares, and the catalogue has no source for extension
-      routes yet; its expectations also rest on the AMB-198 handling of
-      IMPORTED_VERSION, which no released sentence assigns.
+      routes yet; its expectations also rest on a served IMPORTED_VERSION
+      shape no released sentence assigns (upstream report #752).
   I_EHR_STATUS.get_versioned_ehr_status-version_of_other_ehr:
     new: [ehr_status_versioned/get_versioned_ehr_status_version-of_other_ehr]
   I_EHR_STATUS.get_versioned_ehr_status-xml:

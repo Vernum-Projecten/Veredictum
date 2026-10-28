@@ -1,0 +1,22 @@
+diff --git a/docs/UML/classes/time_definitions.adoc b/docs/UML/classes/time_definitions.adoc
+index 82df549..ee920c0 100755
+--- a/docs/UML/classes/time_definitions.adoc
++++ b/docs/UML/classes/time_definitions.adoc
+@@ -168,6 +168,8 @@ with an additional optional timezone indicator of:
+ 
+ * `Z` or `±hh[:mm]` (extended)  `±hh[mm]` (compact)
+ 
++The timezone indicator takes the same form, extended or compact, as the time it follows.
++
+ Where:
+ 
+ * `hh` is "00" - "23" (0-filled to two digits)
+@@ -188,6 +190,8 @@ a|String is a valid ISO 8601 date-time, i.e. takes the form:
+ ** `YYYY-MM-DDThh:mm` or `YYYY-MM-DDThh` (extended)
+ ** `YYYYMMDDThhmm` or `YYYYMMDDThh` (compact)
+ 
++A timezone indicator takes the same form, extended or compact, as the date-time it follows.
++
+ h|*1..1*
+ |*valid_iso8601_duration* ( +
+ s: `<<_string_class,String>>[1]` +
