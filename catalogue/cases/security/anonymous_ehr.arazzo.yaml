@@ -1,0 +1,147 @@
+# An EHR whose subject is an anonymous PARTY_SELF, used like any other: a
+# COMPOSITION is committed into it and a query scoped to it finds that
+# COMPOSITION. Every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Anonymous EHR
+  version: 0.1.0
+  description: >-
+    An EHR created with no EHR_STATUS, whose default subject is a PARTY_SELF
+    with no identity, holds a committed COMPOSITION that an ad-hoc query over
+    that EHR returns.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: query
+    url: ../../../specs/rest-oas/query-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: anonymous_ehr-lifecycle
+    summary: An anonymous EHR holds a COMPOSITION that a query over it returns
+    description: >-
+      Creates an EHR with no request body, reads its EHR_STATUS and finds a
+      PARTY_SELF subject, commits an event COMPOSITION into it, then queries
+      the COMPOSITIONs of that EHR. The query returns the one COMPOSITION, by
+      the uid the commit answered with.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/ehr/master04-ehr_package.adoc
+      section: EHR Creation
+      quote: "the use of `PARTY_SELF` allows completely anonymous EHRs;"
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id and no request body.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: read-status
+        description: Read the EHR_STATUS; its subject is a PARTY_SELF.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_EHR_STATUS_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested EHR_STATUS is successfully retrieved."
+          - context: $response.body#/subject/_type
+            type: regex
+            condition: '^PARTY_SELF$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/ehr_create_with_id.yaml
+              section: description
+              quote: "If not supplied, a default EHR_STATUS will be used by the service with following attributes: - `is_queryable`: true - `is_modifiable`: true - `subject`: a PARTY_SELF object"
+      - stepId: commit
+        description: Create an event COMPOSITION in the EHR and keep the uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer: { _type: PARTY_SELF }
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: query
+        description: Query the COMPOSITION uids of the EHR; the one committed is the only row.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT c/uid/value AS uid FROM EHR e[ehr_id/value='{$inputs.ehr_id}']
+              CONTAINS COMPOSITION c
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[$steps.commit.outputs.version_uid]]

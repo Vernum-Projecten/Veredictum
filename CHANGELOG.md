@@ -20,6 +20,23 @@ version on.
 
 ### Added
 
+- The messaging, security, SMART and performance cases are mapped onto the
+  Arazzo catalogue (#603), the last old families, so every old case id is in
+  `catalogue/id-map.yaml`. 11 workflows carry the security behaviours the
+  release assigns: `catalogue/cases/security/` holds the 401 and
+  `WWW-Authenticate` challenge of a request without valid credentials, the
+  presence of a VERSION signature on a created, modified and deleted
+  COMPOSITION and on the EHR_STATUS, and an anonymous EHR used end to end;
+  `contribution_create` gains a client-sent `time_committed` the server does
+  not record. Two options join `catalogue/capabilities.yaml`:
+  `authentication` and `version-signing`. Not carried, each with its reason:
+  the 34 EHR Extract cases (the release defines no import or export route),
+  the 16 TDD import cases (TDD/TDS is a legacy format of the Ocean tooling,
+  out of scope by owner ruling), the signature verification and client-signature cases (the serialisation is
+  not yet defined by openEHR, and upstream report #744 with its patch records
+  that `UPDATE_VERSION.signature` has no stated meaning), the read-only 403
+  (the release defines no authorization model), the three SMART cases (#745)
+  and the four performance cases, which drive `veredictum perf` (#746).
 - The admin and system cases are converted to Arazzo (#603). Seven
   documents under `catalogue/cases/admin/` drive the two operations the
   Release-1.1.0 Admin API declares, `admin_ehr_delete` and
@@ -490,6 +507,14 @@ version on.
   `simplified_formats_exchange` journey keeps its FLAT commit and FLAT read.
   The `Tds` capability row now carries a workload exclusion stating that
   owner ruling, so the measured workload no longer claims to exercise it.
+- The two TDS workflows of the Simplified Formats documents
+  (`create_composition-tds2_media_unsupported` and
+  `get_template_example-tds2_not_acceptable`) are removed by owner ruling
+  (2026-10-28): TDD/TDS is a legacy format of the Ocean tooling and out of
+  scope for the catalogue. The `simplified-legacy-write` and
+  `simplified-legacy-read` options now name the ECISFLAT media type only, and
+  the two old SF-LEGACY TDS ids and the 16 TDD import ids are mapped to no
+  workflow with that reason (#603).
 
 ### Fixed
 

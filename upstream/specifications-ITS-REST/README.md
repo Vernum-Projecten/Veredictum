@@ -18,6 +18,7 @@ the commit `specs/openehr/ITS-REST/` vendors.
 | `0732-party-creates-declare-no-404.patch` | #732 |
 | `0735-admin-ehr-delete-all-subset-parameter.patch` | #735 |
 | `0736-system-options-tag.patch` | #736 |
+| `0744-update-version-signature-semantics.patch` | #744 |
 
 A patch is named after its report's number. Apply one in a checkout of that
 repository with `git apply <patch>`.
