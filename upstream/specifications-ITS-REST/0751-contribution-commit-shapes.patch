@@ -1,0 +1,38 @@
+diff --git a/specifications/operations/contribution_create.yaml b/specifications/operations/contribution_create.yaml
+index 667bb891..0eafdec7 100644
+--- a/specifications/operations/contribution_create.yaml
++++ b/specifications/operations/contribution_create.yaml
+@@ -41,3 +41,5 @@ responses:
+     $ref: ../responses/404_unknown_ehr_id.yaml
+   '409':
+     $ref: ../responses/409.yaml
++  '422':
++    $ref: ../responses/422.yaml
+diff --git a/specifications/schemas/ehr/NewContribution.yaml b/specifications/schemas/ehr/NewContribution.yaml
+index ef70ec51..5b1b3b67 100644
+--- a/specifications/schemas/ehr/NewContribution.yaml
++++ b/specifications/schemas/ehr/NewContribution.yaml
+@@ -9,6 +9,7 @@ properties:
+     $ref: ../base_types/HierObjectId.yaml
+   versions:
+     type: array
++    minItems: 1
+     items:
+       $ref: ../ehr/UpdateVersion.yaml
+   audit:
+diff --git a/specifications/schemas/ehr/UpdateVersion.yaml b/specifications/schemas/ehr/UpdateVersion.yaml
+index 550fe711..4b6a5d66 100644
+--- a/specifications/schemas/ehr/UpdateVersion.yaml
++++ b/specifications/schemas/ehr/UpdateVersion.yaml
+@@ -1,8 +1,10 @@
+ title: UPDATE_VERSION
+ type: object
++description: |
++  A new VERSION to commit. `data` is required unless `lifecycle_state` is `523|deleted|`, in which case it is
++  omitted, because a logical deletion commits a VERSION whose data is deleted.
+ required:
+   - lifecycle_state
+-  - data
+   - commit_audit
+ properties:
+   preceding_version_uid:

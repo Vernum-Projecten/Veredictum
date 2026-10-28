@@ -498,3 +498,68 @@ options:
       source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
       section: description
       quote: "This functionality is intended primarily for **development** or **testing** purposes and may be disabled in **production** environments, in which case server may respond with `405 Method Not Allowed`."
+  aql-undefined-containment:
+    description: >-
+      Whether the service refuses a query whose CONTAINS names a pair of
+      classes the RM defines no containment for, or executes it to an empty
+      result. AQL assigns neither, so both arms are open until upstream
+      report #161 is settled, and neither arm has a document yet.
+    arms:
+      aql-undefined-containment-refused:
+        documents: []
+      aql-undefined-containment-empty:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Containment
+      quote: "Left-hand operand class expression is the parent object of the right-hand operand class expression"
+      report: 161
+  aql-nonnumeric-aggregate:
+    description: >-
+      Whether the service refuses a SUM or AVG over an input type outside the
+      function's declared types, or executes it. AQL names the types and
+      assigns no outcome to another, so both arms are open until upstream
+      report #229 is settled, and neither arm has a document yet.
+    arms:
+      aql-nonnumeric-aggregate-refused:
+        documents: []
+      aql-nonnumeric-aggregate-executed:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: SUM
+      quote: "Input values type should be either Integer or Real, and it will also determine the return type."
+      report: 229
+  xml-namespace:
+    description: >-
+      Which published canonical XML lineage the service serves: the
+      Release-1.0.2 schemas in namespace http://schemas.openehr.org/v1, or the
+      Release-2.0.0 schemas in http://schemas.openehr.org/v2. The release
+      requires conformance to "the published XSDs" and names neither, so
+      neither arm has a document yet.
+    arms:
+      xml-namespace-v1:
+        documents: []
+      xml-namespace-v2:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "When resources are serialized in **canonical XML** format, both request payloads and responses MUST conform to the [published XSDs](https://specifications.openehr.org/releases/ITS-XML/latest)."
+      report: 759
+  terminology-binding-unresolvable:
+    description: >-
+      What the service does with a committed coded value whose archetype
+      constraint binding it cannot resolve, because the terminology query
+      server is unreachable or does not know the value set: refuse the
+      commit, or accept it. Which terminology servers a service reaches is
+      its own configuration, so neither arm has a document yet.
+    arms:
+      terminology-binding-unresolvable-refused:
+        documents: []
+      terminology-binding-unresolvable-accepted:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/BASE/docs/architecture_overview/master12-terminology.adoc
+      section: Binding Terminology Value-sets to Archetypes
+      quote: "Currently there is no standard for such queries."

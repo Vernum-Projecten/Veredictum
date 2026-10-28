@@ -69,9 +69,14 @@ and quote the sentence that assigns the value.
   what the correct answer is), the upstream Robot suites and their data sets
   (stalled), any CDR's behaviour, and any prior harness. Where one of these
   conflicts with a released component, the released component wins.
-- Where both the docs text and the OAS are silent, the behaviour goes to the
-  ambiguity register with a typed disposition. A private resolution is never
-  acceptable, and neither is a bent expectation.
+- Where both the docs text and the OAS are silent, no case asserts the
+  behaviour: the silence is an `upstream-report` issue here, with its patch
+  under `upstream/`, and a citation that rests on defective text names that
+  issue in `report:`. Behaviour the release leaves to the implementation is an
+  option in `catalogue/capabilities.yaml`, which a statement answers. A private
+  resolution is never acceptable, and neither is a bent expectation. The old
+  ambiguity register is frozen: nothing new enters it, and it is deleted with
+  the old tree (#604).
 
 ### 2. The three-way attribution law (the core discipline)
 
@@ -112,7 +117,8 @@ precondition and error family, every RM and AQL behaviour. Each gets its own
 small isolated case, so a red row names one defect.
 
 - A spec-defined behaviour with no case is a gap to close, or an honest
-  boundary recorded in the register. Silence is never coverage.
+  boundary recorded as an upstream report or a capability option. Silence is
+  never coverage.
 - Cases are added, never removed to go green. Narrowing coverage needs an
   adjudicated, spec-cited reason.
 - **Every refusal the spec requires is an asserted negative test.** When a
@@ -266,12 +272,14 @@ that reads it. An outbound
 report of a defect, contradiction, or silence in a released openEHR
 specification is an issue labeled `upstream-report`, and that issue **is** the
 report: a plain summary, then `## What the released spec says` with citations,
-`## What this implementation does`, `## Resolution sought upstream`. The
-register entry points at it. A report is created unverified, gains
+`## What this implementation does`, `## Resolution sought upstream`,
+`## What the patch changes`, `## Points for the SEC to decide`, and it never
+exists without its patch under `upstream/<openEHR repository>/`. A citation
+that rests on the defect names it in `report:`. A report is created unverified, gains
 `upstream-confirmed` once re-verified first-hand, and closes as the standing
 outbound record once its divergence is adjudicated here. A refuted one closes
-as refuted, its register entry is removed or re-grounded, and the affected case
-becomes gating.
+as refuted, every `report:` naming it is removed, and the affected case becomes
+gating.
 
 **Milestones are releases.** A milestone is a delivery promise, so an issue
 waiting on something upstream carries `blocked-upstream` and no milestone. A

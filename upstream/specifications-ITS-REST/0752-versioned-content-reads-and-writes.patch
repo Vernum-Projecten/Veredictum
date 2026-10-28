@@ -1,0 +1,86 @@
+diff --git a/specifications/operations/agent_update.yaml b/specifications/operations/agent_update.yaml
+index 7a722fb3..c376e8e2 100644
+--- a/specifications/operations/agent_update.yaml
++++ b/specifications/operations/agent_update.yaml
+@@ -5,7 +5,7 @@ description: |
+   
+   The `uid_based_id` can take only a form of an HIER_OBJECT_ID identifier taken from VERSIONED_OBJECT.uid.value (i.e. a `versioned_object_uid`).
+ 
+-  If the request body already contains a AGENT.uid.value, it must match the `uid_based_id` in the URL. 
++  If the request body already contains a AGENT.uid.value, it MUST match the `uid_based_id` in the URL. 
+ 
+   The existing latest `version_uid` of AGENT resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+diff --git a/specifications/operations/composition_update.yaml b/specifications/operations/composition_update.yaml
+index cb38f41a..a9c23abd 100644
+--- a/specifications/operations/composition_update.yaml
++++ b/specifications/operations/composition_update.yaml
+@@ -5,7 +5,7 @@ description: |
+   
+   The `uid_based_id` can take only a form of an HIER_OBJECT_ID identifier taken from VERSIONED_OBJECT.uid.value (i.e. a `versioned_object_uid`).
+ 
+-  If the request body already contains a COMPOSITION.uid.value, it must match the `uid_based_id` in the URL. 
++  If the request body already contains a COMPOSITION.uid.value, it MUST match the `uid_based_id` in the URL. 
+ 
+   The existing latest `version_uid` of COMPOSITION resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+diff --git a/specifications/operations/group_update.yaml b/specifications/operations/group_update.yaml
+index 00e34c30..eb797457 100644
+--- a/specifications/operations/group_update.yaml
++++ b/specifications/operations/group_update.yaml
+@@ -5,7 +5,7 @@ description: |
+   
+   The `uid_based_id` can take only a form of an HIER_OBJECT_ID identifier taken from VERSIONED_OBJECT.uid.value (i.e. a `versioned_object_uid`).
+ 
+-  If the request body already contains a GROUP.uid.value, it must match the `uid_based_id` in the URL. 
++  If the request body already contains a GROUP.uid.value, it MUST match the `uid_based_id` in the URL. 
+ 
+   The existing latest `version_uid` of GROUP resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+diff --git a/specifications/operations/organisation_update.yaml b/specifications/operations/organisation_update.yaml
+index 3b236641..4636e120 100644
+--- a/specifications/operations/organisation_update.yaml
++++ b/specifications/operations/organisation_update.yaml
+@@ -5,7 +5,7 @@ description: |
+   
+   The `uid_based_id` can take only a form of an HIER_OBJECT_ID identifier taken from VERSIONED_OBJECT.uid.value (i.e. a `versioned_object_uid`).
+ 
+-  If the request body already contains a ORGANISATION.uid.value, it must match the `uid_based_id` in the URL. 
++  If the request body already contains a ORGANISATION.uid.value, it MUST match the `uid_based_id` in the URL. 
+ 
+   The existing latest `version_uid` of ORGANISATION resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+diff --git a/specifications/operations/person_update.yaml b/specifications/operations/person_update.yaml
+index 715ac8bb..e8e64b29 100644
+--- a/specifications/operations/person_update.yaml
++++ b/specifications/operations/person_update.yaml
+@@ -5,7 +5,7 @@ description: |
+   
+   The `uid_based_id` can take only a form of an HIER_OBJECT_ID identifier taken from VERSIONED_OBJECT.uid.value (i.e. a `versioned_object_uid`).
+ 
+-  If the request body already contains a PERSON.uid.value, it must match the `uid_based_id` in the URL. 
++  If the request body already contains a PERSON.uid.value, it MUST match the `uid_based_id` in the URL. 
+ 
+   The existing latest `version_uid` of PERSON resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+diff --git a/specifications/operations/role_update.yaml b/specifications/operations/role_update.yaml
+index 54e5d390..ac2a2afb 100644
+--- a/specifications/operations/role_update.yaml
++++ b/specifications/operations/role_update.yaml
+@@ -5,7 +5,7 @@ description: |
+   
+   The `uid_based_id` can take only a form of an HIER_OBJECT_ID identifier taken from VERSIONED_OBJECT.uid.value (i.e. a `versioned_object_uid`).
+ 
+-  If the request body already contains a ROLE.uid.value, it must match the `uid_based_id` in the URL. 
++  If the request body already contains a ROLE.uid.value, it MUST match the `uid_based_id` in the URL. 
+ 
+   The existing latest `version_uid` of ROLE resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+diff --git a/specifications/responses/204_deleted_at_time.yaml b/specifications/responses/204_deleted_at_time.yaml
+index 73539ab5..f90a76e9 100644
+--- a/specifications/responses/204_deleted_at_time.yaml
++++ b/specifications/responses/204_deleted_at_time.yaml
+@@ -1,2 +1,2 @@
+ description: |
+-  `204 No Content` is returned when the resource identified by the request parameters (at specified `version_at_time`) time has been deleted.
++  `204 No Content` is returned when the version of the resource identified by the request parameters (the latest version, the version extant at the specified `version_at_time`, or the version named in the path) has been deleted.

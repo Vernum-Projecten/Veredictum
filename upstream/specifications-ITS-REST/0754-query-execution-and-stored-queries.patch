@@ -1,0 +1,37 @@
+diff --git a/specifications/docs/query/Request.md b/specifications/docs/query/Request.md
+index d1470b7b..8307575e 100644
+--- a/specifications/docs/query/Request.md
++++ b/specifications/docs/query/Request.md
+@@ -22,7 +22,7 @@ Long queries in the `q` parameter and having a long list of `query_parameters` m
+ All query execution requests SHOULD support at least the following parameters:
+ - `ehr_id` - used to execute the query within a single EHR context: an EHR identifier taken from EHR.ehr_id.value
+ - `offset` - used for paging: the row number in result to start result-set from (`0`-based); default `0`
+-- `fetch` - used for paging: the number of rows to fetch (i.e. limit); default depends on the implementation, but cannot be combined with [AQL-top](https://specifications.openehr.org/releases/QUERY/latest/AQL.html#_top)
++- `fetch` - used for paging: the number of rows to fetch (i.e. limit); default depends on the implementation, but cannot be combined with [AQL-top](https://specifications.openehr.org/releases/QUERY/latest/AQL.html#_top). `offset` and `fetch` page the result that the AQL `LIMIT` and `OFFSET` clauses of the query already define
+ - other parameter(s) to replace placeholder(s) within the query, here generically named `query_parameters` (see [below](#tag/Request/Common-Headers-and-Query-Parameters/Query-parameters)).
+ 
+ Related request headers:
+@@ -37,8 +37,11 @@ Related response headers:
+ The `ehr_id` parameter SHOULD be supplied by clients when executing single EHR queries and MAY be used by the underlying backend to perform routing, optimizations or similar. It MUST NOT be supplied for 'population queries' and similar multi-patient queries.
+ 
+ Depending on the needs, clients MAY supply it as a query parameter `ehr_id` or alternatively as a request header named `openehr-ehr-id`.
++When a request carries both, they MUST name the same EHR; a request whose parameter and header name different EHRs is refused with `400 Bad Request`.
+ 
+ 
++The names `q`, `ehr_id`, `offset` and `fetch` always denote the parameters above, and are never bound to a query parameter of the same name.
++
+ ### Query parameters
+ 
+ Depending on each query definition, various query parameters SHOULD be supported, generically named `query_parameters`
+diff --git a/specifications/operations/definition_query_list.yaml b/specifications/operations/definition_query_list.yaml
+index 4bd31e33..b8af8762 100644
+--- a/specifications/operations/definition_query_list.yaml
++++ b/specifications/operations/definition_query_list.yaml
+@@ -2,6 +2,7 @@ operationId: definition_query_list
+ summary: List stored queries
+ description: |
+   Retrieves list of all stored queries on the system matched by `qualified_query_name` as pattern.
++  A pattern that matches no stored query returns an empty list.
+   
+   If pattern should given be in the format of `[{namespace}::]{query-name}`, and when is empty, it will be treated as "wildcard" in the search.   
+   
