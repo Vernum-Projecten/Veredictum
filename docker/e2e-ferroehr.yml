@@ -21,7 +21,7 @@
 
 services:
   ferroehr-postgres:
-    image: ${FERROEHR_POSTGRES_IMAGE:-ghcr.io/ferrohealth/ferroehr-postgres:5.4.0}
+    image: ${FERROEHR_POSTGRES_IMAGE:-ghcr.io/ferrohealth/ferroehr-postgres:5.5.0}
     environment:
       POSTGRES_PASSWORD: postgres
       PG_INIT_USER: ferroehr
@@ -35,7 +35,7 @@ services:
       start_period: 10s
 
   ferroehr:
-    image: ${FERROEHR_IMAGE:-ghcr.io/ferrohealth/ferroehr:5.4.0}
+    image: ${FERROEHR_IMAGE:-ghcr.io/ferrohealth/ferroehr:5.5.0}
     depends_on:
       ferroehr-postgres:
         condition: service_healthy
