@@ -836,7 +836,11 @@ pub fn statement_schema() -> Value {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                    "capabilities": string_array(Some(IDENT_PATTERN)),
+                    "capabilities": {
+                        "description": crate::arazzo::catalogue::CLAIMS_DESCRIPTION,
+                        "type": "array",
+                        "items": { "type": "string", "pattern": IDENT_PATTERN }
+                    },
                     "profiles": { "type": "array", "items": { "enum": tokens(Tier::ALL) } }
                 }
             },

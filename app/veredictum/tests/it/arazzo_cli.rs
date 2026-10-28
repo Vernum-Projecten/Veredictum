@@ -31,6 +31,13 @@ const AUTHENTICATION: &str = "authentication_required";
 /// The arm that selects [`AUTHENTICATION`].
 const AUTHENTICATION_ARM: &str = "authentication-required";
 
+/// The capability folder [`AUTHENTICATION`] sits in.
+const AUTHENTICATION_CAPABILITY: &str = "security";
+
+/// A document of the demographic capability folder, which a statement
+/// claiming only [`AUTHENTICATION_CAPABILITY`] leaves unclaimed.
+const DEMOGRAPHIC: &str = "person";
+
 /// Every variable a run reads a credential or the root from, removed so the
 /// developer's or the runner's own environment never reaches a test.
 const READ_VARS: [&str; 13] = [
@@ -67,10 +74,16 @@ fn test_command(args: &[&str], envs: &[(&str, &str)]) -> Result<Output, std::io:
     command.envs(envs.iter().copied()).output()
 }
 
-/// A statement selecting `arms`, written into `dir`.
-fn statement(dir: &Path, arms: &[&str]) -> Result<String, Box<dyn std::error::Error>> {
+/// A statement claiming the capability folders `claims` and selecting
+/// `arms`, written into `dir`.
+fn statement(
+    dir: &Path,
+    claims: &[&str],
+    arms: &[&str],
+) -> Result<String, Box<dyn std::error::Error>> {
     let path = dir.join("statement.json");
-    std::fs::write(&path, serde_json::to_string(&json!({ "options": arms }))?)?;
+    let document = json!({ "claims": { "capabilities": claims }, "options": arms });
+    std::fs::write(&path, serde_json::to_string(&document)?)?;
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -119,7 +132,7 @@ fn drive_authentication(
     base_url: &str,
     out: &Path,
 ) -> Result<Output, Box<dyn std::error::Error>> {
-    let statement = statement(dir, &[AUTHENTICATION_ARM])?;
+    let statement = statement(dir, &[AUTHENTICATION_CAPABILITY], &[AUTHENTICATION_ARM])?;
     let out = out.to_string_lossy();
     Ok(test_command(
         &[
@@ -295,7 +308,7 @@ fn skipped_and_advisory_rows_exit_zero() -> Fallible {
 )]
 fn the_administrative_credential_is_sent_and_never_recorded() -> Fallible {
     let dir = assert_fs::TempDir::new()?;
-    let statement = statement(dir.path(), &["admin-delete-synchronous"])?;
+    let statement = statement(dir.path(), &["admin"], &["admin-delete-synchronous"])?;
     // The EHR create is answered 201 and the administrative delete 204, so
     // the administrative step is reached.
     let sut = FakeSut::start();
@@ -380,6 +393,108 @@ fn the_administrative_credential_is_sent_and_never_recorded() -> Fallible {
     Ok(())
 }
 
+/// The rows of `results` whose case is in document `document`.
+fn rows_of<'r>(results: &'r Value, document: &str) -> Vec<&'r Value> {
+    let prefix = format!("{document}/");
+    results
+        .get("rows")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|row| {
+            row.get("case")
+                .and_then(Value::as_str)
+                .is_some_and(|case| case.starts_with(&prefix))
+        })
+        .collect()
+}
+
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn an_unclaimed_capability_is_skipped_and_a_claimed_one_still_fails() -> Fallible {
+    let dir = assert_fs::TempDir::new()?;
+    let statement = statement(
+        dir.path(),
+        &[AUTHENTICATION_CAPABILITY],
+        &[AUTHENTICATION_ARM],
+    )?;
+    let drive = |sut: &FakeSut, out: &Path| {
+        test_command(
+            &[
+                "--document",
+                AUTHENTICATION,
+                "--document",
+                DEMOGRAPHIC,
+                "--statement",
+                &statement,
+                "--base-url",
+                &sut.base_url(),
+                "--out",
+                &out.to_string_lossy(),
+            ],
+            &[],
+        )
+    };
+
+    let refusing = answering(
+        ResponseTemplate::new(401).insert_header("WWW-Authenticate", "Bearer realm=\"cdr\""),
+    );
+    let green = dir.path().join("green");
+    let output = drive(&refusing, &green)?;
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let results = read_json(&green.join("results.json"))?;
+    let unclaimed = rows_of(&results, DEMOGRAPHIC);
+    assert!(!unclaimed.is_empty());
+    for row in &unclaimed {
+        assert_eq!(row.get("status"), Some(&json!("skipped")), "{row}");
+        assert_eq!(
+            row.pointer("/skip/reason"),
+            Some(&json!("not-claimed")),
+            "{row}"
+        );
+        assert_eq!(
+            row.pointer("/skip/why/source"),
+            Some(&json!("schemas/statement.schema.json")),
+            "{row}"
+        );
+    }
+    let claimed = rows_of(&results, AUTHENTICATION);
+    assert_eq!(claimed.len(), 5);
+    assert!(
+        claimed
+            .iter()
+            .all(|row| row.get("status") == Some(&json!("passed")))
+    );
+    assert!(
+        refusing
+            .requests()
+            .iter()
+            .all(|request| !request.url.path().contains("/demographic/")),
+        "an unclaimed document sent a request"
+    );
+
+    let accepting = answering(ResponseTemplate::new(200));
+    let red = dir.path().join("red");
+    let output = drive(&accepting, &red)?;
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let results = read_json(&red.join("results.json"))?;
+    let claimed = rows_of(&results, AUTHENTICATION);
+    assert!(
+        claimed
+            .iter()
+            .all(|row| row.get("status") == Some(&json!("failed")))
+    );
+    assert!(
+        rows_of(&results, DEMOGRAPHIC)
+            .iter()
+            .all(|row| row.pointer("/skip/reason") == Some(&json!("not-claimed")))
+    );
+    Ok(())
+}
+
 #[test]
 #[expect(
     clippy::panic_in_result_fn,
@@ -388,9 +503,41 @@ fn the_administrative_credential_is_sent_and_never_recorded() -> Fallible {
 fn a_run_that_cannot_start_exits_two() -> Fallible {
     let dir = assert_fs::TempDir::new()?;
     let out = dir.path().join("run").to_string_lossy().into_owned();
-    let unknown_arm = statement(dir.path(), &["authentication-maybe"])?;
+    let written = |name: &str, document: &Value| -> Result<String, Box<dyn std::error::Error>> {
+        let path = dir.path().join(name);
+        std::fs::write(&path, serde_json::to_string(document)?)?;
+        Ok(path.to_string_lossy().into_owned())
+    };
+    let unknown_arm = written(
+        "unknown-arm.json",
+        &json!({ "claims": { "capabilities": [AUTHENTICATION_CAPABILITY] },
+                 "options": ["authentication-maybe"] }),
+    )?;
+    let unknown_capability = written(
+        "unknown-capability.json",
+        &json!({ "claims": { "capabilities": [AUTHENTICATION_CAPABILITY, "EhrOperations"] } }),
+    )?;
+    let no_claims = written(
+        "no-claims.json",
+        &json!({ "options": [AUTHENTICATION_ARM] }),
+    )?;
     let url = closed_port_url();
-    let refusals: [(&[&str], &str); 5] = [
+    let refusals: [(&[&str], &str); 7] = [
+        (
+            &[
+                "--base-url",
+                &url,
+                "--out",
+                &out,
+                "--statement",
+                &unknown_capability,
+            ],
+            "EhrOperations",
+        ),
+        (
+            &["--base-url", &url, "--out", &out, "--statement", &no_claims],
+            "claims.capabilities",
+        ),
         (
             &["--base-url", &url, "--out", &out, "--auth", "digest"],
             "auth mode",

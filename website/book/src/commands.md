@@ -125,7 +125,9 @@ Options:
           [default: none]
 
       --statement <STATEMENT>
-          The party's statement (JSON). Its `options` list selects one arm of each option in `capabilities.yaml`, and the documents of every other arm are skipped as `option-not-selected`. Without it, no arm is selected
+          The party's statement (JSON), which decides what runs.
+          
+          Its `claims.capabilities` names the capability folders under `cases/` it claims, at least one; every workflow of a document in another folder is skipped as `not-claimed`, while a setup a claimed document depends on still runs. Its `options` list selects one arm of each option in `capabilities.yaml`, and the documents of every other arm are skipped as `option-not-selected`. A name that is not a folder or an arm stops the run. Without a statement, every capability runs and no arm is selected.
 
       --ixit <IXIT>
           The party's IXIT (JSON), which the `declared` inputs of a rows file read. A row whose declared value is missing is skipped as `not-declared`
@@ -153,12 +155,30 @@ case names it in `dependsOn`. `--document <ID>` narrows the run to named
 documents, which is how you re-drive one family while working on a fix; a
 narrowed `results.json` is a working tool, never the record you submit.
 
-**What the party declares.** The statement's `options` list picks one arm of
-each option in `capabilities.yaml`, and the documents of every other arm are
-skipped as `option-not-selected`. A token that names no arm, or two arms of
-one option, stops the run. The IXIT answers the `declared` inputs a rows file
-reads. A workflow with an administrative step needs the administrative
-principal: without `--admin-auth`, it is skipped as `not-declared`.
+**What the party declares.** A statement names the capabilities it claims in
+`claims.capabilities`, the field the published statement schema defines. For
+this catalogue a capability is a folder under `cases/` (`ehr`, `demographic`,
+`admin`, …), and a statement claims at least one. Every workflow of a document
+in a folder the statement does not claim is skipped as `not-claimed`, citing
+the schema's claims clause; no openEHR specification governs the claim
+mechanism, which is this instrument's own design. A setup a claimed document
+depends on still runs, wherever it lives. The statement's `options` list picks
+one arm of each option in `capabilities.yaml`, and the documents of every
+other arm are skipped as `option-not-selected`. A name that is not a folder, a
+token that names no arm, or two arms of one option stops the run. Without a
+statement, every capability runs and no arm is selected.
+
+```json
+{
+  "claims": { "capabilities": ["ehr", "ehr_status", "composition", "query"] },
+  "options": ["ehr-xml-unsupported", "authentication-required"]
+}
+```
+
+The IXIT answers the `declared` inputs a rows file reads. A workflow with an
+administrative step needs the administrative principal: without
+`--admin-auth`, it is skipped as `not-declared`. The `version-out-of-range`
+and `format-not-claimed` skips are not computed yet (#777, #778).
 
 **Credentials.** Each principal's secrets are read from the environment, from
 the variable itself or from a file named by the variable with `_FILE`

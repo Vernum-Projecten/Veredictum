@@ -22,15 +22,20 @@ version on.
 
 - `veredictum test` drives the Arazzo catalogue against a server and writes
   `results.json` and the HAR recording, or re-judges a recording offline into
-  the same bytes (#768). It gates the whole catalogue first, runs every
-  document except the shared setups, selects option arms from the statement's
-  `options` (an unknown arm, or two arms of one option, stops the run), and
-  skips the administrative workflows when `--admin-auth` supplies no
-  principal. Credentials come from environment variables or from files named
-  by the same variables with `_FILE` appended, and none is recorded. The exit
-  status is `0` when every row passed or was skipped (advisory rows
-  included), `1` when a row failed or errored, and `2` when the run could not
-  start. The `arazzo_spike` example it replaces is deleted.
+  the same bytes (#768). It gates the whole catalogue first and runs every
+  document except the shared setups. A statement must claim at least one
+  capability folder in `claims.capabilities`, and every workflow of a
+  document in an unclaimed folder is skipped `not-claimed`, citing the
+  statement schema's claims clause, which now describes the rule; setups a
+  claimed document depends on still run. The statement's `options` select
+  option arms. An unknown folder or arm, or two arms of one option, stops the
+  run. Without a statement everything runs. The administrative workflows are
+  skipped when `--admin-auth` supplies no principal. Credentials come from
+  environment variables or from files named by the same variables with
+  `_FILE` appended, and none is recorded. The exit status is `0` when every
+  row passed or was skipped (advisory rows included), `1` when a row failed
+  or errored, and `2` when the run could not start. The `arazzo_spike`
+  example it replaces is deleted.
 - The container image runs engine subcommands through its entry point:
   `docker run <image> test …` drives the catalogue the image ships, which
   `VEREDICTUM_CATALOGUE` names, into a mounted output directory, and the
@@ -415,9 +420,9 @@ version on.
   them (every criterion resolves to a citation whose quote occurs in the
   vendored file, every operation resolves in its released OAS, every
   condition is inside the profile), and drives a workflow into passed,
-  failed, errored or skipped with a four-part explanation. The
-  `arazzo_spike` example runs a document against a server. The CLI and the
-  existing catalogue are unchanged.
+  failed, errored or skipped with a four-part explanation, which
+  `veredictum test` runs against a server. The existing catalogue is
+  unchanged.
 - `validate` gates the Arazzo catalogue (#601). Every document under
   `catalogue/cases/` validates against the official Arazzo 1.1 JSON
   Schema (revision 2026-04-15, vendored by `scripts/vendor/arazzo-schema.sh`

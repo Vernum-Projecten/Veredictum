@@ -198,10 +198,16 @@ enum Command {
         /// `VEREDICTUM_ADMIN_TOKEN`.
         #[arg(long, default_value = "none")]
         admin_auth: String,
-        /// The party's statement (JSON). Its `options` list selects one arm
+        /// The party's statement (JSON), which decides what runs.
+        ///
+        /// Its `claims.capabilities` names the capability folders under
+        /// `cases/` it claims, at least one; every workflow of a document in
+        /// another folder is skipped as `not-claimed`, while a setup a claimed
+        /// document depends on still runs. Its `options` list selects one arm
         /// of each option in `capabilities.yaml`, and the documents of every
-        /// other arm are skipped as `option-not-selected`. Without it, no arm
-        /// is selected.
+        /// other arm are skipped as `option-not-selected`. A name that is not
+        /// a folder or an arm stops the run. Without a statement, every
+        /// capability runs and no arm is selected.
         #[arg(long)]
         statement: Option<PathBuf>,
         /// The party's IXIT (JSON), which the `declared` inputs of a rows

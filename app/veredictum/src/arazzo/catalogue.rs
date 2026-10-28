@@ -7,8 +7,10 @@
 //! The documents are `cases/<capability>/<id>.arazzo.yaml`, run in path
 //! order. The shared setups under [`SETUP_DIR`] are not cases: they run only
 //! where a case names them in `dependsOn`. Each document runs under its own
-//! [`Plan`], built from what the party declares: its statement's `options`
-//! select the arm of every option in `capabilities.yaml`, its IXIT and
+//! [`Plan`], built from what the party declares: its statement's
+//! `claims.capabilities` names the capability folders it claims, and every
+//! workflow of a document in another folder is skipped as `not-claimed`; its
+//! `options` select the arm of every option in `capabilities.yaml`; its IXIT and
 //! statement answer a rows file's `declared` inputs, and a party that
 //! supplies no administrative principal has every workflow that needs one
 //! skipped as `not-declared`. The documents share one recording, so an entry
@@ -29,7 +31,7 @@ use crate::arazzo::evaluate::{
 use crate::arazzo::gates::{CASES_DIR, DOCUMENT_SUFFIX};
 use crate::arazzo::har::{Har, HarTransport};
 use crate::arazzo::principal::{self, Principal};
-use crate::arazzo::results::{Engine, Results};
+use crate::arazzo::results::{Engine, Results, Skip, SkipReason, Why};
 use crate::arazzo::rows::{self, RowsError, rows_path};
 use crate::exec::transport::Transport;
 
@@ -40,6 +42,22 @@ pub const SETUP_DIR: &str = "_setup";
 /// The `document` a catalogue run's results carry: every case id in it
 /// carries its own document's name.
 pub const RUN_NAME: &str = "catalogue";
+
+/// The published statement schema, whose `claims.capabilities` clause a
+/// `not-claimed` skip cites.
+pub const STATEMENT_SCHEMA: &str = "schemas/statement.schema.json";
+
+/// The section of [`STATEMENT_SCHEMA`] a `not-claimed` skip cites.
+pub const CLAIMS_SECTION: &str = "#/properties/claims/properties/capabilities";
+
+/// The rule a `not-claimed` skip quotes, verbatim from
+/// [`CLAIMS_DESCRIPTION`].
+pub const CLAIMS_RULE: &str = "Every workflow of an Arazzo document in a capability folder the statement does not claim is skipped not-claimed.";
+
+/// The description [`STATEMENT_SCHEMA`] publishes for `claims.capabilities`,
+/// which carries [`CLAIMS_RULE`]. No openEHR spec governs the claim
+/// mechanism — our own design.
+pub const CLAIMS_DESCRIPTION: &str = "The capabilities the party claims. For the case-core catalogue each is a capability of the capability matrix; for the Arazzo catalogue each is a capability folder under `catalogue/cases/`, whose name is the folder's. Every workflow of an Arazzo document in a capability folder the statement does not claim is skipped not-claimed.";
 
 /// Why a catalogue cannot be run.
 #[derive(Debug, thiserror::Error)]
@@ -86,6 +104,16 @@ pub enum CatalogueError {
         /// The arm selected second.
         second: String,
     },
+    /// The statement's `claims.capabilities` is absent, empty, or not a list
+    /// of strings.
+    #[error(
+        "the statement must claim at least one capability folder in `claims.capabilities`, \
+         a list of folder names under cases/: {0}"
+    )]
+    ClaimsShape(String),
+    /// The statement claims a capability the catalogue has no folder for.
+    #[error("the statement claims `{0}`, which is not a capability folder of the catalogue")]
+    UnknownCapability(String),
 }
 
 /// What the party declares, which every document's plan reads.
@@ -104,35 +132,117 @@ pub struct Declarations {
 pub struct Planned {
     /// The document id, the prefix of its case ids.
     pub name: String,
+    /// The capability folder the document sits in.
+    pub capability: String,
     /// The document.
     pub document: ArazzoDocument,
     /// What the declarations decide about its workflows.
     pub plan: Plan,
 }
 
-/// The documents of the catalogue under `root`, as `(id, path)` in path
-/// order, the shared setups left out.
+/// One document of the catalogue, found by its path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DocumentPath {
+    /// The document id: the file name without [`DOCUMENT_SUFFIX`].
+    pub id: String,
+    /// The capability folder the document sits in.
+    pub capability: String,
+    /// The document file.
+    pub path: PathBuf,
+}
+
+/// The capability folders under `root`'s `cases/`, the shared setups left
+/// out.
+///
+/// # Errors
+/// [`CatalogueError::List`] when `cases/` does not list.
+pub fn capability_folders(root: &Path) -> Result<Vec<(String, PathBuf)>, CatalogueError> {
+    Ok(sorted_entries(&root.join(CASES_DIR))?
+        .into_iter()
+        .filter(|folder| folder.is_dir())
+        .filter_map(|folder| {
+            let name = folder.file_name()?.to_str()?.to_owned();
+            (name != SETUP_DIR).then_some((name, folder))
+        })
+        .collect())
+}
+
+/// The documents of the catalogue under `root`, in path order, the shared
+/// setups left out.
 ///
 /// # Errors
 /// [`CatalogueError::List`] when a folder does not list.
-pub fn document_paths(root: &Path) -> Result<Vec<(String, PathBuf)>, CatalogueError> {
-    let cases = root.join(CASES_DIR);
+pub fn document_paths(root: &Path) -> Result<Vec<DocumentPath>, CatalogueError> {
     let mut found = Vec::new();
-    for folder in sorted_entries(&cases)? {
-        if !folder.is_dir() || folder.file_name().is_some_and(|name| name == SETUP_DIR) {
-            continue;
-        }
+    for (capability, folder) in capability_folders(root)? {
         for path in sorted_entries(&folder)? {
             let id = path
                 .file_name()
                 .and_then(std::ffi::OsStr::to_str)
                 .and_then(|name| name.strip_suffix(DOCUMENT_SUFFIX));
             if let Some(id) = id {
-                found.push((id.to_owned(), path.clone()));
+                found.push(DocumentPath {
+                    id: id.to_owned(),
+                    capability: capability.clone(),
+                    path: path.clone(),
+                });
             }
         }
     }
     Ok(found)
+}
+
+/// The capability folders the statement claims in `claims.capabilities`,
+/// each checked against the folders of the catalogue; `None` without a
+/// statement, which claims nothing away.
+///
+/// # Errors
+/// [`CatalogueError::ClaimsShape`] when the statement's
+/// `claims.capabilities` is absent, empty or not a list of strings, and
+/// [`CatalogueError::UnknownCapability`] for a name no folder has.
+pub fn claimed_capabilities(
+    statement: Option<&Value>,
+    folders: &BTreeSet<String>,
+) -> Result<Option<BTreeSet<String>>, CatalogueError> {
+    let Some(statement) = statement else {
+        return Ok(None);
+    };
+    let Some(Value::Array(names)) = statement.pointer("/claims/capabilities") else {
+        let found = statement
+            .pointer("/claims/capabilities")
+            .map_or_else(|| "it is absent".to_owned(), Value::to_string);
+        return Err(CatalogueError::ClaimsShape(found));
+    };
+    if names.is_empty() {
+        return Err(CatalogueError::ClaimsShape("it is empty".to_owned()));
+    }
+    let mut claimed = BTreeSet::new();
+    for name in names {
+        let Value::String(name) = name else {
+            return Err(CatalogueError::ClaimsShape(name.to_string()));
+        };
+        if !folders.contains(name) {
+            return Err(CatalogueError::UnknownCapability(name.clone()));
+        }
+        claimed.insert(name.clone());
+    }
+    Ok(Some(claimed))
+}
+
+/// The skip every workflow of a document in an unclaimed capability folder
+/// carries, citing the statement schema's claims clause.
+#[must_use]
+pub fn not_claimed() -> Skip {
+    Skip {
+        reason: SkipReason::NotClaimed,
+        why: Why {
+            source: STATEMENT_SCHEMA.to_owned(),
+            section: CLAIMS_SECTION.to_owned(),
+            quote: CLAIMS_RULE.to_owned(),
+            link: None,
+            report: None,
+        },
+    }
 }
 
 fn sorted_entries(folder: &Path) -> Result<Vec<PathBuf>, CatalogueError> {
@@ -195,11 +305,25 @@ pub fn selected_arms(
     Ok(selected)
 }
 
+/// What the statement decides about one document before it is planned.
+#[derive(Debug, Clone, Copy)]
+pub struct Choice<'a> {
+    /// The catalogue's options, when it has a capabilities file.
+    pub capabilities: Option<&'a Capabilities>,
+    /// The option arms the statement selects.
+    pub arms: &'a [String],
+    /// Whether the statement claims the document's capability folder.
+    pub claimed: bool,
+}
+
 /// The plan `document`, whose id is `name`, runs under.
 ///
-/// It skips the documents of an arm the statement does not select and the
-/// workflows of an administrative principal the party does not supply, and
-/// carries the declarations and every rows file beside the document.
+/// It skips the documents of a capability the statement does not claim,
+/// then those of an arm it does not select, then the workflows of an
+/// administrative principal the party does not supply, and carries the
+/// declarations and every rows file beside the document. Only the
+/// document's own workflows are skipped: a setup it names in `dependsOn`
+/// runs whichever folder holds it.
 ///
 /// # Errors
 /// [`CatalogueError::Rows`] when a rows file beside the document does not
@@ -208,16 +332,19 @@ pub fn plan(
     document: &ArazzoDocument,
     name: &str,
     declarations: &Declarations,
-    options: (Option<&Capabilities>, &[String]),
+    choice: Choice<'_>,
     repo_root: &Path,
 ) -> Result<Plan, CatalogueError> {
-    let (capabilities, selected) = options;
     let mut plan = Plan {
         ixit: declarations.ixit.clone(),
         statement: declarations.statement.clone(),
         ..Plan::default()
     };
-    if let Some(skip) = capabilities.and_then(|c| c.skip_for(name, selected, repo_root)) {
+    let unclaimed = (!choice.claimed).then(not_claimed);
+    let unselected = choice
+        .capabilities
+        .and_then(|c| c.skip_for(name, choice.arms, repo_root));
+    if let Some(skip) = unclaimed.or(unselected) {
         for workflow in &document.description().workflows {
             plan.skips
                 .insert(workflow.workflow_id.clone(), skip.clone());
@@ -241,41 +368,47 @@ pub fn plan(
     Ok(plan)
 }
 
-/// The documents a run drives and the option arms it selects, read before
-/// any document is loaded.
+/// The documents a run drives, the capability folders the statement claims
+/// and the option arms it selects, read before any document is loaded.
 #[derive(Debug)]
 pub struct Selection {
-    paths: Vec<(String, PathBuf)>,
+    paths: Vec<DocumentPath>,
     capabilities: Option<Capabilities>,
     selected: Vec<String>,
+    claimed: Option<BTreeSet<String>>,
 }
 
 impl Selection {
     /// Selects every document of the catalogue under `root`, or only the
-    /// documents `only` names when it names any, and the arms `statement`
-    /// selects.
+    /// documents `only` names when it names any, the capability folders
+    /// `statement` claims and the arms it selects.
     ///
     /// # Errors
     /// [`CatalogueError`] when a folder does not list, `only` names a
     /// document the catalogue does not hold, nothing is left to run, the
-    /// capabilities file does not load, or the statement's options do not
-    /// resolve.
+    /// capabilities file does not load, or the statement's claims or options
+    /// do not resolve.
     pub fn read(
         root: &Path,
         statement: Option<&Value>,
         only: &[String],
     ) -> Result<Self, CatalogueError> {
         let mut paths = document_paths(root)?;
-        let known: BTreeSet<&str> = paths.iter().map(|(id, _)| id.as_str()).collect();
+        let known: BTreeSet<&str> = paths.iter().map(|found| found.id.as_str()).collect();
         if let Some(unknown) = only.iter().find(|id| !known.contains(id.as_str())) {
             return Err(CatalogueError::UnknownDocument(unknown.clone()));
         }
         if !only.is_empty() {
-            paths.retain(|(id, _)| only.contains(id));
+            paths.retain(|found| only.contains(&found.id));
         }
         if paths.is_empty() {
             return Err(CatalogueError::Empty(root.join(CASES_DIR)));
         }
+        let folders: BTreeSet<String> = capability_folders(root)?
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect();
+        let claimed = claimed_capabilities(statement, &folders)?;
         let file = root.join(CAPABILITIES_FILE);
         let capabilities = if file.is_file() {
             Some(Capabilities::load(&file)?)
@@ -287,6 +420,7 @@ impl Selection {
             paths,
             capabilities,
             selected,
+            claimed,
         })
     }
 
@@ -301,17 +435,20 @@ impl Selection {
         declarations: &Declarations,
     ) -> Result<Vec<Planned>, CatalogueError> {
         let mut planned = Vec::new();
-        for (name, path) in &self.paths {
-            let document = ArazzoDocument::load(path)?;
-            let plan = plan(
-                &document,
-                name,
-                declarations,
-                (self.capabilities.as_ref(), &self.selected),
-                repo_root,
-            )?;
+        for found in &self.paths {
+            let document = ArazzoDocument::load(&found.path)?;
+            let choice = Choice {
+                capabilities: self.capabilities.as_ref(),
+                arms: &self.selected,
+                claimed: self
+                    .claimed
+                    .as_ref()
+                    .is_none_or(|claimed| claimed.contains(&found.capability)),
+            };
+            let plan = plan(&document, &found.id, declarations, choice, repo_root)?;
             planned.push(Planned {
-                name: name.clone(),
+                name: found.id.clone(),
+                capability: found.capability.clone(),
                 document,
                 plan,
             });
@@ -470,15 +607,69 @@ mod tests {
         ] {
             dir.child(file).write_str("").unwrap();
         }
-        let ids: Vec<String> = document_paths(dir.path())
+        let found: Vec<(String, String)> = document_paths(dir.path())
             .unwrap()
             .into_iter()
-            .map(|(id, _)| id)
+            .map(|found| (found.capability, found.id))
             .collect();
-        assert_eq!(ids, ["z", "a", "b"]);
+        let pairs = [("admin", "z"), ("ehr", "a"), ("ehr", "b")]
+            .map(|(capability, id)| (capability.to_owned(), id.to_owned()));
+        assert_eq!(found, pairs);
         assert!(matches!(
             document_paths(&dir.path().join("absent")),
             Err(CatalogueError::List { .. })
         ));
+    }
+
+    #[test]
+    fn the_statement_claims_known_capability_folders() {
+        let folders: BTreeSet<String> = ["ehr", "demographic"].map(str::to_owned).into();
+        let claim =
+            |claims: Value| claimed_capabilities(Some(&json!({ "claims": claims })), &folders);
+        assert_eq!(claimed_capabilities(None, &folders).unwrap(), None);
+        assert_eq!(
+            claim(json!({ "capabilities": ["ehr"] })).unwrap(),
+            Some(["ehr".to_owned()].into())
+        );
+        assert!(matches!(
+            claim(json!({ "capabilities": ["ehr", "EhrOperations"] })),
+            Err(CatalogueError::UnknownCapability(name)) if name == "EhrOperations"
+        ));
+        assert!(matches!(
+            claim(json!({ "capabilities": ["_setup"] })),
+            Err(CatalogueError::UnknownCapability(_))
+        ));
+        for refused in [
+            json!({}),
+            json!({ "capabilities": [] }),
+            json!({ "capabilities": "ehr" }),
+            json!({ "capabilities": [1] }),
+        ] {
+            assert!(
+                matches!(claim(refused.clone()), Err(CatalogueError::ClaimsShape(_))),
+                "{refused}"
+            );
+        }
+        assert!(matches!(
+            claimed_capabilities(Some(&json!({ "options": [] })), &folders),
+            Err(CatalogueError::ClaimsShape(_))
+        ));
+    }
+
+    #[test]
+    fn the_not_claimed_skip_quotes_the_published_statement_schema() {
+        assert!(CLAIMS_DESCRIPTION.contains(CLAIMS_RULE));
+        let skip = not_claimed();
+        assert_eq!(skip.reason, SkipReason::NotClaimed);
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let schema: Value =
+            serde_json::from_str(&std::fs::read_to_string(root.join(&skip.why.source)).unwrap())
+                .unwrap();
+        let described = schema
+            .pointer(skip.why.section.trim_start_matches('#'))
+            .and_then(|clause| clause.get("description"))
+            .and_then(Value::as_str)
+            .unwrap();
+        assert!(described.contains(&skip.why.quote), "{described}");
     }
 }
