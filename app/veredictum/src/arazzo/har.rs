@@ -68,6 +68,12 @@ pub struct Creator {
 pub struct LogContext {
     /// The base URL every operation path was appended to.
     pub base_url: String,
+    /// Whether the run was given the administrative principal, so a
+    /// re-judgement skips the same administrative workflows. The credential
+    /// itself is never recorded; a recording without the field ran without
+    /// one.
+    #[serde(default)]
+    pub administrative: bool,
 }
 
 /// The HAR `page` object: one workflow run.
@@ -278,6 +284,7 @@ impl Har {
                 entries: Vec::new(),
                 veredictum: LogContext {
                     base_url: base_url.to_owned(),
+                    administrative: false,
                 },
             },
         }

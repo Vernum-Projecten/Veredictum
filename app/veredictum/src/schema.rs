@@ -2677,19 +2677,24 @@ fn arazzo_why_def() -> Value {
     })
 }
 
-/// `arazzo-results.schema.json` — the results of one Arazzo document's run.
+/// `arazzo-results.schema.json` — the results of one Arazzo document's run,
+/// or of a catalogue run over every document.
 #[must_use]
 pub fn arazzo_results_schema() -> Value {
     json!({
         "$schema": DRAFT,
         "$id": urn("arazzo-results"),
         "title": "Arazzo run results",
-        "description": "One row per workflow row of one Arazzo document, each passed, failed, errored or skipped. A failed or errored row carries the four-part explanation (what was checked, why it is required, expected against received with the exchange, whose problem it is); a skipped row carries one reason from the closed list and its citation. Re-judging the HAR recording of the run writes the same bytes.",
+        "description": "One row per workflow row of one Arazzo document, or of every document of a catalogue run, each passed, failed, errored or skipped. A failed or errored row carries the four-part explanation (what was checked, why it is required, expected against received with the exchange, whose problem it is); a skipped row carries one reason from the closed list and its citation. Re-judging the HAR recording of the run writes the same bytes.",
         "type": "object",
         "additionalProperties": false,
         "required": ["document", "engine", "instrument_status", "base_url", "rows"],
         "properties": {
-            "document": { "type": "string", "minLength": 1 },
+            "document": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The document's name, the prefix of every case id; `catalogue` for a catalogue run, whose case ids each carry their own document's name."
+            },
             "engine": {
                 "type": "object",
                 "additionalProperties": false,

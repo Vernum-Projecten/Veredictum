@@ -233,10 +233,13 @@ pub struct Engine {
     pub version: String,
 }
 
-/// The results of one document's run.
+/// The results of one document's run, or of a catalogue run over every
+/// document.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Results {
-    /// The document's name, the prefix of every case id.
+    /// The document's name, the prefix of every case id; for a catalogue run,
+    /// [`crate::arazzo::catalogue::RUN_NAME`], and each case id carries its
+    /// own document's name.
     pub document: String,
     /// The instrument.
     pub engine: Engine,
