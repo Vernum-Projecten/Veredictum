@@ -27,9 +27,11 @@ workflows:
     description: >-
       Creates an EHR, then deletes through the bulk delete with the ehr_id
       query parameter naming that EHR and a value that is not a UUID. The
-      parameter is a UUID, so the request is syntactically invalid and is
-      answered 400 Bad Request. A request the service will not process is
-      not applied, so the EHR it named is still retrieved.
+      parameter's schema is a string of format uuid
+      (parameters/query/ehr_id_Admin.yaml), so the value is a syntactically
+      invalid parameter and the request is answered 400 Bad Request. A
+      request the service will not process is not applied, so the EHR it
+      named is still retrieved.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: HTTP status codes
@@ -61,9 +63,9 @@ workflows:
         successCriteria:
           - condition: $statusCode == 400
             x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/parameters/query/ehr_id_Admin.yaml
-              section: schema
-              quote: "uuid"
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
       - stepId: get
         description: Retrieve the EHR the refused delete named.
         operationId: $sourceDescriptions.ehr.ehr_get_by_id
