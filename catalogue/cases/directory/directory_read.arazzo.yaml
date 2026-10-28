@@ -1,0 +1,711 @@
+# Reading the directory FOLDER of an EHR: the latest directory, a version at
+# a time, a version by its version_uid, a sub-FOLDER by path, the misses a
+# read answers with 404, a deleted directory, malformed coordinates, and the
+# headers of the answer, as Arazzo 1.1.0 workflows over the released
+# ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Directory read
+  version: 0.1.0
+  description: >-
+    Reading the directory FOLDER of an EHR in canonical JSON. The directory
+    is a root named root holding one sub-FOLDER named episodes, which holds
+    one sub-FOLDER named 2026; a second version renames the root to archive.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_directory
+    summary: The latest directory FOLDER is retrieved with its structure
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory
+      with no version_at_time and no path. The read is answered 200 with the
+      root FOLDER and its nested sub-FOLDERs.
+    x-veredictum-cite: &latest
+      source: specs/openehr/ITS-REST/specifications/operations/directory_get_at_time.yaml
+      section: description
+      quote: "If `version_at_time` is supplied, retrieves the version extant _at specified time_, otherwise retrieves the _latest_ directory FOLDER version."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &create
+        stepId: create
+        description: >-
+          Create the directory FOLDER, keep the version_uid of the full
+          representation, and derive its object_id and creating_system_id.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+            folders:
+              - _type: FOLDER
+                name: { _type: DV_TEXT, value: episodes }
+                archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                  rm_version: 1.1.0
+                folders:
+                  - _type: FOLDER
+                    name: { _type: DV_TEXT, value: "2026" }
+                    archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                    archetype_details:
+                      _type: ARCHETYPED
+                      archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                      rm_version: 1.1.0
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+              section: description
+              quote: "`201 Created` is returned when the FOLDER is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          object_id: { function: object_id, of: version_uid }
+          system_id: { function: creating_system_id, of: version_uid }
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite: &folder_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_FOLDER_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the FOLDER is successfully retrieved."
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^root$'
+          - context: $response.body#/folders/0/folders/0/name/value
+            type: regex
+            condition: '^2026$'
+
+  - workflowId: get_directory-path
+    summary: A directory read with a path is answered with the sub-FOLDER at that path
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the latest
+      directory with the path episodes/2026. The read is answered 200 with
+      the sub-FOLDER named 2026 rather than the root.
+    x-veredictum-cite: &path
+      source: specs/openehr/ITS-REST/specifications/operations/directory_get_at_time.yaml
+      section: description
+      quote: "If `path` is supplied, retrieves from the directory only the sub-FOLDER that is associated with that path."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the sub-FOLDER at the path episodes/2026.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: path, in: query, value: episodes/2026 }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^2026$'
+
+  - workflowId: get_directory-path_unresolved
+    summary: A directory read with a path the directory does not hold is answered 404
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the latest
+      directory with the path episodes/1999, which names no sub-FOLDER. The
+      read is answered 404 Not Found.
+    x-veredictum-cite: &at_time_not_found
+      source: specs/openehr/ITS-REST/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when a directory does not exist at the specified `version_at_time`, or when `path` does not exist within the directory."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the directory with a path that names no sub-FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: path, in: query, value: episodes/1999 }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &not_found
+            condition: $statusCode == 404
+
+  - workflowId: get_directory-no_directory
+    summary: A directory read in an EHR with no directory is answered 404
+    description: >-
+      Creates an EHR with no directory, then retrieves its directory. No
+      directory version exists, so the read is answered 404 Not Found.
+    x-veredictum-cite: *at_time_not_found
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &get_latest_missing
+        stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *not_found
+
+  - workflowId: get_directory-unknown_ehr
+    summary: A directory read under an ehr_id no EHR carries is answered 404
+    description: >-
+      Retrieves the directory under a freshly generated ehr_id that no EHR
+      carries. The read is answered 404 Not Found.
+    x-veredictum-cite: *at_time_not_found
+    inputs: *ehr_input
+    steps:
+      - *get_latest_missing
+
+  - workflowId: get_directory-at_time_future
+    summary: A directory read at a time after the latest version is answered with the latest version
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory
+      at version_at_time 2999-01-01T00:00:00Z. The latest version is the one
+      extant at that time, so the read is answered 200 with the FOLDER named
+      root.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/directory_get_at_time.yaml
+      section: description
+      quote: "If `version_at_time` is supplied, retrieves the version extant _at specified time_, otherwise retrieves the _latest_ directory FOLDER version."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the directory at a time far after its creation.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_at_time, in: query, value: "2999-01-01T00:00:00Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^root$'
+
+  - workflowId: get_directory-at_time_before_first_version
+    summary: A directory read at a time before its first version is answered 404
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory
+      at version_at_time 2000-01-01T00:00:00Z, before the directory existed.
+      No directory exists at that time, so the read is answered 404 Not
+      Found.
+    x-veredictum-cite: *at_time_not_found
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the directory at a time before its creation.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_at_time, in: query, value: "2000-01-01T00:00:00Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *not_found
+
+  - workflowId: get_directory-at_time_malformed
+    summary: A directory read whose version_at_time is not an ISO 8601 datetime is refused with 400
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory
+      with a version_at_time that is no datetime at all. The query parameter
+      breaks the extended ISO 8601 format the release requires, so the read
+      is answered 400 Bad Request.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Datetime format
+      quote: "HTTP query parameters and path segments that are dates, datetimes, or times, MUST always use the _extended_ ISO 8601 format."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the directory with a malformed version_at_time.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_at_time, in: query, value: not-a-datetime }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: &client_error
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+
+  - workflowId: get_directory-deleted
+    summary: The latest directory read after a delete is answered 204
+    description: >-
+      Creates an EHR and its directory FOLDER, deletes the directory under
+      the version_uid of the create, then retrieves the latest directory. The
+      latest version is deleted, so the read is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_deleted_at_time.yaml
+      section: description
+      quote: "`204 No Content` is returned when the resource identified by the request parameters (at specified `version_at_time`) time has been deleted."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - &delete
+        stepId: delete
+        description: Delete the directory under the version_uid of the create.
+        operationId: $sourceDescriptions.ehr.directory_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_deleted.yaml
+              section: description
+              quote: "`204 No Content` is returned when the resource identified by the request parameters has been (logically) deleted."
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: get_directory-deleted_at_future_time
+    summary: A directory read at a time after its delete is answered 204
+    description: >-
+      Creates an EHR and its directory FOLDER, deletes the directory, then
+      retrieves the directory at version_at_time 2999-01-01T00:00:00Z. The
+      version extant at that time is deleted, so the read is answered 204 No
+      Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_deleted_at_time.yaml
+      section: description
+      quote: "`204 No Content` is returned when the resource identified by the request parameters (at specified `version_at_time`) time has been deleted."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - *delete
+      - stepId: get
+        description: Retrieve the directory at a time far after its delete.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_at_time, in: query, value: "2999-01-01T00:00:00Z" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: get_directory-content_type
+    summary: A directory read carries Content-Type application/json
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory in
+      canonical JSON. The answer carries a body, so it carries Content-Type
+      application/json.
+    x-veredictum-cite: &json_content_type
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - &json
+            context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+
+  - workflowId: get_directory-no_location
+    summary: A directory read carries no Location header
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory.
+      A read is not a creation, so the answer carries no Location header.
+    x-veredictum-cite: &no_location
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Location
+      quote: "It MUST NOT be used to indicate an alternate representation of an existing resource (e.g. via `GET` method)."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - &location_absent
+            condition: $response.header.Location == null
+
+  - workflowId: get_directory-etag_weak
+    summary: An ETag sent on a directory read carries the weakness indicator
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory.
+      If the answer sends an ETag, it is a weak entity tag.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: get_directory-etag_last_modified
+    summary: A directory read is answered with ETag and Last-Modified
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory.
+      The directory FOLDER is versioned, so the answer carries an ETag and a
+      Last-Modified header. The headers are recommended, so a row that lacks
+      them is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: ETag and Last-Modified
+      quote: "Both `ETag` and `Last-Modified` SHOULD be included in responses for VERSION, VERSIONED_OBJECT, or other resources that have versioning or unique state identifiers."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - condition: $response.header.ETag != null
+          - condition: $response.header.Last-Modified != null
+
+  - workflowId: get_directory_version
+    summary: A directory version is retrieved by its version_uid
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory
+      by the version_uid of the create. The read is answered 200 with the
+      FOLDER named root.
+    x-veredictum-cite: &by_version
+      source: specs/openehr/ITS-REST/specifications/operations/directory_get_by_version_id.yaml
+      section: description
+      quote: "Retrieves a particular version of the directory FOLDER identified by `version_uid` and associated with the EHR identified by `ehr_id`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - &get_version
+        stepId: get
+        description: Retrieve the directory by the version_uid of the create.
+        operationId: $sourceDescriptions.ehr.directory_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^root$'
+
+  - workflowId: get_directory_version-two_versions
+    summary: Each of two directory versions is retrieved by its own version_uid
+    description: >-
+      Creates an EHR and its directory FOLDER, updates the directory to a
+      second version whose root is named archive, then retrieves each version
+      by its version_uid. The first read is answered with the FOLDER named
+      root and the second with the FOLDER named archive.
+    x-veredictum-cite: *by_version
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - &update
+        stepId: update
+        description: Update the directory to a second version named archive, and keep its version_uid.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: archive }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_directory_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when directory was successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+        outputs:
+          version_uid: $response.body#/uid/value
+      - *get_version
+      - stepId: get-second
+        description: Retrieve the directory by the version_uid of the update.
+        operationId: $sourceDescriptions.ehr.directory_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.update.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^archive$'
+
+  - workflowId: get_directory_version-path
+    summary: A directory version read with a path is answered with the sub-FOLDER at that path
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the version of
+      the create with the path episodes/2026. The read is answered 200 with
+      the sub-FOLDER named 2026.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/directory_get_by_version_id.yaml
+      section: description
+      quote: "If `path` is supplied, retrieves from the directory only the sub-FOLDER that is associated with that path."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the sub-FOLDER at the path episodes/2026 of the version of the create.
+        operationId: $sourceDescriptions.ehr.directory_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.create.outputs.version_uid }
+          - { name: path, in: query, value: episodes/2026 }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^2026$'
+
+  - workflowId: get_directory_version-path_unresolved
+    summary: A directory version read with a path the version does not hold is answered 404
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the version of
+      the create with the path episodes/1999, which names no sub-FOLDER. The
+      read is answered 404 Not Found.
+    x-veredictum-cite: &version_not_found
+      source: specs/openehr/ITS-REST/specifications/responses/404_directory_unknown_ehr_id_or_no_version_uid_or_no_path.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when a directory with `version_uid` does not exist, or when `path` does not exist within the directory."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the version of the create with a path that names no sub-FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.create.outputs.version_uid }
+          - { name: path, in: query, value: episodes/1999 }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *not_found
+
+  - workflowId: get_directory_version-unknown_version
+    summary: A directory read by a version_uid no version carries is answered 404
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory
+      by a version_uid built from a freshly generated object_id, the
+      creating_system_id of the create and version 1, which no directory
+      version carries. The read is answered 404 Not Found.
+    x-veredictum-cite: *version_not_found
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        object_id: { type: string, format: uuid }
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the directory by a version_uid no version carries.
+        operationId: $sourceDescriptions.ehr.directory_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: '{$inputs.object_id}::{$steps.create.outputs.system_id}::1' }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *not_found
+
+  - workflowId: get_directory_version-foreign_system
+    summary: A directory read by a version_uid naming another creating system is answered 404
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory
+      by the version_uid with the object_id and version of the create but the
+      creating_system_id foreign.example.org. No directory version carries
+      that version_uid, so the read is answered 404 Not Found.
+    x-veredictum-cite: *version_not_found
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the directory by the version_uid naming a foreign creating system.
+        operationId: $sourceDescriptions.ehr.directory_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: '{$steps.create.outputs.object_id}::foreign.example.org::1' }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *not_found
+
+  - workflowId: get_directory_version-unknown_ehr
+    summary: A directory version read under an ehr_id no EHR carries is answered 404
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the version of
+      the create under a freshly generated ehr_id that no EHR carries. The
+      read is answered 404 Not Found.
+    x-veredictum-cite: *version_not_found
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        other_ehr_id: { type: string, format: uuid }
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the version of the create under an ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.directory_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.other_ehr_id }
+          - { name: version_uid, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *not_found
+
+  - workflowId: get_directory_version-malformed_version_uid
+    summary: A directory read whose version_uid is not an OBJECT_VERSION_ID is refused with 400
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the directory
+      by the version_uid not-a-version-uid, which is not of the lexical form
+      of an OBJECT_VERSION_ID. The request parameter is syntactically invalid,
+      so the read is answered 400 Bad Request.
+    x-veredictum-cite: *client_error
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the directory by the malformed version_uid not-a-version-uid.
+        operationId: $sourceDescriptions.ehr.directory_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: not-a-version-uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 400
+
+  - workflowId: get_directory_version-content_type
+    summary: A directory version read carries Content-Type application/json
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the version of
+      the create in canonical JSON. The answer carries a body, so it carries
+      Content-Type application/json.
+    x-veredictum-cite: *json_content_type
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the directory by the version_uid of the create.
+        operationId: $sourceDescriptions.ehr.directory_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - *json
+
+  - workflowId: get_directory_version-no_location
+    summary: A directory version read carries no Location header
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the version of
+      the create. A read is not a creation, so the answer carries no Location
+      header.
+    x-veredictum-cite: *no_location
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the directory by the version_uid of the create.
+        operationId: $sourceDescriptions.ehr.directory_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - *location_absent

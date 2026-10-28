@@ -1,0 +1,162 @@
+# A CONTRIBUTION read in canonical XML, for a service that serves it in XML:
+# the served arm of the `contribution-xml-read` option, whose refused arm is
+# `contribution_read_xml_not_acceptable.arazzo.yaml`. Every quote is copied
+# verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: CONTRIBUTION read in canonical XML
+  version: 0.1.0
+  description: >-
+    Reading a committed CONTRIBUTION with Accept application/xml from a
+    service that serves it in canonical XML.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: get_contribution-xml
+    summary: A CONTRIBUTION read with Accept application/xml is answered in XML
+    description: >-
+      Creates an EHR and commits a CONTRIBUTION, then retrieves it asking for
+      canonical XML. The answer is 200 with Content-Type application/xml.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "Proper header `Content-Type: application/xml` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: Commit a CONTRIBUTION creating a COMPOSITION, and keep its uid and the version_uid it references.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit: &creation_audit
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data:
+                  _type: COMPOSITION
+                  name: { _type: DV_TEXT, value: content case carrier }
+                  archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+                  archetype_details:
+                    _type: ARCHETYPED
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-COMPOSITION.minimal.v1 }
+                    template_id: { _type: TEMPLATE_ID, value: cnf.tpl.count_range }
+                    rm_version: 1.0.2
+                  language:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                    code_string: en
+                  territory:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+                    code_string: NL
+                  category:
+                    _type: DV_CODED_TEXT
+                    value: event
+                    defining_code:
+                      _type: CODE_PHRASE
+                      terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                      code_string: "433"
+                  composer: { _type: PARTY_SELF }
+                  context:
+                    _type: EVENT_CONTEXT
+                    start_time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                    setting:
+                      _type: DV_CODED_TEXT
+                      value: other care
+                      defining_code:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                        code_string: "238"
+                  content:
+                    - _type: OBSERVATION
+                      name: { _type: DV_TEXT, value: content observation }
+                      archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                      archetype_details:
+                        _type: ARCHETYPED
+                        archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                        rm_version: 1.0.2
+                      language:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                        code_string: en
+                      encoding:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                        code_string: UTF-8
+                      subject: { _type: PARTY_SELF }
+                      data:
+                        _type: HISTORY
+                        name: { _type: DV_TEXT, value: history }
+                        archetype_node_id: at0001
+                        origin: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                        events:
+                          - _type: POINT_EVENT
+                            name: { _type: DV_TEXT, value: any event }
+                            archetype_node_id: at0002
+                            time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                            data:
+                              _type: ITEM_TREE
+                              name: { _type: DV_TEXT, value: tree }
+                              archetype_node_id: at0003
+                              items:
+                                - _type: ELEMENT
+                                  name: { _type: DV_TEXT, value: value }
+                                  archetype_node_id: at0004
+                                  value: { _type: DV_COUNT, magnitude: 15 }
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_CONTRIBUTION.yaml
+              section: description
+              quote: "`201 Created` is returned when the CONTRIBUTION is successfully created."
+        outputs:
+          contribution_uid: $response.body#/uid/value
+          version_uid: $response.body#/versions/0/id/value
+      - stepId: get
+        description: Retrieve the CONTRIBUTION by its uid in canonical XML.
+        operationId: $sourceDescriptions.ehr.contribution_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: contribution_uid, in: path, value: $steps.commit.outputs.contribution_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/xml'

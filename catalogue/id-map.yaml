@@ -693,6 +693,720 @@ cases:
   I_EHR_COMPOSITION.has_composition-xml:
     new: *xml
     open: *xml_root
+  I_EHR_CONTRIBUTION.commit_contribution-attest_imported_version:
+    new: []
+    open: >-
+      The target is an IMPORTED_VERSION, which only an EHR import through a
+      route no released OAS declares can establish (register AMB-34), and the
+      attestation member it commits is the shape #690 tracks.
+  I_EHR_CONTRIBUTION.commit_contribution-attestation_attested_view:
+    new: []
+    open: &attestation >-
+      The case commits a 666 attestation member with neither data nor
+      lifecycle_state, which the released commit DTO (UpdateVersion.yaml,
+      required lifecycle_state, data and commit_audit) does not admit; the
+      member shape is #690, and no workflow commits an attestation until it
+      is settled.
+  I_EHR_CONTRIBUTION.commit_contribution-attestation_commit_audit:
+    new: []
+    open: >-
+      A commit_audit typed ATTESTATION: UpdateAudit.yaml names UPDATE_AUDIT,
+      AUDIT_DETAILS or no _type for that slot, and no released sentence says
+      a server takes the RM subtype there (register AMB-179).
+  I_EHR_CONTRIBUTION.commit_contribution-attestation_description_coded:
+    new: []
+    open: *attestation
+  I_EHR_CONTRIBUTION.commit_contribution-attestation_empty_items:
+    new: []
+    open: *attestation
+  I_EHR_CONTRIBUTION.commit_contribution-attestation_missing_reason:
+    new: []
+    open: *attestation
+  I_EHR_CONTRIBUTION.commit_contribution-attestation_only:
+    new: []
+    open: *attestation
+  I_EHR_CONTRIBUTION.commit_contribution-attestation_pending_then_final:
+    new: []
+    open: *attestation
+  I_EHR_CONTRIBUTION.commit_contribution-attestation_reason_out_of_group:
+    new: []
+    open: *attestation
+  I_EHR_CONTRIBUTION.commit_contribution-audit_change_type_omitted:
+    new: [contribution_create_refused/commit_contribution-audit_change_type_missing]
+  I_EHR_CONTRIBUTION.commit_contribution-audit_change_type_out_of_group:
+    new: [contribution_create_refused/commit_contribution-audit_change_type_out_of_group]
+  I_EHR_CONTRIBUTION.commit_contribution-audit_conformant:
+    new:
+      - contribution_create/commit_contribution-audit_time_committed
+      - contribution_read/get_contribution-audit
+  I_EHR_CONTRIBUTION.commit_contribution-audit_description_coded:
+    new: [contribution_create/commit_contribution-audit_description_coded]
+  I_EHR_CONTRIBUTION.commit_contribution-client_uid_in_use:
+    new:
+      - contribution_create/commit_contribution-client_uid
+      - contribution_create_refused/commit_contribution-client_uid_in_use
+  I_EHR_CONTRIBUTION.commit_contribution-cluster_no_items:
+    new: [contribution_create_refused/commit_contribution-cluster_no_items]
+  I_EHR_CONTRIBUTION.commit_contribution-committer_empty_name:
+    new: [contribution_create_refused/commit_contribution-committer_empty_name]
+  I_EHR_CONTRIBUTION.commit_contribution-committer_no_identity:
+    new: [contribution_create_refused/commit_contribution-committer_no_identity]
+  I_EHR_CONTRIBUTION.commit_contribution-committer_related:
+    new: [contribution_create/commit_contribution-committer_related]
+  I_EHR_CONTRIBUTION.commit_contribution-committer_related_out_of_group:
+    new: [contribution_create_refused/commit_contribution-committer_related_out_of_group]
+  I_EHR_CONTRIBUTION.commit_contribution-complete_missing_mandatory:
+    new: [contribution_create_refused/commit_contribution-invalid_composition]
+    open: >-
+      The workflow judges a COMPOSITION the published ITS-JSON schema
+      refuses, answered 400. No released sentence names the code for content
+      that is schema-valid but misses data its archetypes make mandatory
+      (register AMB-194), so that half is not carried.
+  I_EHR_CONTRIBUTION.commit_contribution-creation_with_preceding_version:
+    new: [contribution_create_refused/commit_contribution-creation_with_preceding_version]
+  I_EHR_CONTRIBUTION.commit_contribution-deactivating_mixed_change_set:
+    new: []
+    open: &mixed_change_set >-
+      No released sentence says when EHR_STATUS.is_modifiable is evaluated
+      against a CONTRIBUTION that carries an EHR_STATUS member beside content
+      members: against the state the commit finds or the state it leaves
+      (register AMB-225). The single-kind halves are
+      commit_contribution-ehr_not_modifiable and
+      commit_contribution-ehr_status_deactivated_ehr.
+  I_EHR_CONTRIBUTION.commit_contribution-deactivating_mixed_change_set_composition_container:
+    new: []
+    open: *mixed_change_set
+  I_EHR_CONTRIBUTION.commit_contribution-delete:
+    new: []
+    open: &deleted_member >-
+      RM master06 §Logical Deletion deletes by committing a version whose
+      data is removed, while the released commit DTO (UpdateVersion.yaml)
+      requires data on every member, so no released shape commits a deletion
+      through a CONTRIBUTION (register AMB-85).
+  I_EHR_CONTRIBUTION.commit_contribution-delete_directory:
+    new: []
+    open: *deleted_member
+  I_EHR_CONTRIBUTION.commit_contribution-delete_member_contradictory_lifecycle:
+    new: []
+    open: *deleted_member
+  I_EHR_CONTRIBUTION.commit_contribution-deleted_lifecycle_with_data:
+    new: []
+    open: *deleted_member
+  I_EHR_CONTRIBUTION.commit_contribution-deleted_member_with_data:
+    new: []
+    open: *deleted_member
+  I_EHR_CONTRIBUTION.commit_contribution-demographic_kind_in_ehr:
+    new: [contribution_create_refused/commit_contribution-demographic_kind]
+  I_EHR_CONTRIBUTION.commit_contribution-deprecated_text_forms:
+    new: []
+    open: &content_family >-
+      A data-value family case that commits a corpus fixture through the
+      CONTRIBUTION; its RM rules are judged at the COMPOSITION create by the
+      content conversion, and the CONTRIBUTION adds no released branch of its
+      own beyond commit_contribution-composition and
+      commit_contribution-invalid_composition.
+  I_EHR_CONTRIBUTION.commit_contribution-ehr_not_modifiable:
+    new: [contribution_create_refused/commit_contribution-ehr_not_modifiable]
+    open: >-
+      The status code: RM ehr_status.adoc assigns that the contents may not be
+      written to and no released sentence names the code, so any 4xx holds
+      (register AMB-82).
+  I_EHR_CONTRIBUTION.commit_contribution-ehr_status_incomplete_lifecycle:
+    new: [contribution_create/commit_contribution-ehr_status_incomplete]
+  I_EHR_CONTRIBUTION.commit_contribution-ehr_status_invalid_change_type:
+    new: []
+    open: &ehr_status_member >-
+      No released sentence outside the SM, which has no role in this
+      catalogue, names the answer to a creation or deletion member for the
+      EHR_STATUS an EHR already has: contribution_create declares 409 only
+      for an identifier in use, and RM ehr.adoc gives the reference to the
+      EHR_STATUS no multiplicity rule a commit is refused by.
+  I_EHR_CONTRIBUTION.commit_contribution-ehr_status_invalid_change_type_deleted:
+    new: []
+    open: *ehr_status_member
+  I_EHR_CONTRIBUTION.commit_contribution-ehr_status_only_deactivated_ehr:
+    new: [contribution_create/commit_contribution-ehr_status_deactivated_ehr]
+  I_EHR_CONTRIBUTION.commit_contribution-ehr_status_valid_combinations:
+    new: [contribution_create/commit_contribution-ehr_status]
+    open: >-
+      The workflow commits one row of the table, is_queryable false; the
+      other is_modifiable, is_queryable and external_ref combinations are not
+      carried, and no released sentence assigns them a different answer.
+  I_EHR_CONTRIBUTION.commit_contribution-element_null_family_invalid:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-empty:
+    new: [contribution_create_refused/commit_contribution-empty_versions]
+  I_EHR_CONTRIBUTION.commit_contribution-encapsulated_family_invalid:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-encapsulated_rich:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-entry_family_invalid:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-event_composition:
+    new: [contribution_create/commit_contribution-modification]
+  I_EHR_CONTRIBUTION.commit_contribution-fail_create_existing_directory:
+    new: []
+    open: >-
+      RM ehr.adoc lets an EHR hold several FOLDER structures ("Optional
+      additional Folder structures for this EHR"), so a second FOLDER creation
+      member is not shown to be a second directory, and no released sentence
+      outside the SM refuses it.
+  I_EHR_CONTRIBUTION.commit_contribution-fail_modify_non_existing_directory:
+    new: [contribution_create_refused/commit_contribution-folder_modification_without_directory]
+  I_EHR_CONTRIBUTION.commit_contribution-feeder_empty_system_id:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-full_ehr_status:
+    new: [contribution_create/commit_contribution-ehr_status]
+  I_EHR_CONTRIBUTION.commit_contribution-history_family_invalid:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-history_interval_events:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-identifier_empty_id:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-imported_version_member:
+    new: []
+    open: &imported_member >-
+      The released commit wire has no IMPORTED_VERSION shape, and
+      UpdateVersion.yaml does not refuse undeclared members, so no released
+      text assigns the refusal of a member carrying item, uid or an
+      IMPORTED_VERSION _type (register AMB-89).
+  I_EHR_CONTRIBUTION.commit_contribution-imported_version_type:
+    new: []
+    open: *imported_member
+  I_EHR_CONTRIBUTION.commit_contribution-incomplete_missing_mandatory:
+    new: [contribution_create/commit_contribution-incomplete_lifecycle]
+    open: &incomplete >-
+      The workflow commits a complete COMPOSITION in the incomplete state.
+      Content missing archetype-mandatory data is not carried: no released
+      sentence names the answer or relaxes the published schema for it
+      (register AMB-194).
+  I_EHR_CONTRIBUTION.commit_contribution-incomplete_wrong_data:
+    new: []
+    open: *incomplete
+  I_EHR_CONTRIBUTION.commit_contribution-instruction_rich:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-invalid_composition:
+    new: [contribution_create_refused/commit_contribution-invalid_composition]
+  I_EHR_CONTRIBUTION.commit_contribution-invalid_ehr_status:
+    new: [contribution_create_refused/commit_contribution-invalid_ehr_status]
+  I_EHR_CONTRIBUTION.commit_contribution-last_modified:
+    new: [contribution_create/commit_contribution-etag_last_modified]
+    open: &contribution_last_modified >-
+      Carried as advisory: Requests_and_responses.md §ETag and Last-Modified
+      says both headers "SHOULD be included", and whether a CONTRIBUTION is a
+      resource with a unique state identifier is register AMB-87. The audit
+      instant the header derives from is not compared.
+  I_EHR_CONTRIBUTION.commit_contribution-last_modified_minimal:
+    new: [contribution_create/commit_contribution-etag_last_modified]
+    open: *contribution_last_modified
+  I_EHR_CONTRIBUTION.commit_contribution-lifecycle_abandon:
+    new: []
+    open: &lifecycle >-
+      No released sentence assigns the wire treatment of version lifecycle
+      transitions: RM master06 enumerates three states while TERM carries
+      five, and the transition table the case follows is not released text
+      (register AMB-195).
+  I_EHR_CONTRIBUTION.commit_contribution-lifecycle_deactivate:
+    new: []
+    open: *lifecycle
+  I_EHR_CONTRIBUTION.commit_contribution-lifecycle_illegal_transition:
+    new: []
+    open: *lifecycle
+  I_EHR_CONTRIBUTION.commit_contribution-lifecycle_reactivate:
+    new: []
+    open: *lifecycle
+  I_EHR_CONTRIBUTION.commit_contribution-lifecycle_restore_from_deleted:
+    new: []
+    open: *lifecycle
+  I_EHR_CONTRIBUTION.commit_contribution-lifecycle_retrieve:
+    new: []
+    open: *lifecycle
+  I_EHR_CONTRIBUTION.commit_contribution-member_without_lifecycle_state:
+    new: [contribution_create_refused/commit_contribution-lifecycle_state_missing]
+  I_EHR_CONTRIBUTION.commit_contribution-merge_provenance_member:
+    new: []
+    open: >-
+      The released commit DTO declares no merge shape and does not refuse
+      undeclared members, so no released text assigns the refusal of a member
+      carrying other_input_version_uids (register AMB-196).
+  I_EHR_CONTRIBUTION.commit_contribution-minimal_ehr_status:
+    new: [contribution_create/commit_contribution-ehr_status]
+  I_EHR_CONTRIBUTION.commit_contribution-mixed_change_set_stays_deactivated:
+    new: []
+    open: *mixed_change_set
+  I_EHR_CONTRIBUTION.commit_contribution-multiple_valid_event_compositions:
+    new: [contribution_create/commit_contribution-two_compositions]
+  I_EHR_CONTRIBUTION.commit_contribution-multiple_valid_mixed_compositions:
+    new: [contribution_create/commit_contribution-event_and_persistent]
+  I_EHR_CONTRIBUTION.commit_contribution-multiple_valid_persistent_compositions:
+    new: [contribution_create/commit_contribution-two_persistent_compositions]
+  I_EHR_CONTRIBUTION.commit_contribution-non_existing_ehr:
+    new: [contribution_create_refused/commit_contribution-unknown_ehr]
+  I_EHR_CONTRIBUTION.commit_contribution-non_exiting_opt:
+    new: [contribution_create_refused/commit_contribution-unknown_template]
+  I_EHR_CONTRIBUTION.commit_contribution-one_commit_invalid_change_types:
+    new:
+      - contribution_create_refused/commit_contribution-first_version_modification
+      - contribution_create_refused/commit_contribution-first_version_amendment
+    open: >-
+      The rows whose member carries change_type or lifecycle_state 523
+      deleted are not carried: the released commit DTO requires data on
+      every member, so it has no deletion shape (register AMB-85).
+  I_EHR_CONTRIBUTION.commit_contribution-one_commit_invalid_change_types_persistent:
+    new: [contribution_create_refused/commit_contribution-first_version_modification_persistent]
+  I_EHR_CONTRIBUTION.commit_contribution-paragraph_no_items:
+    new: [contribution_create_refused/commit_contribution-paragraph_no_items]
+  I_EHR_CONTRIBUTION.commit_contribution-periodic_bad_formalism:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-persistent_composition:
+    new: [contribution_create/commit_contribution-modification_persistent]
+  I_EHR_CONTRIBUTION.commit_contribution-prefer_minimal:
+    new:
+      - contribution_create/commit_contribution-prefer_minimal
+      - contribution_create/commit_contribution-location
+  I_EHR_CONTRIBUTION.commit_contribution-quantity_family_invalid:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-quantity_rich:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-reactivating_mixed_change_set:
+    new: []
+    open: *mixed_change_set
+  I_EHR_CONTRIBUTION.commit_contribution-reactivating_mixed_change_set_composition_container:
+    new: []
+    open: *mixed_change_set
+  I_EHR_CONTRIBUTION.commit_contribution-return_identifier:
+    new: [contribution_create/commit_contribution-return_identifier]
+  I_EHR_CONTRIBUTION.commit_contribution-stale_preceding_version:
+    new: []
+    open: >-
+      RM versioned_object.adoc commit_original_version requires only
+      `all_version_ids.has (a_preceding_version_uid)`, which a superseded
+      version satisfies, and contribution_create declares no 412; no released
+      sentence refuses a member that branches from it (register AMB-54).
+  I_EHR_CONTRIBUTION.commit_contribution-text_family_invalid:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-time_specifications:
+    new: []
+    open: *content_family
+  I_EHR_CONTRIBUTION.commit_contribution-two_commits_second_creation:
+    new: [contribution_create_refused/commit_contribution-creation_with_preceding_version]
+  I_EHR_CONTRIBUTION.commit_contribution-two_commits_second_invalid:
+    new: [contribution_create_refused/commit_contribution-invalid_composition]
+    open: >-
+      The workflow refuses an invalid creating member; the same refusal on a
+      modifying member is not carried separately, and no released sentence
+      assigns it a different answer.
+  I_EHR_CONTRIBUTION.commit_contribution-update_existing_directory:
+    new: [contribution_create/commit_contribution-folder_modification]
+  I_EHR_CONTRIBUTION.commit_contribution-valid_composition:
+    new:
+      - contribution_create/commit_contribution-composition
+      - contribution_create/commit_contribution-composition_read_back
+      - contribution_create/commit_contribution-version_change_type_creation
+      - contribution_create/commit_contribution-version_names_contribution
+  I_EHR_CONTRIBUTION.commit_contribution-valid_directory:
+    new: [contribution_create/commit_contribution-folder_creation]
+  I_EHR_CONTRIBUTION.commit_contribution-valid_invalid_compositions:
+    new: [contribution_create_refused/commit_contribution-valid_and_invalid]
+    open: &atomic >-
+      That no version of the valid member was created is not judged: no
+      released route lists an EHR's versions or CONTRIBUTIONs, and RM
+      master06 §Contributions puts the all-or-nothing commit in a lower-case
+      "should".
+  I_EHR_CONTRIBUTION.commit_contribution-valid_invalid_compositions_orderings:
+    new: [contribution_create_refused/commit_contribution-valid_and_invalid]
+    open: >-
+      One ordering is carried, the valid member first; the other category
+      mixes and the invalid-first order get no released answer of their own.
+      That no version of the valid member was created is not judged, as for
+      commit_contribution-valid_invalid_compositions.
+  I_EHR_CONTRIBUTION.commit_contribution-wrong_media:
+    new: [contribution_create_refused/commit_contribution-wrong_media]
+  I_EHR_CONTRIBUTION.get_contribution-bad_contribution:
+    new: [contribution_read/get_contribution-unknown_contribution]
+  I_EHR_CONTRIBUTION.get_contribution-bad_ehr:
+    new: [contribution_read/get_contribution-unknown_ehr]
+  I_EHR_CONTRIBUTION.get_contribution-empty_ehr:
+    new: [contribution_read/get_contribution-empty_ehr]
+  I_EHR_CONTRIBUTION.get_contribution-existing:
+    new:
+      - contribution_read/get_contribution
+      - contribution_read/get_contribution-content_type
+      - contribution_read/get_contribution-no_location
+  I_EHR_CONTRIBUTION.get_contribution-header_identity:
+    new:
+      - contribution_read/get_contribution-etag_weak
+      - contribution_read/get_contribution-etag_last_modified
+    open: >-
+      Carried as advisory, and the uid inside the ETag is not compared:
+      whether the SHOULD of Requests_and_responses.md §ETag and Last-Modified
+      reaches a CONTRIBUTION is register AMB-87.
+  I_EHR_CONTRIBUTION.get_contribution-import_contribution:
+    new: []
+    open: >-
+      The CONTRIBUTION is the one an EHR-Extract import creates, through a
+      route no released OAS declares (register AMB-34).
+  I_EHR_CONTRIBUTION.get_contribution-malformed_contribution_uid:
+    new: [contribution_read/get_contribution-malformed_uid]
+  I_EHR_CONTRIBUTION.get_contribution-resolve_refs:
+    new: []
+    open: >-
+      Requests_and_responses.md §Prefer resolve_refs describes the preference
+      as "particularly useful" with no key word, so no released sentence
+      requires a server to inline the versions of a CONTRIBUTION.
+  I_EHR_CONTRIBUTION.get_contribution-version_ref_shape:
+    new: [contribution_read/get_contribution]
+    open: >-
+      The type of each versions[i] reference is not judged: the RM calls them
+      references to Versions while the released schema example types them by
+      the data class (register AMB-88).
+  I_EHR_CONTRIBUTION.get_contribution-xml_not_acceptable:
+    new: &contribution_xml
+      - contribution_read_xml/get_contribution-xml
+      - contribution_read_xml_not_acceptable/get_contribution-xml_not_acceptable
+    open: &contribution_xml_root >-
+      The root element of the XML document is not judged: the evaluator reads
+      no XML body (#637), and no published XSD declares a document element for
+      CONTRIBUTION.
+  I_EHR_CONTRIBUTION.has_contribution-bad_contribution:
+    new: [contribution_read/get_contribution-unknown_contribution]
+  I_EHR_CONTRIBUTION.has_contribution-bad_ehr:
+    new: [contribution_read/get_contribution-unknown_ehr]
+  I_EHR_CONTRIBUTION.has_contribution-empty_ehr:
+    new: [contribution_read/get_contribution-empty_ehr]
+  I_EHR_CONTRIBUTION.has_contribution-existing:
+    new: [contribution_read/get_contribution]
+  I_EHR_CONTRIBUTION.has_contribution-xml_not_acceptable:
+    new: *contribution_xml
+    open: *contribution_xml_root
+  I_EHR_CONTRIBUTION.list_contributions-ehr_containing_directory:
+    new: []
+    open: &no_list >-
+      The list of an EHR's CONTRIBUTIONs has no released route: the
+      CONTRIBUTION collection of ehr.openapi.yaml takes only POST
+      (register AMB-22).
+  I_EHR_CONTRIBUTION.list_contributions-ehr_containing_ehr_status:
+    new: []
+    open: *no_list
+  I_EHR_CONTRIBUTION.list_contributions-empty:
+    new: []
+    open: *no_list
+  I_EHR_CONTRIBUTION.list_contributions-non_existing_ehr:
+    new: []
+    open: *no_list
+  I_EHR_CONTRIBUTION.list_contributions-post_commit:
+    new: []
+    open: *no_list
+  I_EHR_DIRECTORY.create_directory-after_delete:
+    new: []
+    open: >-
+      No released sentence says whether a logically deleted directory still
+      occupies the EHR's directory, and directory_create declares no branch
+      for an EHR that has one (register AMB-79).
+  I_EHR_DIRECTORY.create_directory-bad_ehr:
+    new: [directory_create_refused/create_directory-unknown_ehr]
+  I_EHR_DIRECTORY.create_directory-client_supplied_uid:
+    new: []
+    open: >-
+      No released sentence assigns what a directory create does with a
+      client-supplied FOLDER.uid (register AMB-226).
+  I_EHR_DIRECTORY.create_directory-cluster_no_items:
+    new: [directory_create_refused/create_directory-cluster_no_items]
+  I_EHR_DIRECTORY.create_directory-details_not_item_structure:
+    new: [directory_create_refused/create_directory-details_not_item_structure]
+  I_EHR_DIRECTORY.create_directory-ehr_not_modifiable:
+    new: [directory_create_refused/create_directory-ehr_not_modifiable]
+    open: &folder_not_modifiable >-
+      The status code: RM ehr_status.adoc assigns that the contents may not be
+      written to and no released sentence names the code, so any 4xx holds
+      (register AMB-82).
+  I_EHR_DIRECTORY.create_directory-ehr_with_directory:
+    new: []
+    open: >-
+      directory_create declares 201, 400 and 404 only, RM ehr.adoc lets an
+      EHR hold several FOLDER structures, and the precondition that the EHR
+      has no directory is the SM's, which has no role in this catalogue
+      (register AMB-79).
+  I_EHR_DIRECTORY.create_directory-empty_ehr:
+    new:
+      - directory_create/create_directory
+      - directory_create/create_directory-read_back
+      - directory_create/create_directory-content_type
+  I_EHR_DIRECTORY.create_directory-folder_with_link:
+    new: [directory_create/create_directory-link]
+  I_EHR_DIRECTORY.create_directory-invalid_folder:
+    new: [directory_create_refused/create_directory-name_missing]
+  I_EHR_DIRECTORY.create_directory-invalid_item_tag_header:
+    new: []
+    open: &item_tag_header >-
+      An ITEM_TAG wrapper header on a write, which is optional ("If the server
+      does not support ITEM_TAGs, these headers will also be unsupported");
+      the workflows that send the headers are #694.
+  I_EHR_DIRECTORY.create_directory-item_tag_wrapper_header:
+    new: []
+    open: *item_tag_header
+  I_EHR_DIRECTORY.create_directory-items_by_value:
+    new: [directory_create_refused/create_directory-items_by_value]
+  I_EHR_DIRECTORY.create_directory-link_missing_meaning:
+    new: [directory_create_refused/create_directory-link_meaning_missing]
+  I_EHR_DIRECTORY.create_directory-local_dangling_item:
+    new: []
+    open: &dangling >-
+      No released sentence assigns the resolvability of a FOLDER.items
+      reference: FOLDER declares no invariants, and BASE object_ref.adoc lets
+      the target "exist locally or be maintained outside the current
+      namespace" (register AMB-211).
+  I_EHR_DIRECTORY.create_directory-paragraph_no_items:
+    new: [directory_create_refused/create_directory-paragraph_no_items]
+  I_EHR_DIRECTORY.create_directory-prefer_minimal:
+    new:
+      - directory_create/create_directory-prefer_minimal
+      - directory_create/create_directory-prefer_absent
+      - directory_create/create_directory-location
+  I_EHR_DIRECTORY.create_directory-root_archetype_id_mismatch:
+    new: [directory_create_refused/create_directory-archetype_id_mismatch]
+  I_EHR_DIRECTORY.create_directory-root_node_id_empty:
+    new: [directory_create_refused/create_directory-archetype_node_id_empty]
+  I_EHR_DIRECTORY.create_directory-versioned_id_items:
+    new: [directory_create/create_directory-version_items]
+  I_EHR_DIRECTORY.create_directory-wide_id_items:
+    new: []
+    open: >-
+      The released OAS types FOLDER.items ids as HIER_OBJECT_ID or
+      OBJECT_VERSION_ID only (Folder.yaml), so a GENERIC_ID id is outside the
+      declared request body, and the docs text says nothing wider (register
+      AMB-186).
+  I_EHR_DIRECTORY.create_directory-with_items:
+    new: [directory_create/create_directory-with_items]
+  I_EHR_DIRECTORY.create_directory-xml:
+    new: [directory_xml_write_refused/create_directory-xml_refused]
+  I_EHR_DIRECTORY.delete_directory-bad_ehr:
+    new: [directory_delete/delete_directory-unknown_ehr]
+  I_EHR_DIRECTORY.delete_directory-ehr_not_modifiable:
+    new: [directory_delete/delete_directory-ehr_not_modifiable]
+    open: *folder_not_modifiable
+  I_EHR_DIRECTORY.delete_directory-ehr_with_directory:
+    new:
+      - directory_delete/delete_directory
+      - directory_delete/delete_directory-read_back
+      - directory_delete/delete_directory-no_location
+  I_EHR_DIRECTORY.delete_directory-empty_ehr:
+    new: [directory_delete/delete_directory-no_directory]
+  I_EHR_DIRECTORY.delete_directory-etag_names_new_version:
+    new: []
+    open: >-
+      The 204 of directory_delete (204_deleted.yaml) declares no ETag or
+      Last-Modified, and no released sentence says which version a delete's
+      ETag would name (register AMB-75).
+  I_EHR_DIRECTORY.delete_directory-missing_if_match:
+    new: [directory_delete/delete_directory-missing_if_match]
+  I_EHR_DIRECTORY.delete_directory-stale_if_match:
+    new: [directory_delete/delete_directory-stale_if_match]
+  I_EHR_DIRECTORY.get_directory-bad_ehr:
+    new: [directory_read/get_directory-unknown_ehr]
+  I_EHR_DIRECTORY.get_directory-deleted_head:
+    new: [directory_read/get_directory-deleted]
+  I_EHR_DIRECTORY.get_directory-directory_with_structure:
+    new:
+      - directory_read/get_directory
+      - directory_read/get_directory-content_type
+      - directory_read/get_directory-no_location
+      - directory_read/get_directory-etag_weak
+      - directory_read/get_directory-etag_last_modified
+  I_EHR_DIRECTORY.get_directory-ehr_root_directory:
+    new: [directory_create/create_directory-read_back]
+    open: >-
+      The read is judged on a root with one sub-FOLDER; a root with none is
+      not carried separately, and no released sentence assigns it a
+      different answer.
+  I_EHR_DIRECTORY.get_directory-empty_ehr:
+    new: [directory_read/get_directory-no_directory]
+  I_EHR_DIRECTORY.get_directory-multiply_classified_items:
+    new: [directory_create/create_directory-multiply_classified_items]
+  I_EHR_DIRECTORY.get_directory-path_sub_folder:
+    new: [directory_read/get_directory-path]
+  I_EHR_DIRECTORY.get_directory-path_unresolved:
+    new: [directory_read/get_directory-path_unresolved]
+  I_EHR_DIRECTORY.get_directory-xml:
+    new: &directory_xml
+      - directory_read_xml/get_directory-xml
+      - directory_read_xml_not_acceptable/get_directory-xml_not_acceptable
+    open: &directory_xml_root >-
+      The root element of the XML document is not judged: the evaluator reads
+      no XML body (#637), and no published XSD declares a document element for
+      FOLDER.
+  I_EHR_DIRECTORY.get_directory-xml_not_acceptable:
+    new: *directory_xml
+    open: *directory_xml_root
+  I_EHR_DIRECTORY.get_directory_at_time-bad_ehr:
+    new: [directory_read/get_directory-unknown_ehr]
+  I_EHR_DIRECTORY.get_directory_at_time-before_first_version:
+    new: [directory_read/get_directory-at_time_before_first_version]
+  I_EHR_DIRECTORY.get_directory_at_time-deleted_at_time:
+    new: [directory_read/get_directory-deleted_at_future_time]
+  I_EHR_DIRECTORY.get_directory_at_time-ehr_with_directory:
+    new: [directory_read/get_directory-at_time_future]
+  I_EHR_DIRECTORY.get_directory_at_time-ehr_with_directory_empty_time:
+    new: [directory_read/get_directory]
+  I_EHR_DIRECTORY.get_directory_at_time-ehr_with_directory_versions:
+    new:
+      - directory_read/get_directory-at_time_before_first_version
+      - directory_read/get_directory-at_time_future
+    open: &between_commits >-
+      The read between the two commits is not carried: no Arazzo expression
+      adds to a time, and RM versioned_object.adoc version_at_time ("Return
+      the version for time a_time") does not say whether a version is extant
+      at its own commit instant.
+  I_EHR_DIRECTORY.get_directory_at_time-ehr_with_directory_versions_empty_time:
+    new: [directory_update/update_directory-read_back]
+  I_EHR_DIRECTORY.get_directory_at_time-empty_ehr:
+    new: [directory_read/get_directory-no_directory]
+  I_EHR_DIRECTORY.get_directory_at_time-empty_ehr_empty_time:
+    new: [directory_read/get_directory-no_directory]
+  I_EHR_DIRECTORY.get_directory_at_time-future:
+    new: [directory_read/get_directory-at_time_future]
+  I_EHR_DIRECTORY.get_directory_at_time-multiple_versions_first:
+    new: []
+    open: *between_commits
+  I_EHR_DIRECTORY.get_directory_at_time-xml:
+    new: *directory_xml
+    open: >-
+      The XML read sends no version_at_time, and the root element of the XML
+      document is not judged: the evaluator reads no XML body (#637).
+  I_EHR_DIRECTORY.get_directory_at_version-bad_ehr:
+    new: [directory_read/get_directory_version-unknown_ehr]
+  I_EHR_DIRECTORY.get_directory_at_version-deleted_version:
+    new: []
+    open: >-
+      directory_get_by_version_id declares 200 and 404 only, and no released
+      sentence says what a read of a deleted version by its version_uid
+      answers (register AMB-74).
+  I_EHR_DIRECTORY.get_directory_at_version-directory_with_two_versions:
+    new:
+      - directory_read/get_directory_version
+      - directory_read/get_directory_version-two_versions
+      - directory_read/get_directory_version-content_type
+      - directory_read/get_directory_version-no_location
+  I_EHR_DIRECTORY.get_directory_at_version-empty_ehr:
+    new: [directory_read/get_directory_version-unknown_version]
+    open: >-
+      The unknown version_uid is read in an EHR that has a directory; the
+      EHR without one is not carried separately, and the 404 file assigns
+      both the same answer.
+  I_EHR_DIRECTORY.get_directory_at_version-foreign_system_id:
+    new: [directory_read/get_directory_version-foreign_system]
+  I_EHR_DIRECTORY.get_directory_at_version-malformed_version_uid:
+    new: [directory_read/get_directory_version-malformed_version_uid]
+  I_EHR_DIRECTORY.get_directory_at_version-path_sub_folder:
+    new: [directory_read/get_directory_version-path]
+  I_EHR_DIRECTORY.get_directory_at_version-path_unresolved:
+    new: [directory_read/get_directory_version-path_unresolved]
+  I_EHR_DIRECTORY.get_directory_at_version-xml:
+    new:
+      - directory_read_xml/get_directory_version-xml
+      - directory_read_xml_not_acceptable/get_directory_version-xml_not_acceptable
+    open: *directory_xml_root
+  I_EHR_DIRECTORY.get_versioned_directory-bad_ehr:
+    new: []
+    open: &no_versioned_folder >-
+      The VERSIONED_FOLDER has no released route: ehr.openapi.yaml serves
+      the directory FOLDER and its versions only (register AMB-24).
+  I_EHR_DIRECTORY.get_versioned_directory-directory_with_two_versions:
+    new: []
+    open: *no_versioned_folder
+  I_EHR_DIRECTORY.get_versioned_directory-empty_ehr:
+    new: []
+    open: *no_versioned_folder
+  I_EHR_DIRECTORY.has_directory-bad_ehr:
+    new: [directory_read/get_directory-unknown_ehr]
+  I_EHR_DIRECTORY.has_directory-ehr_with_directory:
+    new: [directory_read/get_directory]
+  I_EHR_DIRECTORY.has_directory-empty_ehr:
+    new: [directory_read/get_directory-no_directory]
+  I_EHR_DIRECTORY.has_directory-xml:
+    new: *directory_xml
+    open: *directory_xml_root
+  I_EHR_DIRECTORY.has_directory_version-bad_ehr:
+    new: [directory_read/get_directory_version-unknown_ehr]
+  I_EHR_DIRECTORY.has_directory_version-directory_with_two_versions:
+    new: [directory_read/get_directory_version-two_versions]
+  I_EHR_DIRECTORY.has_directory_version-empty_ehr:
+    new: [directory_read/get_directory_version-unknown_version]
+  I_EHR_DIRECTORY.has_directory_version-xml:
+    new:
+      - directory_read_xml/get_directory_version-xml
+      - directory_read_xml_not_acceptable/get_directory_version-xml_not_acceptable
+    open: *directory_xml_root
+  I_EHR_DIRECTORY.has_path-bad_ehr:
+    new: [directory_read/get_directory-unknown_ehr]
+  I_EHR_DIRECTORY.has_path-ehr_root_directory:
+    new: [directory_read/get_directory-path_unresolved]
+    open: &root_path >-
+      The root path `/` is not sent: the path parameter is "slash-separated
+      values of the name attribute of FOLDERs", and no released sentence says
+      which path names the root FOLDER (register AMB-81).
+  I_EHR_DIRECTORY.has_path-empty_ehr:
+    new: [directory_read/get_directory-no_directory]
+  I_EHR_DIRECTORY.has_path-folder_structure:
+    new:
+      - directory_read/get_directory-path
+      - directory_read/get_directory-path_unresolved
+    open: >-
+      One existing and one missing path are carried; the case walked every
+      FOLDER of a reference structure, and no released sentence assigns a
+      deeper path a different answer.
+  I_EHR_DIRECTORY.has_path-xml:
+    new: *directory_xml
+    open: *directory_xml_root
+  I_EHR_DIRECTORY.update_directory-bad_ehr:
+    new: [directory_update/update_directory-unknown_ehr]
+  I_EHR_DIRECTORY.update_directory-cluster_no_items:
+    new: [directory_update/update_directory-cluster_no_items]
+  I_EHR_DIRECTORY.update_directory-ehr_not_modifiable:
+    new: [directory_update/update_directory-ehr_not_modifiable]
+    open: *folder_not_modifiable
+  I_EHR_DIRECTORY.update_directory-ehr_with_directory:
+    new:
+      - directory_update/update_directory
+      - directory_update/update_directory-read_back
+      - directory_update/update_directory-content_type
+      - directory_update/update_directory-etag_weak
+  I_EHR_DIRECTORY.update_directory-empty_ehr:
+    new: [directory_update/update_directory-no_directory]
+  I_EHR_DIRECTORY.update_directory-invalid_folder:
+    new: [directory_update/update_directory-name_missing]
+  I_EHR_DIRECTORY.update_directory-local_dangling_item:
+    new: []
+    open: *dangling
+  I_EHR_DIRECTORY.update_directory-missing_if_match:
+    new: [directory_update/update_directory-missing_if_match]
+  I_EHR_DIRECTORY.update_directory-paragraph_no_items:
+    new: [directory_update/update_directory-paragraph_no_items]
+  I_EHR_DIRECTORY.update_directory-prefer_minimal:
+    new:
+      - directory_update/update_directory-prefer_minimal
+      - directory_update/update_directory-prefer_absent
+  I_EHR_DIRECTORY.update_directory-root_archetype_id_mismatch:
+    new: [directory_update/update_directory-archetype_id_mismatch]
+  I_EHR_DIRECTORY.update_directory-stale_if_match:
+    new:
+      - directory_update/update_directory-stale_if_match
+      - directory_update/update_directory-stale_if_match_etag
+  I_EHR_DIRECTORY.update_directory-xml:
+    new: [directory_xml_write_refused/update_directory-xml_refused]
   I_EHR_SERVICE.create_ehr-bulk_load_population:
     new: [ehr_bulk_load/bulk_load-population]
   I_EHR_SERVICE.create_ehr-clone_system_id:
@@ -2470,6 +3184,12 @@ corpora:
           Not carried (level sensible). A VERSION class operand has no released
           semantics, upstream report #168.
 pending:
+  - I_EHR_CONTRIBUTION.commit_contribution-demographic
+  - I_EHR_CONTRIBUTION.commit_contribution-demographic_client_uid
+  - I_EHR_CONTRIBUTION.commit_contribution-demographic_cluster_no_items
+  - I_EHR_CONTRIBUTION.commit_contribution-demographic_invalid_change_types
+  - I_EHR_CONTRIBUTION.commit_contribution-ehr_kind_in_demographic
+  - I_EHR_CONTRIBUTION.get_contribution-demographic_unknown
   - I_ITS_REST_ITEM_TAGS.agent_tags_delete-key_scoped
   - I_ITS_REST_ITEM_TAGS.agent_tags_delete-unknown_key
   - I_ITS_REST_ITEM_TAGS.agent_tags_get-unknown_container

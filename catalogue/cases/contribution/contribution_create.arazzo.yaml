@@ -1,0 +1,1483 @@
+# Committing CONTRIBUTIONs a service accepts: the creation of a COMPOSITION,
+# change-sets of several members, a modification of an existing COMPOSITION,
+# EHR_STATUS and directory FOLDER members, the response preferences and the
+# headers of the answer, as Arazzo 1.1.0 workflows over the released ITS-REST
+# `-validation` OAS. Every criterion resolves to an `x-veredictum-cite` (its
+# own, else its step's, else its workflow's), and every quote is copied
+# verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: CONTRIBUTION create
+  version: 0.1.0
+  description: >-
+    Committing a CONTRIBUTION in canonical JSON. Every member and every
+    envelope audit is the commit DTO the released OAS declares
+    (schemas/ehr/NewContribution.yaml, UpdateVersion.yaml and
+    UpdateAudit.yaml): the audit carries `_type` UPDATE_AUDIT, and a member
+    carries lifecycle_state, data and commit_audit.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: commit_contribution-composition
+    summary: A CONTRIBUTION creating one COMPOSITION is answered 201 with the CONTRIBUTION
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose one member creates an
+      event COMPOSITION, asking for the full representation. The commit is
+      answered 201 Created, and the body is the CONTRIBUTION with its uid and
+      the reference to the version it created.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &contribution_created
+      source: specs/openehr/ITS-REST/specifications/responses/201_CONTRIBUTION.yaml
+      section: description
+      quote: "`201 Created` is returned when the CONTRIBUTION is successfully created."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: >-
+          Commit a CONTRIBUTION whose one member creates an event COMPOSITION,
+          keep the contribution uid and the version_uid the representation
+          reports, and derive the versioned_object_uid from the version_uid.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &contribution
+            versions:
+              - &creation_member
+                lifecycle_state: &complete
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit: &creation_audit
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data: &composition
+                  _type: COMPOSITION
+                  name: { _type: DV_TEXT, value: content case carrier }
+                  archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+                  archetype_details:
+                    _type: ARCHETYPED
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-COMPOSITION.minimal.v1 }
+                    template_id: { _type: TEMPLATE_ID, value: cnf.tpl.count_range }
+                    rm_version: 1.0.2
+                  language:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                    code_string: en
+                  territory:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+                    code_string: NL
+                  category:
+                    _type: DV_CODED_TEXT
+                    value: event
+                    defining_code:
+                      _type: CODE_PHRASE
+                      terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                      code_string: "433"
+                  composer: { _type: PARTY_SELF }
+                  context:
+                    _type: EVENT_CONTEXT
+                    start_time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                    setting:
+                      _type: DV_CODED_TEXT
+                      value: other care
+                      defining_code:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                        code_string: "238"
+                  content:
+                    - _type: OBSERVATION
+                      name: { _type: DV_TEXT, value: content observation }
+                      archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                      archetype_details:
+                        _type: ARCHETYPED
+                        archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                        rm_version: 1.0.2
+                      language:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                        code_string: en
+                      encoding:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                        code_string: UTF-8
+                      subject: { _type: PARTY_SELF }
+                      data:
+                        _type: HISTORY
+                        name: { _type: DV_TEXT, value: history }
+                        archetype_node_id: at0001
+                        origin: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                        events:
+                          - _type: POINT_EVENT
+                            name: { _type: DV_TEXT, value: any event }
+                            archetype_node_id: at0002
+                            time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                            data:
+                              _type: ITEM_TREE
+                              name: { _type: DV_TEXT, value: tree }
+                              archetype_node_id: at0003
+                              items:
+                                - _type: ELEMENT
+                                  name: { _type: DV_TEXT, value: value }
+                                  archetype_node_id: at0004
+                                  value: { _type: DV_COUNT, magnitude: 15 }
+            audit: *creation_audit
+        successCriteria:
+          - &created
+            condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+        outputs:
+          contribution_uid: $response.body#/uid/value
+          version_uid: $response.body#/versions/0/id/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: commit-again
+        description: Commit a second CONTRIBUTION of the same shape and keep the representation.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - *created
+          - &representation_uid
+            condition: $response.body#/uid/value != null
+            x-veredictum-cite: &representation
+              source: specs/openehr/ITS-REST/specifications/responses/201_CONTRIBUTION.yaml
+              section: description
+              quote: "If `Prefer` header is `return=representation`, the full resource is included in the response body;"
+          - &representation_version
+            condition: $response.body#/versions/0/id/value != null
+            x-veredictum-cite: *representation
+
+  - workflowId: commit_contribution-composition_read_back
+    summary: The COMPOSITION a CONTRIBUTION created is retrievable by the version_uid it reports
+    description: >-
+      Creates an EHR, commits a CONTRIBUTION whose one member creates an event
+      COMPOSITION, then retrieves the COMPOSITION by the version_uid the
+      CONTRIBUTION references. The read is answered 200 with the committed
+      COMPOSITION.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &addition
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Contributions
+      quote: "a new `VERSIONED_OBJECT` is created with a first `ORIGINAL_VERSION` whose data is the new item;"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: get
+        description: Retrieve the COMPOSITION by the version_uid the CONTRIBUTION references.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &composition_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested COMPOSITION is successfully retrieved."
+          - context: $response.body#/content/0/data/events/0/data/items/0/value/magnitude
+            type: regex
+            condition: '^15$'
+
+  - workflowId: commit_contribution-version_change_type_creation
+    summary: The version a creating member adds records the change_type 249 creation
+    description: >-
+      Creates an EHR, commits a CONTRIBUTION whose one member creates an event
+      COMPOSITION, then retrieves the VERSION by its version_uid under the
+      derived versioned_object_uid. Its commit_audit carries the change_type
+      code 249.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Contributions
+      quote: "the `ORIGINAL_VERSION._commit_audit_._change_type_` is set to the code `249|creation|`;"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - &get_version
+        stepId: get-version
+        description: Retrieve the VERSION by its version_uid under the derived versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: version_uid, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &version_retrieved
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_VERSION_of_COMPOSITION_by_id.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested VERSION is successfully retrieved."
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^249$'
+
+  - workflowId: commit_contribution-version_names_contribution
+    summary: The version a member adds names the CONTRIBUTION that added it
+    description: >-
+      Creates an EHR, commits a CONTRIBUTION whose one member creates an event
+      COMPOSITION, then retrieves the VERSION by its version_uid. Its
+      contribution reference carries the uid of the committed CONTRIBUTION.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/version.adoc
+      section: VERSION Class
+      quote: "Contribution in which this version was added."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: get-version
+        description: Retrieve the VERSION by its version_uid under the derived versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: version_uid, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *version_retrieved
+          - context: $response.body#/contribution/id/value
+            type: regex
+            condition: '^{$steps.commit.outputs.contribution_uid}$'
+
+  - workflowId: commit_contribution-audit_time_committed
+    summary: The committed CONTRIBUTION carries a server-set audit time_committed
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose envelope audit carries
+      no time_committed, asking for the full representation. The CONTRIBUTION
+      in the answer carries an audit time_committed, which the server sets.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/contribution_create.yaml
+      section: description
+      quote: "`audit.time_committed`: server will always set it"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION and ask for the full representation.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - condition: $response.body#/audit/time_committed/value != null
+
+  - workflowId: commit_contribution-two_compositions
+    summary: A CONTRIBUTION creating two COMPOSITIONs lists both versions
+    description: >-
+      Creates an EHR, then commits one CONTRIBUTION whose two members each
+      create an event COMPOSITION. The commit is answered 201, and the
+      CONTRIBUTION lists a version for each member.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &change_set
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Contributions
+      quote: "In every case, regardless of the combination, a `CONTRIBUTION` object will be created, listing the affected `VERSION` objects, and including its own audit object,"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit one CONTRIBUTION whose two members each create an event COMPOSITION.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions: [*creation_member, *creation_member]
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - context: $response.body
+            type: jsonpath
+            condition: '$.versions[1].id.value'
+
+  - workflowId: commit_contribution-event_and_persistent
+    summary: A CONTRIBUTION creating an event and a persistent COMPOSITION lists both versions
+    description: >-
+      Creates an EHR, then commits one CONTRIBUTION whose members create an
+      event COMPOSITION and a persistent COMPOSITION. The commit is answered
+      201, and the CONTRIBUTION lists a version for each member.
+    dependsOn:
+      - $sourceDescriptions.setup.upload_template-count_range
+      - $sourceDescriptions.setup.upload_template-persistent_minimal
+    x-veredictum-cite: *change_set
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit one CONTRIBUTION creating an event and a persistent COMPOSITION.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - *creation_member
+              - &persistent_member
+                lifecycle_state: *complete
+                commit_audit: *creation_audit
+                data: &persistent
+                  _type: COMPOSITION
+                  name: { _type: DV_TEXT, value: Persistent minimal }
+                  archetype_details:
+                    _type: ARCHETYPED
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-COMPOSITION.persistent_minimal.v1 }
+                    template_id: { _type: TEMPLATE_ID, value: persistent_minimal.en.v1 }
+                    rm_version: "1.0.2"
+                  archetype_node_id: openEHR-EHR-COMPOSITION.persistent_minimal.v1
+                  language:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                    code_string: en
+                  territory:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+                    code_string: UY
+                  category:
+                    _type: DV_CODED_TEXT
+                    value: persistent
+                    defining_code:
+                      _type: CODE_PHRASE
+                      terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                      code_string: "431"
+                  composer:
+                    _type: PARTY_IDENTIFIED
+                    external_ref:
+                      _type: PARTY_REF
+                      id: { _type: HIER_OBJECT_ID, value: a3dce0d4-fa51-4ff2-9cce-93dd60437842 }
+                      namespace: DEMOGRAPHIC
+                      type: PERSON
+                    name: Dr. Yamamoto
+                  content:
+                    - _type: OBSERVATION
+                      name: { _type: DV_TEXT, value: Minimal }
+                      archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                      language:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                        code_string: en
+                      encoding:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                        code_string: UTF-8
+                      subject: { _type: PARTY_SELF }
+                      data:
+                        _type: HISTORY
+                        name: { _type: DV_TEXT, value: Event Series }
+                        archetype_node_id: at0001
+                        origin: { _type: DV_DATE_TIME, value: "2019-04-16T21:08:11,380+00:00" }
+                        events:
+                          - _type: POINT_EVENT
+                            name: { _type: DV_TEXT, value: Cualquier evento }
+                            archetype_node_id: at0002
+                            time: { _type: DV_DATE_TIME, value: "2019-04-16T21:08:11,384+00:00" }
+                            data:
+                              _type: ITEM_TREE
+                              name: { _type: DV_TEXT, value: Arbol }
+                              archetype_node_id: at0003
+                              items:
+                                - _type: ELEMENT
+                                  name: { _type: DV_TEXT, value: text }
+                                  archetype_node_id: at0004
+                                  value: { _type: DV_TEXT, value: original value }
+                      archetype_details:
+                        _type: ARCHETYPED
+                        archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                        rm_version: "1.0.2"
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - context: $response.body
+            type: jsonpath
+            condition: '$.versions[1].id.value'
+
+  - workflowId: commit_contribution-two_persistent_compositions
+    summary: A CONTRIBUTION creating two persistent COMPOSITIONs lists both versions
+    description: >-
+      Creates an EHR, then commits one CONTRIBUTION whose two members each
+      create a persistent COMPOSITION. The commit is answered 201, and the
+      CONTRIBUTION lists a version for each member.
+    dependsOn: [$sourceDescriptions.setup.upload_template-persistent_minimal]
+    x-veredictum-cite: *change_set
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit one CONTRIBUTION whose two members each create a persistent COMPOSITION.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions: [*persistent_member, *persistent_member]
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - context: $response.body
+            type: jsonpath
+            condition: '$.versions[1].id.value'
+
+  - workflowId: commit_contribution-modification
+    summary: A modifying member adds a version whose preceding version is the one it names
+    description: >-
+      Creates an EHR and commits a CONTRIBUTION creating an event COMPOSITION,
+      then commits a second CONTRIBUTION whose member modifies that
+      COMPOSITION, naming the first version as preceding_version_uid. The
+      second commit is answered 201, and the latest VERSION of the
+      COMPOSITION's container names the first version as its preceding
+      version and carries the change_type 251 modification.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &modification
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Contributions
+      quote: "_modification of existing item_: a new `ORIGINAL_VERSION` whose data contains the updated form of the item content is added to an existing `VERSIONED_OBJECT`;"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - &modify
+        stepId: modify
+        description: Commit a CONTRIBUTION whose member modifies the COMPOSITION, preceded by its first version.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /versions/0/preceding_version_uid/value, value: $steps.commit.outputs.version_uid }
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                preceding_version_uid: { value: "" }
+                commit_audit: &modification_audit
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: modification
+                    defining_code: { terminology_id: { value: openehr }, code_string: "251" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data: *composition
+            audit: *modification_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+      - &latest
+        stepId: latest
+        description: Retrieve the latest VERSION of the COMPOSITION's container.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+          - context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+          - context: $response.body#/commit_audit/change_type/defining_code/code_string
+            type: regex
+            condition: '^251$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Contributions
+              quote: "if the change is logically a change, addition etc to the content, the `ORIGINAL_VERSION._commit_audit_._change_type_` is set to the code `251|modification|`;"
+
+  - workflowId: commit_contribution-modification_persistent
+    summary: A modifying member adds a version to a persistent COMPOSITION
+    description: >-
+      Creates an EHR and commits a CONTRIBUTION creating a persistent
+      COMPOSITION, then commits a second CONTRIBUTION whose member modifies
+      it, naming the first version as preceding_version_uid. The second
+      commit is answered 201, and the latest VERSION of the container names
+      the first version as its preceding version.
+    dependsOn: [$sourceDescriptions.setup.upload_template-persistent_minimal]
+    x-veredictum-cite: *modification
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit a CONTRIBUTION creating a persistent COMPOSITION and keep its version_uid.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions: [*persistent_member]
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+        outputs:
+          version_uid: $response.body#/versions/0/id/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: modify
+        description: Commit a CONTRIBUTION whose member modifies the persistent COMPOSITION.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /versions/0/preceding_version_uid/value, value: $steps.commit.outputs.version_uid }
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                preceding_version_uid: { value: "" }
+                commit_audit: *modification_audit
+                data: *persistent
+            audit: *modification_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+      - stepId: latest
+        description: Retrieve the latest VERSION of the persistent COMPOSITION's container.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+          - context: $response.body#/preceding_version_uid/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+
+  - workflowId: commit_contribution-incomplete_lifecycle
+    summary: A member committed in the incomplete lifecycle state adds a version in that state
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member creates an
+      event COMPOSITION with lifecycle_state 553 incomplete. The commit is
+      answered 201, and the VERSION it added carries lifecycle_state 553.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Version Lifecycle
+      quote: "The possible values are `532|complete|`, `553|incomplete|` and `523|deleted|`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit a CONTRIBUTION whose member is in the incomplete state, and keep its version_uid.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: incomplete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "553" }
+                commit_audit: *creation_audit
+                data: *composition
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+        outputs:
+          version_uid: $response.body#/versions/0/id/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: get-version
+        description: Retrieve the VERSION by its version_uid under the derived versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: version_uid, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *version_retrieved
+          - context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^553$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/UML/classes/original_version.adoc
+              section: ORIGINAL_VERSION Class
+              quote: "Lifecycle state of the content item in this version; coded by openEHR vocabulary `version lifecycle state`."
+
+  - workflowId: commit_contribution-committer_related
+    summary: A commit_audit whose committer is a PARTY_RELATED is accepted and kept
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member commit_audit
+      names a PARTY_RELATED committer with the relationship code 10 mother.
+      The commit is answered 201, and the VERSION it added carries that
+      committer, because the server creates the persisted audit from the
+      UPDATE_AUDIT it was sent.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &persisted_audit
+      source: specs/openehr/ITS-REST/specifications/schemas/common/UpdateAudit.yaml
+      section: description
+      quote: "The server uses it to create the persisted `AUDIT_DETAILS` object."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit a CONTRIBUTION whose member committer is a PARTY_RELATED, and keep its version_uid.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit:
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      _type: DV_CODED_TEXT
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                data: *composition
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+        outputs:
+          version_uid: $response.body#/versions/0/id/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: get-version
+        description: Retrieve the VERSION by its version_uid under the derived versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: version_uid, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *version_retrieved
+          - context: $response.body#/commit_audit/committer/_type
+            type: regex
+            condition: '^PARTY_RELATED$'
+          - context: $response.body#/commit_audit/committer/relationship/defining_code/code_string
+            type: regex
+            condition: '^10$'
+
+  - workflowId: commit_contribution-audit_description_coded
+    summary: A commit_audit whose description is a DV_CODED_TEXT is accepted and kept
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member commit_audit
+      carries a DV_CODED_TEXT description. The commit is answered 201, and the
+      VERSION it added carries that description as a DV_CODED_TEXT.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *persisted_audit
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit a CONTRIBUTION whose member audit description is coded, and keep its version_uid.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit:
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  description:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data: *composition
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+        outputs:
+          version_uid: $response.body#/versions/0/id/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: get-version
+        description: Retrieve the VERSION by its version_uid under the derived versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: version_uid, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *version_retrieved
+          - context: $response.body#/commit_audit/description/_type
+            type: regex
+            condition: '^DV_CODED_TEXT$'
+          - context: $response.body#/commit_audit/description/defining_code/code_string
+            type: regex
+            condition: '^249$'
+
+  - workflowId: commit_contribution-audit_type_audit_details
+    summary: An audit sent with _type AUDIT_DETAILS is accepted
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose envelope audit and
+      member commit_audit carry `_type` AUDIT_DETAILS. The release recommends
+      that a server accept that form, so a refusal is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &audit_type_accepted
+      source: specs/openehr/ITS-REST/specifications/operations/contribution_create.yaml
+      section: description
+      quote: "Clients SHOULD send `_type: \"UPDATE_AUDIT\"`; for interoperability servers SHOULD additionally accept `_type: \"AUDIT_DETAILS\"` or an omitted `_type` for this attribute."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose audits carry `_type` AUDIT_DETAILS.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit: &audit_details_audit
+                  _type: AUDIT_DETAILS
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data: *composition
+            audit: *audit_details_audit
+        successCriteria:
+          - condition: $statusCode == 201
+
+  - workflowId: commit_contribution-audit_type_omitted
+    summary: An audit sent with no _type is accepted
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose envelope audit and
+      member commit_audit carry no `_type`. The release recommends that a
+      server accept that form, so a refusal is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *audit_type_accepted
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose audits carry no `_type`.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit: &untyped_audit
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data: *composition
+            audit: *untyped_audit
+        successCriteria:
+          - condition: $statusCode == 201
+
+  - workflowId: commit_contribution-client_uid
+    summary: A CONTRIBUTION sent with a uid not in use is created under that uid
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION carrying a client-supplied
+      uid that no CONTRIBUTION carries. The commit is answered 201, and the
+      CONTRIBUTION in the answer carries that uid.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/contribution_create.yaml
+      section: description
+      quote: "`uid`: when provided, it will be accepted in case is not in-use, otherwise error will be returned"
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        contribution_uid: { type: string, format: uuid }
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION with the client-supplied uid.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /uid/value, value: $inputs.contribution_uid }
+          payload:
+            uid: { _type: HIER_OBJECT_ID, value: "" }
+            versions: [*creation_member]
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - context: $response.body#/uid/value
+            type: regex
+            condition: '^{$inputs.contribution_uid}$'
+
+  - workflowId: commit_contribution-ehr_status
+    summary: A CONTRIBUTION modifying the EHR_STATUS adds the new EHR_STATUS
+    description: >-
+      Creates an EHR, reads the version_uid of its EHR_STATUS, then commits a
+      CONTRIBUTION whose member modifies the EHR_STATUS to is_queryable false,
+      preceded by that version. The commit is answered 201, and the EHR_STATUS
+      read afterwards is not queryable.
+    x-veredictum-cite: *modification
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &current_status
+        stepId: current-status
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: commit
+        description: Commit a CONTRIBUTION whose member modifies the EHR_STATUS to is_queryable false.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /versions/0/preceding_version_uid/value, value: $steps.current-status.outputs.version_uid }
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                preceding_version_uid: { value: "" }
+                commit_audit: *modification_audit
+                data:
+                  _type: EHR_STATUS
+                  archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+                  name: { _type: DV_TEXT, value: EHR status }
+                  archetype_details:
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+                    rm_version: 1.1.0
+                  subject: { _type: PARTY_SELF }
+                  is_queryable: false
+                  is_modifiable: true
+            audit: *modification_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+      - stepId: get-status
+        description: Retrieve the latest EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_EHR_STATUS_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested EHR_STATUS is successfully retrieved."
+          - condition: $response.body#/is_queryable == false
+
+  - workflowId: commit_contribution-ehr_status_deactivated_ehr
+    summary: A CONTRIBUTION whose only member is the EHR_STATUS is accepted on an EHR that is not modifiable
+    description: >-
+      Creates an EHR and updates its EHR_STATUS to is_modifiable false, reads
+      the new version_uid of the EHR_STATUS, then commits a CONTRIBUTION whose
+      only member modifies the EHR_STATUS, keeping is_modifiable false. The
+      EHR_STATUS itself can always be written to, so the commit is answered
+      201.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/ehr_status.adoc
+      section: EHR_STATUS Class
+      quote: "The `EHR_STATUS` object itself can always be written to."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *current_status
+      - &deactivate
+        stepId: deactivate
+        description: Update the EHR_STATUS with is_modifiable false under the current version.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current-status.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: false
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|204)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+      - stepId: deactivated-status
+        description: Read the latest version of the EHR_STATUS for its new version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: commit
+        description: Commit a CONTRIBUTION whose only member modifies the EHR_STATUS, keeping is_modifiable false.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /versions/0/preceding_version_uid/value, value: $steps.deactivated-status.outputs.version_uid }
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                preceding_version_uid: { value: "" }
+                commit_audit: *modification_audit
+                data:
+                  _type: EHR_STATUS
+                  archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+                  name: { _type: DV_TEXT, value: EHR status }
+                  archetype_details:
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+                    rm_version: 1.1.0
+                  subject: { _type: PARTY_SELF }
+                  is_queryable: false
+                  is_modifiable: false
+            audit: *modification_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+
+  - workflowId: commit_contribution-ehr_status_incomplete
+    summary: An EHR_STATUS member in the incomplete lifecycle state adds a version in that state
+    description: >-
+      Creates an EHR, reads the version_uid of its EHR_STATUS, then commits a
+      CONTRIBUTION whose member modifies the EHR_STATUS with lifecycle_state
+      553 incomplete. The commit is answered 201, and the latest VERSION of
+      the EHR_STATUS carries lifecycle_state 553.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Version Lifecycle
+      quote: "The possible values are `532|complete|`, `553|incomplete|` and `523|deleted|`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *current_status
+      - stepId: commit
+        description: Commit a CONTRIBUTION whose EHR_STATUS member is in the incomplete state.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /versions/0/preceding_version_uid/value, value: $steps.current-status.outputs.version_uid }
+          payload:
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: incomplete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "553" }
+                preceding_version_uid: { value: "" }
+                commit_audit: *modification_audit
+                data:
+                  _type: EHR_STATUS
+                  archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+                  name: { _type: DV_TEXT, value: EHR status }
+                  archetype_details:
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+                    rm_version: 1.1.0
+                  subject: { _type: PARTY_SELF }
+                  is_queryable: true
+                  is_modifiable: true
+            audit: *modification_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+      - stepId: latest-status
+        description: Read the latest version of the EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+          - context: $response.body#/lifecycle_state/defining_code/code_string
+            type: regex
+            condition: '^553$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/UML/classes/original_version.adoc
+              section: ORIGINAL_VERSION Class
+              quote: "Lifecycle state of the content item in this version; coded by openEHR vocabulary `version lifecycle state`."
+
+  - workflowId: commit_contribution-folder_creation
+    summary: A CONTRIBUTION creating a FOLDER gives the EHR a directory
+    description: >-
+      Creates an EHR with no directory, then commits a CONTRIBUTION whose
+      member creates a FOLDER. The commit is answered 201, and the directory
+      read afterwards is that FOLDER.
+    x-veredictum-cite: *addition
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit a CONTRIBUTION whose member creates the FOLDER named root.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit: *creation_audit
+                data: &folder
+                  _type: FOLDER
+                  name: { _type: DV_TEXT, value: root }
+                  archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                  archetype_details:
+                    _type: ARCHETYPED
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                    rm_version: 1.1.0
+                  folders:
+                    - _type: FOLDER
+                      name: { _type: DV_TEXT, value: episodes }
+                      archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                      archetype_details:
+                        _type: ARCHETYPED
+                        archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                        rm_version: 1.1.0
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+      - stepId: get-directory
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &folder_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_FOLDER_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the FOLDER is successfully retrieved."
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^root$'
+
+  - workflowId: commit_contribution-folder_modification
+    summary: A CONTRIBUTION modifying the directory FOLDER replaces the directory read
+    description: >-
+      Creates an EHR and its directory, keeping the version_uid of the
+      directory, then commits a CONTRIBUTION whose member modifies the FOLDER
+      to the name archive, preceded by that version. The commit is answered
+      201, and the directory read afterwards is the modified FOLDER.
+    x-veredictum-cite: *modification
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &create_directory
+        stepId: create-directory
+        description: Create the directory FOLDER and keep the version_uid of the representation.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *folder
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+              section: description
+              quote: "`201 Created` is returned when the FOLDER is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: commit
+        description: Commit a CONTRIBUTION whose member modifies the FOLDER to the name archive.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /versions/0/preceding_version_uid/value, value: $steps.create-directory.outputs.version_uid }
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                preceding_version_uid: { value: "" }
+                commit_audit: *modification_audit
+                data:
+                  _type: FOLDER
+                  name: { _type: DV_TEXT, value: archive }
+                  archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                  archetype_details:
+                    _type: ARCHETYPED
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                    rm_version: 1.1.0
+            audit: *modification_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+      - stepId: get-directory
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *folder_retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^archive$'
+
+  - workflowId: commit_contribution-prefer_minimal
+    summary: A CONTRIBUTION commit with Prefer return=minimal is answered 201 with an empty body
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION with Prefer return=minimal.
+      The commit is answered 201 and the body is empty.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &minimal_body
+      source: specs/openehr/ITS-REST/specifications/responses/201_CONTRIBUTION.yaml
+      section: description
+      quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - condition: $response.body == null
+
+  - workflowId: commit_contribution-prefer_absent
+    summary: A CONTRIBUTION commit with no Prefer header is answered 201 with an empty body
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION with no Prefer header.
+      Without the header the minimal preference is assumed, so the commit is
+      answered 201 and the body is empty.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *minimal_body
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION with no Prefer header.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - condition: $response.body == null
+
+  - workflowId: commit_contribution-return_identifier
+    summary: A CONTRIBUTION commit with Prefer return=identifier is answered with the identifier
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION with Prefer
+      return=identifier. The commit succeeds with a 2xx status, and the body
+      should carry only the uid of the CONTRIBUTION; the body is a
+      recommendation, so a row lacking it is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION and ask for the identifier only.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+          - condition: $response.body#/uid != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+
+  - workflowId: commit_contribution-location
+    summary: A minimal CONTRIBUTION commit carries a Location header
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION with Prefer return=minimal.
+      The answer should carry a Location header pointing at the new
+      CONTRIBUTION; the header is a recommendation, so a row lacking it is
+      advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer minimal, identifier or full representation response
+      quote: "The response SHOULD include a `Location` header pointing to the newly created or updated resource."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - condition: $response.header.Location != null
+
+  - workflowId: commit_contribution-etag_weak
+    summary: An ETag sent on a CONTRIBUTION commit carries the weakness indicator
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION. If the answer sends an
+      ETag, it is a weak entity tag.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION and ask for the full representation.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: commit_contribution-content_type
+    summary: A CONTRIBUTION commit answered with a body carries Content-Type application/json
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION in canonical JSON asking for
+      the full representation. The answer carries a body, so it carries
+      Content-Type application/json.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION and ask for the full representation.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+
+  - workflowId: commit_contribution-etag_last_modified
+    summary: A CONTRIBUTION commit is answered with ETag and Last-Modified
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION asking for the full
+      representation. A CONTRIBUTION has a unique state identifier, so the
+      answer carries an ETag and a Last-Modified header. The headers are
+      recommended, so a row that lacks them is advisory.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: ETag and Last-Modified
+      quote: "Both `ETag` and `Last-Modified` SHOULD be included in responses for VERSION, VERSIONED_OBJECT, or other resources that have versioning or unique state identifiers."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION and ask for the full representation.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *contribution_created
+          - condition: $response.header.ETag != null
+          - condition: $response.header.Last-Modified != null
