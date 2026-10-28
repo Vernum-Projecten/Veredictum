@@ -253,7 +253,7 @@ jobs:
       # supplier, component name, version, other unique identifiers (purl),
       # dependency relationships, SBOM author and timestamp
       # (https://www.cisa.gov/sbom).
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: syft@1.50.0
       - name: Generate the repository SPDX SBOM
@@ -465,7 +465,7 @@ jobs:
       # No cache in a publishing lane: nothing a prior run could have poisoned
       # may influence the bytes that get pushed and attested.
       - name: Install cargo-auditable
-        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: cargo-auditable@0.7.5
 
@@ -621,7 +621,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.sha }} # == plan's commit: the dispatch-at-tag refusal makes them equal
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -809,7 +809,7 @@ jobs:
 
       - id: auth
         name: Exchange the OIDC identity for a temporary crates.io token
-        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
 
       - name: Publish
         env:
