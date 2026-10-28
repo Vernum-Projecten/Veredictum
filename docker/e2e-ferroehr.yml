@@ -15,6 +15,10 @@
 # port defaults to 8093 so it coexists with a FerroEHR quickstart on 8080 and
 # EHRbase on 8090. The database publishes no port at all.
 #
+# The server configuration is docker/e2e-ferroehr.toml, bind-mounted and named
+# by FERROEHR_CONFIG: from 5.5.0 the server reads a file only when that
+# variable names it, and podman compose ignores an inline `configs` block.
+#
 #   docker compose -p veredictum-ferroehr -f docker/e2e-ferroehr.yml up -d
 #   curl -u ferroehr:ferroehr -X POST -i \
 #     http://127.0.0.1:8093/ferroehr/rest/openehr/v1/ehr
@@ -42,10 +46,9 @@ services:
     environment:
       FERROEHR__DB__URL: postgres://ferroehr:ferroehr@ferroehr-postgres:5432/ferroehr
       FERROEHR__USAGE_REPORT__ENABLED: "false"
-      FERROEHR__LOG__FORMAT: pretty
-    configs:
-      - source: ferroehr-config
-        target: /etc/ferroehr/ferroehr.toml
+      FERROEHR_CONFIG: /etc/ferroehr/ferroehr.toml
+    volumes:
+      - ./e2e-ferroehr.toml:/etc/ferroehr/ferroehr.toml:ro
     ports:
       - "127.0.0.1:${FERROEHR_PORT:-8093}:8080"
     healthcheck:
@@ -54,24 +57,3 @@ services:
       timeout: 5s
       retries: 30
       start_period: 10s
-
-configs:
-  ferroehr-config:
-    # The quickstart's server configuration, cut to what the conformance
-    # surface needs: the sandbox profile, the dev Basic user, RBAC off.
-    content: |
-      deployment_profile = "sandbox"
-      [server]
-      bind = "0.0.0.0:8080"
-      [auth]
-      enabled = true
-      [[auth.basic.users]]
-      user = "ferroehr"
-      password_hash = "$$argon2id$$v=19$$m=19456,t=2,p=1$$ZmVycm9laHJEZXZTYWx0$$be5nPwWjfUl1qvSrvkvqvdMOuCgM0VFcN/VN4MFLjT8"
-      scopes = ["user/composition-*.cruds", "user/template-*.cruds", "user/aql-*.cruds", "__ferroehr.platform"]
-      [authz.rbac]
-      enabled = false
-      [authz.rbac.basic_roles]
-      ferroehr = ["ADMIN", "USER"]
-      [admin]
-      enabled = true
