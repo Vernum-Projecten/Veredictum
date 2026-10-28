@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:openehr:cnf:schema:arazzo-extensions:0.1.0",
-  "title": "The Arazzo catalogue's three specification extensions",
-  "description": "`x-veredictum-cite` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `x-veredictum-check` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `x-veredictum-derive` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state.",
+  "title": "The Arazzo catalogue's four specification extensions",
+  "description": "`x-veredictum-cite` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `x-veredictum-check` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `x-veredictum-derive` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `x-veredictum-principal` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state.",
   "$defs": {
     "cite": {
       "type": "object",
@@ -183,6 +183,12 @@
             }
           }
         }
+      ]
+    },
+    "principal": {
+      "description": "The principal a step is sent as: `administrative` is a principal the service authorizes for its administrative operations.",
+      "enum": [
+        "administrative"
       ]
     },
     "derive": {

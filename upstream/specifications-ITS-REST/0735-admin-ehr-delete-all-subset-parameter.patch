@@ -1,0 +1,41 @@
+diff --git a/specifications/admin.openapi.yaml b/specifications/admin.openapi.yaml
+index b5f27cd3..a7c00866 100644
+--- a/specifications/admin.openapi.yaml
++++ b/specifications/admin.openapi.yaml
+@@ -25,7 +25,7 @@ paths:
+   '/admin/ehr/{ehr_id}':
+     delete:
+       $ref: ./operations/admin_ehr_delete.yaml
+-  '/admin/ehr/all{?ehr_id*}':
++  '/admin/ehr/all':
+     delete:
+       $ref: ./operations/admin_ehr_delete_all.yaml
+ tags:
+diff --git a/specifications/parameters/query/ehr_id_Admin.yaml b/specifications/parameters/query/ehr_id_Admin.yaml
+index 94e066ee..bf631174 100644
+--- a/specifications/parameters/query/ehr_id_Admin.yaml
++++ b/specifications/parameters/query/ehr_id_Admin.yaml
+@@ -1,16 +1,19 @@
+ name: ehr_id
+ in: query
+ description: |
+-  An optional parameter to perform the operation on a subset of EHRs.
++  An optional parameter to perform the operation on a subset of EHRs. Each EHR of the subset is named by its own `ehr_id` query parameter.
+ style: form
+ explode: true
+ schema:
+-  type: string
+-  format: uuid
++  type: array
++  items:
++    type: string
++    format: uuid
+ examples:
+   single:
+     summary: A single EHR identifier
+-    value: 7d44b88c-4199-4bad-97dc-d78268e01398
++    value:
++      - 7d44b88c-4199-4bad-97dc-d78268e01398
+   multiple:
+     summary: Multiple EHR identifiers
+     value:
