@@ -465,6 +465,7 @@ options:
         documents: [version_signature]
       version-unsigned:
         documents: []
+    # TODO(#749): the quote permits ("can be made"), and the level vocabulary has no `may` to record it.
     x-veredictum-cite:
       source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
       section: Digital Signature
