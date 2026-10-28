@@ -1,0 +1,13 @@
+# The rows of CONT-DV_INTERVAL_DV_SCALE-validate_constraint this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_interval_scale/dv_interval_dv_scale-validate_constraint-accepted
+iteration: reset_per_row
+literals: ["lower_symbol", "lower_value", "upper_symbol", "upper_value", "lower_unbounded", "upper_unbounded", "lower_included", "upper_included", "lower_c_dv_ordinal_list", "upper_c_dv_ordinal_list"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_INTERVAL
+  template_id: cnf.tpl.interval_scale_list
+  input: composition
+  template_input: template
+rows:
+  - {"lower_symbol": "local::at0005 (ord 1.5)", "lower_value": 1.5, "upper_symbol": "local::at0002 (ord 5.3)", "upper_value": 5.3, "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true, "lower_c_dv_ordinal_list": "[1.5|[local::at0005], 2.4|[local::at0006]]", "upper_c_dv_ordinal_list": "[5.3|[local::at0002], 2.4|[local::at0006]]"}

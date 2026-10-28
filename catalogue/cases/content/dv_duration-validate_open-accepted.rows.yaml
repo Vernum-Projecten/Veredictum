@@ -1,0 +1,21 @@
+# The rows of CONT-DV_DURATION-validate_open this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_duration/dv_duration-validate_open-accepted
+iteration: reset_per_row
+literals: ["value"]
+recipe:
+  name: content_instance
+  rm_class: DV_DURATION
+  template_id: cnf.tpl.dv_duration_c_duration
+  input: composition
+rows:
+  - {"value": "P1Y"}
+  - {"value": "P1Y3M"}
+  - {"value": "P1W"}
+  - {"value": "P1Y3M4D"}
+  - {"value": "P1Y3M4DT2H"}
+  - {"value": "P1Y3M4DT2H14M"}
+  - {"value": "P1Y3M4DT2H14M5S"}
+  - {"value": "P1Y3M4DT2H14M15.5S"}
+  - {"value": "P3M1W"}
+  - {"value": "-P2M"}

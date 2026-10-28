@@ -8,6 +8,729 @@
 # `corpora` does the same for a query collection maintained elsewhere, keyed
 # by that collection's own case ids.
 cases:
+  CONT-CLUSTER-items_cardinality:
+    new:
+      - content_cluster/cluster-items_cardinality-accepted
+      - content_cluster/cluster-items_cardinality-c_multiple_attribute_cardinality
+      - content_cluster/cluster-items_cardinality-items_missing
+  CONT-COMP-content_card_1plus-context_any:
+    new:
+      - content_composition/comp-content_card_1plus-context_any-accepted
+      - content_composition/comp-content_card_1plus-context_any-c_multiple_attribute_cardinality
+  CONT-COMP-content_card_1plus-context_mand:
+    new:
+      - content_composition/comp-content_card_1plus-context_mand-accepted
+      - content_composition/comp-content_card_1plus-context_mand-c_multiple_attribute_cardinality
+      - content_composition/comp-content_card_1plus-context_mand-c_attribute_existence
+  CONT-COMP-content_card_3plus-context_any:
+    new:
+      - content_composition/comp-content_card_3plus-context_any-accepted
+      - content_composition/comp-content_card_3plus-context_any-c_multiple_attribute_cardinality
+  CONT-COMP-content_card_3plus-context_mand:
+    new:
+      - content_composition/comp-content_card_3plus-context_mand-accepted
+      - content_composition/comp-content_card_3plus-context_mand-c_multiple_attribute_cardinality
+      - content_composition/comp-content_card_3plus-context_mand-c_attribute_existence
+  CONT-COMP-content_card_3to5-context_any:
+    new:
+      - content_composition/comp-content_card_3to5-context_any-accepted
+      - content_composition/comp-content_card_3to5-context_any-c_multiple_attribute_cardinality
+  CONT-COMP-content_card_3to5-context_mand:
+    new:
+      - content_composition/comp-content_card_3to5-context_mand-accepted
+      - content_composition/comp-content_card_3to5-context_mand-c_multiple_attribute_cardinality
+      - content_composition/comp-content_card_3to5-context_mand-c_attribute_existence
+  CONT-COMP-content_card_any-context_any:
+    new:
+      - content_composition/comp-content_card_any-context_any-accepted
+  CONT-COMP-content_card_any-context_mand:
+    new:
+      - content_composition/comp-content_card_any-context_mand-accepted
+      - content_composition/comp-content_card_any-context_mand-c_attribute_existence
+  CONT-COMP-content_card_mand-context_any:
+    new:
+      - content_composition/comp-content_card_mand-context_any-accepted
+      - content_composition/comp-content_card_mand-context_any-c_multiple_attribute_cardinality
+  CONT-COMP-content_card_mand-context_mand:
+    new:
+      - content_composition/comp-content_card_mand-context_mand-accepted
+      - content_composition/comp-content_card_mand-context_mand-c_multiple_attribute_cardinality
+      - content_composition/comp-content_card_mand-context_mand-c_attribute_existence
+  CONT-COMP-content_card_opt-context_any:
+    new:
+      - content_composition/comp-content_card_opt-context_any-accepted
+      - content_composition/comp-content_card_opt-context_any-c_multiple_attribute_cardinality
+  CONT-COMP-content_card_opt-context_mand:
+    new:
+      - content_composition/comp-content_card_opt-context_mand-accepted
+      - content_composition/comp-content_card_opt-context_mand-c_attribute_existence
+      - content_composition/comp-content_card_opt-context_mand-c_multiple_attribute_cardinality
+  CONT-COMPOSITION-content_cardinality_count6:
+    new:
+      - content_composition/composition-content_cardinality_count6-accepted
+      - content_composition/composition-content_cardinality_count6-c_multiple_attribute_cardinality
+  CONT-COMPOSITION-context_existence:
+    new:
+      - content_composition/composition-context_existence-accepted
+  CONT-DV_BOOLEAN-anything_allowed:
+    new:
+      - dv_boolean/dv_boolean-anything_allowed-accepted
+  CONT-DV_BOOLEAN-only_false_allowed:
+    new:
+      - dv_boolean/dv_boolean-only_false_allowed-accepted
+      - dv_boolean/dv_boolean-only_false_allowed-c_boolean_true_valid
+  CONT-DV_BOOLEAN-only_true_allowed:
+    new:
+      - dv_boolean/dv_boolean-only_true_allowed-accepted
+      - dv_boolean/dv_boolean-only_true_allowed-c_boolean_false_valid
+  CONT-DV_CODED_TEXT-validate_ext_term:
+    new:
+      - dv_coded_text/dv_coded_text-validate_ext_term-code_string_terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_ext_term-terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_ext_term-code_string_missing
+    open: >-
+      1 row(s) refusing an empty DV_CODED_TEXT value are not carried: RM
+      dv_text.adoc declares no invariant on value, and the ITS-JSON
+      schema admits the empty string. 4 acceptance row(s) whose
+      DV_CODED_TEXT value is not the code's rubric are not carried: RM
+      dv_coded_text.adoc says the value "must be the rubric" and states
+      no invariant, so neither answer follows (upstream report #718).
+  CONT-DV_CODED_TEXT-validate_local_codes:
+    new:
+      - dv_coded_text/dv_coded_text-validate_local_codes-accepted
+      - dv_coded_text/dv_coded_text-validate_local_codes-c_code_phrase_terminology_id
+      - dv_coded_text/dv_coded_text-validate_local_codes-code_string_terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_local_codes-terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_local_codes-code_string_missing
+    open: >-
+      1 row(s) refusing an empty DV_CODED_TEXT value are not carried: RM
+      dv_text.adoc declares no invariant on value, and the ITS-JSON
+      schema admits the empty string. 3 acceptance row(s) whose
+      DV_CODED_TEXT value is not the code's rubric are not carried: RM
+      dv_coded_text.adoc says the value "must be the rubric" and states
+      no invariant, so neither answer follows (upstream report #718).
+  CONT-DV_CODED_TEXT-validate_open:
+    new:
+      - dv_coded_text/dv_coded_text-validate_open-code_string_terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_open-terminology_id_missing
+      - dv_coded_text/dv_coded_text-validate_open-code_string_missing
+    open: >-
+      2 acceptance row(s) whose DV_CODED_TEXT value is not the code's
+      rubric are not carried: RM dv_coded_text.adoc says the value "must
+      be the rubric" and states no invariant, so neither answer follows
+      (upstream report #718).
+  CONT-DV_COUNT-validate_list:
+    new:
+      - dv_count/dv_count-validate_list-accepted
+      - dv_count/dv_count-validate_list-c_integer_list
+      - dv_count/dv_count-validate_list-magnitude_missing
+  CONT-DV_COUNT-validate_open:
+    new:
+      - dv_count/dv_count-validate_open-accepted
+      - dv_count/dv_count-validate_open-magnitude_missing
+  CONT-DV_COUNT-validate_range:
+    new:
+      - dv_count/dv_count-validate_range-accepted
+      - dv_count/dv_count-validate_range-c_integer_range
+      - dv_count/dv_count-validate_range-magnitude_missing
+  CONT-DV_DATE-validate_constraint:
+    new:
+      - dv_date/dv_date-validate_constraint-accepted
+      - dv_date/dv_date-validate_constraint-month_validity
+      - dv_date/dv_date-validate_constraint-day_validity
+  CONT-DV_DATE-validate_open:
+    new:
+      - dv_date/dv_date-validate_open-accepted
+      - dv_date/dv_date-validate_open-iso8601
+      - dv_date/dv_date-validate_open-value_missing
+  CONT-DV_DATE-validate_range:
+    new:
+      - dv_date/dv_date-validate_range-accepted
+      - dv_date/dv_date-validate_range-c_date_range
+  CONT-DV_DATE_TIME-validate_constraint:
+    new:
+      - dv_date_time/dv_date_time-validate_constraint-accepted
+      - dv_date_time/dv_date_time-validate_constraint-month_validity
+      - dv_date_time/dv_date_time-validate_constraint-day_validity
+      - dv_date_time/dv_date_time-validate_constraint-hour_validity
+      - dv_date_time/dv_date_time-validate_constraint-minute_validity
+      - dv_date_time/dv_date_time-validate_constraint-second_validity
+      - dv_date_time/dv_date_time-validate_constraint-millisecond_validity
+      - dv_date_time/dv_date_time-validate_constraint-timezone_validity
+    open: >-
+      7 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_DATE_TIME-validate_open:
+    new:
+      - dv_date_time/dv_date_time-validate_open-accepted
+      - dv_date_time/dv_date_time-validate_open-iso8601
+      - dv_date_time/dv_date_time-validate_open-value_missing
+  CONT-DV_DATE_TIME-validate_range:
+    new:
+      - dv_date_time/dv_date_time-validate_range-accepted
+      - dv_date_time/dv_date_time-validate_range-c_date_time_range
+  CONT-DV_DURATION-validate_fields:
+    new:
+      - dv_duration/dv_duration-validate_fields-accepted
+      - dv_duration/dv_duration-validate_fields-c_duration_years_allowed
+      - dv_duration/dv_duration-validate_fields-c_duration_months_allowed
+      - dv_duration/dv_duration-validate_fields-c_duration_days_allowed
+      - dv_duration/dv_duration-validate_fields-c_duration_weeks_allowed
+      - dv_duration/dv_duration-validate_fields-c_duration_hours_allowed
+      - dv_duration/dv_duration-validate_fields-c_duration_minutes_allowed
+    open: >-
+      2 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_DURATION-validate_fields_range:
+    new:
+      - dv_duration/dv_duration-validate_fields_range-accepted
+      - dv_duration/dv_duration-validate_fields_range-c_duration_range_lower
+      - dv_duration/dv_duration-validate_fields_range-c_duration_years_allowed
+      - dv_duration/dv_duration-validate_fields_range-c_duration_months_allowed
+      - dv_duration/dv_duration-validate_fields_range-c_duration_lower
+    open: >-
+      1 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_DURATION-validate_open:
+    new:
+      - dv_duration/dv_duration-validate_open-accepted
+      - dv_duration/dv_duration-validate_open-iso8601
+      - dv_duration/dv_duration-validate_open-value_missing
+  CONT-DV_DURATION-validate_range:
+    new:
+      - dv_duration/dv_duration-validate_range-accepted
+      - dv_duration/dv_duration-validate_range-c_duration_range_lower
+      - dv_duration/dv_duration-validate_range-c_duration_range_upper
+  CONT-DV_EHR_URI-validate_list:
+    new:
+      - dv_ehr_uri/dv_ehr_uri-validate_list-accepted
+      - dv_ehr_uri/dv_ehr_uri-validate_list-c_string_list
+  CONT-DV_EHR_URI-validate_open:
+    new:
+      - dv_ehr_uri/dv_ehr_uri-validate_open-accepted
+      - dv_ehr_uri/dv_ehr_uri-validate_open-value_missing
+      - dv_ehr_uri/dv_ehr_uri-validate_open-scheme_valid
+  CONT-DV_EHR_URI-validate_pattern:
+    new:
+      - dv_ehr_uri/dv_ehr_uri-validate_pattern-accepted
+      - dv_ehr_uri/dv_ehr_uri-validate_pattern-c_string_pattern
+  CONT-DV_IDENTIFIER-validate_all_list:
+    new:
+      - dv_identifier/dv_identifier-validate_all_list-accepted
+      - dv_identifier/dv_identifier-validate_all_list-c_string_list
+      - dv_identifier/dv_identifier-validate_all_list-id_missing
+  CONT-DV_IDENTIFIER-validate_all_pattern:
+    new:
+      - dv_identifier/dv_identifier-validate_all_pattern-accepted
+      - dv_identifier/dv_identifier-validate_all_pattern-c_string_pattern
+      - dv_identifier/dv_identifier-validate_all_pattern-id_missing
+  CONT-DV_INTERVAL_DV_COUNT-validate_lower_upper:
+    new:
+      - dv_interval_count/dv_interval_dv_count-validate_lower_upper-accepted
+      - dv_interval_count/dv_interval_dv_count-validate_lower_upper-c_integer_range
+  CONT-DV_INTERVAL_DV_COUNT-validate_lower_upper_list:
+    new:
+      - dv_interval_count/dv_interval_dv_count-validate_lower_upper_list-accepted
+      - dv_interval_count/dv_interval_dv_count-validate_lower_upper_list-c_integer_list
+  CONT-DV_INTERVAL_DV_COUNT-validate_open:
+    new:
+      - dv_interval_count/dv_interval_dv_count-validate_open-accepted
+      - dv_interval_count/dv_interval_dv_count-validate_open-lower_included_valid
+      - dv_interval_count/dv_interval_dv_count-validate_open-upper_included_valid
+      - dv_interval_count/dv_interval_dv_count-validate_open-limits_consistent
+  CONT-DV_INTERVAL_DV_DATE-validate_lower_upper_constraint:
+    new:
+      - dv_interval_date/dv_interval_dv_date-validate_lower_upper_constraint-accepted
+      - dv_interval_date/dv_interval_dv_date-validate_lower_upper_constraint-month_validity
+      - dv_interval_date/dv_interval_dv_date-validate_lower_upper_constraint-day_validity
+  CONT-DV_INTERVAL_DV_DATE-validate_lower_upper_range:
+    new:
+      - dv_interval_date/dv_interval_dv_date-validate_lower_upper_range-accepted
+      - dv_interval_date/dv_interval_dv_date-validate_lower_upper_range-c_date_range
+  CONT-DV_INTERVAL_DV_DATE-validate_open:
+    new:
+      - dv_interval_date/dv_interval_dv_date-validate_open-accepted
+    open: >-
+      3 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_DATE-validate_open_mixed_precision:
+    new: []
+    open: >-
+      1 row(s) not carried: the interval mixes date or time precisions,
+      and RM defines no magnitude for a partial value, so
+      Limits_consistent cannot be evaluated (upstream report #717).
+  CONT-DV_INTERVAL_DV_DATE_TIME-validate_lower_upper_constraint:
+    new:
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-accepted
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-month_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-timezone_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-day_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-hour_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-minute_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-second_validity
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_constraint-millisecond_validity
+    open: >-
+      1 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_INTERVAL_DV_DATE_TIME-validate_lower_upper_range:
+    new:
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_range-accepted
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_lower_upper_range-c_date_time_range
+  CONT-DV_INTERVAL_DV_DATE_TIME-validate_open:
+    new:
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_open-accepted
+      - dv_interval_date_time/dv_interval_dv_date_time-validate_open-iso8601
+    open: >-
+      3 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_DURATION-validate_constraint:
+    new:
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-accepted
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-years_allowed
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-months_allowed
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-weeks_allowed
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-days_allowed
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-hours_allowed
+      - dv_interval_duration/dv_interval_dv_duration-validate_constraint-minutes_allowed
+    open: >-
+      2 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_INTERVAL_DV_DURATION-validate_open:
+    new:
+      - dv_interval_duration/dv_interval_dv_duration-validate_open-accepted
+      - dv_interval_duration/dv_interval_dv_duration-validate_open-limits_consistent
+    open: >-
+      3 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_DURATION-validate_range:
+    new:
+      - dv_interval_duration/dv_interval_dv_duration-validate_range-accepted
+      - dv_interval_duration/dv_interval_dv_duration-validate_range-c_duration_range
+  CONT-DV_INTERVAL_DV_ORDINAL-validate_constraint:
+    new:
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_constraint-accepted
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_constraint-c_dv_ordinal_list
+  CONT-DV_INTERVAL_DV_ORDINAL-validate_open:
+    new:
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_open-accepted
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_open-symbol_missing
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_open-value_missing
+      - dv_interval_ordinal/dv_interval_dv_ordinal-validate_open-limits_consistent
+    open: >-
+      1 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_fraction:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_fraction-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_fraction-c_integer_list
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_integer_fraction:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_integer_fraction-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_integer_fraction-c_integer_list
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_open:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_open-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_open-limits_consistent
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_percentage:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_percentage-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_percentage-c_integer_list
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_ratio:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_ratio-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_ratio-c_integer_list
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_ratio_range:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_ratio_range-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_ratio_range-c_real_range
+  CONT-DV_INTERVAL_DV_PROPORTION-validate_unitary:
+    new:
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_unitary-accepted
+      - dv_interval_proportion/dv_interval_dv_proportion-validate_unitary-c_integer_list
+  CONT-DV_INTERVAL_DV_QUANTITY-validate_open:
+    new:
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_open-accepted
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_open-lower_included_valid
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_open-upper_included_valid
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_open-limits_consistent
+  CONT-DV_INTERVAL_DV_QUANTITY-validate_upper_lower:
+    new:
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_upper_lower-accepted
+      - dv_interval_quantity/dv_interval_dv_quantity-validate_upper_lower-c_dv_quantity_list
+  CONT-DV_INTERVAL_DV_SCALE-validate_constraint:
+    new:
+      - dv_interval_scale/dv_interval_dv_scale-validate_constraint-accepted
+      - dv_interval_scale/dv_interval_dv_scale-validate_constraint-c_dv_ordinal_list
+  CONT-DV_INTERVAL_DV_SCALE-validate_open:
+    new:
+      - dv_interval_scale/dv_interval_dv_scale-validate_open-accepted
+      - dv_interval_scale/dv_interval_dv_scale-validate_open-symbol_missing
+      - dv_interval_scale/dv_interval_dv_scale-validate_open-value_missing
+      - dv_interval_scale/dv_interval_dv_scale-validate_open-limits_consistent
+    open: >-
+      1 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_TIME-validate_lower_upper_constraint:
+    new:
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_constraint-accepted
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_constraint-minute_validity
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_constraint-second_validity
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_constraint-millisecond_validity
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_constraint-timezone_validity
+  CONT-DV_INTERVAL_DV_TIME-validate_lower_upper_range:
+    new:
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_range-accepted
+      - dv_interval_time/dv_interval_dv_time-validate_lower_upper_range-c_time_range
+  CONT-DV_INTERVAL_DV_TIME-validate_open:
+    new:
+      - dv_interval_time/dv_interval_dv_time-validate_open-accepted
+    open: >-
+      3 acceptance row(s) with an absent limit whose unbounded flag is
+      false are not carried: BASE interval.adoc ties no limit to its
+      flag, so neither answer follows (upstream report #716).
+  CONT-DV_INTERVAL_DV_TIME-validate_open_mixed_precision:
+    new: []
+    open: >-
+      1 row(s) not carried: the interval mixes date or time precisions,
+      and RM defines no magnitude for a partial value, so
+      Limits_consistent cannot be evaluated (upstream report #717).
+  CONT-DV_MULTIMEDIA-validate_media_type:
+    new:
+      - dv_multimedia/dv_multimedia-validate_media_type-accepted
+      - dv_multimedia/dv_multimedia-validate_media_type-c_integer_list
+      - dv_multimedia/dv_multimedia-validate_media_type-c_integer_range
+      - dv_multimedia/dv_multimedia-validate_media_type-c_code_phrase
+  CONT-DV_MULTIMEDIA-validate_open:
+    new:
+      - dv_multimedia/dv_multimedia-validate_open-accepted
+      - dv_multimedia/dv_multimedia-validate_open-media_type_size_missing
+      - dv_multimedia/dv_multimedia-validate_open-size_missing
+      - dv_multimedia/dv_multimedia-validate_open-media_type_missing
+  CONT-DV_ORDINAL-validate_constraint:
+    new:
+      - dv_ordinal/dv_ordinal-validate_constraint-accepted
+      - dv_ordinal/dv_ordinal-validate_constraint-c_dv_ordinal_list
+  CONT-DV_ORDINAL-validate_open:
+    new:
+      - dv_ordinal/dv_ordinal-validate_open-accepted
+      - dv_ordinal/dv_ordinal-validate_open-value_symbol_missing
+      - dv_ordinal/dv_ordinal-validate_open-symbol_missing
+      - dv_ordinal/dv_ordinal-validate_open-value_missing
+  CONT-DV_PARSABLE-validate_open:
+    new:
+      - dv_parsable/dv_parsable-validate_open-accepted
+      - dv_parsable/dv_parsable-validate_open-value_formalism_missing
+      - dv_parsable/dv_parsable-validate_open-formalism_missing
+      - dv_parsable/dv_parsable-validate_open-value_missing
+  CONT-DV_PARSABLE-validate_value_formalism:
+    new:
+      - dv_parsable/dv_parsable-validate_value_formalism-accepted
+      - dv_parsable/dv_parsable-validate_value_formalism-c_string_pattern_value
+      - dv_parsable/dv_parsable-validate_value_formalism-c_string_pattern_formalism
+      - dv_parsable/dv_parsable-validate_value_formalism-c_string_list_value
+      - dv_parsable/dv_parsable-validate_value_formalism-c_string_list_formalism
+  CONT-DV_PROPORTION-validate_any_fraction:
+    new:
+      - dv_proportion/dv_proportion-validate_any_fraction-accepted
+      - dv_proportion/dv_proportion-validate_any_fraction-c_integer_list
+  CONT-DV_PROPORTION-validate_fraction:
+    new:
+      - dv_proportion/dv_proportion-validate_fraction-accepted
+      - dv_proportion/dv_proportion-validate_fraction-c_integer_list
+  CONT-DV_PROPORTION-validate_integer_fraction:
+    new:
+      - dv_proportion/dv_proportion-validate_integer_fraction-accepted
+      - dv_proportion/dv_proportion-validate_integer_fraction-c_integer_list
+  CONT-DV_PROPORTION-validate_open:
+    new:
+      - dv_proportion/dv_proportion-validate_open-accepted
+      - dv_proportion/dv_proportion-validate_open-valid_denominator
+      - dv_proportion/dv_proportion-validate_open-unitary_validity
+      - dv_proportion/dv_proportion-validate_open-percent_validity
+      - dv_proportion/dv_proportion-validate_open-fraction_validity
+      - dv_proportion/dv_proportion-validate_open-is_integral_validity
+      - dv_proportion/dv_proportion-validate_open-type_validity
+  CONT-DV_PROPORTION-validate_percent:
+    new:
+      - dv_proportion/dv_proportion-validate_percent-accepted
+      - dv_proportion/dv_proportion-validate_percent-c_integer_list
+  CONT-DV_PROPORTION-validate_ratio:
+    new:
+      - dv_proportion/dv_proportion-validate_ratio-accepted
+      - dv_proportion/dv_proportion-validate_ratio-c_integer_list
+  CONT-DV_PROPORTION-validate_ratio_range:
+    new:
+      - dv_proportion/dv_proportion-validate_ratio_range-accepted
+      - dv_proportion/dv_proportion-validate_ratio_range-c_real_range
+  CONT-DV_PROPORTION-validate_unitary:
+    new:
+      - dv_proportion/dv_proportion-validate_unitary-accepted
+      - dv_proportion/dv_proportion-validate_unitary-c_integer_list
+  CONT-DV_QUANTITY-validate_open:
+    new:
+      - dv_quantity/dv_quantity-validate_open-accepted
+      - dv_quantity/dv_quantity-validate_open-magnitude_units_missing
+      - dv_quantity/dv_quantity-validate_open-magnitude_missing
+      - dv_quantity/dv_quantity-validate_open-units_missing
+  CONT-DV_QUANTITY-validate_property:
+    new:
+      - dv_quantity/dv_quantity-validate_property-accepted
+      - dv_quantity/dv_quantity-validate_property-c_dv_quantity_property
+      - dv_quantity/dv_quantity-validate_property-magnitude_units_missing
+      - dv_quantity/dv_quantity-validate_property-magnitude_missing
+      - dv_quantity/dv_quantity-validate_property-units_missing
+  CONT-DV_QUANTITY-validate_property_units:
+    new:
+      - dv_quantity/dv_quantity-validate_property_units-accepted
+      - dv_quantity/dv_quantity-validate_property_units-c_dv_quantity_property
+      - dv_quantity/dv_quantity-validate_property_units-c_dv_quantity_list
+      - dv_quantity/dv_quantity-validate_property_units-magnitude_units_missing
+      - dv_quantity/dv_quantity-validate_property_units-magnitude_missing
+      - dv_quantity/dv_quantity-validate_property_units-units_missing
+  CONT-DV_QUANTITY-validate_property_units_mag:
+    new:
+      - dv_quantity/dv_quantity-validate_property_units_mag-accepted
+      - dv_quantity/dv_quantity-validate_property_units_mag-c_dv_quantity_property
+      - dv_quantity/dv_quantity-validate_property_units_mag-c_dv_quantity_list
+      - dv_quantity/dv_quantity-validate_property_units_mag-magnitude_units_missing
+      - dv_quantity/dv_quantity-validate_property_units_mag-magnitude_missing
+      - dv_quantity/dv_quantity-validate_property_units_mag-units_missing
+  CONT-DV_SCALE-validate_constraint:
+    new:
+      - dv_scale/dv_scale-validate_constraint-accepted
+      - dv_scale/dv_scale-validate_constraint-c_dv_scale_list
+  CONT-DV_SCALE-validate_open:
+    new:
+      - dv_scale/dv_scale-validate_open-accepted
+      - dv_scale/dv_scale-validate_open-value_symbol_missing
+      - dv_scale/dv_scale-validate_open-symbol_missing
+      - dv_scale/dv_scale-validate_open-value_missing
+  CONT-DV_TEXT-validate_list:
+    new:
+      - dv_text/dv_text-validate_list-accepted
+      - dv_text/dv_text-validate_list-c_string_list
+      - dv_text/dv_text-validate_list-value_missing
+  CONT-DV_TEXT-validate_open:
+    new:
+      - dv_text/dv_text-validate_open-accepted
+      - dv_text/dv_text-validate_open-c_string_pattern
+      - dv_text/dv_text-validate_open-value_missing
+  CONT-DV_TEXT-validate_pattern:
+    new:
+      - dv_text/dv_text-validate_pattern-accepted
+      - dv_text/dv_text-validate_pattern-c_string_pattern
+      - dv_text/dv_text-validate_pattern-value_missing
+  CONT-DV_TIME-validate_constraint:
+    new:
+      - dv_time/dv_time-validate_constraint-accepted
+      - dv_time/dv_time-validate_constraint-minute_validity
+      - dv_time/dv_time-validate_constraint-second_validity
+      - dv_time/dv_time-validate_constraint-millisecond_validity
+      - dv_time/dv_time-validate_constraint-timezone_validity
+    open: >-
+      5 refusal row(s) whose only violation is a millisecond validity or
+      a split between whole and fractional seconds are not carried: the
+      ITS-XML Archetype.xsd has no element for either AOM 1.4 field, so
+      no template carrying the constraint can be uploaded (upstream
+      report #719).
+  CONT-DV_TIME-validate_open:
+    new:
+      - dv_time/dv_time-validate_open-accepted
+      - dv_time/dv_time-validate_open-iso8601
+      - dv_time/dv_time-validate_open-value_missing
+  CONT-DV_TIME-validate_range:
+    new:
+      - dv_time/dv_time-validate_range-accepted
+      - dv_time/dv_time-validate_range-c_time_range
+  CONT-DV_URI-validate_list:
+    new:
+      - dv_uri/dv_uri-validate_list-accepted
+      - dv_uri/dv_uri-validate_list-c_string_list
+  CONT-DV_URI-validate_open:
+    new:
+      - dv_uri/dv_uri-validate_open-accepted
+      - dv_uri/dv_uri-validate_open-value_missing
+      - dv_uri/dv_uri-validate_open-value_valid
+  CONT-DV_URI-validate_pattern:
+    new:
+      - dv_uri/dv_uri-validate_pattern-accepted
+      - dv_uri/dv_uri-validate_pattern-c_string_pattern
+  CONT-ELEMENT-value_null_flavour_existence:
+    new:
+      - content_element/element-value_null_flavour_existence-accepted
+      - content_element/element-value_null_flavour_existence-inv_null_flavour_indicated
+      - content_element/element-value_null_flavour_existence-c_attribute_existence
+  CONT-EVENT-state_ex_mand:
+    new:
+      - content_event/event-state_ex_mand-accepted
+      - content_event/event-state_ex_mand-c_attribute_existence
+      - content_event/event-state_ex_mand-event_data_missing
+  CONT-EVENT-state_ex_opt:
+    new:
+      - content_event/event-state_ex_opt-accepted
+      - content_event/event-state_ex_opt-event_data_missing
+  CONT-EVENT-type_any:
+    new:
+      - content_event/event-type_any-accepted
+  CONT-EVENT-type_interval_event:
+    new:
+      - content_event/event-type_interval_event-accepted
+      - content_event/event-type_interval_event-c_object_rm_type_name
+  CONT-EVENT-type_point_event:
+    new:
+      - content_event/event-type_point_event-accepted
+      - content_event/event-type_point_event-c_object_rm_type_name
+  CONT-HIST-events_card_1plus-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_1plus-summary_ex_mand-accepted
+      - content_history/hist-events_card_1plus-summary_ex_mand-c_multiple_attribute_cardinality
+      - content_history/hist-events_card_1plus-summary_ex_mand-c_attribute_existence
+  CONT-HIST-events_card_1plus-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_1plus-summary_ex_opt-accepted
+      - content_history/hist-events_card_1plus-summary_ex_opt-c_multiple_attribute_cardinality
+  CONT-HIST-events_card_3plus-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_3plus-summary_ex_mand-accepted
+      - content_history/hist-events_card_3plus-summary_ex_mand-c_multiple_attribute_cardinality
+      - content_history/hist-events_card_3plus-summary_ex_mand-c_attribute_existence
+  CONT-HIST-events_card_3plus-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_3plus-summary_ex_opt-accepted
+      - content_history/hist-events_card_3plus-summary_ex_opt-c_multiple_attribute_cardinality
+  CONT-HIST-events_card_3to5-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_3to5-summary_ex_mand-accepted
+      - content_history/hist-events_card_3to5-summary_ex_mand-c_multiple_attribute_cardinality
+      - content_history/hist-events_card_3to5-summary_ex_mand-c_attribute_existence
+  CONT-HIST-events_card_3to5-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_3to5-summary_ex_opt-accepted
+      - content_history/hist-events_card_3to5-summary_ex_opt-c_multiple_attribute_cardinality
+  CONT-HIST-events_card_any-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_any-summary_ex_mand-accepted
+      - content_history/hist-events_card_any-summary_ex_mand-c_attribute_existence
+  CONT-HIST-events_card_any-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_any-summary_ex_opt-accepted
+      - content_history/hist-events_card_any-summary_ex_opt-events_valid
+  CONT-HIST-events_card_mand-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_mand-summary_ex_mand-accepted
+      - content_history/hist-events_card_mand-summary_ex_mand-c_multiple_attribute_cardinality
+      - content_history/hist-events_card_mand-summary_ex_mand-c_attribute_existence
+  CONT-HIST-events_card_mand-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_mand-summary_ex_opt-accepted
+      - content_history/hist-events_card_mand-summary_ex_opt-c_multiple_attribute_cardinality
+  CONT-HIST-events_card_opt-summary_ex_mand:
+    new:
+      - content_history/hist-events_card_opt-summary_ex_mand-accepted
+      - content_history/hist-events_card_opt-summary_ex_mand-c_attribute_existence
+      - content_history/hist-events_card_opt-summary_ex_mand-c_multiple_attribute_cardinality
+  CONT-HIST-events_card_opt-summary_ex_opt:
+    new:
+      - content_history/hist-events_card_opt-summary_ex_opt-accepted
+      - content_history/hist-events_card_opt-summary_ex_opt-events_valid
+      - content_history/hist-events_card_opt-summary_ex_opt-c_multiple_attribute_cardinality
+  CONT-HISTORY-events_cardinality_count6:
+    new:
+      - content_history/history-events_cardinality_count6-accepted
+      - content_history/history-events_cardinality_count6-c_multiple_attribute_cardinality
+  CONT-ITEM-type_any:
+    new:
+      - content_item/item-type_any-accepted
+  CONT-ITEM-type_cluster:
+    new:
+      - content_item/item-type_cluster-accepted
+  CONT-ITEM-type_element:
+    new:
+      - content_item/item-type_element-accepted
+  CONT-ITEM-unmatched_member_accepted:
+    new:
+      - content_item_unmatched_accepted/item-unmatched_member_accepted-accepted
+    open: >-
+      One arm of the option content-unmatched-member: AM states the
+      alternative-matching rule for single-valued attributes only
+      (upstream report #307).
+  CONT-ITEM-unmatched_member_refused:
+    new:
+      - content_item_unmatched_refused/item-unmatched_member_refused-c_object_rm_type_name
+    open: >-
+      One arm of the option content-unmatched-member: AM states the
+      alternative-matching rule for single-valued attributes only
+      (upstream report #307).
+  CONT-ITEM_LIST-items_cardinality:
+    new:
+      - content_item_list/item_list-items_cardinality-accepted
+      - content_item_list/item_list-items_cardinality-c_multiple_attribute_cardinality
+  CONT-ITEM_STR-type_any:
+    new:
+      - content_item_structure/item_str-type_any-accepted
+  CONT-ITEM_STR-type_item_list:
+    new:
+      - content_item_structure/item_str-type_item_list-accepted
+      - content_item_structure/item_str-type_item_list-c_object_rm_type_name
+  CONT-ITEM_STR-type_item_single:
+    new:
+      - content_item_structure/item_str-type_item_single-accepted
+      - content_item_structure/item_str-type_item_single-c_object_rm_type_name
+  CONT-ITEM_STR-type_item_table:
+    new:
+      - content_item_structure/item_str-type_item_table-accepted
+      - content_item_structure/item_str-type_item_table-c_object_rm_type_name
+  CONT-ITEM_STR-type_item_tree:
+    new:
+      - content_item_structure/item_str-type_item_tree-accepted
+      - content_item_structure/item_str-type_item_tree-c_object_rm_type_name
+  CONT-ITEM_TABLE-rows_cardinality:
+    new:
+      - content_item_table/item_table-rows_cardinality-accepted
+      - content_item_table/item_table-rows_cardinality-c_multiple_attribute_cardinality
+  CONT-ITEM_TREE-items_cardinality:
+    new:
+      - content_item_tree/item_tree-items_cardinality-accepted
+      - content_item_tree/item_tree-items_cardinality-c_multiple_attribute_cardinality
+  CONT-OBS-state_ex_mand-protocol_ex_mand:
+    new:
+      - content_observation/obs-state_ex_mand-protocol_ex_mand-accepted
+      - content_observation/obs-state_ex_mand-protocol_ex_mand-c_attribute_existence
+      - content_observation/obs-state_ex_mand-protocol_ex_mand-observation_data_missing
+  CONT-OBS-state_ex_mand-protocol_ex_opt:
+    new:
+      - content_observation/obs-state_ex_mand-protocol_ex_opt-accepted
+      - content_observation/obs-state_ex_mand-protocol_ex_opt-c_attribute_existence
+      - content_observation/obs-state_ex_mand-protocol_ex_opt-observation_data_missing
+  CONT-OBS-state_ex_opt-protocol_ex_mand:
+    new:
+      - content_observation/obs-state_ex_opt-protocol_ex_mand-accepted
+      - content_observation/obs-state_ex_opt-protocol_ex_mand-c_attribute_existence
+      - content_observation/obs-state_ex_opt-protocol_ex_mand-observation_data_missing
+  CONT-OBS-state_ex_opt-protocol_ex_opt:
+    new:
+      - content_observation/obs-state_ex_opt-protocol_ex_opt-accepted
+      - content_observation/obs-state_ex_opt-protocol_ex_opt-observation_data_missing
   I_DEFINITION_ADL14.delete_archetype-clinical_forbidden:
     new: []
     open: &adl14_archetype >-

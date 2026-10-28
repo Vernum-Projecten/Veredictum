@@ -1,0 +1,35 @@
+diff --git a/components/AM/Release-1.4/Archetype.xsd b/components/AM/Release-1.4/Archetype.xsd
+index df1ec53..5255d31 100644
+--- a/components/AM/Release-1.4/Archetype.xsd
++++ b/components/AM/Release-1.4/Archetype.xsd
+@@ -299,6 +299,7 @@
+ 				<xs:sequence>
+ 					<xs:element name="pattern" type="DateTimeConstraintPattern" minOccurs="0"/>
+ 					<xs:element name="timezone_validity" type="VALIDITY_KIND" minOccurs="0"/>
++					<xs:element name="millisecond_validity" type="VALIDITY_KIND" minOccurs="0"/>
+ 					<xs:element name="range" type="IntervalOfDateTime" minOccurs="0"/>
+ 					<xs:element name="assumed_value" type="Iso8601DateTime" minOccurs="0"/>
+ 				</xs:sequence>
+@@ -319,6 +320,7 @@
+ 				<xs:sequence>
+ 					<xs:element name="pattern" type="TimeConstraintPattern" minOccurs="0"/>
+ 					<xs:element name="timezone_validity" type="VALIDITY_KIND" minOccurs="0"/>
++					<xs:element name="millisecond_validity" type="VALIDITY_KIND" minOccurs="0"/>
+ 					<xs:element name="range" type="IntervalOfTime" minOccurs="0"/>
+ 					<xs:element name="assumed_value" type="Iso8601Time" minOccurs="0"/>
+ 				</xs:sequence>
+@@ -335,6 +337,14 @@
+ 			<xs:extension base="C_PRIMITIVE">
+ 				<xs:sequence>
+ 					<xs:element name="pattern" type="DurationConstraintPattern" minOccurs="0"/>
++					<xs:element name="years_allowed" type="xs:boolean" minOccurs="0"/>
++					<xs:element name="months_allowed" type="xs:boolean" minOccurs="0"/>
++					<xs:element name="weeks_allowed" type="xs:boolean" minOccurs="0"/>
++					<xs:element name="days_allowed" type="xs:boolean" minOccurs="0"/>
++					<xs:element name="hours_allowed" type="xs:boolean" minOccurs="0"/>
++					<xs:element name="minutes_allowed" type="xs:boolean" minOccurs="0"/>
++					<xs:element name="seconds_allowed" type="xs:boolean" minOccurs="0"/>
++					<xs:element name="fractional_seconds_allowed" type="xs:boolean" minOccurs="0"/>
+ 					<xs:element name="range" type="IntervalOfDuration" minOccurs="0"/>
+ 					<xs:element name="assumed_value" type="Iso8601Duration" minOccurs="0"/>
+ 				</xs:sequence>

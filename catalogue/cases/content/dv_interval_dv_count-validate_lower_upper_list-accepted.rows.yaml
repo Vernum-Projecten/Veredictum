@@ -1,0 +1,15 @@
+# The rows of CONT-DV_INTERVAL_DV_COUNT-validate_lower_upper_list this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_interval_count/dv_interval_dv_count-validate_lower_upper_list-accepted
+iteration: reset_per_row
+literals: ["lower", "upper", "lower_unbounded", "upper_unbounded", "lower_included", "upper_included"]
+recipe:
+  name: content_instance
+  rm_class: DV_INTERVAL
+  template_id: cnf.tpl.interval_count_list
+  input: composition
+rows:
+  - {"lower": null, "upper": null, "lower_unbounded": true, "upper_unbounded": true, "lower_included": false, "upper_included": false}
+  - {"lower": 0, "upper": null, "lower_unbounded": false, "upper_unbounded": true, "lower_included": true, "upper_included": false}
+  - {"lower": null, "upper": 100, "lower_unbounded": true, "upper_unbounded": false, "lower_included": false, "upper_included": true}
+  - {"lower": 0, "upper": 100, "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true}

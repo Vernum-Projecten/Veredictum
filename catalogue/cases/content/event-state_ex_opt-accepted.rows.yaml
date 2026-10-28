@@ -1,0 +1,14 @@
+# The rows of CONT-EVENT-state_ex_opt this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_event/event-state_ex_opt-accepted
+iteration: reset_per_row
+literals: ["state_existence", "data_committed", "state_committed"]
+recipe:
+  name: content_synthesized
+  rm_class: EVENT
+  template_id: cnf.tpl.ecc_event_state_existence
+  input: composition
+  template_input: template
+rows:
+  - {"state_existence": "optional", "data_committed": "present", "state_committed": "absent"}
+  - {"state_existence": "optional", "data_committed": "present", "state_committed": "present"}

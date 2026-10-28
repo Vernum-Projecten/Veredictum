@@ -1,0 +1,17 @@
+# The rows of CONT-DV_DATE-validate_constraint this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_date/dv_date-validate_constraint-month_validity
+iteration: reset_per_row
+literals: ["value", "month_validity", "day_validity"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_DATE
+  template_id: cnf.tpl.dv_date_c_date
+  input: composition
+  template_input: template
+rows:
+  - {"value": "2021", "month_validity": "mandatory", "day_validity": "mandatory"}
+  - {"value": "2021", "month_validity": "mandatory", "day_validity": "optional"}
+  - {"value": "2021", "month_validity": "mandatory", "day_validity": "prohibited"}
+  - {"value": "2021-10", "month_validity": "prohibited", "day_validity": "prohibited"}
+  - {"value": "2021-10-24", "month_validity": "prohibited", "day_validity": "prohibited"}

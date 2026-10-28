@@ -1,0 +1,2420 @@
+# Content validation of HISTORY at a COMPOSITION commit, as
+# Arazzo 1.1.0 workflows over the released ITS-REST `-validation` OAS. Each
+# workflow commits the compositions of its rows file, which the rows file's
+# recipe builds from the decision-table literals, and every row of a workflow
+# shares its outcome. Every criterion resolves to an `x-veredictum-cite`, and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Content validation, HISTORY
+  version: 0.1.0
+  description: >-
+    Commits HISTORY content against templates that constrain it.
+    Content the template and the RM admit is created (201). A body the
+    published ITS-JSON schema (openehr_rm_1.1.0_all.json) refuses is
+    syntactically invalid content and is answered 400; a schema-valid body
+    the template does not validate, or that breaks an RM invariant, is
+    answered 422.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: definition
+    url: ../../../specs/rest-oas/definition-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: hist-events_card_1plus-summary_ex_mand-accepted
+    summary: "HISTORY.events count against a 1..* cardinality with an archetype-mandated summary: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 1..* cardinality with an archetype-mandated summary). Each row
+      is content the template and the RM admit, so the commit is answered 201
+      Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "summary_existence": { type: "string" }
+        "events_count": { type: "integer" }
+        "summary_committed": { type: "string" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_1plus-summary_ex_mand-c_multiple_attribute_cardinality
+    summary: "HISTORY.events count against a 1..* cardinality with an archetype-mandated summary: a member count outside the cardinality is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 1..* cardinality with an archetype-mandated summary). Each
+      body passes the published ITS-JSON schema and breaks the rule this
+      workflow cites (a member count outside the cardinality), so the commit
+      is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Cardinality"
+      quote: "in order to indicate that the attribute refers to a container type, what number of member items it must have in the data"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "summary_existence": { type: "string" }
+        "events_count": { type: "integer" }
+        "summary_committed": { type: "string" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_1plus-summary_ex_mand-c_attribute_existence
+    summary: "HISTORY.events count against a 1..* cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 1..* cardinality with an archetype-mandated summary). Each
+      body passes the published ITS-JSON schema and breaks the rule this
+      workflow cites (an attribute present or absent against its existence),
+      so the commit is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Existence"
+      quote: "indicates whether the object to which the attribute refers is mandatory or optional in the data."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "summary_existence": { type: "string" }
+        "events_count": { type: "integer" }
+        "summary_committed": { type: "string" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_1plus-summary_ex_opt-accepted
+    summary: "HISTORY.events count against a 1..* cardinality, summary optional: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 1..* cardinality, summary optional). Each row is content the
+      template and the RM admit, so the commit is answered 201 Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "summary_existence": { type: "string" }
+        "events_count": { type: "integer" }
+        "summary_committed": { type: "string" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_1plus-summary_ex_opt-c_multiple_attribute_cardinality
+    summary: "HISTORY.events count against a 1..* cardinality, summary optional: a member count outside the cardinality is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 1..* cardinality, summary optional). Each body passes the
+      published ITS-JSON schema and breaks the rule this workflow cites (a
+      member count outside the cardinality), so the commit is refused with 422
+      Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Cardinality"
+      quote: "in order to indicate that the attribute refers to a container type, what number of member items it must have in the data"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "summary_existence": { type: "string" }
+        "events_count": { type: "integer" }
+        "summary_committed": { type: "string" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_3plus-summary_ex_mand-accepted
+    summary: "HISTORY.events count against a 3..* cardinality with an archetype-mandated summary: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 3..* cardinality with an archetype-mandated summary). Each row
+      is content the template and the RM admit, so the commit is answered 201
+      Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_3plus-summary_ex_mand-c_multiple_attribute_cardinality
+    summary: "HISTORY.events count against a 3..* cardinality with an archetype-mandated summary: a member count outside the cardinality is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 3..* cardinality with an archetype-mandated summary). Each
+      body passes the published ITS-JSON schema and breaks the rule this
+      workflow cites (a member count outside the cardinality), so the commit
+      is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Cardinality"
+      quote: "in order to indicate that the attribute refers to a container type, what number of member items it must have in the data"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_3plus-summary_ex_mand-c_attribute_existence
+    summary: "HISTORY.events count against a 3..* cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 3..* cardinality with an archetype-mandated summary). Each
+      body passes the published ITS-JSON schema and breaks the rule this
+      workflow cites (an attribute present or absent against its existence),
+      so the commit is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Existence"
+      quote: "indicates whether the object to which the attribute refers is mandatory or optional in the data."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_3plus-summary_ex_opt-accepted
+    summary: "HISTORY.events count against a 3..* cardinality, summary optional: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 3..* cardinality, summary optional). Each row is content the
+      template and the RM admit, so the commit is answered 201 Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_3plus-summary_ex_opt-c_multiple_attribute_cardinality
+    summary: "HISTORY.events count against a 3..* cardinality, summary optional: a member count outside the cardinality is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 3..* cardinality, summary optional). Each body passes the
+      published ITS-JSON schema and breaks the rule this workflow cites (a
+      member count outside the cardinality), so the commit is refused with 422
+      Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Cardinality"
+      quote: "in order to indicate that the attribute refers to a container type, what number of member items it must have in the data"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_3to5-summary_ex_mand-accepted
+    summary: "HISTORY.events count against a 3..5 cardinality with an archetype-mandated summary: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 3..5 cardinality with an archetype-mandated summary). Each row
+      is content the template and the RM admit, so the commit is answered 201
+      Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_3to5-summary_ex_mand-c_multiple_attribute_cardinality
+    summary: "HISTORY.events count against a 3..5 cardinality with an archetype-mandated summary: a member count outside the cardinality is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 3..5 cardinality with an archetype-mandated summary). Each
+      body passes the published ITS-JSON schema and breaks the rule this
+      workflow cites (a member count outside the cardinality), so the commit
+      is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Cardinality"
+      quote: "in order to indicate that the attribute refers to a container type, what number of member items it must have in the data"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_3to5-summary_ex_mand-c_attribute_existence
+    summary: "HISTORY.events count against a 3..5 cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 3..5 cardinality with an archetype-mandated summary). Each
+      body passes the published ITS-JSON schema and breaks the rule this
+      workflow cites (an attribute present or absent against its existence),
+      so the commit is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Existence"
+      quote: "indicates whether the object to which the attribute refers is mandatory or optional in the data."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_3to5-summary_ex_opt-accepted
+    summary: "HISTORY.events count against a 3..5 cardinality, summary optional: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 3..5 cardinality, summary optional). Each row is content the
+      template and the RM admit, so the commit is answered 201 Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_3to5-summary_ex_opt-c_multiple_attribute_cardinality
+    summary: "HISTORY.events count against a 3..5 cardinality, summary optional: a member count outside the cardinality is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 3..5 cardinality, summary optional). Each body passes the
+      published ITS-JSON schema and breaks the rule this workflow cites (a
+      member count outside the cardinality), so the commit is refused with 422
+      Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Cardinality"
+      quote: "in order to indicate that the attribute refers to a container type, what number of member items it must have in the data"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_any-summary_ex_mand-accepted
+    summary: "HISTORY.events count under an unconstrained (0..*) cardinality with an archetype-mandated summary: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      under an unconstrained (0..*) cardinality with an archetype-mandated
+      summary). Each row is content the template and the RM admit, so the
+      commit is answered 201 Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_any-summary_ex_mand-c_attribute_existence
+    summary: "HISTORY.events count under an unconstrained (0..*) cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      under an unconstrained (0..*) cardinality with an archetype-mandated
+      summary). Each body passes the published ITS-JSON schema and breaks the
+      rule this workflow cites (an attribute present or absent against its
+      existence), so the commit is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Existence"
+      quote: "indicates whether the object to which the attribute refers is mandatory or optional in the data."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_any-summary_ex_opt-accepted
+    summary: "HISTORY.events count under an unconstrained (0..*) cardinality, summary optional: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      under an unconstrained (0..*) cardinality, summary optional). Each row
+      is content the template and the RM admit, so the commit is answered 201
+      Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_any-summary_ex_opt-events_valid
+    summary: "HISTORY.events count under an unconstrained (0..*) cardinality, summary optional: a breach of the Events_valid invariant is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      under an unconstrained (0..*) cardinality, summary optional). Each body
+      passes the published ITS-JSON schema and breaks the rule this workflow
+      cites (a breach of the Events_valid invariant), so the commit is refused
+      with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/history.adoc
+      section: "HISTORY Class"
+      quote: "__Events_valid__: `(events /= Void and then not events.is_empty) or summary /= Void`"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_mand-summary_ex_mand-accepted
+    summary: "HISTORY.events count against a 1..1 cardinality with an archetype-mandated summary: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 1..1 cardinality with an archetype-mandated summary). Each row
+      is content the template and the RM admit, so the commit is answered 201
+      Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_mand-summary_ex_mand-c_multiple_attribute_cardinality
+    summary: "HISTORY.events count against a 1..1 cardinality with an archetype-mandated summary: a member count outside the cardinality is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 1..1 cardinality with an archetype-mandated summary). Each
+      body passes the published ITS-JSON schema and breaks the rule this
+      workflow cites (a member count outside the cardinality), so the commit
+      is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Cardinality"
+      quote: "in order to indicate that the attribute refers to a container type, what number of member items it must have in the data"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_mand-summary_ex_mand-c_attribute_existence
+    summary: "HISTORY.events count against a 1..1 cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 1..1 cardinality with an archetype-mandated summary). Each
+      body passes the published ITS-JSON schema and breaks the rule this
+      workflow cites (an attribute present or absent against its existence),
+      so the commit is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Existence"
+      quote: "indicates whether the object to which the attribute refers is mandatory or optional in the data."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_mand-summary_ex_opt-accepted
+    summary: "HISTORY.events count against a 1..1 cardinality, summary optional: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 1..1 cardinality, summary optional). Each row is content the
+      template and the RM admit, so the commit is answered 201 Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_mand-summary_ex_opt-c_multiple_attribute_cardinality
+    summary: "HISTORY.events count against a 1..1 cardinality, summary optional: a member count outside the cardinality is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 1..1 cardinality, summary optional). Each body passes the
+      published ITS-JSON schema and breaks the rule this workflow cites (a
+      member count outside the cardinality), so the commit is refused with 422
+      Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Cardinality"
+      quote: "in order to indicate that the attribute refers to a container type, what number of member items it must have in the data"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_opt-summary_ex_mand-accepted
+    summary: "HISTORY.events count against a 0..1 cardinality with an archetype-mandated summary: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 0..1 cardinality with an archetype-mandated summary). Each row
+      is content the template and the RM admit, so the commit is answered 201
+      Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_opt-summary_ex_mand-c_attribute_existence
+    summary: "HISTORY.events count against a 0..1 cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 0..1 cardinality with an archetype-mandated summary). Each
+      body passes the published ITS-JSON schema and breaks the rule this
+      workflow cites (an attribute present or absent against its existence),
+      so the commit is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Existence"
+      quote: "indicates whether the object to which the attribute refers is mandatory or optional in the data."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_opt-summary_ex_mand-c_multiple_attribute_cardinality
+    summary: "HISTORY.events count against a 0..1 cardinality with an archetype-mandated summary: a member count outside the cardinality is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 0..1 cardinality with an archetype-mandated summary). Each
+      body passes the published ITS-JSON schema and breaks the rule this
+      workflow cites (a member count outside the cardinality), so the commit
+      is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Cardinality"
+      quote: "in order to indicate that the attribute refers to a container type, what number of member items it must have in the data"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_existence": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_opt-summary_ex_opt-accepted
+    summary: "HISTORY.events count against a 0..1 cardinality, summary optional: content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 0..1 cardinality, summary optional). Each row is content the
+      template and the RM admit, so the commit is answered 201 Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: hist-events_card_opt-summary_ex_opt-events_valid
+    summary: "HISTORY.events count against a 0..1 cardinality, summary optional: a breach of the Events_valid invariant is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 0..1 cardinality, summary optional). Each body passes the
+      published ITS-JSON schema and breaks the rule this workflow cites (a
+      breach of the Events_valid invariant), so the commit is refused with 422
+      Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/history.adoc
+      section: "HISTORY Class"
+      quote: "__Events_valid__: `(events /= Void and then not events.is_empty) or summary /= Void`"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: hist-events_card_opt-summary_ex_opt-c_multiple_attribute_cardinality
+    summary: "HISTORY.events count against a 0..1 cardinality, summary optional: a member count outside the cardinality is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count
+      against a 0..1 cardinality, summary optional). Each body passes the
+      published ITS-JSON schema and breaks the rule this workflow cites (a
+      member count outside the cardinality), so the commit is refused with 422
+      Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Cardinality"
+      quote: "in order to indicate that the attribute refers to a container type, what number of member items it must have in the data"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: history-events_cardinality_count6-accepted
+    summary: "HISTORY.events count 6 against every official cardinality interval (upper-bound extension): content the template admits is created"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count 6
+      against every official cardinality interval (upper-bound extension)).
+      Each row is content the template and the RM admit, so the commit is
+      answered 201 Created.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Overview"
+      quote: "cADL is used both at \"design time\", by authors and/or tools, and at runtime, by computational systems which validate data by comparing it to the appropriate sections of cADL in an archetype."
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+
+  - workflowId: history-events_cardinality_count6-c_multiple_attribute_cardinality
+    summary: "HISTORY.events count 6 against every official cardinality interval (upper-bound extension): a member count outside the cardinality is refused with 422"
+    description: >-
+      Commits the rows' content against the template (HISTORY.events count 6
+      against every official cardinality interval (upper-bound extension)).
+      Each body passes the published ITS-JSON schema and breaks the rule this
+      workflow cites (a member count outside the cardinality), so the commit
+      is refused with 422 Unprocessable Entity.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: "Cardinality"
+      quote: "in order to indicate that the attribute refers to a container type, what number of member items it must have in the data"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "cardinality": { type: "string" }
+        "summary_committed": { type: "string" }
+        "events_count": { type: "integer" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: "description"
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."

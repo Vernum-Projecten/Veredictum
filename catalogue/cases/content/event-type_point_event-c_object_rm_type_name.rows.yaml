@@ -1,0 +1,13 @@
+# The rows of CONT-EVENT-type_point_event this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_event/event-type_point_event-c_object_rm_type_name
+iteration: reset_per_row
+literals: ["slot_type", "committed_type"]
+recipe:
+  name: content_synthesized
+  rm_class: EVENT
+  template_id: cnf.tpl.ecc_event_type_narrowing
+  input: composition
+  template_input: template
+rows:
+  - {"slot_type": "POINT_EVENT", "committed_type": "INTERVAL_EVENT"}

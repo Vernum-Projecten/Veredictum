@@ -467,14 +467,23 @@ fn observation_root(attrs: &str, extra_terms: &[(&str, &str, &str)]) -> String {
 /// `cardinality_existence(token)` when the cardinality axis is under test so a
 /// zero-events row is admitted for the tokens that allow it, and `(1, 1)` when
 /// events are fixed mandatory (the standard `events 1..*` data shape).
+/// The `HISTORY` data of an OBSERVATION whose one `EVENT` node takes the
+/// events cardinality `events_bounds` as its occurrences.
+///
+/// AM ADL1.4 `master05-cadl.adoc` §Occurrences, VCOC: "the interval represented
+/// by: (the sum of all occurrences minimum values) .. (the sum of all
+/// occurrences maximum values) must be inside the interval of the cardinality."
+/// With one node, its occurrences equal to the cardinality hold that rule and
+/// admit every event count the cardinality admits.
 fn observation_history(
     events_slot_type: &str,
     event_attrs_extra: &str,
-    events_card: &str,
+    events_bounds: (i64, Option<i64>),
     events_exist: (i64, i64),
 ) -> String {
     let event_attrs = format!("{}{event_attrs_extra}", item_tree_data());
-    let event = c_complex(events_slot_type, &event_attrs, "at0002", (0, Some(1)));
+    let event = c_complex(events_slot_type, &event_attrs, "at0002", events_bounds);
+    let events_card = &cardinality(events_bounds.0, events_bounds.1);
     let events = c_multiple_attr("events", &event, events_card, events_exist);
     let history = c_complex("HISTORY", &events, "at0001", (1, Some(1)));
     c_single_attr("data", &history, (1, 1))
@@ -525,16 +534,22 @@ impl CardinalityToken {
         }
     }
 
+    /// The interval this token names, `None` for an unbounded upper.
+    fn bounds(self) -> (i64, Option<i64>) {
+        match self {
+            Self::Any => (0, None),
+            Self::OnePlus => (1, None),
+            Self::ThreePlus => (3, None),
+            Self::Opt => (0, Some(1)),
+            Self::Mand => (1, Some(1)),
+            Self::ThreeToFive => (3, Some(5)),
+        }
+    }
+
     /// The `C_MULTIPLE_ATTRIBUTE.cardinality` interval XML this token names.
     fn cardinality(self) -> String {
-        match self {
-            Self::Any => cardinality(0, None),
-            Self::OnePlus => cardinality(1, None),
-            Self::ThreePlus => cardinality(3, None),
-            Self::Opt => cardinality(0, Some(1)),
-            Self::Mand => cardinality(1, Some(1)),
-            Self::ThreeToFive => cardinality(3, Some(5)),
-        }
+        let (lower, upper) = self.bounds();
+        cardinality(lower, upper)
     }
 
     /// The container attribute's `C_ATTRIBUTE.existence`, which follows the
@@ -781,7 +796,7 @@ fn composition_content_cardinality(
 /// OBSERVATION with the standard `HISTORY/EVENT/ITEM_TREE` data (default events
 /// cardinality 1..*, EVENT slot).
 fn item_tree_data_observation_history() -> String {
-    observation_history("EVENT", "", &cardinality(1, None), (1, 1))
+    observation_history("EVENT", "", (1, None), (1, 1))
 }
 
 fn composition_context_existence(template_id: &str, row: &Cells<'_>) -> Result<String, SynthError> {
@@ -803,7 +818,7 @@ fn event_state_existence(template_id: &str, row: &Cells<'_>) -> Result<String, S
         &c_complex("ITEM_TREE", "", "at0005", (1, Some(1))),
         exist,
     );
-    let data = observation_history("EVENT", &state_attr, &cardinality(1, None), (1, 1));
+    let data = observation_history("EVENT", &state_attr, (1, None), (1, 1));
     let obs = observation_root(&data, &[("at0005", "State", "@ internal @")]);
     Ok(composition(
         template_id,
@@ -816,7 +831,7 @@ fn event_state_existence(template_id: &str, row: &Cells<'_>) -> Result<String, S
 
 fn event_type_narrowing(template_id: &str, row: &Cells<'_>) -> Result<String, SynthError> {
     let slot = EventSlotType::read(row, "slot_type")?;
-    let data = observation_history(slot.rm_type_name(), "", &cardinality(1, None), (1, 1));
+    let data = observation_history(slot.rm_type_name(), "", (1, None), (1, 1));
     let obs = observation_root(&data, &[]);
     Ok(composition(
         template_id,
@@ -829,7 +844,7 @@ fn event_type_narrowing(template_id: &str, row: &Cells<'_>) -> Result<String, Sy
 
 fn history_events_cardinality(template_id: &str, row: &Cells<'_>) -> Result<String, SynthError> {
     let token = CardinalityToken::read(row, "cardinality")?;
-    let data = observation_history("EVENT", "", &token.cardinality(), token.existence());
+    let data = observation_history("EVENT", "", token.bounds(), token.existence());
     let obs = observation_root(&data, &[]);
     Ok(composition(
         template_id,
@@ -856,7 +871,7 @@ fn history_events_cardinality_summary(
         summary_exist,
     );
     let event_attrs = item_tree_data();
-    let event = c_complex("EVENT", &event_attrs, "at0002", (0, Some(1)));
+    let event = c_complex("EVENT", &event_attrs, "at0002", token.bounds());
     let events = c_multiple_attr("events", &event, &token.cardinality(), token.existence());
     let history = c_complex(
         "HISTORY",
@@ -884,7 +899,7 @@ fn history_summary_existence(template_id: &str, row: &Cells<'_>) -> Result<Strin
     );
     // HISTORY(at0001) with events 1..* + a summary attribute.
     let event_attrs = item_tree_data();
-    let event = c_complex("EVENT", &event_attrs, "at0002", (0, Some(1)));
+    let event = c_complex("EVENT", &event_attrs, "at0002", (1, None));
     let events = c_multiple_attr("events", &event, &cardinality(1, None), (1, 1));
     let history = c_complex(
         "HISTORY",
@@ -1229,6 +1244,30 @@ mod tests {
                 .count(),
             1,
             "exactly one cardinality restates the RM's 1..*: {cardinalities:?}"
+        );
+    }
+
+    /// The one EVENT node's occurrences equal the events cardinality, so a
+    /// 3..5 HISTORY admits three to five events of that node (ADL 1.4 VCOC).
+    #[test]
+    fn the_event_node_occurrences_follow_the_events_cardinality() {
+        let c = cols(&["cardinality", "events_count"]);
+        let xml = synthesize_opt(
+            "CONT-HIST-x",
+            "HISTORY",
+            "cnf.tpl.x.r0",
+            &c,
+            &[lit("3to5"), MatrixCell::Literal(serde_json::json!(4))],
+        )
+        .unwrap();
+        let event = xml
+            .split("<rm_type_name>EVENT</rm_type_name>")
+            .nth(1)
+            .unwrap();
+        let occurrences = event.split("</occurrences>").next().unwrap();
+        assert!(
+            occurrences.contains("<lower>3</lower>") && occurrences.contains("<upper>5</upper>"),
+            "{occurrences}"
         );
     }
 

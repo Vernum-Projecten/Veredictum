@@ -1,0 +1,13 @@
+# The rows of CONT-DV_ORDINAL-validate_constraint this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_ordinal/dv_ordinal-validate_constraint-c_dv_ordinal_list
+iteration: reset_per_row
+literals: ["symbol", "value"]
+recipe:
+  name: content_instance
+  rm_class: DV_ORDINAL
+  template_id: cnf.tpl.ordinal_list
+  input: composition
+rows:
+  - {"symbol": "local::at0005 (mild)", "value": 666}
+  - {"symbol": "local::at0666", "value": 1}

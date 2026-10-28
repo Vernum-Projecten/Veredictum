@@ -1,0 +1,17 @@
+# The rows of CONT-DV_EHR_URI-validate_open this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_ehr_uri/dv_ehr_uri-validate_open-accepted
+iteration: reset_per_row
+literals: ["value"]
+recipe:
+  name: content_instance
+  rm_class: DV_EHR_URI
+  template_id: cnf.tpl.dv_ehr_uri_open
+  input: composition
+rows:
+  - {"value": "ehr:/89c0752e-0815-47d7-8b3c-b3aaea2cea7a"}
+  - {"value": "ehr:/89c0752e-0815-47d7-8b3c-b3aaea2cea7a/031f2513-b9ef-47b2-bbef-8db24ae68c2f::EHRSERVER::1"}
+  - {"value": "ehr:/89c0752e-0815-47d7-8b3c-b3aaea2cea7a/031f2513-b9ef-47b2-bbef-8db24ae68c2f::EHRSERVER::1/context/other_context[at0001]/items[archetype_id=openEHR-EHR-CLUSTER.sample_symptom.v1]/items[at0034]/items[at0021]/value"}
+  - {"value": "ehr://CLOUD_EHRSERVER/89c0752e-0815-47d7-8b3c-b3aaea2cea7a"}
+  - {"value": "ehr://CLOUD_EHRSERVER/89c0752e-0815-47d7-8b3c-b3aaea2cea7a/031f2513-b9ef-47b2-bbef-8db24ae68c2f::EHRSERVER::1"}
+  - {"value": "ehr://CLOUD_EHRSERVER/89c0752e-0815-47d7-8b3c-b3aaea2cea7a/031f2513-b9ef-47b2-bbef-8db24ae68c2f::EHRSERVER::1/context/other_context[at0001]/items[archetype_id=openEHR-EHR-CLUSTER.sample_symptom.v1]/items[at0034]/items[at0021]/value"}

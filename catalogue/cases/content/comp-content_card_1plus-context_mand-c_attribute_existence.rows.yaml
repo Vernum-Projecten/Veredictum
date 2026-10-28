@@ -1,0 +1,14 @@
+# The rows of CONT-COMP-content_card_1plus-context_mand this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_composition/comp-content_card_1plus-context_mand-c_attribute_existence
+iteration: reset_per_row
+literals: ["cardinality", "context_existence", "context_committed", "content_count"]
+recipe:
+  name: content_synthesized
+  rm_class: COMPOSITION
+  template_id: cnf.tpl.ecc_composition_content_cardinality
+  input: composition
+  template_input: template
+rows:
+  - {"cardinality": "1plus", "context_existence": "mandatory", "context_committed": "absent", "content_count": 1}
+  - {"cardinality": "1plus", "context_existence": "mandatory", "context_committed": "absent", "content_count": 3}
