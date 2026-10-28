@@ -500,6 +500,10 @@ version on.
 
 ### Removed
 
+- The one-off `convert_catalogue` example that drafted each component's
+  Arazzo documents (#603). Every component of the case-core catalogue is
+  converted and every old case id is in `catalogue/id-map.yaml`, so the
+  converter has nothing left to convert.
 - The two TDS workflows of the Simplified Formats documents
   (`create_composition-tds2_media_unsupported` and
   `get_template_example-tds2_not_acceptable`) are removed by owner ruling
