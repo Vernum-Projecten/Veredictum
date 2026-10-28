@@ -3432,10 +3432,9 @@ cases:
       - ehr_status_tags/ehr_status_tags_get-composition_uid
     open: >-
       A demographic party's uid on the COMPOSITION route is not carried: the
-      only route that creates a party is the demographic API, which the
-      release does not ship as stable ("This specification is in the
-      `DEVELOPMENT` state", ITS-REST docs/demographic/Description.md). The
-      EHR-side directions are carried.
+      only route that creates a party is the demographic API, a capability a
+      statement may leave unclaimed, and these EHR workflows depend on no
+      such capability. The EHR-side directions are carried.
   I_ITS_REST_ITEM_TAGS.composition_tags_get-supersession_does_not_move_tags:
     new:
       - composition_tags/composition_tags_get-new_version_untagged
