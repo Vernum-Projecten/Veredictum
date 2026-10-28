@@ -17,6 +17,7 @@ pub mod cite;
 pub mod derive;
 pub mod document;
 pub mod evaluate;
+pub mod export;
 pub mod expr;
 pub mod gates;
 pub mod har;

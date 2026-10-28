@@ -107,6 +107,15 @@ precedence = "override"
 SPDX-FileCopyrightText = "OpenAPI Initiative, a Linux Foundation Collaborative Project"
 SPDX-License-Identifier = "Apache-2.0"
 
+# ── The vendored CTRF 0.2.0 JSON Schema ─────────────────────────────────────
+# The schema the CTRF export is tested against, beside the Arazzo schema under
+# `app/`. The Common Test Report Format repository carries MIT at its root.
+[[annotations]]
+path = "app/veredictum/src/arazzo/vendor/ctrf-0.2.0.schema.json"
+precedence = "override"
+SPDX-FileCopyrightText = "2024 Matthew Poulton-White"
+SPDX-License-Identifier = "MIT"
+
 # ── One vendored file whose NAME contains a newline character ───────────────
 # A file in the vendored CNF suite is tracked with a literal U+000A inside its
 # filename — an upstream defect, and not something this repository may rename,
