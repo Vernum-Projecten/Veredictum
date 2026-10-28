@@ -61,10 +61,18 @@ workflows:
             _type: FOLDER
             name: { _type: DV_TEXT, value: root }
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
             folders:
               - _type: FOLDER
                 name: { _type: DV_TEXT, value: episodes }
                 archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                  rm_version: 1.1.0
         successCriteria:
           - condition: $statusCode == 201
             x-veredictum-cite:
@@ -88,6 +96,10 @@ workflows:
             _type: FOLDER
             name: { _type: DV_TEXT, value: archive }
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
         successCriteria:
           - &ok_updated
             condition: $statusCode == 200
@@ -310,6 +322,10 @@ workflows:
             _type: FOLDER
             name: { _type: DV_TEXT, value: stale }
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
         successCriteria:
           - condition: $statusCode == 412
       - *get_archive
@@ -583,6 +599,10 @@ workflows:
           payload:
             _type: FOLDER
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
         successCriteria:
           - condition: $statusCode == 400
       - *get_root
@@ -614,6 +634,10 @@ workflows:
             _type: FOLDER
             name: { _type: DV_TEXT, value: archive }
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
             details:
               _type: ITEM_TREE
               name: { _type: DV_TEXT, value: details }
@@ -655,6 +679,10 @@ workflows:
             _type: FOLDER
             name: { _type: DV_TEXT, value: archive }
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
             details:
               _type: ITEM_TREE
               name: { _type: DV_TEXT, value: details }

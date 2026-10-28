@@ -56,7 +56,7 @@ workflows:
               <versions>
                 <lifecycle_state><value>complete</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>532</code_string></defining_code></lifecycle_state>
                 <commit_audit><change_type><value>creation</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>249</code_string></defining_code></change_type><committer xsi:type="PARTY_IDENTIFIED"><name>Veredictum</name></committer></commit_audit>
-                <data xsi:type="FOLDER" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>root</value></name></data>
+                <data xsi:type="FOLDER" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>root</value></name><archetype_details><archetype_id><value>openEHR-EHR-FOLDER.generic.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details></data>
               </versions>
               <audit><change_type><value>creation</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>249</code_string></defining_code></change_type><committer xsi:type="PARTY_IDENTIFIED"><name>Veredictum</name></committer></audit>
             </contribution>

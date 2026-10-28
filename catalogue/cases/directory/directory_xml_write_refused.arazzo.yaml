@@ -54,7 +54,7 @@ workflows:
           contentType: application/xml
           payload: |-
             <?xml version="1.0" encoding="UTF-8"?>
-            <folder xmlns="http://schemas.openehr.org/v1" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>root</value></name></folder>
+            <folder xmlns="http://schemas.openehr.org/v1" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>root</value></name><archetype_details><archetype_id><value>openEHR-EHR-FOLDER.generic.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details></folder>
         successCriteria:
           - condition: $statusCode == 415
       - stepId: no-directory
@@ -95,6 +95,10 @@ workflows:
             _type: FOLDER
             name: { _type: DV_TEXT, value: root }
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
         successCriteria:
           - condition: $statusCode == 201
             x-veredictum-cite:
@@ -114,7 +118,7 @@ workflows:
           contentType: application/xml
           payload: |-
             <?xml version="1.0" encoding="UTF-8"?>
-            <folder xmlns="http://schemas.openehr.org/v1" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>archive</value></name></folder>
+            <folder xmlns="http://schemas.openehr.org/v1" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>archive</value></name><archetype_details><archetype_id><value>openEHR-EHR-FOLDER.generic.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details></folder>
         successCriteria:
           - condition: $statusCode == 415
       - stepId: get

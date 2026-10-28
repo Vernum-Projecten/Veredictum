@@ -62,14 +62,26 @@ workflows:
             _type: FOLDER
             name: { _type: DV_TEXT, value: root }
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
             folders:
               - _type: FOLDER
                 name: { _type: DV_TEXT, value: episodes }
                 archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                  rm_version: 1.1.0
                 folders:
                   - _type: FOLDER
                     name: { _type: DV_TEXT, value: "2026" }
                     archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                    archetype_details:
+                      _type: ARCHETYPED
+                      archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                      rm_version: 1.1.0
         successCriteria:
           - &created
             condition: $statusCode == 201
@@ -235,6 +247,10 @@ workflows:
             _type: FOLDER
             name: { _type: DV_TEXT, value: root }
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
             items:
               - id: { _type: HIER_OBJECT_ID, value: "" }
                 namespace: local
@@ -280,6 +296,10 @@ workflows:
             _type: FOLDER
             name: { _type: DV_TEXT, value: root }
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
             items:
               - id: { _type: OBJECT_VERSION_ID, value: "" }
                 namespace: local
@@ -329,10 +349,18 @@ workflows:
             _type: FOLDER
             name: { _type: DV_TEXT, value: root }
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
             folders:
               - _type: FOLDER
                 name: { _type: DV_TEXT, value: diabetes }
                 archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                  rm_version: 1.1.0
                 items:
                   - id: { _type: HIER_OBJECT_ID, value: "" }
                     namespace: local
@@ -340,6 +368,10 @@ workflows:
               - _type: FOLDER
                 name: { _type: DV_TEXT, value: visits }
                 archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                  rm_version: 1.1.0
                 items:
                   - id: { _type: HIER_OBJECT_ID, value: "" }
                     namespace: local
@@ -386,6 +418,10 @@ workflows:
             _type: FOLDER
             name: { _type: DV_TEXT, value: root }
             archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
             links:
               - _type: LINK
                 meaning: { _type: DV_TEXT, value: follow up }

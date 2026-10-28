@@ -20,7 +20,7 @@ version on.
 
 ### Added
 
-- The CONTRIBUTION and DIRECTORY cases are converted to Arazzo (#603). 146
+- The CONTRIBUTION and DIRECTORY cases are converted to Arazzo (#603). 147
   workflows in 14 documents under `catalogue/cases/contribution/` and
   `catalogue/cases/directory/` carry 60 of the 115 `I_EHR_CONTRIBUTION`
   cases and 76 of the 90 `I_EHR_DIRECTORY` cases: the commit of a
@@ -29,7 +29,9 @@ version on.
   or the published ITS-JSON schema refuses, 422 for an RM invariant or an
   unknown template, 404, 409, 415, and any 4xx in an EHR that is not
   modifiable); the CONTRIBUTION read; and the directory create, update,
-  delete and reads by time, version and path. Four new options,
+  delete and reads by time, version and path. Every FOLDER node whose
+  archetype_node_id is an archetype id carries archetype_details, and a root
+  without it is refused with 422. Four new options,
   `contribution-xml-read`, `contribution-xml-write`, `directory-xml-read`
   and `directory-xml-write`, carry the XML arms. `surface.yaml` takes the
   CONTRIBUTION and DIRECTORY tags into scope with 24 negotiation branches as
