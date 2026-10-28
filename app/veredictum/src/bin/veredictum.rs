@@ -43,6 +43,7 @@ use veredictum::pipeline::catalogue::{
 };
 use veredictum::pipeline::conformance::{RunRequest, RunWarning, execute_run};
 use veredictum::pipeline::evidence::{EvidenceRequest, export_evidence};
+use veredictum::pipeline::export::export_results;
 use veredictum::pipeline::judgement::{JudgementRequest, judge};
 use veredictum::pipeline::measured::{
     MeasuredEvent, MeasuredRequest, ProbeRequest, StressRequest, SustainedWindow, run_aql_probe,
@@ -508,6 +509,28 @@ enum Command {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Write the views of an Arazzo results document a vendor's CI shows:
+    /// JUnit XML, CTRF 0.2.0 JSON and a Markdown summary, each a
+    /// byte-deterministic function of the document.
+    Export {
+        /// The `results.json` the Arazzo evaluator wrote.
+        #[arg(long)]
+        results: PathBuf,
+        /// Write the JUnit XML view here.
+        #[arg(long)]
+        junit: Option<PathBuf>,
+        /// Write the CTRF JSON view here.
+        #[arg(long)]
+        ctrf: Option<PathBuf>,
+        /// Write the Markdown summary here. Without this flag and without a
+        /// job summary file, the summary is printed to standard output.
+        #[arg(long)]
+        markdown: Option<PathBuf>,
+        /// The GitHub Actions job summary file the Markdown summary is
+        /// appended to. GitHub sets the variable in every job step.
+        #[arg(long, env = "GITHUB_STEP_SUMMARY", hide_env_values = true)]
+        step_summary: Option<PathBuf>,
+    },
     /// Verify a sealed bundle: recompute every digest its record manifest
     /// names, and check the detached signature over that manifest.
     VerifyRecord {
@@ -648,6 +671,21 @@ fn main() -> ExitCode {
                 failing,
             },
             &out,
+        ),
+        Command::Export {
+            results,
+            junit,
+            ctrf,
+            markdown,
+            step_summary,
+        } => export_command(
+            &results,
+            &ExportTargets {
+                junit: junit.as_deref(),
+                ctrf: ctrf.as_deref(),
+                markdown: markdown.as_deref(),
+                step_summary: step_summary.as_deref(),
+            },
         ),
         Command::Perf {
             root,
@@ -1340,6 +1378,61 @@ fn evidence_command(request: &EvidenceRequest<'_>, out: &Path) -> ExitCode {
             bundle.without_exchanges.len(),
             bundle.without_exchanges.join(", ")
         );
+    }
+    ExitCode::SUCCESS
+}
+
+/// Where `export` writes each view; a view with no target is not written.
+struct ExportTargets<'a> {
+    /// The JUnit XML file.
+    junit: Option<&'a Path>,
+    /// The CTRF JSON file.
+    ctrf: Option<&'a Path>,
+    /// The Markdown summary file.
+    markdown: Option<&'a Path>,
+    /// The GitHub Actions job summary file the Markdown summary is appended
+    /// to.
+    step_summary: Option<&'a Path>,
+}
+
+/// Writes the views of an Arazzo results document.
+///
+/// Every console line goes to standard error, because standard output
+/// carries the Markdown summary when no file receives it. The exit code is
+/// `0` when every view was written and `2` when the document could not be
+/// read or a file could not be written.
+fn export_command(results: &Path, targets: &ExportTargets<'_>) -> ExitCode {
+    let views = match export_results(results) {
+        Ok(views) => views,
+        Err(e) => return fail(&e),
+    };
+    for (path, body) in [
+        (targets.junit, &views.junit),
+        (targets.ctrf, &views.ctrf),
+        (targets.markdown, &views.markdown),
+    ] {
+        let Some(path) = path else { continue };
+        if let Err(code) = emit_one(path, body) {
+            return code;
+        }
+        eprintln!("wrote {}", path.display());
+    }
+    if let Some(path) = targets.step_summary {
+        // NOTE: GitHub's workflow-commands reference, "Adding a job summary", has every step
+        // append to `$GITHUB_STEP_SUMMARY`, so the summary is appended and never truncates it.
+        let appended = std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(path)
+            .and_then(|mut file| std::io::Write::write_all(&mut file, views.markdown.as_bytes()));
+        if let Err(e) = appended {
+            eprintln!("cannot append to {}: {e}", path.display());
+            return ExitCode::from(2);
+        }
+        eprintln!("appended the summary to {}", path.display());
+    }
+    if targets.markdown.is_none() && targets.step_summary.is_none() {
+        print!("{}", views.markdown);
     }
     ExitCode::SUCCESS
 }

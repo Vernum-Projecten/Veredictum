@@ -26,7 +26,7 @@ doc-valid-idents = [
   "..",
   "openEHR", "EHRbase", "FerroEHR", "Veredictum", "OpenAPI", "OpenPGP", "PostgreSQL", "JSONB",
   "AQL", "cADL", "dADL", "ODIN", "WebTemplate", "GraphQL",
-  "FHIR", "SNOMED", "LOINC", "DICOM", "IANA", "OAuth2", "OpenID",
+  "FHIR", "SNOMED", "LOINC", "DICOM", "IANA", "OAuth2", "OpenID", "JUnit",
 ]
 
 # ── type-level enforcement of the typed-carrier and time-library rules ───────

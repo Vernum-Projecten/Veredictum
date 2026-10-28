@@ -1,4 +1,8 @@
-# Vendored Arazzo 1.1 JSON Schema
+# Vendored JSON Schemas
+
+Two schemas, each fetched by its own script under `scripts/vendor/`.
+
+## Arazzo 1.1 JSON Schema
 
 Source: <https://spec.openapis.org/arazzo/1.1/schema/2026-04-15>, the dated
 schema revision the OpenAPI Initiative publishes for Arazzo 1.1.x documents
@@ -13,7 +17,7 @@ it for this file).
 The file is byte-for-byte what the URL served. It is compiled into the engine,
 because the crate publishes to crates.io and may only embed files it ships.
 
-## Where the schema and the Arazzo 1.1.0 text disagree
+### Where the schema and the Arazzo 1.1.0 text disagree
 
 The specification text (<https://spec.openapis.org/arazzo/v1.1.0.html>) is
 normative and the schema is not. The engine amends the compiled schema where
@@ -28,3 +32,19 @@ vendored value it replaces is still what it expects:
   Expression Type Object `version` against its own description, and the
   specification text agrees with the `required` list: §Expression Type Object,
   Fixed Fields, marks `version` REQUIRED.
+
+## CTRF 0.2.0 JSON Schema
+
+Source: <https://raw.githubusercontent.com/ctrf-io/ctrf/e325eb33c7662a208bfa4d093a41cc55439d6e6a/schema/ctrf.schema.json>,
+the file `schema/ctrf.schema.json` at the commit the `v0.2.0` tag of the
+Common Test Report Format repository names.
+Upstream repository: <https://github.com/ctrf-io/ctrf>.
+SHA-256: `cb9bd075beb0e046076046793f96bb1ba72bd1b1d331b1fbd42ac0ea36776cf3`.
+Fetched: 2026-10-28 by `scripts/vendor/ctrf-schema.sh`, which refuses bytes
+with any other digest.
+License: MIT, the upstream repository's licence (`REUSE.toml` records it for
+this file, and `LICENSES/MIT.txt` carries the text).
+
+The file is byte-for-byte what the URL served. The CTRF export pins
+`specVersion` 0.2.0, and its tests validate every emitted document against
+this schema.
