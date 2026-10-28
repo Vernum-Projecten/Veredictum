@@ -7462,8 +7462,8 @@ AMB-170:
     its arrival shapes, the volumetric classes it earns — is our own
     design/extension, and so is the decision that a particular claimed
     capability sits outside it. The exclusions the matrix carries today
-    (enumeration corrected 2026-08-21: seven workload_exclusion rows in
-    FOUR kinds) are all DECISIONS of ours, not openEHR's:
+    (enumeration corrected 2026-10-28: eight workload_exclusion rows in
+    FIVE kinds) are all DECISIONS of ours, not openEHR's:
     (1) DESTRUCTIVE MID-MEASUREMENT — the arrival would erase part
     of the population-anchored corpus the measured window is bound to, so the
     class the run earns would no longer describe the declared volume
@@ -7471,12 +7471,14 @@ AMB-170:
     ADMIN API that IS that erase pair); (2) DEFINITION ADMINISTRATION — not
     a sustainable per-patient arrival (the ADL 1.4 archetype family); (3)
     ONE-SHOT BY NATURE (the dump/load pair); (4) THE BULK LOAD IS EVERY
-    MEASURED RUN'S OWN SEEDING PHASE (BulkEhrLoad). No evidence_exception
+    MEASURED RUN'S OWN SEEDING PHASE (BulkEhrLoad); (5) OUT OF SCOPE BY
+    OWNER RULING (Tds, 2026-10-28, #748: the Template Data Document import
+    is legacy tooling on an extension route). No evidence_exception
     survives anywhere in the artifact tree — the earlier "same nine
     capabilities whose evidence_exception records the identical absence"
     clause described a state that no longer exists. "Not reached yet" is
     NOT a legitimate kind and does not appear: every other claimed
-    capability is exercised by the simulation. All four kinds are
+    capability is exercised by the simulation. All five kinds are
     DECISIONS and must read as decisions.
   source: >-
     CNF guide master03-overview.adoc §Product Scope — the DECISIVE sentence

@@ -13,7 +13,7 @@
 use veredictum::perf_run::client::{PerfClient, PerfPrincipals};
 use veredictum::perf_run::corpus::{SeededCorpus, seed_scale_ladder, seed_ward, ward_size};
 use veredictum::perf_run::jitter::LeafConstraints;
-use veredictum::perf_run::pack::{AuxPayloads, FlatPayload, JourneyPack, PackTemplate, TddPayload};
+use veredictum::perf_run::pack::{AuxPayloads, FlatPayload, JourneyPack, PackTemplate};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, ResponseTemplate};
 
@@ -75,10 +75,6 @@ fn pack() -> JourneyPack {
             person: None,
             person_amended: None,
             party_relationship: None,
-            tdd: Some(TddPayload {
-                opt_xml: "<template/>".to_owned(),
-                document: "<Nested template_id=\"nested.en.v1\"/>".to_owned(),
-            }),
         },
     }
 }
@@ -251,11 +247,6 @@ fn a_pack_missing_a_ward_template_stops_the_ward_seed() {
             .respond_with(ResponseTemplate::new(201).insert_header("ETag", "W/\"x::stub::1\"")),
     );
     sut.mount(
-        Mock::given(method("POST"))
-            .and(path("/message/tdd/s1"))
-            .respond_with(ResponseTemplate::new(201)),
-    );
-    sut.mount(
         Mock::given(method("PUT"))
             .and(path("/definition/query/org.openehr.cnf::ward_dashboard"))
             .respond_with(ResponseTemplate::new(200)),
@@ -280,11 +271,6 @@ fn a_refused_stored_query_registration_stops_the_ward_seed() {
         Mock::given(method("POST"))
             .and(path("/ehr/s1/composition"))
             .respond_with(ResponseTemplate::new(201).insert_header("ETag", "W/\"x::stub::1\"")),
-    );
-    sut.mount(
-        Mock::given(method("POST"))
-            .and(path("/message/tdd/s1"))
-            .respond_with(ResponseTemplate::new(201)),
     );
     sut.mount(
         Mock::given(method("PUT"))
@@ -332,30 +318,6 @@ fn a_refused_flat_preflight_payload_stops_the_ward_seed() {
         error.contains("Simplified-FLAT payload returned 422"),
         "{error}"
     );
-}
-
-#[test]
-fn a_refused_tdd_preflight_payload_stops_the_ward_seed() {
-    let sut = FakeSut::start();
-    opt_upload_accepted(&sut);
-    sut.mount(
-        Mock::given(method("POST")).and(path("/ehr")).respond_with(
-            ResponseTemplate::new(201).insert_header("Location", "http://sut/ehr/s1"),
-        ),
-    );
-    sut.mount(
-        Mock::given(method("POST"))
-            .and(path("/ehr/s1/composition"))
-            .respond_with(ResponseTemplate::new(201).insert_header("ETag", "W/\"x::stub::1\"")),
-    );
-    sut.mount(
-        Mock::given(method("POST"))
-            .and(path("/message/tdd/s1"))
-            .respond_with(ResponseTemplate::new(400)),
-    );
-    let error = seed_ward(&client(&sut), &mut seeded_index(1), &pack(), 1, &quiet)
-        .expect_err("a refused TDD example is a payload-ground defect");
-    assert!(error.contains("TDD payload returned 400"), "{error}");
 }
 
 /// The preflight's own scratch EHR: a SUT that will not create one has
@@ -442,11 +404,6 @@ fn each_refused_ward_document_stops_the_ward_seed_by_name() {
         sut.mount(Mock::given(method("POST")).and(path("/ehr")).respond_with(
             ResponseTemplate::new(201).insert_header("Location", "http://sut/ehr/s1"),
         ));
-        sut.mount(
-            Mock::given(method("POST"))
-                .and(path("/message/tdd/s1"))
-                .respond_with(ResponseTemplate::new(201)),
-        );
         sut.mount(
             Mock::given(method("PUT"))
                 .and(path("/definition/query/org.openehr.cnf::ward_dashboard"))

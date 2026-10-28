@@ -481,6 +481,16 @@ version on.
   in scope at once, where 0.41 refused only more than 256 declarations on a
   single element.
 
+### Removed
+
+- The performance instruments no longer measure the Template Data Document
+  import (#748). The `tdd_import` journey-stage operation is gone from the
+  journey catalogue and its published JSON Schema, together with its payload
+  loading, its seeding preflight and its template upload. The
+  `simplified_formats_exchange` journey keeps its FLAT commit and FLAT read.
+  The `Tds` capability now carries a workload exclusion (register AMB-170),
+  so the measured workload no longer claims to exercise it.
+
 ### Fixed
 
 - The Arazzo evaluator substitutes an embedded `{$…}` expression in every

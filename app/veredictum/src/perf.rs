@@ -335,12 +335,6 @@ pub enum PerfOp {
     /// (our own design/extension, register AMB-34, declared in
     /// `vocab/wire_surface.yaml`).
     EhrExtractExport,
-    /// `POST /message/tdd/{ehr_id}` → 201 (`I_TDD_SERVICE.import_tdd`) — an
-    /// EXTENSION route on the same register entry. A WRITE: the converted
-    /// COMPOSITION commits through the ordinary validated path, so a TDD
-    /// import is a document-authoring arrival in another input serialization,
-    /// exactly as [`PerfOp::CompositionCommitFlat`] is.
-    TddImport,
     /// `POST /query/aql` with an ORDER BY + LIMIT projection → 200
     /// (`I_QUERY_SERVICE.execute_ad_hoc_query`, the advanced-AQL class).
     AnalyticsQuery,
@@ -428,7 +422,6 @@ impl PerfOp {
         PerfOp::ArchetypeAdl2List,
         PerfOp::AdminContributionReport,
         PerfOp::EhrExtractExport,
-        PerfOp::TddImport,
         PerfOp::AnalyticsQuery,
         PerfOp::TerminologyQuery,
         PerfOp::SystemOptions,
@@ -488,7 +481,6 @@ impl PerfOp {
             PerfOp::ArchetypeAdl2List => "archetype_adl2_list",
             PerfOp::AdminContributionReport => "admin_contribution_report",
             PerfOp::EhrExtractExport => "ehr_extract_export",
-            PerfOp::TddImport => "tdd_import",
             PerfOp::AnalyticsQuery => "analytics_query",
             PerfOp::TerminologyQuery => "terminology_query",
             PerfOp::SystemOptions => "system_options",
@@ -534,7 +526,6 @@ impl PerfOp {
                 | PerfOp::PartyCreate
                 | PerfOp::PartyUpdate
                 | PerfOp::PartyRelationshipCreate
-                | PerfOp::TddImport
         )
     }
 
@@ -583,7 +574,6 @@ impl PerfOp {
             PerfOp::CompositionCommitFlat => Some(AuxPayloadKind::Flat),
             PerfOp::PartyCreate | PerfOp::PartyUpdate => Some(AuxPayloadKind::Person),
             PerfOp::PartyRelationshipCreate => Some(AuxPayloadKind::PartyRelationship),
-            PerfOp::TddImport => Some(AuxPayloadKind::Tdd),
             _ => None,
         }
     }
@@ -654,7 +644,6 @@ impl PerfOp {
             // names an API the release does not publish, so what the
             // arrival exercises is this product's own message surface.
             PerfOp::EhrExtractExport => &["EhrExtract", "MessageApi"],
-            PerfOp::TddImport => &["Tds", "ArchetypeValidation"],
             // ITEM_TAG rides the EHR API's tag resources, but it is its own
             // capability: a service that answers every EHR-API operation and
             // no tag route is still conformant (ITS-REST overview
@@ -711,9 +700,6 @@ pub enum AuxPayloadKind {
     Person,
     /// The `PARTY_RELATIONSHIP` the extension route commits.
     PartyRelationship,
-    /// The Template Data Document the TDD-import extension route commits,
-    /// plus the operational template it instantiates.
-    Tdd,
 }
 
 /// A journey stage's planned offset from the journey's arrival instant.

@@ -23,7 +23,7 @@ use veredictum::perf::{ArrivalCurve, ClassVerdict, JourneyCatalogue, Performance
 use veredictum::perf_run::client::{PerfClient, PerfPrincipals};
 use veredictum::perf_run::corpus::{SeededCorpus, seed_scale_ladder, seed_ward};
 use veredictum::perf_run::jitter::LeafConstraints;
-use veredictum::perf_run::pack::{AuxPayloads, FlatPayload, JourneyPack, PackTemplate, TddPayload};
+use veredictum::perf_run::pack::{AuxPayloads, FlatPayload, JourneyPack, PackTemplate};
 use veredictum::perf_run::schedule::JourneyWorkload;
 use veredictum::perf_run::window::{
     drive_case, measured_run_context, rederive_verdict, run_window,
@@ -285,13 +285,8 @@ fn route(
             format!("ETag: W/\"{}\"\r\n", fresh_uid(uid_counter)),
             String::new(),
         ),
-        // The MESSAGE extension pair (register AMB-34): a TDD import commits
-        // and names the created version; a whole-EHR export reads a list.
-        ("POST", p) if p.contains("/message/tdd/") => (
-            "201 Created",
-            String::new(),
-            format!("{{\"uid\":\"{}\"}}", fresh_uid(uid_counter)),
-        ),
+        // The MESSAGE extension route (register AMB-34): a whole-EHR export
+        // reads a list.
         ("GET", p) if p.contains("/message/export/") => (
             "200 OK",
             String::new(),
@@ -401,12 +396,6 @@ fn journey_pack() -> JourneyPack {
                 "source": { "_type": "PARTY_REF",
                     "id": { "_type": "HIER_OBJECT_ID", "value": "placeholder" } }
             })),
-            tdd: Some(TddPayload {
-                opt_xml: "<template/>".to_owned(),
-                document: "<Nested xmlns=\"http://schemas.oceanehr.com/templates\" \
-                            template_id=\"nested.en.v1\"/>"
-                    .to_owned(),
-            }),
         },
     }
 }
@@ -602,13 +591,13 @@ fn a_faulting_sut_cannot_earn_the_class() {
 
 /// The journeys the class case does not carry: the deletion chain (which
 /// deletes its OWN commit, so it resolves nothing from the standing ward),
-/// the episode-directory version chain, and the four extension routes the
+/// the episode-directory version chain, and the three extension routes the
 /// wire surface declares. They ride a dedicated short window rather than the
 /// class case, because the class case's write-share band is what fixes its
 /// journey mix.
 fn extension_catalogue() -> JourneyCatalogue {
     serde_saphyr::from_str(
-        "chart_review:\n  description: d\n  derivation: g\n  stages:\n    - { op: composition_read, at: PT0S }\n    - { op: composition_revision_history, at: PT1S }\n    - { op: adhoc_query, at: PT2S }\n    - { op: directory_read, at: PT3S }\n    - { op: ward_query, at: PT1S }\n    - { op: template_list, at: PT2S }\ndeletion:\n  description: d\n  derivation: g\n  stages:\n    - { op: composition_commit, template: cnf.ckm.gp_data_set, at: PT0S }\n    - { op: composition_delete, at: PT1S }\nepisode_management:\n  description: d\n  derivation: g\n  stages:\n    - { op: directory_read, at: PT0S }\n    - { op: directory_update, at: PT1S }\nextension_surface:\n  description: d\n  derivation: g\n  stages:\n    - { op: archetype_adl2_list, at: PT0S }\n    - { op: admin_contribution_report, at: PT1S }\n    - { op: ehr_extract_export, at: PT2S }\n    - { op: tdd_import, at: PT3S }\n",
+        "chart_review:\n  description: d\n  derivation: g\n  stages:\n    - { op: composition_read, at: PT0S }\n    - { op: composition_revision_history, at: PT1S }\n    - { op: adhoc_query, at: PT2S }\n    - { op: directory_read, at: PT3S }\n    - { op: ward_query, at: PT1S }\n    - { op: template_list, at: PT2S }\ndeletion:\n  description: d\n  derivation: g\n  stages:\n    - { op: composition_commit, template: cnf.ckm.gp_data_set, at: PT0S }\n    - { op: composition_delete, at: PT1S }\nepisode_management:\n  description: d\n  derivation: g\n  stages:\n    - { op: directory_read, at: PT0S }\n    - { op: directory_update, at: PT1S }\nextension_surface:\n  description: d\n  derivation: g\n  stages:\n    - { op: archetype_adl2_list, at: PT0S }\n    - { op: admin_contribution_report, at: PT1S }\n    - { op: ehr_extract_export, at: PT2S }\n",
     )
     .unwrap()
 }
@@ -657,7 +646,6 @@ fn the_deletion_directory_and_extension_arms_all_drive_their_wire() {
         "archetype_adl2_list",
         "admin_contribution_report",
         "ehr_extract_export",
-        "tdd_import",
     ] {
         assert!(labels.contains(&expected), "operation {expected} missing");
     }
