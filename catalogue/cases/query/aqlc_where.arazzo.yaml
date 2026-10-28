@@ -1,5 +1,5 @@
 # The WHERE-clause cases of the aql-conformance corpus whose answer the released AQL text assigns. Each workflow carries one case of the AQL conformance corpus
-# (github.com/Cadasto/aql-conformance at d5b8c554fece), named in its
+# (github.com/Cadasto/aql-conformance at 28749a482a23), named in its
 # description; catalogue/id-map.yaml maps every case of the corpus. The case's
 # own data is committed by the set-up it names in
 # _setup/aql_conformance.arazzo.yaml, and its runtime identifiers reach the
@@ -315,3 +315,213 @@ workflows:
               context: $response.body
               match: count
               count: 0
+  - workflowId: comparison-a_date_time_with_another_offset_compares_as_an_instant
+    summary: A date/time literal with another offset compares as the instant it names
+    description: 'Carries aql-conformance case WHERE.comparison.a_date_time_with_another_offset_compares_as_an_instant
+      (level core, corpus/cases/WHERE/datetime_literal_another_offset.yaml): over the set-up seed-vital_signs-repeated_types_single,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs-repeated_types_single
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Dates and Times
+      quote: enabling them to be processed as date/time quantities rather than literal strings by AQL engines.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c WHERE e/ehr_id/value = $ehr_id AND c/context/start_time
+              > '2026-10-06T15:00:00+02:00'
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs-repeated_types_single.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - $workflows.$sourceDescriptions.setup.seed-vital_signs-repeated_types_single.outputs.c1
+  - workflowId: like-an_escaped_star_matches_only_a_literal_star
+    summary: An escaped * matches only a literal star, so Name\* matches no name
+    description: 'Carries aql-conformance case WHERE.like.an_escaped_star_matches_only_a_literal_star (level
+      core, corpus/cases/WHERE/ehrbase/like_escaped_star.yaml): over the set-up seed-type_repetition_like,
+      the query returns as many rows as the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-type_repetition_like
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: LIKE
+      quote: The `LIKE` operator always tries to match the entire string value
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT s/name/value FROM EHR e CONTAINS COMPOSITION c CONTAINS SECTION s WHERE s/name/value
+              LIKE 'Name\\*' AND e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-type_repetition_like.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 0
+  - workflowId: like-a_percent_sign_is_a_plain_character_and_matches_no_name
+    summary: A % in a LIKE pattern is a plain character, so Name% matches no section name
+    description: 'Carries aql-conformance case WHERE.like.a_percent_sign_is_a_plain_character_and_matches_no_name
+      (level core, corpus/cases/WHERE/ehrbase/like_percent_alone.yaml): over the set-up seed-type_repetition_like,
+      the query returns as many rows as the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-type_repetition_like
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: LIKE
+      quote: If the pattern does not contain any of these wildcards, then `LIKE` acts like the `=` (equal)
+        operator.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT s/name/value FROM EHR e CONTAINS COMPOSITION c CONTAINS SECTION s WHERE s/name/value
+              LIKE 'Name%' AND e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-type_repetition_like.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 0
+  - workflowId: like-percent_and_underscore_match_only_themselves
+    summary: With no AQL wildcard, Name%_ matches only the name Name%_
+    description: 'Carries aql-conformance case WHERE.like.percent_and_underscore_match_only_themselves (level
+      core, corpus/cases/WHERE/ehrbase/like_percent_underscore.yaml): over the set-up seed-type_repetition_like,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-type_repetition_like
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: LIKE
+      quote: If the pattern does not contain any of these wildcards, then `LIKE` acts like the `=` (equal)
+        operator.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT s/name/value FROM EHR e CONTAINS COMPOSITION c CONTAINS SECTION s WHERE s/name/value
+              LIKE 'Name%_' AND e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-type_repetition_like.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - Name%_
+  - workflowId: like-a_leading_star_then_percent_and_underscore_matches_the_name_ending_so
+    summary: A leading * then %_ matches the one name that ends in %_
+    description: 'Carries aql-conformance case WHERE.like.a_leading_star_then_percent_and_underscore_matches_the_name_ending_so
+      (level core, corpus/cases/WHERE/ehrbase/like_star_percent_underscore.yaml): over the set-up seed-type_repetition_like,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-type_repetition_like
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: LIKE
+      quote: while the `\*` wildcard matches any sequence of zero or more characters.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT s/name/value FROM EHR e CONTAINS COMPOSITION c CONTAINS SECTION s WHERE s/name/value
+              LIKE '*%_' AND e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-type_repetition_like.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - Name%_

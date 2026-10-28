@@ -1,5 +1,5 @@
 # The deprecated TOP modifier, on the arm of the aql-top option that serves it. Each workflow carries one case of the AQL conformance corpus
-# (github.com/Cadasto/aql-conformance at d5b8c554fece), named in its
+# (github.com/Cadasto/aql-conformance at 28749a482a23), named in its
 # description; catalogue/id-map.yaml maps every case of the corpus. The case's
 # own data is committed by the set-up it names in
 # _setup/aql_conformance.arazzo.yaml, and its runtime identifiers reach the
