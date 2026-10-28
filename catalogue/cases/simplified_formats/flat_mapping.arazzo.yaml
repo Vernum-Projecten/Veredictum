@@ -71,10 +71,11 @@ workflows:
             ctx/territory: US
             ctx/composer_name: CNF Composer
             test_all_types/test_all_types:0/text: text value
-            test_all_types/test_all_types:0/coded_text|code: N.84
-            test_all_types/test_all_types:0/coded_text|value: N.84 label
-            test_all_types/test_all_types:0/coded_text_terminology|code: D.13
-            test_all_types/test_all_types:0/coded_text_terminology|value: D.13 description
+            test_all_types/test_all_types:0/coded_text|code: at0005
+            test_all_types/test_all_types:0/coded_text|value: coded text
+            test_all_types/test_all_types:0/coded_text_terminology|code: "386661006"
+            test_all_types/test_all_types:0/coded_text_terminology|value: Fever
+            test_all_types/test_all_types:0/coded_text_terminology|terminology: SNOMED-CT
             test_all_types/test_all_types:0/quantity|magnitude: 68.07
             test_all_types/test_all_types:0/quantity|unit: mg
             test_all_types/test_all_types:0/quantity/_normal_range/lower|magnitude: 60.0
@@ -174,9 +175,10 @@ workflows:
       Creates an EHR, then creates a COMPOSITION of the template
       test_all_types.en.v1 from a flat document whose coded leaves carry
       |code and |value, and reads the COMPOSITION back in canonical
-      JSON. The local coded text carries the code N.84 and the value
-      N.84 label, and the coded text bound to SNOMED-CT carries the code
-      D.13 in that terminology.
+      JSON. The local coded text carries the code at0005 and the value
+      coded text, the term the archetype defines for that code, and the
+      coded text bound to SNOMED-CT, given with |terminology, carries
+      the code 386661006 in that terminology.
     dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
@@ -197,17 +199,24 @@ workflows:
           - *composition_retrieved
           - context: $response.body
             type: jsonpath
-            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0005' && @.value.defining_code.code_string == 'N.84']"
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0005' && @.value.defining_code.code_string == 'at0005']"
           - context: $response.body
             type: jsonpath
-            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0005' && @.value.value == 'N.84 label']"
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0005' && @.value.value == 'coded text']"
             x-veredictum-cite:
               source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
               section: DV_CODED_TEXT
               quote: '| `\|value` | String | value | (yes) | only required for external terminologies'
           - context: $response.body
             type: jsonpath
-            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0006' && @.value.defining_code.code_string == 'D.13']"
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0006' && @.value.defining_code.code_string == '386661006']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0006' && @.value.defining_code.terminology_id.value == 'SNOMED-CT']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_CODED_TEXT
+              quote: '| `\|terminology` | String | defining_code.terminology_id.value | (yes) | only required for external terminologies'
 
   - workflowId: create_composition-flat-dv_quantity
     summary: The flat |magnitude and |unit suffixes map to the DV_QUANTITY
@@ -907,10 +916,11 @@ workflows:
             ctx/territory: US
             ctx/composer_name: CNF Composer
             test_all_types/test_all_types:0/text: text value
-            test_all_types/test_all_types:0/coded_text|code: N.84
-            test_all_types/test_all_types:0/coded_text|value: N.84 label
-            test_all_types/test_all_types:0/coded_text_terminology|code: D.13
-            test_all_types/test_all_types:0/coded_text_terminology|value: D.13 description
+            test_all_types/test_all_types:0/coded_text|code: at0005
+            test_all_types/test_all_types:0/coded_text|value: coded text
+            test_all_types/test_all_types:0/coded_text_terminology|code: "386661006"
+            test_all_types/test_all_types:0/coded_text_terminology|value: Fever
+            test_all_types/test_all_types:0/coded_text_terminology|terminology: SNOMED-CT
             test_all_types/test_all_types:0/quantity|raw: { _type: DV_QUANTITY, magnitude: 72.5, units: mg }
             test_all_types/test_all_types:0/count: 6
             test_all_types/test_all_types:0/date: "2019-03-22"
