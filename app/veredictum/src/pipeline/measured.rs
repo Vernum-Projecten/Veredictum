@@ -5,8 +5,9 @@
 //! measured class run, the step-load stress ladder and the AQL optimization
 //! probe.
 //!
-//! All three share one preamble — load the catalogue, read the topology,
-//! select the class's case, seed a fresh corpus — and differ only in what
+//! All three share one preamble — load the performance schedule
+//! ([`crate::perf_schedule`]), read the topology, select the class's case,
+//! seed a fresh corpus — and differ only in what
 //! they do with the seeded system afterwards. Only the measured run produces
 //! a conformance record; the other two are exploration instruments and say
 //! so in their own reports.
@@ -16,13 +17,13 @@
 
 use std::path::Path;
 
-use crate::artifacts::Loaded;
 use crate::ids::CaseId;
 use crate::perf::{JourneyCatalogue, Measurement, PerfClass, PerformanceCase};
 use crate::perf_run::client::PerfClient;
 use crate::perf_run::corpus::SeededCorpus;
-use crate::perf_run::pack::JourneyPack;
-use crate::pipeline::{Error, load_clean_root, load_ixit, load_party_json, to_json_document};
+use crate::perf_run::pack::{self, JourneyPack};
+use crate::perf_schedule::{JOURNEYS_FILE, PAYLOADS_FILE, PerfSchedule};
+use crate::pipeline::{Error, load_ixit, load_party_json, to_json_document};
 use crate::probe::AqlProbeReport;
 use crate::schema::results_schema;
 use crate::stress::StressReport;
@@ -79,13 +80,13 @@ pub enum MeasuredEvent<'a> {
     CaseStarted {
         /// The case being measured.
         case: &'a PerformanceCase,
-        /// The artifact it was loaded from.
+        /// The file it was loaded from.
         source: &'a Path,
     },
     /// The window closed and produced this record.
     Measured(&'a Measurement),
-    /// A record for a case the catalogue no longer carries was dropped from
-    /// the results.
+    /// A record for a case the performance schedule no longer carries was
+    /// dropped from the results.
     PrunedOrphan(&'a CaseId),
     /// The record was merged into the results document at this path.
     Merged(&'a Path),
@@ -104,7 +105,7 @@ pub struct MeasuredRun {
 /// record.
 #[derive(Debug)]
 pub struct MeasuredRequest<'a> {
-    /// The artifact root.
+    /// The performance schedule root ([`crate::perf_schedule`]).
     pub root: &'a Path,
     /// The ixit topology document; its environment block is mandatory for a
     /// measured run.
@@ -122,7 +123,7 @@ pub struct MeasuredRequest<'a> {
 /// Which class-scale corpus to stress, and how hard to climb.
 #[derive(Debug)]
 pub struct StressRequest<'a> {
-    /// The artifact root.
+    /// The performance schedule root ([`crate::perf_schedule`]).
     pub root: &'a Path,
     /// The ixit topology document; its environment block is mandatory,
     /// because a throughput number without the deployment described is
@@ -144,7 +145,7 @@ pub struct StressRequest<'a> {
 /// Which class-scale corpus to probe, and how many requests per probe.
 #[derive(Debug)]
 pub struct ProbeRequest<'a> {
-    /// The artifact root.
+    /// The performance schedule root ([`crate::perf_schedule`]).
     pub root: &'a Path,
     /// The ixit topology document; its `containers` block enables DB-side
     /// attribution and maintenance settling.
@@ -157,82 +158,83 @@ pub struct ProbeRequest<'a> {
     pub requests: u32,
 }
 
-/// Returns the performance case of `class`, with the artifact it came from.
+/// Loads the performance schedule under `root`, refusing a tree with any
+/// defect.
 ///
 /// # Errors
-/// [`Error::Missing`] when the catalogue carries no case of that class.
+/// [`Error::Catalogue`] on a schema-compilation defect in this crate, or
+/// [`Error::Artifacts`] carrying one diagnostic per defect in the tree.
+pub fn load_clean_schedule(root: &Path) -> Result<PerfSchedule, Error> {
+    let loaded = crate::perf_schedule::load(root).map_err(Error::Catalogue)?;
+    if loaded.errors.is_empty() {
+        Ok(loaded.schedule)
+    } else {
+        Err(Error::Artifacts(loaded.errors))
+    }
+}
+
+/// Returns the performance case of `class`, with the file it came from.
+///
+/// # Errors
+/// [`Error::Missing`] when the schedule carries no case of that class.
 pub fn performance_case_of_class<'a>(
-    loaded: &'a Loaded,
+    schedule: &'a PerfSchedule,
     class: PerfClass,
     token: &str,
 ) -> Result<(&'a Path, &'a PerformanceCase), Error> {
-    loaded
-        .set
-        .performance
-        .iter()
-        .find(|(_, c)| c.class == class)
-        .map(|(path, case)| (path.as_path(), case))
-        .ok_or_else(|| {
-            Error::Missing(format!(
-                "no performance case of class {token} in the catalogue"
-            ))
-        })
+    schedule.cases_of_class(class).next().ok_or_else(|| {
+        Error::Missing(format!(
+            "no performance case of class {token} in the performance schedule"
+        ))
+    })
 }
 
 /// Returns the blood-pressure OPT the scale corpora commit against.
 ///
 /// # Errors
-/// [`Error::Missing`] when the tree carries no corpus, [`Error::Instrument`]
-/// when the fixture it names cannot be read.
-pub fn scale_opt_xml(loaded: &Loaded) -> Result<String, Error> {
-    let corpus_dir = loaded
-        .set
-        .corpus_dir
-        .as_deref()
-        .ok_or_else(|| Error::Missing("artifact set has no corpus directory".to_owned()))?;
-    let key = crate::ids::CorpusKey::parse("cnf.opt.blood_pressure")
-        .map_err(|e| Error::Instrument(e.to_string()))?;
-    let source = loaded
-        .set
-        .corpus
-        .as_ref()
-        .and_then(|(_, m)| m.get(&key))
-        .and_then(|entry| entry.source.clone())
-        .ok_or_else(|| {
-            Error::Missing("corpus manifest has no cnf.opt.blood_pressure fixture".to_owned())
-        })?;
-    std::fs::read_to_string(corpus_dir.join(&source))
-        .map_err(|e| Error::Instrument(format!("cannot read OPT fixture {source}: {e}")))
+/// [`Error::Missing`] when the schedule carries no payload manifest or no
+/// entry for the OPT, [`Error::Instrument`] when its file cannot be read.
+pub fn scale_opt_xml(schedule: &PerfSchedule) -> Result<String, Error> {
+    let (_, manifest) = schedule.payloads.as_ref().ok_or_else(|| {
+        Error::Missing(format!(
+            "the performance schedule carries no {PAYLOADS_FILE}"
+        ))
+    })?;
+    let entry = manifest.get(pack::SCALE_OPT_KEY).ok_or_else(|| {
+        Error::Missing(format!(
+            "{PAYLOADS_FILE} has no {} entry",
+            pack::SCALE_OPT_KEY
+        ))
+    })?;
+    let path = schedule.payloads_dir().join(&entry.source);
+    std::fs::read_to_string(&path)
+        .map_err(|e| Error::Instrument(format!("cannot read OPT {}: {e}", path.display())))
 }
 
 /// Returns the journey context every measured run needs: the catalogue the
 /// workload decomposes into, and the template pack its stages name.
 ///
 /// # Errors
-/// [`Error::Missing`] when the tree carries no journey catalogue, corpus
-/// directory or corpus manifest, [`Error::Instrument`] when the pack itself
-/// will not load.
-pub fn journey_context(loaded: &Loaded) -> Result<(JourneyCatalogue, JourneyPack), Error> {
-    let catalogue = loaded
-        .set
+/// [`Error::Missing`] when the schedule carries no journey catalogue or no
+/// payload manifest, [`Error::Instrument`] when the pack itself will not
+/// load.
+pub fn journey_context(schedule: &PerfSchedule) -> Result<(JourneyCatalogue, JourneyPack), Error> {
+    let catalogue = schedule
         .journeys
         .as_ref()
         .map(|(_, catalogue)| catalogue.clone())
         .ok_or_else(|| {
-            Error::Missing("artifact set has no vocab/journey_catalogue.yaml".to_owned())
+            Error::Missing(format!(
+                "the performance schedule carries no {JOURNEYS_FILE}"
+            ))
         })?;
-    let corpus_dir = loaded
-        .set
-        .corpus_dir
-        .as_deref()
-        .ok_or_else(|| Error::Missing("artifact set has no corpus directory".to_owned()))?;
-    let manifest = loaded
-        .set
-        .corpus
-        .as_ref()
-        .map(|(_, manifest)| manifest)
-        .ok_or_else(|| Error::Missing("artifact set has no corpus manifest".to_owned()))?;
-    let pack = JourneyPack::load(corpus_dir, manifest, &catalogue).map_err(Error::Instrument)?;
+    let (_, manifest) = schedule.payloads.as_ref().ok_or_else(|| {
+        Error::Missing(format!(
+            "the performance schedule carries no {PAYLOADS_FILE}"
+        ))
+    })?;
+    let pack = JourneyPack::load(&schedule.payloads_dir(), manifest, &catalogue)
+        .map_err(Error::Instrument)?;
     Ok((catalogue, pack))
 }
 
@@ -281,9 +283,9 @@ pub fn seed_corpus(
 ///
 /// # Errors
 /// [`Error::Selector`] for an unknown class token, [`Error::Catalogue`] or
-/// [`Error::Artifacts`] when the tree does not load, [`Error::Read`] or
-/// [`Error::Parse`] for the topology, and [`Error::Instrument`] for a
-/// seeding or run failure — including a window the SUT rate-limited, which
+/// [`Error::Artifacts`] when the performance schedule does not load,
+/// [`Error::Read`] or [`Error::Parse`] for the topology, and
+/// [`Error::Instrument`] for a seeding or run failure — including a window the SUT rate-limited, which
 /// would record the limiter's ceiling rather than the server's.
 pub fn run_stress(
     request: &StressRequest<'_>,
@@ -292,14 +294,14 @@ pub fn run_stress(
     use crate::perf_run;
 
     let class = PerfClass::parse(request.corpus_class).map_err(Error::Selector)?;
-    let loaded = load_clean_root(request.root)?;
+    let schedule = load_clean_schedule(request.root)?;
     let (ixit, _) = load_ixit(request.ixit)?;
     let (principals, environment) =
         perf_run::window::measured_run_context(&ixit).map_err(Error::Instrument)?;
     let client = principals.primary().clone();
-    let (_, case) = performance_case_of_class(&loaded, class, request.corpus_class)?;
-    let opt_xml = scale_opt_xml(&loaded)?;
-    let (catalogue, journey_pack) = journey_context(&loaded)?;
+    let (_, case) = performance_case_of_class(&schedule, class, request.corpus_class)?;
+    let opt_xml = scale_opt_xml(&schedule)?;
+    let (catalogue, journey_pack) = journey_context(&schedule)?;
     let corpus = seed_corpus(
         &client,
         case.corpus.as_str(),
@@ -344,9 +346,9 @@ pub fn run_stress(
 ///
 /// # Errors
 /// [`Error::Selector`] for an unknown class token, [`Error::Catalogue`] or
-/// [`Error::Artifacts`] when the tree does not load, [`Error::Read`] or
-/// [`Error::Parse`] for the topology, and [`Error::Instrument`] for a
-/// seeding or probe failure.
+/// [`Error::Artifacts`] when the performance schedule does not load,
+/// [`Error::Read`] or [`Error::Parse`] for the topology, and
+/// [`Error::Instrument`] for a seeding or probe failure.
 pub fn run_aql_probe(
     request: &ProbeRequest<'_>,
     progress: &(dyn Fn(String) + Sync),
@@ -354,14 +356,14 @@ pub fn run_aql_probe(
     use crate::perf_run;
 
     let class = PerfClass::parse(request.corpus_class).map_err(Error::Selector)?;
-    let loaded = load_clean_root(request.root)?;
+    let schedule = load_clean_schedule(request.root)?;
     let (ixit, _) = load_ixit(request.ixit)?;
     let (principals, environment) =
         perf_run::window::measured_run_context(&ixit).map_err(Error::Instrument)?;
     let client = principals.primary().clone();
-    let (_, case) = performance_case_of_class(&loaded, class, request.corpus_class)?;
-    let opt_xml = scale_opt_xml(&loaded)?;
-    let (_, journey_pack) = journey_context(&loaded)?;
+    let (_, case) = performance_case_of_class(&schedule, class, request.corpus_class)?;
+    let opt_xml = scale_opt_xml(&schedule)?;
+    let (_, journey_pack) = journey_context(&schedule)?;
     let corpus = seed_corpus(
         &client,
         case.corpus.as_str(),
@@ -390,13 +392,14 @@ pub fn run_aql_probe(
 /// document.
 ///
 /// The merge is part of the run rather than a rendering step: a record
-/// replaces any prior one for the same case, records for cases the catalogue
-/// no longer carries are pruned, and the set is written back sorted.
+/// replaces any prior one for the same case, records for cases the
+/// performance schedule no longer carries are pruned, and the set is written
+/// back sorted.
 ///
 /// # Errors
 /// [`Error::Selector`] for an unknown class token, [`Error::Catalogue`] or
-/// [`Error::Artifacts`] when the tree does not load, [`Error::Read`] or
-/// [`Error::Parse`] for the topology, [`Error::Party`] for the results
+/// [`Error::Artifacts`] when the performance schedule does not load,
+/// [`Error::Read`] or [`Error::Parse`] for the topology, [`Error::Party`] for the results
 /// document, and [`Error::Instrument`] for a seeding, window or write
 /// failure — including a window the SUT rate-limited, which is not a
 /// measurement of that server and never reaches the results.
@@ -411,25 +414,20 @@ pub fn run_measured(
     use crate::perf_run;
 
     let class = PerfClass::parse(request.class).map_err(Error::Selector)?;
-    let loaded = load_clean_root(request.root)?;
+    let schedule = load_clean_schedule(request.root)?;
     let (ixit, _) = load_ixit(request.ixit)?;
     let (principals, environment) =
         perf_run::window::measured_run_context(&ixit).map_err(Error::Instrument)?;
     let client = principals.primary().clone();
-    let selected: Vec<_> = loaded
-        .set
-        .performance
-        .iter()
-        .filter(|(_, c)| c.class == class)
-        .collect();
+    let selected: Vec<_> = schedule.cases_of_class(class).collect();
     if selected.is_empty() {
         return Err(Error::Missing(format!(
-            "no performance case of class {} in the catalogue",
+            "no performance case of class {} in the performance schedule",
             request.class
         )));
     }
-    let opt_xml = scale_opt_xml(&loaded)?;
-    let (catalogue, journey_pack) = journey_context(&loaded)?;
+    let opt_xml = scale_opt_xml(&schedule)?;
+    let (catalogue, journey_pack) = journey_context(&schedule)?;
     let progress = |message: String| observe(MeasuredEvent::Progress(message));
     // Resource sampling is optional by capability: no ixit `containers`
     // block → no `resources` record, never a failed run.
@@ -552,7 +550,7 @@ pub fn run_measured(
         // A limiter-shaped window is not a measurement of this server, so it
         // never reaches the results record.
         perf_run::refuse_rate_limited_record("perf").map_err(Error::Instrument)?;
-        merge_measurement(request, &loaded, measurement.clone(), observe)?;
+        merge_measurement(request, &schedule, measurement.clone(), observe)?;
         run.measurements.push(measurement);
     }
     Ok(run)
@@ -560,18 +558,18 @@ pub fn run_measured(
 
 fn merge_measurement(
     request: &MeasuredRequest<'_>,
-    loaded: &Loaded,
+    schedule: &PerfSchedule,
     measurement: Measurement,
     observe: &(dyn Fn(MeasuredEvent<'_>) + Sync),
 ) -> Result<(), Error> {
     let mut results: crate::party::Results =
         load_party_json(request.results, &results_schema(), "results.schema.json")?;
     results.measurements.retain(|m| m.case != measurement.case);
-    // A measurement whose case is no longer in the catalogue (a renamed or
-    // retired case) is an orphan the verdict review would flag — prune it
-    // here, visibly.
+    // A measurement whose case is no longer in the performance schedule (a
+    // renamed or retired case) is an orphan the verdict review would flag —
+    // prune it here, visibly.
     results.measurements.retain(|m| {
-        let known = loaded.set.performance.iter().any(|(_, c)| c.id == m.case);
+        let known = schedule.cases.iter().any(|(_, c)| c.id == m.case);
         if !known {
             observe(MeasuredEvent::PrunedOrphan(&m.case));
         }
@@ -604,12 +602,12 @@ mod tests {
         serde_json::from_str(&text).expect("the example document parses as results")
     }
 
-    fn committed_catalogue() -> Loaded {
-        crate::artifacts::load_root(Path::new(concat!(
+    fn committed_schedule() -> PerfSchedule {
+        load_clean_schedule(Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../artifacts"
+            "/../../perf"
         )))
-        .expect("the committed catalogue loads")
+        .expect("the committed performance schedule loads")
     }
 
     /// Writes `results` into a temp directory and returns the path plus the
@@ -637,17 +635,17 @@ mod tests {
         assert_eq!(SustainedWindow::default().seconds(), 3600);
     }
 
-    /// Class selection over the committed catalogue, and the refusal when
+    /// Class selection over the committed schedule, and the refusal when
     /// the tree carries no case of the asked-for class.
     #[test]
     fn class_selection_finds_its_case_or_names_the_class_it_could_not() {
-        let loaded = committed_catalogue();
-        let (path, case) = performance_case_of_class(&loaded, PerfClass::Poc, "POC")
+        let schedule = committed_schedule();
+        let (path, case) = performance_case_of_class(&schedule, PerfClass::Poc, "POC")
             .expect("the catalogue carries the POC class");
         assert_eq!(case.class, PerfClass::Poc);
         assert!(path.to_string_lossy().ends_with(".yaml"), "{path:?}");
 
-        let error = performance_case_of_class(&Loaded::default(), PerfClass::Poc, "POC")
+        let error = performance_case_of_class(&PerfSchedule::default(), PerfClass::Poc, "POC")
             .expect_err("an empty tree carries no performance case");
         assert!(
             matches!(&error, Error::Missing(m) if m.contains("class POC")),
@@ -660,30 +658,30 @@ mod tests {
     /// half-built root cannot look like an empty catalogue.
     #[test]
     fn the_run_context_readers_load_or_name_the_missing_artifact() {
-        let loaded = committed_catalogue();
+        let schedule = committed_schedule();
         assert!(
-            scale_opt_xml(&loaded)
+            scale_opt_xml(&schedule)
                 .expect("the committed corpus carries the blood-pressure OPT")
                 .contains("template"),
             "the OPT fixture is not an operational template"
         );
         let (catalogue, pack) =
-            journey_context(&loaded).expect("the committed tree carries the journey context");
+            journey_context(&schedule).expect("the committed tree carries the journey context");
         assert!(catalogue.check_invariants().is_ok());
         assert!(
             !pack.templates.is_empty(),
             "the loaded pack carries no template"
         );
 
-        let empty = Loaded::default();
-        let error = scale_opt_xml(&empty).expect_err("an empty tree has no corpus directory");
+        let empty = PerfSchedule::default();
+        let error = scale_opt_xml(&empty).expect_err("an empty tree has no payload manifest");
         assert!(
-            matches!(&error, Error::Missing(m) if m.contains("corpus directory")),
+            matches!(&error, Error::Missing(m) if m.contains(PAYLOADS_FILE)),
             "{error}"
         );
         let error = journey_context(&empty).expect_err("an empty tree has no journey catalogue");
         assert!(
-            matches!(&error, Error::Missing(m) if m.contains("journey_catalogue")),
+            matches!(&error, Error::Missing(m) if m.contains(JOURNEYS_FILE)),
             "{error}"
         );
     }
@@ -704,7 +702,7 @@ mod tests {
         .expect("a credential-less client builds");
         let pack = JourneyPack {
             templates: Vec::new(),
-            aux: crate::perf_run::pack::AuxPayloads::default(),
+            aux: pack::AuxPayloads::default(),
         };
         let error = seed_corpus(
             &client,
@@ -727,7 +725,7 @@ mod tests {
     /// read, let alone a SUT contacted.
     #[test]
     fn an_unknown_class_token_is_refused_by_all_three_instruments() {
-        let root = Path::new("artifacts");
+        let root = Path::new("perf");
         let ixit = Path::new("ixit.json");
         let measured = run_measured(
             &MeasuredRequest {
@@ -799,7 +797,7 @@ mod tests {
     /// the set written back sorted.
     #[test]
     fn a_merge_replaces_the_record_of_its_own_case() {
-        let loaded = committed_catalogue();
+        let schedule = committed_schedule();
         let prior = example_results();
         let (_dir, path) = staged(&prior);
         let mut measurement = prior
@@ -812,14 +810,14 @@ mod tests {
 
         let events = Mutex::new(Vec::new());
         let request = MeasuredRequest {
-            root: Path::new("artifacts"),
+            root: Path::new("perf"),
             ixit: Path::new("ixit.json"),
             results: &path,
             class: "POC",
             seed_workers: 1,
             window: SustainedWindow::default(),
         };
-        merge_measurement(&request, &loaded, measurement.clone(), &|event| {
+        merge_measurement(&request, &schedule, measurement.clone(), &|event| {
             events
                 .lock()
                 .expect("the observer lock is uncontended")
@@ -850,7 +848,7 @@ mod tests {
     /// review would otherwise flag.
     #[test]
     fn a_record_of_a_retired_case_is_pruned_visibly() {
-        let loaded = committed_catalogue();
+        let schedule = committed_schedule();
         let mut prior = example_results();
         let mut orphan = prior
             .measurements
@@ -865,14 +863,14 @@ mod tests {
 
         let pruned = Mutex::new(Vec::new());
         let request = MeasuredRequest {
-            root: Path::new("artifacts"),
+            root: Path::new("perf"),
             ixit: Path::new("ixit.json"),
             results: &path,
             class: "POC",
             seed_workers: 1,
             window: SustainedWindow::default(),
         };
-        merge_measurement(&request, &loaded, measurement, &|event| {
+        merge_measurement(&request, &schedule, measurement, &|event| {
             if let MeasuredEvent::PrunedOrphan(case) = event {
                 pruned
                     .lock()
@@ -902,7 +900,7 @@ mod tests {
     /// written.
     #[test]
     fn a_merge_refuses_a_document_that_is_not_a_results_record() {
-        let loaded = Loaded::default();
+        let schedule = PerfSchedule::default();
         let dir = assert_fs::TempDir::new().expect("temp dir");
         let path = dir.path().join("results.json");
         std::fs::write(&path, "{}").expect("staging the wrong document");
@@ -912,14 +910,14 @@ mod tests {
             .expect("the example is measured")
             .clone();
         let request = MeasuredRequest {
-            root: Path::new("artifacts"),
+            root: Path::new("perf"),
             ixit: Path::new("ixit.json"),
             results: &path,
             class: "POC",
             seed_workers: 1,
             window: SustainedWindow::default(),
         };
-        let error = merge_measurement(&request, &loaded, measurement, &|_| {})
+        let error = merge_measurement(&request, &schedule, measurement, &|_| {})
             .expect_err("an empty object is not a results record");
         assert!(matches!(error, Error::Party(_)), "{error}");
         assert_eq!(

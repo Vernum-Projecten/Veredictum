@@ -11,7 +11,7 @@
 //! `Results::check_invariants`, the histograms are real `HdrHistogram` V2
 //! encodings from the same serializer the runner uses, and the measurement
 //! verdict is COMPUTED by [`veredictum::perf::class_verdict`] against the real
-//! catalogue's POC case, never asserted. The fuzz seed sets (`fuzz/seeds.sh`)
+//! performance schedule's POC case (`perf/classes/`), never asserted. The fuzz seed sets (`fuzz/seeds.sh`)
 //! pull the document and its embedded histogram, so the `party_document` and
 //! `hdr_v2` targets start from a real record instead of mutations.
 //!
@@ -32,7 +32,7 @@ use veredictum::party::{
 use veredictum::perf::{Measurement, OperationMeasurement, PerfClass, class_verdict};
 use veredictum::pipeline::conformance::{ixit_digest, statement_digest};
 use veredictum::pipeline::load_clean_root;
-use veredictum::pipeline::measured::performance_case_of_class;
+use veredictum::pipeline::measured::{load_clean_schedule, performance_case_of_class};
 use veredictum::vocab::{FormatName, ItsName};
 
 fn outcome(
@@ -76,7 +76,8 @@ fn histogram(base_us: u64) -> Result<Histogram<u64>, Box<dyn std::error::Error>>
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let loaded = load_clean_root(std::path::Path::new("artifacts"))?;
-    let (_, poc) = performance_case_of_class(&loaded, PerfClass::Poc, "POC")?;
+    let schedule = load_clean_schedule(std::path::Path::new("perf"))?;
+    let (_, poc) = performance_case_of_class(&schedule, PerfClass::Poc, "POC")?;
 
     let operations = vec![
         OperationMeasurement::from_histogram("create_composition", &histogram(4_000)?, 1)?,

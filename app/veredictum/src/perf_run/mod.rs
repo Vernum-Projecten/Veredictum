@@ -9,7 +9,8 @@
 //! [`crate::perf::Measurement`] record.
 //!
 //! The offered load is a deterministic seeded arrival schedule of clinical
-//! JOURNEYS (`vocab/journey_catalogue.yaml`): every stage of every journey
+//! JOURNEYS (the performance schedule's `journeys.yaml`,
+//! [`crate::perf_schedule`]): every stage of every journey
 //! instance is a planned arrival instant on the global schedule (an order
 //! at `t`, its administrations at `t + k·interval`, the laboratory result
 //! at `t + Δ`), and the dispatcher fires each at its instant regardless of
