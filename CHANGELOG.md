@@ -488,8 +488,8 @@ version on.
   journey catalogue and its published JSON Schema, together with its payload
   loading, its seeding preflight and its template upload. The
   `simplified_formats_exchange` journey keeps its FLAT commit and FLAT read.
-  The `Tds` capability now carries a workload exclusion (register AMB-170),
-  so the measured workload no longer claims to exercise it.
+  The `Tds` capability row now carries a workload exclusion stating that
+  owner ruling, so the measured workload no longer claims to exercise it.
 
 ### Fixed
 
