@@ -1,0 +1,164 @@
+# A COMPOSITION updated from canonical XML, for a service that processes XML
+# request payloads: the accepting arm of the `composition-xml-write` option,
+# beside `composition_xml.arazzo.yaml`, whose other arm holds
+# `composition_update_xml_write_refused.arazzo.yaml`, as Arazzo 1.1.0
+# workflows over the released ITS-REST `-validation` OAS. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored
+# file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION update from canonical XML
+  version: 0.1.0
+  description: >-
+    A COMPOSITION update whose request body is canonical XML, an instance of
+    the composition element the published ITS-XML schema declares, sent to a
+    service that processes XML request payloads.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: update_composition-xml
+    summary: A COMPOSITION update sent as canonical XML commits the COMPOSITION sent
+    description: >-
+      Creates an EHR and an event COMPOSITION in canonical JSON, then updates
+      it with the same COMPOSITION sent as canonical XML whose composer is Dr.
+      Cuddy, with Prefer return=minimal. The update is answered 204, and the
+      latest VERSION read back as JSON holds the composer sent.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/composition_update.yaml
+      section: /requestBody/description
+      quote: "The new COMPOSITION."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: Create the event COMPOSITION in canonical JSON, keep the version_uid of the full representation the create answers with, and derive its versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &event
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: Minimal }
+            archetype_details:
+              archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { value: minimal_evaluation.en.v1 }
+              rm_version: "1.0.2"
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+            territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+            category:
+              value: event
+              defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+            composer:
+              _type: PARTY_IDENTIFIED
+              external_ref:
+                id: { _type: HIER_OBJECT_ID, value: fc376c46-29c1-4090-bc01-5cc046af7f26 }
+                namespace: DEMOGRAPHIC
+                type: PERSON
+              name: Dr. House
+            context:
+              start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+              setting:
+                value: primary medical care
+                defining_code: { terminology_id: { value: openehr }, code_string: "228" }
+              participations:
+                - function: { value: legal guardian consent author }
+                  performer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      value: mother
+                      defining_code: { terminology_id: { value: openehr }, code_string: "10" }
+                  mode:
+                    value: not specified
+                    defining_code: { terminology_id: { value: openehr }, code_string: "193" }
+            content:
+              - _type: EVALUATION
+                name: { _type: DV_TEXT, value: Minimal }
+                archetype_details:
+                  archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                  template_id: { value: minimal_evaluation.en.v1 }
+                  rm_version: "1.0.2"
+                archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: Arbol }
+                  archetype_node_id: at0001
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: quantity }
+                      archetype_node_id: at0002
+                      value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the COMPOSITION from canonical XML and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Content-Type, in: header, value: application/xml }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <composition archetype_node_id="openEHR-EHR-COMPOSITION.minimal.v1" xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><name><value>Minimal</value></name><archetype_details><archetype_id><value>openEHR-EHR-COMPOSITION.minimal.v1</value></archetype_id><template_id><value>minimal_evaluation.en.v1</value></template_id><rm_version>1.0.2</rm_version></archetype_details><language><terminology_id><value>ISO_639-1</value></terminology_id><code_string>en</code_string></language><territory><terminology_id><value>ISO_3166-1</value></terminology_id><code_string>UY</code_string></territory><category><value>event</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>433</code_string></defining_code></category><composer xsi:type="PARTY_IDENTIFIED"><external_ref><id xsi:type="HIER_OBJECT_ID"><value>fc376c46-29c1-4090-bc01-5cc046af7f26</value></id><namespace>DEMOGRAPHIC</namespace><type>PERSON</type></external_ref><name>Dr. Cuddy</name></composer><context><start_time><value>2021-09-21T21:52:31.927-03:00</value></start_time><setting><value>primary medical care</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>228</code_string></defining_code></setting><participations><function><value>legal guardian consent author</value></function><performer xsi:type="PARTY_RELATED"><name>Alexandra Alamo</name><relationship><value>mother</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>10</code_string></defining_code></relationship></performer><mode><value>not specified</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>193</code_string></defining_code></mode></participations></context><content xsi:type="EVALUATION" archetype_node_id="openEHR-EHR-EVALUATION.minimal.v1"><name><value>Minimal</value></name><archetype_details><archetype_id><value>openEHR-EHR-EVALUATION.minimal.v1</value></archetype_id><template_id><value>minimal_evaluation.en.v1</value></template_id><rm_version>1.0.2</rm_version></archetype_details><language><terminology_id><value>ISO_639-1</value></terminology_id><code_string>en</code_string></language><encoding><terminology_id><value>IANA_character-sets</value></terminology_id><code_string>UTF-8</code_string></encoding><subject xsi:type="PARTY_SELF"></subject><data xsi:type="ITEM_TREE" archetype_node_id="at0001"><name><value>Arbol</value></name><items xsi:type="ELEMENT" archetype_node_id="at0002"><name><value>quantity</value></name><value xsi:type="DV_QUANTITY"><magnitude>78.5</magnitude><units>kg</units></value></items></data></content></composition>
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: latest
+        description: Read the latest VERSION of the COMPOSITION as JSON and its composer.
+        operationId: $sourceDescriptions.ehr.versioned_composition_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: versioned_object_uid, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+          - context: $response.body#/data/composer/name
+            type: regex
+            condition: '^Dr\. Cuddy$'

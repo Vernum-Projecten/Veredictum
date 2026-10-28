@@ -1,0 +1,8 @@
+# The server's own system id is a deployment fact the party declares in its
+# IXIT; a party that declares none has every row skipped as not-declared.
+workflow: composition_create/create_composition-audit_system_id_declared
+iteration: reset_per_row
+declared:
+  system_id: ixit.system_id
+rows:
+  - {}

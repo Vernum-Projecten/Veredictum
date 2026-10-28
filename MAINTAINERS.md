@@ -11,13 +11,14 @@ it is on the day you read it in git history.
 
 | Person        | GitHub                                           | Role              | Since      |
 |---------------|--------------------------------------------------|-------------------|------------|
-| Ruben Talstra | [@rubentalstra](https://github.com/rubentalstra) | Maintainer (sole) | 2026-08-26 |
+| Ruben Talstra | [@rubentalstra](https://github.com/rubentalstra) | Maintainer | 2026-08-26 |
+| Sebastian Iancu | [@sebastian-iancu](https://github.com/sebastian-iancu) | Area maintainer: the AQL workflows (`catalogue/cases/query/`) | 2026-10-28 |
 
-**The bus factor of this project is one.** There is exactly one person with
-write access (`GET /repos/Vernum-Projecten/Veredictum/collaborators` returns one
-login), one person who can cut a release, and one person who can accept a pull
-request. No second maintainer exists, no organisation stands behind the project,
-and no legal entity is a party to it.
+**The bus factor of this project is one.** One person can cut a release and
+accept a pull request outside the AQL workflows. Sebastian Iancu owns the AQL
+workflows with him, so a change there asks both for review, and a release still
+needs the maintainer. No organisation stands behind the project, and no legal
+entity is a party to it.
 
 The same person maintains [FerroEHR](https://github.com/rubentalstra/FerroEHR),
 one of the CDRs this instrument grades. That conflict of interest, and the
