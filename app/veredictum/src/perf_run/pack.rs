@@ -78,16 +78,6 @@ pub struct FlatPayload {
     pub body: Value,
 }
 
-/// The TDD-import stage's payload: the document plus the operational
-/// template it names, which the seeder uploads before any window opens.
-#[derive(Debug, Clone)]
-pub struct TddPayload {
-    /// The operational template the document instantiates.
-    pub opt_xml: String,
-    /// The Template Data Document text the stage imports.
-    pub document: String,
-}
-
 /// The committed payloads the journey stages that do NOT commit a CKM
 /// COMPOSITION carry.
 ///
@@ -99,9 +89,6 @@ pub struct TddPayload {
 pub struct AuxPayloads {
     /// The Simplified-FLAT commit payload, when a stage commits FLAT.
     pub flat: Option<FlatPayload>,
-    /// The Template Data Document the TDD-import stage commits, with the
-    /// operational template it instantiates.
-    pub tdd: Option<TddPayload>,
     /// `PERSON`, first content state (the create body).
     pub person: Option<Value>,
     /// `PERSON`, amended content state (the versioned update body).
@@ -124,15 +111,6 @@ pub const PERSON_KEY: &str = "cnf.demographic.person.v1";
 pub const PERSON_AMENDED_KEY: &str = "cnf.demographic.person.v2";
 /// The `PARTY_RELATIONSHIP` body the demographic stage creates.
 pub const PARTY_RELATIONSHIP_KEY: &str = "cnf.demographic.party_relationship.v1";
-/// The TDD stage's operational template.
-///
-/// `nested.en.v1` is category `433|event|`, so a sustained arrival commits a
-/// fresh COMPOSITION each time; a `431|persistent|` template would hold
-/// exactly one per EHR (RM ehr master04 §COMPOSITION category) and every
-/// arrival after the first would be a conflict the instrument manufactured.
-pub const TDD_OPT_KEY: &str = "cnf.opt.nested";
-/// The Template Data Document the TDD-import stage sends.
-pub const TDD_BODY_KEY: &str = "cnf.messaging.tdd.nested";
 
 /// The loaded pack: every template the journey catalogue names, plus the
 /// auxiliary payloads its non-COMPOSITION stages carry.
@@ -242,14 +220,6 @@ impl JourneyPack {
                 }
                 crate::perf::AuxPayloadKind::PartyRelationship => {
                     aux.party_relationship = Some(read_json(PARTY_RELATIONSHIP_KEY)?);
-                }
-                crate::perf::AuxPayloadKind::Tdd => {
-                    let opt_entry = entry(TDD_OPT_KEY)?;
-                    let body_entry = entry(TDD_BODY_KEY)?;
-                    aux.tdd = Some(TddPayload {
-                        opt_xml: read(opt_entry.source.as_ref(), TDD_OPT_KEY)?,
-                        document: read(body_entry.source.as_ref(), TDD_BODY_KEY)?,
-                    });
                 }
             }
         }

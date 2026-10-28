@@ -514,6 +514,13 @@ version on.
 
 ### Removed
 
+- The performance instruments no longer measure the Template Data Document
+  import (#748). The `tdd_import` journey-stage operation is gone from the
+  journey catalogue and its published JSON Schema, together with its payload
+  loading, its seeding preflight and its template upload. The
+  `simplified_formats_exchange` journey keeps its FLAT commit and FLAT read.
+  The `Tds` capability row now carries a workload exclusion stating that
+  owner ruling, so the measured workload no longer claims to exercise it.
 - The one-off `convert_catalogue` example that drafted each component's
   Arazzo documents (#603). Every component of the case-core catalogue is
   converted and every old case id is in `catalogue/id-map.yaml`, so the

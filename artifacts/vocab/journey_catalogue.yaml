@@ -304,23 +304,15 @@ signature_review:
 
 simplified_formats_exchange:
   description: >-
-    The non-canonical document-input channels: commit a FLAT composition
-    against its template, read a committed document back in the FLAT form,
-    and import a Template Data Document.
+    The non-canonical document-input channel: commit a FLAT composition
+    against its template, then read a committed document back in the FLAT
+    form.
   derivation: >-
     Form/app integrations that speak the Simplified Formats rather than
-    canonical JSON, and template-tool exports that speak the TDS; a
-    minority channel beside the canonical feeds. The TDD import belongs
-    here rather than in a journey of its own because it is the same
-    activity — authoring one document — in a third input serialization.
+    canonical JSON; a minority channel beside the canonical feeds.
   stages:
     - { op: composition_commit_flat, at: PT0S }
     - { op: composition_read_flat, at: PT30S }
-    # EXTENSION route (register AMB-34) — no openEHR spec governs it. The
-    # document converts against `nested.en.v1` (category 433|event|, so a
-    # sustained arrival commits a fresh COMPOSITION each time) and lands
-    # through the ordinary validated commit path.
-    - { op: tdd_import, at: PT1M }
 
 deletion:
   description: >-

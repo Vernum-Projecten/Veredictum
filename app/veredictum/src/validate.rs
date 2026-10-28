@@ -1408,10 +1408,6 @@ fn check_aux_payloads(
             crate::perf::AuxPayloadKind::PartyRelationship => {
                 &[crate::perf_run::pack::PARTY_RELATIONSHIP_KEY]
             }
-            crate::perf::AuxPayloadKind::Tdd => &[
-                crate::perf_run::pack::TDD_OPT_KEY,
-                crate::perf_run::pack::TDD_BODY_KEY,
-            ],
         };
         for key in keys {
             match CorpusKey::parse(key) {
