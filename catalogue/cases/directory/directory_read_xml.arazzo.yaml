@@ -1,0 +1,104 @@
+# The directory FOLDER read in canonical XML, for a service that serves it
+# in XML: the served arm of the `directory-xml-read` option, whose refused
+# arm is `directory_read_xml_not_acceptable.arazzo.yaml`. Every quote is
+# copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Directory reads in canonical XML
+  version: 0.1.0
+  description: >-
+    Reading the directory FOLDER, latest and by version_uid, with Accept
+    application/xml from a service that serves it in canonical XML.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_directory-xml
+    summary: A directory read with Accept application/xml is answered in XML
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the latest
+      directory asking for canonical XML. The answer is 200 with Content-Type
+      application/xml.
+    x-veredictum-cite: &served
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "Proper header `Content-Type: application/xml` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &create
+        stepId: create
+        description: Create the directory FOLDER and keep the version_uid of the representation.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            folders:
+              - _type: FOLDER
+                name: { _type: DV_TEXT, value: episodes }
+                archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+              section: description
+              quote: "`201 Created` is returned when the FOLDER is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: get
+        description: Retrieve the latest directory FOLDER in canonical XML.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+          - &xml
+            context: $response.header.Content-Type
+            type: regex
+            condition: '^application/xml'
+
+  - workflowId: get_directory_version-xml
+    summary: A directory version read with Accept application/xml is answered in XML
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the version of
+      the create asking for canonical XML. The answer is 200 with
+      Content-Type application/xml.
+    x-veredictum-cite: *served
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the directory by the version_uid of the create in canonical XML.
+        operationId: $sourceDescriptions.ehr.directory_get_by_version_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: version_uid, in: path, value: $steps.create.outputs.version_uid }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - *ok
+          - *xml

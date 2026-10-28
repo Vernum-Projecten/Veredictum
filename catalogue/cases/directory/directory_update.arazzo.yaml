@@ -1,0 +1,740 @@
+# Updating the directory FOLDER of an EHR: the 200 and 204 of an update
+# under the If-Match of the latest version, the directory read back, a stale
+# or missing If-Match, the misses an update answers with, a FOLDER the
+# schemas or the RM refuse, an unsupported media type, an EHR that is not
+# modifiable, and the headers of the answer, as Arazzo 1.1.0 workflows over
+# the released ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Directory update
+  version: 0.1.0
+  description: >-
+    Updating the directory FOLDER of an EHR in canonical JSON, preconditioned
+    on the version_uid of its latest version in If-Match. The directory is
+    created as a root named root; an update renames it to archive.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: update_directory
+    summary: A directory update under the latest version is answered 200 with the new FOLDER
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates the directory to
+      a FOLDER named archive under the version_uid of the create, asking for
+      the full representation. The update is answered 200 with the FOLDER
+      named archive.
+    x-veredictum-cite: &updated
+      source: specs/openehr/ITS-REST/specifications/responses/200_directory_updated.yaml
+      section: description
+      quote: "`200 OK` is returned when directory was successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &create
+        stepId: create
+        description: Create the directory FOLDER named root and keep the version_uid of the representation.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &folder
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            folders:
+              - _type: FOLDER
+                name: { _type: DV_TEXT, value: episodes }
+                archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+              section: description
+              quote: "`201 Created` is returned when the FOLDER is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - &update
+        stepId: update
+        description: Update the directory to the FOLDER named archive under the version_uid of the create.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &archive
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: archive }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+        successCriteria:
+          - &ok_updated
+            condition: $statusCode == 200
+            x-veredictum-cite: *updated
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^archive$'
+        outputs:
+          version_uid: $response.body#/uid/value
+
+  - workflowId: update_directory-read_back
+    summary: The directory read after an update is the updated FOLDER
+    description: >-
+      Creates an EHR and its directory FOLDER, updates the directory to a
+      FOLDER named archive, then retrieves the latest directory. The read is
+      answered 200 with the FOLDER named archive.
+    x-veredictum-cite: &folder_retrieved
+      source: specs/openehr/ITS-REST/specifications/responses/200_FOLDER_retrieved.yaml
+      section: description
+      quote: "`200 OK` is returned when the FOLDER is successfully retrieved."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - *update
+      - &get_archive
+        stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite: *folder_retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^archive$'
+
+  - workflowId: update_directory-prefer_minimal
+    summary: A directory update with Prefer return=minimal is answered 204
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates the directory
+      under the version_uid of the create with Prefer return=minimal. The
+      update is answered 204 No Content, and the directory read afterwards is
+      the FOLDER named archive.
+    x-veredictum-cite: &minimal
+      source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+      section: description
+      quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *archive
+        successCriteria:
+          - condition: $statusCode == 204
+      - *get_archive
+
+  - workflowId: update_directory-prefer_absent
+    summary: A directory update with no Prefer header is answered 204
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates the directory
+      under the version_uid of the create with no Prefer header. The update
+      is answered 204 No Content.
+    x-veredictum-cite: *minimal
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory with no Prefer header.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/json
+          payload: *archive
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: update_directory-return_identifier
+    summary: A directory update with Prefer return=identifier is answered with the identifier
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates the directory with
+      Prefer return=identifier. The update succeeds with a 2xx status, and
+      the body should carry only the uid of the new version; the body is a
+      recommendation, so a row lacking it is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory and ask for the identifier only.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *archive
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+          - condition: $response.body#/uid != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+
+  - workflowId: update_directory-etag_weak
+    summary: An ETag sent on a directory update carries the weakness indicator
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates the directory. If
+      the answer sends an ETag, it is a weak entity tag.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory and ask for the full representation.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *archive
+        successCriteria:
+          - *ok_updated
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: update_directory-content_type
+    summary: A directory update answered with a body carries Content-Type application/json
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates the directory in
+      canonical JSON asking for the full representation. The answer carries a
+      body, so it carries Content-Type application/json.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory and ask for the full representation.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *archive
+        successCriteria:
+          - *ok_updated
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+
+  - workflowId: update_directory-stale_if_match
+    summary: A directory update under a superseded version is refused with 412 and changes nothing
+    description: >-
+      Creates an EHR and its directory FOLDER, updates it to the FOLDER named
+      archive, then updates it again under the version_uid of the create,
+      which is no longer the latest version. The second update is answered
+      412 Precondition Failed and not performed, so the directory read
+      afterwards is still the FOLDER named archive.
+    x-veredictum-cite: &precondition_failed
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method. Instead, it MUST respond with HTTP status code `412 Precondition Failed`,"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - *update
+      - &stale_update
+        stepId: stale-update
+        description: Update the directory to the FOLDER named stale under the superseded version_uid of the create.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: stale }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+        successCriteria:
+          - condition: $statusCode == 412
+      - *get_archive
+
+  - workflowId: update_directory-stale_if_match_etag
+    summary: A 412 on a directory update returns the latest version_uid in ETag
+    description: >-
+      Creates an EHR and its directory FOLDER, updates it, then updates it
+      again under the superseded version_uid of the create. The 412 should
+      carry the version_uid of the latest version in its ETag; the header is
+      a recommendation, so a row lacking it is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "and SHOULD return also latest `version_uid` in the `ETag` response headers."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - *update
+      - stepId: stale-update
+        description: Update the directory under the superseded version_uid of the create.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *archive
+        successCriteria:
+          - condition: $statusCode == 412
+            x-veredictum-cite: *precondition_failed
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/)?"{$steps.update.outputs.version_uid}"$'
+
+  - workflowId: update_directory-missing_if_match
+    summary: A directory update with no If-Match is refused with 400
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates the directory
+      with no If-Match header. The operation expects If-Match, so the update
+      should be answered 400 Bad Request; the refusal is a recommendation, so
+      a row lacking it is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "When the service expects `If-Match` for an operation, but the client does not provide it, the service SHOULD respond with `400 Bad Request`."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory with no If-Match header.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *archive
+        successCriteria:
+          - condition: $statusCode == 400
+
+  - workflowId: update_directory-unknown_ehr
+    summary: A directory update under an ehr_id no EHR carries is answered 404
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates a directory under
+      a freshly generated ehr_id that no EHR carries, preconditioned on the
+      version_uid of the create. The update is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        other_ehr_id: { type: string, format: uuid }
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update a directory under the ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.other_ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *archive
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: update_directory-no_directory
+    summary: A directory update in an EHR with no directory is refused and creates none
+    description: >-
+      Creates an EHR with no directory and a second EHR with one, then updates
+      the directory of the first EHR under the version_uid of the second
+      EHR's directory. The first EHR has no latest version for If-Match to
+      match, so the update is not performed: it is refused with a client
+      error, and the first EHR still has no directory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/parameters/header/If-Match.yaml
+      section: description
+      quote: "The operation will be performed only if the existing latest `version_uid` of the resource (i.e. the `preceding_version_uid`) matches this header's value."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        empty_ehr_id: { type: string, format: uuid }
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: create-empty-ehr
+        description: Create a second EHR with no directory.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.empty_ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: update
+        description: Update the directory of the EHR that has none.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.empty_ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *archive
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^4[0-9][0-9]$'
+      - stepId: no-directory
+        description: Read the directory of the EHR that has none; it still has none.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.empty_ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml
+              section: description
+              quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when a directory does not exist at the specified `version_at_time`, or when `path` does not exist within the directory."
+
+  - workflowId: update_directory-ehr_not_modifiable
+    summary: A directory update in an EHR whose EHR_STATUS is not modifiable is refused and changes nothing
+    description: >-
+      Creates an EHR and its directory FOLDER, updates the EHR_STATUS to
+      is_modifiable false, then updates the directory. The contents of an EHR
+      that is not modifiable, its folders included, may not be written to, so
+      the update is refused with a client error and the directory read
+      afterwards is still the FOLDER named root. No released sentence names
+      the status code, so any 4xx answer holds.
+    x-veredictum-cite: &not_modifiable
+      source: specs/openehr/RM/docs/UML/classes/ehr_status.adoc
+      section: EHR_STATUS Class
+      quote: "True if the EHR, other than the `EHR_STATUS` object, is allowed to be written to."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - &current_status
+        stepId: current-status
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - &deactivate
+        stepId: deactivate
+        description: Update the EHR_STATUS with is_modifiable false under the current version.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current-status.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: false
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|204)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+      - stepId: update
+        description: Update the directory in the EHR that is not modifiable.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *archive
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^4[0-9][0-9]$'
+      - &get_root
+        stepId: get
+        description: Retrieve the latest directory FOLDER; it is unchanged.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *folder_retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^root$'
+            x-veredictum-cite: *folder_retrieved
+
+  - workflowId: update_directory-name_missing
+    summary: A directory update to a FOLDER with no name is refused with 400 and changes nothing
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates the directory
+      under the version_uid of the create to a FOLDER that carries no name.
+      The published ITS-JSON schema (openehr_rm_1.1.0_all.json, FOLDER,
+      required name) refuses the body, so it is syntactically invalid content
+      and the update is answered 400, and the directory read afterwards is
+      still the FOLDER named root.
+    x-veredictum-cite: &invalid_content
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory to a FOLDER with no name.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+        successCriteria:
+          - condition: $statusCode == 400
+      - *get_root
+
+  - workflowId: update_directory-cluster_no_items
+    summary: A directory update whose details hold a CLUSTER with no items is refused with 400 and changes nothing
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates the directory
+      under the version_uid of the create to a FOLDER whose details ITEM_TREE
+      holds a CLUSTER whose items list is present and empty. The published
+      ITS-JSON schema (openehr_rm_1.1.0_all.json, CLUSTER.items, minItems 1)
+      refuses the body, so the update is answered 400, and the directory read
+      afterwards is still the FOLDER named root.
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory to a FOLDER whose details hold a CLUSTER with no items.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: archive }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            details:
+              _type: ITEM_TREE
+              name: { _type: DV_TEXT, value: details }
+              archetype_node_id: at0001
+              items:
+                - _type: CLUSTER
+                  name: { _type: DV_TEXT, value: cluster }
+                  archetype_node_id: at0002
+                  items: []
+        successCriteria:
+          - condition: $statusCode == 400
+      - *get_root
+
+  - workflowId: update_directory-paragraph_no_items
+    summary: A directory update whose details hold a DV_PARAGRAPH with no items is refused with 400 and changes nothing
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates the directory
+      under the version_uid of the create to a FOLDER whose details ITEM_TREE
+      holds an ELEMENT whose value is a DV_PARAGRAPH with a present and empty
+      items list. The published ITS-JSON schema (openehr_rm_1.1.0_all.json,
+      DV_PARAGRAPH.items, minItems 1) refuses the body, so the update is
+      answered 400, and the directory read afterwards is still the FOLDER
+      named root.
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory to a FOLDER whose details hold a DV_PARAGRAPH with no items.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: archive }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            details:
+              _type: ITEM_TREE
+              name: { _type: DV_TEXT, value: details }
+              archetype_node_id: at0001
+              items:
+                - _type: ELEMENT
+                  name: { _type: DV_TEXT, value: note }
+                  archetype_node_id: at0002
+                  value: { _type: DV_PARAGRAPH, items: [] }
+        successCriteria:
+          - condition: $statusCode == 400
+      - *get_root
+
+  - workflowId: update_directory-archetype_id_mismatch
+    summary: A directory update to a root FOLDER whose archetype_node_id differs from its archetype_id is refused with 422
+    description: >-
+      Creates an EHR and its directory FOLDER, then updates the directory
+      under the version_uid of the create to a FOLDER whose archetype_details
+      names openEHR-EHR-FOLDER.generic.v1 while its archetype_node_id is
+      openEHR-EHR-FOLDER.episode.v1. The schema-valid body breaks an RM rule,
+      so the update is answered 422, and the directory read afterwards is
+      still the FOLDER named root.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+      section: LOCATABLE Class
+      quote: "At an archetype root point, the value of this attribute is always the stringified form of the `_archetype_id_` found in the `_archetype_details_` object."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory to a FOLDER whose archetype_node_id contradicts its archetype_id.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: archive }
+            archetype_node_id: openEHR-EHR-FOLDER.episode.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The request was well-formed but was unable to be followed due to semantic errors"
+      - *get_root
+
+  - workflowId: update_directory-wrong_media
+    summary: A directory update labelled text/plain is answered 415 and changes nothing
+    description: >-
+      Creates an EHR and its directory FOLDER, then sends an update labelled
+      Content-Type text/plain. The operation takes a FOLDER in the formats its
+      Content-Type parameter lists, and text/plain is none of them, so the
+      update is answered 415 Unsupported Media Type, and the directory read
+      afterwards is still the FOLDER named root.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service is refusing the request because the payload is in a format not supported by this method on the target resource"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory with the body labelled text/plain.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        requestBody:
+          contentType: text/plain
+          payload: '{"_type":"FOLDER"}'
+        successCriteria:
+          - condition: $statusCode == 415
+      - *get_root

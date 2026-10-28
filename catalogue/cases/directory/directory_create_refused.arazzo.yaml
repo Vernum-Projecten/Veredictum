@@ -1,0 +1,460 @@
+# The directory creates a service refuses: an unknown EHR, a FOLDER the
+# published schemas refuse, a FOLDER that breaks an RM invariant, an
+# unsupported media type and an EHR that is not modifiable, as Arazzo 1.1.0
+# workflows over the released ITS-REST `-validation` OAS. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored
+# file.
+arazzo: 1.1.0
+info:
+  title: Directory create refusals
+  version: 0.1.0
+  description: >-
+    The directory creates that are refused. A FOLDER the published ITS-JSON
+    schema (openehr_rm_1.1.0_all.json) refuses is syntactically invalid
+    content and is answered 400; a schema-valid FOLDER that breaks an RM
+    invariant is answered 422. Each defective FOLDER is the valid FOLDER of
+    the create document with one defect, and each refusal is followed by a
+    read that finds the EHR still without a directory.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_directory-unknown_ehr
+    summary: A directory create in an EHR that does not exist is answered 404
+    description: >-
+      Creates a valid directory FOLDER under a freshly generated ehr_id that
+      no EHR carries. The create is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the directory FOLDER under the ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: &folder
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            folders:
+              - _type: FOLDER
+                name: { _type: DV_TEXT, value: episodes }
+                archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: create_directory-wrong_media
+    summary: A directory create labelled text/plain is answered 415
+    description: >-
+      Creates an EHR, then sends a FOLDER labelled Content-Type text/plain.
+      The operation takes a FOLDER in the formats its Content-Type parameter
+      lists, and text/plain is none of them, so the create is answered 415
+      Unsupported Media Type, and the EHR still has no directory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service is refusing the request because the payload is in a format not supported by this method on the target resource"
+    inputs: *ehr_input
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: create
+        description: Create the directory FOLDER with the body labelled text/plain.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: text/plain
+          payload: '{"_type":"FOLDER"}'
+        successCriteria:
+          - condition: $statusCode == 415
+      - &no_directory
+        stepId: no-directory
+        description: Read the directory; the EHR still has none.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml
+              section: description
+              quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when a directory does not exist at the specified `version_at_time`, or when `path` does not exist within the directory."
+
+  - workflowId: create_directory-ehr_not_modifiable
+    summary: A directory create in an EHR whose EHR_STATUS is not modifiable is refused
+    description: >-
+      Creates an EHR, updates its EHR_STATUS to is_modifiable false, then
+      creates the directory FOLDER. The contents of an EHR that is not
+      modifiable, its folders included, may not be written to, so the create
+      is refused with a client error and the EHR still has no directory. No
+      released sentence names the status code, so any 4xx answer holds.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/ehr_status.adoc
+      section: EHR_STATUS Class
+      quote: "True if the EHR, other than the `EHR_STATUS` object, is allowed to be written to."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: current-status
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: deactivate
+        description: Update the EHR_STATUS with is_modifiable false under the current version.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current-status.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: false
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|204)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+      - stepId: create
+        description: Create the directory FOLDER in the EHR that is not modifiable.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *folder
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^4[0-9][0-9]$'
+      - *no_directory
+
+  - workflowId: create_directory-name_missing
+    summary: A directory FOLDER with no name is refused with 400
+    description: >-
+      Creates an EHR, then creates a directory FOLDER that carries no name.
+      The published ITS-JSON schema (openehr_rm_1.1.0_all.json, FOLDER,
+      required name) refuses the body, so it is syntactically invalid content
+      and the create is answered 400, and the EHR still has no directory.
+    x-veredictum-cite: &invalid_content
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER with no name.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+        successCriteria:
+          - &bad_request
+            condition: $statusCode == 400
+      - *no_directory
+
+  - workflowId: create_directory-folders_empty
+    summary: A directory FOLDER whose folders list is present but empty is refused with 400
+    description: >-
+      Creates an EHR, then creates a directory FOLDER whose folders list is
+      present and empty. The published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, FOLDER.folders, minItems 1) refuses the
+      body, so it is syntactically invalid content and the create is answered
+      400, and the EHR still has no directory.
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER whose folders list is empty.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            folders: []
+        successCriteria:
+          - *bad_request
+      - *no_directory
+
+  - workflowId: create_directory-items_by_value
+    summary: A directory FOLDER holding a COMPOSITION by value in its items is refused with 400
+    description: >-
+      Creates an EHR, then creates a directory FOLDER whose items list holds a
+      COMPOSITION by value instead of a reference. The published ITS-JSON
+      schema (openehr_rm_1.1.0_all.json, OBJECT_REF, required id, namespace
+      and type) refuses the body, so it is syntactically invalid content and
+      the create is answered 400, and the EHR still has no directory.
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER whose items hold a COMPOSITION by value.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            items:
+              - _type: COMPOSITION
+                name: { _type: DV_TEXT, value: by value }
+                archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+        successCriteria:
+          - *bad_request
+      - *no_directory
+
+  - workflowId: create_directory-link_meaning_missing
+    summary: A directory FOLDER whose LINK has no meaning is refused with 400
+    description: >-
+      Creates an EHR, then creates a directory FOLDER carrying a LINK with no
+      meaning. The published ITS-JSON schema (openehr_rm_1.1.0_all.json,
+      LINK, required meaning) refuses the body, so it is syntactically invalid
+      content and the create is answered 400, and the EHR still has no
+      directory.
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER whose LINK has no meaning.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            links:
+              - _type: LINK
+                type: { _type: DV_TEXT, value: issue }
+                target: { _type: DV_EHR_URI, value: "ehr:/compositions" }
+        successCriteria:
+          - *bad_request
+      - *no_directory
+
+  - workflowId: create_directory-details_not_item_structure
+    summary: A directory FOLDER whose details is a data value is refused with 400
+    description: >-
+      Creates an EHR, then creates a directory FOLDER whose details is a
+      DV_TEXT instead of an ITEM_STRUCTURE. The published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, FOLDER.details, an ITEM_STRUCTURE) refuses
+      the body, so it is syntactically invalid content and the create is
+      answered 400, and the EHR still has no directory.
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER whose details is a DV_TEXT.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            details: { _type: DV_TEXT, value: not a structure }
+        successCriteria:
+          - *bad_request
+      - *no_directory
+
+  - workflowId: create_directory-cluster_no_items
+    summary: A directory FOLDER whose details hold a CLUSTER with no items is refused with 400
+    description: >-
+      Creates an EHR, then creates a directory FOLDER whose details ITEM_TREE
+      holds a CLUSTER whose items list is present and empty. The published
+      ITS-JSON schema (openehr_rm_1.1.0_all.json, CLUSTER.items, minItems 1)
+      refuses the body, so it is syntactically invalid content and the create
+      is answered 400, and the EHR still has no directory.
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER whose details hold a CLUSTER with no items.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            details:
+              _type: ITEM_TREE
+              name: { _type: DV_TEXT, value: details }
+              archetype_node_id: at0001
+              items:
+                - _type: CLUSTER
+                  name: { _type: DV_TEXT, value: cluster }
+                  archetype_node_id: at0002
+                  items: []
+        successCriteria:
+          - *bad_request
+      - *no_directory
+
+  - workflowId: create_directory-paragraph_no_items
+    summary: A directory FOLDER whose details hold a DV_PARAGRAPH with no items is refused with 400
+    description: >-
+      Creates an EHR, then creates a directory FOLDER whose details ITEM_TREE
+      holds an ELEMENT whose value is a DV_PARAGRAPH with a present and empty
+      items list. The published ITS-JSON schema (openehr_rm_1.1.0_all.json,
+      DV_PARAGRAPH.items, minItems 1) refuses the body, so it is
+      syntactically invalid content and the create is answered 400, and the
+      EHR still has no directory.
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER whose details hold a DV_PARAGRAPH with no items.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            details:
+              _type: ITEM_TREE
+              name: { _type: DV_TEXT, value: details }
+              archetype_node_id: at0001
+              items:
+                - _type: ELEMENT
+                  name: { _type: DV_TEXT, value: note }
+                  archetype_node_id: at0002
+                  value: { _type: DV_PARAGRAPH, items: [] }
+        successCriteria:
+          - *bad_request
+      - *no_directory
+
+  - workflowId: create_directory-archetype_node_id_empty
+    summary: A directory FOLDER whose archetype_node_id is empty is refused with 422
+    description: >-
+      Creates an EHR, then creates a directory FOLDER whose archetype_node_id
+      is the empty string. The body is schema-valid but breaks the LOCATABLE
+      invariant, so the create is answered 422, and the EHR still has no
+      directory.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+      section: LOCATABLE Class
+      quote: "__Archetype_node_id_valid__: `not archetype_node_id.is_empty`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER whose archetype_node_id is empty.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *folder
+          replacements:
+            - { target: /archetype_node_id, value: "" }
+        successCriteria:
+          - &semantic_error
+            condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The request was well-formed but was unable to be followed due to semantic errors"
+      - *no_directory
+
+  - workflowId: create_directory-archetype_id_mismatch
+    summary: A root FOLDER whose archetype_node_id differs from its archetype_id is refused with 422
+    description: >-
+      Creates an EHR, then creates a directory FOLDER whose archetype_details
+      names openEHR-EHR-FOLDER.generic.v1 while its archetype_node_id is
+      openEHR-EHR-FOLDER.episode.v1. At an archetype root the node id is the
+      archetype_id, so the schema-valid body breaks an RM rule and the create
+      is answered 422, and the EHR still has no directory.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+      section: LOCATABLE Class
+      quote: "At an archetype root point, the value of this attribute is always the stringified form of the `_archetype_id_` found in the `_archetype_details_` object."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER whose archetype_node_id contradicts its archetype_id.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.episode.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+        successCriteria:
+          - *semantic_error
+      - *no_directory

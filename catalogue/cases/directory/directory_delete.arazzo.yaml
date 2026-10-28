@@ -1,0 +1,350 @@
+# Deleting the directory FOLDER of an EHR: the 204 of a delete under the
+# If-Match of the latest version, the directory read afterwards, a stale or
+# missing If-Match, the misses a delete answers with, an EHR that is not
+# modifiable, and the headers of the answer, as Arazzo 1.1.0 workflows over
+# the released ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Directory delete
+  version: 0.1.0
+  description: >-
+    Deleting the directory FOLDER of an EHR, preconditioned on the
+    version_uid of its latest version in If-Match.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: delete_directory
+    summary: A directory delete under the latest version is answered 204
+    description: >-
+      Creates an EHR and its directory FOLDER, then deletes the directory
+      under the version_uid of the create. The delete is answered 204 No
+      Content.
+    x-veredictum-cite: &deleted
+      source: specs/openehr/ITS-REST/specifications/responses/204_deleted.yaml
+      section: description
+      quote: "`204 No Content` is returned when the resource identified by the request parameters has been (logically) deleted."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &create
+        stepId: create
+        description: Create the directory FOLDER and keep the version_uid of the representation.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            folders:
+              - _type: FOLDER
+                name: { _type: DV_TEXT, value: episodes }
+                archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+              section: description
+              quote: "`201 Created` is returned when the FOLDER is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - &delete
+        stepId: delete
+        description: Delete the directory under the version_uid of the create.
+        operationId: $sourceDescriptions.ehr.directory_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        successCriteria:
+          - &no_content
+            condition: $statusCode == 204
+            x-veredictum-cite: *deleted
+
+  - workflowId: delete_directory-read_back
+    summary: The latest directory read after a delete is answered 204
+    description: >-
+      Creates an EHR and its directory FOLDER, deletes the directory, then
+      retrieves the latest directory. The latest version is the deleted one,
+      so the read is answered 204 No Content.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/204_deleted_at_time.yaml
+      section: description
+      quote: "`204 No Content` is returned when the resource identified by the request parameters (at specified `version_at_time`) time has been deleted."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - *delete
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 204
+
+  - workflowId: delete_directory-no_location
+    summary: A directory delete carries no Location header
+    description: >-
+      Creates an EHR and its directory FOLDER, then deletes the directory. A
+      delete is neither a creation nor a redirect, so the answer carries no
+      Location header.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Location
+      quote: "The `Location` header MUST ONLY be used for resource creation (e.g., `201 Created`) or redirect responses."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: delete
+        description: Delete the directory under the version_uid of the create.
+        operationId: $sourceDescriptions.ehr.directory_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        successCriteria:
+          - *no_content
+          - condition: $response.header.Location == null
+
+  - workflowId: delete_directory-stale_if_match
+    summary: A directory delete under a superseded version is refused with 412 and deletes nothing
+    description: >-
+      Creates an EHR and its directory FOLDER, updates it to a second version,
+      then deletes it under the version_uid of the create, which is no longer
+      the latest version. The delete is answered 412 Precondition Failed and
+      not performed, so the directory read afterwards is still served.
+    x-veredictum-cite: &precondition_failed
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method. Instead, it MUST respond with HTTP status code `412 Precondition Failed`,"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: update
+        description: Update the directory to a second version named archive.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: archive }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: delete
+        description: Delete the directory under the superseded version_uid of the create.
+        operationId: $sourceDescriptions.ehr.directory_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        successCriteria:
+          - condition: $statusCode == 412
+      - &still_served
+        stepId: get
+        description: Retrieve the latest directory FOLDER; it is still served.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_FOLDER_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the FOLDER is successfully retrieved."
+
+  - workflowId: delete_directory-missing_if_match
+    summary: A directory delete with no If-Match is refused with 400
+    description: >-
+      Creates an EHR and its directory FOLDER, then deletes the directory with
+      no If-Match header. The operation expects If-Match, so the delete should
+      be answered 400 Bad Request; the refusal is a recommendation, so a row
+      lacking it is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: If-Match and accidental overwrites
+      quote: "When the service expects `If-Match` for an operation, but the client does not provide it, the service SHOULD respond with `400 Bad Request`."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: delete
+        description: Delete the directory with no If-Match header.
+        operationId: $sourceDescriptions.ehr.directory_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 400
+
+  - workflowId: delete_directory-unknown_ehr
+    summary: A directory delete under an ehr_id no EHR carries is answered 404
+    description: >-
+      Creates an EHR and its directory FOLDER, then deletes a directory under
+      a freshly generated ehr_id that no EHR carries, preconditioned on the
+      version_uid of the create. The delete is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        other_ehr_id: { type: string, format: uuid }
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: delete
+        description: Delete a directory under the ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.directory_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.other_ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: delete_directory-no_directory
+    summary: A directory delete in an EHR with no directory is refused
+    description: >-
+      Creates an EHR with no directory and a second EHR with one, then deletes
+      the directory of the first EHR under the version_uid of the second
+      EHR's directory. The first EHR has no latest version for If-Match to
+      match, so the delete is not performed and is refused with a client
+      error.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/parameters/header/If-Match.yaml
+      section: description
+      quote: "The operation will be performed only if the existing latest `version_uid` of the resource (i.e. the `preceding_version_uid`) matches this header's value."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        empty_ehr_id: { type: string, format: uuid }
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: create-empty-ehr
+        description: Create a second EHR with no directory.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.empty_ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: delete
+        description: Delete the directory of the EHR that has none.
+        operationId: $sourceDescriptions.ehr.directory_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.empty_ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^4[0-9][0-9]$'
+
+  - workflowId: delete_directory-ehr_not_modifiable
+    summary: A directory delete in an EHR whose EHR_STATUS is not modifiable is refused and deletes nothing
+    description: >-
+      Creates an EHR and its directory FOLDER, updates the EHR_STATUS to
+      is_modifiable false, then deletes the directory. The contents of an EHR
+      that is not modifiable, its folders included, may not be written to, so
+      the delete is refused with a client error and the directory is still
+      served. No released sentence names the status code, so any 4xx answer
+      holds.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/ehr_status.adoc
+      section: EHR_STATUS Class
+      quote: "True if the EHR, other than the `EHR_STATUS` object, is allowed to be written to."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: current-status
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: deactivate
+        description: Update the EHR_STATUS with is_modifiable false under the current version.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current-status.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: false
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|204)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+      - stepId: delete
+        description: Delete the directory in the EHR that is not modifiable.
+        operationId: $sourceDescriptions.ehr.directory_delete
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^4[0-9][0-9]$'
+      - *still_served

@@ -1,0 +1,1186 @@
+# The CONTRIBUTION commits a service refuses: an unknown EHR, an envelope or
+# member the commit DTO refuses, a member whose change type does not match
+# the version it would add, content that breaks a schema or an RM invariant,
+# an unknown template, a uid already in use, an unsupported media type and an
+# EHR that is not modifiable, as Arazzo 1.1.0 workflows over the released
+# ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: CONTRIBUTION create refusals
+  version: 0.1.0
+  description: >-
+    The CONTRIBUTION commits that are refused. A body the released commit DTO
+    (schemas/ehr/NewContribution.yaml and the schemas it names) or the
+    published ITS-JSON schema refuses is syntactically invalid content and is
+    answered 400; a schema-valid body that breaks an RM invariant or names a
+    template the server does not hold is answered 422. Each defective body is
+    the valid CONTRIBUTION of the create document with one defect.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: commit_contribution-unknown_ehr
+    summary: A CONTRIBUTION commit to an EHR that does not exist is answered 404
+    description: >-
+      Commits a valid CONTRIBUTION under a freshly generated ehr_id that no
+      EHR carries. The commit is answered 404 Not Found.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: commit
+        description: Commit the CONTRIBUTION under the ehr_id no EHR carries.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &contribution
+            versions:
+              - &creation_member
+                lifecycle_state: &complete
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit: &creation_audit
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data: &composition
+                  _type: COMPOSITION
+                  name: { _type: DV_TEXT, value: content case carrier }
+                  archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+                  archetype_details:
+                    _type: ARCHETYPED
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-COMPOSITION.minimal.v1 }
+                    template_id: { _type: TEMPLATE_ID, value: cnf.tpl.count_range }
+                    rm_version: 1.0.2
+                  language:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                    code_string: en
+                  territory:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+                    code_string: NL
+                  category:
+                    _type: DV_CODED_TEXT
+                    value: event
+                    defining_code:
+                      _type: CODE_PHRASE
+                      terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                      code_string: "433"
+                  composer: { _type: PARTY_SELF }
+                  context:
+                    _type: EVENT_CONTEXT
+                    start_time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                    setting:
+                      _type: DV_CODED_TEXT
+                      value: other care
+                      defining_code:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                        code_string: "238"
+                  content:
+                    - _type: OBSERVATION
+                      name: { _type: DV_TEXT, value: content observation }
+                      archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                      archetype_details:
+                        _type: ARCHETYPED
+                        archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                        rm_version: 1.0.2
+                      language:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                        code_string: en
+                      encoding:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                        code_string: UTF-8
+                      subject: { _type: PARTY_SELF }
+                      data:
+                        _type: HISTORY
+                        name: { _type: DV_TEXT, value: history }
+                        archetype_node_id: at0001
+                        origin: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                        events:
+                          - _type: POINT_EVENT
+                            name: { _type: DV_TEXT, value: any event }
+                            archetype_node_id: at0002
+                            time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                            data:
+                              _type: ITEM_TREE
+                              name: { _type: DV_TEXT, value: tree }
+                              archetype_node_id: at0003
+                              items:
+                                - _type: ELEMENT
+                                  name: { _type: DV_TEXT, value: value }
+                                  archetype_node_id: at0004
+                                  value: { _type: DV_COUNT, magnitude: 15 }
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 404
+
+  - workflowId: commit_contribution-empty_versions
+    summary: A CONTRIBUTION with no versions is refused with 422
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose versions list is
+      empty. The commit DTO accepts the shape (NewContribution.yaml sets no
+      minimum on versions), but a CONTRIBUTION is a change set of one or more
+      versions, so the request cannot be followed and is answered 422.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/contribution.adoc
+      section: CONTRIBUTION Class
+      quote: "Documents a Contribution (change set) of one or more versions added to a change-controlled repository."
+    inputs: *ehr_input
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose versions list is empty.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions: []
+            audit: *creation_audit
+        successCriteria:
+          - &semantic_error
+            condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The request was well-formed but was unable to be followed due to semantic errors"
+
+  - workflowId: commit_contribution-invalid_composition
+    summary: A CONTRIBUTION whose COMPOSITION the ITS-JSON schema refuses is answered 400
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member COMPOSITION
+      carries its language as a bare string. The published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, COMPOSITION.language, a CODE_PHRASE object)
+      refuses the body, so it is syntactically invalid content and the commit
+      is answered 400.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &invalid_content
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose COMPOSITION language is a bare string.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+          replacements:
+            - { target: /versions/0/data/language, value: en }
+        successCriteria:
+          - &bad_request
+            condition: $statusCode == 400
+
+  - workflowId: commit_contribution-unknown_template
+    summary: A CONTRIBUTION whose COMPOSITION names a template the server does not hold is answered 422
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member COMPOSITION
+      names the template cnf.absent_template.v99, which no setup uploads. The
+      commit is answered 422.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+      section: description
+      quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose COMPOSITION names an unknown template.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+          replacements:
+            - { target: /versions/0/data/archetype_details/template_id/value, value: cnf.absent_template.v99 }
+        successCriteria:
+          - condition: $statusCode == 422
+
+  - workflowId: commit_contribution-wrong_media
+    summary: A CONTRIBUTION commit labelled text/plain is answered 415
+    description: >-
+      Creates an EHR, then sends a CONTRIBUTION labelled Content-Type
+      text/plain. The operation takes a CONTRIBUTION in the formats its
+      Content-Type parameter lists, and text/plain is none of them, so the
+      commit is answered 415 Unsupported Media Type.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service is refusing the request because the payload is in a format not supported by this method on the target resource"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION with the body labelled text/plain.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: text/plain
+          payload: '{"versions":[]}'
+        successCriteria:
+          - condition: $statusCode == 415
+
+  - workflowId: commit_contribution-audit_change_type_missing
+    summary: A CONTRIBUTION whose audit has no change_type is refused with 400
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose envelope audit carries
+      no change_type. The commit DTO requires it, so the body is
+      syntactically invalid content and the commit is answered 400.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose envelope audit has no change_type.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions: [*creation_member]
+            audit:
+              _type: UPDATE_AUDIT
+              committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/schemas/common/UpdateAudit.yaml
+              section: required
+              quote: "change_type committer"
+
+  - workflowId: commit_contribution-audit_change_type_out_of_group
+    summary: A CONTRIBUTION whose audit change_type is outside the audit change type group is refused with 422
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose envelope audit carries
+      the change_type code 532, a code of the version lifecycle state group
+      and not of the audit change type group. The body is schema-valid but
+      breaks the AUDIT_DETAILS invariant, so the commit is answered 422.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/audit_details.adoc
+      section: AUDIT_DETAILS Class
+      quote: "__Change_type_valid__: `terminology (Terminology_id_openehr).has_code_for_group_id (Group_id_audit_change_type, change_type.defining_code)`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose envelope audit change_type is the code 532.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+          replacements:
+            - { target: /audit/change_type/defining_code/code_string, value: "532" }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: commit_contribution-lifecycle_state_missing
+    summary: A member with no lifecycle_state is refused with 400
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member carries no
+      lifecycle_state. The commit DTO requires it on every member, so the body
+      is syntactically invalid content and the commit is answered 400.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose member has no lifecycle_state.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - commit_audit: *creation_audit
+                data: *composition
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/schemas/ehr/UpdateVersion.yaml
+              section: required
+              quote: "lifecycle_state data commit_audit"
+
+  - workflowId: commit_contribution-lifecycle_state_out_of_group
+    summary: A member whose lifecycle_state is outside the version lifecycle state group is refused with 422
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member carries the
+      lifecycle_state code 249, a code of the audit change type group and not
+      of the version lifecycle state group. The body is schema-valid but
+      breaks the VERSION invariant, so the commit is answered 422.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/version.adoc
+      section: VERSION Class
+      quote: "__Lifecycle_state_ valid__: `lifecycle_state /= Void and then terminology (Term_id_openehr).has_code_for_group_id (Group_id_version_lifecycle_state, lifecycle_state.defining_code)`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose member lifecycle_state is the code 249.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+          replacements:
+            - { target: /versions/0/lifecycle_state/defining_code/code_string, value: "249" }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: commit_contribution-first_version_modification
+    summary: A member that modifies a COMPOSITION no version precedes is refused with 400
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose one member carries the
+      change_type 251 modification and no preceding_version_uid, so the
+      version it would add is the first version of a modification. The commit
+      is answered 400.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &mismatch
+      source: specs/openehr/ITS-REST/specifications/responses/400_CONTRIBUTION.yaml
+      section: description
+      quote: "or the modification type does not match the operation - i.e. first version of a MODIFICATION)."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose member modifies with no preceding version.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+          replacements:
+            - { target: /versions/0/commit_audit/change_type/value, value: modification }
+            - { target: /versions/0/commit_audit/change_type/defining_code/code_string, value: "251" }
+        successCriteria:
+          - *bad_request
+
+  - workflowId: commit_contribution-first_version_amendment
+    summary: A member that amends a COMPOSITION no version precedes is refused with 400
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose one member carries the
+      change_type 250 amendment and no preceding_version_uid. An amendment is
+      a modification of an existing item, so the version it would add is the
+      first version of a modification and the commit is answered 400.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *mismatch
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose member amends with no preceding version.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+          replacements:
+            - { target: /versions/0/commit_audit/change_type/value, value: amendment }
+            - { target: /versions/0/commit_audit/change_type/defining_code/code_string, value: "250" }
+        successCriteria:
+          - *bad_request
+
+  - workflowId: commit_contribution-first_version_modification_persistent
+    summary: A member that modifies a persistent COMPOSITION no version precedes is refused with 400
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose one member carries a
+      persistent COMPOSITION with the change_type 251 modification and no
+      preceding_version_uid. The commit is answered 400.
+    dependsOn: [$sourceDescriptions.setup.upload_template-persistent_minimal]
+    x-veredictum-cite: *mismatch
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose persistent member modifies with no preceding version.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit: &modification_audit
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: modification
+                    defining_code: { terminology_id: { value: openehr }, code_string: "251" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data:
+                  _type: COMPOSITION
+                  name: { _type: DV_TEXT, value: Persistent minimal }
+                  archetype_details:
+                    _type: ARCHETYPED
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-COMPOSITION.persistent_minimal.v1 }
+                    template_id: { _type: TEMPLATE_ID, value: persistent_minimal.en.v1 }
+                    rm_version: "1.0.2"
+                  archetype_node_id: openEHR-EHR-COMPOSITION.persistent_minimal.v1
+                  language:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                    code_string: en
+                  territory:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+                    code_string: UY
+                  category:
+                    _type: DV_CODED_TEXT
+                    value: persistent
+                    defining_code:
+                      _type: CODE_PHRASE
+                      terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                      code_string: "431"
+                  composer:
+                    _type: PARTY_IDENTIFIED
+                    external_ref:
+                      _type: PARTY_REF
+                      id: { _type: HIER_OBJECT_ID, value: a3dce0d4-fa51-4ff2-9cce-93dd60437842 }
+                      namespace: DEMOGRAPHIC
+                      type: PERSON
+                    name: Dr. Yamamoto
+                  content:
+                    - _type: OBSERVATION
+                      name: { _type: DV_TEXT, value: Minimal }
+                      archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                      language:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                        code_string: en
+                      encoding:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                        code_string: UTF-8
+                      subject: { _type: PARTY_SELF }
+                      data:
+                        _type: HISTORY
+                        name: { _type: DV_TEXT, value: Event Series }
+                        archetype_node_id: at0001
+                        origin: { _type: DV_DATE_TIME, value: "2019-04-16T21:08:11,380+00:00" }
+                        events:
+                          - _type: POINT_EVENT
+                            name: { _type: DV_TEXT, value: Cualquier evento }
+                            archetype_node_id: at0002
+                            time: { _type: DV_DATE_TIME, value: "2019-04-16T21:08:11,384+00:00" }
+                            data:
+                              _type: ITEM_TREE
+                              name: { _type: DV_TEXT, value: Arbol }
+                              archetype_node_id: at0003
+                              items:
+                                - _type: ELEMENT
+                                  name: { _type: DV_TEXT, value: text }
+                                  archetype_node_id: at0004
+                                  value: { _type: DV_TEXT, value: original value }
+                      archetype_details:
+                        _type: ARCHETYPED
+                        archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                        rm_version: "1.0.2"
+            audit: *modification_audit
+        successCriteria:
+          - *bad_request
+
+  - workflowId: commit_contribution-folder_modification_without_directory
+    summary: A member that modifies a directory the EHR does not have is refused with 400
+    description: >-
+      Creates an EHR with no directory, then commits a CONTRIBUTION whose
+      member modifies a FOLDER with no preceding_version_uid. The version it
+      would add is the first version of a modification, so the commit is
+      answered 400.
+    x-veredictum-cite: *mismatch
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose FOLDER member modifies with no preceding version.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit: *modification_audit
+                data:
+                  _type: FOLDER
+                  name: { _type: DV_TEXT, value: root }
+                  archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            audit: *modification_audit
+        successCriteria:
+          - *bad_request
+
+  - workflowId: commit_contribution-creation_with_preceding_version
+    summary: A creating member that names a preceding version is refused
+    description: >-
+      Creates an EHR and commits a CONTRIBUTION creating a COMPOSITION, then
+      commits a second CONTRIBUTION whose member carries the change_type 249
+      creation together with the first version as preceding_version_uid. A
+      creation adds the first version of a new versioned object, and a first
+      version has no preceding version, so the member contradicts itself. The
+      release names it both a change type that does not match the operation
+      (400) and a semantic error (422), so either holds.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/version.adoc
+      section: VERSION Class
+      quote: "__Preceding_version_uid_validity__: `uid.version_tree_id.is_first xor preceding_version_uid /= Void`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit a CONTRIBUTION creating a COMPOSITION and keep its version_uid.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &contribution_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_CONTRIBUTION.yaml
+              section: description
+              quote: "`201 Created` is returned when the CONTRIBUTION is successfully created."
+        outputs:
+          version_uid: $response.body#/versions/0/id/value
+      - stepId: commit-creation-again
+        description: Commit a CONTRIBUTION whose creating member names the first version as preceding.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /versions/0/preceding_version_uid/value, value: $steps.commit.outputs.version_uid }
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                preceding_version_uid: { value: "" }
+                commit_audit: *creation_audit
+                data: *composition
+            audit: *creation_audit
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(400|422)$'
+
+  - workflowId: commit_contribution-ehr_not_modifiable
+    summary: A CONTRIBUTION creating a COMPOSITION in an EHR that is not modifiable is refused
+    description: >-
+      Creates an EHR, updates its EHR_STATUS to is_modifiable false, then
+      commits a CONTRIBUTION creating a COMPOSITION in it. The contents of an
+      EHR that is not modifiable may not be written to, so the commit is
+      refused with a client error. No released sentence names the status
+      code, so any 4xx answer holds.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/ehr_status.adoc
+      section: EHR_STATUS Class
+      quote: "True if the EHR, other than the `EHR_STATUS` object, is allowed to be written to."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: current-status
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: deactivate
+        description: Update the EHR_STATUS with is_modifiable false under the current version.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current-status.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: false
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|204)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+      - stepId: commit
+        description: Commit the CONTRIBUTION creating a COMPOSITION in the EHR that is not modifiable.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^4[0-9][0-9]$'
+
+  - workflowId: commit_contribution-client_uid_in_use
+    summary: A CONTRIBUTION sent with a uid already in use is refused with 409
+    description: >-
+      Creates an EHR, commits a CONTRIBUTION with a client-supplied uid, then
+      commits a second CONTRIBUTION with the same uid. The second commit
+      would duplicate an identifier in use and is answered 409 Conflict.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/409.yaml
+      section: description
+      quote: "`409 Conflict` is returned when a resource with same identifier(s) already exists."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        contribution_uid: { type: string, format: uuid }
+    steps:
+      - *create_ehr
+      - &commit_with_uid
+        stepId: commit
+        description: Commit the CONTRIBUTION with the client-supplied uid.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /uid/value, value: $inputs.contribution_uid }
+          payload:
+            uid: { _type: HIER_OBJECT_ID, value: "" }
+            versions: [*creation_member]
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/contribution_create.yaml
+              section: description
+              quote: "`uid`: when provided, it will be accepted in case is not in-use, otherwise error will be returned"
+      - stepId: commit-again
+        description: Commit a second CONTRIBUTION with the same uid.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /uid/value, value: $inputs.contribution_uid }
+          payload:
+            uid: { _type: HIER_OBJECT_ID, value: "" }
+            versions: [*creation_member]
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 409
+
+  - workflowId: commit_contribution-demographic_kind
+    summary: A member whose data is a PERSON is refused with 400
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member data is a
+      PERSON. The commit DTO admits a COMPOSITION, an EHR_STATUS or a FOLDER
+      as member data on the EHR CONTRIBUTION, so the body is syntactically
+      invalid content and the commit is answered 400.
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose member data is a PERSON.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit: *creation_audit
+                data:
+                  _type: PERSON
+                  name: { _type: DV_TEXT, value: person }
+                  archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+                  identities:
+                    - _type: PARTY_IDENTITY
+                      name: { _type: DV_TEXT, value: identity }
+                      archetype_node_id: at0001
+                      details:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: details }
+                        archetype_node_id: at0002
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: name }
+                            archetype_node_id: at0003
+                            value: { _type: DV_TEXT, value: Jane }
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/schemas/ehr/UVersionable.yaml
+              section: /oneOf
+              quote: "../ehr/UMComposition.yaml ../ehr/UMEhrStatus.yaml ../ehr/UMFolder.yaml"
+
+  - workflowId: commit_contribution-committer_no_identity
+    summary: A committer PARTY_IDENTIFIED with no name, identifiers or external_ref is refused with 422
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member commit_audit
+      committer is a PARTY_IDENTIFIED with none of name, identifiers and
+      external_ref. The schemas leave each optional, so the body is
+      schema-valid, but it breaks the PARTY_IDENTIFIED invariant and the
+      commit is answered 422.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/party_identified.adoc
+      section: PARTY_IDENTIFIED Class
+      quote: "__Basic_validity__: `name /= Void or identifiers /= Void or external_ref /= Void`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose member committer has no identity.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit:
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED }
+                data: *composition
+            audit: *creation_audit
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: commit_contribution-committer_empty_name
+    summary: A committer PARTY_IDENTIFIED whose name is empty is refused with 422
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member commit_audit
+      committer is a PARTY_IDENTIFIED with an empty name. The body is
+      schema-valid but breaks the PARTY_IDENTIFIED invariant, so the commit is
+      answered 422.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/party_identified.adoc
+      section: PARTY_IDENTIFIED Class
+      quote: "__Name_valid__: `name /= Void implies not name.is_empty`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose member committer name is empty.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *contribution
+          replacements:
+            - { target: /versions/0/commit_audit/committer/name, value: "" }
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: commit_contribution-committer_related_out_of_group
+    summary: A committer PARTY_RELATED whose relationship is outside the subject relationship group is refused with 422
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member commit_audit
+      committer is a PARTY_RELATED with the relationship code 433, a code of
+      the composition category group and not of the subject relationship
+      group. The body is schema-valid but breaks the PARTY_RELATED invariant,
+      so the commit is answered 422.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/party_related.adoc
+      section: PARTY_RELATED Class
+      quote: "__Relationship_valid__: `terminology (Terminology_id_openehr).has_code_for_group_id (Group_id_subject_relationship, relationship.defining_code)`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose member committer relationship is the code 433.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit:
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer:
+                    _type: PARTY_RELATED
+                    name: Alexandra Alamo
+                    relationship:
+                      _type: DV_CODED_TEXT
+                      value: event
+                      defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+                data: *composition
+            audit: *creation_audit
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: commit_contribution-cluster_no_items
+    summary: A CONTRIBUTION whose COMPOSITION carries a CLUSTER with no items is refused with 400
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member COMPOSITION
+      holds, in place of its ELEMENT, a CLUSTER with no items member.
+      CLUSTER.items is mandatory, and the published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, CLUSTER, required items) refuses the body,
+      so it is syntactically invalid content and the commit is answered 400.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose COMPOSITION carries a CLUSTER with no items.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit: *creation_audit
+                data:
+                  _type: COMPOSITION
+                  name: { _type: DV_TEXT, value: content case carrier }
+                  archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+                  archetype_details:
+                    _type: ARCHETYPED
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-COMPOSITION.minimal.v1 }
+                    template_id: { _type: TEMPLATE_ID, value: cnf.tpl.count_range }
+                    rm_version: 1.0.2
+                  language:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                    code_string: en
+                  territory:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+                    code_string: NL
+                  category:
+                    _type: DV_CODED_TEXT
+                    value: event
+                    defining_code:
+                      _type: CODE_PHRASE
+                      terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                      code_string: "433"
+                  composer: { _type: PARTY_SELF }
+                  context:
+                    _type: EVENT_CONTEXT
+                    start_time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                    setting:
+                      _type: DV_CODED_TEXT
+                      value: other care
+                      defining_code:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                        code_string: "238"
+                  content:
+                    - _type: OBSERVATION
+                      name: { _type: DV_TEXT, value: content observation }
+                      archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                      archetype_details:
+                        _type: ARCHETYPED
+                        archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                        rm_version: 1.0.2
+                      language:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                        code_string: en
+                      encoding:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                        code_string: UTF-8
+                      subject: { _type: PARTY_SELF }
+                      data:
+                        _type: HISTORY
+                        name: { _type: DV_TEXT, value: history }
+                        archetype_node_id: at0001
+                        origin: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                        events:
+                          - _type: POINT_EVENT
+                            name: { _type: DV_TEXT, value: any event }
+                            archetype_node_id: at0002
+                            time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                            data:
+                              _type: ITEM_TREE
+                              name: { _type: DV_TEXT, value: tree }
+                              archetype_node_id: at0003
+                              items:
+                                - _type: CLUSTER
+                                  name: { _type: DV_TEXT, value: cluster }
+                                  archetype_node_id: at0004
+            audit: *creation_audit
+        successCriteria:
+          - *bad_request
+
+  - workflowId: commit_contribution-paragraph_no_items
+    summary: A CONTRIBUTION whose COMPOSITION carries a DV_PARAGRAPH with no items is refused with 400
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION whose member COMPOSITION
+      carries an ELEMENT whose value is a DV_PARAGRAPH with an empty items
+      list. The DV_PARAGRAPH invariant requires items, and the published
+      ITS-JSON schema (openehr_rm_1.1.0_all.json, DV_PARAGRAPH.items,
+      minItems 1) refuses the body, so it is syntactically invalid content
+      and the commit is answered 400.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/dv_paragraph.adoc
+      section: DV_PARAGRAPH Class
+      quote: "__Items_valid__: `not items.is_empty`"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose ELEMENT value is a DV_PARAGRAPH with no items.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                commit_audit: *creation_audit
+                data:
+                  _type: COMPOSITION
+                  name: { _type: DV_TEXT, value: content case carrier }
+                  archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+                  archetype_details:
+                    _type: ARCHETYPED
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-COMPOSITION.minimal.v1 }
+                    template_id: { _type: TEMPLATE_ID, value: cnf.tpl.count_range }
+                    rm_version: 1.0.2
+                  language:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                    code_string: en
+                  territory:
+                    _type: CODE_PHRASE
+                    terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+                    code_string: NL
+                  category:
+                    _type: DV_CODED_TEXT
+                    value: event
+                    defining_code:
+                      _type: CODE_PHRASE
+                      terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                      code_string: "433"
+                  composer: { _type: PARTY_SELF }
+                  context:
+                    _type: EVENT_CONTEXT
+                    start_time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                    setting:
+                      _type: DV_CODED_TEXT
+                      value: other care
+                      defining_code:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                        code_string: "238"
+                  content:
+                    - _type: OBSERVATION
+                      name: { _type: DV_TEXT, value: content observation }
+                      archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                      archetype_details:
+                        _type: ARCHETYPED
+                        archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                        rm_version: 1.0.2
+                      language:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                        code_string: en
+                      encoding:
+                        _type: CODE_PHRASE
+                        terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                        code_string: UTF-8
+                      subject: { _type: PARTY_SELF }
+                      data:
+                        _type: HISTORY
+                        name: { _type: DV_TEXT, value: history }
+                        archetype_node_id: at0001
+                        origin: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                        events:
+                          - _type: POINT_EVENT
+                            name: { _type: DV_TEXT, value: any event }
+                            archetype_node_id: at0002
+                            time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                            data:
+                              _type: ITEM_TREE
+                              name: { _type: DV_TEXT, value: tree }
+                              archetype_node_id: at0003
+                              items:
+                                - _type: ELEMENT
+                                  name: { _type: DV_TEXT, value: value }
+                                  archetype_node_id: at0004
+                                  value: { _type: DV_PARAGRAPH, items: [] }
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *invalid_content
+
+  - workflowId: commit_contribution-valid_and_invalid
+    summary: A CONTRIBUTION with one valid and one invalid COMPOSITION is refused with 400
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION of two creating members: the
+      first is the valid COMPOSITION, the second the same COMPOSITION with
+      its language as a bare string, which the published ITS-JSON schema
+      (openehr_rm_1.1.0_all.json, COMPOSITION.language, a CODE_PHRASE object)
+      refuses. The body is syntactically invalid content, so the commit is
+      answered 400 whatever its first member holds.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose second COMPOSITION language is a bare string.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions: [*creation_member, *creation_member]
+            audit: *creation_audit
+          replacements:
+            - { target: /versions/1/data/language, value: en }
+        successCriteria:
+          - *bad_request
+
+  - workflowId: commit_contribution-invalid_ehr_status
+    summary: A CONTRIBUTION whose EHR_STATUS has no is_modifiable is refused with 400
+    description: >-
+      Creates an EHR, reads the version_uid of its EHR_STATUS, then commits a
+      CONTRIBUTION whose member modifies the EHR_STATUS with an EHR_STATUS
+      that carries no is_modifiable. The released commit DTO
+      (schemas/ehr/EhrStatus.yaml, required is_modifiable) refuses the body,
+      so it is syntactically invalid content and the commit is answered 400.
+    x-veredictum-cite: *invalid_content
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: current-status
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: commit
+        description: Commit the CONTRIBUTION whose EHR_STATUS carries no is_modifiable.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /versions/0/preceding_version_uid/value, value: $steps.current-status.outputs.version_uid }
+          payload:
+            versions:
+              - lifecycle_state: *complete
+                preceding_version_uid: { value: "" }
+                commit_audit: *modification_audit
+                data:
+                  _type: EHR_STATUS
+                  archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+                  name: { _type: DV_TEXT, value: EHR status }
+                  archetype_details:
+                    archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+                    rm_version: 1.1.0
+                  subject: { _type: PARTY_SELF }
+                  is_queryable: false
+            audit: *modification_audit
+        successCriteria:
+          - *bad_request
