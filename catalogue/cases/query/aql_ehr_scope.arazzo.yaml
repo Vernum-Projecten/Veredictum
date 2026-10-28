@@ -1,0 +1,106 @@
+# The single-EHR scope of an ad-hoc query, on the arm of the query-ehr-scope
+# option whose service filters by it: ITS-REST docs/query/Request.md lets the
+# backend use the ehr_id parameter "to perform routing, optimizations or
+# similar", so a service that treats it as a hint declares the other arm. Every
+# quote is copied verbatim from the named vendored file.
+arazzo: "1.1.0"
+info:
+  title: AQL single-EHR scope
+  version: "0.1.0"
+  description: >-
+    The ehr_id query parameter of the ad-hoc AQL GET, judged where the
+    service declares that it filters the result to that EHR.
+sourceDescriptions:
+  - name: query
+    url: "../../../specs/rest-oas/query-validation.openapi.yaml"
+    type: openapi
+  - name: setup
+    url: "../_setup/templates.arazzo.yaml"
+    type: arazzo
+  - name: aqlc
+    url: "../_setup/aql_conformance.arazzo.yaml"
+    type: arazzo
+workflows:
+  - workflowId: get-ehr_id_parameter
+    summary: The ehr_id query parameter scopes an ad-hoc query to one EHR
+    description: >-
+      Executes a query over every EHR's COMPOSITIONs with GET, passing the
+      dataset ehr_id as the ehr_id query parameter. On the arm of
+      query-ehr-scope that filters, the result is the five dataset
+      COMPOSITIONs and nothing from any other EHR.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/query/Query_types.md
+      section: Single EHR queries
+      quote: "This is achieved by supplying an `ehr_id` query parameter or setting an `openehr-ehr-id` request header."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query with the dataset ehr_id as the ehr_id query
+          parameter.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT c/name/value AS name FROM EHR e CONTAINS COMPOSITION c
+          - name: ehr_id
+            in: query
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[alpha visit], [beta visit], [gamma visit], ["delta ?visit"], [epsilon note]]
+
+  - workflowId: scope-composition_of_another_ehr
+    summary: A query sent with the ehr_id scope answers nothing from another EHR
+    description: >-
+      Carries aql-conformance case
+      envelope.ehr_scope.a_scoped_query_answers_nothing_from_another_ehr (level
+      optional, cases/envelope/ehr_scope_filters.yaml): two EHRs each hold one
+      COMPOSITION, and a query pinned to the COMPOSITION of the second EHR is
+      sent with the first EHR as the ehr_id scope. On the arm that filters, the
+      result has no row.
+    dependsOn: [$sourceDescriptions.aqlc.seed-ehr2-vital_signs-vital_signs]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/query/Query_types.md
+      section: Single EHR queries
+      quote: "This is achieved by supplying an `ehr_id` query parameter or setting an `openehr-ehr-id` request header."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query with GET, the uid of the second EHR's COMPOSITION
+          written into it and the first EHR as the ehr_id scope.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT c/uid/value AS uid FROM COMPOSITION c WHERE c/uid/value =
+              '{$workflows.$sourceDescriptions.aqlc.seed-ehr2-vital_signs-vital_signs.outputs.c2}'
+          - name: ehr_id
+            in: query
+            value: $workflows.$sourceDescriptions.aqlc.seed-ehr2-vital_signs-vital_signs.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 0
+              columns: [uid]

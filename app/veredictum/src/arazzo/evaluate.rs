@@ -938,6 +938,19 @@ fn compose(
         let ReusableOr::Item(parameter) = parameter else {
             return Err("a reusable parameter".to_owned());
         };
+        if parameter.in_ == Some(ParameterLocation::Query)
+            && let ValueOrSelector::Literal(Value::Object(members)) = &parameter.value
+        {
+            for (name, value) in exploded(members, scope).map_err(|e| e.to_string())? {
+                query.push(format!(
+                    "{}={}",
+                    urlencoding::encode(&name),
+                    urlencoding::encode(&value)
+                ));
+                request.query.insert(name, value);
+            }
+            continue;
+        }
         let value = resolve_value(&parameter.value, scope).map_err(|e| e.to_string())?;
         match parameter.in_ {
             Some(ParameterLocation::Path) => {
@@ -1037,6 +1050,23 @@ fn gated_citation(extensions: Option<&BTreeMap<String, Value>>) -> Option<Citati
 }
 
 /// A parameter value as the text it is sent as.
+/// The name and value pairs an object-valued query parameter is sent as: one
+/// pair per member, each member value resolved like a parameter value.
+fn exploded(
+    members: &serde_json::Map<String, Value>,
+    scope: &Scope<'_>,
+) -> Result<Vec<(String, String)>, EvalError> {
+    // NOTE: OpenAPI 3.0.3 §Parameter Object: `form` is the default style of a query
+    // parameter and `explode` defaults to true for it, so an object is one pair per member.
+    members
+        .iter()
+        .map(|(name, value)| {
+            resolve_value(&ValueOrSelector::Literal(value.clone()), scope)
+                .map(|value| (name.clone(), value))
+        })
+        .collect()
+}
+
 fn resolve_value(value: &ValueOrSelector, scope: &Scope<'_>) -> Result<String, EvalError> {
     match value {
         ValueOrSelector::Literal(Value::String(text)) if text.starts_with('$') => {
@@ -1533,6 +1563,24 @@ workflows:
     }
 
     #[test]
+    fn a_dependency_on_a_present_arazzo_workflow_passes_the_gate() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("ehr.yaml").write_str(OAS).unwrap();
+        dir.child("setup.arazzo.yaml")
+            .write_str(SHARED_SETUP)
+            .unwrap();
+        dir.child("doc.yaml").write_str(USES_SETUP).unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("doc.yaml")).unwrap();
+        let findings = document.gate(None);
+        assert!(
+            !findings
+                .iter()
+                .any(|f| f.kind.to_string().contains("dependsOn")),
+            "{findings:?}"
+        );
+    }
+
+    #[test]
     fn a_conformant_exchange_passes_and_the_step_header_wins_over_the_credential() {
         let (results, har, transport) =
             drive(&[(201, ""), (409, ""), (200, r#"{"ehr_id":{"value":"abc"}}"#)]);
@@ -1849,6 +1897,28 @@ workflows:
         assert!(
             row.explanation.as_ref().unwrap().received.contains("xpath"),
             "{row:?}"
+        );
+    }
+
+    #[test]
+    fn an_object_query_parameter_is_one_pair_per_member() {
+        let inputs = BTreeMap::from([("id".to_owned(), serde_json::json!("e-1"))]);
+        let outputs = BTreeMap::new();
+        let workflows = BTreeMap::new();
+        let scope = Scope {
+            inputs: &inputs,
+            outputs: &outputs,
+            workflows: &workflows,
+            exchange: None,
+        };
+        let members = serde_json::json!({ "ehr": "$inputs.id", "n": 3 });
+        let pairs = exploded(members.as_object().unwrap(), &scope).unwrap();
+        assert_eq!(
+            pairs,
+            vec![
+                ("ehr".to_owned(), "e-1".to_owned()),
+                ("n".to_owned(), "3".to_owned())
+            ]
         );
     }
 

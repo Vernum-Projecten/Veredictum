@@ -1,0 +1,560 @@
+# The FROM-clause cases of the aql-conformance corpus whose answer the released AQL text assigns. Each workflow carries one case of the AQL conformance corpus
+# (github.com/Cadasto/aql-conformance at d5b8c554fece), named in its
+# description; catalogue/id-map.yaml maps every case of the corpus. The case's
+# own data is committed by the set-up it names in
+# _setup/aql_conformance.arazzo.yaml, and its runtime identifiers reach the
+# query as query parameters. Every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: 'AQL conformance: FROM'
+  version: 0.1.0
+  description: The FROM-clause cases of the aql-conformance corpus whose answer the released AQL text
+    assigns.
+sourceDescriptions:
+  - name: query
+    url: ../../../specs/rest-oas/query-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/aql_conformance.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: archetype_predicate-parameterised_archetype_predicate_binds_like_the_archetype_id
+    summary: A parameterised archetype predicate binds like the archetype id it is given
+    description: 'Carries aql-conformance case FROM.archetype_predicate.parameterised_archetype_predicate_binds_like_the_archetype_id
+      (level core, corpus/cases/FROM/parameterised_archetype.yaml): over the set-up seed-vital_signs,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Parameters > Syntax
+      quote: 'within a predicate: `[$archetypeId]`, `[at0003, $nameValue]`, `[ehr_id/value=$ehrUid]`'
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[$arch] WHERE
+              e/ehr_id/value = $ehr_id
+            query_parameters:
+              arch: openEHR-EHR-OBSERVATION.blood_pressure.v1
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.c1
+  - workflowId: archetype_predicate-predicated_section_anchor_above_the_entry
+    summary: A predicated SECTION binds as an anchor above the ENTRY
+    description: 'Carries aql-conformance case FROM.archetype_predicate.predicated_section_anchor_above_the_entry
+      (level core, corpus/cases/FROM/section_anchor_above_entry.yaml): over the set-up seed-vital_signs_sectioned,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs_sectioned
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Containment
+      quote: Left-hand operand class expression is the parent object of the right-hand operand class expression
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude FROM EHR
+              e CONTAINS COMPOSITION c CONTAINS SECTION s[openEHR-EHR-SECTION.adhoc.v1] CONTAINS OBSERVATION
+              o[openEHR-EHR-OBSERVATION.blood_pressure.v1] WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs_sectioned.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 1
+  - workflowId: contains_boolean-not_contains_at_the_ehr_root_excludes_an_ehr_holding_the_archetype
+    summary: NOT CONTAINS at the EHR root excludes an EHR that holds the archetype
+    description: 'Carries aql-conformance case FROM.contains_boolean.not_contains_at_the_ehr_root_excludes_an_ehr_holding_the_archetype
+      (level core, corpus/cases/FROM/not_contains_at_ehr_root.yaml): over the set-up seed-vital_signs,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Containment
+      quote: The logical operator `NOT` can be used in combination with `CONTAINS` to express an exclusion
+        constraint, i.e. the absence of any containment relationship between a parent and potential child
+        items.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT e/ehr_id/value FROM EHR e NOT CONTAINS COMPOSITION c[openEHR-EHR-COMPOSITION.encounter.v1]
+              WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 0
+  - workflowId: contains_boolean-two_bound_siblings_answer_no_row_where_one_matches_nothing
+    summary: Two bound AND siblings answer no row where one of them matches nothing
+    description: 'Carries aql-conformance case FROM.contains_boolean.two_bound_siblings_answer_no_row_where_one_matches_nothing
+      (level core, corpus/cases/FROM/two_bound_siblings.yaml): over the set-up seed-vital_signs, the query
+      returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: AND
+      quote: It represents a _logical 'and'_ (conjunction) and evaluates to `true` when both operands
+        evaluate to `true`, and it evaluates to `false` otherwise.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude, t/data[at0002]/events[at0003]/data[at0001]/items[at0004]/value/magnitude
+              FROM EHR e CONTAINS COMPOSITION c CONTAINS (OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v1]
+              AND OBSERVATION t[openEHR-EHR-OBSERVATION.body_temperature.v1]) WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 0
+  - workflowId: contains_depth-an_unpredicated_section_alias_binds_above_the_entry
+    summary: An unpredicated SECTION alias binds as an anchor above the ENTRY
+    description: 'Carries aql-conformance case FROM.contains_depth.an_unpredicated_section_alias_binds_above_the_entry
+      (level core, corpus/cases/FROM/unpredicated_section_anchor.yaml): over the set-up seed-vital_signs_sectioned,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs_sectioned
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Containment
+      quote: Left-hand operand class expression is the parent object of the right-hand operand class expression
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c CONTAINS SECTION s CONTAINS OBSERVATION
+              o[openEHR-EHR-OBSERVATION.blood_pressure.v1] WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs_sectioned.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - $workflows.$sourceDescriptions.setup.seed-vital_signs_sectioned.outputs.c1
+  - workflowId: contains_depth-composition_under_ehr
+    summary: Depth-1 CONTAINS binds the committed composition
+    description: 'Carries aql-conformance case FROM.contains_depth.composition_under_ehr (level core,
+      corpus/cases/FROM/contains_depth_one.yaml): over the set-up seed-vital_signs, the query returns
+      the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Class expressions
+      quote: For instance, `EHR e[ehr_id/value='123456']` indicates that the required data must be from
+        a specific `EHR` with `ehr_id` value `'123456'`
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.c1
+  - workflowId: contains_depth-entry_rm_type_without_archetype_predicate
+    summary: An RM-type-only ENTRY matches every occurrence of that type
+    description: 'Carries aql-conformance case FROM.contains_depth.entry_rm_type_without_archetype_predicate
+      (level core, corpus/cases/FROM/entry_rm_type_only.yaml): over the set-up seed-vital_signs, the query
+      returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Class expressions
+      quote: 'part three (optional): a standard predicate or an archetype predicate.'
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o WHERE e/ehr_id/value
+              = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 1
+  - workflowId: name_predicate-archetype_and_name_pair_predicate_filters_on_the_name
+    summary: An archetype-plus-name class predicate filters on the name as well as the archetype
+    description: 'Carries aql-conformance case FROM.name_predicate.archetype_and_name_pair_predicate_filters_on_the_name
+      (level core, corpus/cases/FROM/archetype_name_pair_predicate.yaml): over the set-up seed-vital_signs,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Node predicate
+      quote: 'Containing an `archetype_node_id` and a shortcut of a `name/value` criterion, e.g.:'
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v1,
+              'Blood pressure'] WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 0
+  - workflowId: node_predicate-an_at_code_on_an_archetype_root_class_matches_nothing
+    summary: An at-code predicate on a contained OBSERVATION matches nothing, since an archetype root
+      carries its archetype id
+    description: 'Carries aql-conformance case FROM.node_predicate.an_at_code_on_an_archetype_root_class_matches_nothing
+      (level core, corpus/cases/FROM/node_predicate_on_an_archetype_root.yaml): over the set-up seed-vital_signs,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Node predicate
+      quote: 'Containing an `archetype_node_id` (i.e. an at-code) only, e.g.:'
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[at0001] WHERE
+              e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 0
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master03-archetyped_package.adoc
+              section: The LOCATABLE Class
+              quote: The only exception is at archetype root points in data, where `_archetype_node_id_`
+                carries the archetype identifier in string form rather than an interior node id from an
+                archetype.
+  - workflowId: root_type-composition_root
+    summary: A COMPOSITION root without an enclosing EHR binds the committed composition
+    description: 'Carries aql-conformance case FROM.root_type.composition_root (level core, corpus/cases/FROM/root_type_composition.yaml):
+      over the set-up seed-vital_signs, the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Query structure > FROM
+      quote: The `FROM` clause is used to specify the subset of all the data available in a repository,
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value FROM COMPOSITION c WHERE c/uid/value = $c1
+            query_parameters:
+              c1: replaced with the c1 of the set-up
+          replacements:
+            - target: /query_parameters/c1
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.c1
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.c1
+  - workflowId: root_type-composition_root_unpinned
+    summary: A COMPOSITION root with no WHERE answers at least the case's own composition
+    description: 'Carries aql-conformance case FROM.root_type.composition_root_unpinned (level core, corpus/cases/FROM/root_type_composition_unpinned.yaml):
+      over the set-up seed-vital_signs, the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: LIMIT > Syntax
+      quote: If a `LIMIT row_count` is given, no more than that many rows will be returned (but possibly
+        fewer, if the query itself yields fewer rows).
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value AS uid FROM COMPOSITION c LIMIT 1
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 1
+              columns:
+                - uid
+  - workflowId: root_type-ehr_status_root
+    summary: An EHR_STATUS root without an enclosing EHR yields one row per queryable EHR
+    description: 'Carries aql-conformance case FROM.root_type.ehr_status_root (level core, corpus/cases/FROM/root_type_ehr_status.yaml):
+      over the set-up seed-vital_signs-status, the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs-status
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/ehr_create_with_id.yaml
+      section: description
+      quote: 'If not supplied, a default EHR_STATUS will be used by the service with following attributes:
+        - `is_queryable`: true'
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT s/is_queryable FROM EHR_STATUS s WHERE s/uid/value = $status_uid
+            query_parameters:
+              status_uid: replaced with the status_uid of the set-up
+          replacements:
+            - target: /query_parameters/status_uid
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs-status.outputs.status_uid
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - true
+  - workflowId: standing_predicate-non_uuid_scope_yields_empty_result
+    summary: A scope value that is not a UUID can match no EHR, so the result is empty
+    description: 'Carries aql-conformance case FROM.standing_predicate.non_uuid_scope_yields_empty_result
+      (level core, corpus/cases/FROM/scope_non_uuid_is_empty.yaml): over the set-up seed-vital_signs,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: COUNT
+      quote: If there are no matching rows, then this function returns `0`.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT COUNT(c) FROM EHR e[ehr_id/value='not-a-uuid'] CONTAINS COMPOSITION c
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - 0
