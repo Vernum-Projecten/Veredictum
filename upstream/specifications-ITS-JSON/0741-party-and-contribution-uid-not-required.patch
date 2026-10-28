@@ -1,0 +1,124 @@
+diff --git a/components/RM/Release-1.1.0/Common/CONTRIBUTION.json b/components/RM/Release-1.1.0/Common/CONTRIBUTION.json
+index d75d133..2942086 100644
+--- a/components/RM/Release-1.1.0/Common/CONTRIBUTION.json
++++ b/components/RM/Release-1.1.0/Common/CONTRIBUTION.json
+@@ -5,7 +5,6 @@
+         "CONTRIBUTION": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "audit",
+                 "versions"
+             ],
+diff --git a/components/RM/Release-1.1.0/Demographic/AGENT.json b/components/RM/Release-1.1.0/Demographic/AGENT.json
+index 7013b64..a1af065 100644
+--- a/components/RM/Release-1.1.0/Demographic/AGENT.json
++++ b/components/RM/Release-1.1.0/Demographic/AGENT.json
+@@ -5,7 +5,6 @@
+         "AGENT": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "archetype_node_id",
+                 "name",
+                 "identities"
+diff --git a/components/RM/Release-1.1.0/Demographic/GROUP.json b/components/RM/Release-1.1.0/Demographic/GROUP.json
+index 657bf85..af82afa 100644
+--- a/components/RM/Release-1.1.0/Demographic/GROUP.json
++++ b/components/RM/Release-1.1.0/Demographic/GROUP.json
+@@ -5,7 +5,6 @@
+         "GROUP": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "archetype_node_id",
+                 "name",
+                 "identities"
+diff --git a/components/RM/Release-1.1.0/Demographic/ORGANISATION.json b/components/RM/Release-1.1.0/Demographic/ORGANISATION.json
+index a00af52..5f418fa 100644
+--- a/components/RM/Release-1.1.0/Demographic/ORGANISATION.json
++++ b/components/RM/Release-1.1.0/Demographic/ORGANISATION.json
+@@ -5,7 +5,6 @@
+         "ORGANISATION": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "archetype_node_id",
+                 "name",
+                 "identities"
+diff --git a/components/RM/Release-1.1.0/Demographic/PERSON.json b/components/RM/Release-1.1.0/Demographic/PERSON.json
+index 3a421be..a8df1e5 100644
+--- a/components/RM/Release-1.1.0/Demographic/PERSON.json
++++ b/components/RM/Release-1.1.0/Demographic/PERSON.json
+@@ -5,7 +5,6 @@
+         "PERSON": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "archetype_node_id",
+                 "name",
+                 "identities"
+diff --git a/components/RM/Release-1.1.0/Demographic/ROLE.json b/components/RM/Release-1.1.0/Demographic/ROLE.json
+index be8ad8a..4e98204 100644
+--- a/components/RM/Release-1.1.0/Demographic/ROLE.json
++++ b/components/RM/Release-1.1.0/Demographic/ROLE.json
+@@ -5,7 +5,6 @@
+         "ROLE": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "archetype_node_id",
+                 "name",
+                 "identities",
+diff --git a/components/openehr_rm_1.1.0_all.json b/components/openehr_rm_1.1.0_all.json
+index ed2b0a0..ae9fb63 100644
+--- a/components/openehr_rm_1.1.0_all.json
++++ b/components/openehr_rm_1.1.0_all.json
+@@ -2821,7 +2821,6 @@
+         "PERSON": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "archetype_node_id",
+                 "name",
+                 "identities"
+@@ -3966,7 +3965,6 @@
+         "CONTRIBUTION": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "audit",
+                 "versions"
+             ],
+@@ -6153,7 +6151,6 @@
+         "ROLE": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "archetype_node_id",
+                 "name",
+                 "identities",
+@@ -6394,7 +6391,6 @@
+         "AGENT": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "archetype_node_id",
+                 "name",
+                 "identities"
+@@ -6877,7 +6873,6 @@
+         "GROUP": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "archetype_node_id",
+                 "name",
+                 "identities"
+@@ -11234,7 +11229,6 @@
+         "ORGANISATION": {
+             "type": "object",
+             "required": [
+-                "uid",
+                 "archetype_node_id",
+                 "name",
+                 "identities"
