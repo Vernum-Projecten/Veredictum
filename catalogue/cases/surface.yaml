@@ -10,6 +10,8 @@ scope:
   - { api: ehr, tag: EHR_STATUS }
   - { api: ehr, tag: ITEM_TAG }
   - { api: ehr, tag: COMPOSITION }
+  - { api: query, tag: Query }
+  - { api: definition, tag: Query }
 # Each gap is a branch of the scoped surface no workflow reaches yet, and
 # names the issue that tracks it. An element counts as covered when every
 # arm of its option covers it.
@@ -67,3 +69,16 @@ gaps:
   - { api: ehr, operation: versioned_ehr_status_version_get_at_time, header: Content-Type, value: application/xml, issue: 687 }
   - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/json, issue: 687 }
   - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/xml, issue: 687 }
+# The Query branches the QUERY and DEFINITION conversion leaves open, covered
+# by #711: the 400 of a refused stored-query execution and version store, and
+# the 408 of a query that times out, which no workflow can provoke on demand.
+  - { api: definition, operation: definition_query_version_store.yaml, status: "400", issue: 711 }
+  - { api: query, operation: query_execute_adhoc_query, status: "408", issue: 711 }
+  - { api: query, operation: query_execute_adhoc_query_body, status: "408", issue: 711 }
+  - { api: query, operation: query_execute_stored_query, status: "400", issue: 711 }
+  - { api: query, operation: query_execute_stored_query, status: "408", issue: 711 }
+  - { api: query, operation: query_execute_stored_query_body, status: "408", issue: 711 }
+  - { api: query, operation: query_execute_stored_query_version, status: "400", issue: 711 }
+  - { api: query, operation: query_execute_stored_query_version, status: "408", issue: 711 }
+  - { api: query, operation: query_execute_stored_query_version_body, status: "400", issue: 711 }
+  - { api: query, operation: query_execute_stored_query_version_body, status: "408", issue: 711 }

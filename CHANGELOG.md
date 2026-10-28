@@ -20,6 +20,21 @@ version on.
 
 ### Added
 
+- The QUERY and DEFINITION query cases are converted to Arazzo (#603), and
+  the AQL conformance corpus (github.com/Cadasto/aql-conformance, MIT) is
+  brought in (#695). `catalogue/cases/query/` holds the ad-hoc and stored
+  query execution, the AQL semantics over a known dataset, the refused
+  requests, the stored-query definitions (`definition_query`) and, from the
+  corpus, 45 carried cases in `aqlc_*` documents over set-ups in
+  `_setup/aql_conformance.arazzo.yaml`. Every one of the corpus's 236 case ids
+  is in `catalogue/id-map.yaml` under `corpora`: carried, folded onto an
+  existing workflow, or not carried with its reason and upstream report.
+  Three new options in `catalogue/capabilities.yaml`: `query-ehr-scope`,
+  `aql-top` and `aql-terminology`. The Query tags of the query and definition
+  APIs join `surface.yaml`, with their open branches tracked by #711.
+- A `result_set` expected row may hold runtime expressions in its cells, such
+  as the version uid a set-up was answered with, and the AQL parser check
+  reads an embedded `{$…}` value in a GET query as a placeholder.
 - The create and delete cases of the COMPOSITION component are converted to
   Arazzo (#603). 59 workflows in five documents under
   `catalogue/cases/composition/` carry 50 of the 66 create and delete

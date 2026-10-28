@@ -138,3 +138,37 @@ path = [
 precedence = "override"
 SPDX-FileCopyrightText = "Veredictum contributors"
 SPDX-License-Identifier = "Apache-2.0"
+
+# ── The AQL conformance corpus (github.com/Cadasto/aql-conformance) ─────────
+# The set-up document carries the corpus's fixtures inline: compositions and
+# EHR_STATUS bodies under the corpus's MIT licence, the EHRbase-derived
+# template and compositions under Apache-2.0, and two operational templates
+# built from CKM archetypes, whose own licence metadata is empty, declared
+# here with the CKM archetype licences. The query documents carry the
+# corpus's queries and expectations beside our own text.
+# `catalogue/cases/_setup/aql_conformance.PROVENANCE.md` is the per-file record.
+[[annotations]]
+path = "catalogue/cases/_setup/aql_conformance.arazzo.yaml"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Veredictum contributors",
+  "2026 Cadasto B.V.",
+  "2019 Vitasystems GmbH and Hannover Medical School",
+  "openEHR Foundation",
+  "the respective archetype authors",
+]
+SPDX-License-Identifier = "Apache-2.0 AND MIT AND CC-BY-SA-3.0 AND CC-BY-SA-4.0"
+
+[[annotations]]
+path = [
+  "catalogue/cases/query/aqlc_aggregation.arazzo.yaml",
+  "catalogue/cases/query/aqlc_from.arazzo.yaml",
+  "catalogue/cases/query/aqlc_refused.arazzo.yaml",
+  "catalogue/cases/query/aqlc_select.arazzo.yaml",
+  "catalogue/cases/query/aqlc_terminology.arazzo.yaml",
+  "catalogue/cases/query/aqlc_top.arazzo.yaml",
+  "catalogue/cases/query/aqlc_where.arazzo.yaml",
+]
+precedence = "override"
+SPDX-FileCopyrightText = ["Veredictum contributors", "2026 Cadasto B.V."]
+SPDX-License-Identifier = "Apache-2.0 AND MIT"

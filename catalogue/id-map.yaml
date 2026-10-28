@@ -5,7 +5,136 @@
 # and pull requests that name an old id resolve through this file. `pending`
 # lists the old ids of a component whose own family is not converted yet
 # (#603): each moves into `cases` when its family is converted.
+# `corpora` does the same for a query collection maintained elsewhere, keyed
+# by that collection's own case ids.
 cases:
+  I_DEFINITION_QUERY.delete_query-delete_existing:
+    new: []
+    open: >-
+      The release defines no operation that deletes a stored query, so the SM
+      operation has no wire form.
+  I_DEFINITION_QUERY.has_query-xxx:
+    new: [definition_query/store_version-read_back]
+    open: >-
+      Realised as a read of the stored definition.
+  I_DEFINITION_QUERY.list_matching_queries-id_pattern:
+    new: [definition_query/store-no_version]
+    open: >-
+      The listing by an exact name; a pattern matching several names is not
+      judged. Not converted yet, tracked by #711.
+  I_DEFINITION_QUERY.list_queries-empty:
+    new: []
+    open: >-
+      An empty listing of the whole server, which a shared server cannot be.
+  I_DEFINITION_QUERY.list_queries-no_match_empty_list:
+    new: []
+    open: >-
+      Not converted yet, tracked by #711.
+  I_DEFINITION_QUERY.list_queries-non_empty:
+    new: [definition_query/store-no_version]
+  I_DEFINITION_QUERY.list_queries-prefix_all_versions:
+    new: []
+    open: >-
+      Every version under a name prefix, in order. Not converted yet, tracked by
+      #711.
+  I_DEFINITION_QUERY.list_queries-select_items:
+    new: []
+    open: >-
+      definition_query_list.yaml declares no paging parameter, so item selection
+      has no wire form.
+  I_DEFINITION_QUERY.list_queries-version_get_exact:
+    new: [definition_query/store_version-read_back]
+  I_DEFINITION_QUERY.list_queries-version_get_major_prefix:
+    new: [definition_query/get-version_major_prefix]
+  I_DEFINITION_QUERY.list_queries-version_get_minor_prefix:
+    new: [definition_query/get-version_minor_prefix]
+  I_DEFINITION_QUERY.list_queries-version_get_unknown:
+    new: [definition_query/get-version_unknown]
+  I_DEFINITION_QUERY.list_queries-version_get_xml_not_acceptable:
+    new: []
+    open: >-
+      Accept application/xml on a read that declares only application/json. Not
+      converted yet, tracked by #711.
+  I_DEFINITION_QUERY.list_queries-xml_not_acceptable:
+    new: []
+    open: >-
+      Accept application/xml on a listing that declares only application/json.
+      Not converted yet, tracked by #711.
+  I_DEFINITION_QUERY.queries_count-count:
+    new: []
+    open: >-
+      The release defines no operation that counts stored queries, so the SM
+      operation has no wire form.
+  I_DEFINITION_QUERY.store_query-default_slot_with_higher_version:
+    new: []
+    open: >-
+      Which version a version-less store writes beside a higher one. Not
+      converted yet, tracked by #711.
+  I_DEFINITION_QUERY.store_query-default_version_slot:
+    new: [definition_query/store-no_version]
+    open: >-
+      The store and its listing; the version it writes and its Location are not
+      judged. Not converted yet, tracked by #711.
+  I_DEFINITION_QUERY.store_query-dotted_name:
+    new: []
+    open: >-
+      Not converted yet, tracked by #711.
+  I_DEFINITION_QUERY.store_query-reserved_name:
+    new: [definition_query/store-reserved_name]
+    open: >-
+      The lower-case name; the case-insensitive variants are not repeated.
+  I_DEFINITION_QUERY.store_query-unqualified_name:
+    new: []
+    open: >-
+      Not converted yet, tracked by #711.
+  I_DEFINITION_QUERY.store_query-update_in_place:
+    new: []
+    open: >-
+      Not converted yet, tracked by #711.
+  I_DEFINITION_QUERY.store_query-version_duplicate_case_variant_name:
+    new: []
+    open: >-
+      Not converted yet, tracked by #711.
+  I_DEFINITION_QUERY.store_query-version_duplicate_conflict:
+    new: [definition_query/store_version-conflict]
+  I_DEFINITION_QUERY.store_query-version_malformed_rejected:
+    new: []
+    open: >-
+      The 400 of a version store is a surface gap. Not converted yet, tracked by
+      #711.
+  I_DEFINITION_QUERY.store_query-version_prefix_rejected:
+    new: []
+    open: >-
+      The 400 of a version store is a surface gap. Not converted yet, tracked by
+      #711.
+  I_DEFINITION_QUERY.store_query-version_prerelease_rejected:
+    new: []
+    open: >-
+      The 400 of a version store is a surface gap. Not converted yet, tracked by
+      #711.
+  I_DEFINITION_QUERY.store_query-version_stored:
+    new: [definition_query/store_version-read_back]
+  I_DEFINITION_QUERY.store_query-wrong_media:
+    new: []
+    open: >-
+      Not converted yet, tracked by #711.
+  I_DEFINITION_QUERY.store_query_set-register:
+    new: []
+    open: >-
+      The SM operation's details are undetermined and the release defines no
+      wire form for it.
+  I_DEFINITION_QUERY.valid_query-bad_formalism:
+    new: []
+    open: >-
+      A store under a query_type the service does not support. Not converted
+      yet, tracked by #711.
+  I_DEFINITION_QUERY.valid_query-invalid:
+    new: []
+    open: >-
+      The 400 of a store whose text does not parse is a surface gap. Not
+      converted yet, tracked by #711.
+  I_DEFINITION_QUERY.valid_query-valid:
+    new: [definition_query/store_version-read_back]
   I_EHR_COMPOSITION.create_composition-audit_system_id_declared:
     new: [composition_create/create_composition-audit_system_id_declared]
   I_EHR_COMPOSITION.create_composition-bulk_load_depth:
@@ -950,6 +1079,1396 @@ cases:
       items (upstream report #661).
   I_ITS_REST_REVISION_HISTORY.versioned_composition_revision_history-unknown_container:
     new: [composition_versioned_read/get_versioned_composition-revision_history-unknown_versioned_object_uid]
+  I_QUERY_SERVICE.execute_ad_hoc_query-aggregates:
+    new: [aql_semantics/aggregate-count, aql_semantics/aggregate-count_distinct, aql_semantics/aggregate-min, aql_semantics/aggregate-max, aql_semantics/aggregate-sum, aql_semantics/aggregate-avg]
+  I_QUERY_SERVICE.execute_ad_hoc_query-aggregates_empty_set:
+    new: [aql_semantics/aggregate-count_empty, aql_semantics/aggregate-min_empty, aql_semantics/aggregate-max_empty, aql_semantics/aggregate-sum_empty, aql_semantics/aggregate-avg_empty]
+  I_QUERY_SERVICE.execute_ad_hoc_query-aggregates_non_numeric:
+    new: []
+    open: >-
+      MIN and MAX over a String or a date/time: master03 §MIN and §MAX say only
+      that the input type "should be" one of those. Not converted yet, tracked
+      by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-aggregates_non_numeric_executed:
+    new: []
+    open: >-
+      An aggregate over an input type outside its declared set: the declared
+      types are a should (master03 §SUM, §AVG) and no outcome is assigned for
+      another type. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-aggregates_non_numeric_refused:
+    new: []
+    open: >-
+      The refusing twin of aggregates_non_numeric_executed; no outcome is
+      assigned. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-all_versions:
+    new: []
+    open: >-
+      A VERSION class operand has no released semantics, upstream report #168.
+  I_QUERY_SERVICE.execute_ad_hoc_query-archetype_subsumption:
+    new: []
+    open: >-
+      Matching an archetype predicate by specialisation lineage. Not converted
+      yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-bare_ehr_projection:
+    new: [aql_semantics/standard_predicate-ehr_id]
+  I_QUERY_SERVICE.execute_ad_hoc_query-bare_ehr_scope_header:
+    new: []
+    open: >-
+      The openehr-ehr-id request header. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-bare_ehr_scope_param:
+    new: [aql_ehr_scope/get-ehr_id_parameter]
+    open: >-
+      Carried on the query-ehr-scope-filters arm: docs/query/Request.md lets the
+      backend use ehr_id "to perform routing, optimizations or similar".
+  I_QUERY_SERVICE.execute_ad_hoc_query-contains_and_or:
+    new: [aql_semantics/contains-and, aql_semantics/contains-or]
+  I_QUERY_SERVICE.execute_ad_hoc_query-dialect_extensions:
+    new: [aql_refused/get-malformed]
+    open: >-
+      The removed clauses and the clause orders the grammar refuses are rows of
+      the malformed-query workflow.
+  I_QUERY_SERVICE.execute_ad_hoc_query-distinct:
+    new: [aql_semantics/distinct]
+  I_QUERY_SERVICE.execute_ad_hoc_query-distinct_limit_order:
+    new: [aql_semantics/distinct-limit_offset]
+  I_QUERY_SERVICE.execute_ad_hoc_query-ehr_id_header_deprecated_get:
+    new: []
+    open: >-
+      The deprecated openEHR-EHR-id header. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-ehr_id_header_get:
+    new: []
+    open: >-
+      The openehr-ehr-id request header. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-ehr_id_header_post:
+    new: []
+    open: >-
+      The openehr-ehr-id request header. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-ehr_id_param_and_header_agree:
+    new: []
+    open: >-
+      The openehr-ehr-id request header beside the ehr_id parameter. Not
+      converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-ehr_id_param_and_header_conflict:
+    new: []
+    open: >-
+      A conflicting ehr_id parameter and header. Not converted yet, tracked by
+      #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-empty_db:
+    new: [aql_execute/get-empty_ehr]
+    open: >-
+      An EHR with no COMPOSITION stands for the empty server, which a shared
+      server cannot be.
+  I_QUERY_SERVICE.execute_ad_hoc_query-empty_db_shapes:
+    new: [aql_execute/get-empty_ehr]
+    open: >-
+      One shape over an EHR with no COMPOSITION; the other shapes are not
+      repeated.
+  I_QUERY_SERVICE.execute_ad_hoc_query-exists_predicate:
+    new: [aql_semantics/where-exists, aql_semantics/where-not_exists]
+  I_QUERY_SERVICE.execute_ad_hoc_query-fetch_over_limit:
+    new: []
+    open: >-
+      fetch applied over an AQL LIMIT. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-fetch_with_top:
+    new: [aql_refused/get-fetch_with_top]
+  I_QUERY_SERVICE.execute_ad_hoc_query-folder_composition_pairs:
+    new: []
+    open: >-
+      FOLDER containment crosses versioned-object references, which AQL never
+      defines, upstream report #159.
+  I_QUERY_SERVICE.execute_ad_hoc_query-folder_folder_pairs:
+    new: []
+    open: >-
+      FOLDER containment crosses versioned-object references, which AQL never
+      defines, upstream report #159.
+  I_QUERY_SERVICE.execute_ad_hoc_query-folder_name_scoped:
+    new: []
+    open: >-
+      FOLDER containment crosses versioned-object references, which AQL never
+      defines, upstream report #159.
+  I_QUERY_SERVICE.execute_ad_hoc_query-folder_nodes_order_invariant:
+    new: []
+    open: >-
+      FOLDER containment crosses versioned-object references, which AQL never
+      defines, upstream report #159.
+  I_QUERY_SERVICE.execute_ad_hoc_query-folder_not_contains:
+    new: []
+    open: >-
+      FOLDER containment crosses versioned-object references, which AQL never
+      defines, upstream report #159.
+  I_QUERY_SERVICE.execute_ad_hoc_query-folder_unreferenced_never_pairs:
+    new: []
+    open: >-
+      FOLDER containment crosses versioned-object references, which AQL never
+      defines, upstream report #159.
+  I_QUERY_SERVICE.execute_ad_hoc_query-like_escaped_wildcard:
+    new: [aql_semantics/like-escaped_question_mark]
+  I_QUERY_SERVICE.execute_ad_hoc_query-like_wildcards:
+    new: [aql_semantics/like-star, aql_semantics/like-question_mark, aql_semantics/like-no_wildcard, aql_semantics/like-whole_string]
+  I_QUERY_SERVICE.execute_ad_hoc_query-loaded_db:
+    new: [aql_semantics/select-bag, aqlc_from/contains_depth-composition_under_ehr]
+  I_QUERY_SERVICE.execute_ad_hoc_query-malformed_queries:
+    new: [aql_refused/get-malformed, aql_refused/post-malformed]
+  I_QUERY_SERVICE.execute_ad_hoc_query-multivalued_link_no_match:
+    new: []
+    open: >-
+      A WHERE predicate over a multi-valued path; AQL never says how it
+      evaluates, upstream report #195.
+  I_QUERY_SERVICE.execute_ad_hoc_query-multivalued_link_second_match:
+    new: []
+    open: >-
+      A WHERE predicate over a multi-valued path; AQL never says how it
+      evaluates, upstream report #195.
+  I_QUERY_SERVICE.execute_ad_hoc_query-multivalued_participation_second_match:
+    new: []
+    open: >-
+      A WHERE predicate over a multi-valued path; AQL never says how it
+      evaluates, upstream report #195.
+  I_QUERY_SERVICE.execute_ad_hoc_query-node_name_term_code:
+    new: []
+    open: >-
+      The term-code form of the node predicate name shortcut. Not converted yet,
+      tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-node_predicate_paths:
+    new: [aql_semantics/node_predicate-name_shortcut, aql_semantics/node_predicate-name_criterion, aql_semantics/node_predicate-name_mismatch]
+  I_QUERY_SERVICE.execute_ad_hoc_query-not_contains:
+    new: [aql_semantics/contains-not]
+  I_QUERY_SERVICE.execute_ad_hoc_query-order_by_limit:
+    new: [aql_semantics/order_by-descending, aql_semantics/limit-row_count]
+  I_QUERY_SERVICE.execute_ad_hoc_query-order_by_non_numeric:
+    new: [aql_semantics/order_by-datetime, aql_semantics/order_by-second_key]
+  I_QUERY_SERVICE.execute_ad_hoc_query-post_fetch_conflict:
+    new: []
+    open: >-
+      A fetch in the URL of the ad-hoc POST: query_execute_adhoc_query_body.yaml
+      declares no fetch query parameter, so the request is outside the released
+      surface.
+  I_QUERY_SERVICE.execute_ad_hoc_query-post_fetch_url_and_body:
+    new: []
+    open: >-
+      A fetch in the URL of the ad-hoc POST: query_execute_adhoc_query_body.yaml
+      declares no fetch query parameter, so the request is outside the released
+      surface.
+  I_QUERY_SERVICE.execute_ad_hoc_query-post_fetch_url_only:
+    new: []
+    open: >-
+      A fetch in the URL of the ad-hoc POST: query_execute_adhoc_query_body.yaml
+      declares no fetch query parameter, so the request is outside the released
+      surface.
+  I_QUERY_SERVICE.execute_ad_hoc_query-result_set_etag:
+    new: [aql_execute/get-etag_weak, aql_execute/post-etag_weak]
+  I_QUERY_SERVICE.execute_ad_hoc_query-result_set_meta:
+    new: [aql_execute/get-result_set_schema, aql_execute/post-result_set_schema]
+    open: >-
+      The schema of the RESULT_SET and its meta; the content of a served
+      _executed_aql is not judged.
+  I_QUERY_SERVICE.execute_ad_hoc_query-scalar_functions:
+    new: [aql_semantics/function-now_in_where, aqlc_where/comparison-a_function_call_as_the_left_operand_filters]
+  I_QUERY_SERVICE.execute_ad_hoc_query-select_literals:
+    new: [aql_semantics/literal-string, aql_semantics/literal-boolean, aql_semantics/literal-null]
+  I_QUERY_SERVICE.execute_ad_hoc_query-spec_profile_whole_object_409:
+    new: []
+    open: >-
+      A 409 for a whole-object projection under one server's deployment profile:
+      no released sentence assigns it.
+  I_QUERY_SERVICE.execute_ad_hoc_query-terminology_expand_matches:
+    new: [aqlc_terminology/matches-a_terminology_call_merges_into_a_value_list]
+    open: >-
+      Carried on the aql-terminology-supported arm.
+  I_QUERY_SERVICE.execute_ad_hoc_query-terminology_routed_expand_filters:
+    new: []
+    open: >-
+      Needs a declared terminology server. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-terminology_routed_validate_member:
+    new: []
+    open: >-
+      Needs a declared terminology server. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-terminology_routed_validate_non_member:
+    new: []
+    open: >-
+      Needs a declared terminology server. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-terminology_subsumes:
+    new: []
+    open: >-
+      Needs a declared terminology server. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-terminology_two_servers:
+    new: []
+    open: >-
+      Needs two declared terminology servers. Not converted yet, tracked by
+      #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-terminology_unsupported_forms:
+    new: []
+    open: >-
+      TERMINOLOGY() in SELECT: master03 §TERMINOLOGY gives its usage in WHERE
+      and assigns no refusal elsewhere, upstream report #705.
+  I_QUERY_SERVICE.execute_ad_hoc_query-top_backward_rejected:
+    new: []
+    open: >-
+      TOP BACKWARD: master03 §TOP names the direction and assigns neither its
+      rows nor a refusal.
+  I_QUERY_SERVICE.execute_ad_hoc_query-uid_projection:
+    new: [aqlc_select/identified_path-ehr_root_alias_repeats_over_multiple_contained_rows]
+  I_QUERY_SERVICE.execute_ad_hoc_query-uncoercible_parameter:
+    new: []
+    open: >-
+      A parameter value its predicate cannot compare. Not converted yet, tracked
+      by #711.
+  I_QUERY_SERVICE.execute_ad_hoc_query-undefined_containment_empty:
+    new: []
+    open: >-
+      A containment pair the RM defines no relationship for, upstream report
+      #161.
+  I_QUERY_SERVICE.execute_ad_hoc_query-undefined_containment_refused:
+    new: []
+    open: >-
+      A containment pair the RM defines no relationship for, upstream report
+      #161.
+  I_QUERY_SERVICE.execute_ad_hoc_query-unknown_ehr_scope:
+    new: []
+    open: >-
+      An ehr_id scope naming no EHR: the query operations declare no 404, and no
+      released sentence assigns one.
+  I_QUERY_SERVICE.execute_ad_hoc_query-version_metadata_predicate:
+    new: []
+    open: >-
+      A VERSION class operand has no released semantics, upstream report #168.
+  I_QUERY_SERVICE.execute_ad_hoc_query-where_magnitude:
+    new: [aql_semantics/where-greater_or_equal]
+  I_QUERY_SERVICE.execute_stored_query-ehr_id_header:
+    new: []
+    open: >-
+      The openehr-ehr-id request header on a stored query. Not converted yet,
+      tracked by #711.
+  I_QUERY_SERVICE.execute_stored_query-empty_db:
+    new: [aql_stored/post-latest]
+    open: >-
+      A stored query over a known dataset stands for the empty server, which a
+      shared server cannot be.
+  I_QUERY_SERVICE.execute_stored_query-fetch_with_top:
+    new: []
+    open: >-
+      fetch with a stored query whose text uses TOP. Not converted yet, tracked
+      by #711.
+  I_QUERY_SERVICE.execute_stored_query-post_empty_body:
+    new: [aql_stored/post-body_empty]
+  I_QUERY_SERVICE.execute_stored_query-protocol_fetch_reserved:
+    new: []
+    open: >-
+      A URL fetch beside an AQL $fetch parameter. Not converted yet, tracked by
+      #711.
+  I_QUERY_SERVICE.execute_stored_query-reserved_name:
+    new: []
+    open: >-
+      Executing the reserved name aql. Not converted yet, tracked by #711.
+  I_QUERY_SERVICE.execute_stored_query-version_exact:
+    new: [aql_stored/post-version_exact, aql_stored/get-version_exact]
+  I_QUERY_SERVICE.execute_stored_query-version_major_prefix:
+    new: [aql_stored/post-version_major]
+  I_QUERY_SERVICE.execute_stored_query-version_malformed_selector:
+    new: []
+    open: >-
+      A malformed version selector on execution. Not converted yet, tracked by
+      #711.
+  I_QUERY_SERVICE.execute_stored_query-version_minor_prefix:
+    new: [aql_stored/post-version_minor]
+  I_QUERY_SERVICE.execute_stored_query-version_unknown_major:
+    new: [aql_stored/post-version_unknown, aql_stored/get-version_unknown]
+  I_QUERY_SERVICE.smoke_test:
+    new: [aql_execute/post-result_set_schema]
+
+# The 236 cases of the AQL conformance corpus (#695), by their own ids: each
+# names the Arazzo case ids that carry it, or says in `open` why it is not
+# carried. A case a workflow already covered maps onto that workflow.
+corpora:
+  aql-conformance:
+    source: https://github.com/Cadasto/aql-conformance
+    commit: d5b8c554fecef73fbeab0620dfd28d4a1149bd63
+    cases:
+      FROM.abstract_type.abstract_entry_class_as_root:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class expression naming an abstract RM class matches its
+          descendants is not assigned, upstream report #702.
+      FROM.abstract_type.abstract_entry_class_in_contains:
+        new: []
+        open: >-
+          Not carried (level core). Whether a class expression naming an
+          abstract RM class matches its descendants is not assigned, upstream
+          report #702.
+      FROM.archetype_predicate.archetype_in_no_ready_template_is_empty_not_an_error:
+        new: [aql_semantics/archetype_predicate-no_match]
+      FROM.archetype_predicate.observation_in_composition:
+        new: [aql_semantics/archetype_predicate]
+      FROM.archetype_predicate.opt_pk_intersection_narrows_the_candidates:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.archetype_predicate.opt_pk_union_across_two_templates:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.archetype_predicate.parameterised_archetype_predicate_binds_like_the_archetype_id:
+        new: [aqlc_from/archetype_predicate-parameterised_archetype_predicate_binds_like_the_archetype_id]
+      FROM.archetype_predicate.predicated_section_anchor_above_the_entry:
+        new: [aqlc_from/archetype_predicate-predicated_section_anchor_above_the_entry]
+      FROM.archetype_predicate.whitespace_before_the_class_predicate_is_insignificant:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.contains_boolean.a_path_read_from_a_negated_alias_is_null:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows of an OR between containment
+          constraints, or what an unmatched or excluded variable reads, are not
+          assigned, upstream report #704.
+      FROM.contains_boolean.an_and_junction_below_an_unaliased_section_step:
+        new: []
+        open: >-
+          Not carried (level sensible). A class expression with neither a
+          variable nor a predicate breaks the prose rule its grammar admits,
+          upstream report #703.
+      FROM.contains_boolean.mixed_and_or_nesting_with_a_chain_inside_an_operand:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows of an OR between containment
+          constraints, or what an unmatched or excluded variable reads, are not
+          assigned, upstream report #704.
+      FROM.contains_boolean.negation_admits_a_composition_lacking_the_archetype:
+        new: [aql_semantics/contains-not]
+      FROM.contains_boolean.negation_excludes_a_composition_that_has_the_archetype:
+        new: [aql_semantics/contains-not]
+      FROM.contains_boolean.not_contains_at_the_ehr_root_excludes_an_ehr_holding_the_archetype:
+        new: [aqlc_from/contains_boolean-not_contains_at_the_ehr_root_excludes_an_ehr_holding_the_archetype]
+      FROM.contains_boolean.not_contains_below_an_entry_excludes_an_entry_holding_the_class:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_boolean.not_contains_excludes_a_composition_holding_the_negated_chain:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_boolean.or_containment_answers_the_operand_that_matches:
+        new: [aql_semantics/contains-or]
+        open: >-
+          Re-grounded on QUERY master03-syntax.adoc §OR: with one operand
+          matching nothing, the OR constraint holds exactly for the parents that
+          contain the other.
+      FROM.contains_boolean.two_bound_siblings_answer_no_row_where_one_matches_nothing:
+        new: [aqlc_from/contains_boolean-two_bound_siblings_answer_no_row_where_one_matches_nothing]
+      FROM.contains_boolean.two_containment_chains_joined_by_or:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows of an OR between containment
+          constraints, or what an unmatched or excluded variable reads, are not
+          assigned, upstream report #704.
+      FROM.contains_depth.a_cluster_contained_by_an_unaliased_cluster:
+        new: []
+        open: >-
+          Not carried (level sensible). A class expression with neither a
+          variable nor a predicate breaks the prose rule its grammar admits,
+          upstream report #703.
+      FROM.contains_depth.a_nested_anchor_that_nothing_reads_still_restricts_the_rows:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.a_section_contained_by_an_unaliased_section:
+        new: []
+        open: >-
+          Not carried (level sensible). A class expression with neither a
+          variable nor a predicate breaks the prose rule its grammar admits,
+          upstream report #703.
+      FROM.contains_depth.alias_declared_twice_is_invalid:
+        new: [aqlc_refused/contains_depth-alias_declared_twice_is_invalid]
+      FROM.contains_depth.an_unaliased_trailing_class_constrains_its_parent:
+        new: []
+        open: >-
+          Not carried (level sensible). A class expression with neither a
+          variable nor a predicate breaks the prose rule its grammar admits,
+          upstream report #703.
+      FROM.contains_depth.an_unmatched_anchor_removes_the_row_its_parent_projects:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.an_unpredicated_contained_element_answers_every_occurrence:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.an_unpredicated_contained_element_unpinned:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160. The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.contains_depth.an_unpredicated_section_alias_binds_above_the_entry:
+        new: [aqlc_from/contains_depth-an_unpredicated_section_alias_binds_above_the_entry]
+      FROM.contains_depth.cluster_chain_across_compositions_of_one_ehr:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.composition_under_ehr:
+        new: [aqlc_from/contains_depth-composition_under_ehr]
+      FROM.contains_depth.contribution_deletion_is_not_contained:
+        new: []
+        open: >-
+          Not carried (level core). Which version a query reads, and whether a
+          logically deleted COMPOSITION is still contained, is not assigned,
+          upstream report #708.
+      FROM.contains_depth.data_structure_contained_by_composition_expands:
+        new: []
+        open: >-
+          Not carried (level core). Whether a class expression naming an
+          abstract RM class matches its descendants is not assigned, upstream
+          report #702. The answer needs CONTAINS to reach below a direct child;
+          AQL never says whether containment is direct or at any depth, upstream
+          report #160.
+      FROM.contains_depth.deleted_composition_is_not_contained:
+        new: []
+        open: >-
+          Not carried (level core). Which version a query reads, and whether a
+          logically deleted COMPOSITION is still contained, is not assigned,
+          upstream report #708.
+      FROM.contains_depth.deleted_composition_is_not_counted:
+        new: []
+        open: >-
+          Not carried (level core). Which version a query reads, and whether a
+          logically deleted COMPOSITION is still contained, is not assigned,
+          upstream report #708.
+      FROM.contains_depth.deleting_one_of_two_leaves_the_other:
+        new: []
+        open: >-
+          Not carried (level core). Which version a query reads, and whether a
+          logically deleted COMPOSITION is still contained, is not assigned,
+          upstream report #708.
+      FROM.contains_depth.deleting_one_of_two_leaves_the_other_without_the_ehr_scope:
+        new: []
+        open: >-
+          Not carried (level core). Which version a query reads, and whether a
+          logically deleted COMPOSITION is still contained, is not assigned,
+          upstream report #708.
+      FROM.contains_depth.element_contained_by_an_ehr_root_reaches_its_compositions:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.entry_descent_below_a_general_root:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.entry_descent_below_a_general_root_unpinned:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.entry_rm_type_without_archetype_predicate:
+        new: [aqlc_from/contains_depth-entry_rm_type_without_archetype_predicate]
+      FROM.contains_depth.entry_under_unnamed_section:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.item_structure_contained_by_composition_expands:
+        new: []
+        open: >-
+          Not carried (level core). Whether a class expression naming an
+          abstract RM class matches its descendants is not assigned, upstream
+          report #702. The answer needs CONTAINS to reach below a direct child;
+          AQL never says whether containment is direct or at any depth, upstream
+          report #160.
+      FROM.contains_depth.lower_case_contains_across_a_nested_cluster_chain:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.lower_case_contains_binds_like_the_upper_case_spelling:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.lower_case_contains_unpinned:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160. The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.contains_depth.nested_anchor_excludes_its_own_parent:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.outer_anchor_leaf_repeats_across_inner_rows:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.shorthand_chain_equals_the_expanded_chain:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.type_only_entry_across_compositions_of_two_templates:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.type_only_structural_descent_below_a_general_root:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.contains_depth.type_only_structural_descent_below_a_general_root_unpinned:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.name_predicate.archetype_and_name_pair_predicate_filters_on_the_name:
+        new: [aqlc_from/name_predicate-archetype_and_name_pair_predicate_filters_on_the_name]
+      FROM.node_predicate.an_anonymous_node_predicated_element_below_an_absent_archetype_is_empty:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.node_predicate.an_at_code_on_a_contained_element_matches_its_archetype_node_id:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.node_predicate.an_at_code_on_an_archetype_root_class_matches_nothing:
+        new: [aqlc_from/node_predicate-an_at_code_on_an_archetype_root_class_matches_nothing]
+      FROM.node_predicate.nested_anchor_narrowed_by_at_code:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      FROM.root_type.abstract_event_root_binds_abstractly_declared_nodes:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class expression naming an abstract RM class matches its
+          descendants is not assigned, upstream report #702.
+      FROM.root_type.activity_root_answers_empty:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.root_type.admin_entry_is_granted_and_answers_empty:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.root_type.an_anonymous_predicated_root_class_binds_without_an_alias:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar". The
+          answer needs CONTAINS to reach below a direct child; AQL never says
+          whether containment is direct or at any depth, upstream report #160.
+      FROM.root_type.an_unaliased_unpredicated_root_anchors_a_chain:
+        new: []
+        open: >-
+          Not carried (level sensible). A class expression with neither a
+          variable nor a predicate breaks the prose rule its grammar admits,
+          upstream report #703.
+      FROM.root_type.care_entry_expands_to_its_concrete_subtypes:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class expression naming an abstract RM class matches its
+          descendants is not assigned, upstream report #702.
+      FROM.root_type.cluster_is_a_granted_structural_root:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.root_type.composition_root:
+        new: [aqlc_from/root_type-composition_root]
+      FROM.root_type.composition_root_unpinned:
+        new: [aqlc_from/root_type-composition_root_unpinned]
+      FROM.root_type.concrete_subtype_root_narrows_an_abstractly_declared_node:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class expression naming an abstract RM class matches its
+          descendants is not assigned, upstream report #702.
+      FROM.root_type.data_structure_root_expands_to_every_data_structure:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class expression naming an abstract RM class matches its
+          descendants is not assigned, upstream report #702.
+      FROM.root_type.ehr_status_root:
+        new: [aqlc_from/root_type-ehr_status_root]
+      FROM.root_type.entry_root_with_archetype_predicate:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.root_type.evaluation_is_granted_and_answers_empty:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.root_type.event_context_containment_refused:
+        new: []
+        open: >-
+          Not carried (level sensible). Whether a class that is not LOCATABLE
+          can be a FROM or CONTAINS operand is not assigned, upstream report
+          #706.
+      FROM.root_type.event_context_root:
+        new: []
+        open: >-
+          Not carried (level sensible). Whether a class that is not LOCATABLE
+          can be a FROM or CONTAINS operand is not assigned, upstream report
+          #706.
+      FROM.root_type.extract_root_answers_empty:
+        new: []
+        open: >-
+          Not carried (level sensible). Whether a class that is not LOCATABLE
+          can be a FROM or CONTAINS operand is not assigned, upstream report
+          #706.
+      FROM.root_type.feeder_audit_root_reads_what_the_ehr_holds:
+        new: []
+        open: >-
+          Not carried (level sensible). Whether a class that is not LOCATABLE
+          can be a FROM or CONTAINS operand is not assigned, upstream report
+          #706.
+      FROM.root_type.folder_root:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159. The query pins no
+          EHR, COMPOSITION or EHR_STATUS of the case's own, so its answer
+          depends on what else the server holds; ITS-REST docs/query/Request.md
+          lets a backend use the ehr_id scope only "to perform routing,
+          optimizations or similar".
+      FROM.root_type.folder_root_over_a_version:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159. A VERSION class
+          operand has no released semantics, upstream report #168.
+      FROM.root_type.history_is_a_granted_root_at_the_event_container_grain:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.root_type.instruction_details_root_answers_empty:
+        new: []
+        open: >-
+          Not carried (level sensible). Whether a class that is not LOCATABLE
+          can be a FROM or CONTAINS operand is not assigned, upstream report
+          #706.
+      FROM.root_type.interval_event_is_granted_and_answers_empty:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.root_type.item_structure_is_a_granted_structural_root:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+          Whether a class expression naming an abstract RM class matches its
+          descendants is not assigned, upstream report #702.
+      FROM.root_type.item_tree_is_a_granted_concrete_structural_root:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.root_type.literal_only_projection_agrees_with_the_path_spelling:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.root_type.literal_only_projection_keeps_the_entry_roots_occurrence_grain:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701. The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.root_type.type_only_structural_root_binds_every_occurrence:
+        new: []
+        open: >-
+          Not carried (level core). The query pins no EHR, COMPOSITION or
+          EHR_STATUS of the case's own, so its answer depends on what else the
+          server holds; ITS-REST docs/query/Request.md lets a backend use the
+          ehr_id scope only "to perform routing, optimizations or similar".
+      FROM.root_type.unknown_rm_class_root_refused:
+        new: []
+        open: >-
+          Not carried (level sensible). AQL assigns no outcome to this
+          grammatical query, upstream report #705.
+      FROM.root_type.version_root_reads_the_version_of_a_composition:
+        new: []
+        open: >-
+          Not carried (level sensible). A VERSION class operand has no released
+          semantics, upstream report #168.
+      FROM.standing_predicate.ehr_id_equivalent_to_out_of_band_scope:
+        new: [aql_semantics/standard_predicate-ehr_id]
+      FROM.standing_predicate.non_uuid_scope_yields_empty_result:
+        new: [aqlc_from/standing_predicate-non_uuid_scope_yields_empty_result]
+      ORDER_BY.array_valued_path.ordering_by_a_collection_node_is_refused:
+        new: []
+        open: >-
+          Not carried (level sensible). AQL assigns no outcome to this
+          grammatical query, upstream report #705.
+      ORDER_BY.array_valued_path.ordering_by_an_array_path_sorts_its_element_rows:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      ORDER_BY.array_valued_path.ordering_by_an_unprojected_mappings_path_keeps_one_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      ORDER_BY.single.content_path_descending:
+        new: [aql_semantics/order_by-descending]
+      ORDER_BY.single.order_by_a_projection_alias_executes:
+        new: []
+        open: >-
+          Not carried (level ext:cadasto). Level ext:cadasto in the source: one
+          vendor's own extension, which #695 keeps out of the catalogue.
+      SELECT.alias.named_column:
+        new: [aql_semantics/column-alias_name]
+      SELECT.array_valued_path.a_collection_nested_in_an_empty_one_keeps_its_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701. Whether a class that is not LOCATABLE
+          can be a FROM or CONTAINS operand is not assigned, upstream report
+          #706.
+      SELECT.array_valued_path.an_absent_links_collection_keeps_its_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.an_absent_mappings_key_keeps_its_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.an_empty_array_collection_keeps_its_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.an_empty_collection_beside_a_bound_occurrence_keeps_its_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.an_empty_mappings_array_keeps_its_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.an_explicit_null_collection_keeps_its_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.an_explicit_null_mappings_keeps_its_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.an_unprojected_array_path_in_where_filters_without_multiplying:
+        new: []
+        open: >-
+          Not carried (level sensible). A WHERE predicate over a multi-valued
+          path; AQL never says how it evaluates, upstream report #195.
+      SELECT.array_valued_path.an_unprojected_array_path_in_where_matching_no_element:
+        new: []
+        open: >-
+          Not carried (level sensible). A WHERE predicate over a multi-valued
+          path; AQL never says how it evaluates, upstream report #195.
+      SELECT.array_valued_path.an_unprojected_mappings_path_in_where_filters_without_multiplying:
+        new: []
+        open: >-
+          Not carried (level sensible). A WHERE predicate over a multi-valued
+          path; AQL never says how it evaluates, upstream report #195.
+      SELECT.array_valued_path.collection_scope_binding_refused:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.elements_open_a_row_scope:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.mappings_elements_open_a_row_scope:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.mappings_over_a_joined_document:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.mappings_under_a_dv_text_subtype:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.mappings_under_an_event_context_root:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701. Whether a class that is not LOCATABLE
+          can be a FROM or CONTAINS operand is not assigned, upstream report
+          #706.
+      SELECT.array_valued_path.the_collection_node_stays_an_object_on_the_content_tier:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.the_collection_node_unnests:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.the_mappings_collection_node_unnests:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.array_valued_path.two_empty_independent_collections_keep_their_row:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.distinct.statement_distinct_removes_duplicate_rows:
+        new: [aql_semantics/distinct]
+      SELECT.identified_path.a_content_path_matching_no_node_is_a_null_cell:
+        new: [aqlc_select/identified_path-a_content_path_matching_no_node_is_a_null_cell]
+      SELECT.identified_path.a_path_through_content_reads_each_content_item:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.identified_path.a_path_without_a_node_predicate_reads_the_element_of_each_cluster:
+        new: []
+        open: >-
+          Not carried (level sensible). The answer needs CONTAINS to reach below
+          a direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160. The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.identified_path.absent_node_yields_a_null_cell_not_a_dropped_row:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      SELECT.identified_path.alias_rename_does_not_change_the_answer:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      SELECT.identified_path.composition_metadata_paths:
+        new: [aqlc_select/identified_path-composition_metadata_paths]
+      SELECT.identified_path.content_text_leaf_exact_value:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      SELECT.identified_path.content_typed_numeric_leaves:
+        new: [aqlc_select/identified_path-content_typed_numeric_leaves]
+      SELECT.identified_path.duplicate_result_column_is_invalid:
+        new: []
+        open: >-
+          Not carried (level sensible). AQL assigns no outcome to this
+          grammatical query, upstream report #705.
+      SELECT.identified_path.ehr_id_scalar:
+        new: [aqlc_select/identified_path-ehr_id_scalar]
+      SELECT.identified_path.ehr_root_alias_beside_a_deep_ehr_status_document_path:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      SELECT.identified_path.ehr_root_alias_projects_beside_a_contained_composition:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      SELECT.identified_path.ehr_root_alias_projects_beside_a_contained_ehr_status:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      SELECT.identified_path.ehr_root_alias_repeats_over_multiple_contained_rows:
+        new: [aqlc_select/identified_path-ehr_root_alias_repeats_over_multiple_contained_rows]
+      SELECT.identified_path.ehr_root_system_id_joins_beside_a_contained_class:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      SELECT.identified_path.ehr_status_document_paths_resolve:
+        new: []
+        open: >-
+          Not carried (level sensible). The name and archetype_node_id of the
+          default EHR_STATUS are not assigned, upstream report #709.
+      SELECT.identified_path.event_context_fixed_attributes:
+        new: []
+        open: >-
+          Not carried (level sensible). Whether a class that is not LOCATABLE
+          can be a FROM or CONTAINS operand is not assigned, upstream report
+          #706.
+      SELECT.identified_path.event_context_sub_paths_resolve:
+        new: []
+        open: >-
+          Not carried (level sensible). Whether a class that is not LOCATABLE
+          can be a FROM or CONTAINS operand is not assigned, upstream report
+          #706.
+      SELECT.identified_path.interval_bound_flags_resolve:
+        new: []
+        open: >-
+          Not carried (level ext:cadasto). Level ext:cadasto in the source: one
+          vendor's own extension, which #695 keeps out of the catalogue.
+      SELECT.identified_path.metadata_path_the_reference_model_does_not_define_refused:
+        new: []
+        open: >-
+          Not carried (level sensible). AQL assigns no outcome to this
+          grammatical query, upstream report #705.
+      SELECT.identified_path.node_predicate_on_a_metadata_segment_refused:
+        new: []
+        open: >-
+          Not carried (level sensible). AQL assigns no outcome to this
+          grammatical query, upstream report #705.
+      SELECT.identified_path.predicate_on_the_alias_root_reads_the_object_that_satisfies_it:
+        new: []
+        open: >-
+          Not carried (level sensible). AQL assigns no outcome to this
+          grammatical query, upstream report #705.
+      SELECT.identified_path.reference_to_an_undeclared_alias_is_invalid:
+        new: [aqlc_refused/identified_path-reference_to_an_undeclared_alias_is_invalid]
+      SELECT.identified_path.rm_defined_metadata_paths_resolve:
+        new: [aqlc_select/identified_path-rm_defined_metadata_paths_resolve]
+      SELECT.identified_path.select_star_mixed_with_a_column_refused:
+        new: [aqlc_refused/identified_path-select_star_mixed_with_a_column_refused]
+      SELECT.identified_path.select_star_refused:
+        new: [aqlc_refused/identified_path-select_star_refused]
+      SELECT.identified_path.system_id_registry_join:
+        new: [aqlc_select/identified_path-system_id_registry_join]
+      SELECT.identified_path.the_character_match_of_each_term_mapping:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      SELECT.identified_path.trivia_inside_node_predicates_is_not_part_of_the_predicate:
+        new: []
+        open: >-
+          Not carried (level core). Its answer rests on the WS and COMMENT rules
+          of AqlLexer.g4 alone, which no prose sentence states and the citation
+          gate cannot quote yet; tracked by #9999.
+      SELECT.identified_path.unresolvable_root_alias_path_names_the_root_class:
+        new: []
+        open: >-
+          Not carried (level sensible). AQL assigns no outcome to this
+          grammatical query, upstream report #705.
+      SELECT.paging.select_top_limits_the_rows:
+        new: [aqlc_top/paging-select_top_limits_the_rows]
+      SELECT.positional_column_name.two_paths:
+        new: [aql_semantics/column-index_names]
+      SELECT.primitive.every_literal_kind_projects_its_value:
+        new: [aql_semantics/literal-string, aql_semantics/literal-integer, aql_semantics/literal-real, aql_semantics/literal-boolean, aql_semantics/literal-null]
+      SELECT.primitive.literal_mixed_with_a_whole_object_and_a_path:
+        new: [aqlc_select/primitive-literal_mixed_with_a_whole_object_and_a_path]
+      SELECT.primitive.literal_mixed_with_an_identified_path:
+        new: [aqlc_select/primitive-literal_mixed_with_an_identified_path]
+      SELECT.primitive.literal_repeats_over_the_filtered_rows:
+        new: [aqlc_select/primitive-literal_repeats_over_the_filtered_rows]
+      SELECT.primitive.literal_with_an_as_alias_takes_the_alias:
+        new: [aqlc_select/primitive-literal_with_an_as_alias_takes_the_alias]
+      SELECT.primitive.primitive_literal_projection_refused:
+        new: [aqlc_select/primitive-primitive_literal_projection_refused]
+      SELECT.whole_object.a_path_ending_at_an_object_projects_it_whole:
+        new: [aqlc_select/whole_object-a_path_ending_at_an_object_projects_it_whole]
+      SELECT.whole_object.composition_alias:
+        new: [aqlc_select/whole_object-composition_alias]
+      SELECT.whole_object.ehr_alias_refused:
+        new: []
+        open: >-
+          Not carried (level ext:cadasto). Level ext:cadasto in the source: one
+          vendor's own extension, which #695 keeps out of the catalogue.
+      SELECT.whole_object.ehr_alias_refused_beside_a_contained_class:
+        new: []
+        open: >-
+          Not carried (level ext:cadasto). Level ext:cadasto in the source: one
+          vendor's own extension, which #695 keeps out of the catalogue.
+      SELECT.whole_object.ehr_root_through_the_content_tier:
+        new: []
+        open: >-
+          Not carried (level ext:cadasto). Level ext:cadasto in the source: one
+          vendor's own extension, which #695 keeps out of the catalogue.
+      SELECT.whole_object.ehr_status_alias:
+        new: [aqlc_select/whole_object-ehr_status_alias]
+      SELECT.whole_object.entry_alias:
+        new: [aqlc_select/whole_object-entry_alias]
+      SELECT.whole_object.event_context_alias:
+        new: []
+        open: >-
+          Not carried (level sensible). Whether a class that is not LOCATABLE
+          can be a FROM or CONTAINS operand is not assigned, upstream report
+          #706.
+      SELECT.whole_object.order_by_a_whole_object_column_refused:
+        new: []
+        open: >-
+          Not carried (level sensible). AQL assigns no outcome to this
+          grammatical query, upstream report #705.
+      WHERE.boolean.boolean_literal_comparison_executes:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      WHERE.boolean.not_negates_a_comparison:
+        new: [aql_semantics/where-not]
+      WHERE.boolean.or_keeps_a_row_either_comparison_matches:
+        new: [aql_semantics/where-or]
+      WHERE.comparison.a_date_time_without_an_offset_compares_with_one_that_has_it:
+        new: [aqlc_where/comparison-a_date_time_without_an_offset_compares_with_one_that_has_it]
+      WHERE.comparison.a_function_call_as_the_left_operand_filters:
+        new: [aqlc_where/comparison-a_function_call_as_the_left_operand_filters]
+      WHERE.comparison.a_function_call_as_the_right_operand_filters:
+        new: [aql_semantics/function-now_in_where]
+      WHERE.comparison.a_partial_date_compares_with_a_complete_date_time:
+        new: [aqlc_where/comparison-a_partial_date_compares_with_a_complete_date_time]
+      WHERE.comparison.a_text_value_never_equals_a_number:
+        new: []
+        open: >-
+          Not carried (level sensible). AQL assigns no outcome to this
+          grammatical query, upstream report #705.
+      WHERE.comparison.ehr_root_alias_projects_through_a_filtered_query:
+        new: [aqlc_where/comparison-ehr_root_alias_projects_through_a_filtered_query]
+      WHERE.comparison.less_or_equal_holds_at_the_boundary_and_below_it:
+        new: [aql_semantics/where-less_or_equal]
+      WHERE.comparison.template_id_equals:
+        new: [aqlc_where/comparison-template_id_equals]
+      WHERE.comparison.template_id_no_match:
+        new: [aqlc_where/comparison-template_id_no_match]
+      WHERE.comparison.tier_interplay_on_a_metadata_shape:
+        new: [aql_semantics/where-not_equal]
+      WHERE.comparison.two_terms_on_one_collection_bind_the_same_element:
+        new: []
+        open: >-
+          Not carried (level sensible). A WHERE predicate over a multi-valued
+          path; AQL never says how it evaluates, upstream report #195.
+      WHERE.comparison.two_terms_on_one_collection_matched_by_one_element:
+        new: []
+        open: >-
+          Not carried (level sensible). A WHERE predicate over a multi-valued
+          path; AQL never says how it evaluates, upstream report #195.
+      WHERE.comparison.two_terms_on_one_mappings_collection_bind_the_same_element:
+        new: []
+        open: >-
+          Not carried (level sensible). A WHERE predicate over a multi-valued
+          path; AQL never says how it evaluates, upstream report #195.
+      WHERE.comparison.two_terms_on_one_mappings_collection_matched_by_one_element:
+        new: []
+        open: >-
+          Not carried (level sensible). A WHERE predicate over a multi-valued
+          path; AQL never says how it evaluates, upstream report #195.
+      WHERE.comparison.two_unprojected_mappings_arrays_filter_independently:
+        new: []
+        open: >-
+          Not carried (level sensible). A WHERE predicate over a multi-valued
+          path; AQL never says how it evaluates, upstream report #195.
+      WHERE.comparison.typed_numeric_inside_the_bound_occurrence:
+        new: [aql_semantics/where-greater_or_equal]
+      WHERE.exists.a_path_that_exists_keeps_its_row:
+        new: [aql_semantics/where-exists]
+      WHERE.like.like_matches_with_its_wildcards:
+        new: [aql_semantics/like-question_mark, aql_semantics/like-star]
+      WHERE.matches.a_terminology_call_merges_into_a_value_list:
+        new: [aqlc_terminology/matches-a_terminology_call_merges_into_a_value_list]
+      WHERE.matches.matches_a_value_in_its_list:
+        new: [aql_semantics/where-matches]
+      WHERE.null_comparison.a_false_conjunct_beside_a_null_comparison_matches_nothing:
+        new: [aqlc_where/null_comparison-a_false_conjunct_beside_a_null_comparison_matches_nothing]
+      aggregation.count.composition_count:
+        new: [aql_semantics/aggregate-count]
+      aggregation.count.composition_count_is_unaffected_by_occurrences:
+        new: []
+        open: >-
+          Not carried (level sensible). The group an aggregate function
+          summarises is not defined, upstream report #707. The answer needs
+          CONTAINS to reach below a direct child; AQL never says whether
+          containment is direct or at any depth, upstream report #160.
+      aggregation.count.composition_versus_occurrence:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      aggregation.count.count_beside_a_column_counts_each_value_of_the_column:
+        new: []
+        open: >-
+          Not carried (level sensible). The group an aggregate function
+          summarises is not defined, upstream report #707.
+      aggregation.count.count_over_a_path_counts_the_values_present:
+        new: [aqlc_aggregation/count-count_over_a_path_counts_the_values_present]
+      aggregation.count_distinct.counts_each_distinct_value_once:
+        new: [aql_semantics/aggregate-count_distinct]
+      aggregation.min_max.max_returns_the_largest_value:
+        new: [aql_semantics/aggregate-max]
+      aggregation.min_max.min_over_a_string_returns_the_lowest_string:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      aggregation.min_max.min_returns_the_smallest_non_null_value:
+        new: [aql_semantics/aggregate-min]
+      aggregation.sum_avg.avg_is_the_mean_of_the_non_null_values:
+        new: [aql_semantics/aggregate-avg]
+      aggregation.sum_avg.sum_adds_the_non_null_values:
+        new: [aql_semantics/aggregate-sum]
+      envelope.ehr_scope.a_scoped_query_answers_nothing_from_another_ehr:
+        new: [aql_ehr_scope/scope-composition_of_another_ehr]
+      envelope.result_set_meta.row_per_entry_occurrence:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      envelope.result_set_meta.singleton_siblings_do_not_multiply_rows:
+        new: []
+        open: >-
+          Not carried (level core). The answer needs CONTAINS to reach below a
+          direct child; AQL never says whether containment is direct or at any
+          depth, upstream report #160.
+      envelope.stored_query.parity_with_adhoc:
+        new: [aql_stored/post-latest]
+      functions.date_time.current_date_has_the_yyyy_mm_dd_format:
+        new: [aql_semantics/function-current_date]
+      functions.date_time.current_date_time_has_the_extended_date_time_format:
+        new: [aql_semantics/function-current_date_time]
+      functions.date_time.current_time_has_the_hh_mm_ss_format:
+        new: [aql_semantics/function-current_time]
+      functions.date_time.current_timezone_has_the_hh_mm_offset_format:
+        new: [aql_semantics/function-current_timezone]
+      functions.date_time.now_has_the_extended_date_time_format:
+        new: [aql_semantics/function-now]
+      functions.numeric.abs_turns_a_negative_value_positive_and_keeps_a_positive_one:
+        new: [aql_semantics/function-abs]
+      functions.numeric.ceil_is_the_integer_at_or_above_its_argument:
+        new: [aql_semantics/function-ceil]
+      functions.numeric.floor_is_the_integer_at_or_below_its_argument:
+        new: [aql_semantics/function-floor]
+      functions.numeric.mod_is_the_remainder_of_the_first_argument_divided_by_the_second:
+        new: [aql_semantics/function-mod]
+      functions.numeric.round_rounds_to_the_given_places_and_to_a_whole_number_without_them:
+        new: [aql_semantics/function-round]
+      functions.string.concat_joins_its_arguments_in_order:
+        new: [aql_semantics/function-concat]
+      functions.string.concat_ws_puts_the_separator_between_its_arguments:
+        new: [aql_semantics/function-concat_ws]
+      functions.string.position_counts_from_one_and_is_zero_when_absent:
+        new: [aql_semantics/function-position, aql_semantics/function-position_absent]
+      functions.string.substring_takes_length_characters_from_a_position_counted_from_one:
+        new: [aql_semantics/function-substring]
+      functions.string.substring_without_a_length_runs_to_the_end:
+        new: [aql_semantics/function-substring_no_length]
+      paging.limit.bounds_collection_element_rows:
+        new: []
+        open: >-
+          Not carried (level sensible). The rows a projection through a multi-
+          valued attribute, an empty collection or no variable yields are not
+          assigned, upstream report #701.
+      paging.limit.bounds_row_count:
+        new: [aql_execute/get-fetch]
+      paging.limit.parameterised_limit_refused:
+        new: [aqlc_refused/limit-parameterised_limit_refused]
+      paging.offset.limit_and_offset_partition_an_ordered_set:
+        new: [aql_semantics/limit-offset]
+      paging.offset.shifts_window:
+        new: [aql_execute/get-offset_fetch]
+      parameters.in_where.template_id:
+        new: [aql_semantics/parameter-string]
+      parameters.typed_literal.equals_bound_parameter:
+        new: [aqlc_where/comparison-template_id_equals]
+      structure.ehr_status.a_path_into_other_details_the_status_does_not_hold_is_null:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      structure.ehr_status.a_where_clause_on_ehr_id_scopes_the_contained_status:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      structure.ehr_status.flags_and_subject:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      structure.ehr_status.the_ehr_status_part_path_agrees_with_the_contained_spelling:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      structure.ehr_status.the_part_spelling_of_the_whole_subject_agrees:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      structure.ehr_status.the_whole_subject_object_is_projected:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      structure.ehr_status.version_uid:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      structure.folder.composition_version_under_a_folder:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159. A VERSION class
+          operand has no released semantics, upstream report #168.
+      structure.folder.folder_containment:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159.
+      structure.folder.version_under_a_folder:
+        new: []
+        open: >-
+          Not carried (level sensible). Reaching an EHR_STATUS, a FOLDER or a
+          VERSION from an EHR crosses a versioned-object reference, which AQL
+          never defines as containment, upstream report #159. A VERSION class
+          operand has no released semantics, upstream report #168.
+      version.all_versions.version_containment_reads_the_version_of_each_composition:
+        new: []
+        open: >-
+          Not carried (level sensible). A VERSION class operand has no released
+          semantics, upstream report #168.
 pending:
   - I_ITS_REST_ITEM_TAGS.agent_tags_delete-key_scoped
   - I_ITS_REST_ITEM_TAGS.agent_tags_delete-unknown_key
