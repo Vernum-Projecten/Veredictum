@@ -1,0 +1,16 @@
+# Queries the released AQL grammar (AqlParser.g4 selectQuery) refuses, one
+# per row: a missing clause or keyword, a misspelt keyword, an unterminated
+# string, clauses out of order.
+workflow: aql_refused/get-malformed
+iteration: reset_per_row
+rows:
+  - { q: "SELECT e/ehr_id/value EHR e" }
+  - { q: "SELECT FROM EHR e" }
+  - { q: "SELECT e/ehr_id/value FROM" }
+  - { q: "SELEKT e/ehr_id/value FROM EHR e" }
+  - { q: "SELECT e/ehr_id/value FROM EHR e WHERE" }
+  - { q: "SELECT e/ehr_id/value FROM EHR e WHERE e/ehr_id/value = 'unterminated" }
+  - { q: "SELECT e/ehr_id/value FROM EHR e ORDER e/ehr_id/value" }
+  - { q: "SELECT e/ehr_id/value FROM EHR e LIMIT" }
+  - { q: "SELECT e/ehr_id/value FROM EHR e CONTAINS" }
+  - { q: "FROM EHR e SELECT e/ehr_id/value" }
