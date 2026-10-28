@@ -1,0 +1,13 @@
+diff --git a/specifications/system.openapi.yaml b/specifications/system.openapi.yaml
+index fec91222..31a196f4 100644
+--- a/specifications/system.openapi.yaml
++++ b/specifications/system.openapi.yaml
+@@ -26,7 +26,7 @@ paths:
+     options:
+       $ref: ./operations/options.yaml
+ tags:
+-  - name: Conformance
++  - name: Options
+     description: Retrieving system options and conformance information.
+ x-tagGroups:
+   - name: Resource endpoints

@@ -16,6 +16,8 @@ scope:
   - { api: definition, tag: Query }
   - { api: ehr, tag: DIRECTORY }
   - { api: ehr, tag: CONTRIBUTION }
+  - { api: admin, tag: EHR }
+  - { api: system, tag: Options }
   - { api: demographic, tag: PERSON }
   - { api: demographic, tag: AGENT }
   - { api: demographic, tag: GROUP }
@@ -154,6 +156,16 @@ gaps:
   - { api: ehr, operation: directory_get_at_time, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
   - { api: ehr, operation: directory_get_by_version_id, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
   - { api: ehr, operation: directory_get_by_version_id, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
+# The admin gaps: each delete branch the release leaves to the service is
+# asserted by the one arm of `admin-ehr-delete-processing` or
+# `admin-ehr-delete-all` that produces it (#737), and no released sentence
+# names the bulk request a 404 answers (#738).
+  - { api: admin, operation: admin_ehr_delete, status: "202", issue: 737 }
+  - { api: admin, operation: admin_ehr_delete, status: "204", issue: 737 }
+  - { api: admin, operation: admin_ehr_delete_all, status: "202", issue: 737 }
+  - { api: admin, operation: admin_ehr_delete_all, status: "204", issue: 737 }
+  - { api: admin, operation: admin_ehr_delete_all, status: "405", issue: 737 }
+  - { api: admin, operation: admin_ehr_delete_all, status: "404", issue: 738 }
 # The Demographic API gaps, covered by #733: the Simplified Formats on the
 # party operations, the XML answer of a party write, an XML request body on a
 # party write (whose accepting arm of `party-xml-write` has no document), XML

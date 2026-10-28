@@ -1,0 +1,65 @@
+# Deleting one EHR through the Admin API when the service deletes
+# asynchronously, as Arazzo 1.1.0 workflows over the released ITS-REST
+# `-validation` OAS. The Admin API is in the `DEVELOPMENT` state in
+# Release-1.1.0; the operation text it states is what these workflows assert.
+# Every administrative step is sent as the administrative principal the party
+# supplies, and a party that supplies none has these workflows skipped as not
+# declared. Every criterion resolves to an `x-veredictum-cite` (its own, else
+# its step's, else its workflow's), and every quote is copied verbatim from
+# the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Admin EHR delete, asynchronous
+  version: 0.1.0
+  description: >-
+    Deleting one EHR with DELETE /admin/ehr/{ehr_id} on a service that
+    processes the deletion asynchronously.
+sourceDescriptions:
+  - name: admin
+    url: ../../../specs/rest-oas/admin-validation.openapi.yaml
+    type: openapi
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: delete_ehr-accepted
+    summary: An EHR delete a service processes asynchronously is answered 202
+    description: >-
+      Creates an EHR, then deletes it through the Admin API. The service
+      processes the deletion asynchronously, so the delete is answered 202
+      Accepted. The deletion may not have happened yet, so nothing is read
+      back.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete.yaml
+      section: description
+      quote: "The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - &ehr_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: delete
+        description: Delete the EHR through the Admin API as the administrative principal.
+        operationId: $sourceDescriptions.admin.admin_ehr_delete
+        x-veredictum-principal: administrative
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 202
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/202.yaml
+              section: description
+              quote: "`202 Accepted` is returned when the requested operation has been accepted for processing, but processing has not been completed or may not have started (i.e. when requests are processed asynchronously)."

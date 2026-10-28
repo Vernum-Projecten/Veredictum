@@ -731,6 +731,369 @@ cases:
     new:
       - content_observation/obs-state_ex_opt-protocol_ex_opt-accepted
       - content_observation/obs-state_ex_opt-protocol_ex_opt-observation_data_missing
+  I_ADMIN_ARCHIVE.archive_ehrs-archive_selected:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-archive_twice:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-archive_unknown:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-empty_list:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-forbidden:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-malformed_id:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_ehrs-unauthenticated:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-archive_selected:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-archive_twice:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-archive_unknown:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-empty_list:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-forbidden:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-malformed_id:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-relationship_id_refused:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_ARCHIVE.archive_parties-unauthenticated:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-compression_7z:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-encoding_unrepresentable:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-export_all:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-export_formats:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-forbidden:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-format_not_a_member:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-logical_format_xml:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-no_location:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-segment_split_size_non_positive:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.export_ehrs-unauthenticated:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.load_ehrs-container_7z:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.load_ehrs-container_zip:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.load_ehrs-load_archive:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.load_ehrs-logical_format_xml:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_DUMP_LOAD.load_ehrs-no_location:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.composition_version_count-all:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.composition_version_count-interval_not_a_pair:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.composition_version_count-time_range:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.contribution_count-all:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.contribution_count-forbidden:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.contribution_count-interval_bound_not_iso:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.contribution_count-time_range:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.contribution_count-unauthenticated:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.list_contributions-all:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.list_contributions-non_content_service:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.list_contributions-service_not_a_member:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.list_contributions-time_range:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_all_cascade:
+    new:
+      - admin_ehr_delete_all/delete_all-composition_gone
+      - admin_ehr_delete_all/delete_all-contribution_gone
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_all_malformed_id:
+    new: [admin_ehr_delete_all_refused/delete_all-malformed_id]
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_all_subset:
+    new:
+      - admin_ehr_delete_all/delete_all-subset
+      - admin_ehr_delete_all/delete_all-subset-read_back
+      - admin_ehr_delete_all_async/delete_all-accepted
+      - admin_ehr_delete_all_disabled/delete_all-disabled
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_all_subset_repeated:
+    new: [admin_ehr_delete_all/delete_all-subset_repeated]
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_all_unfiltered:
+    new: []
+    open: >-
+      Not carried: the unfiltered bulk delete deletes every EHR on the
+      server, and every Arazzo workflow runs on identifiers it generates
+      beside other workflows, so it needs an exclusively owned server
+      the catalogue cannot declare yet (#738).
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_existing:
+    new:
+      - admin_ehr_delete/delete_ehr
+      - admin_ehr_delete/delete_ehr-read_back
+      - admin_ehr_delete_async/delete_ehr-accepted
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_existing_cascade:
+    new:
+      - admin_ehr_delete/delete_ehr-composition_gone
+      - admin_ehr_delete/delete_ehr-contribution_gone
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_existing_recreate:
+    new: [admin_ehr_delete/delete_ehr-recreate]
+  I_ADMIN_SERVICE.physical_ehr_delete-delete_non_existing:
+    new: [admin_ehr_delete_refused/delete_ehr-unknown]
+  I_ADMIN_SERVICE.physical_party_delete-delete_existing:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.physical_party_delete-delete_non_existing:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.versioned_composition_count-all:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.versioned_composition_count-interval_lower_after_upper:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
+  I_ADMIN_SERVICE.versioned_composition_count-time_range:
+    new: []
+    open: >-
+      Not carried: Release-1.1.0 releases no route for it. The Admin API
+      declares admin_ehr_delete and admin_ehr_delete_all only (ITS-REST
+      specifications/admin.openapi.yaml `paths`), so the case drove a
+      route of the server's own design, which no released text governs.
   I_DEFINITION_ADL14.delete_archetype-clinical_forbidden:
     new: []
     open: &adl14_archetype >-
@@ -3069,10 +3432,9 @@ cases:
       - ehr_status_tags/ehr_status_tags_get-composition_uid
     open: >-
       A demographic party's uid on the COMPOSITION route is not carried: the
-      only route that creates a party is the demographic API, which the
-      release does not ship as stable ("This specification is in the
-      `DEVELOPMENT` state", ITS-REST docs/demographic/Description.md). The
-      EHR-side directions are carried.
+      only route that creates a party is the demographic API, a capability a
+      statement may leave unclaimed, and these EHR workflows depend on no
+      such capability. The EHR-side directions are carried.
   I_ITS_REST_ITEM_TAGS.composition_tags_get-supersession_does_not_move_tags:
     new:
       - composition_tags/composition_tags_get-new_version_untagged
@@ -3249,6 +3611,11 @@ cases:
   I_ITS_REST_REVISION_HISTORY.versioned_party_revision_history-unknown_container:
     new:
       - versioned_party/get_versioned_party_revision_history-unknown
+  I_ITS_REST_SYSTEM.options-conformance_manifest:
+    new:
+      - system_options/options
+      - system_options/options-allow
+      - system_options/options-manifest
   I_ITS_REST_VERSIONED_PARTY.versioned_party_get-container_shape:
     new:
       - versioned_party/get_versioned_party
