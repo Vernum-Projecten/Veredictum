@@ -1,0 +1,126 @@
+# Requests that lack valid authentication credentials, sent to a service
+# that requires authentication. Whether a service requires it is its choice,
+# so a statement selects this document through the `authentication` option.
+# Each request carries an Authorization header no service issues, which the
+# step sets over the run's own credential. Every quote is copied verbatim
+# from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Requests without valid credentials, refused
+  version: 0.1.0
+  description: >-
+    An EHR create, an EHR read, a COMPOSITION read, an ad-hoc query and a
+    template upload, each sent with an Authorization header that carries no
+    valid credential, against a service that requires authentication. Each
+    is refused with 401 Unauthorized and a WWW-Authenticate challenge.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: query
+    url: ../../../specs/rest-oas/query-validation.openapi.yaml
+    type: openapi
+  - name: definition
+    url: ../../../specs/rest-oas/definition-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: ehr_create-invalid_credentials
+    summary: An EHR create without valid credentials is refused with 401 and a challenge
+    description: >-
+      Creates an EHR with an Authorization header that carries no valid
+      credential. The create is refused with 401 Unauthorized, and the answer
+      carries a WWW-Authenticate challenge.
+    x-veredictum-cite: &unauthorized
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "If the service requires authorization, this indicates that the request has not been applied because it lacks valid authentication credentials for the target resource"
+    steps:
+      - stepId: create
+        description: Create an EHR with an invalid credential.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - &invalid_credential { name: Authorization, in: header, value: Bearer veredictum-invalid-credential }
+        successCriteria: &refused
+          - condition: $statusCode == 401
+          - condition: $response.header.WWW-Authenticate != null
+            x-veredictum-cite: &challenge
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Authentication and authorization
+              quote: "If authentication and authorization are required, services MUST properly use the `WWW-Authenticate` and/or `Proxy-Authenticate` response headers, returning `403 Forbidden`, `401 Unauthorized` or `407 Proxy Authentication` as applicable."
+
+  - workflowId: ehr_get-invalid_credentials
+    summary: An EHR read without valid credentials is refused with 401 and a challenge
+    description: >-
+      Reads an EHR under a fresh ehr_id with an Authorization header that
+      carries no valid credential. Whether or not the EHR exists, the read is
+      refused with 401 Unauthorized and a WWW-Authenticate challenge.
+    x-veredictum-cite: *unauthorized
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: read
+        description: Read the EHR with an invalid credential.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - *invalid_credential
+        successCriteria: *refused
+
+  - workflowId: composition_get-invalid_credentials
+    summary: A COMPOSITION read without valid credentials is refused with 401 and a challenge
+    description: >-
+      Reads a COMPOSITION under a fresh ehr_id with an Authorization header
+      that carries no valid credential. The read is refused with 401
+      Unauthorized and a WWW-Authenticate challenge.
+    x-veredictum-cite: *unauthorized
+    inputs: *ehr_input
+    steps:
+      - stepId: read
+        description: Read a COMPOSITION with an invalid credential.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $inputs.ehr_id }
+          - *invalid_credential
+        successCriteria: *refused
+
+  - workflowId: query_adhoc-invalid_credentials
+    summary: An ad-hoc query without valid credentials is refused with 401 and a challenge
+    description: >-
+      Executes an ad-hoc AQL query with GET and an Authorization header that
+      carries no valid credential. The query is refused with 401
+      Unauthorized and a WWW-Authenticate challenge.
+    x-veredictum-cite: *unauthorized
+    steps:
+      - stepId: query
+        description: Execute the query with an invalid credential.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - { name: q, in: query, value: SELECT e/ehr_id/value FROM EHR e }
+          - *invalid_credential
+        successCriteria: *refused
+
+  - workflowId: template_upload-invalid_credentials
+    summary: A template upload without valid credentials is refused with 401 and a challenge
+    description: >-
+      Uploads an ADL 1.4 operational template with an Authorization header
+      that carries no valid credential. The upload is refused with 401
+      Unauthorized and a WWW-Authenticate challenge.
+    x-veredictum-cite: *unauthorized
+    steps:
+      - stepId: upload
+        description: Upload a template with an invalid credential.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+          - *invalid_credential
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="utf-8"?>
+            <template xmlns="http://schemas.openehr.org/v1">
+              <template_id><value>veredictum.unauthenticated.v1</value></template_id>
+            </template>
+        successCriteria: *refused

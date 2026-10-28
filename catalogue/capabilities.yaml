@@ -438,3 +438,34 @@ options:
       simplified-legacy-unsupported:
         documents: [legacy_example_not_acceptable]
     x-veredictum-cite: *simplified_should
+  authentication:
+    description: >-
+      Whether the service requires authentication. The release recommends an
+      HTTP authentication framework and mandates no scheme, so a service that
+      requires none has no refusal to test.
+    arms:
+      authentication-required:
+        documents: [authentication_required]
+      authentication-not-required:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Authentication and authorization
+      quote: "Services SHOULD implement and support an HTTP Authentication and Authorization framework, though this specification does not mandate a specific authentication scheme."
+      level: should
+  version-signing:
+    description: >-
+      Whether the service makes a digital signature of each VERSION at
+      committal and stores it in ORIGINAL_VERSION.signature. RM common makes
+      the signature optional and leaves its serialisation to be determined,
+      so the signing arm judges the presence of the signature only, and a
+      service that signs nothing has no document.
+    arms:
+      version-signed:
+        documents: [version_signature]
+      version-unsigned:
+        documents: []
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+      section: Digital Signature
+      quote: "At the time of committal of a Version, a digital signature of the object can be made."

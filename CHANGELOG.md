@@ -20,6 +20,22 @@ version on.
 
 ### Added
 
+- The messaging, security, SMART and performance cases are mapped onto the
+  Arazzo catalogue (#603), the last old families, so every old case id is in
+  `catalogue/id-map.yaml`. 11 workflows carry the security behaviours the
+  release assigns: `catalogue/cases/security/` holds the 401 and
+  `WWW-Authenticate` challenge of a request without valid credentials, the
+  presence of a VERSION signature on a created, modified and deleted
+  COMPOSITION and on the EHR_STATUS, and an anonymous EHR used end to end;
+  `contribution_create` gains a client-sent `time_committed` the server does
+  not record. Two options join `catalogue/capabilities.yaml`:
+  `authentication` and `version-signing`. Not carried, each with its reason:
+  the 50 messaging cases (the release defines no EHR Extract or TDD route),
+  the signature verification and client-signature cases (the serialisation is
+  not yet defined by openEHR, and upstream report #744 with its patch records
+  that `UPDATE_VERSION.signature` has no stated meaning), the read-only 403
+  (the release defines no authorization model), the three SMART cases (#745)
+  and the four performance cases, which drive `veredictum perf` (#746).
 - The demographic cases are converted to Arazzo (#603). 353 workflows in 23
   documents under `catalogue/cases/demographic/` cover the Demographic API of
   ITS-REST Release-1.1.0 for each of the five PARTY kinds: the create, read,
