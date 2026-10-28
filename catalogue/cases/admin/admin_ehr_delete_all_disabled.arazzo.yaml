@@ -1,0 +1,77 @@
+# A bulk delete through the Admin API on a service that has it disabled, as
+# Arazzo 1.1.0 workflows over the released ITS-REST `-validation` OAS. The
+# Admin API is in the `DEVELOPMENT` state in Release-1.1.0; the operation text
+# it states is what these workflows assert. Every administrative step is sent
+# as the administrative principal the party supplies, and a party that
+# supplies none has these workflows skipped as not declared. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored
+# file.
+arazzo: 1.1.0
+info:
+  title: Admin bulk EHR delete disabled
+  version: 0.1.0
+  description: >-
+    A bulk delete with DELETE /admin/ehr/all on a service that has the
+    bulk delete disabled.
+sourceDescriptions:
+  - name: admin
+    url: ../../../specs/rest-oas/admin-validation.openapi.yaml
+    type: openapi
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: delete_all-disabled
+    summary: A bulk delete on a service that disables it is answered 405 and deletes nothing
+    description: >-
+      Creates an EHR, then deletes it through the bulk delete, naming it in
+      the ehr_id query parameter. The service has the bulk delete disabled,
+      so the delete is answered 405 Method Not Allowed and the EHR is still
+      retrieved.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
+      section: description
+      quote: "This functionality is intended primarily for **development** or **testing** purposes and may be disabled in **production** environments, in which case server may respond with `405 Method Not Allowed`."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - &ehr_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: delete
+        description: Delete the EHR the ehr_id query parameter names, as the administrative principal.
+        operationId: $sourceDescriptions.admin.admin_ehr_delete_all
+        x-veredictum-principal: administrative
+        parameters:
+          - { name: ehr_id, in: query, value: [$inputs.ehr_id] }
+        successCriteria:
+          - condition: $statusCode == 405
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/405.yaml
+              section: description
+              quote: "`405 Method Not Allowed` is returned when the service knows the request method, but the target resource doesn't support this method (e.g. due to security concerns)."
+      - stepId: get
+        description: Retrieve the EHR the refused delete named.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_EHR.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested EHR resource is successfully retrieved."

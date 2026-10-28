@@ -1,0 +1,45 @@
+# Deleting an EHR that does not exist through the Admin API, as Arazzo 1.1.0
+# workflows over the released ITS-REST `-validation` OAS. The Admin API is in
+# the `DEVELOPMENT` state in Release-1.1.0; the operation text it states is
+# what these workflows assert. Every administrative step is sent as the
+# administrative principal the party supplies, and a party that supplies none
+# has these workflows skipped as not declared. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Admin EHR delete refused
+  version: 0.1.0
+  description: >-
+    Deleting one EHR with DELETE /admin/ehr/{ehr_id} under an ehr_id no
+    EHR carries.
+sourceDescriptions:
+  - name: admin
+    url: ../../../specs/rest-oas/admin-validation.openapi.yaml
+    type: openapi
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: delete_ehr-unknown
+    summary: An Admin API delete under an ehr_id no EHR carries is answered 404
+    description: >-
+      Deletes an EHR through the Admin API under a freshly generated ehr_id
+      that no EHR carries. The delete is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id.yaml
+      section: description
+      quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: delete
+        description: Delete the EHR through the Admin API as the administrative principal.
+        operationId: $sourceDescriptions.admin.admin_ehr_delete
+        x-veredictum-principal: administrative
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 404

@@ -20,6 +20,33 @@ version on.
 
 ### Added
 
+- The admin and system cases are converted to Arazzo (#603). Seven
+  documents under `catalogue/cases/admin/` drive the two operations the
+  Release-1.1.0 Admin API declares, `admin_ehr_delete` and
+  `admin_ehr_delete_all`: the 204 of a synchronous delete, the EHR, its
+  COMPOSITION and its CONTRIBUTION gone afterwards, the ehr_id free for a new
+  EHR, a subset of one and of two EHRs with the unnamed EHR kept, 404 for an
+  unknown EHR, 400 for a malformed ehr_id in a subset with nothing deleted,
+  202 for an asynchronous delete and 405 for a disabled bulk delete.
+  `catalogue/cases/system/system_options.arazzo.yaml` drives OPTIONS on the
+  API base path (advisory: the operation says a service SHOULD answer it).
+  Two new options, `admin-ehr-delete-processing` and `admin-ehr-delete-all`,
+  carry the choices the release leaves to the service. The admin and system
+  tags join `surface.yaml`, with their open branches tracked by #737 and
+  #738. `catalogue/id-map.yaml` maps all 57 cases: 9 carried, and 48 not
+  carried because the release has no route for them (archive, dump and
+  load, counts, contribution listing, party delete) or, for the unfiltered
+  bulk delete, because it needs an exclusively owned server (#738). Upstream
+  reports #735 (the bulk delete's subset parameter and path key) and #736
+  (the System API's tag name) carry patches under
+  `upstream/specifications-ITS-REST/`.
+- An Arazzo step may carry `x-veredictum-principal: administrative`: it is
+  sent with the administrative principal's credential instead of the run's
+  own, and a run whose party supplies none skips every workflow with such a
+  step as `not-declared`. `schemas/arazzo-extensions.schema.json` publishes
+  the extension. The evaluator also sends a list-valued query parameter as
+  one pair per item, and leaves an RFC 6570 query expansion (`{?name*}`) in
+  an OAS path key out of the request path.
 - The content cases are converted to Arazzo (#603). The 134 `CONT-*`
   decision tables become 360 workflows in 39 documents under
   `catalogue/cases/content/`, one workflow per case and outcome: content the

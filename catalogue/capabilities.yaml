@@ -283,3 +283,32 @@ options:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format
       quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  admin-ehr-delete-processing:
+    description: >-
+      Whether the service processes an EHR delete of the Admin API
+      synchronously, answering 204 once the EHR is physically deleted, or
+      asynchronously, answering 202 once the delete is accepted. The Admin
+      API is in the DEVELOPMENT state in Release-1.1.0; a service that does
+      not serve it selects neither arm.
+    arms:
+      admin-delete-synchronous:
+        documents: [admin_ehr_delete, admin_ehr_delete_all]
+      admin-delete-asynchronous:
+        documents: [admin_ehr_delete_async, admin_ehr_delete_all_async]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete.yaml
+      section: description
+      quote: "The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`."
+  admin-ehr-delete-all:
+    description: >-
+      Whether the service serves the bulk EHR delete of the Admin API or has
+      it disabled and answers 405.
+    arms:
+      admin-delete-all-enabled:
+        documents: [admin_ehr_delete_all, admin_ehr_delete_all_async, admin_ehr_delete_all_refused]
+      admin-delete-all-disabled:
+        documents: [admin_ehr_delete_all_disabled]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
+      section: description
+      quote: "This functionality is intended primarily for **development** or **testing** purposes and may be disabled in **production** environments, in which case server may respond with `405 Method Not Allowed`."
