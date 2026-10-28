@@ -1,0 +1,12 @@
+# The rows of CONT-DV_CODED_TEXT-validate_ext_term this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_coded_text/dv_coded_text-validate_ext_term-code_string_missing
+iteration: reset_per_row
+literals: ["code_string", "terminology_id", "value", "CONSTRAINT_REF.reference", "constraint_bindings"]
+recipe:
+  name: content_instance
+  rm_class: DV_CODED_TEXT
+  template_id: cnf.tpl.dv_coded_text_constraint_ref
+  input: composition
+rows:
+  - {"code_string": null, "terminology_id": "local", "value": null, "CONSTRAINT_REF.reference": "ac0001", "constraint_bindings": "[SNOMED_CT]"}

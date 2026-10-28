@@ -1,0 +1,14 @@
+# The rows of CONT-DV_MULTIMEDIA-validate_media_type this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_multimedia/dv_multimedia-validate_media_type-c_code_phrase
+iteration: reset_per_row
+literals: ["media_type", "size", "C_CODE_PHRASE", "C_INTEGER.list", "C_INTEGER.range"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_MULTIMEDIA
+  template_id: cnf.tpl.dv_multimedia_constraints
+  input: composition
+  template_input: template
+rows:
+  - {"media_type": "application/dicom", "size": 100, "C_CODE_PHRASE": "[text/plain, text/html]", "C_INTEGER.list": "[10, 100, 1000]", "C_INTEGER.range": null}
+  - {"media_type": "application/dicom", "size": 100, "C_CODE_PHRASE": "[text/plain, text/html]", "C_INTEGER.list": null, "C_INTEGER.range": "200..1000"}

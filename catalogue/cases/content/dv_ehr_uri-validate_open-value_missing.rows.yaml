@@ -1,0 +1,12 @@
+# The rows of CONT-DV_EHR_URI-validate_open this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_ehr_uri/dv_ehr_uri-validate_open-value_missing
+iteration: reset_per_row
+literals: ["value"]
+recipe:
+  name: content_instance
+  rm_class: DV_EHR_URI
+  template_id: cnf.tpl.dv_ehr_uri_open
+  input: composition
+rows:
+  - {"value": null}

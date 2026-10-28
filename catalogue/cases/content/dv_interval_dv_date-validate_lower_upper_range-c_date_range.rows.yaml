@@ -1,0 +1,15 @@
+# The rows of CONT-DV_INTERVAL_DV_DATE-validate_lower_upper_range this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: dv_interval_date/dv_interval_dv_date-validate_lower_upper_range-c_date_range
+iteration: reset_per_row
+literals: ["lower", "upper", "c_date_range_lower", "c_date_range_upper", "lower_unbounded", "upper_unbounded", "lower_included", "upper_included"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_INTERVAL
+  template_id: cnf.tpl.interval_date_range
+  input: composition
+  template_input: template
+rows:
+  - {"lower": "2021", "upper": "2022", "c_date_range_lower": "2022..2030", "c_date_range_upper": "1900..2030", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true}
+  - {"lower": "2021", "upper": "2022", "c_date_range_lower": "1900..2030", "c_date_range_upper": "2023..2030", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true}
+  - {"lower": "2021", "upper": "2022", "c_date_range_lower": "2022..2030", "c_date_range_upper": "2023..2030", "lower_unbounded": false, "upper_unbounded": false, "lower_included": true, "upper_included": true}

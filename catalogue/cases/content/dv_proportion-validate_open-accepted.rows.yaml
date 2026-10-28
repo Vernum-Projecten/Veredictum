@@ -1,0 +1,16 @@
+# The rows of CONT-DV_PROPORTION-validate_open this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_proportion/dv_proportion-validate_open-accepted
+iteration: reset_per_row
+literals: ["type", "numerator", "denominator", "precision"]
+recipe:
+  name: content_instance
+  rm_class: DV_PROPORTION
+  template_id: cnf.tpl.proportion_open
+  input: composition
+rows:
+  - {"type": 0, "numerator": 10, "denominator": 500, "precision": 0}
+  - {"type": 1, "numerator": 10, "denominator": 1, "precision": 0}
+  - {"type": 2, "numerator": 10, "denominator": 100, "precision": 0}
+  - {"type": 3, "numerator": 10, "denominator": 100, "precision": 0}
+  - {"type": 4, "numerator": 10, "denominator": 100, "precision": 0}

@@ -1,0 +1,15 @@
+# The rows of CONT-HISTORY-events_cardinality_count6 this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_history/history-events_cardinality_count6-accepted
+iteration: reset_per_row
+literals: ["cardinality", "summary_committed", "events_count"]
+recipe:
+  name: content_synthesized
+  rm_class: HISTORY
+  template_id: cnf.tpl.ecc_history_events_cardinality
+  input: composition
+  template_input: template
+rows:
+  - {"cardinality": "any", "summary_committed": "absent", "events_count": 6}
+  - {"cardinality": "1plus", "summary_committed": "absent", "events_count": 6}
+  - {"cardinality": "3plus", "summary_committed": "absent", "events_count": 6}

@@ -150,3 +150,19 @@ options:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Simplified Formats
       quote: "If the service cannot process the request payload as the simplified format is not supported, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  content-unmatched-member:
+    description: >-
+      Whether the service refuses a committed member of a container attribute
+      that matches none of the attribute's object constraints. The released AM
+      states the alternative-matching rule for single-valued attributes only,
+      so both postures stay open until upstream report #307 is settled.
+    arms:
+      content-unmatched-member-refused:
+        documents: [content_item_unmatched_refused]
+      content-unmatched-member-accepted:
+        documents: [content_item_unmatched_accepted]
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
+      section: Single-valued Attributes
+      quote: "Two or more object blocks introduced by type names appearing after an attribute which is not a container (i.e. for which there is no cardinality constraint) are taken to be *alternative constraints*, only one of which needs to be matched by the data."
+      report: 307

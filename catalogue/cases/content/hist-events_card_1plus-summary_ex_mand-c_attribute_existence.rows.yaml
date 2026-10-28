@@ -1,0 +1,14 @@
+# The rows of CONT-HIST-events_card_1plus-summary_ex_mand this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_history/hist-events_card_1plus-summary_ex_mand-c_attribute_existence
+iteration: reset_per_row
+literals: ["summary_existence", "events_count", "summary_committed"]
+recipe:
+  name: content_synthesized
+  rm_class: HISTORY
+  template_id: cnf.tpl.ecc_history_summary_existence
+  input: composition
+  template_input: template
+rows:
+  - {"summary_existence": "mandatory", "events_count": 1, "summary_committed": "absent"}
+  - {"summary_existence": "mandatory", "events_count": 3, "summary_committed": "absent"}

@@ -1,0 +1,16 @@
+# The rows of CONT-ELEMENT-value_null_flavour_existence this workflow carries; the recipe builds each
+# row's composition and operational template from its literals.
+workflow: content_element/element-value_null_flavour_existence-c_attribute_existence
+iteration: reset_per_row
+literals: ["value_existence", "null_flavour_existence", "value_committed", "null_flavour_committed"]
+recipe:
+  name: content_synthesized
+  rm_class: ELEMENT
+  template_id: cnf.tpl.ecc_element_existence
+  input: composition
+  template_input: template
+rows:
+  - {"value_existence": "mandatory", "null_flavour_existence": "optional", "value_committed": "absent", "null_flavour_committed": "present"}
+  - {"value_existence": "mandatory", "null_flavour_existence": "optional", "value_committed": "absent", "null_flavour_committed": "absent"}
+  - {"value_existence": "optional", "null_flavour_existence": "mandatory", "value_committed": "present", "null_flavour_committed": "absent"}
+  - {"value_existence": "optional", "null_flavour_existence": "mandatory", "value_committed": "absent", "null_flavour_committed": "absent"}

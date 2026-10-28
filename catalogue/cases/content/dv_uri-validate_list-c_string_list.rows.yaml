@@ -1,0 +1,12 @@
+# The rows of CONT-DV_URI-validate_list this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_uri/dv_uri-validate_list-c_string_list
+iteration: reset_per_row
+literals: ["value", "C_STRING.list"]
+recipe:
+  name: content_instance
+  rm_class: DV_URI
+  template_id: cnf.tpl.dv_uri_list
+  input: composition
+rows:
+  - {"value": "xyz", "C_STRING.list": "[https://cabolabs.com, https://cloudehrserver.com]"}

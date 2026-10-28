@@ -1,0 +1,12 @@
+# The rows of CONT-DV_BOOLEAN-only_false_allowed this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_boolean/dv_boolean-only_false_allowed-c_boolean_true_valid
+iteration: reset_per_row
+literals: ["value", "C_BOOLEAN.true_valid", "C_BOOLEAN.false_valid"]
+recipe:
+  name: content_instance
+  rm_class: DV_BOOLEAN
+  template_id: cnf.tpl.dv_boolean_only_false
+  input: composition
+rows:
+  - {"value": true, "C_BOOLEAN.true_valid": false, "C_BOOLEAN.false_valid": true}

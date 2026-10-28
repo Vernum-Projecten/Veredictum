@@ -1,0 +1,14 @@
+# The rows of CONT-DV_DATE-validate_open this workflow carries; the recipe builds each
+# row's composition from its literals.
+workflow: dv_date/dv_date-validate_open-accepted
+iteration: reset_per_row
+literals: ["value"]
+recipe:
+  name: content_instance
+  rm_class: DV_DATE
+  template_id: cnf.tpl.dv_date_open
+  input: composition
+rows:
+  - {"value": "2021"}
+  - {"value": "2021-10"}
+  - {"value": "2021-10-24"}

@@ -20,6 +20,22 @@ version on.
 
 ### Added
 
+- The content cases are converted to Arazzo (#603). The 134 `CONT-*`
+  decision tables become 360 workflows in 39 documents under
+  `catalogue/cases/content/`, one workflow per case and outcome: content the
+  template admits is created (201), a body the published ITS-JSON schema
+  refuses is answered 400, and a schema-valid body the template does not
+  validate or that breaks an RM invariant is answered 422.
+  `_setup/content_templates.arazzo.yaml` uploads the 52 templates whose
+  constraint every row shares. A new rows recipe, `content_synthesized`,
+  builds each row's operational template beside its composition for the
+  tables whose rows vary the constraint, and the workflow uploads it first;
+  the template id is a digest of the template, so a server never validates
+  against a stale one. The new option `content-unmatched-member` carries the
+  two postures on a container member that matches no constraint (#307).
+  `catalogue/id-map.yaml` maps every content case and names the rows left
+  open, each with its upstream report (#716, #717, #718, #719).
+
 - The create and delete cases of the COMPOSITION component are converted to
   Arazzo (#603). 59 workflows in five documents under
   `catalogue/cases/composition/` carry 50 of the 66 create and delete
@@ -346,6 +362,16 @@ version on.
 
 ### Fixed
 
+- Three content-recipe defects the content conversion (#603) found, each a
+  runner fault and none a server one. A row whose `context_committed` cell
+  is `absent` now commits no EVENT_CONTEXT; the authored token read as the
+  absent sentinel and fell back to a present context. A HISTORY with no
+  events omits `events` instead of sending an empty list, which the
+  ITS-JSON schema refuses. The synthesized HISTORY templates give their
+  EVENT node the events cardinality as its occurrences, so a 3..5 HISTORY
+  admits three events (ADL 1.4 VCOC); it was capped at one. An ordinal
+  symbol cell may name its rubric, `local::at0005 (mild)`, which the symbol
+  then carries as its value.
 - The `arazzo-citation` gate refuses a docs `section` that matches more than
   one heading, instead of checking the quote against the first one (#633).
   A repeated heading is named by a path of titles joined by ` > `, each
