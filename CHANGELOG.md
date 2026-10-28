@@ -278,6 +278,15 @@ version on.
   reads is a gap under upstream report #687. Two at-time cases have no
   workflow: no released text says whether a version is extant at its own
   commit instant, and no expression adds to a time.
+- The ITEM_TAG list of a VERSIONED_COMPOSITION is judged in
+  `catalogue/cases/item_tags/composition_tags` (#667), addressed by the
+  `versioned_object_uid` a step derives from the commit's version_uid. Five
+  workflows cover the target a container tag names, the version and
+  container lists kept apart on update and on delete, a new version from
+  `composition_update` that moves no tag, and the key and target_path
+  identity on the container. A demographic party's uid on the COMPOSITION
+  tag routes stays uncarried: the only route that creates a party is the
+  demographic API, which the release ships in the `DEVELOPMENT` state.
 - The COMPOSITION update cases are converted to Arazzo (#675). A create
   step derives the `versioned_object_uid` from the version_uid it answers
   with (`x-veredictum-derive`), and 65 new workflows address the

@@ -91,8 +91,9 @@ cases:
     new: []
     open: >-
       An ITEM_TAG behaviour, which is optional ("If the server does not
-      support ITEM_TAGs, these headers will also be unsupported"), and its
-      container half needs the versioned_object_uid (#667).
+      support ITEM_TAGs, these headers will also be unsupported"). No
+      workflow sends the wrapper headers yet; the container half is
+      addressable by the derived versioned_object_uid.
   I_EHR_COMPOSITION.create_composition-item_tree_empty:
     new: [composition_create/create_composition-item_tree_empty]
   I_EHR_COMPOSITION.create_composition-language_invalid:
@@ -826,19 +827,13 @@ cases:
     new: [composition_tags/composition_tags_delete-unknown_key]
   I_ITS_REST_ITEM_TAGS.composition_tags_delete-version_container_disjoint:
     new:
+      - composition_tags/composition_tags_delete-version_container_disjoint
       - ehr_status_tags/ehr_status_tags_delete-version_container_disjoint
-    open: >-
-      The COMPOSITION form, addressed by the versioned_object_uid, is not
-      carried: no released response gives a client that uid for a new
-      COMPOSITION, and the evaluator cannot take it from the version_uid
-      (#667). The behaviour is carried on the EHR_STATUS container.
   I_ITS_REST_ITEM_TAGS.composition_tags_get-container_target_shape:
-    new: [ehr_status_tags/ehr_status_tags_get-container_target_shape]
+    new:
+      - composition_tags/composition_tags_get-container_target_shape
+      - ehr_status_tags/ehr_status_tags_get-container_target_shape
     open: >-
-      The COMPOSITION form, addressed by the versioned_object_uid, is not
-      carried: no released response gives a client that uid for a new
-      COMPOSITION, and the evaluator cannot take it from the version_uid
-      (#667). The behaviour is carried on the EHR_STATUS container.
       owner_id/type equal to EHR is not judged: the released ITEM_TAG schema
       types owner_id as an OBJECT_REF and assigns no type value.
   I_ITS_REST_ITEM_TAGS.composition_tags_get-cross_space_party_uid:
@@ -846,16 +841,15 @@ cases:
       - composition_tags/composition_tags_get-other_ehr
       - ehr_status_tags/ehr_status_tags_get-composition_uid
     open: >-
-      A demographic party's uid on the COMPOSITION route is not carried: it
-      needs a party created through the demographic API as a precondition of
-      an ITEM_TAG row (#667). The EHR-side directions are carried.
+      A demographic party's uid on the COMPOSITION route is not carried: the
+      only route that creates a party is the demographic API, which the
+      release does not ship as stable ("This specification is in the
+      `DEVELOPMENT` state", ITS-REST docs/demographic/Description.md). The
+      EHR-side directions are carried.
   I_ITS_REST_ITEM_TAGS.composition_tags_get-supersession_does_not_move_tags:
-    new: [ehr_status_tags/ehr_status_tags_get-new_version_untagged]
-    open: >-
-      The COMPOSITION form needs the versioned_object_uid for
-      composition_update and for the container tags, which the evaluator
-      cannot obtain (#667). The behaviour is carried on EHR_STATUS, whose
-      update needs no container uid.
+    new:
+      - composition_tags/composition_tags_get-new_version_untagged
+      - ehr_status_tags/ehr_status_tags_get-new_version_untagged
   I_ITS_REST_ITEM_TAGS.composition_tags_get-version_target_shape:
     new: [composition_tags/composition_tags_get-version_target_shape]
     open: >-
@@ -886,8 +880,7 @@ cases:
   I_ITS_REST_ITEM_TAGS.composition_tags_update-key_target_path_identity:
     new:
       - composition_tags/composition_tags_update-key_target_path_identity
-    open: >-
-      Carried on the COMPOSITION version; #667 tracks the container form.
+      - composition_tags/composition_tags_update-container_key_target_path_identity
   I_ITS_REST_ITEM_TAGS.composition_tags_update-no_reversioning:
     new: []
     open: >-
@@ -917,12 +910,8 @@ cases:
     new: [composition_tags/composition_tags_update-unknown_uid]
   I_ITS_REST_ITEM_TAGS.composition_tags_update-version_container_disjoint:
     new:
+      - composition_tags/composition_tags_update-version_container_disjoint
       - ehr_status_tags/ehr_status_tags_update-version_container_disjoint
-    open: >-
-      The COMPOSITION form, addressed by the versioned_object_uid, is not
-      carried: no released response gives a client that uid for a new
-      COMPOSITION, and the evaluator cannot take it from the version_uid
-      (#667). The behaviour is carried on the EHR_STATUS container.
   I_ITS_REST_ITEM_TAGS.composition_tags_update-wrong_media:
     new:
       - composition_tags_refused/composition_tags_update-wrong_media
