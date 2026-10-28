@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: Veredictum contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# The FerroEHR server configuration docker/e2e-ferroehr.yml mounts, cut from
+# the quickstart to what the conformance surface needs: the sandbox profile,
+# the local EHR index, the dev Basic user ferroehr / ferroehr, RBAC off.
+
+deployment_profile = "sandbox"
+
+[ehr_index]
+provider = "local"
+
+[server]
+listen = "0.0.0.0:8080"
+
+[auth]
+enabled = true
+
+[[auth.basic.users]]
+user = "ferroehr"
+password_hash = "$argon2id$v=19$m=19456,t=2,p=1$ZmVycm9laHJEZXZTYWx0$be5nPwWjfUl1qvSrvkvqvdMOuCgM0VFcN/VN4MFLjT8"
+scopes = ["user/composition-*.cruds", "user/template-*.cruds", "user/aql-*.cruds", "__ferroehr.platform"]
+
+[authz.rbac]
+enabled = false
+
+[admin]
+enabled = true
