@@ -6,6 +6,315 @@
 # lists the old ids of a component whose own family is not converted yet
 # (#603): each moves into `cases` when its family is converted.
 cases:
+  I_DEFINITION_ADL14.delete_archetype-clinical_forbidden:
+    new: []
+    open: &adl14_archetype >-
+      The release defines no ADL 1.4 archetype resource: the case drove a
+      route of one server's own design, which no released OAS declares, and
+      the catalogue has no source for extension routes yet.
+  I_DEFINITION_ADL14.delete_archetype-existing:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.delete_archetype-non_existing:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.delete_opt-delete_existing:
+    new: []
+    open: &no_template_delete >-
+      The release defines no operation that deletes a template, so the SM
+      operation has no wire form.
+  I_DEFINITION_ADL14.delete_opt-delete_latest_version:
+    new: []
+    open: *no_template_delete
+  I_DEFINITION_ADL14.delete_opt-delete_non_existing:
+    new: []
+    open: *no_template_delete
+  I_DEFINITION_ADL14.delete_opt-delete_specific_version:
+    new: []
+    open: *no_template_delete
+  I_DEFINITION_ADL14.get_archetype-malformed_archetype_id:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.get_archetype-non_existing:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.get_opt-example_detail_levels:
+    new: [template_adl14/get_template_example]
+    open: >-
+      The rows run against cnf.tpl.count_range and assert the root
+      archetype_node_id of the example, not its RM type.
+  I_DEFINITION_ADL14.get_opt-example_invalid_detail_level:
+    new: []
+    open: >-
+      definition_template_adl1.4_example_get.yaml lets a server "fall back to
+      the closest supported level, or it may return an error (typically `400
+      Bad Request`)" for a detail_level it does not support, so the refusal
+      is not assigned. Not converted yet, tracked by #714.
+  I_DEFINITION_ADL14.get_opt-example_type_output:
+    new: [template_adl14/get_template_example]
+  I_DEFINITION_ADL14.get_opt-flat_not_acceptable:
+    new: [template_adl14/get_template-flat_not_acceptable]
+  I_DEFINITION_ADL14.get_opt-partial_template_id_no_match:
+    new: []
+    open: &adl14_version >-
+      BASE TEMPLATE_ID leaves the lexical form of an ADL 1.4 template_id "to
+      be determined", so the release does not say which part of one is a
+      version (upstream report #715). Not converted yet, tracked by #714.
+  I_DEFINITION_ADL14.get_opt-retrieve_fail:
+    new: [template_adl14/get_template-unknown]
+  I_DEFINITION_ADL14.get_opt-retrieve_latest_version:
+    new: []
+    open: *adl14_version
+  I_DEFINITION_ADL14.get_opt-retrieve_single:
+    new: [template_adl14/get_template-xml]
+    open: >-
+      The read is judged by its status and Content-Type; the bytes are not
+      compared with the uploaded OPT, because the evaluator has no XML judge.
+  I_DEFINITION_ADL14.get_opt-retrieve_specific_version:
+    new: []
+    open: *adl14_version
+  I_DEFINITION_ADL14.get_opts-retrieve_all:
+    new: [template_adl14/upload_template-obs_inst]
+    open: >-
+      The listing filtered by the uploaded template_id; a listing of the
+      whole server holds whatever other parties stored and is not judged.
+  I_DEFINITION_ADL14.get_opts-retrieve_all_no_opts:
+    new: []
+    open: >-
+      An empty listing of the whole server, which a shared server cannot be.
+  I_DEFINITION_ADL14.list_archetypes-all:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.list_opts-absent_version_latest_only:
+    new: []
+    open: *adl14_version
+  I_DEFINITION_ADL14.list_opts-version_exact_axis:
+    new: []
+    open: *adl14_version
+  I_DEFINITION_ADL14.list_opts-version_no_match:
+    new: []
+    open: *adl14_version
+  I_DEFINITION_ADL14.list_opts-version_star_all_versions:
+    new: []
+    open: *adl14_version
+  I_DEFINITION_ADL14.upload_archetype-readonly_forbidden:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.upload_archetype-replaces_existing:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.upload_archetype-source_round_trip:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.upload_archetype-translation_restates_original:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.upload_archetype-unauthenticated:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.upload_archetype-unparseable_source:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.upload_archetype-wrong_media:
+    new: []
+    open: *adl14_archetype
+  I_DEFINITION_ADL14.upload_opt-invalid_opt:
+    new: []
+    open: &invalid_opt >-
+      Each invalid OPT needs its own adjudication: 400 where the body is
+      invalid against the published OPT XSD, 422 where it is valid against
+      it and breaks an AM or BASE invariant. Not converted yet, tracked by
+      #714.
+  I_DEFINITION_ADL14.upload_opt-largest_published:
+    new: []
+    open: >-
+      The 5.2 MB OPT is too large to write inline, and the catalogue has no
+      payload references yet. Not converted yet, tracked by #714.
+  I_DEFINITION_ADL14.upload_opt-prefer_identifier:
+    new: [template_adl14/upload_template-return_identifier]
+    open: >-
+      The answer's template_id is asserted; the read back by it is
+      get_template-xml.
+  I_DEFINITION_ADL14.upload_opt-prefer_minimal:
+    new:
+      - template_adl14/upload_template-return_minimal
+      - template_adl14/upload_template-return_minimal-location
+  I_DEFINITION_ADL14.upload_opt-resource_meta_invalid:
+    new: []
+    open: *invalid_opt
+  I_DEFINITION_ADL14.upload_opt-unparseable_opt:
+    new:
+      - template_adl14/upload_template-empty_body
+      - template_adl14/upload_template-malformed_xml
+  I_DEFINITION_ADL14.upload_opt-valid_opt:
+    new:
+      - template_adl14/upload_template-obs_inst
+      - template_adl14/upload_template-nested
+      - template_adl14/upload_template-time_series
+  I_DEFINITION_ADL14.upload_opt-valid_opt_twice_conflict:
+    new: [template_adl14/upload_template-same_template_id_twice]
+  I_DEFINITION_ADL14.upload_opt-valid_opt_twice_no_conflict:
+    new:
+      - template_adl14/upload_template-obs_inst
+      - template_adl14/upload_template-nested
+    open: >-
+      Each upload names a fresh template_id, so every pair of upload
+      workflows is two distinct uploads; no workflow sends both.
+  I_DEFINITION_ADL14.upload_opt-wrong_media:
+    new: [template_adl14/upload_template-json_content_type]
+  I_DEFINITION_ADL14.validate_opt-invalid_opt:
+    new: []
+    open: *invalid_opt
+  I_DEFINITION_ADL14.validate_opt-valid_opt:
+    new:
+      - template_adl14/upload_template-obs_admin
+      - template_adl14/upload_template-obs_eva
+      - template_adl14/upload_template-minimal_instruction
+    open: >-
+      The release has no validation operation; validity is judged through
+      the upload, which answers 201 only for a template it accepted.
+  I_DEFINITION_ADL2.archetypes_count-empty:
+    new: []
+    open: &adl2_archetype >-
+      The release defines no ADL 2 archetype resource and no count: the case
+      drove a route of one server's own design, which no released OAS
+      declares, and the catalogue has no source for extension routes yet.
+  I_DEFINITION_ADL2.artefacts_count-empty:
+    new: []
+    open: *adl2_archetype
+  I_DEFINITION_ADL2.delete_artefact-clinical_forbidden:
+    new: []
+    open: &no_artefact_delete >-
+      The release defines no operation that deletes an ADL 2 artefact, so
+      the SM operation has no wire form.
+  I_DEFINITION_ADL2.delete_artefact-existing:
+    new: []
+    open: *no_artefact_delete
+  I_DEFINITION_ADL2.delete_artefact-malformed_artefact_id:
+    new: []
+    open: *no_artefact_delete
+  I_DEFINITION_ADL2.delete_artefact-non_existing:
+    new: []
+    open: *no_artefact_delete
+  I_DEFINITION_ADL2.delete_artefact-readonly_forbidden:
+    new: []
+    open: *no_artefact_delete
+  I_DEFINITION_ADL2.get_artefact-example:
+    new: []
+    open: &adl2_source >-
+      It needs a stored ADL 2 template, and no committed ADL 2 source is a
+      valid operational template: AM operational_template.adoc requires
+      `Specialisation_validity: is_specialised`, and the sources have no
+      specialize section. Not converted yet, tracked by #714.
+  I_DEFINITION_ADL2.get_artefact-example_unknown:
+    new: [template_adl2/get_template_adl2_example-unknown]
+  I_DEFINITION_ADL2.get_artefact-retrieve:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.get_artefact-unknown:
+    new: [template_adl2/get_template_adl2-unknown]
+  I_DEFINITION_ADL2.get_artefact-version_get:
+    new: [template_adl2/get_template_adl2_version-unknown]
+    open: >-
+      The 404 of a version that names nothing; the 200 of a stored version
+      needs a valid ADL 2 source. Not converted yet, tracked by #714.
+  I_DEFINITION_ADL2.get_artefact-version_prefix:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.has_artefact-existing:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.has_artefact-non_existing:
+    new: [template_adl2/get_template_adl2-unknown]
+    open: >-
+      Realised as a read of a template_id that names nothing.
+  I_DEFINITION_ADL2.list_archetypes-all:
+    new: []
+    open: *adl2_archetype
+  I_DEFINITION_ADL2.list_archetypes-unauthenticated:
+    new: []
+    open: *adl2_archetype
+  I_DEFINITION_ADL2.list_artefacts-all:
+    new: []
+    open: *adl2_archetype
+  I_DEFINITION_ADL2.list_matching_artefacts-filter:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.list_opts-absent_version_latest_only:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.list_opts-empty:
+    new: []
+    open: >-
+      An empty listing of the whole server, which a shared server cannot be.
+  I_DEFINITION_ADL2.list_opts-non_empty:
+    new: [template_adl2/list_templates_adl2]
+    open: >-
+      The listing's status and Content-Type; the stored template it should
+      hold needs a valid ADL 2 source. Not converted yet, tracked by #714.
+  I_DEFINITION_ADL2.list_opts-version_exact_axis:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.list_opts-version_prefix_glob:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.list_opts-version_star_all_versions:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.list_templates-non_empty:
+    new: [template_adl2/list_templates_adl2]
+    open: >-
+      The listing's status and Content-Type; the stored template it should
+      hold needs a valid ADL 2 source. Not converted yet, tracked by #714.
+  I_DEFINITION_ADL2.opts_count-unrealized:
+    new: []
+    open: &no_count >-
+      The release defines no operation that counts templates, so the SM
+      operation has no wire form.
+  I_DEFINITION_ADL2.templates_count-unrealized:
+    new: []
+    open: *no_count
+  I_DEFINITION_ADL2.upload_artefact-duplicate_conflict:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.upload_artefact-invalid_artefacts:
+    new: []
+    open: >-
+      The invalid source is judged against a valid twin that does not exist
+      yet, and its defect needs the 400 or 422 adjudication of an invalid
+      template. Not converted yet, tracked by #714.
+  I_DEFINITION_ADL2.upload_artefact-prefer_identifier:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.upload_artefact-prefer_minimal:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.upload_artefact-readonly_forbidden:
+    new: []
+    open: >-
+      No released sentence assigns which principal may upload a template;
+      the case rested on one server's role model and its read-only
+      principal.
+  I_DEFINITION_ADL2.upload_artefact-unparseable_artefact:
+    new:
+      - template_adl2/upload_template_adl2-empty_body
+      - template_adl2/upload_template_adl2-unparseable
+  I_DEFINITION_ADL2.upload_artefact-valid_opt:
+    new: []
+    open: *adl2_source
+  I_DEFINITION_ADL2.upload_artefact-wrong_media:
+    new: [template_adl2/upload_template_adl2-xml_content_type]
+    open: >-
+      The body is a header line of ADL text rather than a whole template.
+  I_DEFINITION_ADL2.valid_artefact-invalid:
+    new: []
+    open: >-
+      The release has no validation operation, and the invalid source needs
+      the 400 or 422 adjudication of an invalid template. Not converted yet,
+      tracked by #714.
+  I_DEFINITION_ADL2.valid_artefact-valid:
+    new: []
+    open: *adl2_source
   I_EHR_COMPOSITION.create_composition-audit_system_id_declared:
     new: [composition_create/create_composition-audit_system_id_declared]
   I_EHR_COMPOSITION.create_composition-bulk_load_depth:

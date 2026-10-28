@@ -210,7 +210,12 @@ fn parameter(step: &Step, name: &str, scope: &Scope<'_>) -> Option<String> {
 /// The request body, with every replacement applied as the evaluator does.
 fn body(step: &Step, scope: &Scope<'_>) -> Option<Value> {
     let request_body = step.request_body.as_ref()?;
-    let mut payload = request_body.payload.clone()?;
+    let mut payload = match request_body.payload.clone()? {
+        Value::String(text) if !text.starts_with('$') => {
+            Value::String(scope.substitute(&text, str::to_owned).ok()?)
+        }
+        other => other,
+    };
     for replacement in &request_body.replacements {
         // NOTE: no openEHR spec governs this — our own design; an undetermined value is not
         // catalogue text, and a malformed replacement is the profile gate's to refuse.
