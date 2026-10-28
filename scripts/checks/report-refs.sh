@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: Veredictum contributors
 # SPDX-License-Identifier: Apache-2.0
 # Every `report:` number in an `x-veredictum-cite` names an upstream report
-# (#632).
+# (#632), in the workflow documents and in `capabilities.yaml` alike.
 #
 # A citation that rests on defective released text names the tracker issue the
 # defect is reported in (ARCHITECTURE.md §15.4). `validate` is offline and can
@@ -17,7 +17,7 @@
 #
 # Usage: scripts/checks/report-refs.sh               # the catalogue
 #        scripts/checks/report-refs.sh --self-test   # against a stub tracker
-# Env:   REPORT_REFS_ROOT  the tree to scan (default: catalogue/cases)
+# Env:   REPORT_REFS_ROOT  the tree to scan (default: catalogue)
 #        GITHUB_REPOSITORY the repository to ask (default: Vernum-Projecten/Veredictum)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -26,7 +26,7 @@ numbers() { # $1: root; prints each distinct report number once, ascending
   if [[ ! -d "$1" ]]; then
     return 0
   fi
-  grep -rhoE 'report:[[:space:]]*[0-9]+' "$1" --include='*.arazzo.yaml' |
+  grep -rhoE 'report:[[:space:]]*[0-9]+' "$1" --include='*.arazzo.yaml' --include='capabilities.yaml' |
     sed -E 's/report:[[:space:]]*//' | sort -n -u
 }
 
@@ -80,12 +80,13 @@ STUB
   printf 'x-veredictum-cite:\n  report: 7\n' > "$tmp/good/ehr/a.arazzo.yaml"
   printf 'x-veredictum-cite: { source: s, report: 8 }\n' > "$tmp/bad/ehr/a.arazzo.yaml"
   printf 'x-veredictum-cite:\n  report: 9\n---\nreport: 404\n' > "$tmp/bad/ehr/b.arazzo.yaml"
+  printf 'options:\n  o:\n    x-veredictum-cite: { source: s, report: 405 }\n' > "$tmp/bad/capabilities.yaml"
   if ! PATH="$tmp/bin:$PATH" check "$tmp/good" stub/repo >/dev/null 2>&1; then
     echo "self-test: a labelled upstream report was refused" >&2
     exit 1
   fi
   out="$(PATH="$tmp/bin:$PATH" check "$tmp/bad" stub/repo 2>&1 || true)"
-  for want in "report: 8 does not carry" "report: 9 is a pull request" "report: 404 names no issue"; do
+  for want in "report: 8 does not carry" "report: 9 is a pull request" "report: 404 names no issue" "report: 405 names no issue"; do
     if [[ "$out" != *"$want"* ]]; then
       echo "self-test: '${want}' was not reported" >&2
       exit 1
@@ -95,8 +96,8 @@ STUB
     echo "self-test: a missing tree yielded report numbers" >&2
     exit 1
   fi
-  echo "report-refs: self-test OK (a labelled report passes; unlabelled, pull request and missing are refused)."
+  echo "report-refs: self-test OK (a labelled report passes; unlabelled, pull request and missing are refused, in documents and capabilities)."
   exit 0
 fi
 
-check "${REPORT_REFS_ROOT:-catalogue/cases}" "${GITHUB_REPOSITORY:-Vernum-Projecten/Veredictum}"
+check "${REPORT_REFS_ROOT:-catalogue}" "${GITHUB_REPOSITORY:-Vernum-Projecten/Veredictum}"

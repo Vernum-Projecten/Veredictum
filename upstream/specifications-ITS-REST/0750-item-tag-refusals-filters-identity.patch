@@ -1,0 +1,364 @@
+diff --git a/specifications/operations/agent_create.yaml b/specifications/operations/agent_create.yaml
+index 262369db..40297601 100644
+--- a/specifications/operations/agent_create.yaml
++++ b/specifications/operations/agent_create.yaml
+@@ -4,7 +4,7 @@ description: |
+   Creates the first version of a new AGENT.
+ 
+   A list of ITEM_TAGs can be associated with the AGENT, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - AGENT
+diff --git a/specifications/operations/agent_tags_update.yaml b/specifications/operations/agent_tags_update.yaml
+index ab41fcea..291ce04d 100644
+--- a/specifications/operations/agent_tags_update.yaml
++++ b/specifications/operations/agent_tags_update.yaml
+@@ -11,7 +11,9 @@ description: |
+   Providing an empty list will effectively remove all ITEM_TAG associated with the given target.
+   
+   More than one ITEM_TAG may be associated with a single target, in which case they are uniquely identified 
+-  by their `key` and `target_path` pair attributes.
++  by their `key` and `target_path` pair attributes. A list that carries two ITEM_TAGs with the same
++  `key` and `target_path` pair, or an ITEM_TAG that violates an invariant of the RM ITEM_TAG class, is refused with
++  `422 Unprocessable Entity`.
+ 
+ tags:
+   - ITEM_TAG
+@@ -35,5 +37,7 @@ responses:
+     $ref: ../responses/204_updated.yaml
+   '400':
+     $ref: ../responses/400.yaml
++  '422':
++    $ref: ../responses/422.yaml
+   '404':
+     $ref: ../responses/404_unknown_uid_based_id.yaml
+diff --git a/specifications/operations/agent_update.yaml b/specifications/operations/agent_update.yaml
+index 7a722fb3..2d1a23fb 100644
+--- a/specifications/operations/agent_update.yaml
++++ b/specifications/operations/agent_update.yaml
+@@ -10,7 +10,7 @@ description: |
+   The existing latest `version_uid` of AGENT resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+   A list of ITEM_TAGs can be associated with the updated AGENT, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - AGENT
+diff --git a/specifications/operations/composition_create.yaml b/specifications/operations/composition_create.yaml
+index 2d37dc10..e16c46c8 100644
+--- a/specifications/operations/composition_create.yaml
++++ b/specifications/operations/composition_create.yaml
+@@ -4,7 +4,7 @@ description: |
+   Creates the first version of a new COMPOSITION in the EHR identified by `ehr_id`.
+   
+   A list of ITEM_TAGs can be associated with the COMPOSITION, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - COMPOSITION
+diff --git a/specifications/operations/composition_tags_update.yaml b/specifications/operations/composition_tags_update.yaml
+index c1f9a476..e5587550 100644
+--- a/specifications/operations/composition_tags_update.yaml
++++ b/specifications/operations/composition_tags_update.yaml
+@@ -12,7 +12,9 @@ description: |
+   Providing an empty list will effectively remove all ITEM_TAG associated with the given target.
+   
+   More than one ITEM_TAG may be associated with a single target, in which case they are uniquely identified 
+-  by their `key` and `target_path` pair attributes.
++  by their `key` and `target_path` pair attributes. A list that carries two ITEM_TAGs with the same
++  `key` and `target_path` pair, or an ITEM_TAG that violates an invariant of the RM ITEM_TAG class, is refused with
++  `422 Unprocessable Entity`.
+ 
+ tags:
+   - ITEM_TAG
+@@ -37,5 +39,7 @@ responses:
+     $ref: ../responses/204_updated.yaml
+   '400':
+     $ref: ../responses/400.yaml
++  '422':
++    $ref: ../responses/422.yaml
+   '404':
+     $ref: ../responses/404_unknown_ehr_id_or_uid_based_id.yaml
+diff --git a/specifications/operations/composition_update.yaml b/specifications/operations/composition_update.yaml
+index cb38f41a..8d0b5679 100644
+--- a/specifications/operations/composition_update.yaml
++++ b/specifications/operations/composition_update.yaml
+@@ -10,7 +10,7 @@ description: |
+   The existing latest `version_uid` of COMPOSITION resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+   A list of ITEM_TAGs can be associated with the updated COMPOSITION, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - COMPOSITION
+diff --git a/specifications/operations/demographic_tags_get.yaml b/specifications/operations/demographic_tags_get.yaml
+index ab7c4ca7..b2692c4d 100644
+--- a/specifications/operations/demographic_tags_get.yaml
++++ b/specifications/operations/demographic_tags_get.yaml
+@@ -3,10 +3,12 @@ summary: Get Demographic tags
+ description: |
+   Retrieves the list of ITEM_TAG resources associated with any target VERSION or VERSIONED_PARTY within the Demographic space. 
+   
+-  This list can be filtered by the given one or more `tag_key`, `tag_value`, `tag_target_path` query parameters. 
++  This list can be filtered by the given one or more `tag_key`, `tag_value`, `tag_target_path` query parameters.
++  Each parameter matches the ITEM_TAG attribute of the same name exactly, and an ITEM_TAG is listed only when it matches
++  every parameter given. A `tag_target_path` never matches an ITEM_TAG that has no `target_path`. 
+   In case no such parameter is provided then all ITEM_TAG resources will be retrieved.
+   
+-  This will return an empty list when there is no matching ITEM_TAG associated with any target within given EHR.
++  This will return an empty list when there is no matching ITEM_TAG associated with any target in the demographic space.
+   
+   More than one ITEM_TAG may be associated with a single target, in which case they are uniquely identified 
+   by their `key` and `target_path` pair attributes.
+diff --git a/specifications/operations/ehr_status_tags_update.yaml b/specifications/operations/ehr_status_tags_update.yaml
+index 5c787659..894bd578 100644
+--- a/specifications/operations/ehr_status_tags_update.yaml
++++ b/specifications/operations/ehr_status_tags_update.yaml
+@@ -12,7 +12,9 @@ description: |
+   Providing an empty list will effectively remove all ITEM_TAG associated with the given target.
+   
+   More than one ITEM_TAG may be associated with a single target, in which case they are uniquely identified 
+-  by their `key` and `target_path` pair attributes.
++  by their `key` and `target_path` pair attributes. A list that carries two ITEM_TAGs with the same
++  `key` and `target_path` pair, or an ITEM_TAG that violates an invariant of the RM ITEM_TAG class, is refused with
++  `422 Unprocessable Entity`.
+ 
+ tags:
+   - ITEM_TAG
+@@ -37,5 +39,7 @@ responses:
+     $ref: ../responses/204_updated.yaml
+   '400':
+     $ref: ../responses/400.yaml
++  '422':
++    $ref: ../responses/422.yaml
+   '404':
+     $ref: ../responses/404_unknown_ehr_id_or_uid_based_id.yaml
+diff --git a/specifications/operations/ehr_status_update.yaml b/specifications/operations/ehr_status_update.yaml
+index 3c3c0eaf..d0aa33e9 100644
+--- a/specifications/operations/ehr_status_update.yaml
++++ b/specifications/operations/ehr_status_update.yaml
+@@ -6,7 +6,7 @@ description: |
+   The existing latest `version_uid` of EHR_STATUS resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+   A list of ITEM_TAGs can be associated with the updated EHR_STATUS, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+   The response will contain the updated EHR_STATUS resource when the `Prefer` header has a value of `return=representation`.
+ tags:
+diff --git a/specifications/operations/ehr_tags_get.yaml b/specifications/operations/ehr_tags_get.yaml
+index 1b772ad4..acb3c31f 100644
+--- a/specifications/operations/ehr_tags_get.yaml
++++ b/specifications/operations/ehr_tags_get.yaml
+@@ -4,7 +4,9 @@ description: |
+   Retrieves the list of ITEM_TAG resources associated with any target VERSION or 
+   VERSIONED_OBJECT within the EHR identified by `ehr_id`. 
+   
+-  This list can be filtered by the given one or more `tag_key`, `tag_value`, `tag_target_path` query parameters. 
++  This list can be filtered by the given one or more `tag_key`, `tag_value`, `tag_target_path` query parameters.
++  Each parameter matches the ITEM_TAG attribute of the same name exactly, and an ITEM_TAG is listed only when it matches
++  every parameter given. A `tag_target_path` never matches an ITEM_TAG that has no `target_path`. 
+   In case no such parameter is provided then all ITEM_TAG resources will be retrieved.
+   
+   This will return an empty list when there is no matching ITEM_TAG associated with any target within given EHR.
+diff --git a/specifications/operations/group_create.yaml b/specifications/operations/group_create.yaml
+index d91e2f4d..e54dc3cf 100644
+--- a/specifications/operations/group_create.yaml
++++ b/specifications/operations/group_create.yaml
+@@ -4,7 +4,7 @@ description: |
+   Creates the first version of a new GROUP.
+ 
+   A list of ITEM_TAGs can be associated with the GROUP, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - GROUP
+diff --git a/specifications/operations/group_tags_update.yaml b/specifications/operations/group_tags_update.yaml
+index 9042fea4..ab1fa7e4 100644
+--- a/specifications/operations/group_tags_update.yaml
++++ b/specifications/operations/group_tags_update.yaml
+@@ -11,7 +11,9 @@ description: |
+   Providing an empty list will effectively remove all ITEM_TAG associated with the given target.
+   
+   More than one ITEM_TAG may be associated with a single target, in which case they are uniquely identified 
+-  by their `key` and `target_path` pair attributes.
++  by their `key` and `target_path` pair attributes. A list that carries two ITEM_TAGs with the same
++  `key` and `target_path` pair, or an ITEM_TAG that violates an invariant of the RM ITEM_TAG class, is refused with
++  `422 Unprocessable Entity`.
+ 
+ tags:
+   - ITEM_TAG
+@@ -35,5 +37,7 @@ responses:
+     $ref: ../responses/204_updated.yaml
+   '400':
+     $ref: ../responses/400.yaml
++  '422':
++    $ref: ../responses/422.yaml
+   '404':
+     $ref: ../responses/404_unknown_uid_based_id.yaml
+diff --git a/specifications/operations/group_update.yaml b/specifications/operations/group_update.yaml
+index 00e34c30..cac4bf04 100644
+--- a/specifications/operations/group_update.yaml
++++ b/specifications/operations/group_update.yaml
+@@ -10,7 +10,7 @@ description: |
+   The existing latest `version_uid` of GROUP resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+   A list of ITEM_TAGs can be associated with the updated GROUP, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - GROUP
+diff --git a/specifications/operations/organisation_create.yaml b/specifications/operations/organisation_create.yaml
+index 2685670c..653c1a97 100644
+--- a/specifications/operations/organisation_create.yaml
++++ b/specifications/operations/organisation_create.yaml
+@@ -4,7 +4,7 @@ description: |
+   Creates the first version of a new ORGANISATION.
+ 
+   A list of ITEM_TAGs can be associated with the ORGANISATION, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - ORGANISATION
+diff --git a/specifications/operations/organisation_tags_update.yaml b/specifications/operations/organisation_tags_update.yaml
+index cb59c0fc..dcd64b80 100644
+--- a/specifications/operations/organisation_tags_update.yaml
++++ b/specifications/operations/organisation_tags_update.yaml
+@@ -11,7 +11,9 @@ description: |
+   Providing an empty list will effectively remove all ITEM_TAG associated with the given target.
+   
+   More than one ITEM_TAG may be associated with a single target, in which case they are uniquely identified 
+-  by their `key` and `target_path` pair attributes.
++  by their `key` and `target_path` pair attributes. A list that carries two ITEM_TAGs with the same
++  `key` and `target_path` pair, or an ITEM_TAG that violates an invariant of the RM ITEM_TAG class, is refused with
++  `422 Unprocessable Entity`.
+ 
+ tags:
+   - ITEM_TAG
+@@ -35,5 +37,7 @@ responses:
+     $ref: ../responses/204_updated.yaml
+   '400':
+     $ref: ../responses/400.yaml
++  '422':
++    $ref: ../responses/422.yaml
+   '404':
+     $ref: ../responses/404_unknown_uid_based_id.yaml
+diff --git a/specifications/operations/organisation_update.yaml b/specifications/operations/organisation_update.yaml
+index 3b236641..1e5d651a 100644
+--- a/specifications/operations/organisation_update.yaml
++++ b/specifications/operations/organisation_update.yaml
+@@ -10,7 +10,7 @@ description: |
+   The existing latest `version_uid` of ORGANISATION resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+   A list of ITEM_TAGs can be associated with the updated ORGANISATION, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - ORGANISATION
+diff --git a/specifications/operations/person_create.yaml b/specifications/operations/person_create.yaml
+index 28145fed..2e87eb48 100644
+--- a/specifications/operations/person_create.yaml
++++ b/specifications/operations/person_create.yaml
+@@ -4,7 +4,7 @@ description: |
+   Creates the first version of a new PERSON.
+ 
+   A list of ITEM_TAGs can be associated with the PERSON, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - PERSON
+diff --git a/specifications/operations/person_tags_update.yaml b/specifications/operations/person_tags_update.yaml
+index 28adad1f..318e88c0 100644
+--- a/specifications/operations/person_tags_update.yaml
++++ b/specifications/operations/person_tags_update.yaml
+@@ -11,7 +11,9 @@ description: |
+   Providing an empty list will effectively remove all ITEM_TAG associated with the given target.
+   
+   More than one ITEM_TAG may be associated with a single target, in which case they are uniquely identified 
+-  by their `key` and `target_path` pair attributes.
++  by their `key` and `target_path` pair attributes. A list that carries two ITEM_TAGs with the same
++  `key` and `target_path` pair, or an ITEM_TAG that violates an invariant of the RM ITEM_TAG class, is refused with
++  `422 Unprocessable Entity`.
+ 
+ tags:
+   - ITEM_TAG
+@@ -35,5 +37,7 @@ responses:
+     $ref: ../responses/204_updated.yaml
+   '400':
+     $ref: ../responses/400.yaml
++  '422':
++    $ref: ../responses/422.yaml
+   '404':
+     $ref: ../responses/404_unknown_uid_based_id.yaml
+diff --git a/specifications/operations/person_update.yaml b/specifications/operations/person_update.yaml
+index 715ac8bb..7f5b2323 100644
+--- a/specifications/operations/person_update.yaml
++++ b/specifications/operations/person_update.yaml
+@@ -10,7 +10,7 @@ description: |
+   The existing latest `version_uid` of PERSON resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+   A list of ITEM_TAGs can be associated with the updated PERSON, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - PERSON
+diff --git a/specifications/operations/role_create.yaml b/specifications/operations/role_create.yaml
+index 01b16c47..9cb8ced4 100644
+--- a/specifications/operations/role_create.yaml
++++ b/specifications/operations/role_create.yaml
+@@ -4,7 +4,7 @@ description: |
+   Creates the first version of a new ROLE.
+ 
+   A list of ITEM_TAGs can be associated with the ROLE, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - ROLE
+diff --git a/specifications/operations/role_tags_update.yaml b/specifications/operations/role_tags_update.yaml
+index ef31f66a..ae7deafe 100644
+--- a/specifications/operations/role_tags_update.yaml
++++ b/specifications/operations/role_tags_update.yaml
+@@ -11,7 +11,9 @@ description: |
+   Providing an empty list will effectively remove all ITEM_TAG associated with the given target.
+   
+   More than one ITEM_TAG may be associated with a single target, in which case they are uniquely identified 
+-  by their `key` and `target_path` pair attributes.
++  by their `key` and `target_path` pair attributes. A list that carries two ITEM_TAGs with the same
++  `key` and `target_path` pair, or an ITEM_TAG that violates an invariant of the RM ITEM_TAG class, is refused with
++  `422 Unprocessable Entity`.
+ 
+ tags:
+   - ITEM_TAG
+@@ -35,5 +37,7 @@ responses:
+     $ref: ../responses/204_updated.yaml
+   '400':
+     $ref: ../responses/400.yaml
++  '422':
++    $ref: ../responses/422.yaml
+   '404':
+     $ref: ../responses/404_unknown_uid_based_id.yaml
+diff --git a/specifications/operations/role_update.yaml b/specifications/operations/role_update.yaml
+index 54e5d390..dbd8d4e4 100644
+--- a/specifications/operations/role_update.yaml
++++ b/specifications/operations/role_update.yaml
+@@ -10,7 +10,7 @@ description: |
+   The existing latest `version_uid` of ROLE resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
+   
+   A list of ITEM_TAGs can be associated with the updated ROLE, in which case a `openehr-item-tag` or `openehr-version-item-tag` request header can be set as well. 
+-  The corresponding response header(s) will return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
++  The corresponding response header(s) MAY return ITEM_TAGs as they were set by the server - see [item tags headers](overview.html#tag/Requests_and_responses/HTTP-headers/openehr-item-tag-and-openehr-version-item-tag) for more details.
+ 
+ tags:
+   - ROLE
