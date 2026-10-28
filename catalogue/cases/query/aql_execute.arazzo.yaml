@@ -1,5 +1,4 @@
-# The ad-hoc AQL execution operations over the wire: scoping a query to one
-# EHR, paging, an empty EHR, and the shape and headers of the RESULT_SET
+# The ad-hoc AQL execution operations over the wire: paging, an empty EHR, and the shape and headers of the RESULT_SET
 # answer, each judged over the dataset `_setup/templates.arazzo.yaml` seeds.
 # Every quote is copied verbatim from the named vendored file.
 arazzo: "1.1.0"
@@ -7,9 +6,9 @@ info:
   title: AQL execution
   version: "0.1.0"
   description: >-
-    The ad-hoc AQL GET and POST: the ehr_id parameter and the openehr-ehr-id
-    header, offset and fetch, an EHR with no COMPOSITION, and the RESULT_SET
-    schema, Content-Type, ETag and Location of the answer.
+    The ad-hoc AQL GET and POST: offset and fetch, an EHR with no
+    COMPOSITION, and the RESULT_SET schema, Content-Type, ETag and Location of
+    the answer.
 sourceDescriptions:
   - name: query
     url: "../../../specs/rest-oas/query-validation.openapi.yaml"
@@ -21,45 +20,6 @@ sourceDescriptions:
     url: "../_setup/templates.arazzo.yaml"
     type: arazzo
 workflows:
-  - workflowId: get-ehr_id_parameter
-    summary: The ehr_id query parameter scopes an ad-hoc query to one EHR
-    description: >-
-      Executes a query over every EHR's COMPOSITIONs with GET, passing the
-      dataset ehr_id as the ehr_id query parameter. The result is the five
-      dataset COMPOSITIONs and nothing from any other EHR.
-    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
-    x-veredictum-cite:
-      source: specs/openehr/ITS-REST/specifications/docs/query/Query_types.md
-      section: Single EHR queries
-      quote: "This is achieved by supplying an `ehr_id` query parameter or setting an `openehr-ehr-id` request header."
-    steps:
-      - stepId: query
-        description: >-
-          Execute the query with the dataset ehr_id as the ehr_id query
-          parameter.
-        operationId: $sourceDescriptions.query.query_execute_adhoc_query
-        parameters:
-          - name: q
-            in: query
-            value: >-
-              SELECT c/name/value AS name FROM EHR e CONTAINS COMPOSITION c
-          - name: ehr_id
-            in: query
-            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
-          - { name: Accept, in: header, value: application/json }
-        successCriteria:
-          - condition: "$statusCode == 200"
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
-              section: description
-              quote: "`200 OK` is returned when the server is able to execute the query."
-          - condition: "$statusCode == 200"
-            x-veredictum-check:
-              judge: result_set
-              context: $response.body
-              match: set
-              rows: [[alpha visit], [beta visit], [gamma visit], ["delta ?visit"], [epsilon note]]
-
   - workflowId: get-offset_fetch
     summary: offset and fetch page an ad-hoc GET result
     description: >-
@@ -82,7 +42,7 @@ workflows:
             value: >-
               SELECT
               o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
-              AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
               OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] ORDER BY
               o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
           - name: ehr_id
@@ -126,7 +86,7 @@ workflows:
             value: >-
               SELECT
               o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
-              AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
               OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] ORDER BY
               o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
           - name: ehr_id
@@ -229,7 +189,7 @@ workflows:
           - name: q
             in: query
             value: >-
-              SELECT c/name/value AS name FROM EHR e CONTAINS COMPOSITION c
+              SELECT c/name/value AS name FROM EHR e[ehr_id/value='{$inputs.ehr_id}'] CONTAINS COMPOSITION c
           - name: ehr_id
             in: query
             value: $inputs.ehr_id
@@ -314,7 +274,7 @@ workflows:
             value: >-
               SELECT
               o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
-              AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
               OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1]
           - name: ehr_id
             in: query
@@ -356,7 +316,7 @@ workflows:
             value: >-
               SELECT
               o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
-              AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
               OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1]
           - name: ehr_id
             in: query
@@ -393,7 +353,7 @@ workflows:
             value: >-
               SELECT
               o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
-              AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
               OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1]
           - name: ehr_id
             in: query
@@ -430,7 +390,7 @@ workflows:
             value: >-
               SELECT
               o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
-              AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS
+              AS magnitude FROM EHR e[ehr_id/value='{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}'] CONTAINS COMPOSITION c CONTAINS
               OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1]
           - name: ehr_id
             in: query

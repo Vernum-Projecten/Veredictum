@@ -203,10 +203,39 @@ fn parameter(step: &Step, name: &str, scope: &Scope<'_>) -> Option<String> {
             let expr = Expr::parse(text).ok()?;
             scope.eval(&expr).ok().flatten().as_ref().map(text_of)
         }
-        ValueOrSelector::Literal(Value::String(text)) => scope.substitute(text, str::to_owned).ok(),
+        ValueOrSelector::Literal(Value::String(text)) => scope
+            .substitute(text, str::to_owned)
+            .ok()
+            .or_else(|| placeholders(text)),
         ValueOrSelector::Literal(other) => Some(other.to_string()),
         ValueOrSelector::Selector(_) => None,
     }
+}
+
+/// The value an embedded `{$…}` expression stands for while the gate parses
+/// a query whose expression the catalogue does not determine, such as the
+/// identifier an earlier step was answered with.
+const PLACEHOLDER: &str = "00000000-0000-4000-8000-000000000000";
+
+/// `text` with every embedded `{$…}` expression replaced by [`PLACEHOLDER`];
+/// `None` when an embedded expression is unterminated or does not parse.
+fn placeholders(text: &str) -> Option<String> {
+    // NOTE: no openEHR spec governs this — our own design; the gate checks the AQL the
+    // catalogue wrote, so a runtime value stands in as a placeholder, never as AQL.
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("{$") {
+        let (before, tail) = rest.split_at(start);
+        out.push_str(before);
+        let inner_and_after = tail.get(1..)?;
+        let end = inner_and_after.find('}')?;
+        let (inner, after) = inner_and_after.split_at(end);
+        Expr::parse(inner).ok()?;
+        out.push_str(PLACEHOLDER);
+        rest = after.get(1..)?;
+    }
+    out.push_str(rest);
+    Some(out)
 }
 
 /// The request body, with every replacement applied as the evaluator does;
@@ -312,6 +341,17 @@ mod tests {
 
     const VALID: &str = "SELECT e/ehr_id/value FROM EHR e";
     const INVALID: &str = "SELECT e/ehr_id/value EHR e";
+
+    #[test]
+    fn an_embedded_runtime_value_is_parsed_as_a_placeholder() {
+        let pinned = "SELECT e/ehr_id/value FROM EHR e WHERE e/ehr_id/value = '{$steps.create.outputs.ehr_id}'";
+        let found = check_workflow("query/w", &workflow(&json!([get_step(pinned, 200)])), None);
+        assert_eq!(found, Vec::new());
+        let broken = "SELECT e/ehr_id/value EHR e WHERE e/ehr_id/value = '{$steps.create.outputs.ehr_id}'";
+        let found = check_workflow("query/w", &workflow(&json!([get_step(broken, 200)])), None);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(placeholders("x {$not an expression} y"), None);
+    }
 
     #[test]
     fn a_literal_query_that_parses_passes() {

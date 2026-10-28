@@ -624,7 +624,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -642,7 +642,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -660,7 +660,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -718,7 +718,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -736,7 +736,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -754,7 +754,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -839,7 +839,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:

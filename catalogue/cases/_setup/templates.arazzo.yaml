@@ -716,7 +716,7 @@ workflows:
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=minimal }
+          - { name: Prefer, in: header, value: return=representation }
         requestBody:
           contentType: application/json
           payload:
@@ -801,7 +801,7 @@ workflows:
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=minimal }
+          - { name: Prefer, in: header, value: return=representation }
         requestBody:
           contentType: application/json
           payload: &fifteen
@@ -886,7 +886,7 @@ workflows:
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=minimal }
+          - { name: Prefer, in: header, value: return=representation }
         requestBody:
           contentType: application/json
           payload: *fifteen
@@ -901,7 +901,7 @@ workflows:
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=minimal }
+          - { name: Prefer, in: header, value: return=representation }
         requestBody:
           contentType: application/json
           payload:
@@ -986,7 +986,7 @@ workflows:
         operationId: $sourceDescriptions.ehr.composition_create
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Prefer, in: header, value: return=minimal }
+          - { name: Prefer, in: header, value: return=representation }
         requestBody:
           contentType: application/json
           payload:
