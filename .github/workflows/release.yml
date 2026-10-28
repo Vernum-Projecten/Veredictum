@@ -138,6 +138,21 @@ jobs:
       - name: Changelog structure (no duplicate subsections, canonical types)
         run: bash scripts/checks/changelog-structure.sh
 
+      # Entries are fragments under `changelog.d/` until the cut folds them in
+      # with `scripts/release/changelog.sh --assemble` (#766). A fragment still
+      # there at tag time is a change the release notes would silently omit.
+      # Versions here carry no pre-release suffix, so every tag is a full cut.
+      - name: No changelog fragment is left behind
+        run: |
+          set -euo pipefail
+          left="$(find changelog.d -mindepth 1 -maxdepth 1 ! -name README.md -print | LC_ALL=C sort)"
+          if [ -n "$left" ]; then
+            echo "::error::changelog.d/ still holds fragments the cut did not fold in. Run 'scripts/release/changelog.sh --assemble X.Y.Z YYYY-MM-DD' in the cut pull request:" >&2
+            printf '  %s\n' "$left" >&2
+            exit 1
+          fi
+          echo "changelog.d/ holds no fragment: every entry is in CHANGELOG.md."
+
       # The release NOTES are produced here rather than at publish time: the
       # section existing and being non-empty is a release fact like any other,
       # and the extraction that proves it may as well hand the result on. The

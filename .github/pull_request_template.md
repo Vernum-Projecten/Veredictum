@@ -22,7 +22,7 @@ An expectation with no citation is not reviewable.
 - [ ] No test, case, or expectation weakened, skipped, or deleted, and no test edited to route around a defect it exposes
 - [ ] Every new or changed expectation carries the specification section it comes from
 - [ ] No expectation set or adjusted from what a server under test did
-- [ ] User-visible change → `CHANGELOG.md` `[Unreleased]` entry
+- [ ] User-visible change → a fragment under `changelog.d/` (`changelog.d/README.md`), with `CHANGELOG.md` untouched
 - [ ] Commits signed (`git log --format=%G?` reads `G`)
 - [ ] New issues from this work linked as native GitHub relationships (sub-issue, blocked-by), not prose
 
