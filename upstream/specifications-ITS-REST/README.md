@@ -14,6 +14,7 @@ the commit `specs/openehr/ITS-REST/` vendors.
 | `0639-ehr-references-the-versioned-objects.patch` | #639 |
 | `0699-error-bodies-are-problem-details.patch` | #699 |
 | `0715-adl14-template-id-version.patch` | #715 |
+| `0721-simplified-formats-mapping-tables.patch` | #721 |
 | `0732-party-creates-declare-no-404.patch` | #732 |
 
 A patch is named after its report's number. Apply one in a checkout of that

@@ -183,3 +183,20 @@ path = [
 precedence = "override"
 SPDX-FileCopyrightText = ["Veredictum contributors", "2026 Cadasto B.V."]
 SPDX-License-Identifier = "Apache-2.0 AND MIT"
+
+# ── The Simplified Formats templates and flat documents ─────────────────────
+# The set-up document carries four operational templates inline: two from the
+# openEHR CNF Robot corpus (test_all_types.en.v1 and minimal_action.en.v1)
+# and two of our own built on openEHR archetypes (cnf.vitals and
+# cnf.tpl.sf_interval_event). The flat documents of `flat_context` and
+# `flat_mapping` are adapted from the CNF Robot corpus's flat compositions.
+# They carry the terms of `artifacts/corpus/**` beside our own text.
+[[annotations]]
+path = [
+  "catalogue/cases/_setup/simplified_formats.arazzo.yaml",
+  "catalogue/cases/simplified_formats/flat_context.arazzo.yaml",
+  "catalogue/cases/simplified_formats/flat_mapping.arazzo.yaml",
+]
+precedence = "override"
+SPDX-FileCopyrightText = ["Veredictum contributors", "openEHR Foundation", "the respective archetype authors"]
+SPDX-License-Identifier = "Apache-2.0 AND CC-BY-SA-3.0 AND CC-BY-SA-4.0"

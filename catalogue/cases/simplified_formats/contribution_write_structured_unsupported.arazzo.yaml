@@ -1,0 +1,82 @@
+# A CONTRIBUTION committed with Content-Type application/openehr.wt.structured+json, for a
+# service that does not process the Simplified Structured JSON format: the refusing arm of the
+# `contribution-structured-write` option, whose other arm is
+# `contribution_write_structured.arazzo.yaml`, as an Arazzo 1.1.0 workflow over the
+# released ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: CONTRIBUTION create with a Simplified Structured JSON member, refused
+  version: 0.1.0
+  description: >-
+    A CONTRIBUTION whose member data is in the Simplified Structured JSON format, sent to a
+    service that does not process the format.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: commit_contribution-structured_unsupported_media
+    summary: A CONTRIBUTION sent as Simplified Structured JSON is answered 415 by a service that does not process it
+    description: >-
+      Creates an EHR, then commits with Content-Type application/openehr.wt.structured+json a
+      CONTRIBUTION whose member data is a COMPOSITION in the Simplified Structured JSON format.
+      A service that cannot process the request payload in the format answers
+      415 Unsupported Media Type.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "If the service cannot process the request payload as the simplified format is not supported, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: commit
+        description: Commit a CONTRIBUTION whose one member creates a COMPOSITION, keeping its uid and the version_uid it references.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_evaluation.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.structured+json
+          payload:
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit: &creation_audit
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data:
+                  ctx: { language: en, territory: UY, composer_name: Dr. Structured }
+                  minimal:
+                    minimal:
+                      - quantity:
+                          - { "|magnitude": 78.5, "|unit": kg }
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 415
