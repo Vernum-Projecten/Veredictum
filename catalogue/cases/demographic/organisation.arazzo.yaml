@@ -1,6 +1,6 @@
-# The ORGANISATION lifecycle of the Demographic API: create, read, update and delete,
-# the representation preferences, the misses and refusals of the version
-# conditions, as Arazzo 1.1.0 workflows over the released ITS-REST
+# The ORGANISATION lifecycle of the Demographic API: create, read, update and
+# delete, the representation preferences, the misses and refusals of the
+# version conditions, as Arazzo 1.1.0 workflows over the released ITS-REST
 # `-validation` OAS. Every criterion resolves to an `x-veredictum-cite` (its
 # own, else its step's, else its workflow's), and every quote is copied
 # verbatim from the named vendored file.

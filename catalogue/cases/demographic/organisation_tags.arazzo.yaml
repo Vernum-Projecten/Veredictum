@@ -1,7 +1,7 @@
-# The ITEM_TAG lists of a ORGANISATION version and of its VERSIONED_PARTY container:
-# read, replaced and deleted by key, the representation preferences, the
-# misses and the refused formats, as Arazzo 1.1.0 workflows over the
-# released ITS-REST `-validation` OAS. Every criterion resolves to an
+# The ITEM_TAG lists of a ORGANISATION version and of its VERSIONED_PARTY
+# container: read, replaced and deleted by key, the representation
+# preferences, the misses and the refused formats, as Arazzo 1.1.0 workflows
+# over the released ITS-REST `-validation` OAS. Every criterion resolves to an
 # `x-veredictum-cite` (its own, else its step's, else its workflow's), and
 # every quote is copied verbatim from the named vendored file.
 arazzo: 1.1.0

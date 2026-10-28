@@ -1338,7 +1338,7 @@ cases:
   I_DEMOGRAPHIC_SERVICE.get_party_at_time-deleted_current:
     new: [person/delete_person-read_after]
   I_DEMOGRAPHIC_SERVICE.get_party_at_time-xml:
-    new: [party_read_xml/get_versioned_party_version-xml]
+    new: [versioned_party_read_xml/get_versioned_party_version-xml]
     open: >-
       The XML read of the PERSON itself is by version_uid
       (party_read_xml/get_person-xml); the read at a time is carried as
@@ -3256,10 +3256,10 @@ cases:
   I_ITS_REST_VERSIONED_PARTY.versioned_party_get-unknown_container:
     new: [versioned_party/get_versioned_party-unknown]
   I_ITS_REST_VERSIONED_PARTY.versioned_party_get-xml:
-    new: [party_read_xml/get_versioned_party-xml]
+    new: [versioned_party_read_xml/get_versioned_party-xml]
   I_ITS_REST_VERSIONED_PARTY.versioned_party_get-xml_not_acceptable:
     new:
-      - party_read_xml_not_acceptable/get_versioned_party-xml_not_acceptable
+      - versioned_party_read_xml_not_acceptable/get_versioned_party-xml_not_acceptable
   I_QUERY_SERVICE.execute_ad_hoc_query-aggregates:
     new: [aql_semantics/aggregate-count, aql_semantics/aggregate-count_distinct, aql_semantics/aggregate-min, aql_semantics/aggregate-max, aql_semantics/aggregate-sum, aql_semantics/aggregate-avg]
   I_QUERY_SERVICE.execute_ad_hoc_query-aggregates_empty_set:

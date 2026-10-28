@@ -285,15 +285,29 @@ options:
       quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
   party-xml-read:
     description: >-
-      Whether the service serves the PARTY resources of the Demographic API
-      (each of the five PARTY kinds, its VERSIONED_PARTY, their versions and
-      the revision history) in canonical XML when a client asks for it with
-      Accept application/xml.
+      Whether the service serves each of the five PARTY kinds of the
+      Demographic API (PERSON, AGENT, GROUP, ORGANISATION and ROLE) in
+      canonical XML when a client asks for it with Accept application/xml.
     arms:
       party-xml-supported:
         documents: [party_read_xml]
       party-xml-unsupported:
         documents: [party_read_xml_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Services MUST support at least one of the openEHR **XML** or **JSON** canonical formats for resource representation."
+  versioned-party-xml-read:
+    description: >-
+      Whether the service serves the VERSIONED_PARTY family of the
+      Demographic API (the VERSIONED_PARTY, its versions and its revision
+      history) in canonical XML when a client asks for it with Accept
+      application/xml.
+    arms:
+      versioned-party-xml-supported:
+        documents: [versioned_party_read_xml]
+      versioned-party-xml-unsupported:
+        documents: [versioned_party_read_xml_not_acceptable]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
