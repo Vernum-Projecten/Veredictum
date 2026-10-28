@@ -20,6 +20,21 @@ version on.
 
 ### Added
 
+- The Simplified Formats cases are converted to Arazzo (#603). 76 workflows
+  in 21 documents under `catalogue/cases/simplified_formats/` commit flat and
+  structured COMPOSITIONs and judge the context defaults, the RM mappings of
+  each data value type, path indexing and level removal, `|raw`, `|other` and
+  the refusals the release requires, each refusal beside its valid twin; they
+  also cover a CONTRIBUTION written and read in both formats and the
+  deprecated and legacy media types. Four templates are uploaded by the new
+  set-up `_setup/simplified_formats.arazzo.yaml`. Eight new options in
+  `catalogue/capabilities.yaml`: `contribution-flat-write`,
+  `contribution-structured-write`, `contribution-flat-read`,
+  `contribution-structured-read`, `simplified-deprecated-write`,
+  `simplified-deprecated-read`, `simplified-legacy-write` and
+  `simplified-legacy-read`. All 71 old case ids are in `catalogue/id-map.yaml`:
+  60 carried and 11 not carried with their reason. Four CONTRIBUTION gaps of
+  #698 close, and the mappings still open are tracked by #722.
 - The QUERY and DEFINITION query cases are converted to Arazzo (#603), and
   the AQL conformance corpus (github.com/Cadasto/aql-conformance, MIT) is
   brought in (#695). `catalogue/cases/query/` holds the ad-hoc and stored
