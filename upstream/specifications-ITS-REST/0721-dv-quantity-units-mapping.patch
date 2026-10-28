@@ -1,0 +1,35 @@
+diff --git a/docs/simplified_formats/master04-basic_concepts.adoc b/docs/simplified_formats/master04-basic_concepts.adoc
+index 6fe34b35..0f7a2d49 100644
+--- a/docs/simplified_formats/master04-basic_concepts.adoc
++++ b/docs/simplified_formats/master04-basic_concepts.adoc
+@@ -665,7 +665,7 @@ This feature allows incorporating fully-formed openEHR Reference Model (RM) obje
+   "vital_signs/blood_pressure:0/any_event:0/systolic|raw": {
+     "_type": "DV_QUANTITY",
+     "magnitude": 120,
+-    "unit": "mm[Hg]"
++    "units": "mm[Hg]"
+   }
+ }
+ ----
+diff --git a/docs/simplified_formats/master05-rm_mapping.adoc b/docs/simplified_formats/master05-rm_mapping.adoc
+index 33396b8d..05052f18 100644
+--- a/docs/simplified_formats/master05-rm_mapping.adoc
++++ b/docs/simplified_formats/master05-rm_mapping.adoc
+@@ -2351,14 +2351,14 @@ See RM specification of the https://specifications.openehr.org/releases/RM/lates
+ | Note
+ 
+ | `\|magnitude`
+-| String
++| Real
+ | magnitude
+ | yes
+ |
+ 
+ | `\|unit`
+-| Real
+-| unit
++| String
++| units
+ | yes
+ |
+ 

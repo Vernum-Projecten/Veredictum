@@ -1,0 +1,71 @@
+# Template examples asked for with the deprecated Simplified Formats media
+# types, for a service that still serves them: the serving arm of the
+# `simplified-deprecated-read` option, whose other arm is
+# `deprecated_example_not_acceptable.arazzo.yaml`, as Arazzo 1.1.0 workflows
+# over the released ITS-REST `-validation` OAS.
+# Every criterion resolves to an `x-veredictum-cite` (its own, else its
+# step's, else its workflow's), and every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: Template examples in the deprecated Simplified Formats media types
+  version: 0.1.0
+  description: >-
+    An example of the template minimal_evaluation.en.v1 asked for with
+    each deprecated media type from a service that serves them.
+sourceDescriptions:
+  - name: definition
+    url: ../../../specs/rest-oas/definition-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: get_template_example-flat_deprecated_media
+    summary: A template example asked for as application/openehr.wt.flat.schema+json is served
+    description: >-
+      Retrieves an example of the template minimal_evaluation.en.v1 with
+      Accept application/openehr.wt.flat.schema+json from a service that
+      serves the deprecated media type. The read is answered 200.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &deprecated
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "> NOTE: The `application/openehr.wt.flat.schema+json` and `application/openehr.wt.structured.schema+json` which were historically available in earlier versions of this specification, are now deprecated and will be removed in a future version of the specification. The equivalent formats `application/openehr.wt.flat+json` and `application/openehr.wt.structured+json` SHOULD be used instead."
+      level: should
+    steps:
+      - stepId: example
+        description: Retrieve an example of the template minimal_evaluation.en.v1 with Accept application/openehr.wt.flat.schema+json.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_example_get
+        parameters:
+          - { name: template_id, in: path, value: minimal_evaluation.en.v1 }
+          - { name: Accept, in: header, value: application/openehr.wt.flat.schema+json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Template_example_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the template is successfully retrieved."
+
+  - workflowId: get_template_example-structured_deprecated_media
+    summary: A template example asked for as application/openehr.wt.structured.schema+json is served
+    description: >-
+      Retrieves an example of the template minimal_evaluation.en.v1 with
+      Accept application/openehr.wt.structured.schema+json from a
+      service that serves the deprecated media type. The read is
+      answered 200.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *deprecated
+    steps:
+      - stepId: example
+        description: Retrieve an example of the template minimal_evaluation.en.v1 with Accept application/openehr.wt.structured.schema+json.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_example_get
+        parameters:
+          - { name: template_id, in: path, value: minimal_evaluation.en.v1 }
+          - { name: Accept, in: header, value: application/openehr.wt.structured.schema+json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Template_example_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the template is successfully retrieved."

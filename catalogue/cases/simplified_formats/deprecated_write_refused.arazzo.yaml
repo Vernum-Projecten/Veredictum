@@ -1,0 +1,102 @@
+# COMPOSITION creates sent with the deprecated Simplified Formats media types,
+# for a service that does not process them: the refusing arm of the
+# `simplified-deprecated-write` option, whose other arm is
+# `deprecated_write.arazzo.yaml`, as Arazzo 1.1.0 workflows over the released
+# ITS-REST `-validation` OAS.
+# Every criterion resolves to an `x-veredictum-cite` (its own, else its
+# step's, else its workflow's), and every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION creates with the deprecated Simplified Formats media types, refused
+  version: 0.1.0
+  description: >-
+    A flat and a structured document sent with the deprecated media types
+    to a service that does not process them.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-flat_deprecated_media_unsupported
+    summary: A COMPOSITION sent as application/openehr.wt.flat.schema+json is answered 415 by a service that does not process it
+    description: >-
+      Creates an EHR, then creates a COMPOSITION from a flat document
+      sent with Content-Type application/openehr.wt.flat.schema+json to
+      a service that does not process the deprecated media type. The
+      create is answered 415 Unsupported Media Type.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: &unsupported
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "The service is refusing the request because the payload is in a format not supported by this method on the target resource"
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: create
+        description: Create the COMPOSITION from the document sent as application/openehr.wt.flat.schema+json.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_evaluation.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat.schema+json
+          payload:
+            ctx/language: en
+            ctx/territory: UY
+            ctx/composer_name: Dr. Flat
+            minimal/minimal:0/quantity|magnitude: 78.5
+            minimal/minimal:0/quantity|unit: kg
+        successCriteria:
+          - condition: $statusCode == 415
+
+  - workflowId: create_composition-structured_deprecated_media_unsupported
+    summary: A COMPOSITION sent as application/openehr.wt.structured.schema+json is answered 415 by a service that does not process it
+    description: >-
+      Creates an EHR, then creates a COMPOSITION from a structured
+      document sent with Content-Type
+      application/openehr.wt.structured.schema+json to a service that
+      does not process the deprecated media type. The create is answered
+      415 Unsupported Media Type.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite: *unsupported
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the document sent as application/openehr.wt.structured.schema+json.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_evaluation.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.structured.schema+json
+          payload:
+            ctx: { language: en, territory: UY, composer_name: Dr. Structured }
+            minimal:
+              minimal:
+                - quantity:
+                    - { "|magnitude": 78.5, "|unit": kg }
+        successCriteria:
+          - condition: $statusCode == 415

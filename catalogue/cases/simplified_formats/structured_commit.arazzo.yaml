@@ -1,0 +1,145 @@
+# COMPOSITIONs created from the Simplified Structured JSON format, for a
+# service that processes it: part of the accepting arm of the
+# `composition-structured-write` option, as Arazzo 1.1.0 workflows over the
+# released ITS-REST `-validation` OAS. Each workflow commits a structured
+# document and reads the COMPOSITION back in canonical JSON. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION creates from the Simplified Structured JSON format
+  version: 0.1.0
+  description: >-
+    Structured documents of the template cnf.vitals, judged on the canonical
+    JSON of the COMPOSITION each created.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: sf
+    url: ../_setup/simplified_formats.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-structured-vitals
+    summary: A structured document whose single values sit in arrays is created with the temperature it gives
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a structured document whose context is grouped under ctx and whose
+      one body temperature of 37.2 Cel sits in arrays at every level, and
+      reads the COMPOSITION back in canonical JSON. The Temperature ELEMENT
+      carries a DV_QUANTITY of 37.2 Cel.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Structured format
+      quote: "Arrays MUST be used for data values, even when cardinality is `0..1` or `1..1`"
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: commit
+        description: Create the COMPOSITION from the structured document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - &ehr_id
+            { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - &vitals
+            { name: openehr-template-id, in: header, value: cnf.vitals }
+          - &representation
+            { name: Prefer, in: header, value: return=representation }
+          - &json
+            { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.structured+json
+          payload:
+            ctx: { language: en, territory: NL, composer_self: true }
+            vitals:
+              body_temperature:
+                - any_event:
+                    - temperature:
+                        - { "|magnitude": 37.2, "|unit": Cel }
+        successCriteria:
+          - &composition_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs: &version_uid
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: &read_parameters
+          - *ehr_id
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - *json
+        successCriteria:
+          - &composition_retrieved
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested COMPOSITION is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0004' && @.value.magnitude == 37.2 && @.value.units == 'Cel']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+              section: Structured format
+              quote: "Attribute suffixes MUST use pipe prefix"
+
+  - workflowId: create_composition-structured-raw
+    summary: A canonical DV_QUANTITY embedded with |raw in a structured document is the value of its ELEMENT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a structured document whose temperature is given with |raw as a
+      canonical DV_QUANTITY of 37.5 Cel, and reads the COMPOSITION back in
+      canonical JSON. The Temperature ELEMENT carries a DV_QUANTITY of 37.5
+      Cel.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Raw canonical JSON
+      quote: "The `|raw` attribute is a special bypass mechanism that enables direct embedding of pre-serialized openEHR canonical JSON into flat or structured format inputs."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the structured document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals, *representation, *json]
+        requestBody:
+          contentType: application/openehr.wt.structured+json
+          payload:
+            ctx: { language: en, territory: NL, composer_self: true }
+            vitals:
+              body_temperature:
+                - any_event:
+                    - temperature:
+                        - { "|raw": { _type: DV_QUANTITY, magnitude: 37.5, units: Cel } }
+        successCriteria:
+          - *composition_created
+        outputs: *version_uid
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_parameters
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0004' && @.value.magnitude == 37.5 && @.value.units == 'Cel']"

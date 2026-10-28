@@ -1,0 +1,47 @@
+# A template example asked for as a Web Template, which is a representation of
+# a template and not of a data instance, as an Arazzo 1.1.0 workflow over the
+# released ITS-REST `-validation` OAS.
+# Every criterion resolves to an `x-veredictum-cite` (its own, else its
+# step's, else its workflow's), and every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: A template example asked for as a Web Template
+  version: 0.1.0
+  description: >-
+    An example data instance of the template minimal_evaluation.en.v1
+    asked for with Accept application/openehr.wt+json.
+sourceDescriptions:
+  - name: definition
+    url: ../../../specs/rest-oas/definition-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: get_template_example-web_template_not_acceptable
+    summary: A template example asked for as application/openehr.wt+json is refused with 406
+    description: >-
+      Retrieves an example of the template minimal_evaluation.en.v1 with
+      Accept application/openehr.wt+json, the media type of the
+      Operational Template definition as a Web Template. An example is a
+      data instance, which has no representation in that media type, and
+      the read is answered 406 Not Acceptable.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "`application/openehr.wt+json` for the Operational Template definition as Web Template JSON format."
+    steps:
+      - stepId: example
+        description: Retrieve an example of the template minimal_evaluation.en.v1 with Accept application/openehr.wt+json.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_example_get
+        parameters:
+          - { name: template_id, in: path, value: minimal_evaluation.en.v1 }
+          - { name: Accept, in: header, value: application/openehr.wt+json }
+        successCriteria:
+          - condition: $statusCode == 406
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The target resource does not have a current representation that would be acceptable to the user"

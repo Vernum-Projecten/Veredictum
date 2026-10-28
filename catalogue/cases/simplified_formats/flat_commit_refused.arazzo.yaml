@@ -1,0 +1,408 @@
+# COMPOSITION creates from Simplified Flat JSON documents a service that
+# processes the format refuses: part of the accepting arm of the
+# `composition-flat-write` option, as Arazzo 1.1.0 workflows over the released
+# ITS-REST `-validation` OAS. Each refusal changes one thing in the valid
+# document of `flat_structure.arazzo.yaml`, whose workflows
+# create_composition-flat-vitals, create_composition-flat-other_open_value_set
+# and create_composition-flat-closed_value_set are the valid twins. A
+# document the format's own rules refuse is answered 400, and a document the
+# template does not validate 422. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION creates from the Simplified Flat JSON format, refused
+  version: 0.1.0
+  description: >-
+    Flat documents of the template cnf.vitals that break a rule of the
+    Simplified Formats specification or a constraint of the template.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: sf
+    url: ../_setup/simplified_formats.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-flat-territory_missing
+    summary: A flat document with no territory is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document that sets ctx/language but neither ctx/territory
+      nor a territory path. The create is answered 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Context
+      quote: "Mandatory: language, territory"
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: create
+        description: Create the COMPOSITION from the flat document with no territory.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - &ehr_id
+            { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - &vitals
+            { name: openehr-template-id, in: header, value: cnf.vitals }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+        successCriteria:
+          - &semantic_error
+            condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The request was well-formed but was unable to be followed due to semantic errors"
+
+  - workflowId: create_composition-flat-participation_function_missing
+    summary: A flat participation with no function is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document whose context names a participation's performer
+      and identifiers but no ctx/participation_function. The create is
+      answered 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: PARTICIPATION
+      quote: '| `\|function` | String | function.value | yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document whose participation has no function.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            ctx/participation_name:0: Dr. Marcus Johnson
+            ctx/participation_identifiers:0: issuer1::assigner1::id1::PERSON
+        successCriteria:
+          - *semantic_error
+
+  - workflowId: create_composition-flat-path_malformed
+    summary: A flat key with an empty path segment and an empty suffix is refused with 400
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document that also carries the key
+      vitals//body_temperature:0|, whose path has an empty segment and ends
+      in a pipe with no suffix. The create is answered 400 Bad Request.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Flat format
+      quote: "Path segments MUST be separated by forward slash (`/`)"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document with the malformed key.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals//body_temperature:0|: 37.5
+        successCriteria:
+          - &bad_request
+            condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
+
+  - workflowId: create_composition-flat-template_id_missing
+    summary: A flat COMPOSITION create with no openehr-template-id header is refused with 400
+    description: >-
+      Creates an EHR, then creates a COMPOSITION from a valid flat document of
+      the template cnf.vitals without the openehr-template-id header. A flat
+      document has no archetype_details.template_id to name its template, so
+      the header is required, and the create is answered 400 Bad Request.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-template-id
+      quote: "The `openehr-template-id` request header MUST be used whenever committing COMPOSITION (via `PUT` or `POST` methods) using a [Simplified Format](#header-alternative-data-formats) which does not support TEMPLATE_ID value under an equivalent `LOCATABLE.archetype_details.template_id` attribute of contained data."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document without the openehr-template-id header.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: create_composition-flat-other_with_code
+    summary: A flat |other given with |code and |value on the same leaf is refused with 400
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document whose Symptom carries |other together with |code
+      and |value. The suffixes are mutually exclusive, and the create is
+      answered 400 Bad Request.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Open Value-Sets and the `|other` Suffix
+      quote: "`|other` is mutually exclusive with `|code`, `|value` and `|terminology` on the same leaf path; servers MUST reject combinations."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document whose Symptom carries |other, |code and |value.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:0/any_event:0/symptom|code: at0010
+            vitals/body_temperature:0/any_event:0/symptom|value: Fever
+            vitals/body_temperature:0/any_event:0/symptom|other: custom free text
+        successCriteria:
+          - *bad_request
+
+  - workflowId: create_composition-flat-raw_without_type
+    summary: A flat |raw object with no _type is refused with 400
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document whose temperature is embedded with |raw as an
+      object with a magnitude and units but no _type. The create is answered
+      400 Bad Request.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Raw canonical JSON
+      quote: "The raw JSON value must include the `_type` property indicating the openEHR type"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document whose |raw object has no _type.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|raw: { magnitude: 37.5, units: Cel }
+        successCriteria:
+          - *bad_request
+
+  - workflowId: create_composition-flat-other_closed_value_set
+    summary: A flat |other on a closed value-set is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document whose Body exposure, a DV_CODED_TEXT with a closed
+      value-set, is given only by |other. The template does not validate the
+      document, and the create is answered 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Open Value-Sets and the `|other` Suffix
+      quote: "`|other` MUST be rejected when the constraint is closed (`listOpen: false`)."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document whose Body exposure carries |other.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:0/any_event:0/body_exposure|other: custom exposure state
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite: &template_not_validating
+              source: specs/openehr/ITS-REST/specifications/responses/422.yaml
+              section: description
+              quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
+
+  - workflowId: create_composition-flat-unknown_field
+    summary: A flat field identifier that names no Web Template node is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document that also carries the field
+      this_field_is_not_in_the_template, which names no node of the
+      template's Web Template. The create is answered 422 Unprocessable
+      Entity. The release recommends this validation, so the row is
+      advisory.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Validation
+      quote: "Implementations SHOULD validate: * Get the WT for the target template and map input fields to the identifiers * Check the final segment for the pipe to identify attribute suffix * Mandatory context fields (language, territory) are present * Field identifiers match WT metadata structure"
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document with the unknown field.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:0/any_event:0/this_field_is_not_in_the_template|value: x
+        successCriteria:
+          - condition: $statusCode == 422
+
+  - workflowId: create_composition-flat-data_type_mismatch
+    summary: A flat |magnitude that is not a number is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document whose temperature |magnitude is the string hot
+      where the template expects a DV_QUANTITY magnitude. The create is
+      answered 422 Unprocessable Entity. The release recommends this
+      validation, so the row is advisory.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Validation
+      quote: "Implementations SHOULD validate: * Get the WT for the target template and map input fields to the identifiers * Check the final segment for the pipe to identify attribute suffix * Mandatory context fields (language, territory) are present * Field identifiers match WT metadata structure * Data types match expected types from the Operational Template"
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document whose magnitude is a string.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: hot
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+        successCriteria:
+          - condition: $statusCode == 422
+
+  - workflowId: create_composition-flat-cardinality
+    summary: A second flat instance of a node the template allows once is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document that gives the Temperature, an ELEMENT the
+      template allows at most once per event, a second instance
+      temperature:1. The create is answered 422 Unprocessable Entity. The
+      release recommends this validation, so the row is advisory.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Validation
+      quote: "Implementations SHOULD validate: * Get the WT for the target template and map input fields to the identifiers * Check the final segment for the pipe to identify attribute suffix * Mandatory context fields (language, territory) are present * Field identifiers match WT metadata structure * Data types match expected types from the Operational Template * Cardinality constraints are satisfied"
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document with two Temperatures in one event.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:0/any_event:0/temperature:1|magnitude: 37.4
+            vitals/body_temperature:0/any_event:0/temperature:1|unit: Cel
+        successCriteria:
+          - condition: $statusCode == 422
+
+  - workflowId: create_composition-flat-terminology_binding
+    summary: A flat |code outside the closed value-set of its leaf is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document whose Body exposure, bound to the local codes
+      at0020 and at0021, is given the |code at9999. The create is answered
+      422 Unprocessable Entity. The release recommends this validation, so
+      the row is advisory.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Validation
+      quote: "Implementations SHOULD validate: * Get the WT for the target template and map input fields to the identifiers * Check the final segment for the pipe to identify attribute suffix * Mandatory context fields (language, territory) are present * Field identifiers match WT metadata structure * Data types match expected types from the Operational Template * Cardinality constraints are satisfied * Terminology bindings are valid"
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document whose Body exposure code is outside the value-set.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:0/any_event:0/body_exposure|code: at9999
+        successCriteria:
+          - condition: $statusCode == 422

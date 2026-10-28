@@ -1,0 +1,964 @@
+# COMPOSITIONs created from the Simplified Flat JSON format of the template
+# test_all_types.en.v1, whose leaves cover the data value types, for a service
+# that processes the format: part of the accepting arm of the
+# `composition-flat-write` option, as Arazzo 1.1.0 workflows over the released
+# ITS-REST `-validation` OAS. Each workflow commits the same flat document and
+# reads the COMPOSITION back in canonical JSON, and judges one mapping of
+# master05-rm_mapping.adoc or one path rule of master04-basic_concepts.adoc.
+# Every criterion resolves to an `x-veredictum-cite` (its own, else its
+# step's, else its workflow's), and every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: Data value mappings from the Simplified Flat JSON format
+  version: 0.1.0
+  description: >-
+    The RM mappings of the Simplified Formats specification, one data value
+    type or one path rule per workflow, judged on the canonical JSON of the
+    COMPOSITION a flat document of the template test_all_types.en.v1
+    created.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: sf
+    url: ../_setup/simplified_formats.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-flat-element_value
+    summary: A flat leaf names an ELEMENT, and its value is the ELEMENT value
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose leaf
+      test_all_types:0/text holds a text, and reads the COMPOSITION back
+      in canonical JSON. The OBSERVATION carries the ELEMENT at0004
+      whose DV_TEXT value is that text.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Flat format
+      quote: 'There is no distinction between ELEMENT and its value - elements ARE their values'
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: Create the COMPOSITION from the flat document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/text: text value
+            test_all_types/test_all_types:0/coded_text|code: N.84
+            test_all_types/test_all_types:0/coded_text|value: N.84 label
+            test_all_types/test_all_types:0/coded_text_terminology|code: D.13
+            test_all_types/test_all_types:0/coded_text_terminology|value: D.13 description
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types:0/quantity/_normal_range/lower|magnitude: 60.0
+            test_all_types/test_all_types:0/quantity/_normal_range/lower|unit: mg
+            test_all_types/test_all_types:0/quantity/_normal_range/upper|magnitude: 80.0
+            test_all_types/test_all_types:0/quantity/_normal_range/upper|unit: mg
+            test_all_types/test_all_types:0/count: 6
+            test_all_types/test_all_types:0/date: "2019-03-22"
+            test_all_types/test_all_types:0/datetime: "2019-03-22T22:36:25.23+01:00"
+            test_all_types/test_all_types:0/datetime_any: "2019-03-22T22:36:25.23+01:00"
+            test_all_types/test_all_types:0/time: "22:36:25.23"
+            test_all_types/test_all_types:0/ordinal|code: at0014
+            test_all_types/test_all_types:0/ordinal|value: ord1
+            test_all_types/test_all_types:0/ordinal|ordinal: 0
+            test_all_types/test_all_types:0/boolean: true
+            test_all_types/test_all_types:0/duration_any: P2DT7H16M
+            test_all_types/test_all_types:0/multimedia_any: http://med.tube.com/sample
+            test_all_types/test_all_types:0/multimedia_any|mediatype: video/mp4
+            test_all_types/test_all_types:0/multimedia_any|size: 1024
+            test_all_types/test_all_types:0/parsable_any: instructions
+            test_all_types/test_all_types:0/parsable_any|formalism: GLIF 1.0
+            test_all_types/test_all_types:0/identifier: 35e4059a-e6f4-4ba1-befe-e2493bce3991
+            test_all_types/test_all_types:0/proportion_any|numerator: 90.07
+            test_all_types/test_all_types:0/proportion_any|denominator: 50.85
+            test_all_types/test_all_types:0/proportion_any|type: 0
+            test_all_types/test_all_types_1:0/uri: http://example.com/path/resource
+            test_all_types/test_all_types_1:0/interval_count/upper: 8
+            test_all_types/test_all_types_1:0/interval_count/lower: 5
+            test_all_types/test_all_types_1:0/interval_quantity/upper|magnitude: 93.14
+            test_all_types/test_all_types_1:0/interval_quantity/upper|unit: mg
+            test_all_types/test_all_types_1:0/interval_quantity/lower|magnitude: 65.42
+            test_all_types/test_all_types_1:0/interval_quantity/lower|unit: mg
+            test_all_types/test_all_types_1:0/interval_datetime/upper: "2019-03-22T22:36:25.232+01:00"
+            test_all_types/test_all_types_1:0/interval_datetime/lower: "2019-03-22T22:36:25.232+01:00"
+            test_all_types/test_all_types_1:0/choice/quantity_value|magnitude: 60.91
+            test_all_types/test_all_types_1:0/choice/quantity_value|unit: mm[Hg]
+            test_all_types/test_all_types_1:0/cluster_1/cluster_2/cluster_3/text_2: text 2 3
+        successCriteria:
+          - &composition_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &composition_retrieved
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested COMPOSITION is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0004' && @.value.value == 'text value']"
+
+  - workflowId: create_composition-flat-dv_text
+    summary: A flat DV_TEXT leaf maps its value to the DV_TEXT value
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document, and reads the
+      COMPOSITION back in canonical JSON. The DV_TEXT of the ELEMENT
+      text carries the value the flat leaf gave.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_TEXT
+      quote: '| `\|value` | String | value | yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0004' && @.value.value == 'text value']"
+
+  - workflowId: create_composition-flat-dv_coded_text
+    summary: The flat |code, |value and |terminology suffixes map to the DV_CODED_TEXT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose coded leaves carry
+      |code and |value, and reads the COMPOSITION back in canonical
+      JSON. The local coded text carries the code N.84 and the value
+      N.84 label, and the coded text bound to SNOMED-CT carries the code
+      D.13 in that terminology.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_CODED_TEXT
+      quote: '| `\|code` | String | defining_code.code_string | yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0005' && @.value.defining_code.code_string == 'N.84']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0005' && @.value.value == 'N.84 label']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_CODED_TEXT
+              quote: '| `\|value` | String | value | (yes) | only required for external terminologies'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0006' && @.value.defining_code.code_string == 'D.13']"
+
+  - workflowId: create_composition-flat-dv_quantity
+    summary: The flat |magnitude and |unit suffixes map to the DV_QUANTITY
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose quantity leaf
+      carries |magnitude 68.07 and |unit mg, and reads the COMPOSITION
+      back in canonical JSON. The DV_QUANTITY carries the magnitude
+      68.07 and the units mg.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Attribute Suffixes
+      quote: '|<<DV_QUANTITY,DV_QUANTITY>> |`\|magnitude` |Numeric value'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007' && @.value.magnitude == 68.07]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007' && @.value.units == 'mg']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+              section: Attribute Suffixes
+              quote: '|<<DV_QUANTITY,DV_QUANTITY>> |`\|unit` |Unit of measure'
+
+  - workflowId: create_composition-flat-dv_count
+    summary: A flat DV_COUNT leaf maps its value to the magnitude
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose count leaf holds
+      6, and reads the COMPOSITION back in canonical JSON. The DV_COUNT
+      carries the magnitude 6.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_COUNT
+      quote: '| | Integer | magnitude | Yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0008' && @.value.magnitude == 6]"
+
+  - workflowId: create_composition-flat-dv_ordinal
+    summary: The flat |code and |ordinal suffixes map to the DV_ORDINAL
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose ordinal leaf
+      carries |code at0014 and |ordinal 0, and reads the COMPOSITION
+      back in canonical JSON. The DV_ORDINAL carries the value 0 and the
+      symbol code at0014.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_ORDINAL
+      quote: '| `\|code` | String | symbol.defining_code.code_string | Yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0013' && @.value.symbol.defining_code.code_string == 'at0014']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0013' && @.value.value == 0]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_ORDINAL
+              quote: '| `\|ordinal` | Integer | value | (Yes) | my be left out if symbol is defined in template'
+
+  - workflowId: create_composition-flat-dv_proportion
+    summary: The flat |numerator, |denominator and |type suffixes map to the DV_PROPORTION
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose proportion leaf
+      carries |numerator 90.07, |denominator 50.85 and |type 0, and
+      reads the COMPOSITION back in canonical JSON. The DV_PROPORTION
+      carries that numerator, denominator and type.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_PROPORTION
+      quote: '| `\|numerator` | Real | numerator | yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0022' && @.value.numerator == 90.07]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0022' && @.value.denominator == 50.85]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_PROPORTION
+              quote: '| `\|denominator` | Real | denominator | yes |'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0022' && @.value.type == 0]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_PROPORTION
+              quote: '| `\|type` | Integer | type | yes | ValueSet proportion_kind'
+
+  - workflowId: create_composition-flat-dv_boolean
+    summary: A flat DV_BOOLEAN leaf maps its value to the value
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose boolean leaf holds
+      true, and reads the COMPOSITION back in canonical JSON. The
+      DV_BOOLEAN carries the value true.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_BOOLEAN
+      quote: '| | Boolean | value | Yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0017' && @.value.value == true]"
+
+  - workflowId: create_composition-flat-dv_identifier
+    summary: A flat DV_IDENTIFIER leaf maps its value to the id
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose identifier leaf
+      holds 35e4059a-e6f4-4ba1-befe-e2493bce3991, and reads the
+      COMPOSITION back in canonical JSON. The DV_IDENTIFIER carries that
+      id.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_IDENTIFIER
+      quote: '| `\|id` | String | id | Yes | For the input \|id might be left out.'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0021' && @.value.id == '35e4059a-e6f4-4ba1-befe-e2493bce3991']"
+
+  - workflowId: create_composition-flat-dv_uri
+    summary: A flat DV_URI leaf maps its value to the value
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose uri leaf holds
+      http://example.com/path/resource, and reads the COMPOSITION back
+      in canonical JSON. The DV_URI of the EVALUATION carries that
+      value.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_URI
+      quote: '| | String | value | Yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0002' && @.value.value == 'http://example.com/path/resource']"
+
+  - workflowId: create_composition-flat-dv_date
+    summary: A flat DV_DATE leaf maps its value to the value
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose date leaf holds
+      2019-03-22, and reads the COMPOSITION back in canonical JSON. The
+      DV_DATE carries that value.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_DATE
+      quote: '| | String | value | Yes | ISO8601 date'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0009' && @.value.value == '2019-03-22']"
+
+  - workflowId: create_composition-flat-dv_date_time
+    summary: A flat DV_DATE_TIME leaf maps its value to the value
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose datetime leaf
+      holds 2019-03-22T22:36:25.23+01:00, and reads the COMPOSITION back
+      in canonical JSON. The DV_DATE_TIME carries that value.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_DATE_TIME
+      quote: '| | String | value | Yes | ISO8601 date-time'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0010' && @.value.value == '2019-03-22T22:36:25.23+01:00']"
+
+  - workflowId: create_composition-flat-dv_time
+    summary: A flat DV_TIME leaf maps its value to the value
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose time leaf holds
+      22:36:25.23, and reads the COMPOSITION back in canonical JSON. The
+      DV_TIME carries that value.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_TIME
+      quote: '| | String | value | Yes | ISO8601 time'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0012' && @.value.value == '22:36:25.23']"
+
+  - workflowId: create_composition-flat-dv_duration
+    summary: A flat DV_DURATION leaf maps its value to the value
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose duration leaf
+      holds P2DT7H16M, and reads the COMPOSITION back in canonical JSON.
+      The DV_DURATION carries that value.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_DURATION
+      quote: '| | String | value | Yes | ISO8601 duration'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0018' && @.value.value == 'P2DT7H16M']"
+
+  - workflowId: create_composition-flat-dv_multimedia
+    summary: A flat DV_MULTIMEDIA leaf maps its value to the uri and |mediatype to the media type
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose multimedia leaf
+      holds a uri with |mediatype video/mp4, and reads the COMPOSITION
+      back in canonical JSON. The DV_MULTIMEDIA carries that uri and the
+      media type code video/mp4.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_MULTIMEDIA
+      quote: '| | String | uri.value | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0019' && @.value.uri.value == 'http://med.tube.com/sample']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0019' && @.value.media_type.code_string == 'video/mp4']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_MULTIMEDIA
+              quote: '| `\|mediatype` | String | media_type.code_string | Yes | ValueSet (IANA_media-types)'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0019' && @.value.size == 1024]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_MULTIMEDIA
+              quote: '| `\|size` | Integer | size | Yes |'
+
+  - workflowId: create_composition-flat-dv_parsable
+    summary: A flat DV_PARSABLE leaf maps its value to the value and |formalism to the formalism
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose parsable leaf
+      holds instructions with |formalism GLIF 1.0, and reads the
+      COMPOSITION back in canonical JSON. The DV_PARSABLE carries that
+      value and formalism.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_PARSABLE
+      quote: '| `\|formalism` | String | formalism | Yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0020' && @.value.value == 'instructions']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0020' && @.value.formalism == 'GLIF 1.0']"
+
+  - workflowId: create_composition-flat-dv_interval
+    summary: The flat /lower and /upper of a DV_INTERVAL map to its lower and upper
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose interval leaves
+      give /lower and /upper, and reads the COMPOSITION back in
+      canonical JSON. The DV_INTERVAL of DV_COUNT carries the lower 5
+      and the upper 8, and the DV_INTERVAL of DV_QUANTITY the lower
+      65.42 and the upper 93.14.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_INTERVAL
+      quote: '| `/lower` | T | lower | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0003' && @.value.lower.magnitude == 5]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0003' && @.value.upper.magnitude == 8]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `/upper` | T | upper | no |'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0004' && @.value.lower.magnitude == 65.42]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0004' && @.value.upper.magnitude == 93.14]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `/upper` | T | upper | no |'
+
+  - workflowId: create_composition-flat-normal_range
+    summary: A flat _normal_range sets the normal range of a DV_QUANTITY
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose quantity leaf
+      carries quantity/_normal_range/lower and upper, an RM attribute
+      the template does not constrain, and reads the COMPOSITION back in
+      canonical JSON. The DV_QUANTITY carries a normal_range from 60.0
+      to 80.0.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: RM Attributes prefix
+      quote: 'To access these RM attributes, an underscore prefix (i.e. ''_'') is used in the path: `_attributeName`.'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007' && @.value.normal_range.lower.magnitude == 60.0]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007' && @.value.normal_range.upper.magnitude == 80.0]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007' && @.value.normal_range.lower.units == 'mg']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_QUANTITY
+              quote: '| `/_normal_range` | <<DV_INTERVAL,DV_INTERVAL>> <DV_QUANTITY> | normal_range | no |'
+
+  - workflowId: create_composition-flat-entries
+    summary: The flat paths of a template name its OBSERVATION and its EVALUATION
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose paths name the
+      OBSERVATION test_all_types:0 and the EVALUATION
+      test_all_types_1:0, and reads the COMPOSITION back in canonical
+      JSON. Its content holds that OBSERVATION and that EVALUATION, and
+      its category is the code 433.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Node ID Generation Rules
+      quote: 'Uniqueness__: Append a numeric suffix if needed to ensure uniqueness among siblings'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1' && @._type == 'OBSERVATION']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1' && @._type == 'EVALUATION']"
+          - context: $response.body#/category/defining_code/code_string
+            type: regex
+            condition: '^433$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: COMPOSITION
+              quote: '| `/category` | <<DV_CODED_TEXT,DV_CODED_TEXT>> | category | yes |'
+
+  - workflowId: create_composition-flat-collapsed_wrappers
+    summary: The HISTORY, EVENT and ITEM_TREE a flat path collapses are present in the COMPOSITION
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose OBSERVATION leaves
+      are addressed with no HISTORY, EVENT or ITEM_TREE segment, and
+      reads the COMPOSITION back in canonical JSON. The OBSERVATION data
+      is the HISTORY at0001 holding the event at0002, whose data is the
+      ITEM_TREE at0003 holding the leaves.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Always Collapsed Wrapper Types
+      quote: 'In addition to the attribute elision above, the following wrapper node types are themselves collapsed -- their archetype node-id is also dropped, so the parent connects directly to the wrapper''s contents:'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1' && @.data.archetype_node_id == 'at0001']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[?@.archetype_node_id == 'at0002' && @.data.archetype_node_id == 'at0003']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+              section: Conditionally Collapsed Wrapper Types
+              quote: 'An `EVENT` node is collapsed when both of the following hold:'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007']"
+
+  - workflowId: create_composition-flat-container_attributes
+    summary: The container attributes a flat path elides are present in the COMPOSITION
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose paths carry no
+      content, data, events, items or value segment, and reads the
+      COMPOSITION back in canonical JSON. The leaves sit in the RM
+      containers those attributes name: COMPOSITION.content,
+      OBSERVATION.data, HISTORY.events, EVENT.data, ITEM_TREE.items and
+      CLUSTER.items.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Container Attributes Elided from Paths
+      quote: 'The following RM attribute names are universally absent from paths:'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0004']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0006'].items[?@.archetype_node_id == 'at0007']"
+
+  - workflowId: create_composition-flat-nested_clusters
+    summary: A flat path through nested CLUSTERs reaches the ELEMENT inside them
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose leaf
+      test_all_types_1:0/cluster_1/cluster_2/cluster_3/text_2 holds the
+      text text 2 3, and reads the COMPOSITION back in canonical JSON.
+      The EVALUATION holds the CLUSTER at0006, holding the CLUSTER
+      at0007, holding the CLUSTER at0008, holding the ELEMENT at0010
+      with that text.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Example
+      quote: 'The `OBSERVATION` and the two `CLUSTER` nodes are retained under their archetype-id aliases'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0006'].items[?@.archetype_node_id == 'at0007'].items[?@.archetype_node_id == 'at0008'].items[?@.archetype_node_id == 'at0010' && @.value.value == 'text 2 3']"
+
+  - workflowId: create_composition-flat-raw
+    summary: A canonical DV_QUANTITY embedded with |raw is the value of its ELEMENT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose quantity leaf is
+      given with |raw as a canonical DV_QUANTITY of 72.5 mg, and reads
+      the COMPOSITION back in canonical JSON. The DV_QUANTITY carries
+      the magnitude 72.5 and the units mg.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Raw canonical JSON
+      quote: 'The `|raw` attribute is a special bypass mechanism that enables direct embedding of pre-serialized openEHR canonical JSON into flat or structured format inputs.'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose quantity is embedded with |raw, and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/text: text value
+            test_all_types/test_all_types:0/coded_text|code: N.84
+            test_all_types/test_all_types:0/coded_text|value: N.84 label
+            test_all_types/test_all_types:0/coded_text_terminology|code: D.13
+            test_all_types/test_all_types:0/coded_text_terminology|value: D.13 description
+            test_all_types/test_all_types:0/quantity|raw: { _type: DV_QUANTITY, magnitude: 72.5, units: mg }
+            test_all_types/test_all_types:0/count: 6
+            test_all_types/test_all_types:0/date: "2019-03-22"
+            test_all_types/test_all_types:0/datetime: "2019-03-22T22:36:25.23+01:00"
+            test_all_types/test_all_types:0/datetime_any: "2019-03-22T22:36:25.23+01:00"
+            test_all_types/test_all_types:0/time: "22:36:25.23"
+            test_all_types/test_all_types:0/ordinal|code: at0014
+            test_all_types/test_all_types:0/ordinal|value: ord1
+            test_all_types/test_all_types:0/ordinal|ordinal: 0
+            test_all_types/test_all_types:0/boolean: true
+            test_all_types/test_all_types:0/duration_any: P2DT7H16M
+            test_all_types/test_all_types:0/multimedia_any: http://med.tube.com/sample
+            test_all_types/test_all_types:0/multimedia_any|mediatype: video/mp4
+            test_all_types/test_all_types:0/multimedia_any|size: 1024
+            test_all_types/test_all_types:0/parsable_any: instructions
+            test_all_types/test_all_types:0/parsable_any|formalism: GLIF 1.0
+            test_all_types/test_all_types:0/identifier: 35e4059a-e6f4-4ba1-befe-e2493bce3991
+            test_all_types/test_all_types:0/proportion_any|numerator: 90.07
+            test_all_types/test_all_types:0/proportion_any|denominator: 50.85
+            test_all_types/test_all_types:0/proportion_any|type: 0
+            test_all_types/test_all_types_1:0/uri: http://example.com/path/resource
+            test_all_types/test_all_types_1:0/interval_count/upper: 8
+            test_all_types/test_all_types_1:0/interval_count/lower: 5
+            test_all_types/test_all_types_1:0/interval_quantity/upper|magnitude: 93.14
+            test_all_types/test_all_types_1:0/interval_quantity/upper|unit: mg
+            test_all_types/test_all_types_1:0/interval_quantity/lower|magnitude: 65.42
+            test_all_types/test_all_types_1:0/interval_quantity/lower|unit: mg
+            test_all_types/test_all_types_1:0/interval_datetime/upper: "2019-03-22T22:36:25.232+01:00"
+            test_all_types/test_all_types_1:0/interval_datetime/lower: "2019-03-22T22:36:25.232+01:00"
+            test_all_types/test_all_types_1:0/choice/quantity_value|magnitude: 60.91
+            test_all_types/test_all_types_1:0/choice/quantity_value|unit: mm[Hg]
+            test_all_types/test_all_types_1:0/cluster_1/cluster_2/cluster_3/text_2: text 2 3
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007' && @.value.magnitude == 72.5]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007' && @.value.units == 'mg']"
