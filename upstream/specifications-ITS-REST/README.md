@@ -12,6 +12,7 @@ the commit `specs/openehr/ITS-REST/` vendors.
 | `0620-etag-descriptions-name-the-weak-tag.patch` | #620 |
 | `0621-ehr-status-example-carries-archetype-details.patch` | #621 |
 | `0639-ehr-references-the-versioned-objects.patch` | #639 |
+| `0699-error-bodies-are-problem-details.patch` | #699 |
 
 A patch is named after its report's number. Apply one in a checkout of that
 repository with `git apply <patch>`.
