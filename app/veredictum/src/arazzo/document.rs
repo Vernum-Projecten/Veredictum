@@ -543,8 +543,7 @@ fn cite_at(
 /// Checks a request body: a payload that is a runtime expression parses, and
 /// every replacement targets a JSON Pointer with a value that parses.
 fn body_findings(body: &RequestBody, push: &mut impl FnMut(FindingKind)) {
-    if let Some(payload @ Value::String(text)) = &body.payload
-        && text.starts_with('$')
+    if let Some(payload @ Value::String(_)) = &body.payload
         && let Err(kind) = value_expression(&ValueOrSelector::Literal(payload.clone()))
     {
         push(kind);
@@ -1232,16 +1231,22 @@ mod tests {
                 ),
             )
         };
-        for payload in ["$inputs.composition", "<template/>"] {
+        for payload in [
+            "$inputs.composition",
+            "<template/>",
+            "<id>t-{$inputs.composition}</id>",
+        ] {
             let (dir, doc) = fixture(&with_payload(payload));
             assert_eq!(doc.check(dir.path()), Vec::new(), "{payload}");
         }
-        let (dir, doc) = fixture(&with_payload("$input.composition"));
-        assert!(
-            matches!(kinds(&dir, &doc).as_slice(), [FindingKind::Profile(_)]),
-            "{:?}",
-            kinds(&dir, &doc)
-        );
+        for payload in ["$input.composition", "<id>t-{$input.composition}</id>"] {
+            let (dir, doc) = fixture(&with_payload(payload));
+            assert!(
+                matches!(kinds(&dir, &doc).as_slice(), [FindingKind::Profile(_)]),
+                "{payload}: {:?}",
+                kinds(&dir, &doc)
+            );
+        }
     }
 
     #[test]
