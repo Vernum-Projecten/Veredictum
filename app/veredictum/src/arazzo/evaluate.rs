@@ -1563,6 +1563,24 @@ workflows:
     }
 
     #[test]
+    fn a_dependency_on_a_present_arazzo_workflow_passes_the_gate() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("ehr.yaml").write_str(OAS).unwrap();
+        dir.child("setup.arazzo.yaml")
+            .write_str(SHARED_SETUP)
+            .unwrap();
+        dir.child("doc.yaml").write_str(USES_SETUP).unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("doc.yaml")).unwrap();
+        let findings = document.gate(None);
+        assert!(
+            !findings
+                .iter()
+                .any(|f| f.kind.to_string().contains("dependsOn")),
+            "{findings:?}"
+        );
+    }
+
+    #[test]
     fn a_conformant_exchange_passes_and_the_step_header_wins_over_the_credential() {
         let (results, har, transport) =
             drive(&[(201, ""), (409, ""), (200, r#"{"ehr_id":{"value":"abc"}}"#)]);
