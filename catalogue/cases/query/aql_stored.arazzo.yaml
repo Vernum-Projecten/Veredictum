@@ -600,9 +600,10 @@ workflows:
     summary: A stored query executed by name with GET runs its latest version
     description: >-
       Stores three versions of one query under a fresh name: 1.0.0 selects the
-      magnitude 12, 1.1.0 the magnitude 18 and 2.0.0 the magnitude 15 of any
-      EHR. Executing it by name with GET, scoped by the ehr_id query parameter
-      to the dataset EHR, runs 2.0.0, so the result is [15, 15].
+      magnitude 12, 1.1.0 the magnitude 18 and 2.0.0 the magnitude 15 of the
+      EHR named by the $ehr parameter. Executing it by name with GET, the
+      dataset ehr_id sent as the query parameter ehr, runs 2.0.0, so the
+      result is [15, 15].
     dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/operations/query_execute_stored_query.yaml
@@ -624,7 +625,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -642,7 +643,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -660,7 +661,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -669,13 +670,14 @@ workflows:
               quote: "`200 OK` is returned when the query was successfully stored."
       - stepId: execute
         description: >-
-          Execute the stored query by name, scoped by ehr_id.
+          Execute the stored query by name, its parameter ehr in the URL.
         operationId: $sourceDescriptions.query.query_execute_stored_query
         parameters:
           - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
-          - name: ehr_id
+          - name: query_parameters
             in: query
-            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
           - { name: Accept, in: header, value: application/json }
         successCriteria:
           - condition: "$statusCode == 200"
@@ -694,9 +696,9 @@ workflows:
     summary: A stored query executed with GET at an exact version runs that version
     description: >-
       Stores three versions of one query under a fresh name: 1.0.0 selects the
-      magnitude 12, 1.1.0 the magnitude 18 and 2.0.0 the magnitude 15 of any
-      EHR. Executing it at 1.0.0 with GET, scoped by the ehr_id query
-      parameter to the dataset EHR, gives [12].
+      magnitude 12, 1.1.0 the magnitude 18 and 2.0.0 the magnitude 15 of the
+      EHR named by the $ehr parameter. Executing it at 1.0.0 with GET, the
+      dataset ehr_id sent as the query parameter ehr, gives [12].
     dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/parameters/path/version.yaml
@@ -718,7 +720,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -736,7 +738,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -754,7 +756,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -763,14 +765,15 @@ workflows:
               quote: "`200 OK` is returned when the query was successfully stored."
       - stepId: execute
         description: >-
-          Execute the stored query at 1.0.0, scoped by ehr_id.
+          Execute the stored query at 1.0.0, its parameter ehr in the URL.
         operationId: $sourceDescriptions.query.query_execute_stored_query_version
         parameters:
           - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
           - { name: version, in: path, value: "1.0.0" }
-          - name: ehr_id
+          - name: query_parameters
             in: query
-            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
           - { name: Accept, in: header, value: application/json }
         successCriteria:
           - condition: "$statusCode == 200"
@@ -806,9 +809,10 @@ workflows:
         operationId: $sourceDescriptions.query.query_execute_stored_query
         parameters:
           - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
-          - name: ehr_id
+          - name: query_parameters
             in: query
-            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
           - { name: Accept, in: header, value: application/json }
         successCriteria:
           - condition: "$statusCode == 404"
@@ -839,7 +843,7 @@ workflows:
         requestBody:
           contentType: text/plain
           payload: |-
-            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
         successCriteria:
           - condition: "$statusCode == 200"
             x-veredictum-cite:
@@ -853,9 +857,10 @@ workflows:
         parameters:
           - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
           - { name: version, in: path, value: "2.0.0" }
-          - name: ehr_id
+          - name: query_parameters
             in: query
-            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
           - { name: Accept, in: header, value: application/json }
         successCriteria:
           - condition: "$statusCode == 404"

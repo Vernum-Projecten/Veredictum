@@ -165,9 +165,7 @@ fn query_of(step: &Step, carrier: Carrier, inputs: &BTreeMap<String, Value>) -> 
     };
     match carrier {
         Carrier::Parameter(name) => parameter(step, name, &scope),
-        Carrier::BodyMember(pointer) => body(step, &scope, pointer)?
-            .pointer(pointer)
-            .map(text_of),
+        Carrier::BodyMember(pointer) => body(step, &scope, pointer)?.pointer(pointer).map(text_of),
         Carrier::TextBody => {
             let language = parameter(step, "query_type", &scope);
             if language.as_deref().is_some_and(|l| l != AQL) {
@@ -347,7 +345,8 @@ mod tests {
         let pinned = "SELECT e/ehr_id/value FROM EHR e WHERE e/ehr_id/value = '{$steps.create.outputs.ehr_id}'";
         let found = check_workflow("query/w", &workflow(&json!([get_step(pinned, 200)])), None);
         assert_eq!(found, Vec::new());
-        let broken = "SELECT e/ehr_id/value EHR e WHERE e/ehr_id/value = '{$steps.create.outputs.ehr_id}'";
+        let broken =
+            "SELECT e/ehr_id/value EHR e WHERE e/ehr_id/value = '{$steps.create.outputs.ehr_id}'";
         let found = check_workflow("query/w", &workflow(&json!([get_step(broken, 200)])), None);
         assert_eq!(found.len(), 1, "{found:?}");
         assert_eq!(placeholders("x {$not an expression} y"), None);

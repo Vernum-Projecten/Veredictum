@@ -146,7 +146,7 @@ SPDX-License-Identifier = "Apache-2.0"
 # built from CKM archetypes, whose own licence metadata is empty, declared
 # here with the CKM archetype licences. The query documents carry the
 # corpus's queries and expectations beside our own text.
-# `catalogue/cases/_setup/aql_conformance.PROVENANCE.md` is the per-file record.
+# `catalogue/aql-conformance.PROVENANCE.md` is the per-file record.
 [[annotations]]
 path = "catalogue/cases/_setup/aql_conformance.arazzo.yaml"
 precedence = "override"

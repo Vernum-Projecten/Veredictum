@@ -3210,8 +3210,8 @@ refusal cases.
 
 **External query collections.** A query and dataset collection maintained
 elsewhere enters as workflows: its fixtures become set-ups in a document under
-`catalogue/cases/_setup/` with a `PROVENANCE.md` beside it naming its source,
-commit and licences, and its cases become workflows that name those set-ups
+`catalogue/cases/_setup/`, a provenance file in `catalogue/` names its
+source, commit and licences, and its cases become workflows that name those set-ups
 (the aql-conformance corpus: `_setup/aql_conformance.arazzo.yaml` and
 `cases/query/aqlc_*.arazzo.yaml`). Nothing is imported blind: each query is
 re-adjudicated against the QUERY specification before it becomes a workflow,

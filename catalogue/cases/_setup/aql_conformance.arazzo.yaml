@@ -1,9 +1,10 @@
-# The fixtures of the AQL conformance corpus (github.com/Cadasto/aql-conformance at
-# d5b8c554fecef73fbeab0620dfd28d4a1149bd63): its operational templates, and one set-up per arrangement
-# a carried case makes, each an EHR with the case's COMPOSITIONs committed in
-# order. Third-party bytes; aql_conformance.PROVENANCE.md beside this file and
-# REUSE.toml name their source and licences. Every quote is copied verbatim from
-# the named vendored file.
+# The fixtures of the AQL conformance corpus
+# (github.com/Cadasto/aql-conformance at
+# d5b8c554fecef73fbeab0620dfd28d4a1149bd63): its operational templates, and
+# one set-up per arrangement a carried case makes, each an EHR with the case's
+# COMPOSITIONs committed in order. Third-party bytes:
+# catalogue/aql-conformance.PROVENANCE.md and REUSE.toml name their source and
+# licences. Every quote is copied verbatim from the named vendored file.
 arazzo: 1.1.0
 info:
   title: AQL conformance corpus fixtures
