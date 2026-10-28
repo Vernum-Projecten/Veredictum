@@ -1,0 +1,443 @@
+# COMPOSITIONs created from the Simplified Flat JSON format whose paths index
+# repeated nodes, reach RM attributes the template leaves open and choose the
+# free-text branch of an open value-set, for a service that processes the
+# format: part of the accepting arm of the `composition-flat-write` option, as
+# Arazzo 1.1.0 workflows over the released ITS-REST `-validation` OAS. The
+# first workflow is the valid twin of the refusals in
+# `flat_commit_refused.arazzo.yaml`. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Flat paths, indexes and value-sets
+  version: 0.1.0
+  description: >-
+    Flat documents of the templates cnf.vitals and cnf.tpl.sf_interval_event,
+    judged on the canonical JSON of the COMPOSITION each created.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: sf
+    url: ../_setup/simplified_formats.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-flat-vitals
+    summary: A flat document of the template cnf.vitals is created with the temperature it gives
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document giving one body temperature of 37.2 Cel, and reads
+      the COMPOSITION back in canonical JSON. The Temperature ELEMENT carries
+      a DV_QUANTITY of 37.2 Cel. This is the valid twin of every refusal in
+      flat_commit_refused.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Attribute Suffixes
+      quote: '|<<DV_QUANTITY,DV_QUANTITY>> |`\|magnitude` |Numeric value'
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - &ehr_id
+            { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - &vitals
+            { name: openehr-template-id, in: header, value: cnf.vitals }
+          - &representation
+            { name: Prefer, in: header, value: return=representation }
+          - &json
+            { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+        successCriteria:
+          - &composition_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs: &version_uid
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: &read_parameters
+          - *ehr_id
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - *json
+        successCriteria:
+          - &composition_retrieved
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested COMPOSITION is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0004' && @.value.magnitude == 37.2]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0004' && @.value.units == 'Cel']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+              section: Attribute Suffixes
+              quote: '|<<DV_QUANTITY,DV_QUANTITY>> |`\|unit` |Unit of measure'
+
+  - workflowId: create_composition-flat-other_open_value_set
+    summary: A flat |other on an open value-set is created as a DV_TEXT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document whose Symptom, a DV_CODED_TEXT with an open
+      value-set, is given only by |other, and reads the COMPOSITION back in
+      canonical JSON. The Symptom carries a DV_TEXT with that text and no
+      defining_code. This is the valid twin of
+      create_composition-flat-other_with_code and
+      create_composition-flat-other_closed_value_set.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Open Value-Sets and the `|other` Suffix
+      quote: "The server persists the leaf as a `DV_TEXT` in the canonical RM (not as a `DV_CODED_TEXT` with empty `defining_code`)."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals, *representation, *json]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:0/any_event:0/symptom|other: custom free text
+        successCriteria:
+          - *composition_created
+        outputs: *version_uid
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_parameters
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0005' && @.value.value == 'custom free text' && !@.value.defining_code]"
+
+  - workflowId: create_composition-flat-closed_value_set
+    summary: A flat |code inside a closed value-set is created with that code
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document whose Body exposure, a DV_CODED_TEXT with the
+      closed value-set at0020 and at0021, is given the |code at0020, and reads
+      the COMPOSITION back in canonical JSON. The Body exposure carries the
+      code at0020. This is the valid twin of
+      create_composition-flat-terminology_binding.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_CODED_TEXT
+      quote: '| `\|code` | String | defining_code.code_string | yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals, *representation, *json]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:0/any_event:0/body_exposure|code: at0020
+        successCriteria:
+          - *composition_created
+        outputs: *version_uid
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_parameters
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0006' && @.value.defining_code.code_string == 'at0020']"
+
+  - workflowId: create_composition-flat-event_index
+    summary: Two indexed events of one flat OBSERVATION are two events of its HISTORY
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document giving any_event:0 and any_event:1 under one
+      body_temperature, each with its own time and temperature, and reads the
+      COMPOSITION back in canonical JSON. The OBSERVATION's HISTORY holds two
+      events, one with 37.2 and one with 37.6.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite: &indexing
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Instance Indexing
+      quote: "When a node can occur multiple times (max > 1 or max = -1), instances are indexed using colon notation:"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals, *representation, *json]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:0/any_event:0/time: "2024-01-15T10:30:00Z"
+            vitals/body_temperature:0/any_event:1/temperature|magnitude: 37.6
+            vitals/body_temperature:0/any_event:1/temperature|unit: Cel
+            vitals/body_temperature:0/any_event:1/time: "2024-01-15T11:30:00Z"
+        successCriteria:
+          - *composition_created
+        outputs: *version_uid
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_parameters
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1'].data.events[?@.data.items[0].value.magnitude == 37.2]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1'].data.events[?@.data.items[0].value.magnitude == 37.6]"
+          - condition: $response.body#/content/0/data/events/2 == null
+          - condition: $response.body#/content/1 == null
+
+  - workflowId: create_composition-flat-instance_index
+    summary: Zero-based flat indexes at two levels are the first and second OBSERVATIONs and events
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document giving body_temperature:0 and body_temperature:1,
+      each with any_event:0 and any_event:1, and reads the COMPOSITION back in
+      canonical JSON. The content holds two OBSERVATIONs; the first one's
+      events carry 36.1 and 36.2, and the second one's 37.1 and 37.2, in
+      index order.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Flat format
+      quote: "Instance indices MUST be zero-based"
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals, *representation, *json]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 36.1
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:0/any_event:1/temperature|magnitude: 36.2
+            vitals/body_temperature:0/any_event:1/temperature|unit: Cel
+            vitals/body_temperature:1/any_event:0/temperature|magnitude: 37.1
+            vitals/body_temperature:1/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:1/any_event:1/temperature|magnitude: 37.2
+            vitals/body_temperature:1/any_event:1/temperature|unit: Cel
+        successCriteria:
+          - *composition_created
+        outputs: *version_uid
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_parameters
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[0].data.events[0].data.items[?@.archetype_node_id == 'at0004' && @.value.magnitude == 36.1]"
+            x-veredictum-cite: &first_instance
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+              section: Instance Indexing
+              quote: "node_id:0 # First instance"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[0].data.events[1].data.items[?@.archetype_node_id == 'at0004' && @.value.magnitude == 36.2]"
+            x-veredictum-cite: *first_instance
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[1].data.events[0].data.items[?@.archetype_node_id == 'at0004' && @.value.magnitude == 37.1]"
+            x-veredictum-cite: *first_instance
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[1].data.events[1].data.items[?@.archetype_node_id == 'at0004' && @.value.magnitude == 37.2]"
+            x-veredictum-cite: *first_instance
+
+  - workflowId: create_composition-flat-feeder_audit
+    summary: A flat _feeder_audit on an OBSERVATION sets its FEEDER_AUDIT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document whose OBSERVATION carries _feeder_audit with an
+      originating system audit, a feeder system audit and an originating
+      system item id, and reads the COMPOSITION back in canonical JSON. The
+      OBSERVATION's feeder_audit carries each of them.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: OBSERVATION
+      quote: '| `/_feeder_audit` | <<FEEDER_AUDIT,FEEDER_AUDIT>> | feeder_audit | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: [*ehr_id, *vitals, *representation, *json]
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:0/_feeder_audit/originating_system_audit|system_id: orig-sys
+            vitals/body_temperature:0/_feeder_audit/originating_system_audit|version_id: v1.2
+            vitals/body_temperature:0/_feeder_audit/feeder_system_audit|system_id: feeder-sys
+            vitals/body_temperature:0/_feeder_audit/originating_system_item_id:0|id: item-id-1
+            vitals/body_temperature:0/_feeder_audit/originating_system_item_id:0|issuer: issuer1
+        successCriteria:
+          - *composition_created
+        outputs: *version_uid
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_parameters
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1' && @.feeder_audit.originating_system_audit.system_id == 'orig-sys']"
+            x-veredictum-cite: &system_id
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: FEEDER_AUDIT_DETAILS
+              quote: '| `\|system_id` | String | system_id | yes |'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1' && @.feeder_audit.originating_system_audit.version_id == 'v1.2']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: FEEDER_AUDIT_DETAILS
+              quote: '| `\|version_id` | String | version_id | no |'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1' && @.feeder_audit.feeder_system_audit.system_id == 'feeder-sys']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: FEEDER_AUDIT
+              quote: '| `/feeder_system_audit` | <<FEEDER_AUDIT_DETAILS,FEEDER_AUDIT_DETAILS>> | feeder_system_audit | no |'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1'].feeder_audit.originating_system_item_ids[?@.id == 'item-id-1' && @.issuer == 'issuer1']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: FEEDER_AUDIT
+              quote: '| `/originating_system_item_id:i` | <<DV_IDENTIFIER,DV_IDENTIFIER>> | originating_system_item_ids | no |'
+
+  - workflowId: create_composition-flat-interval_event
+    summary: The flat /width, /math_function and |sample_count of an INTERVAL_EVENT map to its attributes
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      cnf.tpl.sf_interval_event from a flat document whose interval event
+      carries a width of P30D, the math_function 146 mean and a sample_count
+      of 5, and reads the COMPOSITION back in canonical JSON. The
+      INTERVAL_EVENT carries that width, math_function and sample_count.
+    dependsOn: [$sourceDescriptions.sf.upload_template-interval_event]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: INTERVAL_EVENT
+      quote: '| `/width` | <<DV_DURATION,DV_DURATION>> | width | yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - *ehr_id
+          - { name: openehr-template-id, in: header, value: cnf.tpl.sf_interval_event }
+          - *representation
+          - *json
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            minimal/minimal:0/any_event:0/value: interval event
+            minimal/minimal:0/any_event:0/time: "2021-12-21T16:02:58+01:00"
+            minimal/minimal:0/any_event:0/width: P30D
+            minimal/minimal:0/any_event:0/math_function|code: "146"
+            minimal/minimal:0/any_event:0/math_function|value: mean
+            minimal/minimal:0/any_event:0/math_function|terminology: openehr
+            minimal/minimal:0/any_event:0|sample_count: 5
+        successCriteria:
+          - *composition_created
+        outputs: *version_uid
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_parameters
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.minimal.v1'].data.events[?@.archetype_node_id == 'at0002' && @.width.value == 'P30D']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.minimal.v1'].data.events[?@.archetype_node_id == 'at0002' && @.math_function.defining_code.code_string == '146']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: INTERVAL_EVENT
+              quote: '| `/math_function` | <<DV_CODED_TEXT,DV_CODED_TEXT>> | math_function | yes |'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.minimal.v1'].data.events[?@.archetype_node_id == 'at0002' && @.sample_count == 5]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: INTERVAL_EVENT
+              quote: '| `\|sample_count` | INTEGER | sample_count | no |'

@@ -3125,6 +3125,284 @@ cases:
 # The 236 cases of the AQL conformance corpus (#695), by their own ids: each
 # names the Arazzo case ids that carry it, or says in `open` why it is not
 # carried. A case a workflow already covered maps onto that workflow.
+  SF-CONTRIB-flat_commit:
+    new:
+      - contribution_write_flat/commit_contribution-flat
+      - contribution_write_flat_unsupported/commit_contribution-flat_unsupported_media
+    open: &sf_contribution_template >-
+      Carried on the template minimal_evaluation.en.v1, whose COMPOSITION is
+      judged by the composer the member's context names; the ACTION
+      current_state of the old carrier is judged on the COMPOSITION create
+      (flat_context/create_composition-flat-ism_transition).
+  SF-CONTRIB-flat_read:
+    new:
+      - contribution_read_flat/get_contribution-flat
+      - contribution_read_flat_not_acceptable/get_contribution-flat_not_acceptable
+    open: &sf_contribution_audit >-
+      The audit's time_committed is not judged here; the canonical read of a
+      CONTRIBUTION judges it (contribution_read/get_contribution-audit).
+  SF-CONTRIB-structured_commit:
+    new:
+      - contribution_write_structured/commit_contribution-structured
+      - contribution_write_structured_unsupported/commit_contribution-structured_unsupported_media
+    open: *sf_contribution_template
+  SF-CONTRIB-structured_read:
+    new:
+      - contribution_read_structured/get_contribution-structured
+      - contribution_read_structured_not_acceptable/get_contribution-structured_not_acceptable
+    open: *sf_contribution_audit
+  SF-CTX-composer_name:
+    new: [flat_context/create_composition-flat-composer_name]
+  SF-CTX-composer_self:
+    new: [flat_context/create_composition-flat-composer_self]
+  SF-CTX-missing_mandatory:
+    new: [flat_commit_refused/create_composition-flat-territory_missing]
+  SF-CTX-participation_missing_function:
+    new: [flat_commit_refused/create_composition-flat-participation_function_missing]
+  SF-CTX-participations_forms:
+    new:
+      - flat_context/create_composition-flat-participation_identifiers_compact
+      - flat_context/create_composition-flat-participation_identifiers_expanded
+  SF-CTX-vocabulary_mapping:
+    new:
+      - flat_context/create_composition-flat-language_territory
+      - flat_context/create_composition-flat-ctx_time_default
+      - flat_context/create_composition-flat-ctx_setting_default
+      - flat_context/create_composition-flat-participations
+    open: &sf_setting_value >-
+      The default setting is judged by its value, other care, which is what
+      master06 §setting names; the code 238 is not asserted.
+  SF-DEPRECATED-accept_unsupported:
+    new:
+      - deprecated_example_not_acceptable/get_template_example-flat_deprecated_media_not_acceptable
+      - deprecated_example/get_template_example-flat_deprecated_media
+  SF-DEPRECATED-media_supported:
+    new: [deprecated_write/create_composition-flat_deprecated_media]
+  SF-DEPRECATED-media_unsupported:
+    new: [deprecated_write_refused/create_composition-flat_deprecated_media_unsupported]
+  SF-DEPRECATED-structured_accept_unsupported:
+    new:
+      - deprecated_example_not_acceptable/get_template_example-structured_deprecated_media_not_acceptable
+      - deprecated_example/get_template_example-structured_deprecated_media
+  SF-DEPRECATED-structured_media_unsupported:
+    new:
+      - deprecated_write_refused/create_composition-structured_deprecated_media_unsupported
+      - deprecated_write/create_composition-structured_deprecated_media
+  SF-EXAMPLE-accept_forms:
+    new: [template_adl14/get_template_example]
+    open: >-
+      The canonical JSON example is carried; its XML and simplified-format
+      Accept values are the example gaps of the ADL 1.4 templates, #714.
+  SF-EXAMPLE-roundtrip:
+    new: []
+    open: >-
+      No released sentence requires an example to commit: the
+      definition_template_adl1.4_example_get.yaml description says only that
+      a required example is "expected to be committable without adjustment",
+      with no key word, and that "The implementation and completeness of
+      these examples are not specified".
+  SF-EXAMPLE-unsupported_accept:
+    new: [template_adl14/get_template_example-web_template_not_acceptable]
+  SF-FIELDID-structure:
+    new:
+      - flat_mapping/create_composition-flat-normal_range
+      - flat_mapping/create_composition-flat-dv_quantity
+      - flat_structure/create_composition-flat-instance_index
+  SF-FLAT-adl2_commit:
+    new: []
+    open: &sf_adl2 >-
+      Needs a stored ADL 2 operational template, and none of the committed
+      ADL 2 sources is valid by AM; the ADL 2 template work is #714.
+  SF-FLAT-adl2_reject_cardinality:
+    new: []
+    open: *sf_adl2
+  SF-FLAT-commit_roundtrip_ctx_defaults:
+    new:
+      - flat_context/create_composition-flat-ctx_time_default
+      - flat_context/create_composition-flat-ctx_setting_default
+      - flat_context/create_composition-flat-ism_transition
+    open: &sf_equality >-
+      The equality of the flat and structured read-backs with the committed
+      document is not asserted: master04 §Conversion Between Formats gives a
+      conversion algorithm, and no released sentence requires a server's
+      answer to equal the document it was sent.
+  SF-FLAT-malformed_path:
+    new: [flat_commit_refused/create_composition-flat-path_malformed]
+  SF-FLAT-missing_template_id:
+    new: [flat_commit_refused/create_composition-flat-template_id_missing]
+  SF-FLAT-reject_cardinality:
+    new: [flat_commit_refused/create_composition-flat-cardinality]
+    open: &sf_validation_should >-
+      Carried as advisory: master04 §Validation says implementations "SHOULD
+      validate" this; the refusal code is 422, the template not validating
+      the supplied resource (responses/422.yaml).
+  SF-FLAT-reject_datatype_mismatch:
+    new: [flat_commit_refused/create_composition-flat-data_type_mismatch]
+    open: *sf_validation_should
+  SF-FLAT-reject_other_closed_list:
+    new: [flat_commit_refused/create_composition-flat-other_closed_value_set]
+  SF-FLAT-reject_other_with_code:
+    new: [flat_commit_refused/create_composition-flat-other_with_code]
+  SF-FLAT-reject_terminology_binding:
+    new: [flat_commit_refused/create_composition-flat-terminology_binding]
+    open: *sf_validation_should
+  SF-FLAT-reject_unknown_field:
+    new: [flat_commit_refused/create_composition-flat-unknown_field]
+    open: *sf_validation_should
+  SF-INDEX-multi_event_commit:
+    new: [flat_structure/create_composition-flat-event_index]
+  SF-INDEX-semantics:
+    new: [flat_structure/create_composition-flat-instance_index]
+  SF-LEGACY-nc_flat_accept_unsupported:
+    new: [legacy_example_not_acceptable/get_template_example-nc_flat_not_acceptable]
+  SF-LEGACY-nc_flat_media_supported:
+    new: []
+    open: >-
+      Resources.md §Alternative data formats names the ECISFLAT format and
+      defines it outside the release, so no released text says what a valid
+      document of it is; the accepting arm of `simplified-legacy-write` has no
+      document.
+  SF-LEGACY-nc_flat_media_unsupported:
+    new: [legacy_write_refused/create_composition-nc_flat_media_unsupported]
+  SF-LEGACY-tds2_accept_unsupported:
+    new: [legacy_example_not_acceptable/get_template_example-tds2_not_acceptable]
+  SF-LEGACY-tds2_media_unsupported:
+    new: [legacy_write_refused/create_composition-tds2_media_unsupported]
+  SF-LEVELS-collapsed_wrappers:
+    new: [flat_mapping/create_composition-flat-collapsed_wrappers]
+  SF-LEVELS-container_attribute_elision:
+    new: [flat_mapping/create_composition-flat-container_attributes]
+  SF-LEVELS-lab_panel_example:
+    new: [flat_mapping/create_composition-flat-nested_clusters]
+  SF-MAP-attribute_suffix_table:
+    new:
+      - flat_mapping/create_composition-flat-dv_quantity
+      - flat_mapping/create_composition-flat-dv_coded_text
+  SF-MAP-context:
+    new:
+      - flat_context/create_composition-flat-ctx_time_default
+      - flat_context/create_composition-flat-ctx_setting_default
+      - flat_context/create_composition-flat-participations
+      - flat_context/create_composition-flat-ism_transition
+    open: *sf_setting_value
+  SF-MAP-dv_ordinal_proportion_count:
+    new:
+      - flat_mapping/create_composition-flat-dv_ordinal
+      - flat_mapping/create_composition-flat-dv_proportion
+      - flat_mapping/create_composition-flat-dv_count
+  SF-MAP-dv_quantity:
+    new: [flat_mapping/create_composition-flat-dv_quantity]
+    open: >-
+      The RM attributes are judged from master04 §Attribute Suffixes and the
+      RM: the master05 §DV_QUANTITY table names the RM path `unit` and swaps
+      the flat types (upstream report #721).
+  SF-MAP-dv_text_coded:
+    new:
+      - flat_mapping/create_composition-flat-dv_text
+      - flat_mapping/create_composition-flat-dv_coded_text
+  SF-MAP-entries:
+    new:
+      - flat_mapping/create_composition-flat-entries
+      - flat_context/create_composition-flat-language_territory
+  SF-MAP-events_audit:
+    new: [flat_structure/create_composition-flat-feeder_audit]
+  SF-MAP-instruction_details:
+    new: [flat_context/create_composition-flat-instruction_details]
+  SF-MAP-interval_event:
+    new: [flat_structure/create_composition-flat-interval_event]
+  SF-MAP-interval_reference_range:
+    new: [flat_mapping/create_composition-flat-dv_interval]
+    open: >-
+      The DV_INTERVAL boundary flags and the REFERENCE_RANGE rows of master05
+      have no workflow yet, #722.
+  SF-MAP-multimedia_parsable:
+    new:
+      - flat_mapping/create_composition-flat-dv_multimedia
+      - flat_mapping/create_composition-flat-dv_parsable
+  SF-MAP-party:
+    new:
+      - flat_context/create_composition-flat-composer_name
+      - flat_context/create_composition-flat-participations
+  SF-MAP-simple_values:
+    new:
+      - flat_mapping/create_composition-flat-dv_boolean
+      - flat_mapping/create_composition-flat-dv_identifier
+      - flat_mapping/create_composition-flat-dv_uri
+  SF-MAP-structure:
+    new:
+      - flat_mapping/create_composition-flat-element_value
+      - flat_mapping/create_composition-flat-nested_clusters
+  SF-MAP-temporal:
+    new:
+      - flat_mapping/create_composition-flat-dv_date
+      - flat_mapping/create_composition-flat-dv_date_time
+      - flat_mapping/create_composition-flat-dv_time
+      - flat_mapping/create_composition-flat-dv_duration
+  SF-NODEID-generation_rules:
+    new:
+      - flat_structure/create_composition-flat-vitals
+      - flat_mapping/create_composition-flat-entries
+    open: &sf_web_template >-
+      The node ids are judged through the flat paths a server accepts; the
+      members of a Web Template document are not judged, because master04
+      §Web Template Metadata says "Specification of Web Template metadata is
+      separate from the data serialization format described in this
+      specification" and the release specifies it nowhere else.
+  SF-NODEID-web_template_ids:
+    new:
+      - template_adl14_web_template/get_template-web_template
+      - template_adl14_web_template_not_acceptable/get_template-web_template_not_acceptable
+    open: *sf_web_template
+  SF-RAW-embedding:
+    new: [flat_mapping/create_composition-flat-raw]
+  SF-RAW-missing_type:
+    new: [flat_commit_refused/create_composition-flat-raw_without_type]
+  SF-RAW-structured_embedding:
+    new: [structured_commit/create_composition-structured-raw]
+  SF-RMATTR-normal_range_commit:
+    new: [flat_mapping/create_composition-flat-normal_range]
+  SF-RMATTR-underscore_mapping:
+    new: [flat_mapping/create_composition-flat-normal_range]
+  SF-SCOPE-demographic_no_simplified:
+    new: []
+    open: &sf_scope >-
+      No released sentence refuses a simplified form of this resource: its
+      operation declares the Simplified Formats among its Accept values
+      (parameters/header/Accept_LOCATABLE.yaml), while master05 maps no
+      class outside the COMPOSITION content (upstream report #352).
+  SF-SCOPE-directory_no_simplified:
+    new: []
+    open: *sf_scope
+  SF-SCOPE-ehr_status_no_simplified:
+    new: []
+    open: *sf_scope
+  SF-STRUCT-arrays_single_cardinality:
+    new: [structured_commit/create_composition-structured-vitals]
+    open: *sf_equality
+  SF-STRUCT-empty_object_omission:
+    new: [structured_read/get_composition-structured-empty_omitted]
+    open: &sf_ctx_output >-
+      The ctx property of the answer is not judged: master06 defines the ctx
+      values as defaults a client sends, and no released sentence requires a
+      server to return them.
+  SF-STRUCT-style_rules:
+    new: [structured_read/get_composition-structured-nested_arrays]
+    open: *sf_ctx_output
+  SF-STRUCTURED-commit_roundtrip:
+    new: [structured_commit/create_composition-structured-vitals]
+    open: *sf_equality
+  SF-WT-web_template_get:
+    new:
+      - template_adl14_web_template/get_template-web_template
+      - template_adl14_web_template_not_acceptable/get_template-web_template_not_acceptable
+    open: *sf_web_template
+  SF-WT-web_template_json_accept:
+    new: []
+    open: >-
+      No released schema defines a JSON form of an ADL 1.4 operational
+      template, so no sentence assigns the answer to Accept
+      application/json on a template read; the branch is a gap of the ADL
+      1.4 templates, #714.
 corpora:
   aql-conformance:
     source: https://github.com/Cadasto/aql-conformance

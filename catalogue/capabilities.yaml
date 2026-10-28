@@ -98,7 +98,7 @@ options:
       this one answers 406.
     arms:
       composition-structured-supported:
-        documents: [composition_read_structured, composition_write_structured_accept]
+        documents: [composition_read_structured, composition_write_structured_accept, structured_read]
       composition-structured-unsupported:
         documents: [composition_read_structured_not_acceptable, composition_write_structured_not_acceptable]
     x-veredictum-cite:
@@ -173,7 +173,7 @@ options:
       this one answers 415.
     arms:
       composition-flat-write-accepted:
-        documents: [composition_write_flat]
+        documents: [composition_write_flat, flat_context, flat_mapping, flat_structure, flat_commit_refused]
       composition-flat-write-refused:
         documents: [composition_write_flat_unsupported]
     x-veredictum-cite:
@@ -188,7 +188,7 @@ options:
       process this one answers 415.
     arms:
       composition-structured-write-accepted:
-        documents: [composition_write_structured]
+        documents: [composition_write_structured, structured_commit, structured_read]
       composition-structured-write-refused:
         documents: [composition_write_structured_unsupported]
     x-veredictum-cite:
@@ -283,3 +283,115 @@ options:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format
       quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  contribution-flat-write:
+    description: >-
+      Whether the service processes a CONTRIBUTION sent with Content-Type
+      application/openehr.wt.flat+json, whose canonical envelope carries its
+      members' data in the Simplified Flat JSON format. The release
+      recommends the Simplified Formats, so a service that does not process
+      this one answers 415.
+    arms:
+      contribution-flat-write-accepted:
+        documents: [contribution_write_flat]
+      contribution-flat-write-refused:
+        documents: [contribution_write_flat_unsupported]
+    x-veredictum-cite: &simplified_unsupported
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "If the service cannot process the request payload as the simplified format is not supported, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  contribution-structured-write:
+    description: >-
+      Whether the service processes a CONTRIBUTION sent with Content-Type
+      application/openehr.wt.structured+json, whose canonical envelope
+      carries its members' data in the Simplified Structured JSON format. The
+      release recommends the Simplified Formats, so a service that does not
+      process this one answers 415.
+    arms:
+      contribution-structured-write-accepted:
+        documents: [contribution_write_structured]
+      contribution-structured-write-refused:
+        documents: [contribution_write_structured_unsupported]
+    x-veredictum-cite: *simplified_unsupported
+  contribution-flat-read:
+    description: >-
+      Whether the service serves a CONTRIBUTION when a client asks for it with
+      Accept application/openehr.wt.flat+json. The release recommends the
+      Simplified Formats, so a service that does not serve this one answers
+      406.
+    arms:
+      contribution-flat-supported:
+        documents: [contribution_read_flat]
+      contribution-flat-unsupported:
+        documents: [contribution_read_flat_not_acceptable]
+    x-veredictum-cite: &simplified_should
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Additionally, the **Simplified Formats** format SHOULD be supported, while other alternative formats MAY be supported as well, depending on the use case."
+      level: should
+  contribution-structured-read:
+    description: >-
+      Whether the service serves a CONTRIBUTION when a client asks for it with
+      Accept application/openehr.wt.structured+json. The release recommends
+      the Simplified Formats, so a service that does not serve this one
+      answers 406.
+    arms:
+      contribution-structured-supported:
+        documents: [contribution_read_structured]
+      contribution-structured-unsupported:
+        documents: [contribution_read_structured_not_acceptable]
+    x-veredictum-cite: *simplified_should
+  simplified-deprecated-write:
+    description: >-
+      Whether the service still processes a COMPOSITION sent with the
+      deprecated media types application/openehr.wt.flat.schema+json and
+      application/openehr.wt.structured.schema+json. The release deprecates
+      them in favour of their current equivalents, so a service may have
+      dropped them and then answers 415.
+    arms:
+      simplified-deprecated-write-accepted:
+        documents: [deprecated_write]
+      simplified-deprecated-write-refused:
+        documents: [deprecated_write_refused]
+    x-veredictum-cite: &deprecated
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "> NOTE: The `application/openehr.wt.flat.schema+json` and `application/openehr.wt.structured.schema+json` which were historically available in earlier versions of this specification, are now deprecated and will be removed in a future version of the specification. The equivalent formats `application/openehr.wt.flat+json` and `application/openehr.wt.structured+json` SHOULD be used instead."
+      level: should
+  simplified-deprecated-read:
+    description: >-
+      Whether the service still serves a template example when a client asks
+      for it with the deprecated media types
+      application/openehr.wt.flat.schema+json and
+      application/openehr.wt.structured.schema+json. A service that has
+      dropped them answers 406.
+    arms:
+      simplified-deprecated-supported:
+        documents: [deprecated_example]
+      simplified-deprecated-unsupported:
+        documents: [deprecated_example_not_acceptable]
+    x-veredictum-cite: *deprecated
+  simplified-legacy-write:
+    description: >-
+      Whether the service processes a COMPOSITION sent with the legacy media
+      types application/openehr.nc.flat+json and application/openehr.tds2+xml.
+      The release names these formats and defines neither, so the accepting
+      arm has no document; a service that does not process them answers 415.
+    arms:
+      simplified-legacy-write-accepted:
+        documents: []
+      simplified-legacy-write-refused:
+        documents: [legacy_write_refused]
+    x-veredictum-cite: *simplified_should
+  simplified-legacy-read:
+    description: >-
+      Whether the service serves a template example when a client asks for it
+      with the legacy media types application/openehr.nc.flat+json and
+      application/openehr.tds2+xml. The release names these formats and
+      defines neither, so the serving arm has no document; a service that
+      does not serve them answers 406.
+    arms:
+      simplified-legacy-supported:
+        documents: []
+      simplified-legacy-unsupported:
+        documents: [legacy_example_not_acceptable]
+    x-veredictum-cite: *simplified_should

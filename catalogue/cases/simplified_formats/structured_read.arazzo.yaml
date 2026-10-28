@@ -1,0 +1,137 @@
+# COMPOSITIONs created from the Simplified Structured JSON format and read
+# back in it, for a service that processes and serves the format: part of the
+# accepting arm of the `composition-structured-write` option and of the
+# serving arm of the `composition-structured-read` option, as Arazzo 1.1.0
+# workflows over the released ITS-REST `-validation` OAS. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: The Simplified Structured JSON format of a stored COMPOSITION
+  version: 0.1.0
+  description: >-
+    The syntax rules of the Structured format (master04-basic_concepts.adoc
+    §Structured format), judged on a COMPOSITION of the template cnf.vitals
+    read back with Accept application/openehr.wt.structured+json.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: sf
+    url: ../_setup/simplified_formats.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: get_composition-structured-nested_arrays
+    summary: A COMPOSITION read in the Structured format nests its path segments with arrays of values
+    description: >-
+      Creates an EHR, creates a COMPOSITION of the template cnf.vitals from a
+      structured document with one body temperature of 37.2 Cel, and reads it
+      back with Accept application/openehr.wt.structured+json. The answer
+      nests vitals, body_temperature, any_event and temperature, each a
+      property holding an array, and the temperature carries |magnitude 37.2
+      and |unit Cel.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Structured format
+      quote: "Hierarchy MUST be represented by nested objects"
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: Create the COMPOSITION from the structured document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: cnf.vitals }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.structured+json
+          payload:
+            ctx: { language: en, territory: NL, composer_self: true }
+            vitals:
+              body_temperature:
+                - any_event:
+                    - temperature:
+                        - { "|magnitude": 37.2, "|unit": Cel }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in the Structured format.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: &read_structured
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/openehr.wt.structured+json }
+        successCriteria:
+          - &composition_retrieved
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested COMPOSITION is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$.vitals.body_temperature[*].any_event[*].temperature[?@['|magnitude'] == 37.2]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+              section: Structured format
+              quote: "Arrays MUST be used for data values, even when cardinality is `0..1` or `1..1`"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.vitals.body_temperature[*].any_event[*].temperature[?@['|unit'] == 'Cel']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+              section: Structured format
+              quote: "Attribute suffixes MUST use pipe prefix"
+
+  - workflowId: get_composition-structured-empty_omitted
+    summary: A COMPOSITION read in the Structured format omits the nodes it does not populate
+    description: >-
+      Creates an EHR, creates a COMPOSITION of the template cnf.vitals from a
+      structured document that gives a temperature and neither a Symptom nor
+      a Body exposure, and reads it back with Accept
+      application/openehr.wt.structured+json. The event in the answer
+      carries no symptom and no body_exposure property. The release
+      recommends omitting empty objects, so the row is advisory.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Structured format
+      quote: "Empty objects SHOULD be omitted"
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in the Structured format.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_structured
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.vitals.body_temperature[*].any_event[?@.temperature && !@.symptom && !@.body_exposure]"

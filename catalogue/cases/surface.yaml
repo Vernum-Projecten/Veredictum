@@ -122,14 +122,13 @@ gaps:
   - { api: query, operation: query_execute_stored_query_version_body, status: "400", issue: 711 }
   - { api: query, operation: query_execute_stored_query_version_body, status: "408", issue: 711 }
 # The CONTRIBUTION and DIRECTORY gaps, covered by #698: the simplified
-# formats, the XML answer of a write, and an XML request body on a write
+# formats of a directory write and read and of the answer of a CONTRIBUTION
+# create, the XML answer of a write, and an XML request body on a write
 # (whose accepting arms of `contribution-xml-write` and `directory-xml-write`
 # have no document).
   - { api: ehr, operation: contribution_create, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
   - { api: ehr, operation: contribution_create, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
   - { api: ehr, operation: contribution_create, header: Accept, value: application/xml, issue: 698 }
-  - { api: ehr, operation: contribution_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 698 }
-  - { api: ehr, operation: contribution_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 698 }
   - { api: ehr, operation: contribution_create, header: Content-Type, value: application/xml, issue: 698 }
   - { api: ehr, operation: directory_create, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
   - { api: ehr, operation: directory_create, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
@@ -143,8 +142,6 @@ gaps:
   - { api: ehr, operation: directory_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 698 }
   - { api: ehr, operation: directory_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 698 }
   - { api: ehr, operation: directory_update, header: Content-Type, value: application/xml, issue: 698 }
-  - { api: ehr, operation: contribution_get, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
-  - { api: ehr, operation: contribution_get, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
   - { api: ehr, operation: directory_get_at_time, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
   - { api: ehr, operation: directory_get_at_time, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
   - { api: ehr, operation: directory_get_by_version_id, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
