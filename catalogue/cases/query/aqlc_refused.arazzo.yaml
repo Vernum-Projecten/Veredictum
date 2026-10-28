@@ -1,0 +1,207 @@
+# The aql-conformance queries the released AQL grammar or prose makes invalid, each refused with 400. Each workflow carries one case of the AQL conformance corpus
+# (github.com/Cadasto/aql-conformance at d5b8c554fece), named in its
+# description; catalogue/id-map.yaml maps every case of the corpus. The case's
+# own data is committed by the set-up it names in
+# _setup/aql_conformance.arazzo.yaml, and its runtime identifiers reach the
+# query as query parameters. Every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: 'AQL conformance: refusals'
+  version: 0.1.0
+  description: The aql-conformance queries the released AQL grammar or prose makes invalid, each refused
+    with 400.
+sourceDescriptions:
+  - name: query
+    url: ../../../specs/rest-oas/query-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/aql_conformance.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: contains_depth-alias_declared_twice_is_invalid
+    summary: An alias declared twice makes the query invalid
+    description: 'Carries aql-conformance case FROM.contains_depth.alias_declared_twice_is_invalid (level
+      core, corpus/cases/FROM/refused_alias_declared_twice.yaml): over the set-up seed-vital_signs, the
+      query is refused with 400.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Variables > Syntax
+      quote: A variable name must be unique within an AQL statement.
+    steps:
+      - stepId: query
+        description: An alias declared twice makes the query invalid.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION c WHERE e/ehr_id/value
+              = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+              section: description
+              quote: '`400 Bad Request` is returned when the server was unable to execute the query due
+                to invalid input, e.g. a required parameter is missing, or at least one of the parameters
+                has an invalid syntax.'
+  - workflowId: identified_path-reference_to_an_undeclared_alias_is_invalid
+    summary: A reference to an undeclared alias is rejected as malformed
+    description: 'Carries aql-conformance case SELECT.identified_path.reference_to_an_undeclared_alias_is_invalid
+      (level core, corpus/cases/WHERE/invalid_undeclared_alias.yaml): over the set-up seed-vital_signs,
+      the query is refused with 400.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Variables > Syntax
+      quote: AQL variables are defined in the AQL `FROM` clause.
+    steps:
+      - stepId: query
+        description: A reference to an undeclared alias is rejected as malformed.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT x/uid/value FROM EHR e CONTAINS COMPOSITION c WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+              section: description
+              quote: '`400 Bad Request` is returned when the server was unable to execute the query due
+                to invalid input, e.g. a required parameter is missing, or at least one of the parameters
+                has an invalid syntax.'
+  - workflowId: identified_path-select_star_mixed_with_a_column_refused
+    summary: SELECT * beside a column is not AQL, so the query is invalid
+    description: 'Carries aql-conformance case SELECT.identified_path.select_star_mixed_with_a_column_refused
+      (level core, corpus/cases/SELECT/refused_select_star_mixed_with_a_column.yaml): over the set-up
+      seed-vital_signs, the query is refused with 400.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: SELECT > Syntax
+      quote: A column expression is formed by an <<_identified_paths,identified path>>, a <<_functions,function>>,
+        a <<_literals, literal>> value or plain <<_variables,variable>> name defined in the `FROM` clause.
+    steps:
+      - stepId: query
+        description: SELECT * beside a column is not AQL, so the query is invalid.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT *, c/uid/value FROM EHR e CONTAINS COMPOSITION c WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+              section: description
+              quote: '`400 Bad Request` is returned when the server was unable to execute the query due
+                to invalid input, e.g. a required parameter is missing, or at least one of the parameters
+                has an invalid syntax.'
+  - workflowId: identified_path-select_star_refused
+    summary: SELECT * is not AQL, so the query is invalid
+    description: 'Carries aql-conformance case SELECT.identified_path.select_star_refused (level core,
+      corpus/cases/SELECT/refused_select_star.yaml): over the set-up seed-vital_signs, the query is refused
+      with 400.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: SELECT > Syntax
+      quote: A column expression is formed by an <<_identified_paths,identified path>>, a <<_functions,function>>,
+        a <<_literals, literal>> value or plain <<_variables,variable>> name defined in the `FROM` clause.
+    steps:
+      - stepId: query
+        description: SELECT * is not AQL, so the query is invalid.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT * FROM EHR e CONTAINS COMPOSITION c WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+              section: description
+              quote: '`400 Bad Request` is returned when the server was unable to execute the query due
+                to invalid input, e.g. a required parameter is missing, or at least one of the parameters
+                has an invalid syntax.'
+  - workflowId: limit-parameterised_limit_refused
+    summary: A parameter in place of the LIMIT row count makes the query invalid
+    description: 'Carries aql-conformance case paging.limit.parameterised_limit_refused (level sensible,
+      corpus/cases/paging/refused_parameterised_limit.yaml): over the set-up seed-vital_signs, the query
+      is refused with 400.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: LIMIT > Syntax
+      quote: Both `row_count` and `offset` are integer numbers, `row_count` minimal value is 1, while
+        minimal value for `offset` is 0.
+    steps:
+      - stepId: query
+        description: A parameter in place of the LIMIT row count makes the query invalid.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c WHERE e/ehr_id/value = $ehr_id LIMIT
+              $n
+            query_parameters:
+              n: 1
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+              section: description
+              quote: '`400 Bad Request` is returned when the server was unable to execute the query due
+                to invalid input, e.g. a required parameter is missing, or at least one of the parameters
+                has an invalid syntax.'

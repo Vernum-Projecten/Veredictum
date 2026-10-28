@@ -12,6 +12,10 @@ scope:
   - { api: ehr, tag: COMPOSITION }
   - { api: definition, tag: ADL1.4 }
   - { api: definition, tag: ADL2 }
+  - { api: query, tag: Query }
+  - { api: definition, tag: Query }
+  - { api: ehr, tag: DIRECTORY }
+  - { api: ehr, tag: CONTRIBUTION }
 # Each gap is a branch of the scoped surface no workflow reaches yet, and
 # names the issue that tracks it. An element counts as covered when every
 # arm of its option covers it.
@@ -104,3 +108,44 @@ gaps:
   - { api: definition, operation: definition_template_adl2_version_get, header: Accept, value: application/xml, issue: 714 }
   - { api: definition, operation: definition_template_adl2_version_get, status: "200", issue: 714 }
   - { api: definition, operation: definition_template_adl2_version_get, status: "400", issue: 714 }
+# The Query branches the QUERY and DEFINITION conversion leaves open, covered
+# by #711: the 400 of a refused stored-query execution and version store, and
+# the 408 of a query that times out, which no workflow can provoke on demand.
+  - { api: definition, operation: definition_query_version_store.yaml, status: "400", issue: 711 }
+  - { api: query, operation: query_execute_adhoc_query, status: "408", issue: 711 }
+  - { api: query, operation: query_execute_adhoc_query_body, status: "408", issue: 711 }
+  - { api: query, operation: query_execute_stored_query, status: "400", issue: 711 }
+  - { api: query, operation: query_execute_stored_query, status: "408", issue: 711 }
+  - { api: query, operation: query_execute_stored_query_body, status: "408", issue: 711 }
+  - { api: query, operation: query_execute_stored_query_version, status: "400", issue: 711 }
+  - { api: query, operation: query_execute_stored_query_version, status: "408", issue: 711 }
+  - { api: query, operation: query_execute_stored_query_version_body, status: "400", issue: 711 }
+  - { api: query, operation: query_execute_stored_query_version_body, status: "408", issue: 711 }
+# The CONTRIBUTION and DIRECTORY gaps, covered by #698: the simplified
+# formats, the XML answer of a write, and an XML request body on a write
+# (whose accepting arms of `contribution-xml-write` and `directory-xml-write`
+# have no document).
+  - { api: ehr, operation: contribution_create, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
+  - { api: ehr, operation: contribution_create, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
+  - { api: ehr, operation: contribution_create, header: Accept, value: application/xml, issue: 698 }
+  - { api: ehr, operation: contribution_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 698 }
+  - { api: ehr, operation: contribution_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 698 }
+  - { api: ehr, operation: contribution_create, header: Content-Type, value: application/xml, issue: 698 }
+  - { api: ehr, operation: directory_create, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
+  - { api: ehr, operation: directory_create, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
+  - { api: ehr, operation: directory_create, header: Accept, value: application/xml, issue: 698 }
+  - { api: ehr, operation: directory_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 698 }
+  - { api: ehr, operation: directory_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 698 }
+  - { api: ehr, operation: directory_create, header: Content-Type, value: application/xml, issue: 698 }
+  - { api: ehr, operation: directory_update, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
+  - { api: ehr, operation: directory_update, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
+  - { api: ehr, operation: directory_update, header: Accept, value: application/xml, issue: 698 }
+  - { api: ehr, operation: directory_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 698 }
+  - { api: ehr, operation: directory_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 698 }
+  - { api: ehr, operation: directory_update, header: Content-Type, value: application/xml, issue: 698 }
+  - { api: ehr, operation: contribution_get, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
+  - { api: ehr, operation: contribution_get, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
+  - { api: ehr, operation: directory_get_at_time, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
+  - { api: ehr, operation: directory_get_at_time, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
+  - { api: ehr, operation: directory_get_by_version_id, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
+  - { api: ehr, operation: directory_get_by_version_id, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }

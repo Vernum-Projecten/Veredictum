@@ -41,6 +41,42 @@ version on.
   request body (`{$inputs.run}` inside an OPT), as Arazzo 1.1.0 allows for
   any string value.
 
+- The QUERY and DEFINITION query cases are converted to Arazzo (#603), and
+  the AQL conformance corpus (github.com/Cadasto/aql-conformance, MIT) is
+  brought in (#695). `catalogue/cases/query/` holds the ad-hoc and stored
+  query execution, the AQL semantics over a known dataset, the refused
+  requests, the stored-query definitions (`definition_query`) and, from the
+  corpus, 45 carried cases in `aqlc_*` documents over set-ups in
+  `_setup/aql_conformance.arazzo.yaml`. Every one of the corpus's 236 case ids
+  is in `catalogue/id-map.yaml` under `corpora`: carried, folded onto an
+  existing workflow, or not carried with its reason and upstream report.
+  Three new options in `catalogue/capabilities.yaml`: `query-ehr-scope`,
+  `aql-top` and `aql-terminology`. The Query tags of the query and definition
+  APIs join `surface.yaml`, with their open branches tracked by #711.
+- A `result_set` expected row may hold runtime expressions in its cells, such
+  as the version uid a set-up was answered with, and the AQL parser check
+  reads an embedded `{$…}` value in a GET query as a placeholder.
+- The CONTRIBUTION and DIRECTORY cases are converted to Arazzo (#603). 147
+  workflows in 14 documents under `catalogue/cases/contribution/` and
+  `catalogue/cases/directory/` carry 60 of the 115 `I_EHR_CONTRIBUTION`
+  cases and 76 of the 90 `I_EHR_DIRECTORY` cases: the commit of a
+  CONTRIBUTION with COMPOSITION, EHR_STATUS and FOLDER members, its
+  preferences and headers, and its refusals (400 for a body the commit DTO
+  or the published ITS-JSON schema refuses, 422 for an RM invariant or an
+  unknown template, 404, 409, 415, and any 4xx in an EHR that is not
+  modifiable); the CONTRIBUTION read; and the directory create, update,
+  delete and reads by time, version and path. Every FOLDER node whose
+  archetype_node_id is an archetype id carries archetype_details, and a root
+  without it is refused with 422. Four new options,
+  `contribution-xml-read`, `contribution-xml-write`, `directory-xml-read`
+  and `directory-xml-write`, carry the XML arms. `surface.yaml` takes the
+  CONTRIBUTION and DIRECTORY tags into scope with 24 negotiation branches as
+  gaps under #698, the six demographic CONTRIBUTION cases stay under
+  `pending`, and `catalogue/id-map.yaml` gives the reason for every case
+  not carried, among them attestation members (#690), deletion members and
+  imported versions (no released commit shape), lifecycle transitions (no
+  released wire treatment), and the list of CONTRIBUTIONs and the
+  VERSIONED_FOLDER (no released route).
 - The create and delete cases of the COMPOSITION component are converted to
   Arazzo (#603). 59 workflows in five documents under
   `catalogue/cases/composition/` carry 50 of the 66 create and delete

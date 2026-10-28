@@ -1,0 +1,610 @@
+# Creating the directory FOLDER of an EHR: the 201 of a create, the
+# directory read back afterwards, references to versioned objects in its
+# items, a LINK, the response preferences and the headers of the answer, as
+# Arazzo 1.1.0 workflows over the released ITS-REST `-validation` OAS. Every
+# criterion resolves to an `x-veredictum-cite` (its own, else its step's,
+# else its workflow's), and every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: Directory create
+  version: 0.1.0
+  description: >-
+    Creating the directory FOLDER of an EHR that has none, in canonical JSON.
+    The FOLDER is a root named root holding one sub-FOLDER named episodes,
+    which holds one sub-FOLDER named 2026.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_directory
+    summary: A directory FOLDER created in an EHR without one is answered 201 with the FOLDER
+    description: >-
+      Creates an EHR, then creates its directory FOLDER asking for the full
+      representation. The create is answered 201 Created, and the body is the
+      FOLDER named root.
+    x-veredictum-cite: &directory_created
+      source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+      section: description
+      quote: "`201 Created` is returned when the FOLDER is successfully created."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &create
+        stepId: create
+        description: Create the directory FOLDER and ask for the full representation.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: &folder
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+            folders:
+              - _type: FOLDER
+                name: { _type: DV_TEXT, value: episodes }
+                archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                  rm_version: 1.1.0
+                folders:
+                  - _type: FOLDER
+                    name: { _type: DV_TEXT, value: "2026" }
+                    archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                    archetype_details:
+                      _type: ARCHETYPED
+                      archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                      rm_version: 1.1.0
+        successCriteria:
+          - &created
+            condition: $statusCode == 201
+            x-veredictum-cite: *directory_created
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^root$'
+            x-veredictum-cite: &representation
+              source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+              section: description
+              quote: "If `Prefer` header is `return=representation`, the full resource is included in the response body;"
+
+  - workflowId: create_directory-read_back
+    summary: The directory FOLDER created is the directory read afterwards
+    description: >-
+      Creates an EHR and its directory FOLDER, then retrieves the latest
+      directory. The read is answered 200 with the FOLDER named root and its
+      sub-FOLDER named episodes.
+    x-veredictum-cite: &folder_retrieved
+      source: specs/openehr/ITS-REST/specifications/responses/200_FOLDER_retrieved.yaml
+      section: description
+      quote: "`200 OK` is returned when the FOLDER is successfully retrieved."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &ok
+            condition: $statusCode == 200
+            x-veredictum-cite: *folder_retrieved
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^root$'
+          - context: $response.body#/folders/0/name/value
+            type: regex
+            condition: '^episodes$'
+
+  - workflowId: create_directory-with_items
+    summary: A directory FOLDER whose items reference a COMPOSITION keeps the reference
+    description: >-
+      Creates an EHR and commits a COMPOSITION, derives its
+      versioned_object_uid, then creates the directory FOLDER whose items
+      reference that versioned object. The create is answered 201, and the
+      directory read afterwards carries the reference.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &items
+      source: specs/openehr/RM/docs/UML/classes/folder.adoc
+      section: FOLDER Class
+      quote: "The list of references to other (usually) versioned objects logically in this folder."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &commit
+        stepId: commit
+        description: >-
+          Commit a COMPOSITION, keep the version_uid of the full representation
+          the create answers with, and derive the versioned_object_uid from it.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: COMPOSITION
+            name: { _type: DV_TEXT, value: content case carrier }
+            archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-COMPOSITION.minimal.v1 }
+              template_id: { _type: TEMPLATE_ID, value: cnf.tpl.count_range }
+              rm_version: 1.0.2
+            language:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+              code_string: en
+            territory:
+              _type: CODE_PHRASE
+              terminology_id: { _type: TERMINOLOGY_ID, value: ISO_3166-1 }
+              code_string: NL
+            category:
+              _type: DV_CODED_TEXT
+              value: event
+              defining_code:
+                _type: CODE_PHRASE
+                terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                code_string: "433"
+            composer: { _type: PARTY_SELF }
+            context:
+              _type: EVENT_CONTEXT
+              start_time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+              setting:
+                _type: DV_CODED_TEXT
+                value: other care
+                defining_code:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: openehr }
+                  code_string: "238"
+            content:
+              - _type: OBSERVATION
+                name: { _type: DV_TEXT, value: content observation }
+                archetype_node_id: openEHR-EHR-OBSERVATION.minimal.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-OBSERVATION.minimal.v1 }
+                  rm_version: 1.0.2
+                language:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: ISO_639-1 }
+                  code_string: en
+                encoding:
+                  _type: CODE_PHRASE
+                  terminology_id: { _type: TERMINOLOGY_ID, value: IANA_character-sets }
+                  code_string: UTF-8
+                subject: { _type: PARTY_SELF }
+                data:
+                  _type: HISTORY
+                  name: { _type: DV_TEXT, value: history }
+                  archetype_node_id: at0001
+                  origin: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                  events:
+                    - _type: POINT_EVENT
+                      name: { _type: DV_TEXT, value: any event }
+                      archetype_node_id: at0002
+                      time: { _type: DV_DATE_TIME, value: "2026-01-01T00:00:00Z" }
+                      data:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: tree }
+                        archetype_node_id: at0003
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: value }
+                            archetype_node_id: at0004
+                            value: { _type: DV_COUNT, magnitude: 15 }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: create
+        description: Create the directory FOLDER whose items reference the COMPOSITION's versioned object.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /items/0/id/value, value: $steps.commit.outputs.versioned_object_uid }
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+            items:
+              - id: { _type: HIER_OBJECT_ID, value: "" }
+                namespace: local
+                type: VERSIONED_COMPOSITION
+        successCriteria:
+          - *created
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - context: $response.body#/items/0/id/value
+            type: regex
+            condition: '^{$steps.commit.outputs.versioned_object_uid}$'
+
+  - workflowId: create_directory-version_items
+    summary: A directory FOLDER whose items reference a VERSION keeps the reference
+    description: >-
+      Creates an EHR and commits a COMPOSITION, then creates the directory
+      FOLDER whose items reference that COMPOSITION's version by its
+      version_uid, an OBJECT_VERSION_ID. The create is answered 201, and the
+      directory read afterwards carries the version-pinned reference.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *items
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: create
+        description: Create the directory FOLDER whose items reference the COMPOSITION's version.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /items/0/id/value, value: $steps.commit.outputs.version_uid }
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+            items:
+              - id: { _type: OBJECT_VERSION_ID, value: "" }
+                namespace: local
+                type: COMPOSITION
+        successCriteria:
+          - *created
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - context: $response.body#/items/0/id/value
+            type: regex
+            condition: '^{$steps.commit.outputs.version_uid}$'
+
+  - workflowId: create_directory-multiply_classified_items
+    summary: Two FOLDERs referencing the same COMPOSITION keep both references
+    description: >-
+      Creates an EHR and commits a COMPOSITION, then creates the directory
+      FOLDER whose two sub-FOLDERs each reference that COMPOSITION's versioned
+      object. The create is answered 201, and the directory read afterwards
+      carries the reference in both sub-FOLDERs.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/ehr/master04-ehr_package.adoc
+      section: Folders
+      quote: "_More than one Folder can therefore refer to the same Composition_ or other target object."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: create
+        description: Create the directory FOLDER whose two sub-FOLDERs reference the same versioned object.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          replacements:
+            - { target: /folders/0/items/0/id/value, value: $steps.commit.outputs.versioned_object_uid }
+            - { target: /folders/1/items/0/id/value, value: $steps.commit.outputs.versioned_object_uid }
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+            folders:
+              - _type: FOLDER
+                name: { _type: DV_TEXT, value: diabetes }
+                archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                  rm_version: 1.1.0
+                items:
+                  - id: { _type: HIER_OBJECT_ID, value: "" }
+                    namespace: local
+                    type: VERSIONED_COMPOSITION
+              - _type: FOLDER
+                name: { _type: DV_TEXT, value: visits }
+                archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+                archetype_details:
+                  _type: ARCHETYPED
+                  archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+                  rm_version: 1.1.0
+                items:
+                  - id: { _type: HIER_OBJECT_ID, value: "" }
+                    namespace: local
+                    type: VERSIONED_COMPOSITION
+        successCriteria:
+          - *created
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - context: $response.body
+            type: jsonpath
+            condition: "$.folders[?@.name.value == 'diabetes' && @.items[0].id.value == '{$steps.commit.outputs.versioned_object_uid}']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.folders[?@.name.value == 'visits' && @.items[0].id.value == '{$steps.commit.outputs.versioned_object_uid}']"
+
+  - workflowId: create_directory-link
+    summary: A directory FOLDER carrying a LINK keeps it
+    description: >-
+      Creates an EHR, then creates its directory FOLDER carrying a LINK with
+      a meaning, a type and an ehr: target. The create is answered 201, and
+      the directory read afterwards carries the LINK.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+      section: LOCATABLE Class
+      quote: "Links to other archetyped structures (data whose root object inherits from `ARCHETYPED`, such as `ENTRY`, `SECTION` and so on)."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER carrying a LINK.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+            links:
+              - _type: LINK
+                meaning: { _type: DV_TEXT, value: follow up }
+                type: { _type: DV_TEXT, value: issue }
+                target: { _type: DV_EHR_URI, value: "ehr:/compositions" }
+        successCriteria:
+          - *created
+      - stepId: get
+        description: Retrieve the latest directory FOLDER.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ok
+          - context: $response.body#/links/0/meaning/value
+            type: regex
+            condition: '^follow up$'
+
+  - workflowId: create_directory-prefer_minimal
+    summary: A directory create with Prefer return=minimal is answered 201 with an empty body
+    description: >-
+      Creates an EHR, then creates its directory FOLDER with Prefer
+      return=minimal. The create is answered 201 and the body is empty.
+    x-veredictum-cite: &minimal_body
+      source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+      section: description
+      quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *folder
+        successCriteria:
+          - *created
+          - condition: $response.body == null
+
+  - workflowId: create_directory-prefer_absent
+    summary: A directory create with no Prefer header is answered 201 with an empty body
+    description: >-
+      Creates an EHR, then creates its directory FOLDER with no Prefer
+      header. Without the header the minimal preference is assumed, so the
+      create is answered 201 and the body is empty.
+    x-veredictum-cite: *minimal_body
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER with no Prefer header.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/json
+          payload: *folder
+        successCriteria:
+          - *created
+          - condition: $response.body == null
+
+  - workflowId: create_directory-return_identifier
+    summary: A directory create with Prefer return=identifier is answered with the identifier
+    description: >-
+      Creates an EHR, then creates its directory FOLDER with Prefer
+      return=identifier. The create succeeds with a 2xx status, and the body
+      should carry only the uid of the FOLDER version; the body is a
+      recommendation, so a row lacking it is advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER and ask for the identifier only.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *folder
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+          - condition: $response.body#/uid != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Prefer only identifier
+              quote: "The response body SHOULD contain only the identifier of the affected resource formatted according to the `Accept` request header."
+              level: should
+              report: 673
+
+  - workflowId: create_directory-location
+    summary: A minimal directory create carries a Location header
+    description: >-
+      Creates an EHR, then creates its directory FOLDER with Prefer
+      return=minimal. The answer should carry a Location header pointing at
+      the new FOLDER; the header is a recommendation, so a row lacking it is
+      advisory.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer minimal, identifier or full representation response
+      quote: "The response SHOULD include a `Location` header pointing to the newly created or updated resource."
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *folder
+        successCriteria:
+          - *created
+          - condition: $response.header.Location != null
+
+  - workflowId: create_directory-etag_weak
+    summary: An ETag sent on a directory create carries the weakness indicator
+    description: >-
+      Creates an EHR, then creates its directory FOLDER. If the answer sends
+      an ETag, it is a weak entity tag.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Deprecated headers
+      quote: "This is now deprecated, all `ETag` headers that hold a resource identifier MUST include a weakness indicator `W/`."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER and ask for the full representation.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *folder
+        successCriteria:
+          - *created
+          - context: $response.header.ETag
+            type: regex
+            condition: '^(W/".+")?$'
+
+  - workflowId: create_directory-content_type
+    summary: A directory create answered with a body carries Content-Type application/json
+    description: >-
+      Creates an EHR, then creates its directory FOLDER in canonical JSON
+      asking for the full representation. The answer carries a body, so it
+      carries Content-Type application/json.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER and ask for the full representation.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *folder
+        successCriteria:
+          - *created
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'

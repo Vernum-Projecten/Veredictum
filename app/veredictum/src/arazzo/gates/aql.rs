@@ -165,13 +165,13 @@ fn query_of(step: &Step, carrier: Carrier, inputs: &BTreeMap<String, Value>) -> 
     };
     match carrier {
         Carrier::Parameter(name) => parameter(step, name, &scope),
-        Carrier::BodyMember(pointer) => body(step, &scope)?.pointer(pointer).map(text_of),
+        Carrier::BodyMember(pointer) => body(step, &scope, pointer)?.pointer(pointer).map(text_of),
         Carrier::TextBody => {
             let language = parameter(step, "query_type", &scope);
             if language.as_deref().is_some_and(|l| l != AQL) {
                 return None;
             }
-            body(step, &scope).as_ref().map(text_of)
+            body(step, &scope, "").as_ref().map(text_of)
         }
     }
 }
@@ -201,14 +201,49 @@ fn parameter(step: &Step, name: &str, scope: &Scope<'_>) -> Option<String> {
             let expr = Expr::parse(text).ok()?;
             scope.eval(&expr).ok().flatten().as_ref().map(text_of)
         }
-        ValueOrSelector::Literal(Value::String(text)) => scope.substitute(text, str::to_owned).ok(),
+        ValueOrSelector::Literal(Value::String(text)) => scope
+            .substitute(text, str::to_owned)
+            .ok()
+            .or_else(|| placeholders(text)),
         ValueOrSelector::Literal(other) => Some(other.to_string()),
         ValueOrSelector::Selector(_) => None,
     }
 }
 
-/// The request body, with every replacement applied as the evaluator does.
-fn body(step: &Step, scope: &Scope<'_>) -> Option<Value> {
+/// The value an embedded `{$…}` expression stands for while the gate parses
+/// a query whose expression the catalogue does not determine, such as the
+/// identifier an earlier step was answered with.
+const PLACEHOLDER: &str = "00000000-0000-4000-8000-000000000000";
+
+/// `text` with every embedded `{$…}` expression replaced by [`PLACEHOLDER`];
+/// `None` when an embedded expression is unterminated or does not parse.
+fn placeholders(text: &str) -> Option<String> {
+    // NOTE: no openEHR spec governs this — our own design; the gate checks the AQL the
+    // catalogue wrote, so a runtime value stands in as a placeholder, never as AQL.
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("{$") {
+        let (before, tail) = rest.split_at(start);
+        out.push_str(before);
+        let inner_and_after = tail.get(1..)?;
+        let end = inner_and_after.find('}')?;
+        let (inner, after) = inner_and_after.split_at(end);
+        Expr::parse(inner).ok()?;
+        out.push_str(PLACEHOLDER);
+        rest = after.get(1..)?;
+    }
+    out.push_str(rest);
+    Some(out)
+}
+
+/// The request body, with every replacement applied as the evaluator does;
+/// `None` when a replacement the catalogue does not determine touches the
+/// query at `carrier` (`""` for the whole body).
+///
+/// A replacement elsewhere in the body, such as a query parameter taken from
+/// an earlier response, leaves the query text the catalogue wrote, so it is
+/// skipped and the query is still checked.
+fn body(step: &Step, scope: &Scope<'_>, carrier: &str) -> Option<Value> {
     let request_body = step.request_body.as_ref()?;
     let mut payload = match request_body.payload.clone()? {
         Value::String(text) if !text.starts_with('$') => {
@@ -217,18 +252,38 @@ fn body(step: &Step, scope: &Scope<'_>) -> Option<Value> {
         other => other,
     };
     for replacement in &request_body.replacements {
+        let touches_query = overlaps(&replacement.target, carrier);
         // NOTE: no openEHR spec governs this — our own design; an undetermined value is not
         // catalogue text, and a malformed replacement is the profile gate's to refuse.
         let value = match &replacement.value {
             ValueOrSelector::Literal(Value::String(text)) if text.starts_with('$') => {
-                scope.eval(&Expr::parse(text).ok()?).ok().flatten()?
+                let value = Expr::parse(text)
+                    .ok()
+                    .and_then(|expr| scope.eval(&expr).ok().flatten());
+                match value {
+                    Some(value) => value,
+                    None if touches_query => return None,
+                    None => continue,
+                }
             }
             ValueOrSelector::Literal(literal) => literal.clone(),
-            ValueOrSelector::Selector(_) => return None,
+            ValueOrSelector::Selector(_) if touches_query => return None,
+            ValueOrSelector::Selector(_) => continue,
         };
         *payload.pointer_mut(&replacement.target)? = value;
     }
     Some(payload)
+}
+
+/// Whether the JSON Pointers `a` and `b` (RFC 6901) name the same member, or
+/// one names a member inside the other; `""` names the whole document.
+fn overlaps(a: &str, b: &str) -> bool {
+    let inside = |outer: &str, inner: &str| {
+        inner
+            .strip_prefix(outer)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+    };
+    inside(a, b) || inside(b, a)
 }
 
 /// Where the parser refused, in token indices and source bytes.
@@ -289,6 +344,18 @@ mod tests {
 
     const VALID: &str = "SELECT e/ehr_id/value FROM EHR e";
     const INVALID: &str = "SELECT e/ehr_id/value EHR e";
+
+    #[test]
+    fn an_embedded_runtime_value_is_parsed_as_a_placeholder() {
+        let pinned = "SELECT e/ehr_id/value FROM EHR e WHERE e/ehr_id/value = '{$steps.create.outputs.ehr_id}'";
+        let found = check_workflow("query/w", &workflow(&json!([get_step(pinned, 200)])), None);
+        assert_eq!(found, Vec::new());
+        let broken =
+            "SELECT e/ehr_id/value EHR e WHERE e/ehr_id/value = '{$steps.create.outputs.ehr_id}'";
+        let found = check_workflow("query/w", &workflow(&json!([get_step(broken, 200)])), None);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(placeholders("x {$not an expression} y"), None);
+    }
 
     #[test]
     fn a_literal_query_that_parses_passes() {
@@ -359,6 +426,37 @@ mod tests {
         );
         let at: Vec<&str> = found.iter().map(|f| f.location.as_str()).collect();
         assert_eq!(at, ["w/post", "w/store"]);
+    }
+
+    #[test]
+    fn pointers_overlap_only_by_whole_members() {
+        assert!(overlaps("/q", "/q"));
+        assert!(overlaps("", "/q"));
+        assert!(overlaps("/q/0", "/q"));
+        assert!(!overlaps("/query_parameters/ehr_id", "/q"));
+        assert!(!overlaps("/q", "/query_parameters"));
+    }
+
+    #[test]
+    fn a_runtime_replacement_beside_the_query_leaves_it_checked() {
+        let post = |q: &str, target: &str| {
+            json!({
+                "stepId": "post",
+                "operationId": "$sourceDescriptions.query.query_execute_adhoc_query_body",
+                "requestBody": {
+                    "contentType": "application/json",
+                    "payload": { "q": q, "query_parameters": { "ehr_id": "x" } },
+                    "replacements": [{ "target": target, "value": "$workflows.setup.outputs.ehr_id" }]
+                },
+                "successCriteria": [{ "condition": "$statusCode == 200" }]
+            })
+        };
+        let beside = post(INVALID, "/query_parameters/ehr_id");
+        let found = check_workflow("query/w", &workflow(&json!([beside])), None);
+        assert_eq!(found.len(), 1, "{found:?}");
+        let over = post(INVALID, "/q");
+        let found = check_workflow("query/w", &workflow(&json!([over])), None);
+        assert_eq!(found, Vec::new());
     }
 
     #[test]

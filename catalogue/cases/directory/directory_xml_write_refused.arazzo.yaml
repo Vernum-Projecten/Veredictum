@@ -1,0 +1,139 @@
+# The directory FOLDER written in canonical XML, for a service that does not
+# process XML request payloads on it: the refused arm of the
+# `directory-xml-write` option. Every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: Directory writes in canonical XML refused
+  version: 0.1.0
+  description: >-
+    Creating and updating the directory FOLDER with a body labelled
+    Content-Type application/xml at a service that cannot process the payload
+    as XML. No published XSD declares a document element for FOLDER, so the
+    payload names its root element after the RM class.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_directory-xml_refused
+    summary: A directory create in XML is refused with 415 and creates no directory
+    description: >-
+      Creates an EHR, then creates its directory FOLDER labelled Content-Type
+      application/xml at a service that cannot process the payload as XML.
+      The create is answered 415 Unsupported Media Type, and the EHR still has
+      no directory.
+    x-veredictum-cite: &unsupported
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: create
+        description: Create the directory FOLDER labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <folder xmlns="http://schemas.openehr.org/v1" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>root</value></name><archetype_details><archetype_id><value>openEHR-EHR-FOLDER.generic.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details></folder>
+        successCriteria:
+          - condition: $statusCode == 415
+      - stepId: no-directory
+        description: Read the directory; the EHR still has none.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml
+              section: description
+              quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when a directory does not exist at the specified `version_at_time`, or when `path` does not exist within the directory."
+
+  - workflowId: update_directory-xml_refused
+    summary: A directory update in XML is refused with 415 and changes nothing
+    description: >-
+      Creates an EHR and its directory FOLDER in canonical JSON, then updates
+      the directory with a body labelled Content-Type application/xml at a
+      service that cannot process the payload as XML. The update is answered
+      415 Unsupported Media Type, and the directory read afterwards is still
+      the FOLDER named root.
+    x-veredictum-cite: *unsupported
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the directory FOLDER in canonical JSON and keep the version_uid of the representation.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+              section: description
+              quote: "`201 Created` is returned when the FOLDER is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: update
+        description: Update the directory with a FOLDER labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <folder xmlns="http://schemas.openehr.org/v1" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>archive</value></name><archetype_details><archetype_id><value>openEHR-EHR-FOLDER.generic.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details></folder>
+        successCriteria:
+          - condition: $statusCode == 415
+      - stepId: get
+        description: Retrieve the latest directory FOLDER; it is unchanged.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &folder_retrieved
+              source: specs/openehr/ITS-REST/specifications/responses/200_FOLDER_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the FOLDER is successfully retrieved."
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^root$'
+            x-veredictum-cite: *folder_retrieved

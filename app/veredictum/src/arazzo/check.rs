@@ -47,7 +47,9 @@ pub enum Check {
         #[serde(rename = "match")]
         match_mode: ResultSetMatch,
         /// The expected rows: a literal array of rows or a runtime
-        /// expression.
+        /// expression. In a literal array, a cell that is a string starting
+        /// with `$` is a runtime expression too, such as the identifier an
+        /// earlier step was answered with.
         #[serde(default)]
         rows: Option<Value>,
         /// The exact row count, for `match: count`.
@@ -160,6 +162,13 @@ impl Check {
                 }
                 if let Some(rows) = rows {
                     expression_of(rows).transpose()?;
+                    if let Value::Array(literal) = rows {
+                        for row in literal {
+                            for cell in row.as_array().into_iter().flatten() {
+                                expression_of(cell).transpose()?;
+                            }
+                        }
+                    }
                 }
             }
             Self::Equivalent { to, .. } => {
@@ -230,7 +239,7 @@ impl Check {
                 cells,
                 ..
             } => {
-                let rows = rows.as_ref().map(|v| resolve(v, scope)).transpose()?;
+                let rows = rows.as_ref().map(|v| resolve_rows(v, scope)).transpose()?;
                 let rows = match &rows {
                     None => None,
                     Some(Value::Array(rows)) => Some(rows.as_slice()),
@@ -482,6 +491,26 @@ fn resolve(value: &Value, scope: &Scope<'_>) -> Result<Value, EvalError> {
     }
 }
 
+/// The expected rows read from the run: the whole value when it is a
+/// runtime expression, and otherwise every cell of a literal row that is one.
+fn resolve_rows(value: &Value, scope: &Scope<'_>) -> Result<Value, EvalError> {
+    match value {
+        Value::Array(rows) => rows
+            .iter()
+            .map(|row| match row {
+                Value::Array(cells) => cells
+                    .iter()
+                    .map(|cell| resolve(cell, scope))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(Value::Array),
+                other => Ok(other.clone()),
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(Value::Array),
+        other => resolve(other, scope),
+    }
+}
+
 /// A string operand read from the run, or the literal text.
 fn text_of(text: &str, scope: &Scope<'_>) -> Result<String, EvalError> {
     resolve(&Value::String(text.to_owned()), scope).map(|value| value_text(&value))
@@ -561,6 +590,20 @@ mod tests {
         let count = json!({ "judge": "result_set", "context": "$response.body",
                             "match": "count", "count": 3, "columns": ["n"] });
         assert!(judge(&count, &served, &[]).unwrap().holds);
+    }
+
+    #[test]
+    fn a_result_set_cell_can_be_read_from_the_run() {
+        let served = json!({ "rows": [["a::s::1", 1], ["b::s::1", 2]] });
+        let check = json!({ "judge": "result_set", "context": "$response.body",
+                            "match": "set", "rows": [["$inputs.second", 2], ["$inputs.first", 1]] });
+        let inputs = [("first", json!("a::s::1")), ("second", json!("b::s::1"))];
+        assert!(judge(&check, &served, &inputs).unwrap().holds);
+        let swapped = [("first", json!("b::s::1")), ("second", json!("a::s::1"))];
+        assert!(!judge(&check, &served, &swapped).unwrap().holds);
+        let malformed = json!({ "judge": "result_set", "context": "$response.body",
+                                "match": "set", "rows": [["$not an expression"]] });
+        assert!(Check::parse(&malformed).is_err());
     }
 
     #[test]

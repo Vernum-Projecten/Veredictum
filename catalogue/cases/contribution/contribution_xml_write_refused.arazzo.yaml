@@ -1,0 +1,64 @@
+# A CONTRIBUTION commit in canonical XML, for a service that does not
+# process XML request payloads on it: the refused arm of the
+# `contribution-xml-write` option. Every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: CONTRIBUTION commit in canonical XML refused
+  version: 0.1.0
+  description: >-
+    Committing a CONTRIBUTION labelled Content-Type application/xml to a
+    service that cannot process the payload as XML.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: commit_contribution-xml_refused
+    summary: A CONTRIBUTION commit in XML is refused with 415
+    description: >-
+      Creates an EHR, then commits a CONTRIBUTION labelled Content-Type
+      application/xml to a service that cannot process the payload as XML.
+      The commit is answered 415 Unsupported Media Type. No published XSD
+      declares a document element for CONTRIBUTION, so the payload names its
+      root element after the RM class.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: commit
+        description: Commit the CONTRIBUTION labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <contribution xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <versions>
+                <lifecycle_state><value>complete</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>532</code_string></defining_code></lifecycle_state>
+                <commit_audit><change_type><value>creation</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>249</code_string></defining_code></change_type><committer xsi:type="PARTY_IDENTIFIED"><name>Veredictum</name></committer></commit_audit>
+                <data xsi:type="FOLDER" archetype_node_id="openEHR-EHR-FOLDER.generic.v1"><name><value>root</value></name><archetype_details><archetype_id><value>openEHR-EHR-FOLDER.generic.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details></data>
+              </versions>
+              <audit><change_type><value>creation</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>249</code_string></defining_code></change_type><committer xsi:type="PARTY_IDENTIFIED"><name>Veredictum</name></committer></audit>
+            </contribution>
+        successCriteria:
+          - condition: $statusCode == 415

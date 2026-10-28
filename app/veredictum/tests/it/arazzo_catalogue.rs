@@ -64,6 +64,18 @@ struct IdMap {
     /// The old ids of a component whose own family is not converted yet.
     #[serde(default)]
     pending: std::collections::BTreeSet<String>,
+    /// The cases of a query collection maintained elsewhere, by its name.
+    #[serde(default)]
+    corpora: std::collections::BTreeMap<String, Corpus>,
+}
+
+/// One collection under `corpora` in `catalogue/id-map.yaml`.
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Corpus {
+    source: String,
+    commit: String,
+    cases: std::collections::BTreeMap<String, MapEntry>,
 }
 
 fn case_ids(dir: &Path, out: &mut Vec<String>) -> std::io::Result<()> {
@@ -145,6 +157,25 @@ fn the_id_map_resolves_on_both_sides_and_covers_each_converted_component()
                 workflows.contains(new),
                 "{id} maps to {new}, which no document holds"
             );
+        }
+    }
+    for (name, corpus) in &map.corpora {
+        assert!(
+            corpus.source.starts_with("https://") && corpus.commit.len() == 40,
+            "{name} names its source repository and full commit"
+        );
+        assert!(!corpus.cases.is_empty(), "{name} maps no case");
+        for (id, entry) in &corpus.cases {
+            assert!(
+                !entry.new.is_empty() || entry.open.is_some(),
+                "{name} {id}: an entry carries new ids or says why it has none"
+            );
+            for new in &entry.new {
+                assert!(
+                    workflows.contains(new),
+                    "{name} {id} maps to {new}, which no document holds"
+                );
+            }
         }
     }
     Ok(())
