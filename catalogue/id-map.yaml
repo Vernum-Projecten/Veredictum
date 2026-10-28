@@ -2466,11 +2466,10 @@ cases:
       - deprecated_write_refused/create_composition-structured_deprecated_media_unsupported
       - deprecated_write/create_composition-structured_deprecated_media
   SF-EXAMPLE-accept_forms:
-    new: []
+    new: [template_adl14/get_template_example]
     open: >-
-      The template example in canonical JSON is judged by the DEFINITION
-      conversion; its XML and simplified-format Accept values are the
-      example gaps of the ADL 1.4 templates, #714.
+      The canonical JSON example is carried; its XML and simplified-format
+      Accept values are the example gaps of the ADL 1.4 templates, #714.
   SF-EXAMPLE-roundtrip:
     new: []
     open: >-
@@ -2480,7 +2479,7 @@ cases:
       with no key word, and that "The implementation and completeness of
       these examples are not specified".
   SF-EXAMPLE-unsupported_accept:
-    new: [template_example_web_template_refused/get_template_example-web_template_not_acceptable]
+    new: [template_adl14/get_template_example-web_template_not_acceptable]
   SF-FIELDID-structure:
     new:
       - flat_mapping/create_composition-flat-normal_range
@@ -2627,7 +2626,9 @@ cases:
       separate from the data serialization format described in this
       specification" and the release specifies it nowhere else.
   SF-NODEID-web_template_ids:
-    new: []
+    new:
+      - template_adl14_web_template/get_template-web_template
+      - template_adl14_web_template_not_acceptable/get_template-web_template_not_acceptable
     open: *sf_web_template
   SF-RAW-embedding:
     new: [flat_mapping/create_composition-flat-raw]
@@ -2668,12 +2669,10 @@ cases:
     new: [structured_commit/create_composition-structured-vitals]
     open: *sf_equality
   SF-WT-web_template_get:
-    new: []
-    open: >-
-      The read of a template as a Web Template is converted with the
-      DEFINITION template cases; the templateId and tree members are not
-      judged, because master04 §Web Template Metadata leaves the Web
-      Template metadata to a specification the release does not include.
+    new:
+      - template_adl14_web_template/get_template-web_template
+      - template_adl14_web_template_not_acceptable/get_template-web_template_not_acceptable
+    open: *sf_web_template
   SF-WT-web_template_json_accept:
     new: []
     open: >-

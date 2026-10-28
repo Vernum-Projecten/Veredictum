@@ -20,8 +20,8 @@ version on.
 
 ### Added
 
-- The Simplified Formats cases are converted to Arazzo (#603). 76 workflows
-  in 21 documents under `catalogue/cases/simplified_formats/` commit flat and
+- The Simplified Formats cases are converted to Arazzo (#603). 75 workflows
+  in 20 documents under `catalogue/cases/simplified_formats/` commit flat and
   structured COMPOSITIONs and judge the context defaults, the RM mappings of
   each data value type, path indexing and level removal, `|raw`, `|other` and
   the refusals the release requires, each refusal beside its valid twin; they
@@ -33,8 +33,9 @@ version on.
   `contribution-structured-read`, `simplified-deprecated-write`,
   `simplified-deprecated-read`, `simplified-legacy-write` and
   `simplified-legacy-read`. All 71 old case ids are in `catalogue/id-map.yaml`:
-  60 carried and 11 not carried with their reason. Four CONTRIBUTION gaps of
-  #698 close, and the mappings still open are tracked by #722.
+  63 carried, in whole or in part, and 8 not carried with their reason. Four
+  CONTRIBUTION gaps of #698 close, and the mappings still open are tracked
+  by #722.
 - The ADL 1.4 and ADL 2 template cases of the DEFINITION component are
   converted to Arazzo (#603). 32 workflows in four documents under
   `catalogue/cases/definition/` carry 22 of the 82 `I_DEFINITION_ADL14` and
