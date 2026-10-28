@@ -456,6 +456,10 @@ version on.
 
 ### Fixed
 
+- The Arazzo evaluator substitutes an embedded `{$…}` expression in every
+  string of a JSON payload or replacement value, at any depth (#740). It
+  substituted only in a payload that was itself a string, so an expression
+  nested in a JSON body reached the server as literal text.
 - Three content-recipe defects the content conversion (#603) found, each a
   runner fault and none a server one. A row whose `context_committed` cell
   is `absent` now commits no EVENT_CONTEXT; the authored token read as the
