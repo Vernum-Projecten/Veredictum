@@ -20,7 +20,7 @@ version on.
 
 ### Added
 
-- The demographic cases are converted to Arazzo (#603). 353 workflows in 21
+- The demographic cases are converted to Arazzo (#603). 353 workflows in 23
   documents under `catalogue/cases/demographic/` cover the Demographic API of
   ITS-REST Release-1.1.0 for each of the five PARTY kinds: the create, read,
   update and delete lifecycle with the three `Prefer` answers, the version
@@ -30,13 +30,16 @@ version on.
   differs from its archetype id, and a relationship sourced at another
   PARTY), the ITEM_TAG lists of a party version and its container, the
   VERSIONED_PARTY reads, the Demographic tag listing and the demographic
-  CONTRIBUTION. Two options join `catalogue/capabilities.yaml`,
-  `party-xml-read` and `party-xml-write`. All 155 demographic case cores are
+  CONTRIBUTION. Three options join `catalogue/capabilities.yaml`:
+  `party-xml-read` for the five PARTY kinds, `versioned-party-xml-read` for
+  the VERSIONED_PARTY family, and `party-xml-write`. All 155 demographic case cores are
   in `catalogue/id-map.yaml` (130 carried, 25 not carried with the reason),
   and `pending` is empty. The eight Demographic tags join `surface.yaml`, with
   the open branches tracked by #733, the 404 of the party creates by upstream
   report #732 and its patch, and the body-less VERSIONED_PARTY Content-Type
-  by #687.
+  by #687. Upstream report #741, with its ITS-JSON patch, records that the
+  ITS-JSON definitions of the PARTY kinds and CONTRIBUTION require a `uid`
+  that a create body cannot carry.
 - The Simplified Formats cases are converted to Arazzo (#603). 75 workflows
   in 20 documents under `catalogue/cases/simplified_formats/` commit flat and
   structured COMPOSITIONs and judge the context defaults, the RM mappings of
