@@ -128,13 +128,10 @@ async fn serve() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     // The peer address is the only identity a console with no login has
     // (#389), and axum surfaces it as a `ConnectInfo` extension only when the
-    // service is built with one.
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
-    )
-    .with_graceful_shutdown(shutdown_signal())
-    .await?;
+    // service is built with one, which `linger::serve` does. Every
+    // connection also closes in stages, so a refusal written before the
+    // caller finished sending still reaches it (#780).
+    veredictum_console::linger::serve(listener, app, shutdown_signal()).await?;
     Ok(())
 }
 

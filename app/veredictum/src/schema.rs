@@ -1487,7 +1487,8 @@ fn perf_class_tokens() -> Vec<&'static str> {
         .collect()
 }
 
-/// `schedule/performance/**` performance cases (conformance-by-measurement).
+/// The performance cases under the performance schedule's `classes/`
+/// (conformance-by-measurement).
 #[must_use]
 pub fn performance_case_schema() -> Value {
     json!({
@@ -1540,6 +1541,31 @@ pub fn performance_case_schema() -> Value {
     })
 }
 
+/// The performance schedule's `payloads.yaml` — every request body and
+/// operational template the measured instruments send.
+#[must_use]
+pub fn perf_payloads_schema() -> Value {
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("perf-payloads"),
+        "title": "Performance schedule payload manifest",
+        "description": "Every payload the measured instruments send, keyed by the name a journey stage or the seeder uses: its file under payloads/, the operational template's wire identifier where it has one, and its provenance. No openEHR spec governs measured performance (CNF guide master03-overview.adoc §Product Scope) — our own design.",
+        "type": "object",
+        "minProperties": 1,
+        "propertyNames": { "pattern": CORPUS_KEY_PATTERN },
+        "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "provenance"],
+            "properties": {
+                "source": { "type": "string", "minLength": 1 },
+                "template_id": { "type": "string", "minLength": 1 },
+                "provenance": { "type": "string", "minLength": 1 }
+            }
+        }
+    })
+}
+
 /// The published journey-operation tokens, vocabulary order.
 fn perf_op_tokens() -> Vec<&'static str> {
     crate::perf::PerfOp::ALL
@@ -1548,8 +1574,8 @@ fn perf_op_tokens() -> Vec<&'static str> {
         .collect()
 }
 
-/// `vocab/journey_catalogue.yaml` — the hospital-simulation journey
-/// vocabulary the performance workloads decompose into.
+/// The performance schedule's `journeys.yaml` — the hospital-simulation
+/// journey vocabulary the performance workloads decompose into.
 #[must_use]
 pub fn journey_catalogue_schema() -> Value {
     let duration_pattern = "^PT([0-9]+H)?([0-9]+M)?([0-9]+S)?$";
@@ -2787,6 +2813,7 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
         ("ixit.schema.json", ixit_schema()),
         ("performance-case.schema.json", performance_case_schema()),
         ("journey-catalogue.schema.json", journey_catalogue_schema()),
+        ("perf-payloads.schema.json", perf_payloads_schema()),
         ("wire-surface.schema.json", wire_surface_schema()),
         ("stress.schema.json", stress_schema()),
         ("aql-probe.schema.json", aql_probe_schema()),

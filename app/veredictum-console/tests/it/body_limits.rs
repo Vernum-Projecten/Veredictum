@@ -49,15 +49,13 @@ async fn bind() -> Result<Bound, Box<dyn std::error::Error>> {
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
-    drop(tokio::spawn(async move {
-        drop(
-            axum::serve(
-                listener,
-                app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
-            )
-            .await,
-        );
-    }));
+    // The binary's own serving path, so the close a caller meets is the one
+    // under test.
+    drop(tokio::spawn(veredictum_console::linger::serve(
+        listener,
+        app,
+        std::future::pending(),
+    )));
     Ok(Bound {
         origin: format!("http://{addr}"),
         _scratch: scratch,

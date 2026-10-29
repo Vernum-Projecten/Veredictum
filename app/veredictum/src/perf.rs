@@ -690,8 +690,8 @@ impl PerfOp {
 
 /// The auxiliary committed payloads of the non-COMPOSITION journey stages.
 ///
-/// Each one is a corpus fixture the functional catalogue already adjudicates,
-/// never a payload invented for the load instrument.
+/// Each one is a committed payload of the performance schedule, never a
+/// payload invented for the load instrument.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AuxPayloadKind {
     /// The Simplified FLAT composition + the OPT it is constrained by.
@@ -839,7 +839,7 @@ impl Serialize for StageOffset {
 pub struct JourneyStage {
     /// A [`PerfOp`] vocabulary name.
     pub op: String,
-    /// The corpus template key the stage commits/updates against (required
+    /// The payload template key the stage commits/updates against (required
     /// exactly when [`PerfOp::needs_template`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub template: Option<String>,
@@ -880,7 +880,7 @@ impl Journey {
 }
 
 /// The journey catalogue — the hospital-simulation vocabulary
-/// (`vocab/journey_catalogue.yaml`): every journey a workload may name,
+/// (`journeys.yaml` of the performance schedule): every journey a workload may name,
 /// each stage a closed-vocabulary operation.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct JourneyCatalogue(

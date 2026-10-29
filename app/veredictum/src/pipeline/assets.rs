@@ -13,7 +13,7 @@ use std::path::Path;
 
 use crate::party::Results;
 use crate::perf::{Measurement, PerformanceCase};
-use crate::pipeline::{Error, RenderedFile, load_clean_root, load_party_json, read_json};
+use crate::pipeline::{Error, RenderedFile, load_party_json, read_json};
 use crate::schema::results_schema;
 use crate::stress::StressReport;
 
@@ -97,23 +97,18 @@ impl PerformanceAssets {
 /// is fabricated.
 ///
 /// # Errors
-/// [`Error::Catalogue`] or [`Error::Artifacts`] when the tree does not load,
-/// [`Error::Party`], [`Error::Read`] or [`Error::Parse`] for the committed
-/// records, and [`Error::Instrument`] when a chart's own input is
-/// unrenderable.
+/// [`Error::Catalogue`] or [`Error::Artifacts`] when the performance
+/// schedule under `root` does not load, [`Error::Party`], [`Error::Read`] or
+/// [`Error::Parse`] for the committed records, and [`Error::Instrument`] when
+/// a chart's own input is unrenderable.
 pub fn performance_assets(
     root: &Path,
     results_path: &Path,
     stress_path: Option<&Path>,
 ) -> Result<PerformanceAssets, Error> {
-    let loaded = load_clean_root(root)?;
+    let schedule = crate::pipeline::measured::load_clean_schedule(root)?;
     let results: Results = load_party_json(results_path, &results_schema(), "results.schema.json")?;
-    let cases: Vec<PerformanceCase> = loaded
-        .set
-        .performance
-        .iter()
-        .map(|(_, c)| c.clone())
-        .collect();
+    let cases: Vec<PerformanceCase> = schedule.cases.into_iter().map(|(_, c)| c).collect();
     let mut files = vec![RenderedFile {
         name: "perf-class-ladder.svg".to_owned(),
         body: crate::perf_assets::class_ladder_svg(&cases, &results.measurements),

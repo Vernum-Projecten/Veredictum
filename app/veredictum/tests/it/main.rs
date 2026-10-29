@@ -40,6 +40,7 @@ mod gpg_interop;
 mod identity_wire;
 mod measured_wire;
 mod perf_driver;
+mod perf_schedule;
 mod perf_seeding;
 mod pipeline_seams;
 mod postconditions;

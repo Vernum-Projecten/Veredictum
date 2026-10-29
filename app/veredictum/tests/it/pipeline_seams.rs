@@ -30,6 +30,11 @@ fn artifacts() -> PathBuf {
     repo_root().join("artifacts")
 }
 
+/// The performance schedule the measured instruments read.
+fn perf() -> PathBuf {
+    repo_root().join("perf")
+}
+
 fn specs() -> PathBuf {
     repo_root().join("specs/openehr")
 }
@@ -361,7 +366,7 @@ fn the_conformance_visuals_refuse_an_unreadable_verdict_record() -> Fallible {
     reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
 )]
 fn the_performance_visuals_render_only_what_the_record_carries() -> Fallible {
-    let root = artifacts();
+    let root = perf();
     let results = results_path();
     let rendered = assets::performance_assets(&root, &results, None)?;
     let names: Vec<&str> = rendered.files.iter().map(|f| f.name.as_str()).collect();
@@ -558,7 +563,7 @@ fn only_a_ladder_rung_is_a_sustained_window() {
     );
 }
 
-/// The class selector resolves against the catalogue's own performance cases,
+/// The class selector resolves against the performance schedule's own cases,
 /// and an unstocked class is a named miss rather than a silent empty run.
 #[test]
 #[expect(
@@ -566,9 +571,9 @@ fn only_a_ladder_rung_is_a_sustained_window() {
     reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
 )]
 fn a_class_selects_its_own_performance_case() -> Fallible {
-    let loaded = veredictum::pipeline::load_clean_root(&artifacts())?;
+    let schedule = measured::load_clean_schedule(&perf())?;
     let class = veredictum::perf::PerfClass::parse("POC").map_err(Error::Selector)?;
-    let (path, case) = measured::performance_case_of_class(&loaded, class, "POC")?;
+    let (path, case) = measured::performance_case_of_class(&schedule, class, "POC")?;
     assert_eq!(case.class, class);
     assert!(
         path.ends_with("class_POC.yaml") || path.to_string_lossy().contains("POC"),
@@ -576,7 +581,7 @@ fn a_class_selects_its_own_performance_case() -> Fallible {
         path.display()
     );
 
-    let empty = veredictum::artifacts::Loaded::default();
+    let empty = veredictum::perf_schedule::PerfSchedule::default();
     let error = measured::performance_case_of_class(&empty, class, "POC")
         .expect_err("an empty catalogue stocks no class");
     assert!(matches!(error, Error::Missing(_)), "{error}");
@@ -584,36 +589,33 @@ fn a_class_selects_its_own_performance_case() -> Fallible {
     Ok(())
 }
 
-/// The journey context and the scale OPT come from the committed corpus, and
-/// a tree without one says which piece is missing instead of measuring
-/// nothing.
+/// The journey context and the scale OPT come from the committed performance
+/// schedule, and a tree without one says which piece is missing instead of
+/// measuring nothing.
 #[test]
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
 )]
-fn the_measured_preamble_reads_its_inputs_from_the_committed_corpus() -> Fallible {
-    let loaded = veredictum::pipeline::load_clean_root(&artifacts())?;
-    let opt = measured::scale_opt_xml(&loaded)?;
+fn the_measured_preamble_reads_its_inputs_from_the_committed_schedule() -> Fallible {
+    let schedule = measured::load_clean_schedule(&perf())?;
+    let opt = measured::scale_opt_xml(&schedule)?;
     assert!(
         opt.contains("<template"),
         "the scale corpus commits against an OPT document"
     );
-    let (journeys, pack) = measured::journey_context(&loaded)?;
+    let (journeys, pack) = measured::journey_context(&schedule)?;
     assert!(!journeys.0.is_empty(), "the catalogue names journeys");
     assert!(
         !pack.templates.is_empty(),
         "the pack carries a template per journey stage"
     );
 
-    let empty = veredictum::artifacts::Loaded::default();
-    let error = measured::scale_opt_xml(&empty).expect_err("no corpus, no OPT");
+    let empty = veredictum::perf_schedule::PerfSchedule::default();
+    let error = measured::scale_opt_xml(&empty).expect_err("no payload manifest, no OPT");
     assert!(matches!(error, Error::Missing(_)), "{error}");
     let error = measured::journey_context(&empty).expect_err("no catalogue, no journeys");
-    assert!(
-        error.to_string().contains("journey_catalogue.yaml"),
-        "{error}"
-    );
+    assert!(error.to_string().contains("journeys.yaml"), "{error}");
     Ok(())
 }
 
@@ -820,7 +822,7 @@ fn the_performance_visuals_draw_the_samples_a_record_carries() -> Fallible {
     let sampled = dir.path().join("results-sampled.json");
     std::fs::write(&sampled, to_json_document(&results, "results")?)?;
 
-    let root = artifacts();
+    let root = perf();
     let rendered = assets::performance_assets(&root, &sampled, None)?;
     let names: Vec<&str> = rendered.files.iter().map(|f| f.name.as_str()).collect();
     assert!(
@@ -891,7 +893,7 @@ fn a_committed_stress_report_renders_its_curve_and_its_overlay() -> Fallible {
     std::fs::write(&left, to_json_document(&report(10.0), "stress")?)?;
     std::fs::write(&right, to_json_document(&report(200.0), "stress")?)?;
 
-    let rendered = assets::performance_assets(&artifacts(), &results_path(), Some(&left))?;
+    let rendered = assets::performance_assets(&perf(), &results_path(), Some(&left))?;
     let names: Vec<&str> = rendered.files.iter().map(|f| f.name.as_str()).collect();
     assert!(
         names.contains(&"perf-stress-curve.svg"),
@@ -910,7 +912,7 @@ fn a_committed_stress_report_renders_its_curve_and_its_overlay() -> Fallible {
     let error = assets::stress_overlay(("left", &absent), ("right", &right))
         .expect_err("an absent report is not renderable");
     assert!(matches!(error, Error::Read { .. }), "{error}");
-    let error = assets::performance_assets(&artifacts(), &results_path(), Some(&absent))
+    let error = assets::performance_assets(&perf(), &results_path(), Some(&absent))
         .expect_err("an absent report is not renderable");
     assert!(matches!(error, Error::Read { .. }), "{error}");
     Ok(())

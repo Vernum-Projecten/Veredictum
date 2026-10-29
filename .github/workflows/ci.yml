@@ -145,7 +145,7 @@ jobs:
           # (#55); no code lives at the root any more. The legend generator is
           # named individually (#189) because the test job runs its --check and
           # the rest of scripts/render/ has nothing to do with that job.
-          if echo "$changed" | grep -qE '^(app/|artifacts/|catalogue/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|scripts/render/bench-legend\.sh$|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
+          if echo "$changed" | grep -qE '^(app/|artifacts/|catalogue/|perf/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|scripts/render/bench-legend\.sh$|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
@@ -351,7 +351,14 @@ jobs:
           # First push to a branch, or a shallow clone: fall back to the tip.
           git rev-parse "${base:-HEAD~1}" >/dev/null 2>&1 || range="HEAD"
           echo "Scanning range: $range"
-          if git log --format='%B' "$range" 2>/dev/null | grep -iEn \
+          # GitHub writes `Co-authored-by: dependabot[bot]` into the squash of
+          # a Dependabot pull request a maintainer has committed to. That line
+          # names the dependency bot, not an AI author, so its exact form (the
+          # bot's fixed noreply address) is dropped before the scan; every
+          # other `[bot]` co-author is still refused.
+          if git log --format='%B' "$range" 2>/dev/null \
+             | grep -viE '^co-authored-by:[[:space:]]*dependabot\[bot\][[:space:]]+<49699333\+dependabot\[bot\]@users\.noreply\.github\.com>[[:space:]]*$' \
+             | grep -iEn \
              'co-authored-by:.*(claude|anthropic|\[bot\])|generated[[:space:]]+(with|by)[[:space:]]+.*claude|claude[[:space:]]+code|assisted-by:.*claude|🤖'; then
             echo "::error::A commit message carries AI or tool attribution. Remove it (CLAUDE.md hard rule 8)."
             exit 1

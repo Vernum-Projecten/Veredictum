@@ -1939,7 +1939,7 @@ schedule — same artifact discipline, different verdict machinery. A
 performance case (`kind: performance`) defines:
 
 ```yaml
-# schedule/performance/PERF-hospital_sim-class_S.yaml (the journey shape,
+# perf/classes/PERF-hospital_sim-class_S.yaml (the journey shape,
 # 2026-07-22 — the original flat mix `{ composition_read: 61%, adhoc_query:
 # 30%, composition_commit: 8%, ehr_create: 1% }` is preserved here as the
 # derivation's historical first realization; the journey catalogue
@@ -1962,7 +1962,7 @@ workload:                       # OPEN-LOOP offered load:
   warmup: PT5M                  #   closed-loop users, so coordinated omission
   duration: PT1H                #   cannot hide stalls
   journeys:                     # shares of JOURNEY instances (the catalogue,
-    chart_review: 56%           # vocab/journey_catalogue.yaml, expands each into
+    chart_review: 56%           # perf/journeys.yaml, expands each into
     ward_dashboard: 12%         # its ordered, time-offset operation stages);
     vitals_round: 6%            # the validator recomputes the expansion — the
     # … (the committed cases    # expanded write share must sit inside the
@@ -2077,7 +2077,7 @@ Rules:
 The measured workload evolved from the flat four-operation mix into
 journey-structured arrivals: the performance case's `workload` block names
 shares of *clinical journeys* (a committed catalogue,
-`vocab/journey_catalogue.yaml` — ADT admission/discharge, vitals rounds,
+`perf/journeys.yaml` — ADT admission/discharge, vitals rounds,
 the eMAR loop, medicines reconciliation, asynchronous laboratory/imaging
 order-to-result pipelines, specialist/registry reporting, public-health
 notification, chart review, ward dashboards with a registered stored
@@ -2091,8 +2091,8 @@ with provenance. The population anchor is UNCHANGED and machine-enforced:
 unit); every journey's `derivation` cites the same activity-statistics
 register as the floors (documents per discharge, prescription items per
 capita, laboratory reports per capita, the audit-log ~597
-interactions/encounter read evidence); and the runner's `journey-envelope`
-validator gate recomputes the catalogue expansion of every workload,
+interactions/encounter read evidence); and loading the performance
+schedule recomputes the catalogue expansion of every workload,
 requiring the expanded write share inside the 10:1..50:1 read-heavy band
 of step 4 — the decomposition is arguable, never arbitrary. Every stage is
 its own planned arrival on the same open-loop schedule (dependent stages
@@ -2101,6 +2101,30 @@ extended 8/12-hour holds may follow a diurnal day curve realizing step 3's
 ITU-T E.500 busy-hour convention (the floor is then the busy-hour rate).
 The certificate reports workload coverage: exercised capabilities vs the
 ICS claims, with untouched claimed capabilities listed as catalogue gaps.
+
+**Where the schedule lives (#746).** The performance schedule is its own
+tree, `perf/`, beside the conformance catalogue and independent of it:
+
+```text
+perf/
+  classes/PERF-hospital_sim-class_{POC,S,L,R}.yaml   the performance cases
+  journeys.yaml                                      the journey catalogue
+  payloads.yaml                                      key -> file, template_id, provenance
+  payloads/                                          the CKM templates and their example
+                                                     skeletons, the scale-corpus OPT, the
+                                                     Simplified-FLAT pair, the demographic bodies
+```
+
+`perf`, `stress`, `aql-probe` and `perf-assets` take this tree as `--root`
+and read nothing else: a journey operation carries its own wire realization,
+and every payload a stage sends is a file in `payloads/`. Loading the tree
+is its gate: a workload outside the read-heavy band, a stage template or
+auxiliary payload missing from the manifest, a manifest file that does not
+exist, and a manifest entry no stage reads are each a load error naming the
+file, so an instrument refuses a defective schedule before it contacts a
+server. The schedule is kept apart from `catalogue/` because the catalogue
+holds conformance workflows only (§15.10), and no released openEHR text
+assigns a class, a load or a threshold.
 
 ### 8.15 The Security & Privacy schedule
 
@@ -3174,7 +3198,8 @@ vendor reads why a row is red without opening `results.json`.
   key has a written rotation and revocation procedure.
 - The console offers connect, scope, live run, results, verdicts and the
   certificate download. The measured instruments (perf, stress, probe, bench)
-  run from the CLI only.
+  run from the CLI only; perf, stress and probe read the performance schedule
+  under `perf/` (§8.14), and bench carries its packs in the binary.
 
 ### 15.11 AQL conformance
 

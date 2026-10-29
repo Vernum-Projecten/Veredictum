@@ -34,7 +34,7 @@ veredictum = { version = "=0.1.7", optional = true }
 # The pasted claim is held to the PUBLISHED statement schema, not only to
 # serde's leniency: the same validator crate the engine uses, over the
 # schema document the engine's own `schema` module emits (#101).
-jsonschema = { version = "0.58.6", optional = true, default-features = false }
+jsonschema = { version = "0.59.0", optional = true, default-features = false }
 
 leptos = "0.8"
 leptos_meta = "0.8"
@@ -47,11 +47,19 @@ leptos_icons = "0.7"
 icondata_lu = "0.1"
 icondata_core = "0.1"
 
-# Isomorphic browser-API wrappers (the clipboard copy in the format_view
-# kit). Its `ssr` feature MUST ride the ssr gate below or its browser
-# primitives compile the wasm path into the native binary and panic at SSR
-# (a lesson learned live in FerroEHR's console).
-leptos-use = "0.19"
+# Isomorphic browser-API wrappers: the clipboard copy in the format_view kit
+# and the live-run tick. leptos-use 0.20 split into one crate per primitive and
+# deprecated the umbrella's re-exports, so each is named on its own. Each
+# `ssr` feature MUST ride the ssr gate below or its browser primitives compile
+# the wasm path into the native binary and panic at SSR (a lesson learned live
+# in FerroEHR's console).
+leptos-use-clipboard = "0.20"
+leptos-use-interval-fn = "0.20"
+
+# The theme toggle's `localStorage` read and write (src/theme.rs). Named here
+# because a `web-sys` API compiles only for the features some crate in the
+# graph asks for, and the console is the crate that calls these.
+web-sys = { version = "0.3", features = ["Storage", "Window"] }
 
 # The read seam's typed rows serialize across the server-fn wire on both
 # targets.
@@ -84,7 +92,7 @@ zip = { version = "9", default-features = false, features = ["deflate"], optiona
 sha2 = { version = "0.11", optional = true }
 # `signal` carries the SIGTERM handler: the binary is PID 1 in the image, so
 # graceful shutdown on `docker stop` is its own duty (src/main.rs).
-tokio = { version = "1", features = ["rt-multi-thread", "signal"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "signal", "net", "io-util", "time"], optional = true }
 # `anyhow` stays legal in binary entry points only, and the ssr main is one;
 # library code returns typed `thiserror` errors.
 anyhow = { version = "1", optional = true }
@@ -104,7 +112,8 @@ ssr = [
     "dep:veredictum",
     "dep:jsonschema",
     "dep:reqwest",
-    "leptos-use/ssr",
+    "leptos-use-clipboard/ssr",
+    "leptos-use-interval-fn/ssr",
     "dep:serde_json",
     "uuid/v4",
     "leptos/ssr",
@@ -132,7 +141,7 @@ zip = { version = "9", default-features = false, features = ["deflate"] }
 # for the `macros` feature the `#[tokio::test]` attribute needs; the ssr
 # dependency above carries only what the server binary uses. Dev-only, so
 # neither crate reaches the ssr binary or the hydrate bundle.
-thirtyfour = "0.37.2"
+thirtyfour = "0.38.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 # The concurrency journey (#389) is TWO visitors: the browser, and the journey
 # itself calling the same public server-function endpoints under a different
