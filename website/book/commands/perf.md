@@ -9,6 +9,16 @@ cases, the journey catalogue and the payloads the journeys send. `stress`,
 `aql-probe` and `perf-assets` read the same tree, and none of them reads
 `catalogue/`.
 
+`--results` names the measured record. When no file exists there, `perf`
+creates it: before it seeds anything, it reads the server's identity through
+System OPTIONS, and `--sut-name` and `--sut-version` supply the name and
+version the server does not state. The new record holds the measurements and
+no conformance outcome. No party statement selected the run, so it is
+`statement_blind` with the defaulted technology profile, and its verification
+pack is `not_run`. When the file exists, `perf` keeps its header, replaces any
+earlier record for the same case and adds the new one. `verdicts` and
+`perf-assets` read either kind of record.
+
 The `environment` block is mandatory rather than optional because a latency
 number is a claim about a deployment, and a claim with no deployment described
 cannot be checked or reproduced. Every member of it is mandatory here

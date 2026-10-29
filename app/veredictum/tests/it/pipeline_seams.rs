@@ -160,6 +160,44 @@ fn the_performance_visuals_render_only_what_the_record_carries() -> Fallible {
     Ok(())
 }
 
+/// A record `perf` created rather than merged into is a full input to the
+/// readers downstream: `verdicts` judges its measurement and `perf-assets`
+/// draws it, with no conformance outcome in it at all.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_record_perf_created_is_judged_and_drawn() -> Fallible {
+    let example: veredictum::party::Results = read_json(&results_path(), "example results")?;
+    let mut created =
+        measured::new_measured_record(veredictum::party::Sut::operator("Fixture CDR", "1.0"), "{}");
+    created.measurements = example.measurements;
+    let dir = assert_fs::TempDir::new()?;
+    let results = dir.path().join("results.json");
+    std::fs::write(&results, to_json_document(&created, "results")?)?;
+
+    let statement = statement_path();
+    let root = perf();
+    let judgement = judgement::judge(&judgement::JudgementRequest {
+        statement: &statement,
+        results: &results,
+        root: &root,
+    })?;
+    assert_eq!(
+        judgement.report.performance.len(),
+        1,
+        "the created record's measurement re-derives into one verdict"
+    );
+
+    let rendered = assets::performance_assets(&root, &results, None)?;
+    let names: Vec<&str> = rendered.files.iter().map(|f| f.name.as_str()).collect();
+    assert!(
+        names.contains(&"perf-latency-class-POC.svg"),
+        "the created record's measured class gets its latency chart: {names:?}"
+    );
+    Ok(())
+}
 /// The schema seam serves exactly the published set: the same names and the
 /// same bytes as the committed `schemas/` directory a party validates against.
 #[test]

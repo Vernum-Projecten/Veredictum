@@ -21,11 +21,13 @@ error.
 | `changelog-structure.sh` | Keep a Changelog 1.1.0 — no duplicated `### <Type>` inside one release section, no header outside the canonical type set | the `guards` job in `.github/workflows/ci.yml` |
 | `changelog-entry.sh` | a user-visible change adds a fragment under `changelog.d/` (the `no-changelog` label waives it), and no change adds a line under the Unreleased heading of `CHANGELOG.md` | the `guards` job in `.github/workflows/ci.yml` on pull requests, with `--self-test` beside it |
 | `ci-conclusion-complete.sh` | branch protection routes through one `conclusion` check, so no CI job may run without appearing in its `needs` | the `workflow-audit` job in `.github/workflows/ci.yml` |
+| `citation-version.sh` | `CITATION.cff` `version` and the generated `.zenodo.json` `version` are the workspace engine's `[package]` version, release candidates included | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 | `hosted-deploy-script.sh` | the hosted box's `deploy.sh` is shellcheck-clean, extracted from the `write_files` block it lives in | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 
-Three of these take a single file or no argument rather than the three modes
+Four of these take a single file or no argument rather than the three modes
 above: `changelog-structure.sh` reads one changelog,
-`ci-conclusion-complete.sh` reads one workflow, and
+`ci-conclusion-complete.sh` reads one workflow,
+`citation-version.sh` reads the three files that carry the version, and
 `hosted-deploy-script.sh` reads one cloud-init document. The mode contract
 applies to guards that scan a file set.
 

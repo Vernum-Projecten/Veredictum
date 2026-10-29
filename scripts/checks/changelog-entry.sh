@@ -32,7 +32,11 @@
 #   app/veredictum/src/   the runner and the CLI, including verdict semantics
 #   app/veredictum-console/src/   the web console the image serves
 #   catalogue/      the catalogue — a workflow, a rows file or an option
-#                   changes what a run reports about somebody's server
+#                   changes what a run reports about somebody's server. No
+#                   file under it is carved out: `id-map.yaml` is how an
+#                   earlier record's case ids resolve to the ones a run
+#                   reports now, and `keys/` is the signing material the
+#                   catalogue's signature and SMART workflows present
 #   perf/           the performance schedule — a class case, a journey or a
 #                   payload changes what a measured run records
 #   schemas/        the published JSON Schemas an integrator authors against
@@ -176,7 +180,9 @@ self_test() {
     git -C "$repo" -c commit.gpgsign=false -c user.name=self-test \
       -c user.email=self-test@example.invalid commit -q -m "$1"
   }
-  mkdir -p "$repo/changelog.d" "$repo/app/veredictum/src"
+  mkdir -p "$repo/changelog.d" "$repo/app/veredictum/src" "$repo/catalogue/cases/ehr"
+  printf 'workflows: []\n' >"$repo/catalogue/cases/ehr/ehr.arazzo.yaml"
+  printf 'cases: {}\n' >"$repo/catalogue/id-map.yaml"
   printf 'The format.\n' >"$repo/changelog.d/README.md"
   printf -- '- An older fragment.\n' >"$repo/changelog.d/1-old.added.md"
   printf 'fn main() {}\n' >"$repo/app/veredictum/src/main.rs"
@@ -231,6 +237,11 @@ EOF
   case_ "a line under Unreleased, no code" 1 0 "$under"
   case_ "a user-visible change that edits only the changelog.d/ README" 1 0 "$src && echo more >> changelog.d/README.md"
   case_ "prose only" 0 0 "echo more >> README.md"
+  case_ "a catalogue-only change with no fragment" 1 0 \
+    "echo '# x' >> catalogue/cases/ehr/ehr.arazzo.yaml"
+  case_ "a catalogue-only change with a fragment" 0 0 \
+    "echo '# x' >> catalogue/cases/ehr/ehr.arazzo.yaml && $frag"
+  case_ "an id-map-only change with no fragment" 1 0 "echo '# x' >> catalogue/id-map.yaml"
   case_ "an edit inside an older release section" 0 0 \
     "sed -i.bak 's/^- The first release\.\$/- The first release, reworded./' CHANGELOG.md && rm CHANGELOG.md.bak"
   case_ "an edit to the intro above Unreleased" 0 0 \

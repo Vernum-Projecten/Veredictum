@@ -100,7 +100,7 @@ if [[ -z "$compose_tag" ]]; then
   exit 1
 fi
 if [[ "$compose_tag" != "$engine_version" ]]; then
-  echo "::error::${COMPOSE} starts ghcr.io/vernum-projecten/veredictum:v${compose_tag} while the workspace engine version is ${engine_version}. The compose file ships on the release page, so its tag moves with the cut like every other copy of the one value." >&2
+  echo "::error::${COMPOSE} starts ghcr.io/vernum-projecten/veredictum:${compose_tag} while the workspace engine version is ${engine_version}. The compose file ships on the release page, so its tag moves with the cut like every other copy of the one value." >&2
   exit 1
 fi
 

@@ -62,6 +62,9 @@ gate guard "action metadata self-test" "bash scripts/checks/action-metadata.sh -
 gate guard "CI jobs gate the merge"   "bash scripts/checks/ci-conclusion-complete.sh"
 gate guard "gates cover CI"           "bash scripts/checks/gates-cover-ci.sh"
 gate guard "the console's engine pin" "bash scripts/release/check-console-pin.sh"
+gate guard "citation version"         "bash scripts/checks/citation-version.sh"
+gate guard "citation version self-test" "bash scripts/checks/citation-version.sh --self-test"
+gate guard "zenodo metadata"          "bash scripts/render/zenodo-json.sh --check" jq
 gate guard "image labels"             "bash scripts/checks/image-labels.sh"
 gate guard "VEX advisories"           "bash scripts/checks/vex-advisories.sh"
 gate guard "the bench legend"         "bash scripts/render/bench-legend.sh --check"
