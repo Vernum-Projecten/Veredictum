@@ -21,7 +21,8 @@
 //! - A criterion that does not hold under a `level: should` citation does
 //!   not stop the row. When every criterion that fails in a row is a
 //!   `should`, the row is *failed* and advisory: it carries its explanation
-//!   and never counts against a capability.
+//!   and never counts against a capability. A `level: may` criterion counts
+//!   like a `must` one ([`crate::arazzo::cite::Level::is_advisory`]).
 //! - A row the caller's [`Plan`] skips is *skipped* with one reason from the
 //!   closed list and its citation.
 //!
@@ -46,7 +47,7 @@ use roas_arazzo::v1_1::{ParameterLocation, Step, ValueOrSelector, Workflow};
 use serde_json::Value;
 
 use crate::arazzo::check::JudgeEnv;
-use crate::arazzo::cite::{Citation, Level, citation_of};
+use crate::arazzo::cite::{Citation, citation_of};
 use crate::arazzo::derive::derivations_of;
 use crate::arazzo::document::{ArazzoDocument, CriterionPlan};
 use crate::arazzo::expr::{
@@ -538,7 +539,7 @@ impl<'d> Evaluator<'d> {
                 ));
             };
             if let Some(first) = seen.insert(value.to_string(), index) {
-                let whose = if aggregate.cite.level == Level::Should {
+                let whose = if aggregate.cite.level().is_advisory() {
                     Whose::Advisory
                 } else {
                     Whose::Server
@@ -942,7 +943,7 @@ impl<'d> Evaluator<'d> {
                     expected,
                     received,
                 }) => {
-                    let advisory = why.as_ref().is_some_and(|c| c.level == Level::Should);
+                    let advisory = why.as_ref().is_some_and(|c| c.level().is_advisory());
                     let red = Box::new(Red {
                         status: Status::Failed,
                         why,
@@ -1708,7 +1709,11 @@ workflows:
 ";
 
     fn drive_read(answers: &[(u16, &'static str)]) -> ResultRow {
-        let (dir, document) = load(SHOULD_DOC);
+        drive_doc(SHOULD_DOC, answers)
+    }
+
+    fn drive_doc(doc: &str, answers: &[(u16, &'static str)]) -> ResultRow {
+        let (dir, document) = load(doc);
         let mut transport = Scripted::new(answers);
         let (results, _) = run_document(
             &document,
@@ -1729,6 +1734,18 @@ workflows:
         let why = row.explanation.unwrap();
         assert_eq!(why.whose, Whose::Advisory);
         assert_eq!(why.expected, "$response.header.ETag != null");
+    }
+
+    #[test]
+    fn a_failing_may_criterion_counts_against_the_server() {
+        let doc = SHOULD_DOC.replace(
+            "quote: It SHOULD be sent., level: should",
+            "quote: It can be sent., level: may",
+        );
+        assert_ne!(doc, SHOULD_DOC);
+        let row = drive_doc(&doc, &[(200, "")]);
+        assert_eq!(row.status, Status::Failed);
+        assert_eq!(row.explanation.unwrap().whose, Whose::Server);
     }
 
     #[test]

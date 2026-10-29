@@ -150,7 +150,17 @@
               "source",
               "section",
               "quote"
-            ]
+            ],
+            "properties": {
+              "level": {
+                "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and advisory, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
+                "enum": [
+                  "must",
+                  "should",
+                  "may"
+                ]
+              }
+            }
           },
           "decides": {
             "description": "The response branches the arms are the mutually exclusive answers to: for each operation, the statuses a service answers with one arm or another, and the released sentence that makes them alternatives. A listed status counts as covered when one arm asserts it and every arm calls the operation; every other element needs every arm. No openEHR spec governs this, our own design.",
@@ -190,7 +200,17 @@
                     "source",
                     "section",
                     "quote"
-                  ]
+                  ],
+                  "properties": {
+                    "level": {
+                      "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and advisory, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
+                      "enum": [
+                        "must",
+                        "should",
+                        "may"
+                      ]
+                    }
+                  }
                 }
               }
             }

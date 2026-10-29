@@ -134,6 +134,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/parameters/path/version.yaml
       section: description
       quote: "This can be an exact version (e.g. `1.7.1`), or a pattern as partial prefix, in a form of `{major}` or `{major}.{minor}` (e.g. `1` or `1.0`), in which case the highest (latest) version matching the prefix will be considered."
+      level: must
     inputs:
       type: object
       properties:
@@ -235,6 +236,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/parameters/path/version.yaml
       section: description
       quote: "This can be an exact version (e.g. `1.7.1`), or a pattern as partial prefix, in a form of `{major}` or `{major}.{minor}` (e.g. `1` or `1.0`), in which case the highest (latest) version matching the prefix will be considered."
+      level: must
     inputs:
       type: object
       properties:
@@ -337,6 +339,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/parameters/path/version.yaml
       section: description
       quote: "This can be an exact version (e.g. `1.7.1`), or a pattern as partial prefix, in a form of `{major}` or `{major}.{minor}` (e.g. `1` or `1.0`), in which case the highest (latest) version matching the prefix will be considered."
+      level: must
     inputs:
       type: object
       properties:
@@ -706,6 +709,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/parameters/path/version.yaml
       section: description
       quote: "This can be an exact version (e.g. `1.7.1`), or a pattern as partial prefix, in a form of `{major}` or `{major}.{minor}` (e.g. `1` or `1.0`), in which case the highest (latest) version matching the prefix will be considered."
+      level: must
     inputs:
       type: object
       properties:

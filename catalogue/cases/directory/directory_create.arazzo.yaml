@@ -330,6 +330,7 @@ workflows:
       source: specs/openehr/RM/docs/ehr/master04-ehr_package.adoc
       section: Folders
       quote: "_More than one Folder can therefore refer to the same Composition_ or other target object."
+      level: may
     inputs: *ehr_input
     steps:
       - *create_ehr

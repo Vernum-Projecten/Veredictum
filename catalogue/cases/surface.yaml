@@ -53,11 +53,6 @@ gaps:
   - { api: ehr, operation: ehr_status_update, header: Accept, value: application/openehr.wt.structured+json, issue: 352 }
   - { api: ehr, operation: ehr_status_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 352 }
   - { api: ehr, operation: ehr_status_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 352 }
-# The 400 of a COMPOSITION delete, covered by #681: a second delete of a
-# deleted COMPOSITION matches both the 400 already deleted and the 409 of a
-# version that is not the latest, and the surface gate counts the workflow
-# that accepts either answer for neither branch.
-  - { api: ehr, operation: composition_delete, status: "400", issue: 681 }
 # The Content-Type the release declares on the body-less VERSIONED_EHR_STATUS
 # and VERSIONED_COMPOSITION GETs: each operation lists
 # `parameters/header/ContentType_canonical.yaml` as a request header on a

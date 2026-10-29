@@ -324,6 +324,7 @@ workflows:
       source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
       section: Participation
       quote: "`participation_identifiers` can be set in a compact or non compat form."
+      level: may
     inputs: *ehr_input
     steps:
       - *create_ehr

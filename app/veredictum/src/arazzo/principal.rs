@@ -104,7 +104,7 @@ pub fn undeclared_citation() -> Citation {
         section: "Authentication and authorization".to_owned(),
         quote: "Services SHOULD implement and support an HTTP Authentication and Authorization framework, though this specification does not mandate a specific authentication scheme.".to_owned(),
         report: None,
-        level: Level::Should,
+        level: Some(Level::Should),
     }
 }
 

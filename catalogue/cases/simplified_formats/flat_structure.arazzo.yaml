@@ -206,6 +206,7 @@ workflows:
       source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
       section: Instance Indexing
       quote: "When a node can occur multiple times (max > 1 or max = -1), instances are indexed using colon notation:"
+      level: must
     inputs: *ehr_input
     steps:
       - *create_ehr

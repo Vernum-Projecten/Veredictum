@@ -819,6 +819,7 @@ workflows:
               source: specs/openehr/RM/docs/UML/classes/revision_history_item.adoc
               section: REVISION_HISTORY_ITEM Class
               quote: "The audits for this revision; there will always be at least one commit audit (which may itself be an `ATTESTATION`), there may also be further attestations."
+              level: must
           - context: $response.body
             type: jsonpath
             condition: "$.items[?@.version_id.value == '{$steps.latest.outputs.version_uid}' && @.audits[0].time_committed]"

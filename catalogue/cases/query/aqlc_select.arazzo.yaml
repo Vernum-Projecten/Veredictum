@@ -435,6 +435,7 @@ workflows:
       section: Literals
       quote: It can be used in the `SELECT` clause as a column expression, or in `WHERE` class as part
         of an identified expression.
+      level: may
     steps:
       - stepId: query
         description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
@@ -481,6 +482,7 @@ workflows:
       section: Literals
       quote: It can be used in the `SELECT` clause as a column expression, or in `WHERE` class as part
         of an identified expression.
+      level: may
     steps:
       - stepId: query
         description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
@@ -572,6 +574,7 @@ workflows:
       section: Literals
       quote: It can be used in the `SELECT` clause as a column expression, or in `WHERE` class as part
         of an identified expression.
+      level: may
     steps:
       - stepId: query
         description: Execute the query with POST, the identifiers of the set-up passed as query parameters.

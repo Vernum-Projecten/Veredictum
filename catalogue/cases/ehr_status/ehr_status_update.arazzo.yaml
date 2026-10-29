@@ -834,9 +834,9 @@ workflows:
       refuses the body, so it is syntactically invalid content and the
       update is refused with 400 Bad Request.
     x-veredictum-cite:
-      source: specs/openehr/RM/docs/UML/classes/dv_paragraph.adoc
-      section: DV_PARAGRAPH Class
-      quote: "__Items_valid__: `not items.is_empty`"
+      source: specs/its-json-schemas/openehr_rm_1.1.0_all.json
+      section: /definitions/DV_PARAGRAPH/properties/items/minItems
+      quote: "1"
     inputs:
       type: object
       properties:

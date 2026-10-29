@@ -16,13 +16,13 @@
         "source": {
           "description": "The vendored released file, relative to the repository root.",
           "type": "string",
-          "pattern": "^(specs/openehr/|specs/rest\\-oas/)",
+          "pattern": "^(specs/openehr/|specs/rest\\-oas/|specs/its\\-json\\-schemas/|specs/its\\-xml\\-schemas/)",
           "not": {
             "pattern": "^specs/openehr/SM/"
           }
         },
         "section": {
-          "description": "A top-level key or a JSON Pointer in a YAML source. In a Markdown or AsciiDoc source, the title of exactly one heading, or a path of titles joined by ` > ` in which each heading sits directly under the one before it; a title that matches more than one heading is refused.",
+          "description": "A top-level key or a JSON Pointer in a YAML or JSON source; when the element is a number, a boolean or `null`, the quote is that value as JSON text and is matched by value. In a Markdown or AsciiDoc source, the title of exactly one heading, or a path of titles joined by ` > ` in which each heading sits directly under the one before it; a title that matches more than one heading is refused.",
           "type": "string",
           "minLength": 1
         },
@@ -37,10 +37,11 @@
           "minimum": 1
         },
         "level": {
-          "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED. `validate` refuses a level its quote's upper-case keywords disagree with, and a quote whose only keyword is MAY or OPTIONAL. A row whose failing criteria all cite `should` is failed and advisory, and never counts against a capability.",
+          "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and advisory, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
           "enum": [
             "must",
-            "should"
+            "should",
+            "may"
           ]
         }
       }
@@ -161,6 +162,36 @@
             },
             "distinct_from": {
               "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "judge",
+            "context",
+            "type"
+          ],
+          "properties": {
+            "judge": {
+              "const": "json_type"
+            },
+            "context": {
+              "description": "The runtime expression the judged value is read from.",
+              "type": "string",
+              "pattern": "^\\$"
+            },
+            "type": {
+              "description": "The JSON type the context's value must be, one of the six of RFC 8259 §3; an absent value is of no type, and a present `null` is of the type `null`.",
+              "enum": [
+                "object",
+                "array",
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
             }
           }
         },

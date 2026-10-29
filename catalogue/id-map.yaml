@@ -4528,10 +4528,6 @@ cases:
   SMART-DISCOVERY-document_shape:
     new:
       - smart_discovery/smart_configuration-document
-    open: >-
-      The `capabilities` array is not carried: master04 §Capabilities
-      advertises it "as an array value", and no criterion of the condition
-      profile tells an array from another JSON value; #745.
   SMART-RESOURCE_SCOPES-granted_scope_permits:
     new:
       - smart_scopes/template_list-system_scope_granted

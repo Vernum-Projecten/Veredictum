@@ -31,6 +31,7 @@ workflows:
       source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
       section: Digital Signature
       quote: "At the time of committal of a Version, a digital signature of the object can be made."
+      level: may
     inputs: &ehr_input
       type: object
       properties:

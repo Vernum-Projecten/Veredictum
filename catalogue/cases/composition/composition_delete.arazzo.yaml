@@ -523,6 +523,7 @@ workflows:
           source: specs/openehr/RM/docs/UML/classes/ehr_status.adoc
           section: EHR_STATUS Class
           quote: "The `EHR_STATUS` object itself can always be written to."
+          level: must
         operationId: $sourceDescriptions.ehr.ehr_status_update
         parameters:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
