@@ -15,6 +15,7 @@ pub mod capabilities;
 pub mod catalogue;
 pub mod check;
 pub mod cite;
+pub mod credential;
 pub mod derive;
 pub mod document;
 pub mod evaluate;

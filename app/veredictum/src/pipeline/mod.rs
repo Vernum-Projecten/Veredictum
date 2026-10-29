@@ -158,10 +158,9 @@ pub enum Error {
     /// A HAR recording cannot be read or written.
     #[error("{0}")]
     Recording(#[from] crate::arazzo::har::HarError),
-    /// A credential the run was asked to present is not supplied, or is
-    /// supplied twice.
+    /// A credential the run was asked to present no longer reads.
     #[error("{0}")]
-    Credential(String),
+    Credential(#[from] crate::arazzo::credential::CredentialError),
 }
 
 fn join_lines<T: std::fmt::Display>(items: &[T]) -> String {

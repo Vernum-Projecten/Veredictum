@@ -32,6 +32,7 @@ use std::sync::LazyLock;
 
 use clap::{Parser, Subcommand};
 
+use veredictum::arazzo::credential::{CredentialSource, Role};
 use veredictum::bench::client::AuthKind;
 use veredictum::party::version_line;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
@@ -1206,6 +1207,8 @@ fn test_command(
     let drive = match (target.rejudge, target.base_url) {
         (Some(recording), _) => Drive::Rejudge { recording },
         (None, Some(base_url)) => {
+            // Only where each credential comes from is resolved here; its
+            // value is read inside the transport that sends it.
             let (auth, admin_auth) = match (
                 AuthKind::parse(target.auth),
                 AuthKind::parse(target.admin_auth),
@@ -1213,10 +1216,18 @@ fn test_command(
                 (Ok(auth), Ok(admin_auth)) => (auth, admin_auth),
                 (Err(e), _) | (_, Err(e)) => return fail(&e),
             };
+            let located = CredentialSource::locate(auth, Role::Ordinary).and_then(|ordinary| {
+                CredentialSource::locate(admin_auth, Role::Administrative)
+                    .map(|administrative| (ordinary, administrative))
+            });
+            let (ordinary, administrative) = match located {
+                Ok(located) => located,
+                Err(e) => return fail(&e),
+            };
             Drive::Live {
                 base_url,
-                auth,
-                admin_auth,
+                ordinary,
+                administrative,
             }
         }
         (None, None) => {

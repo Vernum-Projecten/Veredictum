@@ -66,6 +66,10 @@ use crate::exec::transport::Transport;
 use crate::vocab::{HttpMethod, Iteration};
 
 /// What the evaluator needs to reach a server under test.
+///
+/// A catalogue run puts a principal's marker in `authorization` and
+/// `administrative`, never its credential: the transport puts the credential
+/// in the marker's place on the wire ([`crate::arazzo::credential`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunConfig {
     /// The base URL every OAS path is appended to.
