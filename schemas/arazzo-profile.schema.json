@@ -88,7 +88,8 @@
         "openehr-audit-details",
         "openehr-item-tag",
         "openehr-version-item-tag",
-        "openehr-template-id"
+        "openehr-template-id",
+        "openehr-ehr-id"
       ]
     }
   }

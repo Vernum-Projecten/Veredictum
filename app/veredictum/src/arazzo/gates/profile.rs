@@ -13,7 +13,7 @@ use crate::arazzo::cite::Citation;
 /// A request header the profile lets a step send whether or not the
 /// operation declares it.
 ///
-/// Each one is a request header the ITS-REST 1.1.0 overview names for
+/// Each one is a request header the ITS-REST 1.1.0 docs text names for
 /// clients to send, and [`ProfileHeader::citation`] quotes the sentence that
 /// names it. OAS 3.0.3 §Parameter Object also tells a tool to ignore a
 /// declared `Accept`, `Content-Type` or `Authorization` parameter, so a step
@@ -42,11 +42,14 @@ pub enum ProfileHeader {
     OpenehrVersionItemTag,
     /// `openehr-template-id`.
     OpenehrTemplateId,
+    /// `openehr-ehr-id`.
+    OpenehrEhrId,
 }
 
 const RESOURCES: &str = "specs/openehr/ITS-REST/specifications/docs/overview/Resources.md";
 const REQUESTS: &str =
     "specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md";
+const QUERY_REQUEST: &str = "specs/openehr/ITS-REST/specifications/docs/query/Request.md";
 
 impl ProfileHeader {
     /// Every allowed header, in vocabulary order.
@@ -62,6 +65,7 @@ impl ProfileHeader {
         Self::OpenehrItemTag,
         Self::OpenehrVersionItemTag,
         Self::OpenehrTemplateId,
+        Self::OpenehrEhrId,
     ];
 
     /// The header's field name, as the ITS-REST overview spells it.
@@ -79,6 +83,7 @@ impl ProfileHeader {
             Self::OpenehrItemTag => "openehr-item-tag",
             Self::OpenehrVersionItemTag => "openehr-version-item-tag",
             Self::OpenehrTemplateId => "openehr-template-id",
+            Self::OpenehrEhrId => "openehr-ehr-id",
         }
     }
 
@@ -135,6 +140,11 @@ impl ProfileHeader {
                 REQUESTS,
                 "openehr-template-id",
                 "The `openehr-template-id` request header MUST be used whenever committing COMPOSITION (via `PUT` or `POST` methods)",
+            ),
+            Self::OpenehrEhrId => (
+                QUERY_REQUEST,
+                "About the ehr_id parameter",
+                "Depending on the needs, clients MAY supply it as a query parameter `ehr_id` or alternatively as a request header named `openehr-ehr-id`.",
             ),
         };
         Citation {

@@ -343,13 +343,66 @@ impl<'a> QuoteChecker<'a> {
     fn read(&mut self, source: &str) -> Result<String, CiteError> {
         let root = self.repo_root;
         let cached = self.texts.entry(source.to_owned()).or_insert_with(|| {
-            std::fs::read_to_string(root.join(source)).map_err(|e| e.to_string())
+            let text = std::fs::read_to_string(root.join(source)).map_err(|e| e.to_string())?;
+            let is_adoc = Path::new(source)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("adoc"));
+            Ok(if is_adoc {
+                expand_listing_includes(&text, &root.join(source))
+            } else {
+                text
+            })
         });
         cached.clone().map_err(|reason| CiteError::Unreadable {
             file: source.to_owned(),
             reason,
         })
     }
+}
+
+/// `text` of the `AsciiDoc` file at `path`, with each `include::` directive
+/// that names a file other than `AsciiDoc` by a plain relative path replaced
+/// by that file's content, the way the release renders it.
+///
+/// QUERY `docs/AQL/master07-grammar.adoc` publishes the AQL grammar as two
+/// such includes (`include::grammar/AqlLexer.g4[]`), so a lexer or parser
+/// rule is quotable under the chapter heading that renders it. An include of
+/// another `AsciiDoc` file, one whose target names a document attribute, one
+/// that leaves the including file's directory, or one that does not read
+/// stays the directive line it is: each would change the headings a section
+/// resolves against, or name text the vendored tree does not hold.
+fn expand_listing_includes(text: &str, path: &Path) -> String {
+    let Some(dir) = path.parent() else {
+        return text.to_owned();
+    };
+    let mut out = String::with_capacity(text.len());
+    for line in text.lines() {
+        let included = line
+            .trim_end()
+            .strip_prefix("include::")
+            .and_then(|rest| rest.strip_suffix(']'))
+            .and_then(|rest| rest.split_once('['))
+            .map(|(target, _)| Path::new(target))
+            .filter(|target| {
+                !target.as_os_str().is_empty()
+                    && target
+                        .components()
+                        .all(|c| matches!(c, Component::Normal(_)))
+                    && !target.to_string_lossy().contains('{')
+                    && !target
+                        .extension()
+                        .is_some_and(|ext| ext.eq_ignore_ascii_case("adoc"))
+            })
+            .and_then(|target| std::fs::read_to_string(dir.join(target)).ok());
+        // NOTE: no openEHR spec governs this — our own design; an include that does not read
+        // stays its directive line, so a quote of the included text is refused as not found.
+        match included {
+            Some(content) => out.push_str(&content),
+            None => out.push_str(line),
+        }
+        out.push('\n');
+    }
+    out
 }
 
 /// The string content of one element of a YAML source.
@@ -715,6 +768,63 @@ mod tests {
 
     fn vendored() -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    }
+
+    #[test]
+    fn a_grammar_listing_include_is_quotable_under_its_heading() {
+        use assert_fs::prelude::*;
+        let dir = repo();
+        let docs = "specs/openehr/QUERY/docs/AQL";
+        dir.child(format!("{docs}/grammar/Lexer.g4"))
+            .write_str("lexer grammar L;\nWS: [ \\t]+ -> skip;\n")
+            .unwrap();
+        dir.child(format!("{docs}/chapter.adoc"))
+            .write_str("== Hidden\n\nnot to be pulled in\n")
+            .unwrap();
+        dir.child("specs/openehr/QUERY/outside.g4")
+            .write_str("OUTSIDE: 'x';\n")
+            .unwrap();
+        dir.child(format!("{docs}/grammar.adoc"))
+            .write_str(
+                "= Syntax\n\n.Lexer\n----\ninclude::grammar/Lexer.g4[]\n----\n\ninclude::chapter.adoc[]\ninclude::../outside.g4[]\ninclude::{attr}/Lexer.g4[]\n",
+            )
+            .unwrap();
+        let mut checker = QuoteChecker::new(dir.path());
+        let source = format!("{docs}/grammar.adoc");
+        assert_eq!(
+            checker.check(&cite(&source, "Syntax", "WS: [ \\t]+ -> skip;")),
+            Ok(())
+        );
+        for quote in ["not to be pulled in", "OUTSIDE: 'x';"] {
+            assert!(
+                matches!(
+                    checker.check(&cite(&source, "Syntax", quote)),
+                    Err(CiteError::QuoteNotFound { .. })
+                ),
+                "{quote}"
+            );
+        }
+        assert!(matches!(
+            checker.check(&cite(&source, "Hidden", "not to be pulled in")),
+            Err(CiteError::SectionNotFound { .. })
+        ));
+    }
+
+    #[test]
+    fn the_released_aql_lexer_rules_are_quotable_from_the_grammar_chapter() {
+        let root = vendored();
+        let mut checker = QuoteChecker::new(&root);
+        let chapter = "specs/openehr/QUERY/docs/AQL/master07-grammar.adoc";
+        for quote in [
+            "WS: [ \\t\\r\\n]+ -> skip;",
+            ") -> channel(COMMENT_CHANNEL);",
+        ] {
+            assert_eq!(
+                checker.check(&cite(chapter, "AQL Syntax Specification", quote)),
+                Ok(()),
+                "{quote}"
+            );
+        }
     }
 
     #[test]
