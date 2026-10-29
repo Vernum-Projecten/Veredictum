@@ -138,6 +138,21 @@ jobs:
       - name: Changelog structure (no duplicate subsections, canonical types)
         run: bash scripts/checks/changelog-structure.sh
 
+      # Entries are fragments under `changelog.d/` until the cut folds them in
+      # with `scripts/release/changelog.sh --assemble` (#766). A fragment still
+      # there at tag time is a change the release notes would silently omit.
+      # Versions here carry no pre-release suffix, so every tag is a full cut.
+      - name: No changelog fragment is left behind
+        run: |
+          set -euo pipefail
+          left="$(find changelog.d -mindepth 1 -maxdepth 1 ! -name README.md -print | LC_ALL=C sort)"
+          if [ -n "$left" ]; then
+            echo "::error::changelog.d/ still holds fragments the cut did not fold in. Run 'scripts/release/changelog.sh --assemble X.Y.Z YYYY-MM-DD' in the cut pull request:" >&2
+            printf '  %s\n' "$left" >&2
+            exit 1
+          fi
+          echo "changelog.d/ holds no fragment: every entry is in CHANGELOG.md."
+
       # The release NOTES are produced here rather than at publish time: the
       # section existing and being non-empty is a release fact like any other,
       # and the extraction that proves it may as well hand the result on. The
@@ -253,7 +268,7 @@ jobs:
       # supplier, component name, version, other unique identifiers (purl),
       # dependency relationships, SBOM author and timestamp
       # (https://www.cisa.gov/sbom).
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: syft@1.50.0
       - name: Generate the repository SPDX SBOM
@@ -465,7 +480,7 @@ jobs:
       # No cache in a publishing lane: nothing a prior run could have poisoned
       # may influence the bytes that get pushed and attested.
       - name: Install cargo-auditable
-        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: cargo-auditable@0.7.5
 
@@ -621,7 +636,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.sha }} # == plan's commit: the dispatch-at-tag refusal makes them equal
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -809,7 +824,7 @@ jobs:
 
       - id: auth
         name: Exchange the OIDC identity for a temporary crates.io token
-        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
 
       - name: Publish
         env:

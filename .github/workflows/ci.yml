@@ -257,6 +257,23 @@ jobs:
       - name: Changelog structure
         run: bash scripts/checks/changelog-structure.sh
 
+      # Entries are fragments under `changelog.d/` (#766), folded into
+      # CHANGELOG.md only at the release cut. Like the structure check these
+      # are unconditional: the label waives the requirement to add a fragment,
+      # never the fragments' form, and the preview is the next release section
+      # as the cut will write it.
+      - name: Every changelog fragment is well formed
+        run: bash scripts/release/changelog.sh --check
+
+      - name: The next release section, fragments folded in, keeps its structure
+        run: bash scripts/release/changelog.sh --check-preview
+
+      - name: Changelog fragments — seeded self-test
+        run: bash scripts/release/changelog.sh --self-test
+
+      - name: The changelog guard — seeded self-test
+        run: bash scripts/checks/changelog-entry.sh --self-test
+
       # The corpus OPT generator declares itself the SOURCE of every cnf.tpl.*
       # template beside it, and both halves of that contract were unenforced: a
       # hand-patched OPT drifted silently, and a manifest key with no builder
@@ -265,11 +282,13 @@ jobs:
       - name: Corpus OPTs regenerate byte-identically
         run: bash scripts/checks/corpus-opt-reproducible.sh
 
-      # The entry half: a change to a user-visible surface must carry a changelog
-      # entry. The path set that decides "user-visible" is declared inside
-      # `scripts/checks/changelog-entry.sh`, beside the reasoning for each path,
-      # rather than as a regular expression in this file — the list is meant to
-      # be read against `CHANGELOG.md`'s own definition of the term.
+      # The fragment half: a change to a user-visible surface must add a
+      # fragment under `changelog.d/`, and no change may add a line under the
+      # Unreleased heading of CHANGELOG.md (#766). The path set that decides
+      # "user-visible" is declared inside `scripts/checks/changelog-entry.sh`,
+      # beside the reasoning for each path, rather than as a regular expression
+      # in this file — the list is meant to be read against `CHANGELOG.md`'s own
+      # definition of the term.
       #
       # PULL-REQUEST ONLY, deliberately: both halves of the decision — the
       # base..head diff and the label — are pull-request payload, and a
@@ -278,7 +297,7 @@ jobs:
       # this workflow are what make applying the label raise a fresh run whose
       # payload carries it; re-running the failed job re-uses the stale payload
       # and would still fail.
-      - name: Require a changelog entry for user-visible changes
+      - name: Require a changelog fragment for user-visible changes
         if: github.event_name == 'pull_request'
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -286,14 +305,15 @@ jobs:
           HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
         run: |
           set -euo pipefail
-          # The suppression is REPORTED, not silent: a guard that can be waived
-          # invisibly is a guard nobody can audit after the fact.
+          # The label waives the fragment requirement and nothing else, so the
+          # script still runs: the Unreleased refusal holds either way. The
+          # waiver is REPORTED by the script as a notice, never silent: a guard
+          # that can be waived invisibly is a guard nobody can audit afterwards.
+          args=("$BASE" "$HEAD")
           if [ "$HAS_LABEL" = "true" ]; then
-            echo "::notice::the 'no-changelog' label is applied — the changelog-entry requirement is waived for this pull request"
-            echo "changelog-entry: waived by the no-changelog label."
-            exit 0
+            args+=(--no-changelog-label)
           fi
-          bash scripts/checks/changelog-entry.sh "$BASE" "$HEAD"
+          bash scripts/checks/changelog-entry.sh "${args[@]}"
 
       # The no-attribution hard rule, enforced on what was actually committed.
       # The local `.githooks/commit-msg` hook strips attribution before a commit
@@ -375,7 +395,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: zizmor@1.29.0
 
@@ -672,7 +692,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           cache-save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: cargo-nextest
       # The published record's interop claim is checked against GnuPG itself
@@ -789,7 +809,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           cache-save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: cargo-hack
       # --workspace: without it cargo-hack checks the root package alone, and
@@ -815,7 +835,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           cache: false
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: cargo-deny
       - run: cargo deny check
@@ -848,7 +868,7 @@ jobs:
           cache-workspaces: fuzz
           cache-key: fuzz-build
           cache-save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: cargo-fuzz@0.13.2
       # The seeder is part of the lane and breaks the same way a harness does:
@@ -876,7 +896,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: cargo-machete
       - run: cargo machete
@@ -908,7 +928,7 @@ jobs:
         with:
           target: wasm32-unknown-unknown
           cache-save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: cargo-nextest
 
