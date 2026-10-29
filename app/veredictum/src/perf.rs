@@ -304,8 +304,7 @@ pub enum PerfOp {
     /// `POST /demographic/party_relationship` → 201
     /// (`I_DEMOGRAPHIC_SERVICE.create_party_relationship`) — an EXTENSION
     /// route: ITS-REST 1.1.0 surfaces no `PARTY_RELATIONSHIP` resource, so
-    /// no openEHR spec governs it (our own design/extension, register
-    /// AMB-32, declared in `vocab/wire_surface.yaml`).
+    /// no openEHR spec governs it (our own design/extension).
     PartyRelationshipCreate,
     /// `GET /demographic/party_relationship/{versioned_object_uid}` → 200
     /// (`I_PARTY_RELATIONSHIP.get_party_relationship`) — the same
@@ -320,20 +319,17 @@ pub enum PerfOp {
     /// `GET /definition/archetype/adl2` → 200
     /// (`I_DEFINITION_ADL2.list_archetypes`) — an EXTENSION route: ITS-REST
     /// 1.1.0 surfaces no ADL 2 archetype resource, so no openEHR spec governs
-    /// it (our own design/extension, register AMB-37, declared in
-    /// `vocab/wire_surface.yaml`).
+    /// it (our own design/extension).
     ArchetypeAdl2List,
     /// `GET /admin/report/contribution/count?a_service=Ehr` → 200
     /// (`I_ADMIN_SERVICE.contribution_count`) — an EXTENSION route: the
     /// released Admin API is the two EHR deletes alone, so no openEHR spec
-    /// governs it (our own design/extension, register AMB-33, declared in
-    /// `vocab/wire_surface.yaml`).
+    /// governs it (our own design/extension).
     AdminContributionReport,
     /// `GET /message/export/{ehr_id}` → 200
     /// (`I_EHR_EXTRACT_SERVICE.export_ehrs`) — an EXTENSION route: ITS-REST
     /// 1.1.0 publishes no MESSAGE API at all, so no openEHR spec governs it
-    /// (our own design/extension, register AMB-34, declared in
-    /// `vocab/wire_surface.yaml`).
+    /// (our own design/extension).
     EhrExtractExport,
     /// `POST /query/aql` with an ORDER BY + LIMIT projection → 200
     /// (`I_QUERY_SERVICE.execute_ad_hoc_query`, the advanced-AQL class).

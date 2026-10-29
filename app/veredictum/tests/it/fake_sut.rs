@@ -3,8 +3,8 @@
 
 //! The fake-SUT harness the wire-speaking modules are driven against.
 //!
-//! `wiremock` answers on a real socket, so the driver, the AQL probe and the
-//! stress ladder run over the same `reqwest` path a live campaign uses —
+//! `wiremock` answers on a real socket, so the evaluator, the AQL probe and
+//! the stress ladder run over the same `reqwest` path a live campaign uses —
 //! request construction, transport, status, headers and body all real. What
 //! the harness controls is the answer, which is the half a live SUT cannot be
 //! asked to produce on demand.
@@ -22,12 +22,8 @@
     reason = "test-support helpers (not `#[test]` fns, so the clippy.toml in-tests scoping does not reach them) are panic-idiomatic: a broken harness must abort the test loudly, Book ch11"
 )]
 
-use std::path::{Path, PathBuf};
-
-use serde_json::{Value, json};
-use veredictum::artifacts::ArtifactSet;
+use serde_json::json;
 use veredictum::ixit::Ixit;
-use veredictum::model::case::CaseCore;
 
 /// A running fake SUT: the mock server plus the runtime its async control
 /// surface is driven on.
@@ -79,70 +75,10 @@ pub(crate) fn closed_port_url() -> String {
     format!("http://{address}")
 }
 
-/// The selector vocabulary the driver consults for the route-table-wide
-/// outcomes: 401 and 403 map for every operation, so no binding repeats them
-/// (ITS-REST `Requests_and_responses.md` §HTTP status codes rows 401/403).
-fn selectors() -> veredictum::model::vocab_files::SelectorsVocab {
-    serde_saphyr::from_str(
-        r#"
-body_selectors: [prefer_conditional, error_loose, result_set_body, negotiated, present, absent]
-header_matchers: ["present", "present?", "absent", "negotiated", "latest-version-uid", "pattern:<regex>", "<literal>"]
-ignore_sets:
-  server_assigned: { per_binding: true, source: "ITS-REST overview, HTTP headers" }
-  ctx_defaults: { paths: [context/start_time], source: "ITS-REST overview, HTTP headers" }
-universal_outcomes:
-  unauthenticated: { status: 401, source: "ITS-REST overview, HTTP status codes" }
-  forbidden: { status: 403, source: "ITS-REST overview, HTTP status codes" }
-"#,
-    )
-    .unwrap()
-}
-
-/// An artifact set carrying the given operation bindings, the universal
-/// outcome vocabulary, and the empty corpus the driver's resolver needs.
-pub(crate) fn artifact_set(bindings: &[Value]) -> ArtifactSet {
-    let mut set = ArtifactSet::default();
-    for (index, binding) in bindings.iter().enumerate() {
-        set.bindings.push((
-            PathBuf::from(format!("bindings/its-rest/{index}.yaml")),
-            serde_json::from_value(binding.clone()).unwrap(),
-        ));
-    }
-    set.corpus = Some((
-        PathBuf::from("corpus/MANIFEST.yaml"),
-        serde_json::from_value(json!({})).unwrap(),
-    ));
-    set.corpus_dir = Some(PathBuf::from("corpus"));
-    set.selectors = Some((PathBuf::from("vocab/selectors.yaml"), selectors()));
-    set
-}
-
-/// An artifact set over a REAL corpus: the caller's manifest document and the
-/// directory its `source` paths resolve against, so a precondition fixture
-/// and its declared views are read off disk exactly as a committed one is.
-pub(crate) fn artifact_set_over_corpus(
-    bindings: &[Value],
-    manifest: Value,
-    corpus_dir: &Path,
-) -> ArtifactSet {
-    let mut set = artifact_set(bindings);
-    set.corpus = Some((
-        PathBuf::from("corpus/MANIFEST.yaml"),
-        serde_json::from_value(manifest).unwrap(),
-    ));
-    set.corpus_dir = Some(corpus_dir.to_owned());
-    set
-}
-
 /// A single-instance ixit addressing the fake SUT with no credential.
 pub(crate) fn ixit(base_url: &str) -> Ixit {
     serde_json::from_value(json!({
         "instances": { "sut": { "base_url": base_url, "auth": { "mode": "none" } } }
     }))
     .unwrap()
-}
-
-/// A case core from its authored JSON form.
-pub(crate) fn case(document: Value) -> CaseCore {
-    serde_json::from_value(document).unwrap()
 }

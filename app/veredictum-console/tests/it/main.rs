@@ -18,10 +18,6 @@ mod captures;
 mod e2e_console;
 #[cfg(feature = "ssr")]
 mod engine_gate;
-#[cfg(feature = "ssr")]
-mod evidence_gate;
-#[cfg(feature = "ssr")]
-mod export_gate;
 
 mod hosted_posture;
 #[cfg(feature = "ssr")]

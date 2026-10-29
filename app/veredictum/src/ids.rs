@@ -124,52 +124,12 @@ string_id!(
 );
 
 string_id!(
-    /// An ambiguity-register id (`AMB-<n>`).
-    AmbiguityId,
-    "ambiguity id",
-    "AMB-<number>",
-    |s: &str| {
-        s.strip_prefix("AMB-").is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
-    }
-);
-
-string_id!(
-    /// An option tag realizing one branch of an `option_select` ambiguity
-    /// (e.g. `adl14-duplicate-conflict`).
+    /// An option arm of the catalogue's `capabilities.yaml` a statement
+    /// selects (e.g. `ehr-xml-supported`).
     OptionTag,
     "option tag",
     "non-empty [a-z0-9_-]",
     |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
-);
-
-string_id!(
-    /// The name of one option FAMILY of an `option_select` ambiguity.
-    ///
-    /// A family is one independent choice, and its mutually exclusive arms
-    /// are its option tags: `ehr-xml-write` has the arms
-    /// `ehr-xml-write-accepted` and `ehr-xml-write-refused`.
-    OptionFamilyName,
-    "option family name",
-    "non-empty [a-z0-9_-]",
-    |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
-);
-
-string_id!(
-    /// A named projection over a corpus data set (referenced as
-    /// `${ds:<key>#<view>}`).
-    ViewName,
-    "view name",
-    "ASCII identifier",
-    is_ident
-);
-
-string_id!(
-    /// A named row-to-instance synthesis recipe (referenced as
-    /// `${recipe:<name>(row)}`).
-    RecipeName,
-    "recipe name",
-    "ASCII identifier",
-    is_ident
 );
 
 string_id!(
@@ -181,137 +141,9 @@ string_id!(
     is_ident
 );
 
-string_id!(
-    /// A case-scoped capture / `requires`-handle name (`ehr_id`, `v2_uid`).
-    CaptureName,
-    "capture name",
-    "ASCII identifier",
-    is_ident
-);
-
-/// An SM operation anchor: `I_<INTERFACE>.<operation>` — resolved by the
-/// validator against the vendored SM UML class exports
-/// (`specs/openehr/SM/docs/UML/classes/`).
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SmOperationRef {
-    interface: String,
-    operation: String,
-}
-
-impl SmOperationRef {
-    /// Parse `I_<INTERFACE>.<operation>`.
-    ///
-    /// # Errors
-    /// Returns [`IdError`] when the value is not an `I_…`-prefixed interface
-    /// name followed by exactly one `.` and an operation identifier.
-    pub fn parse(value: &str) -> Result<Self, IdError> {
-        let err = |rule| IdError {
-            kind: "SM operation",
-            value: value.to_owned(),
-            rule,
-        };
-        let (interface, operation) = value
-            .split_once('.')
-            .ok_or_else(|| err("must be I_<INTERFACE>.<operation>"))?;
-        if !interface.starts_with("I_")
-            || !interface
-                .chars()
-                .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
-        {
-            return Err(err("interface must be I_UPPER_SNAKE"));
-        }
-        if !operation
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_lowercase())
-            || !operation
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
-        {
-            return Err(err("operation must be lower_snake"));
-        }
-        Ok(Self {
-            interface: interface.to_owned(),
-            operation: operation.to_owned(),
-        })
-    }
-
-    /// The SM interface name (`I_EHR_SERVICE`).
-    #[must_use]
-    pub fn interface(&self) -> &str {
-        &self.interface
-    }
-
-    /// The operation name (`create_ehr`).
-    #[must_use]
-    pub fn operation(&self) -> &str {
-        &self.operation
-    }
-
-    /// Build a reference to a sibling operation on the same interface (the
-    /// flow `call:` short form, which "resolves against `sm_operation`'s
-    /// interface" per the case-core contract).
-    #[must_use]
-    pub fn sibling(&self, operation: &str) -> Self {
-        Self {
-            interface: self.interface.clone(),
-            operation: operation.to_owned(),
-        }
-    }
-}
-
-impl fmt::Display for SmOperationRef {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}", self.interface, self.operation)
-    }
-}
-
-impl std::str::FromStr for SmOperationRef {
-    type Err = IdError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::parse(s)
-    }
-}
-
-impl Serialize for SmOperationRef {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_string())
-    }
-}
-
-impl<'de> Deserialize<'de> for SmOperationRef {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        Self::parse(&s).map_err(D::Error::custom)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn sm_operation_parses_and_prints() {
-        let op = SmOperationRef::parse("I_EHR_SERVICE.create_ehr").unwrap();
-        assert_eq!(op.interface(), "I_EHR_SERVICE");
-        assert_eq!(op.operation(), "create_ehr");
-        assert_eq!(op.to_string(), "I_EHR_SERVICE.create_ehr");
-        assert_eq!(op.sibling("get_ehr").to_string(), "I_EHR_SERVICE.get_ehr");
-    }
-
-    #[test]
-    fn sm_operation_rejects_malformed() {
-        assert!(SmOperationRef::parse("EHR_SERVICE.create_ehr").is_err());
-        assert!(SmOperationRef::parse("I_EHR_SERVICE").is_err());
-        assert!(SmOperationRef::parse("I_EHR_SERVICE.CreateEhr").is_err());
-    }
-
-    #[test]
-    fn ambiguity_id_shape() {
-        assert!(AmbiguityId::parse("AMB-13").is_ok());
-        assert!(AmbiguityId::parse("AMB-").is_err());
-        assert!(AmbiguityId::parse("amb-1").is_err());
-    }
 
     #[test]
     fn corpus_key_shape() {
@@ -319,26 +151,6 @@ mod tests {
         assert!(CorpusKey::parse("cnf.set.bp-10").is_ok());
         assert!(CorpusKey::parse("Cnf.Upper").is_err());
         assert!(CorpusKey::parse("cnf..double_dot").is_err());
-    }
-
-    /// An SM operation anchor round-trips through every text seam the
-    /// artifacts use it on: `FromStr` (a `.parse()` call site), and serde in
-    /// both directions. All three go through the one lexical rule, so a
-    /// malformed anchor cannot enter by a side door.
-    #[test]
-    fn an_sm_operation_anchor_round_trips_through_every_text_seam() {
-        let parsed: SmOperationRef = "I_EHR_SERVICE.create_ehr".parse().unwrap();
-        assert_eq!(
-            parsed,
-            SmOperationRef::parse("I_EHR_SERVICE.create_ehr").unwrap()
-        );
-        assert!("EHR_SERVICE.create_ehr".parse::<SmOperationRef>().is_err());
-
-        let json = serde_json::to_string(&parsed).unwrap();
-        assert_eq!(json, "\"I_EHR_SERVICE.create_ehr\"");
-        let back: SmOperationRef = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, parsed);
-        assert!(serde_json::from_str::<SmOperationRef>("\"nope\"").is_err());
     }
 
     /// The string-id newtypes carry the same three seams, and the error names

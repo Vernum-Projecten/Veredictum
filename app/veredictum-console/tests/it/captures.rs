@@ -18,7 +18,7 @@ const SLUG_OF: &[(&str, &str)] = &[
     ("", "landing"),
     ("catalogue", "catalogue"),
     ("catalogue/:chapter", "chapter"),
-    ("catalogue/:chapter/:case", "case"),
+    ("catalogue/:chapter/:document/:workflow", "case"),
     ("run/connect", "connect"),
     ("run/scope", "scope"),
     ("run/live", "live"),
@@ -26,7 +26,6 @@ const SLUG_OF: &[(&str, &str)] = &[
     // so one capture photographs both.
     ("run/live/:run_id", "live"),
     ("run/results", "results"),
-    ("run/verdicts", "verdicts"),
 ];
 
 /// Routes whose captures are honestly pending, each naming the issue that

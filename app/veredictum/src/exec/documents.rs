@@ -48,8 +48,8 @@
 //!   content.
 //!
 //! Neither rule tolerates a re-serialization. The catalogue's own position on
-//! retrieval fidelity is register entry `AMB-111` (disposition
-//! `fixed_handling`): retrieval is VERBATIM, the ADL 1.4 OPT as the canonical
+//! retrieval fidelity (the open question is upstream report #755): retrieval
+//! is VERBATIM, the ADL 1.4 OPT as the canonical
 //! XML document the client sent and the ADL2 artefact as the source text it
 //! sent. So a normalized whitespace run, a dropped element, an expanded
 //! attribute default and a renumbered terminology code are all differences;
@@ -705,8 +705,8 @@ mod tests {
 
     /// Whitespace in CHARACTER DATA is a difference: "an XML processor MUST
     /// always pass all characters in a document that are not markup through to
-    /// the application" (XML 1.0 §2.10), and AMB-111 pins retrieval as
-    /// verbatim.
+    /// the application" (XML 1.0 §2.10), and the catalogue reads retrieval
+    /// as verbatim.
     #[test]
     fn character_data_whitespace_is_a_difference() {
         let divergence = compare(DocumentForm::Xml, "<e> x </e>", "<e>x</e>")

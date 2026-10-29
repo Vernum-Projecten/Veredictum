@@ -24,10 +24,10 @@ use crate::engine_gate;
 
 /// A console state over the committed mounts, writing into `out`.
 fn state_over(out: &Path) -> ConsoleState {
-    let root = engine_gate::repo_root().join("artifacts");
+    let root = engine_gate::repo_root().join("catalogue");
     let specs = engine_gate::repo_root().join("specs/openehr");
-    let catalogue = veredictum::pipeline::catalogue::validate_tree(&root, Some(&specs))
-        .map_err(|e| e.to_string());
+    let catalogue =
+        veredictum::pipeline::listing::read(&root, Some(&specs)).map_err(|e| e.to_string());
     ConsoleState {
         root,
         specs,
@@ -37,8 +37,6 @@ fn state_over(out: &Path) -> ConsoleState {
             veredictum_console::run_api::Drafts::new(),
         )),
         client_ip_header: None,
-        sign_key: None,
-        verify_key: None,
         jobs: veredictum_console::run_job::JobSlot::default(),
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
@@ -95,12 +93,12 @@ async fn the_catalogue_endpoints_answer_what_their_readers_read()
         read::chapter_rows(&state)?
     );
     assert_eq!(
-        fns::fetch_chapter_bands(String::from("ehr"), String::new(), String::from("CORE"))
+        fns::fetch_chapter_bands(String::from("ehr"), String::from("create_ehr"))
             .await
             .map_err(|e| e.to_string())?,
-        read::band_rows(&state, "ehr", "", "CORE")?
+        read::band_rows(&state, "ehr", "create_ehr")?
     );
-    let id = String::from("I_EHR_SERVICE.create_ehr-clone_system_id");
+    let id = String::from("ehr/create_ehr-same_ehr_twice-with_id");
     assert_eq!(
         fns::fetch_case_detail(id.clone())
             .await
@@ -108,7 +106,7 @@ async fn the_catalogue_endpoints_answer_what_their_readers_read()
         read::case_detail(&state, &id)?
     );
     assert_eq!(
-        fns::fetch_case_detail(String::from("I_NO_SERVICE.nothing-here"))
+        fns::fetch_case_detail(String::from("no_document/nothing-here"))
             .await
             .map_err(|e| e.to_string())?,
         None,
@@ -125,8 +123,7 @@ async fn the_catalogue_endpoints_answer_what_their_readers_read()
 )]
 #[tokio::test]
 async fn the_record_endpoints_are_empty_before_a_run() -> Result<(), Box<dyn std::error::Error>> {
-    use veredictum_console::export_api::{ExportScreen, fns as export_fns};
-    use veredictum_console::record_api::{VerdictsScreen, fns as record_fns};
+    use veredictum_console::record_api::fns as record_fns;
 
     let scratch = assert_fs::TempDir::new()?;
     let state = state_over(scratch.path());
@@ -139,29 +136,11 @@ async fn the_record_endpoints_are_empty_before_a_run() -> Result<(), Box<dyn std
         None
     );
     assert_eq!(
-        record_fns::fetch_result_detail(String::from("I_EHR_SERVICE.create_ehr-main"), None)
+        record_fns::fetch_result_detail(String::from("ehr/create_ehr"), 0)
             .await
             .map_err(|e| e.to_string())?,
         None
     );
-    assert_eq!(
-        record_fns::fetch_verdicts()
-            .await
-            .map_err(|e| e.to_string())?,
-        VerdictsScreen::NoRun
-    );
-    assert_eq!(
-        export_fns::fetch_export()
-            .await
-            .map_err(|e| e.to_string())?,
-        ExportScreen::NoRun
-    );
-    // Sealing with nothing to seal is a refusal that says what to do next.
-    let refusal = export_fns::prepare_export()
-        .await
-        .expect_err("there is no finished run to seal")
-        .to_string();
-    assert!(refusal.contains("grade a server first"), "{refusal}");
     Ok(())
 }
 
@@ -203,7 +182,7 @@ async fn the_run_endpoints_refuse_an_out_of_order_wizard() -> Result<(), Box<dyn
         "an unknown run is not an idle console"
     );
 
-    let scope = fns::save_scope(None, None, false, PostureForm::default())
+    let scope = fns::save_scope(None, None, PostureForm::default())
         .await
         .expect_err("the scope step needs a connection draft")
         .to_string();
@@ -215,11 +194,10 @@ async fn the_run_endpoints_refuse_an_out_of_order_wizard() -> Result<(), Box<dyn
         .to_string();
     assert!(cancel.contains("no run is in flight"), "{cancel}");
 
-    // The tier selection is a closed vocabulary on a public endpoint: an
-    // empty one reaches the composer's own refusal.
+    // An empty capability selection reaches the composer's own refusal.
     let empty = fns::compose_claim(None)
         .await
-        .expect_err("an empty tier selection composes no claim")
+        .expect_err("an empty capability selection composes no claim")
         .to_string();
     assert!(!empty.is_empty(), "{empty}");
 
@@ -228,7 +206,6 @@ async fn the_run_endpoints_refuse_an_out_of_order_wizard() -> Result<(), Box<dyn
     let outside = fns::save_scope(
         Some(String::from("../../etc/passwd")),
         None,
-        false,
         PostureForm::default(),
     )
     .await
@@ -239,40 +216,36 @@ async fn the_run_endpoints_refuse_an_out_of_order_wizard() -> Result<(), Box<dyn
 }
 
 /// The reads the Scope screen renders come off the committed catalogue alone,
-/// and the tier rows cover the four tiers the verdict machinery answers for.
+/// and the capability rows cover the catalogue's folders.
 ///
 /// #465: nothing on this screen offers a declaration. The claim is the
-/// supplier's, so the only inputs are the tiers and the pasted bytes.
+/// supplier's, so the only inputs are the capabilities and the pasted bytes.
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
 )]
 #[tokio::test]
 async fn the_scope_reads_come_off_the_committed_trees() -> Result<(), Box<dyn std::error::Error>> {
-    use veredictum_console::run_api::{ScopeTier, fns};
+    use veredictum_console::run_api::fns;
 
     let scratch = assert_fs::TempDir::new()?;
     let state = state_over(scratch.path());
     let _owner = provide(&state);
 
-    let tiers = fns::fetch_tier_counts().await.map_err(|e| e.to_string())?;
-    let named: Vec<ScopeTier> = tiers.iter().map(|row| row.tier).collect();
+    let rows = fns::fetch_capability_rows()
+        .await
+        .map_err(|e| e.to_string())?;
     assert_eq!(
-        named,
-        vec![
-            ScopeTier::Core,
-            ScopeTier::Standard,
-            ScopeTier::Options,
-            ScopeTier::SecBasic
-        ],
-        "the four tiers the verdict machinery answers for, in rung order"
+        rows,
+        veredictum_console::run_api::read::capability_rows(&state)?,
+        "the endpoint adds nothing to its reader"
     );
     assert!(
-        tiers.iter().any(|row| row.cases > 0),
-        "a tier gates catalogue cases: {tiers:?}"
+        rows.iter().any(|row| row.name == "ehr" && row.cases > 0),
+        "the ehr capability carries cases: {rows:?}"
     );
 
-    let preview = fns::fetch_scope_preview(String::from("I_EHR_SERVICE.create_ehr"))
+    let preview = fns::fetch_scope_preview(String::from("ehr_status"))
         .await
         .map_err(|e| e.to_string())?;
     let everything = fns::fetch_scope_preview(String::new())
@@ -370,33 +343,10 @@ async fn the_connect_step_records_the_probe_and_keeps_the_secrets()
     Ok(())
 }
 
-/// The download route with nothing prepared answers 404 with the reason,
-/// rather than an empty archive a reader would take for a record.
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
-)]
-#[tokio::test]
-async fn the_download_route_refuses_when_nothing_is_prepared()
--> Result<(), Box<dyn std::error::Error>> {
-    let scratch = assert_fs::TempDir::new()?;
-    let state = state_over(scratch.path());
-    let response = veredictum_console::export_api::route::record_zip(
-        axum::Extension(state),
-        Some(axum::Extension(axum::extract::ConnectInfo(
-            engine_gate::gate_peer(),
-        ))),
-        axum::http::HeaderMap::new(),
-    )
-    .await;
-    assert_eq!(response.status(), axum::http::StatusCode::NOT_FOUND);
-    Ok(())
-}
-
 /// The scope step over a real connection draft: a committed statement is
 /// accepted and summarized, an oversized one and a non-statement are refused
-/// with the reason, and a tier selection composes a claim the published lib
-/// parses back.
+/// with the reason, and a capability selection composes a claim the published
+/// lib parses back.
 ///
 /// The composed claim is the console's only document-AUTHORING path, so what
 /// it emits is held to the lib's own model rather than to a string compare.
@@ -407,7 +357,7 @@ async fn the_download_route_refuses_when_nothing_is_prepared()
 #[tokio::test]
 async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
 -> Result<(), Box<dyn std::error::Error>> {
-    use veredictum_console::run_api::{AuthChoice, PostureForm, ScopeTier, fns};
+    use veredictum_console::run_api::{AuthChoice, PostureForm, fns};
 
     let scratch = assert_fs::TempDir::new()?;
     let state = state_over(scratch.path());
@@ -434,7 +384,7 @@ async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
     // The named ICS fixture's own bytes: accepted, and summarized from its
     // own fields.
     let body = std::fs::read_to_string(engine_gate::declaration_fixture())?;
-    let summary = fns::save_scope(Some(body.clone()), None, true, PostureForm::default())
+    let summary = fns::save_scope(Some(body.clone()), None, PostureForm::default())
         .await
         .map_err(|e| e.to_string())?
         .ok_or("a pasted statement yields a claim summary")?;
@@ -444,7 +394,7 @@ async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
         format!("{} {}", declared.product.name, declared.product.version),
         "the summary states the statement's own product identity"
     );
-    assert!(!summary.profiles.is_empty(), "{summary:?}");
+    assert!(summary.capabilities > 0, "{summary:?}");
 
     let draft = fns::fetch_draft()
         .await
@@ -458,14 +408,14 @@ async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
     // A document that is not JSON at all, and one that is JSON but not a
     // statement: each refused with what is wrong, never silently dropped.
     let bare = PostureForm::default();
-    let not_json = fns::save_scope(Some(String::from("{ not json")), None, false, bare.clone())
+    let not_json = fns::save_scope(Some(String::from("{ not json")), None, bare.clone())
         .await
         .expect_err("a body that is not JSON is not a claim")
         .to_string();
     assert!(not_json.contains("not JSON"), "{not_json}");
 
     let hello = String::from(r#"{"hello":"world"}"#);
-    let not_a_statement = fns::save_scope(Some(hello), None, false, bare.clone())
+    let not_a_statement = fns::save_scope(Some(hello), None, bare.clone())
         .await
         .expect_err("a JSON document that is not a statement is not a claim")
         .to_string();
@@ -473,14 +423,14 @@ async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
 
     // The cap is checked before the parse, so an abusive body never reaches
     // the schema validator at all.
-    let oversized = fns::save_scope(Some("0".repeat(4 * 1024 * 1024)), None, false, bare)
+    let oversized = fns::save_scope(Some("0".repeat(4 * 1024 * 1024)), None, bare)
         .await
         .expect_err("a body past the cap is refused")
         .to_string();
     assert!(oversized.contains("the cap is"), "{oversized}");
 
     // A composed claim: the console's own document, held to the lib's model.
-    let composed = fns::compose_claim(Some(vec![ScopeTier::Core, ScopeTier::Core]))
+    let composed = fns::compose_claim(Some(vec![String::from("ehr"), String::from("ehr")]))
         .await
         .map_err(|e| e.to_string())?;
     let parsed: veredictum::party::Statement = serde_json::from_str(&composed)?;
@@ -490,34 +440,25 @@ async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
         !parsed.schedule_release.is_empty(),
         "a composed claim names the schedule release it targets"
     );
-    // The duplicate tier collapsed rather than claiming CORE twice.
-    let composed_once = fns::compose_claim(Some(vec![ScopeTier::Core]))
+    // The duplicate name collapsed rather than claiming ehr twice.
+    let composed_once = fns::compose_claim(Some(vec![String::from("ehr")]))
         .await
         .map_err(|e| e.to_string())?;
     assert_eq!(composed, composed_once);
 
-    // Every tier the Scope screen can offer composes, and each carries its own
-    // token and its own control id — a closed vocabulary with no default.
-    let mut tokens: Vec<&str> = ScopeTier::ALL.iter().map(|t| t.token()).collect();
-    let mut controls: Vec<&str> = ScopeTier::ALL.iter().map(|t| t.control_id()).collect();
-    tokens.sort_unstable();
-    controls.sort_unstable();
-    tokens.dedup();
-    controls.dedup();
-    assert_eq!(tokens.len(), ScopeTier::ALL.len());
-    assert_eq!(controls.len(), ScopeTier::ALL.len());
-    let every = fns::compose_claim(Some(ScopeTier::ALL.to_vec()))
+    // Every capability the Scope screen offers composes into one claim.
+    let every: Vec<String> = veredictum_console::run_api::read::capability_rows(&state)?
+        .into_iter()
+        .map(|row| row.name)
+        .collect();
+    let all = fns::compose_claim(Some(every.clone()))
         .await
         .map_err(|e| e.to_string())?;
-    let parsed: veredictum::party::Statement = serde_json::from_str(&every)?;
+    let parsed: veredictum::party::Statement = serde_json::from_str(&all)?;
     assert_eq!(
-        parsed.claims.profiles.len(),
-        ScopeTier::ALL.len(),
-        "every offered tier reaches the composed claim: {parsed:?}"
-    );
-    assert!(
-        !parsed.claims.capabilities.is_empty(),
-        "a claimed tier brings the capabilities the matrix puts in it"
+        parsed.claims.capabilities.len(),
+        every.len(),
+        "every offered capability reaches the composed claim: {parsed:?}"
     );
     Ok(())
 }

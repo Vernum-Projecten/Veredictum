@@ -15,6 +15,6 @@ lifecycle state`", so the comparison is over the whole term
 (`terminology::code|rubric|`), never the rubric or the code alone —
 `exec/versioned.rs::eval_lifecycle_state` implements exactly that.
 
-**How to apply:** grep `lifecycle_state:` across `artifacts/schedule/**` and
+**How to apply:** grep `lifecycle_state` across `catalogue/cases/**` and
 check the hit is inside an `assert:` (full term required) and not inside a
 `with:` request block (where the bare code is the wire parameter).

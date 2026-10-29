@@ -49,18 +49,18 @@ pub fn Instrument() -> impl IntoView {
                                 class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
                             >
                                 <StatCard
-                                    label="Case cores"
+                                    label="Cases"
                                     value=s.cases.to_string()
                                     icon=icondata_lu::LuFileCheck
                                     href="/catalogue"
                                 />
                                 <StatCard
-                                    label="Operation bindings"
-                                    value=s.bindings.to_string()
+                                    label="Arazzo documents"
+                                    value=s.documents.to_string()
                                     icon=icondata_lu::LuCable
                                 />
                                 <StatCard
-                                    label="Capability rows"
+                                    label="Capabilities"
                                     value=s.capabilities.to_string()
                                     icon=icondata_lu::LuListChecks
                                 />
@@ -111,7 +111,7 @@ pub fn Instrument() -> impl IntoView {
                             <section class=CARD_PAD>
                                 <h2 class=CARD_TITLE>"No catalogue is mounted"</h2>
                                 <p class="text-sm text-ink">
-                                    "The console reads the catalogue and the vendored specifications as paths. It looked for the artifact root at "
+                                    "The console reads the catalogue and the vendored specifications as paths. It looked for the catalogue root at "
                                     <code class="font-mono text-xs">{missing.root}</code>
                                     " and the spec tree at "
                                     <code class="font-mono text-xs">{missing.specs}</code>

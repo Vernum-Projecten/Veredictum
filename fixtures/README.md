@@ -14,10 +14,9 @@ any product, and no gate reads it as one.**
 ISO/IEC 9646-7 splits an ICS in exactly one place: "All table cells should be
 completed by the ICS proforma specifier, except the support and supported
 values columns, which need to be completed by the supplier of the
-implementation." The form is this repository's to author, and
-`artifacts/vocab/capability_matrix.yaml` is that form: one row per capability,
-each with its family, tier, `required` flag, `min_cases` floor and a spec
-citation.
+implementation." The form is this repository's to author: the capability
+folders under `catalogue/cases/` are its rows, and `catalogue/capabilities.yaml`
+lists each option with the arms a supplier picks from.
 
 The support columns are the supplier's. ISO/IEC 17050-1 is titled *supplier's*
 declaration of conformity, so a filled-in declaration written by the test
@@ -33,4 +32,5 @@ static conformance review can be seen to fire. That is what
 |---|---|
 | `declaration/statement.json` | A filled-in ICS for a product that does not exist, claiming every row of the capability matrix. The static conformance review (`veredictum validate --statement`) runs over it. |
 | `declaration/ixit.json` | The ixit beside it, exercising every deployment posture the runner reads. Every address in it is fictional. |
+| `keys/` | The OpenPGP test key pair a server under test may sign VERSIONs with, and the instrument's own record-sealing tests use. Test-only and deliberately non-secret; read its own README before touching it. |
 | `smart-test-issuer/` | The SMART lane's committed test issuer: a public, deliberately non-secret key pair. Read its own README before touching it. |

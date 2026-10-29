@@ -20,9 +20,9 @@ needs saying rather than assuming. Three inputs come from outside:
   organization whose product is being judged. Re-checking somebody else's claim
   is the entire purpose of the verdict pipeline, and the encoded HDR histograms
   inside a results record are bytes this runner did not produce.
-- **A third-party catalogue.** `validate --root <their artifacts>` is an
-  advertised use: anyone may author cases and run them. Every closed grammar in
-  the crate reads that YAML.
+- **A third-party catalogue.** `validate --root <their catalogue>` is an
+  advertised use: anyone may author workflows and run them, and the literal
+  grammar reads the cells of their rows files.
 - **An operator's IXIT.** It declares endpoints, credentials and file-system
   paths for a deployment this repository knows nothing about.
 
@@ -35,31 +35,24 @@ stopped by a document it is judging is one a party can stop.
 
 | target | reads | entry points |
 |---|---|---|
-| `reference_grammar` | the `${…}` references, capture sources and identifier spaces of a case core or binding | `Template`/`ValueRef`/`CaptureValueSource::parse`, every `ids` newtype, `WireFrom`/`HeaderMatcher::parse` |
-| `literal_grammar` | every decision-table cell and `violates` entry of a content chapter | `Literal::from_text`, `Literal::from_cell`, `ViolationRef::parse` |
-| `citation` | the `spec_refs` of every case, binding and register entry | `citation_clauses`, `expand_braces`, `section_candidates` |
-| `artifact_yaml` | a case core end to end: YAML under the budget, the published schema, the typed model | `yaml_str_to_value`, `validate_against`, `CaseCore` deserialization |
+| `literal_grammar` | every decision-table cell and `violates` entry of a rows file | `Literal::from_text`, `Literal::from_cell`, `ViolationRef::parse` |
 | `party_document` | the IXIT, the statement and the results record | `Ixit`/`Statement`/`Results` deserialization, `check_invariants` |
 | `hdr_v2` | the encoded latency histograms a measured record publishes | `OperationMeasurement::decode_histogram`, then the quantiles `class_verdict` reads |
 
-Three targets assert a property beyond the absence of a crash.
-`reference_grammar` requires that a reference the grammar ACCEPTS renders back
-to text that parses to the same reference, because the runner resolves against
-the rendered form. `citation` requires that brace expansion stays under its
-documented 32-variant ceiling. `party_document` requires that every declared
-IXIT instance is reachable by the name it was declared under.
+One target asserts a property beyond the absence of a crash: `party_document`
+requires that every declared IXIT instance is reachable by the name it was
+declared under.
 
 ## Seeds
 
 `fuzz/seeds.sh` builds `fuzz/seeds/<target>/` from material already committed
-here. Documents are symlinked, never copied. Fragments — a `${…}` reference, a
-citation, a decision-table cell — are harvested out of the catalogue and written
-one per file, because libFuzzer takes one input per file and there is nothing to
+here. Documents are symlinked, never copied. Fragments (a decision-table cell)
+are harvested out of the catalogue's rows files and written one per file, because libFuzzer takes one input per file and there is nothing to
 link to.
 
 ```sh
 fuzz/seeds.sh                # all targets
-fuzz/seeds.sh citation       # one target
+fuzz/seeds.sh literal_grammar  # one target
 ```
 
 The script fails loud when a source directory has moved or a harvest matches
@@ -83,7 +76,7 @@ normal test in the crate — see `.claude/rules/fuzzing.md`, which carries the
 procedure. Reproducing one artifact directly, by naming the file:
 
 ```sh
-cargo +nightly fuzz run citation fuzz/regressions/citation/hang_11_brace_expansion
+cargo +nightly fuzz run literal_grammar fuzz/regressions/literal_grammar/overflow_11_nested_lists
 ```
 
 Never pass `fuzz/regressions/<target>/` as the FIRST corpus argument: libFuzzer
@@ -119,7 +112,7 @@ to start when a corpus directory it was given does not exist.
 Coverage of a corpus, to see what a campaign actually reached:
 
 ```sh
-cargo +nightly fuzz coverage citation fuzz/corpus/citation
+cargo +nightly fuzz coverage literal_grammar fuzz/corpus/literal_grammar
 ```
 
 ## What the first campaign found
@@ -137,7 +130,8 @@ the lane (issue #11):
 - `expand_one_token` expanded a citation's `{a,b}` groups with no ceiling. The
   32-variant bound was applied ACROSS a clause's tokens but not WITHIN one, so a
   113-byte citation carrying 22 groups asked for four million strings and hung
-  the validator. Bounded at `validate::MAX_CITATION_VARIANTS` per token.
+  the validator. Bounded at `validate::MAX_CITATION_VARIANTS` per token; that
+  reader and its target were deleted with the case-core format (#604).
 
 `hdr_v2` found nothing in a million executions, and its coverage stays narrow:
 the V2 cookie check refuses nearly everything before a byte is allocated, and a

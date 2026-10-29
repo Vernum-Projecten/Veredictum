@@ -4,5 +4,5 @@ does not offer the document is within the specification, which says services
 SHOULD answer. It exits `2` only when no answer arrived at all, or when the
 credential variable `--auth` names is unset.
 
-`run` performs the same read before it drives anything, so the identity this
-command prints is the identity a run against the same base URL records.
+Run it before `test` to see which product and version a run against the same
+base URL is about to grade.

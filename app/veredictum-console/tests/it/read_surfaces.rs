@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The #64 acceptance gates: the landing's counts are the validate summary's
+//! The #64 acceptance gates: the landing's counts are the catalogue listing's
 //! own numbers, checked rather than eyeballed, and the catalogue-missing
 //! state names the mounts it looked at.
 //!
-//! The chapter, band and case-detail readers are pinned here too: they are
-//! the whole of what S2 renders, they are component-free by construction, and
-//! the committed catalogue is the only input they take.
+//! The capability, document and case-detail readers are pinned here too: they
+//! are the whole of what S2 renders, they are component-free by
+//! construction, and the committed catalogue is the only input they take.
 
 use std::path::Path;
 
@@ -22,10 +22,10 @@ fn repo_root() -> &'static Path {
 /// The startup state over the committed catalogue, exactly as `main` builds
 /// it — the env override keeps the test independent of the process cwd.
 fn committed_state() -> ConsoleState {
-    let root = repo_root().join("artifacts");
+    let root = repo_root().join("catalogue");
     let specs = repo_root().join("specs/openehr");
-    let catalogue = veredictum::pipeline::catalogue::validate_tree(&root, Some(&specs))
-        .map_err(|e| e.to_string());
+    let catalogue =
+        veredictum::pipeline::listing::read(&root, Some(&specs)).map_err(|e| e.to_string());
     ConsoleState {
         root,
         specs,
@@ -35,8 +35,6 @@ fn committed_state() -> ConsoleState {
             veredictum_console::run_api::Drafts::new(),
         )),
         client_ip_header: None,
-        sign_key: None,
-        verify_key: None,
         jobs: veredictum_console::run_job::JobSlot::default(),
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
@@ -44,33 +42,27 @@ fn committed_state() -> ConsoleState {
     }
 }
 
+/// The worked example of the Arazzo design, a case the catalogue keeps.
+const WORKED_CASE: &str = "ehr/create_ehr-same_ehr_twice-with_id";
+
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
 )]
 #[test]
-fn the_landing_counts_are_the_validate_summary_counts() -> Result<(), Box<dyn std::error::Error>> {
+fn the_landing_counts_are_the_listing_counts() -> Result<(), Box<dyn std::error::Error>> {
     let state = committed_state();
-    let validation = state
+    let listing = state
         .catalogue
         .as_ref()
         .as_ref()
         .map_err(|e| format!("the committed catalogue must load: {e}"))?;
 
-    // The same expressions the CLI's summary line prints
-    // (app/veredictum/src/bin/veredictum.rs) — the mapping this test holds.
     let expected = (
-        u64::try_from(validation.loaded.set.cases.len())?,
-        u64::try_from(validation.loaded.set.bindings.len())?,
-        u64::try_from(
-            validation
-                .loaded
-                .set
-                .matrix
-                .as_ref()
-                .map_or(0, |(_, matrix)| matrix.entries().len()),
-        )?,
-        u64::try_from(validation.findings.len())?,
+        u64::try_from(listing.workflows().count())?,
+        u64::try_from(listing.documents.len())?,
+        u64::try_from(listing.capabilities().len())?,
+        u64::try_from(listing.findings.len())?,
     );
 
     match read::instrument_view(&state) {
@@ -78,20 +70,14 @@ fn the_landing_counts_are_the_validate_summary_counts() -> Result<(), Box<dyn st
             assert_eq!(
                 (
                     summary.cases,
-                    summary.bindings,
+                    summary.documents,
                     summary.capabilities,
                     summary.findings
                 ),
                 expected,
-                "the landing shows numbers the validate summary would not print"
+                "the landing shows numbers the listing does not carry"
             );
-            // Catalogue cleanliness is gated by CI's validate job over the
-            // WORKSPACE engine, not here: this crate validates through its
-            // pinned PUBLISHED engine, so a catalogue legitimately using
-            // machinery newer than the newest published crate reads findings
-            // here mid-cycle (the release-cut window scripts/ui-e2e.sh also
-            // models). The landing stays honest either way: it shows exactly
-            // what the pinned engine computes, which the mapping assert pins.
+            assert!(summary.cases > 0, "the committed catalogue carries cases");
         }
         InstrumentView::Missing(missing) => {
             panic!(
@@ -106,7 +92,7 @@ fn the_landing_counts_are_the_validate_summary_counts() -> Result<(), Box<dyn st
 /// A state whose catalogue refused to load, carrying `reason` verbatim.
 fn refused_state(reason: &str) -> ConsoleState {
     ConsoleState {
-        root: "/nonexistent/artifacts".into(),
+        root: "/nonexistent/catalogue".into(),
         specs: "/nonexistent/specs".into(),
         out: "/nonexistent/out".into(),
         catalogue: std::sync::Arc::new(Err(reason.to_owned())),
@@ -114,8 +100,6 @@ fn refused_state(reason: &str) -> ConsoleState {
             veredictum_console::run_api::Drafts::new(),
         )),
         client_ip_header: None,
-        sign_key: None,
-        verify_key: None,
         jobs: veredictum_console::run_job::JobSlot::default(),
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
@@ -128,7 +112,7 @@ fn a_missing_catalogue_names_the_mounts_it_looked_at() {
     let state = refused_state("no such directory");
     match read::instrument_view(&state) {
         InstrumentView::Missing(missing) => {
-            assert_eq!(missing.root, "/nonexistent/artifacts");
+            assert_eq!(missing.root, "/nonexistent/catalogue");
             assert_eq!(missing.specs, "/nonexistent/specs");
             assert_eq!(missing.reason, "no such directory");
         }
@@ -138,34 +122,17 @@ fn a_missing_catalogue_names_the_mounts_it_looked_at() {
     }
 }
 
-/// The chapter is the directory directly under `schedule/`, and a path that
-/// does not run through `schedule/` names no chapter at all rather than
-/// guessing one from the last component it saw.
-#[test]
-fn the_chapter_is_the_directory_under_schedule() {
-    assert_eq!(
-        read::chapter_of(Path::new("/a/b/artifacts/schedule/ehr/case.yaml")),
-        "ehr"
-    );
-    assert_eq!(
-        read::chapter_of(Path::new("artifacts/schedule/query/case.yaml")),
-        "query"
-    );
-    assert_eq!(read::chapter_of(Path::new("artifacts/bindings/x.yaml")), "");
-    assert_eq!(read::chapter_of(Path::new("schedule")), "");
-}
-
-/// Every loaded case lands in exactly one chapter row, so the chapter counts
+/// Every listed workflow lands in exactly one capability row, so the counts
 /// add up to the landing's own case count and none is double-counted.
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
 )]
 #[test]
-fn the_chapter_counts_partition_the_catalogue() -> Result<(), Box<dyn std::error::Error>> {
+fn the_capability_counts_partition_the_catalogue() -> Result<(), Box<dyn std::error::Error>> {
     let state = committed_state();
     let rows = read::chapter_rows(&state)?;
-    assert!(!rows.is_empty(), "the committed catalogue has chapters");
+    assert!(!rows.is_empty(), "the committed catalogue has capabilities");
 
     let mut keys: Vec<&str> = rows.iter().map(|row| row.key.as_str()).collect();
     let sorted = {
@@ -173,11 +140,15 @@ fn the_chapter_counts_partition_the_catalogue() -> Result<(), Box<dyn std::error
         copy.sort_unstable();
         copy
     };
-    assert_eq!(keys, sorted, "the chapter list is key-sorted");
+    assert_eq!(keys, sorted, "the capability list is name-sorted");
     keys.dedup();
-    assert_eq!(keys.len(), rows.len(), "a chapter appears once");
+    assert_eq!(keys.len(), rows.len(), "a capability appears once");
+    assert!(
+        !keys.contains(&"_setup"),
+        "the shared setups are not a capability"
+    );
 
-    let validation = state
+    let listing = state
         .catalogue
         .as_ref()
         .as_ref()
@@ -185,12 +156,12 @@ fn the_chapter_counts_partition_the_catalogue() -> Result<(), Box<dyn std::error
     let total: u64 = rows.iter().map(|row| row.cases).sum();
     assert_eq!(
         total,
-        u64::try_from(validation.loaded.set.cases.len())?,
-        "the chapter counts must partition the loaded case set"
+        u64::try_from(listing.workflows().count())?,
+        "the capability counts must partition the listed workflows"
     );
     assert!(
         rows.iter().any(|row| row.key == "ehr"),
-        "the ehr chapter is committed: {keys:?}"
+        "the ehr capability is committed: {keys:?}"
     );
     Ok(())
 }
@@ -200,72 +171,70 @@ fn the_chapter_counts_partition_the_catalogue() -> Result<(), Box<dyn std::error
 /// carries nothing".
 #[test]
 fn every_reader_reports_the_load_refusal_verbatim() {
-    let state = refused_state("artifacts/schedule: no such directory");
+    let state = refused_state("catalogue/cases: no such directory");
     assert_eq!(
         read::chapter_rows(&state).err().as_deref(),
-        Some("artifacts/schedule: no such directory")
+        Some("catalogue/cases: no such directory")
     );
     assert_eq!(
-        read::band_rows(&state, "ehr", "", "").err().as_deref(),
-        Some("artifacts/schedule: no such directory")
+        read::band_rows(&state, "ehr", "").err().as_deref(),
+        Some("catalogue/cases: no such directory")
     );
     assert_eq!(
         read::case_detail(&state, "any").err().as_deref(),
-        Some("artifacts/schedule: no such directory")
+        Some("catalogue/cases: no such directory")
     );
 }
 
-/// The band listing is the published SVG's own taxonomy, id-sorted within a
-/// band, and every row carries the band it was filed under.
+/// A capability listing has one section per document, and every row carries
+/// the document it was filed under.
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
 )]
 #[test]
-fn a_chapter_listing_is_banded_and_id_sorted() -> Result<(), Box<dyn std::error::Error>> {
+fn a_capability_listing_is_sectioned_by_document() -> Result<(), Box<dyn std::error::Error>> {
     let state = committed_state();
-    let bands = read::band_rows(&state, "ehr", "", "")?;
-    assert!(!bands.is_empty(), "the ehr chapter carries cases");
+    let bands = read::band_rows(&state, "ehr", "")?;
+    assert!(!bands.is_empty(), "the ehr capability carries cases");
     for band in &bands {
-        assert!(!band.cases.is_empty(), "a rendered band carries rows");
-        let ids: Vec<&str> = band.cases.iter().map(|case| case.id.as_str()).collect();
-        let sorted = {
-            let mut copy = ids.clone();
-            copy.sort_unstable();
-            copy
-        };
-        assert_eq!(ids, sorted, "band {} is not id-sorted", band.band);
+        assert!(!band.cases.is_empty(), "a rendered section carries rows");
         for case in &band.cases {
             assert_eq!(
                 case.band, band.band,
-                "a row must carry the band it was filed under"
+                "a row must carry the document it was filed under"
             );
-            assert!(!case.purpose.is_empty(), "{} has no test purpose", case.id);
+            assert!(
+                case.id.starts_with(&format!("{}/", band.band)),
+                "{} is not a workflow of {}",
+                case.id,
+                band.band
+            );
+            assert!(!case.summary.is_empty(), "{} has no summary", case.id);
         }
     }
-    // A chapter the schedule does not carry is an empty listing, not an error:
-    // the screen renders "nothing here", and the catalogue is intact.
-    assert!(read::band_rows(&state, "no-such-chapter", "", "")?.is_empty());
+    // A capability the catalogue does not carry is an empty listing, not an
+    // error: the screen renders "nothing here", and the catalogue is intact.
+    assert!(read::band_rows(&state, "no-such-capability", "")?.is_empty());
     Ok(())
 }
 
-/// The two filters narrow rather than reshape: the id substring and the tier
-/// token each keep a subset of the unfiltered listing, and a token no case
-/// carries keeps nothing.
+/// The id filter narrows rather than reshapes: it keeps a subset of the
+/// unfiltered listing, and a substring no case carries keeps nothing.
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
 )]
 #[test]
-fn the_listing_filters_narrow_the_same_rows() -> Result<(), Box<dyn std::error::Error>> {
+fn the_listing_filter_narrows_the_same_rows() -> Result<(), Box<dyn std::error::Error>> {
     let state = committed_state();
-    let all: Vec<String> = read::band_rows(&state, "ehr", "", "")?
+    let all: Vec<String> = read::band_rows(&state, "ehr", "")?
         .into_iter()
         .flat_map(|band| band.cases)
         .map(|case| case.id)
         .collect();
 
-    let by_query: Vec<String> = read::band_rows(&state, "ehr", "create_ehr", "")?
+    let by_query: Vec<String> = read::band_rows(&state, "ehr", "create_ehr")?
         .into_iter()
         .flat_map(|band| band.cases)
         .map(|case| case.id)
@@ -273,112 +242,75 @@ fn the_listing_filters_narrow_the_same_rows() -> Result<(), Box<dyn std::error::
     assert!(!by_query.is_empty(), "create_ehr cases are committed");
     assert!(by_query.len() < all.len(), "the substring must narrow");
     assert!(
-        by_query.iter().all(|id| id.contains("create_ehr")),
+        by_query
+            .iter()
+            .all(|id| id.contains("create_ehr") && all.contains(id)),
         "the substring filter kept a row that does not carry it"
     );
-
-    let core: Vec<String> = read::band_rows(&state, "ehr", "", "CORE")?
-        .into_iter()
-        .flat_map(|band| band.cases)
-        .map(|case| case.id)
-        .collect();
-    assert!(!core.is_empty(), "CORE cases are committed in ehr");
     assert!(
-        core.iter().all(|id| all.contains(id)),
-        "the tier filter must keep a subset of the unfiltered listing"
-    );
-    assert!(
-        read::band_rows(&state, "ehr", "", "NO-SUCH-TIER")?
-            .into_iter()
-            .all(|band| band.cases.is_empty()),
-        "a tier token no case carries keeps nothing"
+        read::band_rows(&state, "ehr", "no-such-substring")?.is_empty(),
+        "a substring no case carries keeps nothing"
     );
     Ok(())
 }
 
-/// The case detail is the case core's own fields, and every binding it names
-/// realizes the case's SM operation.
+/// The case detail is the workflow's own fields: its document, summary,
+/// description, citation and steps.
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
 )]
 #[test]
-fn a_case_detail_is_the_case_core_and_its_bindings() -> Result<(), Box<dyn std::error::Error>> {
+fn a_case_detail_is_the_workflow() -> Result<(), Box<dyn std::error::Error>> {
     let state = committed_state();
-    let id = "I_EHR_SERVICE.create_ehr-clone_system_id";
-    let detail =
-        read::case_detail(&state, id)?.ok_or("the committed catalogue carries the case")?;
+    let detail = read::case_detail(&state, WORKED_CASE)?
+        .ok_or("the committed catalogue carries the case")?;
 
-    assert_eq!(detail.id, id);
+    assert_eq!(detail.id, WORKED_CASE);
     assert_eq!(detail.chapter, "ehr");
-    assert_eq!(detail.kind, "functional");
+    assert_eq!(detail.document, "ehr");
     assert_eq!(
-        detail.sm_operation.as_deref(),
-        Some("I_EHR_SERVICE.create_ehr")
+        detail.summary,
+        "An ehr_id already in use is refused on create"
     );
-    assert!(!detail.test_purpose.is_empty());
+    assert!(!detail.description.is_empty());
     assert!(
-        !detail.spec_refs.is_empty(),
-        "every expectation cites the section it comes from"
-    );
-    assert!(
-        detail.tiers.contains(&String::from("CORE")),
-        "{:?}",
-        detail.tiers
-    );
-    assert!(
-        !detail.bindings.is_empty(),
-        "the operation is realized by at least one binding"
+        detail
+            .citation
+            .as_deref()
+            .is_some_and(|citation| citation.contains("409_EHR_with_id.yaml")),
+        "every expectation cites the section it comes from: {:?}",
+        detail.citation
     );
     assert!(
-        detail.bindings.iter().any(|binding| binding.realized),
-        "a realized binding exists for a driven operation"
+        detail.steps.len() >= 2,
+        "the case creates twice: {:?}",
+        detail.steps
     );
     assert!(
-        detail.size.ends_with("flow step(s)"),
-        "a functional case is sized in flow steps: {}",
-        detail.size
+        detail
+            .steps
+            .iter()
+            .all(|step| !step.id.is_empty() && !step.operation.is_empty()),
+        "every step names its operation"
     );
-
-    let mut sorted = detail.corpus_keys.clone();
-    sorted.sort();
-    sorted.dedup();
-    assert_eq!(
-        detail.corpus_keys, sorted,
-        "the corpus keys are sorted and deduplicated"
-    );
+    assert_eq!(detail.option, None, "the case is not option-gated");
     Ok(())
 }
 
-/// A content case is sized in decision-table rows, which is the other arm of
-/// the size derivation.
+/// A workflow of a document an option arm names carries that arm.
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
 )]
 #[test]
-fn a_content_case_is_sized_in_decision_table_rows() -> Result<(), Box<dyn std::error::Error>> {
+fn an_option_gated_case_names_its_arm() -> Result<(), Box<dyn std::error::Error>> {
     let state = committed_state();
-    let validation = state
-        .catalogue
-        .as_ref()
-        .as_ref()
-        .map_err(|e| format!("the committed catalogue must load: {e}"))?;
-    let content = validation
-        .loaded
-        .set
-        .cases
-        .iter()
-        .find(|(_, case)| case.decision_table.is_some())
-        .map(|(_, case)| case.id.to_string())
-        .ok_or("the committed catalogue carries a decision-table case")?;
-
-    let detail = read::case_detail(&state, &content)?.ok_or("the case reads back by its own id")?;
-    assert_eq!(detail.kind, "content");
-    assert!(
-        detail.size.ends_with("decision-table row(s)"),
-        "a content case is sized in table rows: {}",
-        detail.size
+    let detail = read::case_detail(&state, "ehr_xml/get_ehr-xml")?
+        .ok_or("the committed catalogue carries the case")?;
+    assert_eq!(
+        detail.option.as_deref(),
+        Some("ehr-xml-read: ehr-xml-supported")
     );
     Ok(())
 }
@@ -392,7 +324,7 @@ fn a_content_case_is_sized_in_decision_table_rows() -> Result<(), Box<dyn std::e
 #[test]
 fn an_unknown_case_id_is_absence_rather_than_failure() -> Result<(), Box<dyn std::error::Error>> {
     let state = committed_state();
-    assert!(read::case_detail(&state, "I_NO_SERVICE.no_operation-none")?.is_none());
+    assert!(read::case_detail(&state, "no_document/no_workflow")?.is_none());
     assert!(read::case_detail(&state, "")?.is_none());
     Ok(())
 }
@@ -407,23 +339,16 @@ fn an_unknown_case_id_is_absence_rather_than_failure() -> Result<(), Box<dyn std
 #[test]
 fn the_startup_read_falls_back_to_the_documented_mounts() {
     use veredictum_console::posture::{POSTURE_ENV, Posture};
-    use veredictum_console::state::{OUT_ENV, ROOT_ENV, SIGN_KEY_ENV, SPECS_ENV, VERIFY_KEY_ENV};
+    use veredictum_console::state::{OUT_ENV, ROOT_ENV, SPECS_ENV};
 
     // The variables are process-wide and `set_var` is unsafe, which this crate
     // forbids outright, so the unset case is read rather than arranged. An
     // ambient value is somebody's real console configuration: skip loudly
     // instead of asserting against it.
-    let set: Vec<&str> = [
-        ROOT_ENV,
-        SPECS_ENV,
-        OUT_ENV,
-        SIGN_KEY_ENV,
-        VERIFY_KEY_ENV,
-        POSTURE_ENV,
-    ]
-    .into_iter()
-    .filter(|name| std::env::var_os(name).is_some())
-    .collect();
+    let set: Vec<&str> = [ROOT_ENV, SPECS_ENV, OUT_ENV, POSTURE_ENV]
+        .into_iter()
+        .filter(|name| std::env::var_os(name).is_some())
+        .collect();
     if !set.is_empty() {
         eprintln!("SKIPPED({set:?} set in this environment): the defaults cannot be read");
         return;
@@ -435,11 +360,9 @@ fn the_startup_read_falls_back_to_the_documented_mounts() {
         Posture::Local,
         "an unset posture is the local one, which refuses no target"
     );
-    assert_eq!(state.root, Path::new("artifacts"));
+    assert_eq!(state.root, Path::new("catalogue"));
     assert_eq!(state.specs, Path::new("specs/openehr"));
     assert_eq!(state.out, Path::new("out"));
-    assert_eq!(state.sign_key, None, "no signing posture without a mount");
-    assert_eq!(state.verify_key, None);
     // A fresh console holds nothing for ANY submitter (#389): the job map and
     // the drafts map are both empty, and the question is asked per visitor
     // because that is the only shape either one has now.
@@ -462,15 +385,15 @@ fn the_startup_read_falls_back_to_the_documented_mounts() {
         state.client_ip_header, None,
         "no forwarded header is trusted until the operator names one"
     );
-    // The suite's own working directory carries no `artifacts` tree, so the
+    // The suite's own working directory carries no `catalogue` tree, so the
     // load refuses and the refusal is the state — not a panic, not a default.
     match read::instrument_view(&state) {
         InstrumentView::Missing(missing) => {
-            assert_eq!(missing.root, "artifacts");
+            assert_eq!(missing.root, "catalogue");
             assert!(!missing.reason.is_empty());
         }
         InstrumentView::Loaded(summary) => {
-            assert_eq!(summary.root, "artifacts");
+            assert_eq!(summary.root, "catalogue");
         }
     }
 }

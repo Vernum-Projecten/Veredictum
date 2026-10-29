@@ -1,8 +1,11 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Deterministic JSON-Schema emission for the five schedule-artifact
-//! families (the set the upstream U1 proposal ships).
+//! Deterministic JSON-Schema emission for every document the instrument
+//! reads or writes.
+//!
+//! The party documents, the measured schedule and its records, the bench
+//! documents, and the Arazzo catalogue's own formats.
 //!
 //! The published schema files are the norm; this module is their single
 //! source. Emission is byte-deterministic: fixed insertion order (via
@@ -21,17 +24,11 @@
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use crate::model::capability::Realization;
-use crate::model::vocab_files::{BODY_SELECTOR_TOKENS, HEADER_MATCHER_FORMS};
-use crate::model::wire_surface::SurfaceReason;
 use crate::party::{
     IdentitySource, InstrumentStatus, OutcomeStatus, SelectionBasis, TechProfileSource,
     VerificationPackStatus,
 };
-use crate::vocab::{
-    CaseKind, CaseStatus, Component, CorpusFormat, Disposition, FormatName, HttpMethod, Iteration,
-    ItsName, OutcomeKind, PlaceholderPolicy, ServerState, SpecComponent, Tier,
-};
+use crate::vocab::{FormatName, ItsName, SpecComponent, Tier};
 
 /// The schema version stamped into every `$id` (bumps with the schedule
 /// release, independently of the product version).
@@ -70,10 +67,8 @@ fn urn(name: &str) -> String {
 }
 
 const CASE_ID_PATTERN: &str = "^\\S+$";
-const SM_OPERATION_PATTERN: &str = "^I_[A-Z0-9_]+\\.[a-z][a-z0-9_]*$";
 const IDENT_PATTERN: &str = "^[A-Za-z_][A-Za-z0-9_]*$";
 const CORPUS_KEY_PATTERN: &str = "^[a-z0-9_-]+(\\.[a-z0-9_-]+)*$";
-const AMBIGUITY_ID_PATTERN: &str = "^AMB-[0-9]+$";
 const OPTION_TAG_PATTERN: &str = "^[a-z0-9_-]+$";
 
 fn string_array(item_pattern: Option<&str>) -> Value {
@@ -81,685 +76,6 @@ fn string_array(item_pattern: Option<&str>) -> Value {
         Some(p) => json!({ "type": "array", "items": { "type": "string", "pattern": p } }),
         None => json!({ "type": "array", "items": { "type": "string" } }),
     }
-}
-
-/// [`string_array`] with a `minItems: 1` floor, for a required list whose
-/// empty form asserts nothing any reader can act on.
-fn nonempty_string_array(item_pattern: &str) -> Value {
-    json!({
-        "type": "array", "minItems": 1,
-        "items": { "type": "string", "pattern": item_pattern }
-    })
-}
-
-/// The `applies` spec-version filter — ONE shape wherever a version floor is
-/// declared: on a case core (the whole behaviour is release-dated), on an
-/// operation binding (the wire itself is), and on a header expectation (one
-/// released RESPONSE rule is, while the operation is not). Same components,
-/// same Cargo/semver range grammar, same
-/// [`crate::model::case::Applies::satisfied_by`] polarity at every site.
-fn applies_def() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "description": "Spec-version applicability ranges (Cargo/semver requirement syntax). Every declared range must be satisfied by the party's declared version; an undeclared component puts the gated item out of scope.",
-        "properties": {
-            "rm": { "type": "string" }, "base": { "type": "string" },
-            "am": { "type": "string" }, "aql": { "type": "string" },
-            "its_rest": { "type": "string" }, "term": { "type": "string" }
-        }
-    })
-}
-
-/// One `outcomes.*.headers` entry: a bare matcher string, or the mapping form
-/// carrying the presence-strength and version-dating modifiers.
-fn one_header_expectation_def() -> Value {
-    json!({
-        "oneOf": [
-            { "type": "string",
-              "description": "A matcher from the closed vocabulary (vocab/selectors.yaml header_matchers); `present?` is the shorthand for { match: present, optional: true }" },
-            { "type": "object",
-              "additionalProperties": false,
-              "required": ["match"],
-              "properties": {
-                  "match": { "type": "string" },
-                  "optional": { "type": "boolean",
-                                "description": "Presence is SHOULD/MAY-strength: an absent or blank header satisfies the expectation, a present one is judged in full by `match` (ITS-REST overview §ETag and Last-Modified makes presence a SHOULD while §Deprecated headers makes the form a MUST)" },
-                  "applies": applies_def()
-              } }
-        ]
-    })
-}
-
-/// The `outcomes.*.headers` value for one header: a single expectation, or a
-/// sequence of them judged conjunctively (used where the released text puts
-/// rules of different strength or different dating on the same header).
-fn header_expectation_def() -> Value {
-    json!({
-        "oneOf": [
-            one_header_expectation_def(),
-            { "type": "array",
-              "minItems": 1,
-              "items": one_header_expectation_def(),
-              "description": "Several expectations on one header, all judged: each carries its own `optional` and `applies`, so an undated identity rule and a release-dated form rule keep their own grounds" }
-        ]
-    })
-}
-
-fn requires_def() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-            "server": { "enum": tokens(ServerState::ALL) },
-            "templates": string_array(Some(CORPUS_KEY_PATTERN)),
-            "ehr": { "oneOf": [
-                { "const": "none" },
-                { "type": "object", "additionalProperties": false,
-                  "required": ["commits"],
-                  "properties": { "commits": { "enum": ["none", "any"] } } }
-            ] },
-            "directory": { "anyOf": [
-                { "const": "none" },
-                { "type": "string", "pattern": CORPUS_KEY_PATTERN }
-            ] },
-            "party": { "anyOf": [
-                { "const": "none" },
-                { "type": "string", "pattern": CORPUS_KEY_PATTERN }
-            ] },
-            "party_relationship": { "anyOf": [
-                { "const": "none" },
-                { "type": "object",
-                  "description": "A PARTY_RELATIONSHIP provisioned between two REAL parties (mints `${party_relationship_id}`, its VERSIONED_OBJECT uid). The two endpoint parties are created first and their container uids written into the relationship's source/target PARTY_REFs — RM demographic master02-demographic_package.adoc §Party Relationships: the references are \"OBJECT_REFs containing HIER_OBJECT_IDs to denote the Version container of a Party\". The relationship create has no released wire (register AMB-32, the `party-relationship` served_extensions family).",
-                  "additionalProperties": false,
-                  "required": ["source", "target", "relationship"],
-                  "properties": {
-                      "source": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-                      "target": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-                      "relationship": { "type": "string", "pattern": CORPUS_KEY_PATTERN }
-                  } }
-            ] },
-            "import": { "anyOf": [
-                { "const": "none" },
-                { "type": "object",
-                  "description": "An EHR-Extract received from another system before the flow, so a RELEASED read has an IMPORTED_VERSION to serve (RM common master06-change_control_package.adoc §Copying: \"An IMPORTED_VERSION instance is then created, its item set to the received ORIGINAL_VERSION\"). Mints `${imported_versioned_object_uid}` + `${imported_version_uid}` (+ `${imported_branch_version_uid}` when the named container carries a branch) from the extract's own identities, which the copy preserves; with no `requires.ehr` the import CLONES a whole EHR (§Copying Case 1) and mints `${ehr_id}` too, otherwise it lands in the provisioned one (Cases 2/3). The import itself has no released wire (register AMB-34, the `message-extract` served_extensions family), so the requirement is usable only on a party that serves it.",
-                  "additionalProperties": false,
-                  "required": ["extract", "container"],
-                  "properties": {
-                      "extract": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-                      "container": { "description": "Which X_VERSIONED_* content item of the extract the minted handles name — an extract carries several at once.", "enum": tokens(crate::vocab::XVersionedClass::ALL) }
-                  } }
-            ] },
-            "commit": string_array(Some(CORPUS_KEY_PATTERN)),
-            "terminology": {
-                "description": "The terminology deployment the case needs, matched against the addressed instance's ixit.terminology declaration at SELECTION time. Released ITS-REST 1.1.0 surfaces no terminology resource, so which terminology servers a deployment holds open, which namespaces they answer for, and what it does with a value set it cannot resolve are IXIT declarations; a case needing one the party does not declare is not-applicable with that citation.",
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                    "posture": { "description": "The unresolvable-value-set posture the case's expectation rests on (register AMB-172); omitted when the behaviour is posture-independent.", "enum": tokens(crate::ixit::TerminologyPosture::ALL) },
-                    "served": string_array(None),
-                    "unreachable": string_array(None),
-                    "distinct_servers": { "description": "How many DISTINCT reachable servers the `served` namespaces must be spread across — the N>=2 simultaneous-servers requirement (BASE master12 §Overview).", "type": "integer", "minimum": 1 }
-                }
-            },
-            "spec_profile": {
-                "description": "The openEHR specification GENERATION SET the case's expectation rests on, matched against the addressed instance's ixit.spec_profile declaration at SELECTION time. No released operation discloses which set a deployment runs (the openEHR release strategy makes a minor release a compatible superset, so the sets differ only in accepted surface); a case needing one the party does not declare is not-applicable with that citation. A multi-instance case states a per-instance need under `instances`; this case-level form binds every addressed instance.",
-                "enum": tokens(crate::ixit::SpecProfile::ALL)
-            },
-            "administrative": {
-                "description": "The administrative-authorization posture the case's premise rests on, matched against the addressed instance's ixit.administrative declaration at SELECTION time (register AMB-228). SM master02-overview.adoc §Functional Style delegates access control to the implementation, so which roles a principal holds is an IXIT declaration and nothing on the wire discloses it; a case needing a posture the party does not declare — or declares oppositely — is not-applicable with that citation. A multi-instance case states a per-instance need under `instances`; this case-level form binds every addressed instance.",
-                "type": "boolean"
-            },
-            "instances": { "type": "object",
-                "propertyNames": { "pattern": IDENT_PATTERN },
-                "additionalProperties": { "$ref": "#/$defs/requires" } }
-        }
-    })
-}
-
-fn parameters_def() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["iteration"],
-        "properties": {
-            "iteration": { "enum": tokens(Iteration::ALL) },
-            "matrix": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["columns"],
-                "properties": {
-                    "columns": { "type": "array", "minItems": 1, "items": { "type": "string" } },
-                    "rows": { "type": "array", "items": { "type": "array" } },
-                    "rows_from": { "type": "string" }
-                }
-            },
-            "fixture_set": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["data_set", "expected"],
-                    "properties": {
-                        "data_set": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-                        "expected": { "enum": tokens(OutcomeKind::ALL) },
-                        "defect": { "type": "string" },
-                        "spec_ref": { "type": "string" }
-                    }
-                }
-            }
-        }
-    })
-}
-
-fn flow_step_def() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["step", "call", "expect"],
-        "properties": {
-            "step": { "type": "integer", "minimum": 1 },
-            "call": { "type": "string", "minLength": 1 },
-            "on": { "type": "string", "pattern": IDENT_PATTERN },
-            "variant": { "type": "string" },
-            "format": { "enum": tokens(FormatName::ALL) },
-            "scopes": {
-                "description": "The SMART `scope` claim this step's principal presents (ITS-REST docs/smart_app_launch/master08-scopes.adoc §Resource Scopes), space-joined into a minted RS256 access token by the addressed `bearer_mint` instance. Declaring the key at all — including as an empty list, the scope-less token the fail-closed deny branch needs — marks the step SMART-lane, so a party whose ixit declares no `smart` block records the case not-applicable.",
-                "type": "array",
-                "items": { "type": "string" }
-            },
-            "with": { "type": "object" },
-            "expect": { "oneOf": [
-                { "enum": tokens(OutcomeKind::ALL) },
-                { "const": "${fixture.expected}" }
-            ] },
-            "capture": { "type": "object",
-                "propertyNames": { "pattern": IDENT_PATTERN },
-                "additionalProperties": { "type": "string" } },
-            "assert": { "type": "array", "items": { "$ref": "#/$defs/assertion" } }
-        }
-    })
-}
-
-fn assertion_def() -> Value {
-    // The schema pins the closed assertion-form vocabulary; per-form field
-    // shapes are enforced by the typed model (richer than JSON Schema can
-    // express — predicate exclusivity, reference grammar, aggregate rules).
-    json!({
-        "type": "object",
-        "required": ["assert"],
-        "properties": {
-            "assert": { "enum": [
-                "instance_of", "field", "equivalent", "version", "signature",
-                "result_set", "unique", "returns", "xml_root", "message_exemplar",
-                "state"
-            ] }
-        }
-    })
-}
-
-/// `schedule/**` case cores (§ case-core contract).
-#[must_use]
-pub fn case_core_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("case-core"),
-        "title": "CNF 2.0 case core",
-        "description": "One protocol-neutral test case (the Abstract Test Suite unit). Wire realization lives in the operation bindings; cases speak SM operations and outcome kinds only.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "kind", "component", "test_purpose", "description", "spec_refs", "capabilities"],
-        "properties": {
-            "id": { "type": "string", "pattern": CASE_ID_PATTERN },
-            "kind": { "enum": tokens(CaseKind::ALL) },
-            "status": { "enum": tokens(CaseStatus::ALL), "default": "active" },
-            "component": { "enum": tokens(Component::ALL) },
-            "sm_operation": { "type": "string", "pattern": SM_OPERATION_PATTERN },
-            "rm_class": { "type": "string" },
-            "test_purpose": { "type": "string", "minLength": 1 },
-            "description": { "type": "string", "minLength": 1 },
-            "spec_refs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-            "applies": applies_def(),
-            "guards": {
-                "description": "Spec-cited PROSE about the case, and nothing more: where the expectation was authored from, what the row does not claim, the adjudication it rests on, and the assumptions it makes. It participates in NO selection — the runner reads this property nowhere, at validate time or at drive time. APPLICABILITY IS DECIDED BY THE TYPED FIELDS ALONE: `status` (a case held back is `draft`, reported as its own exception and bearing no verdict), `applies` (spec-version windows), `capabilities` (a case gating only capabilities the ICS does not claim is excused), `option` (the undeclared arm of an `option_select` register branch is excused), the `requires` block (terminology, spec_profile, instances, party_relationship, server exclusivity), and the flow's own `on:` addressing plus its `${ixit:…}` reads. THE TWO BOUNDARIES, each with its validate gate: a guard may not RESTATE one of those typed rules, because a per-case copy is free to drift from the implemented rule with nothing to catch it (`guard-scope`); and a guard may not be PHRASED AS A CONDITION — 'applies only', 'not-applicable', 'guarded until', 'skip where', 'out of scope' — because the hold such a phrasing promises happens nowhere, and a reader who believes it concludes the case is held back while it drives and gates a verdict (`guard-condition`). Every guard carries its citation: an em-dash citation or a named master document.",
-                "type": "array",
-                "items": { "type": "string", "minLength": 1 }
-            },
-            "capabilities": nonempty_string_array(IDENT_PATTERN),
-            "exercises": string_array(Some(IDENT_PATTERN)),
-            "profiles": { "type": "array", "items": { "enum": tokens(Tier::ALL) } },
-            "option": { "type": "string", "pattern": OPTION_TAG_PATTERN },
-            "formats": { "type": "array", "items": { "enum": tokens(FormatName::ALL) } },
-            "requires": { "$ref": "#/$defs/requires" },
-            "parameters": { "$ref": "#/$defs/parameters" },
-            "flow": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/flowStep" } },
-            "constraint_context": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["template", "path"],
-                "properties": {
-                    "template": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-                    "path": { "type": "string", "minLength": 1 },
-                    "constraint_columns": string_array(None)
-                }
-            },
-            "decision_table": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["columns", "rows"],
-                "properties": {
-                    "columns": { "type": "array", "minItems": 1, "items": { "type": "string" } },
-                    "rows": { "type": "array", "minItems": 1, "items": { "type": "array" } }
-                }
-            },
-            "postconditions": { "type": "array", "items": { "$ref": "#/$defs/assertion" } },
-            "verified_by": string_array(Some(CASE_ID_PATTERN)),
-            "ambiguities": string_array(Some(AMBIGUITY_ID_PATTERN)),
-            "data_sets": string_array(Some(CORPUS_KEY_PATTERN))
-        },
-        "allOf": [
-            { "if": { "properties": { "kind": { "const": "functional" } } },
-              "then": { "required": ["sm_operation", "flow"] } },
-            { "if": { "properties": { "kind": { "const": "content" } } },
-              "then": { "required": ["rm_class", "constraint_context", "decision_table"] } }
-        ],
-        "$defs": {
-            "requires": requires_def(),
-            "parameters": parameters_def(),
-            "flowStep": flow_step_def(),
-            "assertion": assertion_def()
-        }
-    })
-}
-
-/// `bindings/<its>/**` operation bindings (§ wire layer).
-#[must_use]
-pub fn operation_binding_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("operation-binding"),
-        "title": "CNF 2.0 operation binding",
-        "description": "Per-ITS wire realization of one SM operation: request construction, outcome kind → wire expectation, logical capture → wire source. Every mapping cites its OAS source.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["sm_operation", "its"],
-        "oneOf": [
-            { "required": ["request", "outcomes"], "not": { "required": ["unrealized"] } },
-            { "required": ["unrealized"],
-              "not": { "anyOf": [ { "required": ["request"] }, { "required": ["outcomes"] }, { "required": ["extension"] } ] } }
-        ],
-        "properties": {
-            "sm_operation": { "type": "string", "pattern": SM_OPERATION_PATTERN },
-            "its": { "enum": ["its-rest"] },
-            "variant": { "type": "string", "minLength": 1 },
-            "applies": applies_def(),
-            "unrealized": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["reason", "source", "ambiguity"],
-                "properties": {
-                    "reason": { "type": "string", "minLength": 1 },
-                    "source": { "type": "string", "minLength": 1 },
-                    "ambiguity": { "type": "string", "pattern": AMBIGUITY_ID_PATTERN }
-                }
-            },
-            "extension": {
-                "type": "object",
-                "description": "The realization drives a route no openEHR specification governs (our own design/extension), declared as a served_extensions family in vocab/wire_surface.yaml. Mutually exclusive with `unrealized`; the capabilities such a binding's cases carry must be `realization: extension` in the capability matrix, which may never be `required` — so the row gates a CAPABILITY verdict only, never ITS-REST wire conformance.",
-                "additionalProperties": false,
-                "required": ["family", "reason", "source", "ambiguity"],
-                "properties": {
-                    "family": { "type": "string", "minLength": 1 },
-                    "reason": { "type": "string", "minLength": 1 },
-                    "source": { "type": "string", "minLength": 1 },
-                    "ambiguity": { "type": "string", "pattern": AMBIGUITY_ID_PATTERN }
-                }
-            },
-            "request": binding_request_def(),
-            "formats": { "type": "array", "items": { "enum": tokens(FormatName::ALL) } },
-            "format_headers": {
-                "type": "object",
-                "propertyNames": { "enum": tokens(FormatName::ALL) },
-                "additionalProperties": {
-                    "type": "object",
-                    "additionalProperties": { "type": "string" }
-                }
-            },
-            "outcomes": binding_outcomes_def(),
-            "captures": {
-                "type": "object",
-                "propertyNames": { "pattern": IDENT_PATTERN },
-                "additionalProperties": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["from"],
-                    "properties": {
-                        "from": { "type": "string" },
-                        "strip": { "enum": ["weak-quotes"] },
-                        "transform": { "enum": tokens(crate::model::binding::TransformRule::ALL) },
-                        "fallback": { "type": "string" }
-                    }
-                }
-            },
-            "server_assigned": { "type": "array", "items": { "type": "string", "minLength": 1 } }
-        }
-    })
-}
-
-/// The `request` member of an operation binding (§ wire layer) — request
-/// construction: method, templated path, RFC 6570 query, body source,
-/// header templates.
-fn binding_request_def() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["method", "path"],
-        "properties": {
-            "method": { "enum": tokens(HttpMethod::ALL) },
-            "path": { "type": "string", "pattern": "^/" },
-            "query": {
-                "type": "object",
-                "additionalProperties": { "oneOf": [
-                    { "type": "string" },
-                    { "type": "array", "minItems": 1, "items": { "type": "string" },
-                      "description": "The repeated (RFC 6570 exploded, {?p*}) form: one name=value pair per member, unbound optional members absent" }
-                ] }
-            },
-            "body": { "oneOf": [
-                { "type": "string" },
-                { "type": "object",
-                  "additionalProperties": false,
-                  "required": ["from_capture", "set"],
-                  "properties": {
-                      "from_capture": { "type": "string", "pattern": IDENT_PATTERN },
-                      "set": { "type": "object", "minProperties": 1 }
-                  } },
-                { "type": "object", "not": { "required": ["from_capture"] } }
-            ] },
-            "headers": { "type": "object", "additionalProperties": { "type": "string" } }
-        }
-    })
-}
-
-/// The `outcomes` member of an operation binding — outcome kind → wire
-/// expectation (status, permitted alternates, header matchers, body
-/// selector).
-fn binding_outcomes_def() -> Value {
-    json!({
-        "type": "object",
-        "minProperties": 1,
-        "propertyNames": { "enum": tokens(OutcomeKind::ALL) },
-        "additionalProperties": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["status"],
-            "properties": {
-                "status": { "type": "integer", "minimum": 100, "maximum": 599 },
-                "alt_status": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": { "type": "integer", "minimum": 100, "maximum": 599 },
-                    "description": "Overview-permitted additional non-conflicting status codes beyond the OAS enumeration (ITS-REST Requests_and_responses §HTTP status codes)"
-                },
-                "headers": { "type": "object", "additionalProperties": header_expectation_def() },
-                "body": { "enum": BODY_SELECTOR_TOKENS }
-            }
-        }
-    })
-}
-
-/// `vocab/outcomes.yaml` — all kinds required, none extra.
-#[must_use]
-pub fn outcomes_schema() -> Value {
-    let required: Vec<Value> = OutcomeKind::ALL
-        .iter()
-        .map(|k| Value::String(k.token().to_owned()))
-        .collect();
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("outcomes"),
-        "title": "CNF 2.0 outcome-kind vocabulary",
-        "description": "The closed outcome taxonomy. Cases speak ONLY these kinds; bindings map each kind to wire per operation. Extension only by schedule release.",
-        "type": "object",
-        "propertyNames": { "enum": tokens(OutcomeKind::ALL) },
-        "required": required,
-        "additionalProperties": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["class", "meaning"],
-            "properties": {
-                "class": { "enum": ["success", "error"] },
-                "meaning": { "type": "string", "minLength": 1 }
-            }
-        }
-    })
-}
-
-/// `vocab/selectors.yaml` — selector/matcher vocabularies + ignore-sets.
-#[must_use]
-pub fn selectors_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("selectors"),
-        "title": "CNF 2.0 selector vocabulary",
-        "description": "The closed body-selector and header-matcher vocabularies, plus the named ignore-set registry the `equivalent` assertion resolves (normative, never runner judgment).",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["body_selectors", "header_matchers", "ignore_sets"],
-        "properties": {
-            "body_selectors": { "const": BODY_SELECTOR_TOKENS },
-            "header_matchers": { "const": HEADER_MATCHER_FORMS },
-            "ignore_sets": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["server_assigned", "ctx_defaults"],
-                "properties": {
-                    "server_assigned": { "$ref": "#/$defs/ignoreSet" },
-                    "ctx_defaults": { "$ref": "#/$defs/ignoreSet" }
-                }
-            },
-            "universal_outcomes": {
-                "type": "object",
-                "propertyNames": { "enum": tokens(OutcomeKind::ALL) },
-                "additionalProperties": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["status", "source"],
-                    "properties": {
-                        "status": { "type": "integer", "minimum": 100, "maximum": 599 },
-                        "source": { "type": "string", "minLength": 1 }
-                    }
-                }
-            }
-        },
-        "$defs": {
-            "ignoreSet": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["source"],
-                "properties": {
-                    "paths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-                    "per_binding": { "type": "boolean" },
-                    "source": { "type": "string", "minLength": 1 }
-                }
-            }
-        }
-    })
-}
-
-/// A capability row's register-linked adjudication block: the register entry
-/// that decided the exception plus the reason the certificate renders.
-fn register_adjudication() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["register", "reason"],
-        "properties": {
-            "register": { "type": "string", "pattern": AMBIGUITY_ID_PATTERN },
-            "reason": { "type": "string", "minLength": 1 }
-        }
-    })
-}
-
-/// The `vocab/capability_matrix.yaml` schema.
-///
-/// It maps capability → family/tier/required, with
-/// family-scoped tiers enforced in-schema, the per-capability depth floor
-/// (`min_cases`), the realization marker, and the two register-linked
-/// adjudication blocks.
-#[must_use]
-pub fn capability_matrix_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("capability-matrix"),
-        "title": "CNF 2.0 capability matrix",
-        "description": "The machine-readable capability→family→tier matrix — the Profiles book's capability×tier tables as data, the input the verdict machinery computes from.",
-        "type": "object",
-        "minProperties": 1,
-        "propertyNames": { "pattern": IDENT_PATTERN },
-        "additionalProperties": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["family", "tier", "required", "min_cases"],
-            "properties": {
-                "family": { "enum": ["Platform", "Enterprise", "Security"] },
-                "tier": { "enum": tokens(Tier::ALL) },
-                "required": { "type": "boolean" },
-                "realization": { "enum": tokens(Realization::ALL) },
-                "min_cases": { "type": "integer", "minimum": 0 },
-                "evidence_exception": register_adjudication(),
-                "workload_exclusion": register_adjudication(),
-                "source": { "type": "string" }
-            },
-            "oneOf": [
-                { "properties": { "family": { "const": "Platform" },
-                                  "tier": { "enum": ["CORE", "STANDARD", "OPTIONS"] } } },
-                { "properties": { "family": { "const": "Security" },
-                                  "tier": { "enum": ["SEC-BASIC"] } } },
-                { "properties": { "family": { "const": "Enterprise" },
-                                  "tier": { "enum": ["D", "M", "X"] } } }
-            ]
-        }
-    })
-}
-
-/// `corpus/MANIFEST.yaml` — governed corpus entries.
-#[must_use]
-pub fn corpus_manifest_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("corpus-manifest"),
-        "title": "CNF 2.0 corpus manifest",
-        "description": "Every fixture and generated set is a manifest entry: adjudicated verdict + defect live here (never only in a filename); generated sets are committed seeded deterministic recipes.",
-        "type": "object",
-        "minProperties": 1,
-        "propertyNames": { "pattern": CORPUS_KEY_PATTERN },
-        "additionalProperties": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["format", "validity", "provenance"],
-            "oneOf": [
-                { "required": ["source"], "not": { "required": ["generated_by"] } },
-                { "required": ["generated_by"], "not": { "required": ["source"] } }
-            ],
-            "properties": {
-                "source": { "type": "string", "minLength": 1 },
-                "generated_by": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["recipe", "digest"],
-                    "properties": {
-                        "recipe": { "type": "string", "pattern": IDENT_PATTERN },
-                        "digest": { "type": "string", "minLength": 1 }
-                    }
-                },
-                "format": { "enum": tokens(CorpusFormat::ALL) },
-                "template_id": { "type": "string", "minLength": 1 },
-                "rm_versions": { "type": "array", "items": { "type": "string" } },
-                "validity": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["verdict"],
-                    "properties": {
-                        "verdict": { "enum": ["valid", "invalid"] },
-                        "defect": { "type": "string", "minLength": 1 },
-                        "spec_ref": { "type": "string", "minLength": 1 }
-                    },
-                    "if": { "properties": { "verdict": { "const": "invalid" } } },
-                    "then": { "required": ["verdict", "defect", "spec_ref"] }
-                },
-                "placeholders": {
-                    "type": "object",
-                    "additionalProperties": { "enum": tokens(PlaceholderPolicy::ALL) }
-                },
-                "provenance": { "type": "string", "minLength": 1 },
-                "views": {
-                    "type": "object",
-                    "propertyNames": { "pattern": IDENT_PATTERN },
-                    "additionalProperties": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": ["select"],
-                        "properties": {
-                            "select": { "type": "string", "minLength": 1 },
-                            "where": { "type": "string" },
-                            "order_by": { "type": "string" }
-                        }
-                    }
-                },
-                "recipes": {
-                    "type": "object",
-                    "propertyNames": { "pattern": IDENT_PATTERN },
-                    "additionalProperties": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": ["digest"],
-                        "properties": { "digest": { "type": "string", "minLength": 1 } }
-                    }
-                }
-            }
-        }
-    })
-}
-
-/// `registers/ambiguities.yaml` — the ambiguity register.
-#[must_use]
-pub fn ambiguity_register_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("ambiguity-register"),
-        "title": "CNF 2.0 ambiguity register",
-        "description": "Every entry a real, verified spec divergence or silence with the normative handling a runner must apply. A runner that resolves an ambiguity privately is non-conformant to the schedule.",
-        "type": "object",
-        "minProperties": 1,
-        "propertyNames": { "pattern": AMBIGUITY_ID_PATTERN },
-        "additionalProperties": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["ambiguity", "source", "handling", "disposition"],
-            "properties": {
-                "ambiguity": { "type": "string", "minLength": 1 },
-                "source": { "type": "string", "minLength": 1, "description": "Where the silence/divergence was verified. Convention (machine-gated by the validate spec-ref check, issue FerroEHR#2545): the field splits into `;`/` + ` fragments; every fragment opening with a spec component token (RM, BASE, AM, QUERY, TERM, LANG, SM, CNF, ITS-REST, ITS-XML, ITS-JSON) is a citation clause and must machine-resolve against the vendored trees (document + § sections; {a,b} brace shorthands expand and every variant must resolve); any other fragment is adjudication prose and passes. A source with no citation clause at all fails — a silence claim must ground on at least one resolvable citation." },
-                "handling": { "type": "string", "minLength": 1 },
-                "disposition": { "enum": tokens(Disposition::ALL), "description": "The machine-readable handling class. The fixed_handling/editorial boundary (issue FerroEHR#2546) is one question — did the entry CHOOSE anything? editorial = a wording/typography defect with zero behavioural latitude (the corrected reading is forced by the surrounding released text); fixed_handling = real latitude existed and the entry pins this catalogue's choice. Neither changes gating; report_only and editorial additionally require an upstream_issue." },
-                "options": { "type": "object",
-                             "description": "For `option_select` only: the option FAMILIES the entry branches into, family name to that family's mutually exclusive arms. One entry adjudicates one ambiguity and may leave several independent choices open at once (AMB-167 leaves ten, one per REST resource family), so the arms are grouped rather than pooled: a pooled list cannot say which arms are alternatives to which, and a declaration answering one choice then looks like it answered them all. A declaration answers EVERY family whose sibling cases its claim reaches, with exactly one arm each.",
-                             "propertyNames": { "pattern": OPTION_TAG_PATTERN },
-                             "additionalProperties": { "type": "array", "minItems": 2, "uniqueItems": true,
-                                                       "items": { "type": "string", "pattern": OPTION_TAG_PATTERN } } },
-                "upstream_issue": { "type": "integer", "minimum": 1 }
-            },
-            "allOf": [
-                { "if": { "properties": { "disposition": { "const": "option_select" } } },
-                  "then": { "required": ["ambiguity", "source", "handling", "disposition", "options"],
-                            "properties": { "options": { "minProperties": 1 } } },
-                  "else": { "properties": { "options": { "maxProperties": 0 } } } },
-                { "if": { "properties": { "disposition": { "enum": ["report_only", "editorial"] } }, "required": ["disposition"] },
-                  "then": { "required": ["upstream_issue"] } }
-            ]
-        }
-    })
 }
 
 /// A `{ its, formats }` technology-profile object schema, as a party DECLARES
@@ -846,11 +162,6 @@ pub fn statement_schema() -> Value {
             },
             "tech_profiles": { "type": "array", "items": tech_profile_def() },
             "options": string_array(Some(OPTION_TAG_PATTERN)),
-            "served_extensions": {
-                "description": "The route families THIS party declares it serves beyond the openEHR resource set, by their vocab/wire_surface.yaml served_extensions family name. A declaration, never a claim: no verdict reads it, and the statement renders only what the party itself declares — the catalogue axis is one product's outward surface and is never published as another vendor's. An unresolvable family name is a validation finding; an absent or empty list renders as an explicit declaration of none.",
-                "type": "array",
-                "items": { "type": "string", "minLength": 1 }
-            },
             "performance": {
                 "type": "object",
                 "additionalProperties": false,
@@ -970,7 +281,7 @@ pub fn results_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("results"),
         "title": "CNF 2.0 party results",
-        "description": "The campaign outcomes for one technology profile: per-case×format outcome records (with mandatory citations on skipped/not_applicable), the ambiguity dispositions applied, and provenance (SUT/runner/ixit digest).",
+        "description": "The campaign outcomes for one technology profile: per-case×format outcome records (with mandatory citations on skipped/not_applicable), the performance measurements, and provenance (SUT/runner/ixit digest).",
         "type": "object",
         "additionalProperties": false,
         "required": ["sut", "runner", "instrument_status", "schedule_release", "tech_profile", "ixit_digest"],
@@ -1036,19 +347,6 @@ pub fn results_schema() -> Value {
                         "resources": resources_def()
                     }
                 }
-            },
-            "ambiguity_dispositions": {
-                "description": "The ambiguity dispositions the campaign applied: one record per option_select register arm the party's ICS declared, in the register's authored order. The arms of one option family are mutually exclusive, so which arm a deployment serves is the ICS's answer and the record says which answer it drove under. Empty for a campaign no statement selected, which declares no arm at all.",
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["ambiguity"],
-                    "properties": {
-                        "ambiguity": { "type": "string", "pattern": AMBIGUITY_ID_PATTERN },
-                        "option": { "type": "string", "pattern": OPTION_TAG_PATTERN }
-                    }
-                }
             }
         }
     })
@@ -1098,7 +396,7 @@ fn terminology_def(description: &str) -> Value {
         "required": ["posture", "servers"],
         "properties": {
             "posture": {
-                "description": "What the deployment does with a bound value set it cannot resolve. BASE architecture_overview master12 §Binding Terminology Value-sets to Archetypes puts the query in an external terminology query server and never says what happens when it cannot be reached, so the branch is a deployment fact, not a spec rule (register AMB-172).",
+                "description": "What the deployment does with a bound value set it cannot resolve. BASE architecture_overview master12 §Binding Terminology Value-sets to Archetypes puts the query in an external terminology query server and never says what happens when it cannot be reached, so the branch is a deployment fact, not a spec rule (the `terminology-binding-unresolvable` option in the catalogue's capabilities.yaml).",
                 "enum": tokens(crate::ixit::TerminologyPosture::ALL)
             },
             "servers": {
@@ -1149,7 +447,7 @@ pub fn ixit_schema() -> Value {
                 "minLength": 1
             },
             "dump_location": {
-                "description": "A location on the SUT's OWN file system the admin dump/load operations may write an archive to and read one back from (SM i_admin_dump_load.adoc export_ehrs(file_sys_loc)/load_ehrs(file_sys_loc), whose only declared error is file_not_writable). Declared here because which paths a deployment can write is a property of its image and mounts that no operation discloses; absent => the cases reading ${ixit:dump_location} are not-applicable with that citation.",
+                "description": "A location on the SUT's OWN file system the admin dump/load operations may write an archive to and read one back from (no released ITS-REST operation names one). Declared here because which paths a deployment can write is a property of its image and mounts that no operation discloses; absent => the cases reading ${ixit:dump_location} are not-applicable with that citation.",
                 "type": "string",
                 "minLength": 1
             },
@@ -1215,7 +513,7 @@ fn ixit_instances_def() -> Value {
                     "THIS instance's openEHR specification generation set, when it differs from the party default. One running deployment implements exactly one set, so a party claiming both runs two deployments and declares each one's set on its own instance — the same law the `signing` and `terminology` blocks follow. Absent => the top-level `spec_profile` applies."
                 ),
                 "administrative": {
-                    "description": "Whether this instance's principal holds administrative authorization (register AMB-228). SM master02-overview.adoc §Functional Style delegates access control to the implementation, so the posture is an IXIT declaration; a role-boundary case states the posture it needs in requires, and an undeclared or opposite declaration records it not-applicable with that citation. Absent => undeclared, never a default.",
+                    "description": "Whether this instance's principal holds administrative authorization (upstream report #757). No released operation discloses which roles a principal holds, so the posture is an IXIT declaration; a role-boundary case states the posture it needs in requires, and an undeclared or opposite declaration records it not-applicable with that citation. Absent => undeclared, never a default.",
                     "type": "boolean"
                 }
             }
@@ -1657,7 +955,7 @@ pub fn journey_catalogue_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("journey-catalogue"),
         "title": "CNF 2.0 journey catalogue",
-        "description": "The hospital-simulation vocabulary: clinical journeys as ordered, time-offset operation sequences over the closed operation vocabulary; commit/update stages name their corpus template; each journey cites its activity-statistics derivation. No openEHR spec governs measured performance (CNF guide master03-overview.adoc §Product Scope) — our own design/extension.",
+        "description": "The hospital-simulation vocabulary: clinical journeys as ordered, time-offset operation sequences over the closed operation vocabulary; commit/update stages name their payload in perf/payloads.yaml; each journey cites its activity-statistics derivation. No openEHR spec governs measured performance (CNF guide master03-overview.adoc §Product Scope) — our own design/extension.",
         "type": "object",
         "minProperties": 1,
         "propertyNames": { "pattern": IDENT_PATTERN },
@@ -1679,332 +977,6 @@ pub fn journey_catalogue_schema() -> Value {
                             "op": { "enum": perf_op_tokens() },
                             "template": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
                             "at": offset
-                        }
-                    }
-                }
-            }
-        }
-    })
-}
-
-/// `vocab/wire_surface.yaml` — the wire-surface coverage register (the
-/// `surface-coverage` gate's authored, spec-cited exceptions + cross-cutting
-/// elements).
-///
-/// Every `source` is a released-spec / ITS-REST-docs citation, never the
-/// vendored OAS (owner ruling 2026-07-24).
-#[must_use]
-pub fn wire_surface_schema() -> Value {
-    let reason = json!({ "enum": tokens(SurfaceReason::ALL) });
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("wire-surface"),
-        "title": "CNF 2.0 wire-surface coverage register",
-        "description": "The authored, spec-cited record of the wire surface the catalogue is measured against for TOTAL coverage (issue FerroEHR#271): Axis-1 SM operations with no its-rest binding, Axis-2 per-binding outcome/format branches no case exercises, Axis-3 cross-cutting wire behaviours mapped to cases or an adjudicated exception, and Axis-4 the outward declaration of the route families the SUT serves beyond the openEHR resource set (a declaration, never an obligation — no coverage requirement is derived from it). Every source is a released spec component / ITS-REST docs text, never the vendored OAS.",
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-            "sm_operations": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["operation", "reason", "source"],
-                    "properties": {
-                        "operation": { "type": "string", "pattern": SM_OPERATION_PATTERN },
-                        "reason": reason.clone(),
-                        "source": { "type": "string", "minLength": 1 },
-                        "note": { "type": "string", "minLength": 1 }
-                    }
-                }
-            },
-            "branches": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["binding", "reason", "source"],
-                    "oneOf": [
-                        { "required": ["outcome"], "not": { "required": ["format"] } },
-                        { "required": ["format"], "not": { "required": ["outcome"] } }
-                    ],
-                    "properties": {
-                        "binding": { "type": "string", "pattern": SM_OPERATION_PATTERN },
-                        "variant": { "type": "string", "minLength": 1 },
-                        "outcome": { "enum": tokens(OutcomeKind::ALL) },
-                        "format": { "enum": tokens(FormatName::ALL) },
-                        "reason": reason.clone(),
-                        "source": { "type": "string", "minLength": 1 },
-                        "note": { "type": "string", "minLength": 1 }
-                    }
-                }
-            },
-            "elements": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["id", "description", "source"],
-                    "oneOf": [
-                        { "required": ["covered_by"], "not": { "required": ["exception"] },
-                          "properties": { "covered_by": { "minItems": 1 } } },
-                        { "required": ["exception"], "not": { "required": ["covered_by"] } }
-                    ],
-                    "properties": {
-                        "id": { "type": "string", "pattern": OPTION_TAG_PATTERN },
-                        "description": { "type": "string", "minLength": 1 },
-                        "source": { "type": "string", "minLength": 1 },
-                        "covered_by": string_array(Some(CASE_ID_PATTERN)),
-                        "exception": {
-                            "type": "object",
-                            "additionalProperties": false,
-                            "required": ["reason"],
-                            "properties": {
-                                "reason": reason.clone(),
-                                "register": { "type": "string", "pattern": AMBIGUITY_ID_PATTERN },
-                                "note": { "type": "string", "minLength": 1 }
-                            }
-                        }
-                    }
-                }
-            },
-            "served_extensions": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["family", "routes", "config_gate", "spec_silence", "never_gates"],
-                    "properties": {
-                        "family": { "type": "string", "minLength": 1 },
-                        "routes": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": { "type": "string", "pattern": route_pattern() }
-                        },
-                        "config_gate": { "type": "string", "minLength": 1 },
-                        "spec_silence": { "type": "string", "minLength": 1 },
-                        "never_gates": { "const": true }
-                    }
-                }
-            }
-        }
-    })
-}
-
-/// The Axis-4 route grammar (`"<METHOD> /<path>"`), with the method alternation
-/// derived from the closed HTTP-method vocabulary so schema and reference
-/// implementation cannot drift.
-fn route_pattern() -> String {
-    let methods: Vec<String> = HttpMethod::ALL.iter().map(token_str).collect();
-    format!("^({}) /\\S*$", methods.join("|"))
-}
-
-/// The runner-verification transcript (pack part 1).
-#[must_use]
-pub fn transcript_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("transcript"),
-        "title": "CNF 2.0 runner-verification transcript",
-        "description": "An ordered sequence per case × format × row of recorded exchanges with adjudicated verdicts; replayed by sequence so a fixture file fully determines what any conformant runner must conclude.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["schedule_release", "entries"],
-        "properties": {
-            "schedule_release": { "type": "string", "minLength": 1 },
-            "entries": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["case", "row", "steps", "expected_verdict", "adjudication_ref"],
-                    "properties": {
-                        "case": { "type": "string", "pattern": CASE_ID_PATTERN },
-                        "format": { "enum": tokens(FormatName::ALL) },
-                        "row": { "type": "integer", "minimum": 0 },
-                        "steps": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": ["step", "request", "response"],
-                                "properties": {
-                                    "step": { "type": "integer", "minimum": 1 },
-                                    "request": {
-                                        "type": "object",
-                                        "additionalProperties": false,
-                                        "required": ["method", "path"],
-                                        "properties": {
-                                            "method": { "enum": tokens(HttpMethod::ALL) },
-                                            "path": { "type": "string", "minLength": 1 },
-                                            "body_digest": { "type": "string" }
-                                        }
-                                    },
-                                    "response": {
-                                        "type": "object",
-                                        "additionalProperties": false,
-                                        "required": ["status"],
-                                        "properties": {
-                                            "status": { "type": "integer", "minimum": 100, "maximum": 599 },
-                                            "headers": { "type": "object", "additionalProperties": { "type": "string" } },
-                                            "body": {}
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        "expected_verdict": { "enum": ["passed", "failed", "errored", "not_applicable", "skipped"] },
-                        "adjudication_ref": { "type": "string", "minLength": 1 }
-                    }
-                }
-            }
-        }
-    })
-}
-
-/// One recorded wire exchange, as the run transcript and the evidence bundle
-/// both carry it.
-fn recorded_exchange_def() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["seq", "row", "request", "response"],
-        "properties": {
-            "seq": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "The exchange's ordinal within its case, in send order — provisioning exchanges included."
-            },
-            "row": { "type": "integer", "minimum": 0 },
-            "request": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["method", "url", "headers"],
-                "properties": {
-                    "method": { "enum": tokens(HttpMethod::ALL) },
-                    "url": { "type": "string", "minLength": 1 },
-                    "headers": { "type": "object", "additionalProperties": { "type": "string" } },
-                    "body": {}
-                }
-            },
-            "response": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["status", "headers"],
-                "properties": {
-                    "status": { "type": "integer", "minimum": 100, "maximum": 599 },
-                    "headers": { "type": "object", "additionalProperties": { "type": "string" } },
-                    "body": {}
-                }
-            }
-        }
-    })
-}
-
-/// The run wire transcript (`transcript.json` beside a run's `results.json`).
-///
-/// A different family from [`transcript_schema`], which is the verification
-/// pack's REPLAY fixture: that one requires an adjudicated `expected_verdict`
-/// and an `adjudication_ref` per entry, and carries no request headers or
-/// request body at all. A run transcript adjudicates nothing and records both
-/// sides of the wire, so it is its own document.
-#[must_use]
-pub fn run_transcript_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("run-transcript"),
-        "title": "CNF 2.0 run wire transcript",
-        "description": "The exchanges one run drove, request and response verbatim, written beside its results.json when `run --record-exchanges` is set. Ordered by case id then send sequence, so a re-run of the same campaign emits the same bytes. The `authorization` request header's value is withheld; response bodies are recorded as they arrived and can carry real patient data.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["sut", "schedule_release", "cases"],
-        "properties": {
-            "sut": sut_def(),
-            "schedule_release": { "type": "string", "minLength": 1 },
-            "identity": {
-                "description": "The ITS-REST System OPTIONS exchange the run read the SUT's identity through before it drove any case. It belongs to no case and is never judged.",
-                "allOf": [recorded_exchange_def()]
-            },
-            "cases": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["case", "exchanges"],
-                    "properties": {
-                        "case": { "type": "string", "pattern": CASE_ID_PATTERN },
-                        "format": { "enum": tokens(FormatName::ALL) },
-                        "exchanges": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": recorded_exchange_def()
-                        }
-                    }
-                }
-            }
-        }
-    })
-}
-
-/// The evidence bundle (`evidence.json`, written by `veredictum evidence`).
-///
-/// A SELECTION out of a run transcript, carrying the question it answers and
-/// the outcome row each selected case recorded. It is never empty: the export
-/// refuses rather than write a document of the right shape with no content in
-/// it, so `cases` has a floor of one and every entry has at least one
-/// exchange.
-#[must_use]
-pub fn evidence_bundle_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("evidence-bundle"),
-        "title": "CNF 2.0 evidence bundle",
-        "description": "The recorded exchanges of a named set of a finished run's cases, carved out of its transcript.json by `veredictum evidence` for a red-run triage to read. Carries the selection it answers, every selected case the recording had nothing for, and the outcome row each exported case recorded. The `authorization` header's value is withheld; response bodies are the wire's own and can carry real patient data.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["sut", "schedule_release", "selection", "cases"],
-        "properties": {
-            "sut": sut_def(),
-            "schedule_release": { "type": "string", "minLength": 1 },
-            "selection": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["only", "statuses"],
-                "description": "What the export was asked for. The three selectors union: a case is exported when any of them names it.",
-                "properties": {
-                    "only": {
-                        "type": "array",
-                        "items": { "type": "string", "pattern": CASE_ID_PATTERN }
-                    },
-                    "filter": { "type": "string", "minLength": 1 },
-                    "statuses": {
-                        "type": "array",
-                        "items": { "enum": tokens(OutcomeStatus::ALL) }
-                    }
-                }
-            },
-            "without_exchanges": {
-                "type": "array",
-                "items": { "type": "string", "pattern": CASE_ID_PATTERN },
-                "description": "Selected case ids the transcript carries no exchange for, sorted. A half-matched selection says so here rather than looking complete."
-            },
-            "cases": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["case", "exchanges"],
-                    "properties": {
-                        "case": { "type": "string", "pattern": CASE_ID_PATTERN },
-                        "format": { "enum": tokens(FormatName::ALL) },
-                        "outcome": outcome_record_def(),
-                        "exchanges": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": recorded_exchange_def()
                         }
                     }
                 }
@@ -2854,28 +1826,14 @@ pub fn arazzo_results_schema() -> Value {
 #[must_use]
 pub fn emit_all() -> Vec<(&'static str, Value)> {
     vec![
-        ("case-core.schema.json", case_core_schema()),
-        ("operation-binding.schema.json", operation_binding_schema()),
-        ("outcomes.schema.json", outcomes_schema()),
-        ("selectors.schema.json", selectors_schema()),
-        ("capability-matrix.schema.json", capability_matrix_schema()),
-        ("corpus-manifest.schema.json", corpus_manifest_schema()),
-        (
-            "ambiguity-register.schema.json",
-            ambiguity_register_schema(),
-        ),
         ("statement.schema.json", statement_schema()),
         ("results.schema.json", results_schema()),
         ("ixit.schema.json", ixit_schema()),
         ("performance-case.schema.json", performance_case_schema()),
         ("journey-catalogue.schema.json", journey_catalogue_schema()),
         ("perf-payloads.schema.json", perf_payloads_schema()),
-        ("wire-surface.schema.json", wire_surface_schema()),
         ("stress.schema.json", stress_schema()),
         ("aql-probe.schema.json", aql_probe_schema()),
-        ("transcript.schema.json", transcript_schema()),
-        ("run-transcript.schema.json", run_transcript_schema()),
-        ("evidence-bundle.schema.json", evidence_bundle_schema()),
         ("bench-result.schema.json", bench_result_schema()),
         ("bench-packs.schema.json", bench_packs_schema()),
         (
@@ -2925,8 +1883,8 @@ mod tests {
 
     #[test]
     fn rendering_is_deterministic() {
-        let a = render(&case_core_schema());
-        let b = render(&case_core_schema());
+        let a = render(&statement_schema());
+        let b = render(&statement_schema());
         assert_eq!(a, b);
         assert!(a.ends_with('\n'));
     }

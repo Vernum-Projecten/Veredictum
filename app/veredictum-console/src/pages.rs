@@ -11,7 +11,6 @@ pub mod not_found;
 pub mod results;
 pub mod run;
 pub mod shell;
-pub mod verdicts;
 
 use leptos::prelude::{IntoView, view};
 use leptos_meta::Title;

@@ -692,7 +692,7 @@ mod tests {
     /// packets carry the user id, the key flags and the subkey binding
     /// signature, so nothing outside the key material states its identity.
     fn key_dir() -> PathBuf {
-        Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join("artifacts/corpus/keys")
+        Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join("fixtures/keys")
     }
 
     fn secret_key() -> Result<String, RecordError> {

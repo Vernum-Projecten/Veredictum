@@ -1,60 +1,46 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The record seam for S6 Results and S7 Verdicts (#67).
+//! The record seam for S6 Results (#67).
 //!
-//! Everything renders from the finished job's own record, read through the
-//! published lib. The verdicts come from the lib's `judgement::judge` — the
-//! SAME pure function the CLI runs, so the matrix and the rendered documents
-//! are the CLI's bodies by construction, never a console re-computation.
+//! Everything renders from the finished job's own results document and HAR
+//! recording, read through the published lib. A red row's explanation is the
+//! one the engine wrote; nothing here re-judges a row.
 
 use serde::{Deserialize, Serialize};
 
-/// One outcome row for the results table.
+/// One results row for the table.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResultRow {
-    /// The case id.
+    /// The case id, `<document>/<workflowId>`.
     pub case: String,
-    /// The wire format, when format-parameterized.
-    pub format: Option<String>,
-    /// The status token (`passed` / `failed` / `errored` / `skipped` /
-    /// `not_applicable`).
+    /// The 0-based row of the case.
+    pub row: u32,
+    /// The status token (`passed` / `failed` / `errored` / `skipped`).
     pub status: String,
-    /// Rows driven / rows selected — the printed coverage bound.
-    pub rows: String,
-    /// The failure or error reason, verbatim, when any.
+    /// What a red row received, or why a skipped row was not run.
     pub reason: Option<String>,
 }
 
-/// The results screen: identity, tallies, and the rows red-first.
+/// The results screen: the base URL, the tallies, and the rows red-first.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResultsScreen {
-    /// The SUT identity the record carries.
-    pub sut: String,
-    /// passed / failed / errored / excused counts.
+    /// The base URL the run drove.
+    pub base_url: String,
+    /// passed / failed / errored / skipped counts.
     pub tallies: (u64, u64, u64, u64),
-    /// Every outcome row, failures and errors first.
+    /// Every row, failures and errors first.
     pub rows: Vec<ResultRow>,
-}
-
-/// One failing row's evidence, verbatim from the record.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FailedRowView {
-    /// The row's identity as the record spells it.
-    pub row: String,
-    /// The row's failure evidence, verbatim.
-    pub evidence: String,
 }
 
 /// One recorded exchange, rendered as the two panes the drawer shows.
 ///
-/// The bodies are the wire's own bytes, pretty-printed when they parsed as
-/// JSON. The engine withholds the `authorization` request header before the
-/// transcript is ever written, so nothing here can carry a credential.
+/// The bodies are the wire's own bytes. The engine never records a
+/// credential, so nothing here can carry one.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExchangeView {
-    /// The exchange's ordinal within the case, in send order.
-    pub seq: u32,
+    /// The exchange's entry in the HAR recording.
+    pub entry: u32,
     /// The request line, `METHOD url`.
     pub request_line: String,
     /// The request headers, one `name: value` line each.
@@ -65,93 +51,69 @@ pub struct ExchangeView {
     pub status_line: String,
     /// The response headers, one `name: value` line each.
     pub response_headers: String,
-    /// The response body, when the SUT sent one.
+    /// The response body, when the server sent one.
     pub response_body: Option<String>,
 }
 
-/// Whether the finished run carries a wire transcript, and what it holds for
-/// the selected case.
+/// The exchange a red row was judged on, or why the drawer has none.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TranscriptView {
-    /// The run was driven without `--record-exchanges`, so no transcript file
-    /// sits beside the record.
-    NotRecorded,
-    /// A transcript exists; the exchanges are this case's, in send order
-    /// (empty when the case drove none).
-    Recorded(Vec<ExchangeView>),
-    /// The transcript exists but could not be read; the message is verbatim.
+pub enum RecordingView {
+    /// The row names no exchange: it passed, was skipped, or went red before
+    /// a request went out.
+    NoExchange,
+    /// The exchange the explanation names, read from the recording.
+    Exchange(ExchangeView),
+    /// The recording could not be read; the message is verbatim.
     Unreadable(String),
 }
 
-/// The result drawer: the outcome joined to its catalogue case.
+/// The result drawer: the row and the four-part explanation the engine wrote.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResultDetail {
-    /// The outcome row.
+    /// The row.
     pub row: ResultRow,
-    /// The excusing citation, mandatory on excused statuses.
-    pub citation: Option<String>,
-    /// The first failing or erroring step, when any.
-    pub failing_step: Option<u32>,
-    /// Per-row failure evidence for table-driven cases.
-    pub failed_rows: Vec<FailedRowView>,
-    /// The case's test purpose, from the catalogue.
-    pub test_purpose: Option<String>,
-    /// The case's citations, from the catalogue.
-    pub spec_refs: Vec<String>,
-    /// The wire this outcome was reached over, when the run recorded it.
-    pub transcript: TranscriptView,
-}
-
-/// One rendered judgement document, name and body verbatim.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DocumentView {
-    /// The document's file name.
-    pub name: String,
-    /// The body, byte-for-byte what the CLI writes.
-    pub body: String,
-}
-
-/// The verdicts screen, or the honest reasons there is none.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum VerdictsScreen {
-    /// The judgement ran.
-    Judged {
-        /// Profile verdicts: tier token → verdict token.
-        profiles: Vec<(String, String)>,
-        /// Capability evidence: name → evidence token.
-        capabilities: Vec<(String, String)>,
-        /// The rendered documents.
-        documents: Vec<DocumentView>,
-    },
-    /// The run was driven without a statement, so no claim exists to judge.
-    NoStatement,
-    /// No finished run exists yet.
-    NoRun,
+    /// The workflow's summary, from the catalogue.
+    pub summary: Option<String>,
+    /// The step the row went red at.
+    pub step: Option<String>,
+    /// What was checked.
+    pub what: Option<String>,
+    /// Why it is required: the cited source, section and quote.
+    pub why: Option<String>,
+    /// What the criterion expects.
+    pub expected: Option<String>,
+    /// What the exchange delivered, or why it could not be judged.
+    pub received: Option<String>,
+    /// Whose problem the row is.
+    pub whose: Option<String>,
+    /// The `upstream-report` issue the citation names, when any.
+    pub report: Option<u64>,
+    /// The skip reason and its citation, on a skipped row.
+    pub skip: Option<String>,
+    /// The judged exchange.
+    pub recording: RecordingView,
 }
 
 #[cfg(feature = "ssr")]
 pub mod read {
-    //! The ssr readers over the finished job and the lib's judgement.
+    //! The ssr readers over the finished job's results and recording.
 
-    use super::{
-        DocumentView, ExchangeView, FailedRowView, ResultDetail, ResultRow, ResultsScreen,
-        TranscriptView, VerdictsScreen,
-    };
-    use crate::engine::{opt_token, token};
+    use super::{ExchangeView, RecordingView, ResultDetail, ResultRow, ResultsScreen};
+    use crate::engine::token;
     use crate::state::ConsoleState;
+    use veredictum::arazzo::har::{Entry, Har, NameValue};
+    use veredictum::arazzo::results::{ResultRow as EngineRow, Results, Why};
 
-    /// This submitter's most recent finished run's results record, through
+    /// This submitter's most recent finished run's results document, through
     /// the published lib.
     ///
-    /// Several runs share the process (#389), so the record surfaces read the
-    /// run the person in front of them just drove, picked through the job
-    /// map's ONE per-submitter reader — the same one the export seam uses, so
-    /// the two surfaces cannot disagree about which run they are describing
-    /// (#134).
+    /// Several runs share the process (#389), so the record surface reads the
+    /// run the person in front of it just drove, picked through the job map's
+    /// ONE per-submitter reader (#134).
     fn finished_results(
         state: &ConsoleState,
         submitter: crate::submitter::Submitter,
-    ) -> Result<Option<(veredictum::party::Results, std::path::PathBuf)>, String> {
+    ) -> Result<Option<(Results, std::path::PathBuf)>, String> {
         let latest = state
             .jobs
             .latest_of(submitter, crate::run_job::Latest::Finished)
@@ -167,26 +129,34 @@ pub mod read {
         let path = std::path::PathBuf::from(finished.results_path);
         let body =
             std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-        let results: veredictum::party::Results =
+        let results: Results =
             serde_json::from_str(&body).map_err(|e| format!("{}: {e}", path.display()))?;
         Ok(Some((results, path)))
     }
 
-    /// Maps one outcome to its table row.
+    /// A row index as the wire's fixed-size integer.
     ///
-    /// The status is the lib's own infallible token; the optional format is
-    /// read through the engine's serialization and its failure travels, so a
-    /// row can never render a blank format that reads as "none declared".
+    /// NOTE: no openEHR spec governs this — our own design; a row index fits
+    /// in `u32` on every catalogue, and saturating keeps `as` out.
+    fn index(n: usize) -> u32 {
+        u32::try_from(n).unwrap_or(u32::MAX)
+    }
+
+    /// Maps one engine row to its table row.
     ///
     /// # Errors
-    /// The format token's `serde_json` failure, verbatim.
-    fn row_of(outcome: &veredictum::party::OutcomeRecord) -> Result<ResultRow, serde_json::Error> {
+    /// The status token's `serde_json` failure, verbatim.
+    fn row_of(row: &EngineRow) -> Result<ResultRow, serde_json::Error> {
+        let reason = match (&row.explanation, &row.skip) {
+            (Some(explanation), _) => Some(explanation.received.clone()),
+            (None, Some(skip)) => Some(skip.reason.to_string()),
+            (None, None) => None,
+        };
         Ok(ResultRow {
-            case: outcome.case.to_string(),
-            format: opt_token(outcome.format.as_ref())?,
-            status: outcome.status.token().to_owned(),
-            rows: format!("{}/{}", outcome.rows_driven, outcome.rows_total),
-            reason: outcome.reason.clone(),
+            case: row.case.clone(),
+            row: index(row.row),
+            status: token(&row.status)?,
+            reason,
         })
     }
 
@@ -202,6 +172,7 @@ pub mod read {
             rank(&a.status)
                 .cmp(&rank(&b.status))
                 .then_with(|| a.case.cmp(&b.case))
+                .then_with(|| a.row.cmp(&b.row))
         });
     }
 
@@ -216,129 +187,81 @@ pub mod read {
         let Some((results, _)) = finished_results(state, submitter)? else {
             return Ok(None);
         };
-        let mut tallies = (0_u64, 0_u64, 0_u64, 0_u64);
         let mut rows: Vec<ResultRow> = results
-            .outcomes
+            .rows
             .iter()
-            .map(|outcome| {
-                let row = row_of(outcome)?;
-                match row.status.as_str() {
-                    "passed" => tallies.0 += 1,
-                    "failed" => tallies.1 += 1,
-                    "errored" => tallies.2 += 1,
-                    _ => tallies.3 += 1,
-                }
-                Ok(row)
-            })
+            .map(row_of)
             .collect::<Result<Vec<ResultRow>, serde_json::Error>>()
             .map_err(|e| format!("a result row did not render: {e}"))?;
         red_first(&mut rows);
         Ok(Some(ResultsScreen {
-            sut: results.sut.label(),
-            tallies,
+            base_url: results.base_url.clone(),
+            tallies: crate::run_job::tally(&results),
             rows,
         }))
     }
 
-    /// One `name: value` line per header, name-sorted by the document's own
-    /// `BTreeMap` ordering.
-    fn header_lines(headers: &std::collections::BTreeMap<String, String>) -> String {
+    /// One `name: value` line per header, in recorded order.
+    fn header_lines(headers: &[NameValue]) -> String {
         headers
             .iter()
-            .map(|(name, value)| format!("{name}: {value}"))
+            .map(|header| format!("{}: {}", header.name, header.value))
             .collect::<Vec<_>>()
             .join("\n")
     }
 
-    /// A recorded body as text: pretty JSON when it is a JSON structure, the
-    /// string itself when the wire carried text the reader kept as a string.
-    #[expect(
-        clippy::disallowed_types,
-        reason = "the wire-bodies family: a recorded body is whatever the SUT sent, which has no typed model here"
-    )]
-    fn body_text(body: Option<&serde_json::Value>) -> Option<String> {
-        match body? {
-            serde_json::Value::String(text) => Some(text.clone()),
-            value => serde_json::to_string_pretty(value).ok(),
+    /// One HAR entry as the drawer's two panes.
+    #[must_use]
+    pub fn exchange_of(entry: usize, recorded: &Entry) -> ExchangeView {
+        let text = |body: &str| (!body.is_empty()).then(|| body.to_owned());
+        ExchangeView {
+            entry: index(entry),
+            request_line: format!("{} {}", recorded.request.method, recorded.request.url),
+            request_headers: header_lines(&recorded.request.headers),
+            request_body: recorded
+                .request
+                .post_data
+                .as_ref()
+                .and_then(|data| text(&data.text)),
+            status_line: format!("HTTP {}", recorded.response.status),
+            response_headers: header_lines(&recorded.response.headers),
+            response_body: text(&recorded.response.content.text),
         }
     }
 
-    /// The transcript beside the run's `results.json`, narrowed to one case.
-    ///
-    /// An absent file is the honest [`TranscriptView::NotRecorded`]: the run
-    /// was driven without `--record-exchanges`. A file that exists and will
-    /// not read or parse is reported verbatim, never silently as absence.
-    fn transcript_of(
-        results_path: &std::path::Path,
-        case: &str,
-        format: Option<&str>,
-    ) -> TranscriptView {
+    /// The exchange an explanation names, read from the recording beside the
+    /// results document.
+    fn recording_of(results_path: &std::path::Path, entry: Option<usize>) -> RecordingView {
+        let Some(entry) = entry else {
+            return RecordingView::NoExchange;
+        };
         let Some(path) = results_path
             .parent()
-            .map(|dir| dir.join(veredictum::transcript::TRANSCRIPT_FILE))
+            .map(|dir| dir.join(veredictum::pipeline::arazzo_run::RECORDING_FILE))
         else {
-            return TranscriptView::NotRecorded;
+            return RecordingView::NoExchange;
         };
-        let body = match std::fs::read_to_string(&path) {
-            Ok(body) => body,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                return TranscriptView::NotRecorded;
-            }
-            Err(e) => return TranscriptView::Unreadable(format!("{}: {e}", path.display())),
-        };
-        narrow(&body, case, format)
-            .unwrap_or_else(|e| TranscriptView::Unreadable(format!("{}: {e}", path.display())))
-    }
-
-    /// Narrows one transcript document to a single case's exchanges.
-    ///
-    /// A case the document does not carry yields an EMPTY
-    /// [`TranscriptView::Recorded`]: the run recorded its wire, and this case
-    /// drove nothing.
-    ///
-    /// # Errors
-    /// The parse failure verbatim, when the body is not a transcript.
-    pub fn narrow(
-        body: &str,
-        case: &str,
-        format: Option<&str>,
-    ) -> Result<TranscriptView, serde_json::Error> {
-        let transcript: veredictum::transcript::RunTranscript = serde_json::from_str(body)?;
-        // The format token can fail to render, so the match is scanned rather
-        // than closed over: a `find` predicate has nowhere to put the error.
-        let mut matched = None;
-        for entry in &transcript.cases {
-            if entry.case.as_str() == case && opt_token(entry.format.as_ref())?.as_deref() == format
-            {
-                matched = Some(entry);
-                break;
-            }
+        match Har::read(&path) {
+            Ok(har) => har.log.entries.get(entry).map_or_else(
+                || {
+                    RecordingView::Unreadable(format!(
+                        "{}: the recording carries no entry {entry}",
+                        path.display()
+                    ))
+                },
+                |recorded| RecordingView::Exchange(exchange_of(entry, recorded)),
+            ),
+            Err(e) => RecordingView::Unreadable(e.to_string()),
         }
-        let exchanges = matched
-            .map(|entry| {
-                entry
-                    .exchanges
-                    .iter()
-                    .map(|exchange| ExchangeView {
-                        seq: exchange.seq,
-                        request_line: format!(
-                            "{} {}",
-                            exchange.request.method, exchange.request.url
-                        ),
-                        request_headers: header_lines(&exchange.request.headers),
-                        request_body: body_text(exchange.request.body.as_ref()),
-                        status_line: format!("HTTP {}", exchange.response.status),
-                        response_headers: header_lines(&exchange.response.headers),
-                        response_body: body_text(exchange.response.body.as_ref()),
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        Ok(TranscriptView::Recorded(exchanges))
     }
 
-    /// One outcome joined to its catalogue case, or `Ok(None)` when the
-    /// record does not carry the id.
+    /// A citation as one line: source, section and the quote.
+    fn why_line(why: &Why) -> String {
+        format!("{}, {}: \"{}\"", why.source, why.section, why.quote)
+    }
+
+    /// One row joined to its explanation and its judged exchange, or
+    /// `Ok(None)` when the results document does not carry it.
     ///
     /// # Errors
     /// The verbatim read failures.
@@ -346,165 +269,49 @@ pub mod read {
         state: &ConsoleState,
         submitter: crate::submitter::Submitter,
         case: &str,
-        format: Option<&str>,
+        row: u32,
     ) -> Result<Option<ResultDetail>, String> {
         let Some((results, results_path)) = finished_results(state, submitter)? else {
             return Ok(None);
         };
-        // Scanned rather than closed over, for the reason `narrow` gives: the
-        // format token's failure has nowhere to go inside a `find` predicate.
-        let mut matched = None;
-        for outcome in &results.outcomes {
-            let held = opt_token(outcome.format.as_ref())
-                .map_err(|e| format!("a recorded format did not render: {e}"))?;
-            if outcome.case.to_string() == case && held.as_deref() == format {
-                matched = Some(outcome);
-                break;
-            }
-        }
-        let Some(outcome) = matched else {
+        let Some(found) = results
+            .rows
+            .iter()
+            .find(|held| held.case == case && index(held.row) == row)
+        else {
             return Ok(None);
         };
-        let (test_purpose, spec_refs) = match state.catalogue.as_ref() {
-            Ok(validation) => validation
-                .loaded
-                .set
-                .cases
-                .iter()
-                .find(|(_, c)| c.id == outcome.case)
-                .map_or((None, Vec::new()), |(_, c)| {
-                    (Some(c.test_purpose.clone()), c.spec_refs.clone())
-                }),
-            Err(_) => (None, Vec::new()),
-        };
+        let summary = state.catalogue.as_ref().as_ref().ok().and_then(|listing| {
+            listing
+                .workflows()
+                .find(|(_, workflow)| workflow.case == case)
+                .and_then(|(_, workflow)| workflow.summary.clone())
+        });
+        let explanation = found.explanation.as_ref();
         Ok(Some(ResultDetail {
-            row: row_of(outcome).map_err(|e| format!("a result row did not render: {e}"))?,
-            citation: outcome.citation.clone(),
-            failing_step: outcome.failing_step,
-            failed_rows: outcome
-                .failed_rows
-                .iter()
-                .map(|failed| FailedRowView {
-                    row: format!("row {} · step {}", failed.row, failed.step),
-                    evidence: failed.reason.clone(),
-                })
-                .collect(),
-            test_purpose,
-            spec_refs,
-            transcript: transcript_of(&results_path, case, format),
+            row: row_of(found).map_err(|e| format!("a result row did not render: {e}"))?,
+            summary,
+            step: explanation.map(|e| e.step.clone()),
+            what: explanation.map(|e| e.what.clone()),
+            why: explanation.and_then(|e| e.why.as_ref()).map(why_line),
+            expected: explanation.map(|e| e.expected.clone()),
+            received: explanation.map(|e| e.received.clone()),
+            whose: explanation.map(|e| e.whose.to_string()),
+            report: explanation
+                .and_then(|e| e.why.as_ref())
+                .and_then(|why| why.report)
+                .map(std::num::NonZeroU64::get),
+            skip: found
+                .skip
+                .as_ref()
+                .map(|skip| format!("{}: {}", skip.reason, why_line(&skip.why))),
+            recording: recording_of(
+                &results_path,
+                explanation
+                    .and_then(|e| e.exchange.as_ref())
+                    .map(|x| x.entry),
+            ),
         }))
-    }
-
-    /// Everything one judgement of the finished run establishes.
-    ///
-    /// The judgement reads the whole campaign, so a caller that needs more
-    /// than one of these facts takes this value and reads all of them from it.
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct JudgedFacts {
-        /// Profile verdicts: tier token → verdict token.
-        pub profiles: Vec<(String, String)>,
-        /// Capability evidence: name → evidence token.
-        pub capabilities: Vec<(String, String)>,
-        /// The rendered documents.
-        pub documents: Vec<DocumentView>,
-        /// The measured performance classes, `class <token> <outcome>` each,
-        /// empty when the campaign carried no measured runs.
-        pub performance: Vec<String>,
-    }
-
-    /// The finished run's judgement, or the honest reason there is none.
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub enum JudgedRun {
-        /// The judgement ran.
-        Judged(Box<JudgedFacts>),
-        /// The run was driven without a statement, so no claim exists.
-        NoStatement,
-        /// No finished run exists yet.
-        NoRun,
-    }
-
-    /// Runs the lib's judgement over the finished run ONCE.
-    ///
-    /// # Errors
-    /// The verbatim judgement failure.
-    pub fn judged(
-        state: &ConsoleState,
-        submitter: crate::submitter::Submitter,
-    ) -> Result<JudgedRun, String> {
-        let Some((_, results_path)) = finished_results(state, submitter)? else {
-            return Ok(JudgedRun::NoRun);
-        };
-        // The claim travels with the run: the judgement certifies the bytes
-        // beside the results, never the mutable draft.
-        let statement_path = results_path
-            .parent()
-            .map(|dir| dir.join("statement.json"))
-            .filter(|path| path.is_file());
-        let Some(statement_path) = statement_path else {
-            return Ok(JudgedRun::NoStatement);
-        };
-        let judgement = veredictum::pipeline::judgement::judge(
-            &veredictum::pipeline::judgement::JudgementRequest {
-                statement: &statement_path,
-                results: &results_path,
-                root: &state.root,
-            },
-        )
-        .map_err(|e| e.to_string())?;
-        Ok(JudgedRun::Judged(Box::new(JudgedFacts {
-            profiles: judgement
-                .report
-                .profiles
-                .iter()
-                .map(|(tier, verdict)| Ok((token(tier)?, token(verdict)?)))
-                .collect::<Result<Vec<(String, String)>, serde_json::Error>>()
-                .map_err(|e| format!("a profile verdict did not render: {e}"))?,
-            capabilities: judgement
-                .report
-                .capabilities
-                .iter()
-                .map(|(name, evidence)| Ok((name.to_string(), token(evidence)?)))
-                .collect::<Result<Vec<(String, String)>, serde_json::Error>>()
-                .map_err(|e| format!("a capability verdict did not render: {e}"))?,
-            documents: judgement
-                .documents
-                .iter()
-                .map(|document| DocumentView {
-                    name: document.name.clone(),
-                    body: document.body.clone(),
-                })
-                .collect(),
-            performance: judgement
-                .report
-                .performance
-                .iter()
-                .map(|verdict| {
-                    let outcome = token(&verdict.verdict)?;
-                    Ok(format!("class {} {outcome}", verdict.class.token()))
-                })
-                .collect::<Result<Vec<String>, serde_json::Error>>()
-                .map_err(|e| format!("a measured class verdict did not render: {e}"))?,
-        })))
-    }
-
-    /// The verdicts screen: the lib's own judgement over the finished run and
-    /// the draft's statement.
-    ///
-    /// # Errors
-    /// The verbatim judgement failure.
-    pub fn verdicts_screen(
-        state: &ConsoleState,
-        submitter: crate::submitter::Submitter,
-    ) -> Result<VerdictsScreen, String> {
-        Ok(match judged(state, submitter)? {
-            JudgedRun::Judged(facts) => VerdictsScreen::Judged {
-                profiles: facts.profiles,
-                capabilities: facts.capabilities,
-                documents: facts.documents,
-            },
-            JudgedRun::NoStatement => VerdictsScreen::NoStatement,
-            JudgedRun::NoRun => VerdictsScreen::NoRun,
-        })
     }
 }
 
@@ -519,7 +326,7 @@ pub mod fns {
 
     use leptos::prelude::{ServerFnError, server};
 
-    use super::{ResultDetail, ResultsScreen, VerdictsScreen};
+    use super::{ResultDetail, ResultsScreen};
 
     /// The results screen, `None` before a finished run.
     ///
@@ -529,164 +336,68 @@ pub mod fns {
     pub async fn fetch_results() -> Result<Option<ResultsScreen>, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
-        super::read::results_screen(&state, who).map_err(ServerFnError::new)
+        super::read::results_screen(&state, who)
+            .map(|screen| crate::capture::results(&state, screen))
+            .map_err(ServerFnError::new)
     }
 
-    /// One outcome's detail; `None` for an id the record does not carry.
+    /// One row's detail; `None` for a row the results document does not
+    /// carry.
     ///
     /// # Errors
     /// The verbatim read failures.
     #[server]
     pub async fn fetch_result_detail(
         case: String,
-        format: Option<String>,
+        row: u32,
     ) -> Result<Option<ResultDetail>, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
-        super::read::result_detail(&state, who, &case, format.as_deref())
+        super::read::result_detail(&state, who, &case, row)
+            .map(|detail| crate::capture::detail(&state, detail))
             .map_err(ServerFnError::new)
-    }
-
-    /// The verdicts screen.
-    ///
-    /// # Errors
-    /// The verbatim judgement failure.
-    #[server]
-    pub async fn fetch_verdicts() -> Result<VerdictsScreen, ServerFnError> {
-        let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        let who = crate::submitter::current(&state);
-        super::read::verdicts_screen(&state, who).map_err(ServerFnError::new)
     }
 }
 
 #[cfg(all(test, feature = "ssr"))]
 mod tests {
-    use super::TranscriptView;
-    use super::read::narrow;
+    use super::read::exchange_of;
 
-    /// One transcript document as the engine writes it, authored as raw bytes
-    /// so the reader is held to the wire form rather than to a value this
-    /// crate serialized itself.
-    const DOCUMENT: &str = r#"{
-      "sut": { "name": { "value": "example-cdr", "source": "operator" }, "version": { "value": "0.0.0", "source": "operator" } },
-      "schedule_release": "cnf-2.0-w2",
-      "cases": [
-        {
-          "case": "I_EHR_SERVICE.create_ehr-main",
-          "format": "canonical-json",
-          "exchanges": [
-            {
-              "seq": 1,
-              "row": 0,
-              "request": {
-                "method": "POST",
-                "url": "http://cdr.example/ehr",
-                "headers": { "authorization": "«redacted»", "content-type": "application/json" },
-                "body": { "_type": "EHR_STATUS" }
-              },
-              "response": {
-                "status": 201,
-                "headers": { "etag": "\"abc\"" },
-                "body": "created"
-              }
-            }
-          ]
-        },
-        {
-          "case": "I_EHR_SERVICE.get_ehr-main",
-          "exchanges": [
-            {
-              "seq": 1,
-              "row": 0,
-              "request": { "method": "GET", "url": "http://cdr.example/ehr/x", "headers": {} },
-              "response": { "status": 404, "headers": {} }
-            }
-          ]
-        }
-      ]
-    }"#;
+    /// The repository's committed recording of a red row, the same file the
+    /// engine's own verification pack replays.
+    fn recording() -> Result<veredictum::arazzo::har::Har, Box<dyn std::error::Error>> {
+        let path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+            .join("verification-pack/arazzo/fail.har");
+        Ok(veredictum::arazzo::har::Har::read(&path)?)
+    }
 
+    /// One entry renders both sides of its wire, the request line and the
+    /// status line taken from the recording verbatim.
     #[expect(
         clippy::panic_in_result_fn,
-        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
     )]
     #[test]
-    fn a_recorded_case_renders_both_sides_of_its_wire() -> Result<(), serde_json::Error> {
-        let view = narrow(
-            DOCUMENT,
-            "I_EHR_SERVICE.create_ehr-main",
-            Some("canonical-json"),
-        )?;
-        let TranscriptView::Recorded(exchanges) = view else {
-            panic!("a document that carries the case is recorded: {view:?}");
-        };
-        let first = exchanges.first().expect("one exchange");
-        assert_eq!(first.seq, 1);
-        assert_eq!(first.request_line, "POST http://cdr.example/ehr");
+    fn a_recorded_entry_renders_both_sides_of_its_wire() -> Result<(), Box<dyn std::error::Error>> {
+        let har = recording()?;
+        let entry = har
+            .log
+            .entries
+            .first()
+            .ok_or("the recording carries entries")?;
+        let view = exchange_of(0, entry);
+        assert_eq!(view.entry, 0);
+        assert_eq!(
+            view.request_line,
+            format!("{} {}", entry.request.method, entry.request.url)
+        );
+        assert_eq!(view.status_line, format!("HTTP {}", entry.response.status));
         assert!(
-            first.request_headers.contains("authorization: «redacted»"),
-            "{}",
-            first.request_headers
-        );
-        assert_eq!(first.status_line, "HTTP 201");
-        assert_eq!(first.response_headers, "etag: \"abc\"");
-        // A JSON body pretty-prints; a body the reader kept as a string is
-        // the string itself, never a re-quoted one.
-        assert_eq!(
-            first.request_body.as_deref(),
-            Some("{\n  \"_type\": \"EHR_STATUS\"\n}")
-        );
-        assert_eq!(first.response_body.as_deref(), Some("created"));
-        Ok(())
-    }
-
-    /// The format is part of the identity: the same case id on another format
-    /// is a different row, and it selects nothing.
-    #[expect(
-        clippy::panic_in_result_fn,
-        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
-    )]
-    #[test]
-    fn the_format_discriminates_the_case() -> Result<(), serde_json::Error> {
-        let TranscriptView::Recorded(matched) =
-            narrow(DOCUMENT, "I_EHR_SERVICE.get_ehr-main", None)?
-        else {
-            panic!("the format-less case is carried by the document");
-        };
-        assert_eq!(matched.len(), 1);
-        let mismatched = narrow(
-            DOCUMENT,
-            "I_EHR_SERVICE.get_ehr-main",
-            Some("canonical-xml"),
-        )?;
-        assert_eq!(
-            mismatched,
-            TranscriptView::Recorded(vec![]),
-            "another format is another row"
+            view.request_headers
+                .contains("authorization: [not recorded]"),
+            "the recording never carries a credential: {}",
+            view.request_headers
         );
         Ok(())
-    }
-
-    /// A case the transcript does not carry is an honest empty recording, not
-    /// an error and not an absent transcript.
-    #[expect(
-        clippy::panic_in_result_fn,
-        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
-    )]
-    #[test]
-    fn an_unrecorded_case_is_an_empty_recording() -> Result<(), serde_json::Error> {
-        assert_eq!(
-            narrow(DOCUMENT, "I_EHR_SERVICE.delete_ehr-main", None)?,
-            TranscriptView::Recorded(vec![])
-        );
-        Ok(())
-    }
-
-    /// A body that is not a transcript is a parse failure the caller reports
-    /// verbatim, never silence.
-    #[test]
-    fn a_body_that_is_not_a_transcript_is_refused() {
-        assert!(narrow("{ not json", "any", None).is_err());
-        assert!(narrow(r#"{"cases":"nope"}"#, "any", None).is_err());
     }
 }

@@ -41,7 +41,7 @@
 </p>
 
 <p align="center">
-<strong>the released openEHR specifications, version-aware per case</strong> &nbsp;·&nbsp; <strong>1146 spec-cited cases</strong> &nbsp;·&nbsp; <strong>249 operation bindings</strong>
+<strong>the released openEHR specifications, version-aware per case</strong> &nbsp;·&nbsp; <strong>1649 spec-cited cases</strong> &nbsp;·&nbsp; <strong>203 Arazzo documents</strong>
 </p>
 
 <!--
@@ -109,28 +109,30 @@ and reproducible, which is the stability that matters for a verdict.
 ## What it does
 
 The instrument is one binary plus a data tree. The data tree is a
-machine-readable catalogue of 1146 test cases. Each case cites the
-specification section it enforces, and the released specification text is
-vendored in this repository, so every citation resolves against text you can
-read. The case and binding counts on this page are the line
-`veredictum validate` prints over `artifacts/`, and a CI guard fails the
-build when a count here disagrees with the catalogue.
+machine-readable catalogue of 1649 test cases: [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html)
+workflows over the released openEHR REST API OpenAPI documents, in
+203 Arazzo documents under `catalogue/`. Each case cites the specification
+section it enforces, and the released specification text is vendored in this
+repository, so every citation resolves against text you can read. The counts
+on this page are the line `veredictum validate` prints over `catalogue/`, and
+a CI guard fails the build when a count here disagrees with the catalogue.
 
 One command surface answers four different questions about a server:
 
 | Question | Commands |
 |---|---|
-| **Does it conform?** | `validate` checks the catalogue itself before any server is involved; zero findings is the only passing result. `run` drives the applicable cases against the server over its own REST wire and records every request and response. `verdicts` computes the verdict from those recordings, as a pure function, and renders the report and certificate documents. |
+| **Does it conform?** | `validate` checks the catalogue itself before any server is involved; zero findings is the only passing result. `test` drives the cases your statement selects against the server over its own REST wire, records every exchange as HAR, judges each row and writes `results.json`; `--rejudge` reproduces those results from the recording alone. `export` renders the results for a CI system. |
 | **What class does it sustain?** | `perf` seeds the population-scale corpus and holds a class's offered load for the sustained window, open-loop, merging the measured record into the results. |
 | **Where does it break?** | `stress` steps load up to the maximum sustainable throughput; `stress-compare` overlays two committed stress reports; `aql-probe` explores AQL behaviour over the seeded corpus with per-statement database attribution. All three are exploration and never produce a conformance record. |
 | **How fast is it?** | `bench` runs an embedded benchmark pack against any reachable CDR from a base URL and credentials; `bench-compare` aligns committed results into one table; `bench-packs` writes the byte-deterministic description of what every pack runs. Comparative speed only, never a conformance verdict. |
 
-Three more subcommands serve the records themselves: `verify-record` checks
-a sealed bundle, `emit-schemas` writes the published JSON Schemas, and
-`perf-assets` / `conformance-assets` render the published charts from
-committed artifacts. `veredictum --help` is the authoritative list.
+Three more subcommands serve the records themselves: `verdicts` re-derives
+the measured class verdicts, `verify-record` checks a sealed bundle,
+`emit-schemas` writes the published JSON Schemas, and `perf-assets` renders
+the published charts from committed artifacts. `veredictum --help` is the
+authoritative list.
 
-`run` and `verdicts` take `--sign-key`, which seals the documents they emit
+`verdicts` takes `--sign-key`, which seals the documents it emits
 with a SHA-256 digest manifest and a detached OpenPGP signature over it.
 `verify-record` recomputes every digest and checks that signature against a
 public key you supply, so a published record is tamper-evident to anyone who
@@ -230,42 +232,36 @@ git clone https://github.com/Vernum-Projecten/Veredictum
 cd Veredictum
 
 # 1. Check the catalogue itself. Zero findings is the only passing result.
-veredictum validate --root artifacts --specs specs/openehr
+veredictum validate --root catalogue --specs specs/openehr
 
 # 2. Write the two documents that describe YOUR deployment, against the
-#    published schemas in schemas/: mine/ixit.json (the endpoints, the
-#    credential variable names, the postures your server serves) and
-#    mine/statement.json (what you claim it supports). This repository commits
-#    no declaration about anybody's product: the support columns of the ICS
-#    proforma in artifacts/vocab/capability_matrix.yaml are the supplier's to
-#    fill in. fixtures/declaration/ shows the shape.
+#    published schemas in schemas/: mine/statement.json (the capability
+#    folders under catalogue/cases/ you claim, and one arm of each option in
+#    catalogue/capabilities.yaml) and mine/ixit.json (the values the
+#    catalogue's declared inputs read). This repository commits no declaration
+#    about anybody's product. fixtures/declaration/ shows the shape.
 
-# 3. Hold your claim to the static conformance review, which reports a claim
-#    the catalogue cannot test at all.
-veredictum validate --root artifacts --specs specs/openehr \
+# 3. Hold your claim to the static review.
+veredictum validate --root catalogue --specs specs/openehr \
     --statement mine/statement.json
 
-# 4. Drive the catalogue against your running server.
-veredictum run --root artifacts --ixit mine/ixit.json --out out/ \
-    --sut-name my-cdr --sut-version 1.2.3 --statement mine/statement.json
-
-# 5. Compute the verdicts and render the submission documents.
-veredictum verdicts --root artifacts --statement mine/statement.json \
-    --results out/results.json --out out/
+# 4. Drive the catalogue against your running server. A failed or errored
+#    row exits 1, so a CI job goes red on it.
+veredictum test --root catalogue --base-url https://cdr.example/openehr/v1 \
+    --auth bearer --statement mine/statement.json --ixit mine/ixit.json \
+    --out out/
 ```
 
 No installed binary? `cargo run -- <subcommand> …` from the clone does the
 same; the toolchain pins itself from `rust-toolchain.toml`, and the only
 extra tool is `cargo-nextest`, only if you intend to run the test suite.
 
-### Run the Arazzo catalogue
+### Run the catalogue from the container image
 
-The catalogue is moving to [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html)
-workflows over the released openEHR REST API OpenAPI documents, under
-`catalogue/`. `veredictum test` drives it, writes `results.json` and a HAR
-recording of every exchange, and exits `1` when a row failed or errored, so a
-CI job goes red on a failed row. The container image ships the catalogue and
-runs the same subcommand:
+`veredictum test` writes `results.json` and a HAR recording of every
+exchange, and exits `1` when a row failed or errored, so a CI job goes red on
+a failed row. The container image ships the catalogue and runs the same
+subcommand:
 
 ```bash
 docker run --rm -v "$PWD/out:/work/out" -e VEREDICTUM_SUT_TOKEN \
@@ -279,7 +275,7 @@ comes only from `veredictum`, because the citation behind each criterion, the
 judges a plain condition cannot express, the selection of documents by your
 statement and the attribution of each red row live in its `x-veredictum-*`
 extensions and its pipeline, which a generic runner ignores.
-[The book](https://veredictum.eu/docs/running.html#the-arazzo-catalogue)
+[The book](https://veredictum.eu/docs/running.html#re-judging-a-recording)
 covers the statement, the credentials and the offline re-judgement.
 
 ## Why an independent instrument
@@ -295,8 +291,9 @@ catalogue names the section it comes from, so it can be refuted by a better
 reading of that text and by nothing else. No server's behaviour, no vendor's
 documentation, and no stalled upstream test suite ever sets an expected
 value. Where the released text is genuinely silent or contradicts itself,
-the gap goes to the ambiguity register with a typed disposition and is
-reported back upstream. A private resolution never happens.
+no case asserts the behaviour: the gap is an `upstream-report` issue here,
+with a proposed patch to the specification, or an option the party's
+statement answers. A private resolution never happens.
 
 Every failure is attributed before anything is changed. A red row has
 exactly three possible causes, and the instrument itself is a suspect ahead
@@ -386,37 +383,32 @@ they describe.
 
 | | |
 |---|---|
-| **1146 case cores** | `artifacts/schedule/` — one small isolated case per behaviour, so a red row names one defect. Grouped by chapter: EHR, composition, content, contribution, directory, query, definition, demographic, admin, messaging, security, SMART, simplified formats, system. The four measured-workload cases are not case cores: the measured instruments read them from `perf/` |
-| **249 operation bindings** | `artifacts/bindings/` — a case core says what an operation means, in the Service Model's own vocabulary; a binding says how it reaches the wire. A case core carries no status code, header or media type, so a new protocol adds binding files, never a new catalogue |
-| **The vocabularies** | `artifacts/vocab/` — the capability matrix behind the CORE, STANDARD and OPTIONS profiles, the wire surface the coverage gate enumerates, the outcome and selector grammars, and the journey catalogue the measured workload decomposes through |
-| **The corpora** | `artifacts/corpus/` — payload fixtures with their adjudicated verdicts, plus breadth packs vendored verbatim from upstream clinical-model libraries. Every invalid shape is kept as its own negative case, so a lenient server that accepts it fails |
-| **The ambiguity register** | `artifacts/registers/ambiguities.yaml` — every place the specification is silent or contradicts itself, each with a typed disposition and, where we reported it, the upstream issue |
+| **The catalogue** | `catalogue/cases/` — 1649 workflows in 203 Arazzo documents, one small isolated case per behaviour, so a red row names one defect. Grouped in 14 capability folders: EHR, EHR status, composition, content, contribution, directory, item tags, query, definition, demographic, admin, security, simplified formats, system. Every criterion carries the released sentence it enforces |
+| **The options** | `catalogue/capabilities.yaml` — the behaviours the release leaves to the implementation, each an option with its arms; a party's statement picks one arm of each, and the documents of every other arm are skipped |
+| **The id map** | `catalogue/id-map.yaml` — every case id of the former case-core catalogue, mapped to the workflows that carry it or to the reason none does |
 | **The performance schedule** | `perf/` — the four class cases, the journey catalogue and the payloads `perf`, `stress` and `aql-probe` read, kept apart from the conformance catalogue |
 | **The published schemas** | `schemas/` — JSON Schema for every artifact family, emitted by the instrument and drift-tested, so an integrator can author against the format |
-| **The verification pack** | `verification-pack/` — a recorded transcript with adjudicated verdicts. A runner claiming to implement this catalogue replays it and must reproduce every verdict, so no harness, this one included, is trusted on its word |
+| **The verification pack** | `verification-pack/arazzo/` — recorded HAR exchanges with their adjudicated results. The evaluator re-judges every recording and must reproduce every row, so no harness, this one included, is trusted on its word |
 | **The oracle** | `specs/openehr/` — the released specification text, vendored verbatim, plus the released XSD, JSON Schema and OpenAPI bundles a citation resolves against |
 
 ## How a verdict is computed
 
 A verdict is a pure function of four inputs: the party's statement (the
-capabilities the server claims), the recorded results, the catalogue, and
-the capability matrix. Nothing else enters. Two independent runners given
-the same four inputs must compute identical verdicts, and the verification
-pack exists to check exactly that. A certificate row a human typed is a
-defect.
+capabilities the server claims and the option arms it sits on), the IXIT,
+the catalogue, and the recorded exchanges. Nothing else enters. Two
+independent runners given the same four inputs must compute identical
+verdicts, and the verification pack exists to check exactly that. A
+certificate row a human typed is a defect.
 
 Two verdict machineries share that discipline
 ([`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md) §8):
 
-- **Conformance by assertion:** the statement selects the applicable cases,
-  typed assertions judge each recorded exchange, and case results roll up
-  through capabilities to a profile verdict against the CORE / STANDARD /
-  OPTIONS matrix. Version selection lives in the same two documents: each
-  case declares the spec-version ranges it applies to, the statement declares
-  the versions the product implements, and a case outside the declared
-  versions is out of scope — the instrument is version-aware per case, never
-  fixed to one release. `not_evidenced` and `not_claimed` are printed as
-  first-class results, so a thin claim is visible instead of silently green.
+- **Conformance by assertion:** the statement selects the applicable
+  documents, the criteria judge each recorded exchange, and each row ends
+  passed, failed, errored or skipped. A skipped row names its reason
+  (`not-claimed`, `option-not-selected`, `not-declared`), so a thin claim is
+  visible instead of silently green, and a red row carries what was checked,
+  why, what was expected and what came back.
 - **Conformance by measurement:** a performance class is earned when every
   threshold holds in one measured run. The class verdict is re-derived from
   the HDR histograms embedded in the record, so a stored summary is
@@ -442,13 +434,12 @@ activity statistics in [`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/V
 ## Coverage is a mandate
 
 A green run over a thin catalogue proves nothing, so coverage is
-machine-checked rather than asserted. The `surface-coverage` gate enumerates
-the wire surface from the released sources alone, the Service Model's
-platform interfaces crossed with their ITS-REST branches, and fails on any
-operation, status-code branch, header rule, negotiation variant or error
-family that has neither a covering case nor a cited exception. A behaviour
-the specification defines and the catalogue misses is a gap to close or an
-honest boundary in the register.
+machine-checked rather than asserted. The surface-coverage gate enumerates
+the released operations, their response branches and the negotiation
+headers from the released ITS-REST OpenAPI documents, and fails on any that
+has neither a covering step nor a recorded gap naming its tracker issue. A
+behaviour the specification defines and the catalogue misses is a gap to
+close.
 
 Cases are added. They are never removed to make a run go green.
 
@@ -478,9 +469,8 @@ about what it observed. The seal above is the mark of that verdict.
 ## Design record
 
 [`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md) carries the reasoning rather than a
-summary of it: the testable surface and the case-core field definitions, the
-per-operation wire bindings, the outcome taxonomy and the ambiguity
-register, the assertion vocabulary, the verdict computation, and the
+summary of it: the Arazzo catalogue with its extensions, condition profile
+and gates, the party documents, the verdict computation, and the
 population-anchored performance-class model with its hospital-simulation
 journey decomposition. It also records the evidence base for why the
 instrument exists in this shape: the state of the official openEHR CNF
@@ -516,8 +506,8 @@ below says what that work contributed to this catalogue.
   behaviours a platform product has to be tested for. The schedule's
   amendment record names T Beale, B Naess, I McNicoll, C Chevalley,
   H Frankel, S Iancu, B Lah and W Wagner across its revisions, beside
-  P Pazos. 349 of the 1146 case cores here cite one of its Test Schedule
-  chapters.
+  P Pazos. 349 of the 1146 case cores of the former case-core catalogue
+  cited one of its Test Schedule chapters.
 - **Pablo Pazos (CaboLabs):** the fleshed EHR, COMPOSITION, CONTRIBUTION and
   DIRECTORY chapters of that schedule, which are its usable core. The
   amendment record names him as the raiser of Test Schedule revisions 0.8.0
@@ -527,20 +517,20 @@ below says what that work contributed to this catalogue.
   [openEHR conformance verification framework](https://github.com/ppazos/openehr-conformance-verification)
   is the expanded continuation of that work, carrying a conformance testing
   specification of its own. He has argued the case for openEHR conformance
-  testing on the community forums for years. 127 of the 1146 case cores cite
-  the four chapters those revisions wrote.
+  testing on the community forums for years. 127 of the 1146 former case
+  cores cited the four chapters those revisions wrote.
 - **The EHRbase and vitasystems team:** the executable battery. The 223 Robot
   files the CNF component vendored name Wladislaw Wagner (Vitasystems GmbH),
   Pablo Pazos and Jake Smolka (Hannover Medical School) in their copyright
   headers, and the team maintains that set as its
   [integration tests](https://github.com/ehrbase/integration-tests). 156 of
-  the 462 corpus provenance records here name that set as the source of the
+  the 462 provenance records of the former corpus named that set as the source of the
   entry's bytes or of its template skeleton, each one re-adjudicated against
   the released specifications.
 - **The openEHR Foundation:** the
   [released specifications](https://specifications.openehr.org/) every
   expectation in the catalogue cites, and the machine-readable artifacts the
-  bindings resolve against: the ITS-XML and ITS-JSON schema bundles and the
+  workflows resolve against: the ITS-XML and ITS-JSON schema bundles and the
   ITS-REST OpenAPI documents.
 
 The Test Schedule chapters are cited as the structural guide to which

@@ -27,8 +27,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::exec::{CaseRecord, RowOutcome};
-use crate::ids::{AmbiguityId, CapabilityName, CaseId, OptionTag};
+use crate::ids::{CapabilityName, CaseId, OptionTag};
 use crate::vocab::{FormatName, ItsName, Tier};
 
 /// A party-artifact invariant violation.
@@ -61,9 +60,8 @@ pub struct Product {
     pub identifier: String,
 }
 
-/// Declared spec-component versions the SUT implements — the right-hand side
-/// of the per-case `applies` version filter. Keyed by the same components as
-/// [`crate::model::case::Applies`].
+/// Declared spec-component versions the SUT implements, keyed by
+/// specification component.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SpecVersions {
     /// Reference Model version.
@@ -237,20 +235,10 @@ pub struct Statement {
     /// Declared technology profiles (per ITS).
     #[serde(default)]
     pub tech_profiles: Vec<TechProfile>,
-    /// The ICS option declarations selecting `option_select` register
-    /// branches.
+    /// The ICS option arms: one arm of each option of the catalogue's
+    /// `capabilities.yaml`.
     #[serde(default)]
     pub options: Vec<OptionTag>,
-    /// The `served_extensions` families THIS party declares it serves beyond
-    /// the openEHR resource set — never a claim, never a verdict input.
-    ///
-    /// Each name resolves in the catalogue's `vocab/wire_surface.yaml`
-    /// `served_extensions` axis, which carries the routes and configuration
-    /// gate of the family; an unresolvable name is a validation finding. A
-    /// party that serves nothing beyond the openEHR resources declares an
-    /// empty list, and its statement says exactly that.
-    #[serde(default)]
-    pub served_extensions: Vec<String>,
     /// An optional performance claim.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub performance: Option<Performance>,
@@ -554,8 +542,8 @@ pub struct FailedRow {
     pub reason: String,
 }
 
-/// One case×format outcome record — the executor's [`CaseRecord`] rolled up
-/// into a single verdict for the results document.
+/// One case×format outcome record: a single rolled-up verdict in the results
+/// document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutcomeRecord {
     /// The case id.
@@ -603,117 +591,6 @@ impl OutcomeRecord {
             });
         }
         Ok(())
-    }
-}
-
-impl From<&CaseRecord> for OutcomeRecord {
-    /// Roll a per-row execution record up into a single results outcome:
-    /// any failed row → `failed` (first failing step/reason); else any
-    /// errored → `errored`; else any passed → `passed` (mixed passed/N-A is
-    /// a pass); else all N/A → `not_applicable`; else all skipped →
-    /// `skipped`; an empty record → `errored` (nothing was driven). Every
-    /// errored row is listed in `errored_rows` whatever the status.
-    fn from(record: &CaseRecord) -> Self {
-        let mut failing: Option<(u32, String)> = None;
-        let mut erroring: Option<(u32, String)> = None;
-        let mut na_citation: Option<String> = None;
-        let mut skip_citation: Option<String> = None;
-        let mut has_passed = false;
-        let mut failed_rows = Vec::new();
-        let mut errored_rows = Vec::new();
-
-        for (index, row) in record.rows.iter().enumerate() {
-            match row {
-                RowOutcome::Passed => has_passed = true,
-                RowOutcome::Failed { step, reason } => {
-                    failed_rows.push(FailedRow {
-                        row: index,
-                        step: *step,
-                        reason: reason.clone(),
-                    });
-                    if failing.is_none() {
-                        failing = Some((*step, reason.clone()));
-                    }
-                }
-                RowOutcome::Errored { step, reason } => {
-                    errored_rows.push(FailedRow {
-                        row: index,
-                        step: *step,
-                        reason: reason.clone(),
-                    });
-                    if erroring.is_none() {
-                        erroring = Some((*step, reason.clone()));
-                    }
-                }
-                RowOutcome::NotApplicable { citation } => {
-                    if na_citation.is_none() {
-                        na_citation = Some(citation.clone());
-                    }
-                }
-                RowOutcome::Skipped { citation } => {
-                    if skip_citation.is_none() {
-                        skip_citation = Some(citation.clone());
-                    }
-                }
-            }
-        }
-
-        let base = |status, failing_step, reason, citation, failed_rows| OutcomeRecord {
-            case: record.case.clone(),
-            format: record.format,
-            status,
-            rows_driven: record.rows_driven,
-            rows_total: record.rows_total,
-            failing_step,
-            reason,
-            citation,
-            failed_rows,
-            errored_rows: errored_rows.clone(),
-        };
-
-        if let Some((step, reason)) = failing {
-            base(
-                OutcomeStatus::Failed,
-                Some(step),
-                Some(reason),
-                None,
-                failed_rows,
-            )
-        } else if let Some((step, reason)) = erroring {
-            base(
-                OutcomeStatus::Errored,
-                Some(step),
-                Some(reason),
-                None,
-                Vec::new(),
-            )
-        } else if has_passed {
-            base(OutcomeStatus::Passed, None, None, None, Vec::new())
-        } else if let Some(citation) = na_citation {
-            base(
-                OutcomeStatus::NotApplicable,
-                None,
-                None,
-                Some(citation),
-                Vec::new(),
-            )
-        } else if let Some(citation) = skip_citation {
-            base(
-                OutcomeStatus::Skipped,
-                None,
-                None,
-                Some(citation),
-                Vec::new(),
-            )
-        } else {
-            base(
-                OutcomeStatus::Errored,
-                None,
-                Some("no rows driven".to_owned()),
-                None,
-                Vec::new(),
-            )
-        }
     }
 }
 
@@ -774,15 +651,65 @@ impl std::fmt::Display for ProvenanceContradiction {
     }
 }
 
-/// One ambiguity disposition record: which register entry the run was subject
-/// to, and (for `option_select`) which option branch the ICS selected.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AmbiguityDisposition {
-    /// The register entry id.
-    pub ambiguity: AmbiguityId,
-    /// The selected option tag, for `option_select` entries.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub option: Option<OptionTag>,
+/// A provenance digest's width in bytes, which renders as twice that many hex
+/// characters.
+const DIGEST_BYTES: usize = 8;
+
+/// The leading 8 bytes of the SHA-256 over a document's bytes, lowercase hex.
+///
+/// Nothing is canonicalized, reordered or reformatted first, so every recorded
+/// digest is the one `sha256sum <file> | cut -c1-16` prints over the file the
+/// campaign was handed.
+fn leading_digest(text: &str) -> String {
+    use std::fmt::Write as _;
+
+    use sha2::{Digest as _, Sha256};
+
+    Sha256::digest(text.as_bytes())
+        .iter()
+        .take(DIGEST_BYTES)
+        .fold(
+            String::with_capacity(DIGEST_BYTES.saturating_mul(2)),
+            |mut out, byte| {
+                let _ = write!(out, "{byte:02x}");
+                out
+            },
+        )
+}
+
+/// Returns the ixit digest a results record carries, which binds the record
+/// to the exact declaration it was taken under.
+///
+/// The digest is the leading 8 bytes of the SHA-256 over the ixit document's
+/// bytes exactly as they sit on disk, lowercase hex, so anyone holding the
+/// declaration re-derives the recorded value with
+/// `sha256sum ixit.json | cut -c1-16`.
+///
+/// ```
+/// use veredictum::party::ixit_digest;
+///
+/// // `printf '{}' | sha256sum` prints 44136fa355b3678a…
+/// assert_eq!(ixit_digest("{}"), "44136fa355b3678a");
+/// ```
+#[must_use]
+pub fn ixit_digest(ixit_text: &str) -> String {
+    leading_digest(ixit_text)
+}
+
+/// Returns the statement digest a results record carries, which names the
+/// exact claim the record was taken under.
+///
+/// Same shape as [`ixit_digest`], over the statement document's own bytes.
+///
+/// ```
+/// use veredictum::party::statement_digest;
+///
+/// // `printf '{}' | sha256sum` prints 44136fa355b3678a…
+/// assert_eq!(statement_digest("{}"), "44136fa355b3678a");
+/// ```
+#[must_use]
+pub fn statement_digest(statement_text: &str) -> String {
+    leading_digest(statement_text)
 }
 
 /// The party results document.
@@ -840,15 +767,6 @@ pub struct Results {
     /// environment block it was taken in.
     #[serde(default)]
     pub measurements: Vec<crate::perf::Measurement>,
-    /// The ambiguity dispositions the run applied: one record per
-    /// `option_select` register entry arm the party's ICS declared, in the
-    /// register's authored order.
-    ///
-    /// A campaign no statement selected declares no arm, so the list is
-    /// legitimately empty there, which is a statement about the run rather
-    /// than a member nothing writes.
-    #[serde(default)]
-    pub ambiguity_dispositions: Vec<AmbiguityDisposition>,
 }
 
 impl Results {
@@ -967,158 +885,6 @@ mod tests {
         assert!(unknown_source.is_err(), "the source vocabulary is closed");
     }
 
-    fn record(rows: Vec<RowOutcome>) -> CaseRecord {
-        CaseRecord {
-            case: CaseId::parse("I_EHR_SERVICE.create_ehr-main").unwrap(),
-            format: Some(FormatName::CanonicalJson),
-            rows_driven: rows.len(),
-            rows_total: rows.len(),
-            rows,
-            advisories: Vec::new(),
-        }
-    }
-
-    #[test]
-    fn rollup_prefers_failure_then_error() {
-        let r = OutcomeRecord::from(&record(vec![
-            RowOutcome::Passed,
-            RowOutcome::Failed {
-                step: 3,
-                reason: "boom".to_owned(),
-            },
-            RowOutcome::Errored {
-                step: 1,
-                reason: "conn".to_owned(),
-            },
-        ]));
-        assert_eq!(r.status, OutcomeStatus::Failed);
-        assert_eq!(r.failing_step, Some(3));
-
-        let r = OutcomeRecord::from(&record(vec![
-            RowOutcome::Passed,
-            RowOutcome::Errored {
-                step: 2,
-                reason: "conn".to_owned(),
-            },
-        ]));
-        assert_eq!(r.status, OutcomeStatus::Errored);
-        assert_eq!(r.failing_step, Some(2));
-    }
-
-    /// A failed row outranks an errored one in the rolled-up status, and the
-    /// errored row stays on the record beside it, in the serialized document
-    /// too.
-    #[test]
-    #[expect(
-        clippy::panic_in_result_fn,
-        reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-    )]
-    fn every_errored_row_is_recorded_beside_the_failed_ones() -> Result<(), serde_json::Error> {
-        let r = OutcomeRecord::from(&record(vec![
-            RowOutcome::Errored {
-                step: 0,
-                reason: "template upload answered 406".to_owned(),
-            },
-            RowOutcome::Failed {
-                step: 1,
-                reason: "expected `created`, observed `bad_request`".to_owned(),
-            },
-            RowOutcome::Passed,
-            RowOutcome::Errored {
-                step: 2,
-                reason: "connection reset".to_owned(),
-            },
-        ]));
-        assert_eq!(r.status, OutcomeStatus::Failed);
-        assert_eq!(
-            r.failed_rows,
-            vec![FailedRow {
-                row: 1,
-                step: 1,
-                reason: "expected `created`, observed `bad_request`".to_owned(),
-            }]
-        );
-        assert_eq!(
-            r.errored_rows,
-            vec![
-                FailedRow {
-                    row: 0,
-                    step: 0,
-                    reason: "template upload answered 406".to_owned(),
-                },
-                FailedRow {
-                    row: 3,
-                    step: 2,
-                    reason: "connection reset".to_owned(),
-                },
-            ]
-        );
-        let written = serde_json::to_value(&r)?;
-        assert_eq!(
-            written.pointer("/errored_rows/0/reason"),
-            Some(&serde_json::json!("template upload answered 406"))
-        );
-
-        // An all-errored case lists every row too, not only the first reason.
-        let r = OutcomeRecord::from(&record(vec![
-            RowOutcome::Errored {
-                step: 0,
-                reason: "a".to_owned(),
-            },
-            RowOutcome::Errored {
-                step: 0,
-                reason: "b".to_owned(),
-            },
-        ]));
-        assert_eq!(r.status, OutcomeStatus::Errored);
-        assert_eq!(r.errored_rows.len(), 2);
-        assert!(r.failed_rows.is_empty());
-        Ok(())
-    }
-
-    #[test]
-    fn rollup_passed_and_na_and_empty() {
-        let r = OutcomeRecord::from(&record(vec![
-            RowOutcome::Passed,
-            RowOutcome::NotApplicable {
-                citation: "c".to_owned(),
-            },
-        ]));
-        assert_eq!(r.status, OutcomeStatus::Passed);
-
-        let r = OutcomeRecord::from(&record(vec![
-            RowOutcome::NotApplicable {
-                citation: "AMB-17".to_owned(),
-            },
-            RowOutcome::NotApplicable {
-                citation: "AMB-17b".to_owned(),
-            },
-        ]));
-        assert_eq!(r.status, OutcomeStatus::NotApplicable);
-        assert_eq!(r.citation.as_deref(), Some("AMB-17"));
-
-        let r = OutcomeRecord::from(&record(vec![]));
-        assert_eq!(r.status, OutcomeStatus::Errored);
-    }
-
-    /// A case whose every row was skipped rolls up to `skipped` carrying the
-    /// FIRST skip citation, so the excuse travels with the published record
-    /// rather than being flattened into a bare status.
-    #[test]
-    fn a_wholly_skipped_case_rolls_up_carrying_its_first_citation() {
-        let r = OutcomeRecord::from(&record(vec![
-            RowOutcome::Skipped {
-                citation: "operator selection".to_owned(),
-            },
-            RowOutcome::Skipped {
-                citation: "operator selection (second row)".to_owned(),
-            },
-        ]));
-        assert_eq!(r.status, OutcomeStatus::Skipped);
-        assert_eq!(r.citation.as_deref(), Some("operator selection"));
-        assert_eq!(r.failing_step, None);
-    }
-
     /// The document-level invariant collects EVERY offending outcome, so one
     /// pass names the whole repair list instead of stopping at the first.
     #[test]
@@ -1148,7 +914,7 @@ mod tests {
 
         let cited = document(serde_json::json!([
             { "case": "A-x", "status": "not_applicable", "rows_driven": 0, "rows_total": 1,
-              "citation": "AMB-32" },
+              "citation": "ITS-REST overview §HTTP status codes" },
             { "case": "C-z", "status": "passed", "rows_driven": 1, "rows_total": 1 }
         ]));
         assert!(cited.check_invariants().is_ok());
@@ -1342,19 +1108,6 @@ mod tests {
     }
 
     #[test]
-    fn citation_invariant_bites() {
-        let mut r = OutcomeRecord::from(&record(vec![RowOutcome::NotApplicable {
-            citation: "AMB-1".to_owned(),
-        }]));
-        assert!(r.check_invariants().is_ok());
-        r.citation = None;
-        assert!(matches!(
-            r.check_invariants(),
-            Err(PartyError::MissingCitation { .. })
-        ));
-    }
-
-    #[test]
     fn statement_round_trips() {
         let json = serde_json::json!({
             "product": { "name": "FerroEHR", "version": "3.5.0",
@@ -1389,7 +1142,7 @@ mod tests {
                   "status": "passed", "rows_driven": 2, "rows_total": 2 },
                 { "case": "I_ADMIN_SERVICE.list_contributions-x",
                   "status": "not_applicable", "rows_driven": 0, "rows_total": 1,
-                  "citation": "AMB-33" }
+                  "citation": "ITS-REST admin.md §Admin API" }
             ]
         });
         let r: Results = serde_json::from_value(json).unwrap();

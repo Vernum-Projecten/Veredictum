@@ -61,7 +61,7 @@ pub const CLAIMS_RULE: &str = "Every workflow of an Arazzo document in a capabil
 /// The description [`STATEMENT_SCHEMA`] publishes for `claims.capabilities`,
 /// which carries [`CLAIMS_RULE`]. No openEHR spec governs the claim
 /// mechanism — our own design.
-pub const CLAIMS_DESCRIPTION: &str = "The capabilities the party claims. For the case-core catalogue each is a capability of the capability matrix; for the Arazzo catalogue each is a capability folder under `catalogue/cases/`, whose name is the folder's. Every workflow of an Arazzo document in a capability folder the statement does not claim is skipped not-claimed.";
+pub const CLAIMS_DESCRIPTION: &str = "The capabilities the party claims: each is a capability folder under `catalogue/cases/`, whose name is the folder's. Every workflow of an Arazzo document in a capability folder the statement does not claim is skipped not-claimed.";
 
 /// Why a catalogue cannot be run.
 #[derive(Debug, thiserror::Error)]

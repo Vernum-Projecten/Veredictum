@@ -27,7 +27,6 @@ specs/**  linguist-vendored
 # The catalogue is machine-readable DATA, not source. It is hand-authored and
 # reviewed line by line, but counting 1100 case cores as YAML source would make
 # the language bar describe the catalogue's size rather than the instrument's.
-artifacts/**  linguist-generated=true
 # The performance schedule is data of the same kind: class cases, a journey
 # catalogue and the payloads the measured instruments send.
 perf/**       linguist-generated=true
@@ -44,8 +43,6 @@ scripts/**   linguist-detectable=false
 # Vendored upstream corpora are byte-verbatim (the vendored-corpora rule):
 # no EOL normalization — upstream CKM exports carry CRLF and must round-trip
 # bit-identical through clone/checkout.
-artifacts/corpus/archetypes/** -text
-artifacts/corpus/templates/ckm/full/** -text
 
 # The brand palette and the seal are design assets, not source: without this the
 # language bar gives a CSS file the same weight as the runner.

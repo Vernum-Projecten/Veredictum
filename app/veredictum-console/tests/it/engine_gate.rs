@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The byte-identity gate (#54): a run driven through the console's engine
-//! seam and the same run driven by the CLI directly must emit IDENTICAL
-//! documents. The results record carries no wall-clock stamp, so the gate
-//! demands full byte equality — stronger than the 14-line identity-stamp
-//! delta the FerroEHR acceptance run tolerated. This is what makes "no
-//! runner logic is reimplemented in the console" a checked property.
+//! seam must emit the results document the engine itself writes. A live run
+//! generates fresh inputs, so a second live run from the CLI is held to the
+//! same row verdicts, and the engine re-judging the console run's own
+//! recording is held to full byte equality. This is what makes "no runner
+//! logic is reimplemented in the console" a checked property.
 
 use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
@@ -152,8 +152,43 @@ pub(crate) fn write_ixit(dir: &Path, port: u16) -> Result<PathBuf, std::io::Erro
     Ok(path)
 }
 
-/// The case the gate drives: one small isolated case, so the run is seconds.
-const GATE_FILTER: &str = "I_EHR_SERVICE.create_ehr-main";
+/// The document the gate drives: one small document, so the run is seconds.
+pub(crate) const GATE_DOCUMENT: &str = "system_options";
+
+/// The gate's run spec over the fixture SUT at `port`, writing into `out`.
+pub(crate) fn gate_spec(ixit: PathBuf, port: u16, out: PathBuf) -> RunSpec {
+    RunSpec {
+        root: repo_root().join("catalogue"),
+        base_url: format!("http://127.0.0.1:{port}"),
+        auth: "basic",
+        statement: None,
+        ixit: Some(ixit),
+        documents: vec![String::from(GATE_DOCUMENT)],
+        out_dir: out,
+        credentials: vec![
+            Credential {
+                name: String::from(veredictum::identity::USER_ENV),
+                value: Secret::new(String::from("gate-user")),
+            },
+            Credential {
+                name: String::from(veredictum::identity::PASSWORD_ENV),
+                value: Secret::new(String::from("gate-pass")),
+            },
+        ],
+    }
+}
+
+/// The rows of a results document as `(case, row, status)`, the part of a
+/// live run that does not depend on the inputs the instrument generated.
+fn verdict_rows(
+    results: &veredictum::arazzo::results::Results,
+) -> Vec<(String, usize, veredictum::arazzo::results::Status)> {
+    results
+        .rows
+        .iter()
+        .map(|row| (row.case.clone(), row.row, row.status))
+        .collect()
+}
 
 #[expect(
     clippy::panic_in_result_fn,
@@ -179,38 +214,15 @@ fn a_console_run_and_a_cli_run_emit_identical_documents() -> Result<(), Box<dyn 
     let scratch = assert_fs::TempDir::new()?;
     let port = fixture_sut()?;
     let ixit = write_ixit(scratch.path(), port)?;
-    let root = repo_root().join("artifacts");
+    let root = repo_root().join("catalogue");
 
     // Path one: the console's seam.
     let console_out = scratch.path().join("console-run");
     std::fs::create_dir_all(&console_out)?;
-    let finished = engine.run(
-        &RunSpec {
-            root: root.clone(),
-            ixit: ixit.clone(),
-            out_dir: console_out.clone(),
-            sut_name: Some(String::from("gate-sut")),
-            sut_version: Some(String::from("0.0.0-gate")),
-            statement: None,
-            filter: Some(String::from(GATE_FILTER)),
-            progress: false,
-            record_exchanges: false,
-            credentials: vec![
-                Credential {
-                    name: String::from("GATE_SUT_USER"),
-                    value: Secret::new(String::from("gate-user")),
-                },
-                Credential {
-                    name: String::from("GATE_SUT_PASS"),
-                    value: Secret::new(String::from("gate-pass")),
-                },
-            ],
-        },
-        |_line| {},
-    )?;
+    let finished = engine.run(&gate_spec(ixit.clone(), port, console_out), |_line| {})?;
     assert!(
-        !finished.results.outcomes.is_empty(),
-        "the filter drove no case at all — the gate compared two empty runs"
+        !finished.results.rows.is_empty(),
+        "the document drove no row at all — the gate compared two empty runs"
     );
 
     // Path two: the CLI, exactly as a terminal user runs it, with the same
@@ -219,48 +231,72 @@ fn a_console_run_and_a_cli_run_emit_identical_documents() -> Result<(), Box<dyn 
     std::fs::create_dir_all(&cli_out)?;
     let status = std::process::Command::new(engine.binary())
         .args([
-            "run",
+            "test",
             "--root",
             &root.to_string_lossy(),
+            "--base-url",
+            &format!("http://127.0.0.1:{port}"),
+            "--auth",
+            "basic",
             "--ixit",
             &ixit.to_string_lossy(),
+            "--document",
+            GATE_DOCUMENT,
             "--out",
             &cli_out.to_string_lossy(),
-            "--sut-name",
-            "gate-sut",
-            "--sut-version",
-            "0.0.0-gate",
-            "--filter",
-            GATE_FILTER,
         ])
-        .env("GATE_SUT_USER", "gate-user")
-        .env("GATE_SUT_PASS", "gate-pass")
+        .env(veredictum::identity::USER_ENV, "gate-user")
+        .env(veredictum::identity::PASSWORD_ENV, "gate-pass")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status()?;
     assert_eq!(
         status.success(),
         finished.clean_exit,
-        "the two paths disagree about whether the campaign was clean"
+        "the two paths disagree about whether the run was green"
+    );
+    let cli_results: veredictum::arazzo::results::Results =
+        serde_json::from_slice(&std::fs::read(cli_out.join("results.json"))?)?;
+    assert_eq!(
+        verdict_rows(&finished.results),
+        verdict_rows(&cli_results),
+        "the two live runs judged the same exchanges differently"
     );
 
-    // The gate itself: byte equality, no tolerated delta.
+    // The gate itself: the engine re-judging the console run's own recording
+    // writes the console's results byte for byte, so the console added and
+    // removed nothing around the engine.
+    let rejudged_out = scratch.path().join("rejudged");
+    std::fs::create_dir_all(&rejudged_out)?;
+    let rejudged = std::process::Command::new(engine.binary())
+        .args([
+            "test",
+            "--root",
+            &root.to_string_lossy(),
+            "--ixit",
+            &ixit.to_string_lossy(),
+            "--document",
+            GATE_DOCUMENT,
+            "--rejudge",
+            &finished.recording_path.to_string_lossy(),
+            "--out",
+            &rejudged_out.to_string_lossy(),
+        ])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()?;
+    assert_eq!(rejudged.success(), finished.clean_exit);
     let console_results = std::fs::read(&finished.results_path)?;
-    let cli_results = std::fs::read(cli_out.join("results.json"))?;
     assert_eq!(
-        console_results, cli_results,
-        "results.json differs between the console seam and the CLI"
-    );
-    let console_exceptions = std::fs::read(&finished.exceptions_path)?;
-    let cli_exceptions = std::fs::read(cli_out.join("run-exceptions.json"))?;
-    assert_eq!(
-        console_exceptions, cli_exceptions,
-        "run-exceptions.json differs between the console seam and the CLI"
+        console_results,
+        std::fs::read(rejudged_out.join("results.json"))?,
+        "results.json differs between the console seam and the engine's re-judgement"
     );
 
-    // The typed read seam: the record the lib parsed is the record on disk.
-    let reread: veredictum::party::Results = serde_json::from_slice(&console_results)?;
-    assert_eq!(reread.sut.name, finished.results.sut.name);
+    // The typed read seam: the document the lib parsed is the document on
+    // disk.
+    let reread: veredictum::arazzo::results::Results = serde_json::from_slice(&console_results)?;
+    assert_eq!(reread, finished.results);
     Ok(())
 }
 

@@ -1,15 +1,12 @@
-Every machine check over the catalogue: identifier uniqueness, citation
-resolution, binding completeness, coverage of the enumerated wire surface, and
-the per-capability case-count floors. It prints one line per finding and a
-summary line, and exits `1` if the finding count is not zero.
+Every gate over the Arazzo catalogue: the official Arazzo 1.1 schema, source
+and parameter resolution, citation resolution against the vendored
+specifications, the condition profile, requirement levels, unknown keys, the
+rows files, surface coverage, identity and links, and the AQL parser check. It
+prints one line per finding and a summary line naming the documents,
+workflows, rows files and capability folders it read, and exits `1` if the
+finding count is not zero.
 
-Supplying `--statement` adds the static conformance review of ISO/IEC 9646-1
-and -7 over that one declaration: a claimed capability the catalogue holds no
-verdict-bearing case for, a `Signing` claim the ixit beside it declares no
-posture for, and a served-extension family the catalogue's wire surface does
-not carry.
-
-`--write-report` is off by default on purpose. A check verb that rewrites a file
-on every run is a trap for read-only invocations, so the pipelines that publish
-the coverage report ask for it explicitly. The report lands at
-`<ROOT>/coverage-report.md`, beside the artifact families it measures.
+Supplying `--statement` adds the static review of that one declaration: it is
+held to the published statement schema, every capability it claims must be a
+capability folder of the catalogue, and every option arm it selects must be an
+arm of an option in `capabilities.yaml`, one arm per option.

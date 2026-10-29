@@ -611,3 +611,30 @@ fn an_empty_credential_variable_is_refused_like_an_unset_one() -> Fallible {
     assert!(!Path::new(&out).exists(), "a refused run wrote its output");
     Ok(())
 }
+
+/// `run` names no subcommand: the catalogue is driven by `test` alone, and
+/// the old spelling is a usage error rather than an alias.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn run_is_not_a_subcommand() -> Fallible {
+    let out = Command::new(env!("CARGO_BIN_EXE_veredictum"))
+        .args(["run", "--help"])
+        .output()?;
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "`run` must be refused as a usage error"
+    );
+    let help = Command::new(env!("CARGO_BIN_EXE_veredictum"))
+        .arg("--help")
+        .output()?;
+    let listing = String::from_utf8(help.stdout)?;
+    assert!(
+        !listing.contains("alias"),
+        "no subcommand carries an alias:\n{listing}"
+    );
+    Ok(())
+}

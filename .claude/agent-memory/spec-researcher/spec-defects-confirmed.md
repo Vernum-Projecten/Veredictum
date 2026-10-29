@@ -15,7 +15,7 @@ adjudication; re-verify before acting. Related: [[aql-containment-and-folders]].
   `versionClassExpr` exist in `grammar/AqlParser.g4` (normative, included by
   `master07-grammar.adoc`) but `VERSION` appears ZERO times in the AQL prose
   chapters. A grammar-only class operand with no prose semantics.
-- SM `RESULT_SET` (`SM/docs/UML/classes/result_set.adoc`) vs ITS-REST
+- (Historical: the SM is no longer vendored, #604.) SM `RESULT_SET` vs ITS-REST
   `specifications/schemas/query/ResultSet.yaml`: SM makes `columns` 1..1 and
   `rows` 0..1; ITS-REST requires `rows` and makes `columns` optional. SM also
   carries `id`, `creation_time`, `query` which the ITS-REST schema does not.
@@ -45,7 +45,7 @@ adjudication; re-verify before acting. Related: [[aql-containment-and-folders]].
   `specifications/schemas/others/Error.yaml` requires
   `{message, validationErrors[]}` and defines neither `code` nor `errors` —
   the release's own example is invalid against its own schema. Adjudicated as
-  register AMB-217, upstream 2612.
+  a register entry retired at the cut-over (#604).
 - ITS-REST `Location` on refusals: `Requests_and_responses.md` §Location says
   "The `Location` header MUST ONLY be used for resource creation (e.g.,
   `201 Created`) or redirect responses", yet every `responses/412_*.yaml` and

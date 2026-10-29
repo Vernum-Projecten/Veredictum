@@ -28,14 +28,14 @@
 #                          comment.
 #   7. internal markdown   the same rule for every OTHER in-repo markdown
 #                          document, in ANY path form: a tree-rooted path
-#                          (`artifacts/`, `fixtures/`, `scripts/`,
+#                          (`catalogue/`, `perf/`, `fixtures/`, `scripts/`,
 #                          `website/`, `schemas/`, `fuzz/`, `app/`, `verification-pack/`)
 #                          ending in `.md`, the root documents by name
 #                          (README, CLAUDE, ARCHITECTURE, CONTRIBUTING,
 #                          CHANGELOG), and any RELATIVE citation whose path
 #                          matches a committed markdown file at a segment
-#                          boundary (`corpus/recipes/bp_series.md`,
-#                          `recipes/bp_series.md`). Adjudicated 2026-08-27
+#                          boundary (`payloads/ckm/PROVENANCE.md`,
+#                          `ckm/PROVENANCE.md`). Adjudicated 2026-08-27
 #                          (#125): a corpus-local README is NOT a sanctioned
 #                          exception — it moves and dies like any other
 #                          internal document, so a comment grounds on the
@@ -68,14 +68,14 @@ RUN_MAX=8
 # The in-repo markdown documents a comment may not cite (check 7 above). The
 # vendored spec trees are deliberately absent: `specs/**` IS the oracle, and an
 # ITS-REST citation names a `.md` document there.
-INTERNAL_DOC='(artifacts|fixtures|scripts|website|schemas|fuzz|app|verification-pack)/[^[:space:]]*[.]md'
+INTERNAL_DOC='(catalogue|perf|fixtures|scripts|website|schemas|fuzz|app|verification-pack)/[^[:space:]]*[.]md'
 INTERNAL_DOC="$INTERNAL_DOC"'|(^|[^[:alnum:]_./-])(README|CLAUDE|ARCHITECTURE|CONTRIBUTING|CHANGELOG)[.]md'
 
 cd "$(dirname "$0")/../.."
 
 # The same rule for a RELATIVE citation: every committed non-spec markdown
-# path, plus each of its segment-boundary suffixes, so `corpus/recipes/x.md`
-# and `recipes/x.md` are refused exactly like the full path. Membership is
+# path, plus each of its segment-boundary suffixes, so `payloads/ckm/x.md`
+# and `ckm/x.md` are refused exactly like the full path. Membership is
 # exact, so a suffix naming nothing in the tree passes — which is how the
 # ITS-REST `docs/overview/*.md` citations stay legal.
 INREPO_MD="$(git ls-files '*.md' | awk -F/ '
@@ -117,15 +117,15 @@ case "$mode" in
   trap 'rm -rf "$tmp"' EXIT
   seeded="$tmp/seeded.rs"
   {
-    echo '// the committed keypair (`artifacts/corpus/keys/README.md` records it)'
+    echo '// the committed keypair (`fixtures/keys/README.md` records it)'
     echo '/// the crate CLAUDE.md doctrine'
     echo '//! see website/book/src/commands.md for the surface'
-    echo '/// the recipe contract in `corpus/recipes/bp_series.md`'
-    echo '//! the row contract lives in recipes/ehr_status.md'
+    echo '/// the pack provenance in `payloads/ckm/PROVENANCE.md`'
+    echo '//! the issuer notes live in smart-test-issuer/README.md'
     echo '/// ITS-REST `docs/overview/Requests_and_responses.md` §HTTP status codes'
-    echo '/// upstream <https://example.invalid/corpus/recipes/bp_series.md>'
+    echo '/// upstream <https://example.invalid/payloads/ckm/PROVENANCE.md>'
     echo 'const REPORT: &str = "coverage-report.md";'
-    echo 'const PROVENANCE: &str = "artifacts/corpus/archetypes/adl2/PROVENANCE.md";'
+    echo 'const PROVENANCE: &str = "perf/payloads/ckm/PROVENANCE.md";'
   } >"$seeded"
   out="$("$0" --files "$seeded" 2>/dev/null || true)"
   fail=0

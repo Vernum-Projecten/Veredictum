@@ -44,12 +44,12 @@ INCLUDE_EXT=(adoc md txt csv json yaml yml robot xml opt g4)
 # index this table was adjudicated against (RM 1.1.0, BASE 1.2.0, AM 2.3.0,
 # TERM 3.0.0, LANG 1.0.0, QUERY 1.1.0, ITS-REST 1.1.0, ITS-XML 1.0.2 stable —
 # ITS-XML 2.0.0 exists but upstream marks it TRIAL, and the vendored XSD tree
-# is 1.0.2, so the two roots stay one version). Three components have never
-# been released at all (SM, CNF, ITS-JSON): their pins are frozen SHAs,
-# refreshed deliberately only, and the trees carry the development caveat in
-# their PROVENANCE.md — SM anchors operation naming, CNF is a coverage guide
-# and never an authority, ITS-JSON is the development pin the codegen tree
-# already matched.
+# is 1.0.2, so the two roots stay one version). Two components have never
+# been released at all (CNF, ITS-JSON): their pins are frozen SHAs, refreshed
+# deliberately only, and the trees carry the development caveat in their
+# PROVENANCE.md — CNF is a coverage guide and never an authority, ITS-JSON is
+# the development pin the codegen tree already matched. SM is not vendored:
+# it was never released, and it is no part of the oracle (#604).
 COMPONENTS=(
   "BASE|specifications-BASE|Release-1.2.0|fba868df1fad9fe15ae0483f3e3ac1c3fa94d735"
   "RM|specifications-RM|Release-1.1.0|355eb63e201c6b805c44c8809c70d63f79d54f92"
@@ -57,7 +57,6 @@ COMPONENTS=(
   "TERM|specifications-TERM|Release-3.0.0|d45ef3e21a05d3759101ae7bdb260e8193a3d0da"
   "LANG|specifications-LANG|Release-1.0.0|096932fc6c8fb90f7e5bb52f1a118b4a0234e916"
   "QUERY|specifications-QUERY|Release-1.1.0|a87bb51fa1c515b863c9610a9444a2d5570dc05a"
-  "SM|specifications-SM|master (never released; frozen SHA)|23ffc4711c10bae2ae43724b1948fe3b24a0964e"
   "CNF|specifications-CNF|master (never released; guide only, frozen SHA)|33251d2abe5a75c042e11c9385d2e9a79aa15904"
   "ITS-REST|specifications-ITS-REST|Release-1.1.0 (released 19-Jul-2026; matches the vendored OAS identity)|24058992d5fa96e8dfbd855d9c133f328387fc09"
   "ITS-XML|specifications-ITS-XML|master, frozen SHA (the tags carry only XSDs — vendored AT their tags in specs/its-xml-schemas; the prose the catalogue cites, the README release directory and the per-release documents/README, exists only on master)|de8b37ba6c9a5e126623a063cafba3b58ebf1107"

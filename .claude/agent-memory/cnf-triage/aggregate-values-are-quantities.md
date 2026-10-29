@@ -18,6 +18,6 @@ determine the return type"), never a spelling, and
 `Array<Array<Any>>` while declaring the annotated result structure "not formally
 defined by this specification".
 
-**How to apply:** a case core may not read "the returned cell carries that same
+**How to apply:** a workflow may not read "the returned cell carries that same
 type back" as "the returned cell carries the committed bytes back" — that step
 is unsourced. Related: [[datetime-lexical-form]].

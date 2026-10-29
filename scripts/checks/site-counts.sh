@@ -3,25 +3,19 @@
 # SPDX-License-Identifier: Apache-2.0
 # The website's catalogue counts cannot drift from the catalogue (#35).
 #
-# The landing page and the book state how many cases, bindings, capability
-# matrix rows and outcome kinds the catalogue carries. Those literals are
-# hand-typed, and nothing held them to the artifacts: a schedule release that
-# moves a count would silently leave the public site wrong. This guard reads
-# the truth from the instrument itself — the `validate` summary line for
-# cases/bindings/capability rows, the outcome vocabulary for the kinds — and
-# fails on any count-bearing phrase whose number disagrees.
+# The landing page and the book state how many cases, Arazzo documents and
+# capability folders the catalogue carries. Those literals are hand-typed, and
+# nothing held them to the catalogue: a change that moves a count would
+# silently leave the public site wrong. This guard reads the truth from the
+# instrument itself — the `validate` summary line — and fails on any
+# count-bearing phrase whose number disagrees.
 #
 # Adjudicated 2026-09-01 (#466): these figures stay hand-written, and this
 # guard stays. Every one of them sits inside a sentence a human wrote — a
 # landing-page claim, a book paragraph, an argument in `ARCHITECTURE.md` — so
 # substituting the number would mean templating the prose around it, which is
-# the one thing #466 rules out. The number is derived from the artifacts on
+# the one thing #466 rules out. The number is derived from the catalogue on
 # every run instead, and a disagreement fails the build.
-#
-# The tree it counts is the case-core catalogue under `artifacts/`, which is
-# the one every surface states numbers for. The Arazzo catalogue under
-# `catalogue/` has no count on any surface yet.
-# TODO(#604): count the Arazzo cases under catalogue/ when the cut-over moves the surfaces to them.
 #
 # Usage: scripts/checks/site-counts.sh [<validate summary line>]
 #   With no argument it runs `cargo run -- validate` itself (the CI test job
@@ -39,13 +33,12 @@ SURFACES=(website/landing/index.html website/book/src README.md ARCHITECTURE.md)
 # The empty value is what the loop is written to catch.
 summary="${1:-}"
 if [[ -z "$summary" ]]; then
-  summary="$(cargo run --quiet --locked -- validate --root artifacts --specs specs/openehr | grep -E '[0-9]+ case\(s\)' || true)"
+  summary="$(cargo run --quiet --locked -- validate --root catalogue --specs specs/openehr | grep -E '[0-9]+ workflow\(s\)' || true)"
 fi
-cases=$(grep -oE '[0-9]+ case\(s\)' <<<"$summary" | grep -oE '^[0-9]+' || true)
-bindings=$(grep -oE '[0-9]+ binding\(s\)' <<<"$summary" | grep -oE '^[0-9]+' || true)
-capabilities=$(grep -oE '[0-9]+ capability row\(s\)' <<<"$summary" | grep -oE '^[0-9]+' || true)
-outcomes=$(grep -cE '^[a-z_]+: ' artifacts/vocab/outcomes.yaml || true)
-for truth in cases bindings capabilities outcomes; do
+cases=$(grep -oE '[0-9]+ workflow\(s\)' <<<"$summary" | grep -oE '^[0-9]+' || true)
+documents=$(grep -oE '[0-9]+ document\(s\)' <<<"$summary" | grep -oE '^[0-9]+' || true)
+capabilities=$(grep -oE '[0-9]+ capability folder\(s\)' <<<"$summary" | grep -oE '^[0-9]+' || true)
+for truth in cases documents capabilities; do
   [[ -n "${!truth}" ]] || { echo "::error::could not derive the ${truth} count" >&2; exit 1; }
 done
 
@@ -64,28 +57,13 @@ check() { # $1 = expected, $2 = extraction regex, $3 = label
   done < <(grep -roE "$regex" "${SURFACES[@]}")
 }
 
-check "$cases" '[0-9]+ (spec-cited (test )?cases|test cases|case cores|case\(s\))' "cases"
-check "$bindings" '[0-9]+ (operation bindings|binding\(s\)|bindings today)' "bindings"
+check "$cases" '[0-9]+ (spec-cited (test )?cases|test cases|workflow\(s\))' "cases"
+check "$documents" '[0-9]+ (Arazzo documents|document\(s\))' "documents"
 # The landing page's fact cards carry the number and its label in separate
 # spans, so the prose patterns above never see them — proven by mutation.
 check "$cases" '"n">[0-9]+</span><span class="l">spec-cited cases' "cases (fact card)"
-check "$bindings" '"n">[0-9]+</span><span class="l">operation bindings' "bindings (fact card)"
-check "$capabilities" '[0-9]+ capability row\(s\)' "capability rows"
-check "$outcomes" 'There are [0-9]+ of them' "outcome kinds"
-
-# The credits section counts how many case cores cite the CNF Test Schedule
-# and its Pazos-raised chapters, and how many corpus records carry provenance.
-# Each is derivable from the tree, so each is held to it.
-schedule_citers=$(grep -rlE 'platform_test_schedule' artifacts/schedule --include='*.yaml' | wc -l | tr -d ' ')
-pazos_citers=$(grep -rlE 'platform_test_schedule master(06|07|08|09)' artifacts/schedule --include='*.yaml' | wc -l | tr -d ' ')
-provenance_records=$(grep -cE '^[[:space:]]+provenance: ' artifacts/corpus/MANIFEST.yaml || true)
-for truth in schedule_citers pazos_citers provenance_records; do
-  [[ "${!truth}" =~ ^[1-9][0-9]*$ ]] || { echo "::error::could not derive the ${truth} count" >&2; exit 1; }
-done
-
-check "$schedule_citers" '[0-9]+ of the [0-9]+ case cores here cite' "Test Schedule citers"
-check "$pazos_citers" '[0-9]+ of the [0-9]+ case cores cite' "Pazos-chapter citers"
-check "$provenance_records" 'the [0-9]+ corpus provenance records' "corpus provenance records"
+check "$documents" '"n">[0-9]+</span><span class="l">Arazzo documents' "documents (fact card)"
+check "$capabilities" '[0-9]+ capability folder(s|\(s\))' "capability folders"
 
 # The install snippets name the published crate version by hand, in several
 # copies; hold every copy to the workspace manifest so a release bump cannot
@@ -105,4 +83,4 @@ done < <(grep -roE -- 'cargo install veredictum[^`<]*--version [0-9a-zA-Z.-]+' "
 if [[ "$failures" -gt 0 ]]; then
   exit 1
 fi
-echo "site-counts: every count on the site matches the catalogue (${cases} cases, ${bindings} bindings, ${capabilities} capability rows, ${outcomes} outcome kinds) — OK."
+echo "site-counts: every count on the site matches the catalogue (${cases} cases, ${documents} documents, ${capabilities} capability folders) — OK."

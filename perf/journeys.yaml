@@ -24,7 +24,7 @@
 # COVERAGE: the simulation exercises every capability the party statement
 # claims except the eleven whose exercise is impossible inside a sustained
 # open-loop hold — the destructive admin pair (physical deletion / the
-# released two-operation ADMIN API) and the nine SM operations for which
+# released two-operation ADMIN API) and the nine operations for which
 # NEITHER a released ITS-REST wire NOR a served extension route exists, so
 # there is no request for the instrument to send. The certificate's
 # Workload Coverage table renders that reason instead of a bare gap.
@@ -224,7 +224,7 @@ chart_review:
     - { op: adhoc_query, at: PT80S }
     - { op: directory_read, at: PT100S }
     # The whole-record read at the end of the round: an EHR-Extract export
-    # of the same chart. EXTENSION route (register AMB-34) — no openEHR
+    # of the same chart. EXTENSION route — no openEHR
     # spec governs it; a pure read that mutates nothing, so it joins the
     # read-heavy journey rather than growing a workload share of its own.
     - { op: ehr_extract_export, at: PT2M }
@@ -281,7 +281,7 @@ audit_review:
     - { op: ehr_read, at: PT20S }
     # The aggregate read side of the same accountability trail: the admin
     # activity report counts the CONTRIBUTIONs of the EHR service. EXTENSION
-    # route (register AMB-33) — no openEHR spec governs it; it is a pure read
+    # route — no openEHR spec governs it; it is a pure read
     # and mutates nothing, so it joins this journey rather than growing a
     # workload share of its own.
     - { op: admin_contribution_report, at: PT40S }
@@ -341,7 +341,7 @@ integration_poll:
     - { op: template_example, at: PT1M }
     - { op: template_adl2_list, at: PT90S }
     # The same background poll against the ADL 2 ARCHETYPE store beside the
-    # template store. EXTENSION route (register AMB-37) — no openEHR spec
+    # template store. EXTENSION route — no openEHR spec
     # governs it; a pure read on the same definition surface the journey
     # already polls.
     - { op: archetype_adl2_list, at: PT2M }

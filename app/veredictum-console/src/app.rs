@@ -23,7 +23,6 @@ use crate::pages::not_found::NotFound;
 use crate::pages::results::Results;
 use crate::pages::run::{Connect, Live, Run, Scope};
 use crate::pages::shell::Shell;
-use crate::pages::verdicts::Verdicts;
 
 /// The HTML document the server renders around the application: the head with
 /// the hydration bootstrap, and the body the client takes over.
@@ -119,7 +118,8 @@ pub fn App() -> impl IntoView {
                         path=(
                             StaticSegment("catalogue"),
                             ParamSegment("chapter"),
-                            ParamSegment("case"),
+                            ParamSegment("document"),
+                            ParamSegment("workflow"),
                         )
                         view=Case
                     />
@@ -135,7 +135,6 @@ pub fn App() -> impl IntoView {
                         view=Live
                     />
                     <Route path=(StaticSegment("run"), StaticSegment("results")) view=Results />
-                    <Route path=(StaticSegment("run"), StaticSegment("verdicts")) view=Verdicts />
                 </ParentRoute>
             </Routes>
         </Router>
