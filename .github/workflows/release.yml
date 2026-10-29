@@ -277,7 +277,7 @@ jobs:
       # supplier, component name, version, other unique identifiers (purl),
       # dependency relationships, SBOM author and timestamp
       # (https://www.cisa.gov/sbom).
-      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
+      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
         with:
           tool: syft@1.50.0
       - name: Generate the repository SPDX SBOM
@@ -489,7 +489,7 @@ jobs:
       # No cache in a publishing lane: nothing a prior run could have poisoned
       # may influence the bytes that get pushed and attested.
       - name: Install cargo-auditable
-        uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
+        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
         with:
           tool: cargo-auditable@0.7.5
 
@@ -626,7 +626,7 @@ jobs:
         org.opencontainers.image.authors=Ruben Talstra <https://github.com/rubentalstra>
         org.opencontainers.image.licenses=Apache-2.0
         org.opencontainers.image.base.name=gcr.io/distroless/cc-debian13:nonroot
-        org.opencontainers.image.base.digest=sha256:83b9b50586253821cf63ffcec87d3d94265a093ad30da232039af962dd8f4edf
+        org.opencontainers.image.base.digest=sha256:3ee00291cf386ec52a552e6a858d555debd74776eb4bfa53fa3df2cd6677515e
 
   # The pushed artifact is assembled from a compile job and a COPY, so its one
   # novel failure class is an image that does not RUN: a distroless base missing
