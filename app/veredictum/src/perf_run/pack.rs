@@ -28,9 +28,9 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::model::corpus::CorpusManifest;
-use crate::perf::JourneyCatalogue;
+use crate::perf::{AuxPayloadKind, JourneyCatalogue, PerfOp};
 use crate::perf_run::jitter::LeafConstraints;
+use crate::perf_schedule::PayloadManifest;
 
 /// The rotating composer pool (staff are modelled as event rates; the
 /// composer label is the only per-arrival identity).
@@ -49,7 +49,7 @@ const STAFF: [&str; 8] = [
 /// uploads) and the committed example skeleton (the payload ground).
 #[derive(Debug, Clone)]
 pub struct PackTemplate {
-    /// The corpus key (`cnf.ckm.vital_signs`).
+    /// The payload key (`cnf.ckm.vital_signs`).
     pub key: String,
     /// The OPT's `template_id` (the wire identifier).
     pub template_id: String,
@@ -81,8 +81,8 @@ pub struct FlatPayload {
 /// The committed payloads the journey stages that do NOT commit a CKM
 /// COMPOSITION carry.
 ///
-/// Every one is a corpus fixture the functional catalogue already adjudicates
-/// — the load instrument invents no payload of its own. A field is `Some`
+/// Every one is a committed payload of the performance schedule, never one
+/// the instrument invents. A field is `Some`
 /// exactly when the catalogue names an operation that needs it (see
 /// [`crate::perf::PerfOp::aux_payload`]).
 #[derive(Debug, Clone, Default)]
@@ -97,11 +97,10 @@ pub struct AuxPayloads {
     pub party_relationship: Option<Value>,
 }
 
-/// The corpus keys the auxiliary payloads come from.
-///
-/// Fixed, because they are the payloads the functional batteries already
-/// adjudicate; the `journey-envelope` validate gate checks the manifest
-/// carries them whenever the catalogue names an operation that needs one.
+/// The payload key of the operational template the scale corpus commits
+/// against.
+pub const SCALE_OPT_KEY: &str = "cnf.opt.blood_pressure";
+/// The operational template the Simplified-FLAT stage commits against.
 pub const FLAT_OPT_KEY: &str = "cnf.opt.minimal_action";
 /// The FLAT body the FLAT-commit stage posts.
 pub const FLAT_BODY_KEY: &str = "cnf.flat.vitals.minimal_ctx";
@@ -111,6 +110,38 @@ pub const PERSON_KEY: &str = "cnf.demographic.person.v1";
 pub const PERSON_AMENDED_KEY: &str = "cnf.demographic.person.v2";
 /// The `PARTY_RELATIONSHIP` body the demographic stage creates.
 pub const PARTY_RELATIONSHIP_KEY: &str = "cnf.demographic.party_relationship.v1";
+
+/// Returns the payload keys one auxiliary payload kind reads.
+#[must_use]
+pub fn aux_payload_keys(kind: AuxPayloadKind) -> &'static [&'static str] {
+    match kind {
+        AuxPayloadKind::Flat => &[FLAT_OPT_KEY, FLAT_BODY_KEY],
+        AuxPayloadKind::Person => &[PERSON_KEY, PERSON_AMENDED_KEY],
+        AuxPayloadKind::PartyRelationship => &[PARTY_RELATIONSHIP_KEY],
+    }
+}
+
+/// Returns the auxiliary payload kinds the catalogue's stages carry, in first
+/// appearance order.
+///
+/// A stage whose operation name does not parse carries none; the catalogue's
+/// own invariants refuse that name.
+#[must_use]
+pub fn needed_aux_payloads(catalogue: &JourneyCatalogue) -> Vec<AuxPayloadKind> {
+    let mut needed = Vec::new();
+    for (_, journey) in &catalogue.0 {
+        for stage in &journey.stages {
+            // NOTE: no openEHR spec governs this — our own design: an unknown
+            // operation is refused by `JourneyCatalogue::check_invariants`.
+            if let Some(kind) = PerfOp::parse(&stage.op).ok().and_then(PerfOp::aux_payload)
+                && !needed.contains(&kind)
+            {
+                needed.push(kind);
+            }
+        }
+    }
+    needed
+}
 
 /// The loaded pack: every template the journey catalogue names, plus the
 /// auxiliary payloads its non-COMPOSITION stages carry.
@@ -123,15 +154,15 @@ pub struct JourneyPack {
 }
 
 impl JourneyPack {
-    /// Load every template the catalogue's stages name: the manifest's OPT
+    /// Loads every template the catalogue's stages name: the manifest's OPT
     /// entry (`<key>`) and example entry (`<key>.example`), both resolved
-    /// against the corpus directory.
+    /// against the payload directory.
     ///
     /// # Errors
     /// A message naming the missing manifest entry, file, or field.
     pub fn load(
-        corpus_dir: &Path,
-        manifest: &CorpusManifest,
+        payloads_dir: &Path,
+        manifest: &PayloadManifest,
         catalogue: &JourneyCatalogue,
     ) -> Result<Self, String> {
         let mut keys: Vec<String> = Vec::new();
@@ -146,20 +177,17 @@ impl JourneyPack {
         }
         keys.sort();
         let entry = |k: &str| {
-            crate::ids::CorpusKey::parse(k)
-                .ok()
-                .and_then(|parsed| manifest.get(&parsed).cloned())
-                .ok_or_else(|| format!("corpus manifest has no entry {k}"))
+            manifest
+                .get(k)
+                .ok_or_else(|| format!("payload manifest has no entry {k}"))
         };
-        let read = |source: Option<&String>, what: &str| {
-            let source = source.ok_or_else(|| format!("{what} entry has no source"))?;
-            std::fs::read_to_string(corpus_dir.join(source))
+        let read = |source: &str| {
+            std::fs::read_to_string(payloads_dir.join(source))
                 .map_err(|e| format!("cannot read {source}: {e}"))
         };
         let read_json = |key: &str| -> Result<Value, String> {
-            let e = entry(key)?;
-            serde_json::from_str(&read(e.source.as_ref(), key)?)
-                .map_err(|error| format!("corpus fixture {key}: {error}"))
+            serde_json::from_str(&read(&entry(key)?.source)?)
+                .map_err(|error| format!("payload {key}: {error}"))
         };
         let mut templates = Vec::with_capacity(keys.len());
         for key in keys {
@@ -169,8 +197,8 @@ impl JourneyPack {
                 .template_id
                 .clone()
                 .ok_or_else(|| format!("manifest entry {key} carries no template_id"))?;
-            let opt_xml = read(opt_entry.source.as_ref(), &key)?;
-            let skeleton: Value = serde_json::from_str(&read(example_entry.source.as_ref(), &key)?)
+            let opt_xml = read(&opt_entry.source)?;
+            let skeleton: Value = serde_json::from_str(&read(&example_entry.source)?)
                 .map_err(|e| format!("example skeleton {key}: {e}"))?;
             let constraints = LeafConstraints::from_opt(&opt_xml)
                 .map_err(|e| format!("operational template {key}: {e}"))?;
@@ -189,36 +217,24 @@ impl JourneyPack {
         // The auxiliary payloads: loaded exactly when the catalogue names an
         // operation that carries one, so a party's catalogue never pays for
         // fixtures its journeys do not touch.
-        let mut needed: Vec<crate::perf::AuxPayloadKind> = Vec::new();
-        for (_, journey) in &catalogue.0 {
-            for stage in &journey.stages {
-                if let Some(kind) = crate::perf::PerfOp::parse(&stage.op)
-                    .ok()
-                    .and_then(crate::perf::PerfOp::aux_payload)
-                    && !needed.contains(&kind)
-                {
-                    needed.push(kind);
-                }
-            }
-        }
         let mut aux = AuxPayloads::default();
-        for kind in needed {
+        for kind in needed_aux_payloads(catalogue) {
             match kind {
-                crate::perf::AuxPayloadKind::Flat => {
+                AuxPayloadKind::Flat => {
                     let opt_entry = entry(FLAT_OPT_KEY)?;
                     aux.flat = Some(FlatPayload {
                         template_id: opt_entry.template_id.clone().ok_or_else(|| {
                             format!("manifest entry {FLAT_OPT_KEY} carries no template_id")
                         })?,
-                        opt_xml: read(opt_entry.source.as_ref(), FLAT_OPT_KEY)?,
+                        opt_xml: read(&opt_entry.source)?,
                         body: read_json(FLAT_BODY_KEY)?,
                     });
                 }
-                crate::perf::AuxPayloadKind::Person => {
+                AuxPayloadKind::Person => {
                     aux.person = Some(read_json(PERSON_KEY)?);
                     aux.person_amended = Some(read_json(PERSON_AMENDED_KEY)?);
                 }
-                crate::perf::AuxPayloadKind::PartyRelationship => {
+                AuxPayloadKind::PartyRelationship => {
                     aux.party_relationship = Some(read_json(PARTY_RELATIONSHIP_KEY)?);
                 }
             }
@@ -226,7 +242,7 @@ impl JourneyPack {
         Ok(Self { templates, aux })
     }
 
-    /// Look up a template by corpus key.
+    /// Looks up a template by payload key.
     #[must_use]
     pub fn index_of(&self, key: &str) -> Option<usize> {
         self.templates.iter().position(|t| t.key == key)
@@ -619,8 +635,7 @@ mod tests {
     /// The vendored CKM template pack, the payload ground a measured run
     /// commits.
     fn ckm_dir() -> std::path::PathBuf {
-        Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-            .join("artifacts/corpus/templates/ckm")
+        Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join("perf/payloads/ckm")
     }
 
     /// One vendored template loaded exactly as [`JourneyPack::load`] loads it.

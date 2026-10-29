@@ -882,14 +882,12 @@ mod tests {
         // bunched multiple.
         let root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
         let catalogue: JourneyCatalogue = serde_saphyr::from_str(
-            &std::fs::read_to_string(root.join("artifacts/vocab/journey_catalogue.yaml")).unwrap(),
+            &std::fs::read_to_string(root.join("perf/journeys.yaml")).unwrap(),
         )
         .unwrap();
         let case: crate::perf::PerformanceCase = serde_saphyr::from_str(
-            &std::fs::read_to_string(
-                root.join("artifacts/schedule/performance/PERF-hospital_sim-class_POC.yaml"),
-            )
-            .unwrap(),
+            &std::fs::read_to_string(root.join("perf/classes/PERF-hospital_sim-class_POC.yaml"))
+                .unwrap(),
         )
         .unwrap();
         let mut templates = Vec::new();

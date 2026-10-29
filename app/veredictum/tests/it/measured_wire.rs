@@ -433,10 +433,10 @@ fn a_refusing_sut_breaches_the_error_tolerance() -> Fallible {
     Ok(())
 }
 
-/// The committed artifact root, addressed from this package rather than from
-/// whatever directory the runner was started in.
-fn artifact_root() -> &'static Path {
-    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../artifacts"))
+/// The committed performance schedule, addressed from this package rather
+/// than from whatever directory the runner was started in.
+fn schedule_root() -> &'static Path {
+    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../perf"))
 }
 
 /// Writes one ixit document into `dir` and returns its path.
@@ -529,9 +529,9 @@ fn each_instrument_names_the_artifact_its_preamble_could_not_read() -> Fallible 
     // A root whose performance case does not load: reported one diagnostic
     // per file, never as a tree that simply carries no case.
     let defective_root = dir.path().join("defective");
-    std::fs::create_dir_all(defective_root.join("schedule/performance"))?;
+    std::fs::create_dir_all(defective_root.join("classes"))?;
     std::fs::write(
-        defective_root.join("schedule/performance/PERF-broken.yaml"),
+        defective_root.join("classes/PERF-broken.yaml"),
         "id: [not a case id\n",
     )?;
     // A topology with no `environment` block: mandatory for every measured
@@ -617,7 +617,7 @@ fn a_refused_seeding_stops_every_instrument_before_it_records_anything() -> Fall
 
     let measured = run_measured(
         &MeasuredRequest {
-            root: artifact_root(),
+            root: schedule_root(),
             ixit: &ixit,
             results: &results,
             class: "POC",
@@ -638,7 +638,7 @@ fn a_refused_seeding_stops_every_instrument_before_it_records_anything() -> Fall
 
     let stress = measured::run_stress(
         &StressRequest {
-            root: artifact_root(),
+            root: schedule_root(),
             ixit: &ixit,
             corpus_class: "POC",
             seed_workers: 1,
@@ -656,7 +656,7 @@ fn a_refused_seeding_stops_every_instrument_before_it_records_anything() -> Fall
 
     let probe = run_aql_probe(
         &ProbeRequest {
-            root: artifact_root(),
+            root: schedule_root(),
             ixit: &ixit,
             corpus_class: "POC",
             seed_workers: 1,
@@ -689,7 +689,7 @@ fn a_measured_run_states_that_it_sampled_no_resources() -> Fallible {
     let seen = std::sync::Mutex::new(Vec::new());
     let error = run_measured(
         &MeasuredRequest {
-            root: artifact_root(),
+            root: schedule_root(),
             ixit: &ixit,
             results: &dir.path().join("results.json"),
             class: "POC",
@@ -712,6 +712,104 @@ fn a_measured_run_states_that_it_sampled_no_resources() -> Fallible {
     assert!(
         observed.iter().any(|line| line.starts_with("CaseStarted")),
         "the selected case was never announced: {observed:?}"
+    );
+    Ok(())
+}
+
+/// Copies the directory tree at `from` to `to`.
+fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_tree(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), target)?;
+        }
+    }
+    Ok(())
+}
+
+/// The measured instruments run from the performance schedule alone: a
+/// checkout carrying `perf/` and no case-core catalogue (no `artifacts/`, so
+/// no case files, bindings, corpus or vocabularies) still loads every input
+/// each instrument reads, the payloads and the journey pack included, and
+/// each of them reaches the seeding a refusing SUT then stops.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn the_instruments_need_nothing_from_the_case_core_catalogue() -> Fallible {
+    let checkout = assert_fs::TempDir::new()?;
+    let root = checkout.path().join("perf");
+    copy_tree(schedule_root(), &root)?;
+    assert!(
+        !checkout.path().join("artifacts").exists(),
+        "the staged checkout carries no case-core catalogue"
+    );
+    let sut = FakeSut::start();
+    mount_refusing_seed(&sut);
+    let ixit = staged_topology(&checkout, &sut.base_url());
+
+    let measured = run_measured(
+        &MeasuredRequest {
+            root: &root,
+            ixit: &ixit,
+            results: &checkout.path().join("results.json"),
+            class: "POC",
+            seed_workers: 1,
+            window: SustainedWindow::default(),
+        },
+        &|_| {},
+    )
+    .expect_err("a refused seeding is no measured window");
+    let stress = measured::run_stress(
+        &StressRequest {
+            root: &root,
+            ixit: &ixit,
+            corpus_class: "S",
+            seed_workers: 1,
+            step_secs: 10,
+            bisections: 0,
+            max_rate: 8.0,
+        },
+        &|_| {},
+    )
+    .expect_err("a refused seeding is no stress ladder");
+    let probe = run_aql_probe(
+        &ProbeRequest {
+            root: &root,
+            ixit: &ixit,
+            corpus_class: "L",
+            seed_workers: 1,
+            requests: 1,
+        },
+        &|_| {},
+    )
+    .expect_err("a refused seeding is no probe");
+    for error in [measured, stress, probe] {
+        assert!(
+            matches!(&error, Error::Instrument(m) if m.contains("seeding failed")),
+            "the preamble stopped before the seeding: {error}"
+        );
+    }
+
+    let schedule = measured::load_clean_schedule(&root)?;
+    let (_, pack) = measured::journey_context(&schedule)?;
+    assert!(pack.aux.flat.is_some() && pack.aux.person.is_some());
+    let rendered = veredictum::pipeline::assets::performance_assets(
+        &root,
+        Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/examples/results.example.json"
+        )),
+        None,
+    )?;
+    assert_eq!(
+        rendered.files.first().map(|f| f.name.as_str()),
+        Some("perf-class-ladder.svg")
     );
     Ok(())
 }

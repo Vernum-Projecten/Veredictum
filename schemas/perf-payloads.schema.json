@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:perf-payloads:0.1.0",
+  "title": "Performance schedule payload manifest",
+  "description": "Every payload the measured instruments send, keyed by the name a journey stage or the seeder uses: its file under payloads/, the operational template's wire identifier where it has one, and its provenance. No openEHR spec governs measured performance (CNF guide master03-overview.adoc §Product Scope) — our own design.",
+  "type": "object",
+  "minProperties": 1,
+  "propertyNames": {
+    "pattern": "^[a-z0-9_-]+(\\.[a-z0-9_-]+)*$"
+  },
+  "additionalProperties": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "source",
+      "provenance"
+    ],
+    "properties": {
+      "source": {
+        "type": "string",
+        "minLength": 1
+      },
+      "template_id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "provenance": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

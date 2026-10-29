@@ -3,12 +3,12 @@
 
 //! The per-stage wire realization.
 //!
-//! Each [`crate::perf::PerfOp`] maps to
-//! its committed ITS-REST operation binding (`artifacts/bindings/its-rest/`
-//! — create EHR / commit COMPOSITION / directory / contribution in the
+//! Each [`crate::perf::PerfOp`] maps to one ITS-REST operation, carried
+//! here as its method and path rather than read from any catalogue file —
+//! create EHR / commit COMPOSITION / directory / contribution in the
 //! created family with the uid via `ETag`/`Location`, versioned update via
 //! `If-Match`, ad-hoc and stored query 200, template list/get 200, tags
-//! 200). The driver sends `Prefer: return=minimal` on its writes, so the
+//! 200. The driver sends `Prefer: return=minimal` on its writes, so the
 //! created family accepts BOTH `201` and `204` (ITS-REST overview
 //! `Requests_and_responses` §Prefer: "typically `201 Created`. If no
 //! response body is returned, the service SHOULD use `204 No Content`").

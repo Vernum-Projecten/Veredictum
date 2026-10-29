@@ -1,0 +1,704 @@
+# Each PARTY kind created and updated with Accept application/xml, for a
+# service that does not serve canonical XML: the refused arm of the
+# `party-xml-read` option, whose served arm is
+# `party_write_xml_accept.arazzo.yaml`. The request bodies are canonical
+# JSON, so each workflow judges the Accept negotiation alone. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored
+# file.
+arazzo: 1.1.0
+info:
+  title: Party writes answered in canonical XML, refused
+  version: 0.1.0
+  description: >-
+    The create and the update of each of the five PARTY kinds, asking with
+    Accept application/xml for the full representation, from a service that
+    does not serve canonical XML.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_person-accept_xml
+    summary: A PERSON create that asks for canonical XML is refused with 406
+    description: >-
+      Creates a PERSON sent as canonical JSON with Prefer
+      return=representation and Accept application/xml. A service that does
+      not serve the format answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: create
+        description: Create the PERSON in canonical JSON and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: update_person-accept_xml
+    summary: A PERSON update that asks for canonical XML is refused with 406
+    description: >-
+      Creates a PERSON in canonical JSON, then updates it with Prefer
+      return=representation and Accept application/xml. A service that does
+      not serve the format answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: create
+        description: Create the PERSON in canonical JSON, keep its version_uid and derive the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the PERSON to its second content and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.demographic.person_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person Two }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: create_agent-accept_xml
+    summary: An AGENT create that asks for canonical XML is refused with 406
+    description: >-
+      Creates an AGENT sent as canonical JSON with Prefer
+      return=representation and Accept application/xml. A service that does
+      not serve the format answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: create
+        description: Create the AGENT in canonical JSON and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.demographic.agent_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: AGENT
+            name: { _type: DV_TEXT, value: agent v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-AGENT.agent.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-AGENT.agent.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Agent One }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: update_agent-accept_xml
+    summary: An AGENT update that asks for canonical XML is refused with 406
+    description: >-
+      Creates an AGENT in canonical JSON, then updates it with Prefer
+      return=representation and Accept application/xml. A service that does
+      not serve the format answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: create
+        description: Create the AGENT in canonical JSON, keep its version_uid and derive the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.agent_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: AGENT
+            name: { _type: DV_TEXT, value: agent v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-AGENT.agent.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-AGENT.agent.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Agent One }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_AGENT.yaml
+              section: description
+              quote: "`201 Created` is returned when the AGENT is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the AGENT to its second content and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.demographic.agent_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: AGENT
+            name: { _type: DV_TEXT, value: agent v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-AGENT.agent.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-AGENT.agent.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Agent Two }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: create_group-accept_xml
+    summary: A GROUP create that asks for canonical XML is refused with 406
+    description: >-
+      Creates a GROUP sent as canonical JSON with Prefer return=representation
+      and Accept application/xml. A service that does not serve the format
+      answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: create
+        description: Create the GROUP in canonical JSON and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.group.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-GROUP.group.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Group One }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: update_group-accept_xml
+    summary: A GROUP update that asks for canonical XML is refused with 406
+    description: >-
+      Creates a GROUP in canonical JSON, then updates it with Prefer
+      return=representation and Accept application/xml. A service that does
+      not serve the format answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: create
+        description: Create the GROUP in canonical JSON, keep its version_uid and derive the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.group_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.group.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-GROUP.group.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Group One }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_GROUP.yaml
+              section: description
+              quote: "`201 Created` is returned when the GROUP is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the GROUP to its second content and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.demographic.group_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: GROUP
+            name: { _type: DV_TEXT, value: group v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-GROUP.group.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-GROUP.group.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Group Two }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: create_organisation-accept_xml
+    summary: An ORGANISATION create that asks for canonical XML is refused with 406
+    description: >-
+      Creates an ORGANISATION sent as canonical JSON with Prefer
+      return=representation and Accept application/xml. A service that does
+      not serve the format answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: create
+        description: Create the ORGANISATION in canonical JSON and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.demographic.organisation_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: ORGANISATION
+            name: { _type: DV_TEXT, value: organisation v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Organisation One }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: update_organisation-accept_xml
+    summary: An ORGANISATION update that asks for canonical XML is refused with 406
+    description: >-
+      Creates an ORGANISATION in canonical JSON, then updates it with Prefer
+      return=representation and Accept application/xml. A service that does
+      not serve the format answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: create
+        description: Create the ORGANISATION in canonical JSON, keep its version_uid and derive the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.organisation_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: ORGANISATION
+            name: { _type: DV_TEXT, value: organisation v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Organisation One }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_ORGANISATION.yaml
+              section: description
+              quote: "`201 Created` is returned when the ORGANISATION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the ORGANISATION to its second content and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.demographic.organisation_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: ORGANISATION
+            name: { _type: DV_TEXT, value: organisation v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Organisation Two }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: create_role-accept_xml
+    summary: A ROLE create that asks for canonical XML is refused with 406
+    description: >-
+      Creates the PERSON that plays the ROLE, then a ROLE sent as canonical
+      JSON with Prefer return=representation and Accept application/xml. A
+      service that does not serve the format answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: performer
+        description: Create the PERSON that plays the ROLE and keep the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role Performer }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: create
+        description: Create the ROLE in canonical JSON and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.demographic.role_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: ROLE
+            name: { _type: DV_TEXT, value: role v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ROLE.role.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ROLE.role.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role One }
+            performer:
+              _type: PARTY_REF
+              namespace: demographic
+              type: PERSON
+              id: { _type: HIER_OBJECT_ID, value: "" }
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: update_role-accept_xml
+    summary: A ROLE update that asks for canonical XML is refused with 406
+    description: >-
+      Creates the PERSON that plays the ROLE and a ROLE in canonical JSON,
+      then updates the ROLE with Prefer return=representation and Accept
+      application/xml. A service that does not serve the format answers 406
+      Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: performer
+        description: Create the PERSON that plays the ROLE and keep the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role Performer }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: create
+        description: Create the ROLE in canonical JSON, keep its version_uid and derive the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.role_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: ROLE
+            name: { _type: DV_TEXT, value: role v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ROLE.role.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ROLE.role.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role One }
+            performer:
+              _type: PARTY_REF
+              namespace: demographic
+              type: PERSON
+              id: { _type: HIER_OBJECT_ID, value: "" }
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_ROLE.yaml
+              section: description
+              quote: "`201 Created` is returned when the ROLE is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: update
+        description: Update the ROLE to its second content and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.demographic.role_update
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.create.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: ROLE
+            name: { _type: DV_TEXT, value: role v2 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-ROLE.role.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-ROLE.role.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Role Two }
+            performer:
+              _type: PARTY_REF
+              namespace: demographic
+              type: PERSON
+              id: { _type: HIER_OBJECT_ID, value: "" }
+          replacements:
+            - { target: /performer/id/value, value: $steps.performer.outputs.versioned_object_uid }
+        successCriteria:
+          - condition: $statusCode == 406

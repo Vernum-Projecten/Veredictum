@@ -53,6 +53,10 @@ assets/
 # Tests and their fixtures: nothing in the image runs them.
 app/veredictum/tests/
 
+# The performance schedule: the measured instruments run from the command
+# line on hardware the operator describes, and nothing in the image reads it.
+perf/
+
 # The fuzzing workspace: its own nightly workspace, never a compile input for
 # the image. `**/target/` above already drops its 4 GB target tree; this line
 # drops the ~80 MB corpus and seeds, whose weekly churn would otherwise
