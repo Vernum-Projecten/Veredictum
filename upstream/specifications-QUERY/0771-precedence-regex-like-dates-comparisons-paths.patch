@@ -1,0 +1,60 @@
+diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+--- a/docs/AQL/master03-syntax.adoc
++++ b/docs/AQL/master03-syntax.adoc
+@@ -37,7 +37,7 @@
+ 
+ The openEHR path syntax has been described in detail (see {openehr_path_syntax}[Paths and Locators^] section in the {openehr_overview}[Architecture Overview specification^]). AQL utilises the openEHR path syntax to reference both coarse-grained and fine-grained archetype nodes (objects and data values, respectively), and openEHR class instances and attributes, when referencing something that is not defined in an archetype but is part of the openEHR Reference Model.
+ 
+-There are two types of openEHR paths used in AQL queries: an _archetype path_, referring to a node within an archetype, and a _RM class attribute path_, pointing to an attribute of an openEHR Reference Model class. These paths uses also _predicate expressions_ (see <<_predicates>>) enclosed by brackets (`[]`), to define criteria for coarse-grained and fine-grained data.
++There are two types of openEHR paths used in AQL queries: an _archetype path_, referring to a node within an archetype, and a _RM class attribute path_, pointing to an attribute of an openEHR Reference Model class. An RM class attribute path is resolved on the type of the data it reaches, which may be a subtype of the type its attribute declares (e.g. `c/composer/name`, where `composer` holds a `PARTY_IDENTIFIED`); where that data has no such attribute, the path yields `NULL`. These paths uses also _predicate expressions_ (see <<_predicates>>) enclosed by brackets (`[]`), to define criteria for coarse-grained and fine-grained data.
+ 
+ 
+ A set of openEHR path examples are shown below:
+@@ -246,6 +246,12 @@
+ [at0002 and value/defining_code/terminology_id/value=$terminologyId]
+ --------
+ 
++* A node predicate may also test a String attribute against a regular expression, written between slashes inside curly braces and read in the PERL regular expression syntax that cADL assumes, e.g.:
+++
++--------
++[name/value matches {/^exa/}]
++--------
++
+ A node predicate defines criteria on fine-grained data.
+ 
+ == Identified Paths
+@@ -292,6 +298,7 @@
+ === Comparison operators
+ 
+ The table below shows the supported AQL comparison operators, meaning and example.
++An operand that is a whole value of an `Ordered` RM type (such as a `DV_QUANTITY` or a `DV_DATE_TIME`) compares with a literal of its own kind by the order of that type; a comparison between values of different kinds evaluates to `false`.
+ 
+ [width="100%",cols="1,2,5",options="header",]
+ |===
+@@ -329,7 +336,7 @@
+ If the pattern does not contain any of these wildcards, then `LIKE` acts like the `=` (equal) operator.
+ The `LIKE` operator always tries to match the entire string value, therefore if the intention is to match a sequence anywhere within the string, the pattern must start and end with the `*` wildcard, e.g. `"\*test*"`.
+ 
+-To match a literal `?` or `*`, the respective character in a pattern must be escaped by using the backslash `\` character, e.g. `"test \?"`.
++To match a literal `?` or `*`, the respective character in a pattern must be escaped by using the backslash `\` character. The pattern is the string value after its own escape sequences are resolved, so the backslash is itself written escaped in the literal, e.g. `"test \\?"` or `'test \\*'`.
+ 
+ ==== matches
+ 
+@@ -417,6 +424,8 @@
+ 
+ === Logical operators
+ 
++`NOT` binds tighter than `AND`, and `AND` binds tighter than `OR`, so `a OR b AND NOT c` reads as `a OR (b AND (NOT c))`. Parentheses override this precedence.
++
+ ==== AND
+ 
+ `AND` is a binary operator used to combine two Boolean expressions. It represents a _logical 'and'_ (conjunction) and evaluates to `true` when both operands evaluate to `true`, and it evaluates to `false` otherwise.
+@@ -895,7 +904,7 @@
+ WHERE composition/context/start_time <= '1986-01-01'
+ --------
+ --------
+-// a complete date in ISO 8601 basic format: AQL grammar identifies it as a string value.
++// a complete date in ISO 8601 basic format: inferred as a date from the path it is compared with.
+ WHERE composition/context/start_time > '19860101'
+ --------
+ --------

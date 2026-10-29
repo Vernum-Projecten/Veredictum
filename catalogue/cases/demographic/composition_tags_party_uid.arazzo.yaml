@@ -1,0 +1,155 @@
+# A PERSON's uid presented on the COMPOSITION tag route of an EHR, as Arazzo
+# 1.1.0 workflows over the released ITS-REST `-validation` OAS. The document
+# sits with the Demographic API because only that API creates a PARTY. Every
+# criterion resolves to an `x-veredictum-cite` (its own, else its step's,
+# else its workflow's), and every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION tags of a PARTY uid
+  version: 0.1.0
+  description: >-
+    The COMPOSITION tag list of an EHR read with the version_uid or the
+    versioned_object_uid of a PERSON. The route addresses a COMPOSITION
+    version or VERSIONED_COMPOSITION owned by the EHR it names, and a PERSON
+    is neither, so the read is a miss while the PERSON's own tag route
+    answers.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: composition_tags_get-party_versioned_object_uid
+    summary: A PERSON's versioned_object_uid is not a target of an EHR's COMPOSITION tag route
+    description: >-
+      Creates an EHR and a PERSON, then retrieves the COMPOSITION tags under
+      the EHR addressed by the versioned_object_uid of the PERSON's
+      container. No VERSIONED_COMPOSITION of that EHR carries the uid, so the
+      read is answered 404 Not Found, and the PERSON's own tag list is still
+      read with 200 and an empty list.
+    x-veredictum-cite: &route_scope
+      source: specs/openehr/ITS-REST/specifications/operations/composition_tags_get.yaml
+      section: description
+      quote: "Retrieves the list of all ITEM_TAG resources associated with a given target COMPOSITION version or VERSIONED_COMPOSITION identified by `uid_based_id` and owned by EHR identified by `ehr_id`."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &create_person
+        stepId: create-person
+        description: Create the PERSON asking for the full representation, keep its version_uid and derive the versioned_object_uid of its container.
+        operationId: $sourceDescriptions.demographic.person_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: PERSON
+            name: { _type: DV_TEXT, value: person v1 }
+            archetype_node_id: openEHR-DEMOGRAPHIC-PERSON.person.v1
+            archetype_details: { _type: ARCHETYPED, archetype_id: { _type: ARCHETYPE_ID, value: openEHR-DEMOGRAPHIC-PERSON.person.v1 }, rm_version: "1.1.0" }
+            identities:
+              - _type: PARTY_IDENTITY
+                name: { _type: DV_TEXT, value: legal identity }
+                archetype_node_id: at0001
+                details:
+                  _type: ITEM_TREE
+                  name: { _type: DV_TEXT, value: identity }
+                  archetype_node_id: at0002
+                  items:
+                    - _type: ELEMENT
+                      name: { _type: DV_TEXT, value: name }
+                      archetype_node_id: at0003
+                      value: { _type: DV_TEXT, value: Person One }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_PERSON.yaml
+              section: description
+              quote: "`201 Created` is returned when the PERSON is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: get
+        description: Retrieve the COMPOSITION tags under the EHR addressed by the PERSON's versioned_object_uid.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.create-person.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &not_found
+            condition: $statusCode == 404
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id_or_uid_based_id.yaml
+              section: description
+              quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when the `uid_based_id` does not exist."
+      - stepId: own-route
+        description: Retrieve the tags of the PERSON's container on its own route.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create-person.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &own_route_ok
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_PERSON_ItemTagList_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested ITEM_TAG list is successfully retrieved."
+          - &own_route_empty
+            condition: $response.body#/0 == null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/person_tags_get.yaml
+              section: description
+              quote: "This will return an empty list when there is no ITEM_TAG associated with the given target."
+
+  - workflowId: composition_tags_get-party_version_uid
+    summary: A PERSON's version_uid is not a target of an EHR's COMPOSITION tag route
+    description: >-
+      Creates an EHR and a PERSON, then retrieves the COMPOSITION tags under
+      the EHR addressed by the version_uid of the PERSON. No COMPOSITION
+      version of that EHR carries the uid, so the read is answered 404 Not
+      Found, and the PERSON version's own tag list is still read with 200 and
+      an empty list.
+    x-veredictum-cite: *route_scope
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *create_person
+      - stepId: get
+        description: Retrieve the COMPOSITION tags under the EHR addressed by the PERSON's version_uid.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.create-person.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *not_found
+      - stepId: own-route
+        description: Retrieve the tags of the PERSON version on its own route.
+        operationId: $sourceDescriptions.demographic.person_tags_get
+        parameters:
+          - { name: uid_based_id, in: path, value: $steps.create-person.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *own_route_ok
+          - *own_route_empty

@@ -1,0 +1,63 @@
+# The LIMIT and OFFSET cases of the aql-conformance corpus whose answer the released AQL text assigns. Each workflow carries one case of the AQL conformance corpus
+# (github.com/Cadasto/aql-conformance at 28749a482a23), named in its
+# description; catalogue/id-map.yaml maps every case of the corpus. The case's
+# own data is committed by the set-up it names in
+# _setup/aql_conformance.arazzo.yaml, and its runtime identifiers reach the
+# query as query parameters. Every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: 'AQL conformance: paging'
+  version: 0.1.0
+  description: The LIMIT and OFFSET cases of the aql-conformance corpus whose answer the released AQL
+    text assigns.
+sourceDescriptions:
+  - name: query
+    url: ../../../specs/rest-oas/query-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/aql_conformance.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: offset-an_offset_equal_to_the_row_count_returns_no_row
+    summary: LIMIT 4 OFFSET 4 over four compositions returns no row
+    description: 'Carries aql-conformance case paging.offset.an_offset_equal_to_the_row_count_returns_no_row
+      (level core, corpus/cases/paging/ehrbase/limit_4_offset_4.yaml): over the set-up seed-conformance_max-conformance_max-conformance_max-conformance_max,
+      the query returns as many rows as the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-conformance_max-conformance_max-conformance_max-conformance_max
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: LIMIT
+      quote: The `OFFSET` specifies the number of rows to skip before it starts to return rows from the
+        query.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c FROM EHR e CONTAINS COMPOSITION c WHERE e/ehr_id/value = $ehr_id LIMIT 4 OFFSET
+              4
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-conformance_max-conformance_max-conformance_max-conformance_max.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 0
