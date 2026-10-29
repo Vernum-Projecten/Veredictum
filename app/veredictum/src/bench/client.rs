@@ -4,10 +4,11 @@
 //! Targeting and credentials: a base URL plus one credential is the whole
 //! ceremony a bench run asks for.
 //!
-//! Secrets never ride argv. `--auth basic` takes its password from
-//! [`PASSWORD_ENV`] and `--auth bearer` its token from [`TOKEN_ENV`], so a
-//! credential is never visible to every process on the host through the
-//! command line.
+//! Secrets never ride argv. The bench reads the variables `test` and
+//! `identify` read: `--auth basic` takes its password from [`PASSWORD_ENV`]
+//! and `--auth bearer` its token from [`TOKEN_ENV`], each also from the file
+//! its `_FILE` form names, so a credential is never visible to every process
+//! on the host through the command line.
 
 use std::fmt;
 use std::io::Read as _;
@@ -15,13 +16,17 @@ use std::time::Duration;
 
 use base64::Engine as _;
 
+use crate::arazzo::credential::{CredentialError, read_variable};
 use crate::bench::BenchError;
 
+/// Where `--auth basic` reads its user from when `--user` is absent.
+pub const USER_ENV: &str = crate::identity::USER_ENV;
+
 /// Where `--auth basic` reads its password from.
-pub const PASSWORD_ENV: &str = "VEREDICTUM_BENCH_PASSWORD";
+pub const PASSWORD_ENV: &str = crate::identity::PASSWORD_ENV;
 
 /// Where `--auth bearer` reads its token from.
-pub const TOKEN_ENV: &str = "VEREDICTUM_BENCH_TOKEN";
+pub const TOKEN_ENV: &str = crate::identity::TOKEN_ENV;
 
 /// Per-request timeout. A response slower than this is a timeout arrival,
 /// counted in its own error class rather than waited on forever.
@@ -32,8 +37,8 @@ pub const CLIENT_TIMEOUT: Duration = Duration::from_secs(30);
 pub enum AuthKind {
     /// No `Authorization` header.
     None,
-    /// HTTP Basic, with the user from `--user` and the password from
-    /// [`PASSWORD_ENV`].
+    /// HTTP Basic, with the user from `--user` (or [`USER_ENV`]) and the
+    /// password from [`PASSWORD_ENV`].
     Basic,
     /// A bearer token from [`TOKEN_ENV`].
     Bearer,
@@ -165,7 +170,8 @@ impl BenchClient {
     /// the secret from the environment.
     ///
     /// # Errors
-    /// [`BenchError::MissingUser`] when `--auth basic` carries no user,
+    /// [`BenchError::MissingUser`] when `--auth basic` has no user from
+    /// `--user` or [`USER_ENV`],
     /// [`BenchError::Credential`] when the credential variable is unset, and
     /// [`BenchError::Client`] when the HTTP client cannot be built.
     pub fn new(base_url: &str, auth: AuthKind, user: Option<&str>) -> Result<Self, BenchError> {
@@ -180,7 +186,8 @@ impl BenchClient {
     /// environment variable the mode documents.
     ///
     /// # Errors
-    /// [`BenchError::MissingUser`] when `--auth basic` carries no user,
+    /// [`BenchError::MissingUser`] when `--auth basic` has no user from
+    /// `--user` or [`USER_ENV`],
     /// [`BenchError::Credential`] when no secret was supplied and the
     /// credential variable is unset, and [`BenchError::Client`] when the HTTP
     /// client cannot be built.
@@ -192,12 +199,19 @@ impl BenchClient {
     ) -> Result<Self, BenchError> {
         let from_env = |name: &'static str| match secret {
             Some(secret) => Ok(secret.to_owned()),
-            None => std::env::var(name).map_err(|source| BenchError::Credential { name, source }),
+            None => read_variable(name).map_err(|source| BenchError::Credential { source }),
         };
         let authorization = match auth {
             AuthKind::None => None,
             AuthKind::Basic => {
-                let user = user.ok_or(BenchError::MissingUser)?;
+                let user = match (user, secret) {
+                    (Some(user), _) => user.to_owned(),
+                    (None, Some(_)) => return Err(BenchError::MissingUser),
+                    (None, None) => read_variable(USER_ENV).map_err(|source| match source {
+                        CredentialError::Missing { .. } => BenchError::MissingUser,
+                        other => BenchError::Credential { source: other },
+                    })?,
+                };
                 let password = from_env(PASSWORD_ENV)?;
                 let encoded = base64::engine::general_purpose::STANDARD
                     .encode(format!("{user}:{password}").as_bytes());

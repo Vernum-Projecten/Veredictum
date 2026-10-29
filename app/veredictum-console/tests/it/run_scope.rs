@@ -9,8 +9,8 @@
 
 use veredictum_console::engine::{Credential, Engine, Secret};
 use veredictum_console::run_api::{
-    AuthChoice, DeclaredPostures, DigestEncoding, PostureForm, RunDraft, SigningChoice,
-    SigningPosture, SpecProfileChoice,
+    AuthChoice, CredentialForm, DeclaredPostures, DigestEncoding, PostureForm, RunDraft,
+    SigningChoice, SigningPosture, SpecProfileChoice,
 };
 
 use crate::engine_gate;
@@ -135,6 +135,7 @@ fn the_draft_view_carries_no_secret() -> Result<(), Box<dyn std::error::Error>> 
             sut_version: String::from("y"),
             identity: None,
             auth: AuthChoice::Basic,
+            admin_auth: AuthChoice::None,
             credentials: vec![Credential {
                 name: String::from(veredictum::identity::PASSWORD_ENV),
                 value: Secret::new(String::from("hunter2-super-secret")),
@@ -163,6 +164,35 @@ fn the_draft_view_carries_no_secret() -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
+/// A credential the connect form posts never prints its secret values.
+#[test]
+fn a_credential_form_debug_rendering_carries_no_secret() {
+    let basic = CredentialForm {
+        auth: AuthChoice::Basic,
+        user: String::from("operator-user"),
+        password: String::from("hunter2"),
+        token: String::new(),
+    };
+    let bearer = CredentialForm {
+        auth: AuthChoice::Bearer,
+        user: String::new(),
+        password: String::new(),
+        token: String::from("bearer-secret"),
+    };
+    for (form, secrets) in [
+        (basic, ["operator-user", "hunter2"]),
+        (bearer, ["bearer-secret", "bearer-secret"]),
+    ] {
+        let debugged = format!("{form:?}");
+        for secret in secrets {
+            assert!(
+                !debugged.contains(secret),
+                "a credential value reached a Debug rendering: {debugged}"
+            );
+        }
+    }
+}
+
 /// A fresh state over the repository mounts with a connected draft, for the
 /// claim gates below.
 fn drafted_state() -> veredictum_console::state::ConsoleState {
@@ -177,6 +207,7 @@ fn drafted_state() -> veredictum_console::state::ConsoleState {
             sut_version: String::from("0.0.0-gate"),
             identity: None,
             auth: AuthChoice::None,
+            admin_auth: AuthChoice::None,
             credentials: vec![],
             probed_ok: true,
             statement_json: None,

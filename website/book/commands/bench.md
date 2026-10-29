@@ -62,9 +62,11 @@ Anything but `1.0`, or a `--seed-workers` override, takes the run off the pack's
 pinned configuration; the record says so in its `scale` block, the summary says
 so in prose, and `bench-compare` names it in the header.
 
-Credentials never ride the command line: `--auth basic` reads its password from
-`VEREDICTUM_BENCH_PASSWORD` and `--auth bearer` reads its token from
-`VEREDICTUM_BENCH_TOKEN`.
+Credentials never ride the command line, and the bench reads the variables
+`test` and `identify` read ([Logging in to the CDR](authentication.md)):
+`--auth basic` reads its password from `VEREDICTUM_CDR_PASSWORD`, and its user
+from `VEREDICTUM_CDR_USER` when `--user` is absent; `--auth bearer` reads its
+token from `VEREDICTUM_CDR_TOKEN`. Each has its `_FILE` form.
 
 Before anything is measured, a preflight reads the template list, uploads the
 pack's template, then creates one scratch EHR, commits a composition into it and

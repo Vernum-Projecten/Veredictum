@@ -40,6 +40,45 @@ impl AuthChoice {
     }
 }
 
+/// One principal's credential as the connect form sends it: the mode and
+/// the secret values that mode reads.
+///
+/// The values travel client to server once, in the probe's request, and are
+/// never sent back: `Debug` prints a redaction, and no response type carries
+/// this struct.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CredentialForm {
+    /// The authentication mode.
+    pub auth: AuthChoice,
+    /// The Basic user, empty for the other modes.
+    pub user: String,
+    /// The Basic password, empty for the other modes.
+    pub password: String,
+    /// The bearer token, empty for the other modes.
+    pub token: String,
+}
+
+impl CredentialForm {
+    /// No credential at all.
+    #[must_use]
+    pub fn none() -> Self {
+        Self {
+            auth: AuthChoice::None,
+            user: String::new(),
+            password: String::new(),
+            token: String::new(),
+        }
+    }
+}
+
+impl std::fmt::Debug for CredentialForm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CredentialForm")
+            .field("auth", &self.auth)
+            .finish_non_exhaustive()
+    }
+}
+
 /// The version-signing posture the operator declares — the mode half.
 ///
 /// The mode is a closed vocabulary (RM common
@@ -298,6 +337,11 @@ const DIGEST_PREFIX_CAP_BYTES: u64 = 64;
 #[cfg(feature = "ssr")]
 const PGP_KEY_CAP_BYTES: u64 = 65_536;
 
+/// An identity label (display name or version), capped far above any real
+/// product name.
+#[cfg(feature = "ssr")]
+pub const IDENTITY_LABEL_CAP_BYTES: u64 = 1_024;
+
 /// Every input cap a `#[server]` function in this crate enforces.
 ///
 /// The router sizes ONE transport cap for all of them, from the largest, so
@@ -310,6 +354,7 @@ pub const SERVER_FN_INPUT_CAPS: &[u64] = &[
     DUMP_LOCATION_CAP_BYTES,
     DIGEST_PREFIX_CAP_BYTES,
     PGP_KEY_CAP_BYTES,
+    IDENTITY_LABEL_CAP_BYTES,
 ];
 
 /// The postures the flat form declares, or the refusal naming the one field
@@ -400,7 +445,12 @@ pub struct RunDraft {
     pub identity: Option<crate::identity::IdentityAnswer>,
     /// The authentication mode.
     pub auth: AuthChoice,
-    /// The credential values, redacted from every rendering.
+    /// How the administrative principal logs in, which the operator
+    /// supplies separately; [`AuthChoice::None`] when they supplied none.
+    pub admin_auth: AuthChoice,
+    /// The credential values, redacted from every rendering: the server
+    /// credential under the `--auth` variable names, the administrative one
+    /// under the `--admin-auth` names.
     pub credentials: Vec<crate::engine::Credential>,
     /// Whether the probe answered 2xx for these facts.
     pub probed_ok: bool,
@@ -522,6 +572,9 @@ pub struct DraftView {
     pub sut_version: String,
     /// The authentication mode token.
     pub auth: String,
+    /// The administrative principal's authentication mode token, `none`
+    /// when the operator supplied no administrative credential.
+    pub admin_auth: String,
     /// Whether the probe answered 2xx.
     pub probed_ok: bool,
     /// The saved claim's product identity, when a statement was pasted.
@@ -697,6 +750,7 @@ pub mod read {
                 sut_name: resolved.name.unwrap_or_default(),
                 sut_version: resolved.version.unwrap_or_default(),
                 auth: draft.auth.token().to_owned(),
+                admin_auth: draft.admin_auth.token().to_owned(),
                 probed_ok: draft.probed_ok,
                 statement: draft.statement_product.clone(),
                 filter: draft.filter.clone(),
@@ -1036,11 +1090,31 @@ pub mod read {
         signing: Option<IxitSigning<'d>>,
     }
 
+    /// The ixit auth block for one principal: `choice` under the variable
+    /// names that principal's role reads.
+    fn ixit_auth(
+        choice: super::AuthChoice,
+        role: veredictum::arazzo::credential::Role,
+    ) -> IxitAuth {
+        let (user_env, password_env, token_env) = role.variables();
+        match choice {
+            super::AuthChoice::None => IxitAuth::None,
+            super::AuthChoice::Basic => IxitAuth::Basic {
+                user_env,
+                password_env,
+            },
+            super::AuthChoice::Bearer => IxitAuth::Bearer { token_env },
+        }
+    }
+
     /// Renders the draft's ixit document.
     ///
-    /// The three instances point at the CDR, each carrying env-var NAMES
-    /// only: the values live in the draft and reach the spawned run's
-    /// environment alone. Beside them travel exactly the deployment postures
+    /// The instances point at the CDR, each carrying env-var NAMES only: the
+    /// values live in the draft and reach the spawned run's environment
+    /// alone. The `admin` instance is composed only when the operator
+    /// supplied an administrative credential, and it carries that
+    /// credential's own variable names, so one credential set is never
+    /// presented as two principals. Beside them travel exactly the deployment postures
     /// the operator declared (#456) — a fact nobody declared composes no key,
     /// so the engine's selection law records the cases needing it
     /// not-applicable with its own citation instead of being driven under a
@@ -1050,23 +1124,20 @@ pub mod read {
     /// The serializer's verbatim failure, and the engine reader's refusal of a
     /// document the instrument cannot read.
     pub fn ixit_document(draft: &RunDraft) -> Result<String, String> {
-        let auth = match draft.auth {
-            super::AuthChoice::None => IxitAuth::None,
-            super::AuthChoice::Basic => IxitAuth::Basic {
-                user_env: veredictum::identity::USER_ENV,
-                password_env: veredictum::identity::PASSWORD_ENV,
-            },
-            super::AuthChoice::Bearer => IxitAuth::Bearer {
-                token_env: veredictum::identity::TOKEN_ENV,
-            },
-        };
+        use veredictum::arazzo::credential::Role;
+
         let instance = |auth: IxitAuth| IxitInstance {
             base_url: &draft.base_url,
             auth,
         };
         let mut instances = std::collections::BTreeMap::new();
-        instances.insert("sut", instance(auth));
-        instances.insert("admin", instance(auth));
+        instances.insert("sut", instance(ixit_auth(draft.auth, Role::Ordinary)));
+        if draft.admin_auth != super::AuthChoice::None {
+            instances.insert(
+                "admin",
+                instance(ixit_auth(draft.admin_auth, Role::Administrative)),
+            );
+        }
         instances.insert("unauthenticated", instance(IxitAuth::None));
         let signing = draft
             .postures
@@ -1210,6 +1281,7 @@ pub mod read {
             root: state.root.clone(),
             base_url: draft.base_url.clone(),
             auth: draft.auth.token(),
+            admin_auth: draft.admin_auth.token(),
             statement: statement_path,
             ixit: Some(ixit_path),
             documents,
@@ -1304,6 +1376,63 @@ pub mod read {
         })))
     }
 
+    /// The credential values one principal's mode presents, under the
+    /// variable names that principal's role reads; none for
+    /// [`super::AuthChoice::None`].
+    #[must_use]
+    pub fn credentials_of(
+        choice: super::AuthChoice,
+        role: veredictum::arazzo::credential::Role,
+        user: String,
+        password: String,
+        token: String,
+    ) -> Vec<crate::engine::Credential> {
+        let (user_env, password_env, token_env) = role.variables();
+        let credential = |name: &str, value: String| crate::engine::Credential {
+            name: name.to_owned(),
+            value: crate::engine::Secret::new(value),
+        };
+        match choice {
+            super::AuthChoice::None => Vec::new(),
+            super::AuthChoice::Basic => vec![
+                credential(user_env, user),
+                credential(password_env, password),
+            ],
+            super::AuthChoice::Bearer => vec![credential(token_env, token)],
+        }
+    }
+
+    /// Stores the identity labels on this submitter's draft: what the connect
+    /// step shows when the operator continues, so an edit made after the
+    /// probe reaches the run.
+    ///
+    /// # Errors
+    /// "no connection draft" before a probe, a label past its cap, and the
+    /// poisoned-lock diagnostic.
+    pub fn save_identity(
+        state: &ConsoleState,
+        submitter: Submitter,
+        sut_name: String,
+        sut_version: String,
+    ) -> Result<(), String> {
+        for (field, value) in [("display name", &sut_name), ("version label", &sut_version)] {
+            if count(value.len()) > super::IDENTITY_LABEL_CAP_BYTES {
+                return Err(format!(
+                    "the {field} is {} bytes; the cap is {}",
+                    value.len(),
+                    super::IDENTITY_LABEL_CAP_BYTES
+                ));
+            }
+        }
+        let mut guard = state.draft.lock().map_err(|e| e.to_string())?;
+        let draft = guard
+            .get_mut(submitter)
+            .ok_or_else(|| String::from(NO_DRAFT))?;
+        draft.sut_name = sut_name;
+        draft.sut_version = sut_version;
+        Ok(())
+    }
+
     /// Reads the server's identity through the pinned engine's `identify`
     /// subcommand, on a blocking thread.
     ///
@@ -1321,21 +1450,13 @@ pub mod read {
         password: &str,
         token: &str,
     ) -> crate::identity::IdentityAnswer {
-        let mut credentials = Vec::new();
-        let mut credential = |name: &str, value: &str| {
-            credentials.push(crate::engine::Credential {
-                name: name.to_owned(),
-                value: crate::engine::Secret::new(value.to_owned()),
-            });
-        };
-        match auth {
-            super::AuthChoice::None => {}
-            super::AuthChoice::Basic => {
-                credential(veredictum::identity::USER_ENV, user);
-                credential(veredictum::identity::PASSWORD_ENV, password);
-            }
-            super::AuthChoice::Bearer => credential(veredictum::identity::TOKEN_ENV, token),
-        }
+        let credentials = credentials_of(
+            auth,
+            veredictum::arazzo::credential::Role::Ordinary,
+            user.to_owned(),
+            password.to_owned(),
+            token.to_owned(),
+        );
         let spec = crate::engine::IdentifySpec {
             base_url: base_url.to_owned(),
             auth: auth.token(),
@@ -1427,8 +1548,8 @@ pub mod fns {
     use leptos::prelude::{ServerFnError, server};
 
     use super::{
-        AuthChoice, CapabilityRow, ClaimSummary, ConnectAnswer, DraftView, PostureForm, RunScreen,
-        ScopePreview, StartOutcome,
+        CapabilityRow, ClaimSummary, ConnectAnswer, CredentialForm, DraftView, PostureForm,
+        RunScreen, ScopePreview, StartOutcome,
     };
     use crate::run_job::RunId;
 
@@ -1436,7 +1557,9 @@ pub mod fns {
     /// and, on any answer, stores the draft with these facts (the probe
     /// outcome seed-gates Continue client-side). The secret values enter the
     /// server-side draft and the spawned `identify` environment, and nothing
-    /// else.
+    /// else. The administrative credential is optional and separate: the
+    /// probe and the identity read never present it, and it reaches only the
+    /// run's environment under the `--admin-auth` variable names.
     ///
     /// The probe is the one console-originated request to a CDR, so it is
     /// also one of the two seams a visitor-named target reaches (#390): the
@@ -1452,11 +1575,15 @@ pub mod fns {
         base_url: String,
         sut_name: String,
         sut_version: String,
-        auth: AuthChoice,
-        user: String,
-        password: String,
-        token: String,
+        server: CredentialForm,
+        admin: CredentialForm,
     ) -> Result<ConnectAnswer, ServerFnError> {
+        let CredentialForm {
+            auth,
+            user,
+            password,
+            token,
+        } = server;
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
         state
@@ -1476,26 +1603,21 @@ pub mod fns {
                 error: String::from("nothing answered the reachability probe"),
             },
         };
-        let mut credentials = Vec::new();
-        match auth {
-            AuthChoice::None => {}
-            AuthChoice::Basic => {
-                credentials.push(crate::engine::Credential {
-                    name: String::from(veredictum::identity::USER_ENV),
-                    value: crate::engine::Secret::new(user),
-                });
-                credentials.push(crate::engine::Credential {
-                    name: String::from(veredictum::identity::PASSWORD_ENV),
-                    value: crate::engine::Secret::new(password),
-                });
-            }
-            AuthChoice::Bearer => {
-                credentials.push(crate::engine::Credential {
-                    name: String::from(veredictum::identity::TOKEN_ENV),
-                    value: crate::engine::Secret::new(token),
-                });
-            }
-        }
+        let mut credentials = super::read::credentials_of(
+            auth,
+            veredictum::arazzo::credential::Role::Ordinary,
+            user,
+            password,
+            token,
+        );
+        let admin_auth = admin.auth;
+        credentials.extend(super::read::credentials_of(
+            admin.auth,
+            veredictum::arazzo::credential::Role::Administrative,
+            admin.user,
+            admin.password,
+            admin.token,
+        ));
         super::read::save_connection(
             &state,
             who,
@@ -1505,6 +1627,7 @@ pub mod fns {
                 sut_version,
                 identity: Some(identity.clone()),
                 auth,
+                admin_auth,
                 credentials,
                 probed_ok,
                 statement_json: None,
@@ -1518,6 +1641,19 @@ pub mod fns {
             probe: crate::capture::probe_answer(&state, answer),
             identity,
         })
+    }
+
+    /// Stores the identity labels the connect step shows when the operator
+    /// continues, so an edit made after the probe reaches the run.
+    ///
+    /// # Errors
+    /// "no connection draft" before a probe, a label past its cap, and the
+    /// draft-store failure, each verbatim.
+    #[server]
+    pub async fn save_identity(sut_name: String, sut_version: String) -> Result<(), ServerFnError> {
+        let state: crate::state::ConsoleState = leptos::prelude::expect_context();
+        let who = crate::submitter::current(&state);
+        super::read::save_identity(&state, who, sut_name, sut_version).map_err(ServerFnError::new)
     }
 
     /// The client-safe draft this submitter has, when they have one.

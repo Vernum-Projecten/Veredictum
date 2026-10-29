@@ -9,9 +9,9 @@
 
 use leptos::prelude::{
     Action, AddAnyAttr, AnyView, ClassAttribute, CollectView, Effect, ElementChild, Get,
-    GlobalAttributes, IntoAny, IntoView, Memo, OnAttribute, OnTargetAttribute, PropAttribute,
-    Resource, RwSignal, ServerFnError, Set, Show, StyleAttribute, Suspend, Suspense, Transition,
-    Update, With, component, view,
+    GetUntracked, GlobalAttributes, IntoAny, IntoView, Memo, OnAttribute, OnTargetAttribute,
+    PropAttribute, Resource, RwSignal, ServerFnError, Set, Show, StyleAttribute, Suspend, Suspense,
+    Transition, Update, With, component, view,
 };
 use leptos_meta::Title;
 use leptos_router::components::{A, Redirect};
@@ -26,12 +26,12 @@ use crate::components::toast;
 use crate::identity::{FieldEntry, IdentityAnswer, resolve};
 use crate::run_api::fns::{
     cancel_run, compose_claim, fetch_capability_rows, fetch_draft, fetch_run, fetch_scope_preview,
-    probe_and_save, save_scope, start_run,
+    probe_and_save, save_identity, save_scope, start_run,
 };
 use crate::run_api::{
-    AuthChoice, CapabilityRow, ClaimSummary, ConnectAnswer, DigestEncoding, PostureForm,
-    ProbeAnswer, RecordedRun, RunScreen, ScopePreview, SigningChoice, SpecProfileChoice,
-    StartOutcome,
+    AuthChoice, CapabilityRow, ClaimSummary, ConnectAnswer, CredentialForm, DigestEncoding,
+    PostureForm, ProbeAnswer, RecordedRun, RunScreen, ScopePreview, SigningChoice,
+    SpecProfileChoice, StartOutcome,
 };
 use crate::run_job::{JobStatus, JobView, RunId};
 
@@ -72,24 +72,164 @@ struct ProbeInput {
     sut_name: String,
     /// The SUT version label for the record.
     sut_version: String,
-    /// The authentication mode.
-    auth: AuthChoice,
-    /// The Basic user, empty for the other modes.
-    user: String,
-    /// The Basic password, empty for the other modes.
-    password: String,
-    /// The bearer token, empty for the other modes.
-    token: String,
+    /// The server credential.
+    server: CredentialForm,
+    /// The administrative credential, separate from the server's.
+    admin: CredentialForm,
 }
 
-/// A finished probe: the server's answer, and the identity fields neither
-/// the server nor the probe's own inputs supplied.
-#[derive(Debug, Clone)]
-struct Connected {
-    /// What the server answered.
-    connected: ConnectAnswer,
-    /// The fields nobody supplied, by the screen's labels.
-    missing: Vec<&'static str>,
+/// One principal's credential controls: the mode and its secret fields.
+///
+/// Every write marks the connection edited, because a credential is a fact
+/// the probe stored and the run drives with.
+#[derive(Debug, Clone, Copy)]
+struct CredentialSignals {
+    /// The authentication mode.
+    auth: RwSignal<AuthChoice>,
+    /// The Basic user.
+    user: RwSignal<String>,
+    /// The Basic password.
+    password: RwSignal<String>,
+    /// The bearer token.
+    token: RwSignal<String>,
+    /// The control ids' prefix: `sut` or `admin`.
+    prefix: &'static str,
+}
+
+impl CredentialSignals {
+    /// Empty controls under `prefix`, in mode `none`.
+    fn new(prefix: &'static str) -> Self {
+        Self {
+            auth: RwSignal::new(AuthChoice::None),
+            user: RwSignal::new(String::new()),
+            password: RwSignal::new(String::new()),
+            token: RwSignal::new(String::new()),
+            prefix,
+        }
+    }
+
+    /// The values the controls hold now.
+    fn read(self) -> CredentialForm {
+        let auth = self.auth.get();
+        let basic = matches!(auth, AuthChoice::Basic);
+        let bearer = matches!(auth, AuthChoice::Bearer);
+        CredentialForm {
+            auth,
+            user: if basic {
+                self.user.get()
+            } else {
+                String::new()
+            },
+            password: if basic {
+                self.password.get()
+            } else {
+                String::new()
+            },
+            token: if bearer {
+                self.token.get()
+            } else {
+                String::new()
+            },
+        }
+    }
+}
+
+/// One secret input, writing `value` and marking the connection edited.
+fn secret_input(
+    id: String,
+    label: &'static str,
+    kind: &'static str,
+    value: RwSignal<String>,
+    edited: RwSignal<bool>,
+) -> AnyView {
+    view! {
+        <div>
+            <label class=LABEL for=id.clone()>
+                {label}
+            </label>
+            <input
+                id=id
+                type=kind
+                autocomplete="off"
+                class=format!("{INPUT} mt-1 w-full")
+                prop:value=move || value.get()
+                on:input:target=move |ev| {
+                    value.set(ev.target().value());
+                    edited.set(true);
+                }
+            />
+        </div>
+    }
+    .into_any()
+}
+
+/// One principal's mode buttons and the secret fields its mode reads.
+fn credential_controls(
+    credential: CredentialSignals,
+    label: &'static str,
+    edited: RwSignal<bool>,
+) -> AnyView {
+    let prefix = credential.prefix;
+    let button = move |choice: AuthChoice, text: &'static str| {
+        let id = format!("{prefix}-auth-{}", choice.token());
+        view! {
+            <button
+                id=id
+                type="button"
+                class=move || {
+                    if credential.auth.get() == choice {
+                        "rounded-control bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
+                    } else {
+                        "rounded-control border border-edge-strong bg-raised px-3 py-1.5 text-sm text-ink hover:bg-sunken"
+                    }
+                }
+                on:click=move |_| {
+                    if credential.auth.get_untracked() != choice {
+                        credential.auth.set(choice);
+                        edited.set(true);
+                    }
+                }
+            >
+                {text}
+            </button>
+        }
+    };
+    let fields = move || match credential.auth.get() {
+        AuthChoice::None => ().into_any(),
+        AuthChoice::Basic => view! {
+            <div class="grid grid-cols-2 gap-3">
+                {secret_input(format!("{prefix}-user"), "User", "text", credential.user, edited)}
+                {secret_input(
+                    format!("{prefix}-pass"),
+                    "Password",
+                    "password",
+                    credential.password,
+                    edited,
+                )}
+            </div>
+        }
+        .into_any(),
+        AuthChoice::Bearer => secret_input(
+            format!("{prefix}-token"),
+            "Bearer token",
+            "password",
+            credential.token,
+            edited,
+        ),
+    };
+    view! {
+        <div class="space-y-2">
+            <div>
+                <span class=LABEL>{label}</span>
+                <div class="mt-1 flex items-center gap-2">
+                    {button(AuthChoice::None, "None")} {button(AuthChoice::Basic, "Basic")}
+                    {button(AuthChoice::Bearer, "Bearer")}
+                </div>
+            </div>
+            {fields}
+        </div>
+    }
+    .into_any()
 }
 
 /// One identity field: the server's value read-only when it stated one, the
@@ -189,6 +329,138 @@ fn identity_fields(
     .into_any()
 }
 
+/// What the connect step offers after a probe the server answered: the
+/// continue control over the labels as the screen shows them now, or why
+/// there is none yet.
+///
+/// The identity labels are carried to the run when the operator continues,
+/// so they stay editable after the probe. The address and the credentials are
+/// facts the probe tested and stored, so an edit to one of them asks for a
+/// new probe before the run can use it.
+fn continue_view(
+    identity: &IdentityAnswer,
+    ok: bool,
+    labels: (RwSignal<String>, RwSignal<String>),
+    gates: ConnectGates,
+    proceed: Action<(String, String), ()>,
+) -> AnyView {
+    let (sut_name, sut_version) = labels;
+    if gates.probing.get() {
+        return view! { <p class="text-sm text-ink-muted">"Probing the connection…"</p> }
+            .into_any();
+    }
+    if gates.edited.get() {
+        return view! {
+            <p id="connect-stale" class="text-sm text-ink">
+                "The address or a credential changed since the probe. Probe again before continuing, so the run drives what this screen shows."
+            </p>
+        }
+        .into_any();
+    }
+    let missing = sut_name
+        .with(|name| sut_version.with(|version| resolve(Some(identity), name, version).missing()));
+    if !missing.is_empty() {
+        let body = format!(
+            "The server did not state its {}: enter it above.",
+            missing.join(" or "),
+        );
+        return view! { <p class="text-sm text-ink">{body}</p> }.into_any();
+    }
+    view! {
+        <button
+            id="connect-continue"
+            type="button"
+            class=BTN_PRIMARY
+            prop:disabled=move || proceed.pending().get()
+            on:click=move |_| {
+                proceed.dispatch((sut_name.get(), sut_version.get()));
+            }
+        >
+            {move || {
+                if proceed.pending().get() {
+                    "Saving…"
+                } else if ok {
+                    "Continue"
+                } else {
+                    "Continue anyway"
+                }
+            }}
+        </button>
+    }
+    .into_any()
+}
+
+/// What withholds Continue on the connect step.
+#[derive(Debug, Clone, Copy)]
+struct ConnectGates {
+    /// A probe is in flight, and the draft it stores is not there yet.
+    probing: Memo<bool>,
+    /// The address or a credential changed since the last probe.
+    edited: RwSignal<bool>,
+}
+
+/// The probe's answer: the status line and what comes next.
+fn answer_view(
+    result: Result<ConnectAnswer, String>,
+    labels: (RwSignal<String>, RwSignal<String>),
+    gates: ConnectGates,
+    proceed: Action<(String, String), ()>,
+) -> AnyView {
+    match result {
+        Ok(ConnectAnswer {
+            probe: ProbeAnswer::Answered {
+                status,
+                elapsed_ms,
+                ok,
+            },
+            identity,
+        }) => {
+            let line = format!("{status} · {elapsed_ms} ms · GET …/definition/template/adl1.4");
+            let badge = if ok {
+                view! { <p class="text-sm text-ink">"The server answered. Continue when ready."</p> }
+                    .into_any()
+            } else {
+                view! {
+                    <p class="text-sm text-ink">
+                        "The server answered, though not 2xx — a refusal of the unauthenticated probe is legitimate on locked-down deployments. Check the credentials, or continue anyway."
+                    </p>
+                }
+                .into_any()
+            };
+            let next = move || continue_view(&identity, ok, labels, gates, proceed);
+            view! {
+                <div class="space-y-2">
+                    <Pane label="probe answer" body=line />
+                    {badge}
+                    {next}
+                </div>
+            }
+            .into_any()
+        }
+        Ok(ConnectAnswer {
+            probe: ProbeAnswer::Unreachable { error },
+            ..
+        }) => view! {
+            <div class="space-y-2">
+                {inline_error(&error)}
+                <p class="text-sm text-ink-muted">
+                    "Nothing answered: check the URL, the network path from this console to the server, and that the CDR is up."
+                </p>
+            </div>
+        }
+        .into_any(),
+        Err(e) => view! {
+            <div class="space-y-2">
+                {inline_error(&e)}
+                <p class="text-sm text-ink-muted">
+                    "Nothing was contacted and no connection was stored. Correct the target and probe again."
+                </p>
+            </div>
+        }
+        .into_any(),
+    }
+}
+
 /// S3 — the connection form and the probe.
 #[expect(
     clippy::must_use_candidate,
@@ -196,46 +468,37 @@ fn identity_fields(
 )]
 #[expect(
     clippy::too_many_lines,
-    reason = "the connect form's fields, the auth segmented control and the probe answer — one cohesive screen, its sections erased per rules §1"
+    reason = "the connect form's fields, both credentials, the probe and the continue gate — one cohesive screen, its sections erased per rules §1"
 )]
 #[component]
 pub fn Connect() -> impl IntoView {
     let base_url = RwSignal::new(String::new());
     let sut_name = RwSignal::new(String::from("my-cdr"));
     let sut_version = RwSignal::new(String::from("unknown"));
-    let auth = RwSignal::new(AuthChoice::None);
-    let user = RwSignal::new(String::new());
-    let password = RwSignal::new(String::new());
-    let token = RwSignal::new(String::new());
+    let server = CredentialSignals::new("sut");
+    let admin = CredentialSignals::new("admin");
+    // Whether the address or a credential changed since the last probe: those
+    // are the facts the probe stored, so the run cannot drive the edit until
+    // a new probe stores it.
+    let edited = RwSignal::new(false);
     // The probe both contacts a server and stores the draft, so it reports
     // its refusal as a notification the way every other mutation here does —
     // a target the posture refuses, or a spent probe budget, must never look
     // like nothing happened.
-    let answer = RwSignal::new(None::<Result<Connected, String>>);
+    let answer = RwSignal::new(None::<Result<ConnectAnswer, String>>);
     let probe = Action::new(move |input: &ProbeInput| {
         let input = input.clone();
         async move {
-            let operator_name = input.sut_name.clone();
-            let operator_version = input.sut_version.clone();
             match probe_and_save(
                 input.base_url,
                 input.sut_name,
                 input.sut_version,
-                input.auth,
-                input.user,
-                input.password,
-                input.token,
+                input.server,
+                input.admin,
             )
             .await
             {
-                Ok(connected) => {
-                    // The fields neither side supplies are decided against the
-                    // values the draft stored, which are the ones this probe sent.
-                    let missing =
-                        resolve(Some(&connected.identity), &operator_name, &operator_version)
-                            .missing();
-                    answer.set(Some(Ok(Connected { connected, missing })));
-                }
+                Ok(connected) => answer.set(Some(Ok(connected))),
                 Err(e) => {
                     let body = e.to_string();
                     toast::error(
@@ -247,36 +510,60 @@ pub fn Connect() -> impl IntoView {
             }
         }
     });
-
-    let auth_button = move |choice: AuthChoice, label: &'static str| {
-        let active = move || auth.get() == choice;
-        view! {
-            <button
-                type="button"
-                class=move || {
-                    if active() {
-                        "rounded-control bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
-                    } else {
-                        "rounded-control border border-edge-strong bg-raised px-3 py-1.5 text-sm text-ink hover:bg-sunken"
-                    }
-                }
-                on:click=move |_| auth.set(choice)
-            >
-                {label}
-            </button>
+    // Continuing stores the identity labels as the screen shows them, so an
+    // edit made after the probe is the one the run records.
+    let continued = RwSignal::new(false);
+    let proceed = Action::new(move |(name, version): &(String, String)| {
+        let (name, version) = (name.clone(), version.clone());
+        async move {
+            match save_identity(name, version).await {
+                Ok(()) => continued.set(true),
+                Err(e) => toast::error(
+                    "The identity was not saved",
+                    &format!("The connection draft is unchanged: {e}"),
+                ),
+            }
         }
-    };
+    });
 
     let dispatch_probe = move |_| {
+        edited.set(false);
         probe.dispatch(ProbeInput {
             base_url: base_url.get(),
             sut_name: sut_name.get(),
             sut_version: sut_version.get(),
-            auth: auth.get(),
-            user: user.get(),
-            password: password.get(),
-            token: token.get(),
+            server: server.read(),
+            admin: admin.read(),
         });
+    };
+
+    let identity = move || {
+        let identity = answer.with(|answered| {
+            answered
+                .as_ref()
+                .and_then(|result| result.as_ref().ok())
+                .map(|done| done.identity.clone())
+        });
+        identity_fields(identity.as_ref(), sut_name, sut_version)
+    };
+    let credentials = view! {
+        {credential_controls(server, "Authentication", edited)}
+        <div class="space-y-2 border-t border-line pt-4">
+            {credential_controls(admin, "Administrative credential (optional)", edited)}
+            <p class="text-xs text-ink-muted">
+                "The principal the administrative workflows log in as, separate from the server credential. Without one, every workflow with an administrative step is skipped as not-declared."
+            </p>
+        </div>
+    }
+    .into_any();
+    let gates = ConnectGates {
+        probing: probe.pending(),
+        edited,
+    };
+    let probed = move || {
+        answer
+            .get()
+            .map(|result| answer_view(result, (sut_name, sut_version), gates, proceed))
     };
 
     view! {
@@ -300,178 +587,28 @@ pub fn Connect() -> impl IntoView {
                         class=format!("{INPUT} mt-1 w-full")
                         placeholder="https://cdr.example/ehrbase/rest/openehr/v1"
                         prop:value=move || base_url.get()
-                        on:input:target=move |ev| base_url.set(ev.target().value())
+                        on:input:target=move |ev| {
+                            base_url.set(ev.target().value());
+                            edited.set(true);
+                        }
                     />
                 </div>
-                {move || {
-                    let identity = answer
-                        .with(|answered| {
-                            answered
-                                .as_ref()
-                                .and_then(|result| result.as_ref().ok())
-                                .map(|done| done.connected.identity.clone())
-                        });
-                    identity_fields(identity.as_ref(), sut_name, sut_version)
-                }}
-                <div>
-                    <span class=LABEL>"Authentication"</span>
-                    <div class="mt-1 flex items-center gap-2">
-                        {auth_button(AuthChoice::None, "None")}
-                        {auth_button(AuthChoice::Basic, "Basic")}
-                        {auth_button(AuthChoice::Bearer, "Bearer")}
-                    </div>
-                </div>
-                {move || {
-                    match auth.get() {
-                        AuthChoice::None => ().into_any(),
-                        AuthChoice::Basic => {
-                            view! {
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label class=LABEL for="sut-user">
-                                            "User"
-                                        </label>
-                                        <input
-                                            id="sut-user"
-                                            type="text"
-                                            autocomplete="off"
-                                            class=format!("{INPUT} mt-1 w-full")
-                                            prop:value=move || user.get()
-                                            on:input:target=move |ev| user.set(ev.target().value())
-                                        />
-                                    </div>
-                                    <div>
-                                        <label class=LABEL for="sut-pass">
-                                            "Password"
-                                        </label>
-                                        <input
-                                            id="sut-pass"
-                                            type="password"
-                                            autocomplete="off"
-                                            class=format!("{INPUT} mt-1 w-full")
-                                            prop:value=move || password.get()
-                                            on:input:target=move |ev| password.set(ev.target().value())
-                                        />
-                                    </div>
-                                </div>
-                            }
-                                .into_any()
-                        }
-                        AuthChoice::Bearer => {
-                            view! {
-                                <div>
-                                    <label class=LABEL for="sut-token">
-                                        "Bearer token"
-                                    </label>
-                                    <input
-                                        id="sut-token"
-                                        type="password"
-                                        autocomplete="off"
-                                        class=format!("{INPUT} mt-1 w-full")
-                                        prop:value=move || token.get()
-                                        on:input:target=move |ev| token.set(ev.target().value())
-                                    />
-                                </div>
-                            }
-                                .into_any()
-                        }
-                    }
-                }}
+                {identity}
+                {credentials}
                 <div class="flex items-center gap-2">
-                    <button type="button" class=BTN_SECONDARY on:click=dispatch_probe>
+                    <button
+                        type="button"
+                        class=BTN_SECONDARY
+                        prop:disabled=move || probe.pending().get()
+                        on:click=dispatch_probe
+                    >
                         {move || {
                             if probe.pending().get() { "Probing…" } else { "Probe connection" }
                         }}
                     </button>
                 </div>
-                {move || {
-                    answer
-                        .get()
-                        .map(|result| {
-                            match result {
-                                Ok(
-                                    Connected {
-                                        connected: ConnectAnswer {
-                                            probe: ProbeAnswer::Answered { status, elapsed_ms, ok },
-                                            ..
-                                        },
-                                        missing,
-                                    },
-                                ) => {
-                                    let line = format!(
-                                        "{status} · {elapsed_ms} ms · GET …/definition/template/adl1.4",
-                                    );
-                                    let badge = if ok {
-                                        view! {
-                                            <p class="text-sm text-ink">
-                                                "The server answered. Continue when ready."
-                                            </p>
-                                        }
-                                            .into_any()
-                                    } else {
-                                        view! {
-                                            <p class="text-sm text-ink">
-                                                "The server answered, though not 2xx — a refusal of the unauthenticated probe is legitimate on locked-down deployments. Check the credentials, or continue anyway."
-                                            </p>
-                                        }
-                                            .into_any()
-                                    };
-                                    let next = if missing.is_empty() {
-                                        view! {
-                                            <A href="/run/scope" attr:class=BTN_PRIMARY>
-                                                {if ok { "Continue" } else { "Continue anyway" }}
-                                            </A>
-                                        }
-                                            .into_any()
-                                    } else {
-                                        let body = format!(
-                                            "The server did not state its {}: enter it above and probe again.",
-                                            missing.join(" or "),
-                                        );
-                                        view! { <p class="text-sm text-ink">{body}</p> }.into_any()
-                                    };
-                                    view! {
-                                        <div class="space-y-2">
-                                            <Pane label="probe answer" body=line />
-                                            {badge}
-                                            {next}
-                                        </div>
-                                    }
-                                        .into_any()
-                                }
-                                Ok(
-                                    Connected {
-                                        connected: ConnectAnswer {
-                                            probe: ProbeAnswer::Unreachable { error },
-                                            ..
-                                        },
-                                        ..
-                                    },
-                                ) => {
-                                    view! {
-                                        <div class="space-y-2">
-                                            {inline_error(&error)}
-                                            <p class="text-sm text-ink-muted">
-                                                "Nothing answered: check the URL, the network path from this console to the server, and that the CDR is up."
-                                            </p>
-                                        </div>
-                                    }
-                                        .into_any()
-                                }
-                                Err(e) => {
-                                    view! {
-                                        <div class="space-y-2">
-                                            {inline_error(&e)}
-                                            <p class="text-sm text-ink-muted">
-                                                "Nothing was contacted and no connection was stored. Correct the target and probe again."
-                                            </p>
-                                        </div>
-                                    }
-                                        .into_any()
-                                }
-                            }
-                        })
-                }}
+                {probed}
+                {move || continued.get().then(|| view! { <Redirect path="/run/scope" /> })}
             </div>
         </section>
     }
@@ -616,11 +753,12 @@ pub fn Scope() -> impl IntoView {
                 match draft.await {
                     Ok(Some(view_draft)) => {
                         let connection = format!(
-                            "{} · {} {} · auth {}{}",
+                            "{} · {} {} · auth {} · admin auth {}{}",
                             view_draft.base_url,
                             view_draft.sut_name,
                             view_draft.sut_version,
                             view_draft.auth,
+                            view_draft.admin_auth,
                             if view_draft.probed_ok {
                                 " · probed ✓"
                             } else {
@@ -1575,7 +1713,8 @@ fn live_view(job: &JobView, cancel: Action<RunId, ()>) -> impl IntoView + use<> 
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
                     <h2 class="text-sm font-semibold text-ink-heading">
-                        {format!("{} · {}", job.sut_name, job.id)}
+                        <span id="live-sut">{format!("{} {}", job.sut_name, job.sut_version)}</span>
+                        {format!(" · {}", job.id)}
                     </h2>
                     {status_line}
                 </div>

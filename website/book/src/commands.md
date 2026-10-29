@@ -317,6 +317,10 @@ credential `--auth` names is not supplied. It reads the credential exactly as
 Run it before `test` to see which product and version a run against the same
 base URL is about to grade.
 
+The document it prints has an `outcome` of `offered`, `not_offered` or
+`not_options_document`, and `schemas/identity.schema.json` describes it, so a
+script reading it has a schema to validate against.
+
 ## validate
 
 ```text
@@ -480,12 +484,12 @@ Options:
       --auth <AUTH>
           How the client presents itself: `none`, `basic` or `bearer`.
           
-          The secret never rides argv: `basic` reads `VEREDICTUM_BENCH_PASSWORD` and `bearer` reads `VEREDICTUM_BENCH_TOKEN`.
+          The secret never rides argv: `basic` reads `VEREDICTUM_CDR_PASSWORD` and `bearer` reads `VEREDICTUM_CDR_TOKEN`, the variables `test` and `identify` read, each also from the file its `_FILE` form names.
           
           [default: none]
 
       --user <USER>
-          The user `--auth basic` presents
+          The user `--auth basic` presents; without it, the user is read from `VEREDICTUM_CDR_USER`
 
       --pack <PACK>
           The embedded pack to drive
@@ -587,9 +591,11 @@ Anything but `1.0`, or a `--seed-workers` override, takes the run off the pack's
 pinned configuration; the record says so in its `scale` block, the summary says
 so in prose, and `bench-compare` names it in the header.
 
-Credentials never ride the command line: `--auth basic` reads its password from
-`VEREDICTUM_BENCH_PASSWORD` and `--auth bearer` reads its token from
-`VEREDICTUM_BENCH_TOKEN`.
+Credentials never ride the command line, and the bench reads the variables
+`test` and `identify` read ([Logging in to the CDR](authentication.md)):
+`--auth basic` reads its password from `VEREDICTUM_CDR_PASSWORD`, and its user
+from `VEREDICTUM_CDR_USER` when `--user` is absent; `--auth bearer` reads its
+token from `VEREDICTUM_CDR_TOKEN`. Each has its `_FILE` form.
 
 Before anything is measured, a preflight reads the template list, uploads the
 pack's template, then creates one scratch EHR, commits a composition into it and

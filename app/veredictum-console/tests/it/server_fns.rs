@@ -271,7 +271,7 @@ async fn the_scope_reads_come_off_the_committed_trees() -> Result<(), Box<dyn st
 #[tokio::test]
 async fn the_connect_step_records_the_probe_and_keeps_the_secrets()
 -> Result<(), Box<dyn std::error::Error>> {
-    use veredictum_console::run_api::{AuthChoice, ProbeAnswer, fns};
+    use veredictum_console::run_api::{AuthChoice, CredentialForm, ProbeAnswer, fns};
 
     let scratch = assert_fs::TempDir::new()?;
     let state = state_over(scratch.path());
@@ -288,10 +288,13 @@ async fn the_connect_step_records_the_probe_and_keeps_the_secrets()
             base_url.clone(),
             String::from("fixture-sut"),
             String::from("0.0.0-gate"),
-            auth,
-            user.to_owned(),
-            password.to_owned(),
-            token.to_owned(),
+            CredentialForm {
+                auth,
+                user: user.to_owned(),
+                password: password.to_owned(),
+                token: token.to_owned(),
+            },
+            CredentialForm::none(),
         )
         .await
         .map_err(|e| e.to_string())?;
@@ -329,10 +332,8 @@ async fn the_connect_step_records_the_probe_and_keeps_the_secrets()
         String::from("http://127.0.0.1:1"),
         String::from("nothing-there"),
         String::from("0"),
-        AuthChoice::None,
-        String::new(),
-        String::new(),
-        String::new(),
+        CredentialForm::none(),
+        CredentialForm::none(),
     )
     .await
     .map_err(|e| e.to_string())?;
@@ -340,6 +341,65 @@ async fn the_connect_step_records_the_probe_and_keeps_the_secrets()
         matches!(unreachable.probe, ProbeAnswer::Unreachable { .. }),
         "{unreachable:?}"
     );
+    Ok(())
+}
+
+/// An identity label edited on the connect step after the probe reaches the
+/// draft the run records once the operator continues (#670); a label past its
+/// cap is refused and leaves the draft as it was, and there is nothing to
+/// edit before a probe stored a draft.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test]
+async fn an_identity_label_edited_after_the_probe_reaches_the_draft()
+-> Result<(), Box<dyn std::error::Error>> {
+    use veredictum_console::run_api::{CredentialForm, IDENTITY_LABEL_CAP_BYTES, fns};
+
+    let scratch = assert_fs::TempDir::new()?;
+    let state = state_over(scratch.path());
+    let _owner = provide(&state);
+
+    let refused = fns::save_identity(String::from("cdr"), String::from("1")).await;
+    assert!(
+        refused.is_err_and(|e| e.to_string().contains("no connection draft")),
+        "a label edit before any probe has no draft to land on"
+    );
+
+    let port = engine_gate::fixture_sut()?;
+    fns::probe_and_save(
+        format!("http://127.0.0.1:{port}"),
+        String::from("labelled-cdr"),
+        String::from("1.0.0"),
+        CredentialForm::none(),
+        CredentialForm::none(),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    fns::save_identity(String::from("labelled-cdr"), String::from("1.0.1"))
+        .await
+        .map_err(|e| e.to_string())?;
+    let draft = fns::fetch_draft()
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or("the probe stored a draft")?;
+    assert_eq!(
+        (draft.sut_name.as_str(), draft.sut_version.as_str()),
+        ("labelled-cdr", "1.0.1"),
+        "the run records the label the screen showed at continue"
+    );
+    assert_eq!(draft.admin_auth, "none");
+
+    let oversized = "x".repeat(usize::try_from(IDENTITY_LABEL_CAP_BYTES)? + 1);
+    let refused = fns::save_identity(String::from("labelled-cdr"), oversized).await;
+    assert!(refused.is_err(), "a label past its cap is refused");
+    let draft = fns::fetch_draft()
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or("the draft survives a refused edit")?;
+    assert_eq!(draft.sut_version, "1.0.1", "a refused edit changes nothing");
     Ok(())
 }
 
@@ -357,7 +417,7 @@ async fn the_connect_step_records_the_probe_and_keeps_the_secrets()
 #[tokio::test]
 async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
 -> Result<(), Box<dyn std::error::Error>> {
-    use veredictum_console::run_api::{AuthChoice, PostureForm, fns};
+    use veredictum_console::run_api::{CredentialForm, PostureForm, fns};
 
     let scratch = assert_fs::TempDir::new()?;
     let state = state_over(scratch.path());
@@ -369,10 +429,8 @@ async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
         format!("http://127.0.0.1:{port}"),
         String::from("scope-sut"),
         String::from("1.2.3"),
-        AuthChoice::None,
-        String::new(),
-        String::new(),
-        String::new(),
+        CredentialForm::none(),
+        CredentialForm::none(),
     )
     .await
     .map_err(|e| e.to_string())?;

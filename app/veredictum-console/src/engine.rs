@@ -80,6 +80,10 @@ pub struct RunSpec {
     pub base_url: String,
     /// The `--auth` token: `none`, `basic` or `bearer`.
     pub auth: &'static str,
+    /// The `--admin-auth` token for the administrative principal: `none`,
+    /// `basic` or `bearer`. With `none` the engine skips every workflow with
+    /// an administrative step as `not-declared`.
+    pub admin_auth: &'static str,
     /// The party statement, when test selection should apply.
     pub statement: Option<PathBuf>,
     /// The IXIT the rows files' `declared` inputs read (already written;
@@ -90,8 +94,10 @@ pub struct RunSpec {
     /// The output directory the run writes into.
     pub out_dir: PathBuf,
     /// The secret values under the variable names `test` reads
-    /// ([`veredictum::identity::USER_ENV`] and its siblings). They reach the
-    /// child process environment and nothing else.
+    /// ([`veredictum::identity::USER_ENV`] and its siblings for `--auth`,
+    /// [`veredictum::arazzo::credential::ADMIN_USER_ENV`] and its siblings for
+    /// `--admin-auth`). They reach the child process environment and nothing
+    /// else.
     pub credentials: Vec<Credential>,
 }
 
@@ -517,6 +523,8 @@ pub fn args(spec: &RunSpec) -> Vec<std::ffi::OsString> {
         spec.base_url.clone().into(),
         "--auth".into(),
         spec.auth.into(),
+        "--admin-auth".into(),
+        spec.admin_auth.into(),
     ];
     if let Some(statement) = &spec.statement {
         args.push("--statement".into());
@@ -645,6 +653,7 @@ mod tests {
             root: "catalogue".into(),
             base_url: String::from("http://cdr.test/openehr/v1"),
             auth: "basic",
+            admin_auth: "bearer",
             statement: Some("mine/statement.json".into()),
             ixit: Some("out/ixit.json".into()),
             documents: vec![String::from("ehr"), String::from("ehr_status")],
@@ -676,6 +685,8 @@ mod tests {
                 "http://cdr.test/openehr/v1",
                 "--auth",
                 "basic",
+                "--admin-auth",
+                "bearer",
                 "--statement",
                 "mine/statement.json",
                 "--ixit",
@@ -705,6 +716,24 @@ mod tests {
         for flag in ["--statement", "--ixit", "--document"] {
             assert!(!rendered.contains(&String::from(flag)), "{rendered:?}");
         }
+    }
+
+    /// A run with no administrative credential still names the mode, so the
+    /// engine skips the administrative workflows as `not-declared` by the
+    /// console's own statement rather than by a default (#483).
+    #[test]
+    fn a_run_without_an_admin_credential_passes_admin_auth_none() {
+        let spec = RunSpec {
+            admin_auth: "none",
+            credentials: Vec::new(),
+            ..full_spec()
+        };
+        let rendered = rendered(&spec);
+        let at = rendered
+            .iter()
+            .position(|a| a == "--admin-auth")
+            .expect("the vector names --admin-auth");
+        assert_eq!(rendered.get(at + 1).map(String::as_str), Some("none"));
     }
 
     #[test]

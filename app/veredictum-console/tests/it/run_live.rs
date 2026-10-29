@@ -94,6 +94,7 @@ fn posture_draft(postures: DeclaredPostures) -> RunDraft {
         sut_version: String::from("y"),
         identity: None,
         auth: AuthChoice::Basic,
+        admin_auth: AuthChoice::None,
         credentials: vec![
             Credential {
                 name: String::from(veredictum::identity::USER_ENV),
@@ -161,14 +162,6 @@ fn the_composed_ixit_pins_every_posture_the_console_supplies()
         document,
         r#"{
   "instances": {
-    "admin": {
-      "base_url": "http://cdr.example",
-      "auth": {
-        "mode": "basic",
-        "user_env": "VEREDICTUM_CDR_USER",
-        "password_env": "VEREDICTUM_CDR_PASSWORD"
-      }
-    },
     "sut": {
       "base_url": "http://cdr.example",
       "auth": {
@@ -282,8 +275,73 @@ fn an_undeclared_posture_composes_no_key() -> Result<(), Box<dyn std::error::Err
         );
     }
     // And the instances the console DOES compose stay there.
-    for instance in ["sut", "admin", "unauthenticated"] {
+    for instance in ["sut", "unauthenticated"] {
         assert!(document.contains(instance), "{document}");
+    }
+    Ok(())
+}
+
+/// Without an administrative credential the console composes no `admin`
+/// instance, so the IXIT never presents the server credential as a second
+/// principal; with one, the `admin` instance carries the administrative
+/// credential's own variable names and never the server's (#483).
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+)]
+#[expect(
+    clippy::disallowed_types,
+    reason = "the artifact-loader family: the composed IXIT is read back as a value to inspect which instances it names"
+)]
+#[test]
+fn the_admin_instance_carries_only_the_administrative_credential()
+-> Result<(), Box<dyn std::error::Error>> {
+    use veredictum::arazzo::credential::{ADMIN_PASSWORD_ENV, ADMIN_TOKEN_ENV, ADMIN_USER_ENV};
+
+    let without = read::ixit_document(&posture_draft(DeclaredPostures::default()))?;
+    let parsed: serde_json::Value = serde_json::from_str(&without)?;
+    let instances = parsed
+        .get("instances")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("the ixit names its instances")?;
+    assert!(!instances.contains_key("admin"), "{without}");
+    assert!(!without.contains("ADMIN"), "{without}");
+
+    for (choice, names, mode) in [
+        (
+            AuthChoice::Basic,
+            vec![ADMIN_USER_ENV, ADMIN_PASSWORD_ENV],
+            "basic",
+        ),
+        (AuthChoice::Bearer, vec![ADMIN_TOKEN_ENV], "bearer"),
+    ] {
+        let mut draft = posture_draft(DeclaredPostures::default());
+        draft.admin_auth = choice;
+        let document = read::ixit_document(&draft)?;
+        let parsed: serde_json::Value = serde_json::from_str(&document)?;
+        let admin = parsed
+            .pointer("/instances/admin/auth")
+            .ok_or("an admin instance is composed")?;
+        assert_eq!(
+            admin.get("mode").and_then(serde_json::Value::as_str),
+            Some(mode)
+        );
+        let rendered = admin.to_string();
+        for name in names {
+            assert!(rendered.contains(name), "{rendered}");
+        }
+        for server_name in [
+            veredictum::identity::USER_ENV,
+            veredictum::identity::PASSWORD_ENV,
+            veredictum::identity::TOKEN_ENV,
+        ] {
+            assert!(
+                !rendered.contains(&format!("\"{server_name}\"")),
+                "the admin instance names the server credential: {rendered}"
+            );
+        }
+        let ixit: Result<veredictum::ixit::Ixit, _> = serde_json::from_str(&document);
+        assert!(ixit.is_ok(), "the composed ixit does not parse: {ixit:?}");
     }
     Ok(())
 }
@@ -335,6 +393,7 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
             sut_version: String::from("0.0.0-gate"),
             identity: None,
             auth: AuthChoice::None,
+            admin_auth: AuthChoice::None,
             credentials: vec![],
             probed_ok: true,
             statement_json: Some(std::fs::read_to_string(&statement)?),
@@ -844,6 +903,7 @@ fn the_start_seam_answers_with_the_run_already_in_flight() -> Result<(), Box<dyn
             sut_version: String::from("0.0.0-gate"),
             identity: None,
             auth: AuthChoice::None,
+            admin_auth: AuthChoice::None,
             credentials: vec![],
             probed_ok: true,
             statement_json: None,

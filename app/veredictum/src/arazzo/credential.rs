@@ -264,6 +264,19 @@ impl CredentialSource {
     }
 }
 
+/// Reads one secret from `variable`, or from the file `variable_FILE` names.
+///
+/// The process environment is read under the rules
+/// [`CredentialSource::locate`] applies: an empty value counts as unset, and
+/// setting both is refused.
+///
+/// # Errors
+/// [`CredentialError`] when neither or both are set, the file cannot be read,
+/// or the value is not Unicode.
+pub fn read_variable(variable: &str) -> Result<String, CredentialError> {
+    read(&locate_source(variable, &|name| std::env::var_os(name))?)
+}
+
 /// Locates one secret. A variable set to the empty string counts as unset:
 /// a CI system expands a secret it does not hold to an empty value, and an
 /// empty credential presented to a server is a missing one.

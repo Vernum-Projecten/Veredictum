@@ -179,6 +179,7 @@ fn starting_a_run_writes_the_ixit_and_moves_the_credentials()
             sut_version: String::from("0.0.0-gate"),
             identity: None,
             auth: AuthChoice::Basic,
+            admin_auth: AuthChoice::None,
             credentials: vec![
                 Credential {
                     name: String::from(veredictum::identity::USER_ENV),
@@ -363,6 +364,7 @@ async fn a_hosted_instance_refuses_a_private_target_at_the_start_seam()
             sut_version: String::from("0.0.0-gate"),
             identity: None,
             auth: AuthChoice::None,
+            admin_auth: AuthChoice::None,
             credentials: Vec::new(),
             probed_ok: true,
             statement_json: None,

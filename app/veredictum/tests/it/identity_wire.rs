@@ -248,3 +248,51 @@ fn the_identify_subcommand_prints_one_identity_document() -> Fallible {
     assert_eq!(raw.get("outcome"), Some(&json!("offered")));
     Ok(())
 }
+
+/// Every answer shape `identify` prints validates against the published
+/// `identity.schema.json`, the committed file a consumer reads.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn every_printed_identity_document_validates_against_its_schema() -> Fallible {
+    let committed = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+        .join("schemas/identity.schema.json");
+    let schema: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(committed)?)?;
+    let validator = jsonschema::validator_for(&schema)?;
+    let answers = [
+        (
+            "offered",
+            ResponseTemplate::new(200).set_body_json(full_document()),
+        ),
+        (
+            "offered",
+            ResponseTemplate::new(200).set_body_json(json!({ "solution": "cdr" })),
+        ),
+        ("not_offered", ResponseTemplate::new(404)),
+        (
+            "not_options_document",
+            ResponseTemplate::new(200).set_body_json(json!({ "solution_version": 2 })),
+        ),
+        ("not_options_document", ResponseTemplate::new(204)),
+    ];
+    for (outcome, answer) in answers {
+        let sut = serving(answer);
+        let output = identify_command(&sut.base_url(), "none", &[])?;
+        assert!(output.status.success(), "{output:?}");
+        let printed: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+        assert_eq!(printed.get("outcome"), Some(&json!(outcome)), "{printed}");
+        let findings: Vec<String> = validator
+            .iter_errors(&printed)
+            .map(|e| format!("{}: {e}", e.instance_path()))
+            .collect();
+        assert!(findings.is_empty(), "{printed}: {findings:?}");
+    }
+    let invalid = json!({ "outcome": "offered", "status": 404, "options": {} });
+    assert!(
+        !validator.is_valid(&invalid),
+        "the schema refuses an offered document outside 200"
+    );
+    Ok(())
+}

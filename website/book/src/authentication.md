@@ -12,7 +12,8 @@ the credential itself comes from an environment variable:
 | a username and password | `--auth basic` | `VEREDICTUM_CDR_USER` and `VEREDICTUM_CDR_PASSWORD` |
 | a bearer token | `--auth bearer` | `VEREDICTUM_CDR_TOKEN` |
 
-`test` and `identify` both read these. In the [GitHub Action](github-action.md)
+`test`, `identify` and `bench` read these; `bench --user` names the user in
+place of `VEREDICTUM_CDR_USER`. In the [GitHub Action](github-action.md)
 the inputs are `auth` and `admin-auth`, with the same values.
 
 ## The administrative principal

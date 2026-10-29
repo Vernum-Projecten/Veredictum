@@ -7,3 +7,7 @@ credential `--auth` names is not supplied. It reads the credential exactly as
 
 Run it before `test` to see which product and version a run against the same
 base URL is about to grade.
+
+The document it prints has an `outcome` of `offered`, `not_offered` or
+`not_options_document`, and `schemas/identity.schema.json` describes it, so a
+script reading it has a schema to validate against.

@@ -640,6 +640,9 @@ struct DrivenSut<'a> {
     probe_answer: &'a str,
     /// The continue control's label ("Continue" on a 2xx probe).
     continue_label: &'a str,
+    /// A version label typed AFTER the probe, which the run must record
+    /// (#670); `None` leaves the probed label alone.
+    version_after_probe: Option<&'a str>,
     /// The finish budget for the live screen's poll.
     finish_budget: Duration,
 }
@@ -721,11 +724,17 @@ async fn drive_wizard(h: &Harness, sut: &DrivenSut<'_>, scope_shot: Option<&str>
         .expect("probe");
     h.wait_xpath(&format!("//body[contains(., '{}')]", sut.probe_answer))
         .await;
-    h.wait_xpath(&format!("//a[contains(., '{}')]", sut.continue_label))
-        .await
-        .click()
-        .await
-        .expect("continue");
+    if let Some(edited) = sut.version_after_probe {
+        edit_after_probe(h, sut.base_url, edited).await;
+    }
+    h.wait_xpath(&format!(
+        "//button[@id='connect-continue' and contains(., '{}')]",
+        sut.continue_label
+    ))
+    .await
+    .click()
+    .await
+    .expect("continue");
 
     h.wait_xpath("//h1[contains(., 'Scope')]").await;
     compose_claim(h, sut.capability).await;
@@ -758,6 +767,39 @@ async fn drive_wizard(h: &Harness, sut: &DrivenSut<'_>, scope_shot: Option<&str>
     h.wait_xpath_for("//span[contains(., 'finished')]", sut.finish_budget)
         .await;
     address
+}
+
+/// Edits the connect step after its probe (#670): an address edit withholds
+/// Continue and says a new probe is needed, and after that probe a version
+/// label typed into the form is the one Continue carries to the run.
+///
+/// # Panics
+/// When the screen offers Continue over an address the probe never tested.
+async fn edit_after_probe(h: &Harness, base_url: &str, version: &str) {
+    let base = h.wait_css("input#base-url").await;
+    base.clear().await.expect("clear the base URL");
+    base.send_keys(base_url).await.expect("retype the base URL");
+    h.wait_css("p#connect-stale").await;
+    assert!(
+        h.driver
+            .find_all(By::Css("button#connect-continue"))
+            .await
+            .expect("query the continue control")
+            .is_empty(),
+        "Continue must wait for a probe of the edited address"
+    );
+    h.wait_xpath("//button[contains(., 'Probe connection')]")
+        .await
+        .click()
+        .await
+        .expect("probe again");
+    h.wait_css("button#connect-continue").await;
+    let version_field = h.wait_css("input#sut-version").await;
+    version_field.clear().await.expect("clear the version");
+    version_field
+        .send_keys(version)
+        .await
+        .expect("type the edited version");
 }
 
 /// Reads the run's own address off the live screen and reloads it mid-run,
@@ -809,6 +851,43 @@ async fn read_record(h: &Harness, case_needle: &str, wire: bool, results_shot: &
         h.wait_xpath("//body[contains(., 'recording entry')]").await;
         h.wait_xpath("//span[contains(., 'response body')]").await;
     }
+    h.capture(results_shot).await;
+}
+
+/// Reads a finished run whose results hold failed AND errored rows (#655):
+/// both appear in the one table under their own status chips, and an errored
+/// row opens to the reason the instrument could not judge it.
+///
+/// # Panics
+/// When either status is missing from the table, or the errored row's detail
+/// carries no reason.
+async fn read_errored_beside_failed(h: &Harness, results_shot: &str) {
+    h.goto("/run/results").await;
+    h.wait_xpath("//h1[contains(., 'Results')]").await;
+    let failed = h
+        .wait_xpath("//td//span[normalize-space()='failed']")
+        .await
+        .attr("class")
+        .await
+        .expect("read the failed chip");
+    let errored = h
+        .wait_xpath("//td//span[normalize-space()='errored']")
+        .await
+        .attr("class")
+        .await
+        .expect("read the errored chip");
+    assert_ne!(
+        failed, errored,
+        "an errored row must be visibly distinct from a failed one"
+    );
+    h.wait_xpath("//tr[.//span[normalize-space()='errored']]//td//a")
+        .await
+        .click()
+        .await
+        .expect("open the errored row");
+    h.wait_xpath("//h2[contains(., '· row')]").await;
+    h.wait_xpath("//span[contains(., 'received')]").await;
+    h.wait_xpath("//body[contains(., 'The wire')]").await;
     h.capture(results_shot).await;
 }
 
@@ -876,7 +955,8 @@ async fn e2e_connect_shows_the_identity_the_server_states() {
         .await;
     h.wait_xpath("//body[contains(., 'reported by the server')]")
         .await;
-    h.wait_xpath("//a[contains(., 'Continue anyway')]").await;
+    h.wait_xpath("//button[contains(., 'Continue anyway')]")
+        .await;
     h.assert_console_clean(&[]).await;
     h.finish().await;
 }
@@ -896,17 +976,21 @@ async fn e2e_wizard_drives_a_run_to_its_results() {
     let base_url = format!("http://127.0.0.1:{port}");
     let sut = DrivenSut {
         base_url: &base_url,
-        identity: ("my-cdr", "unknown"),
+        identity: ("my-cdr", "1.0.0"),
         basic: None,
-        filter: "system_options",
-        capability: "system",
+        filter: "ehr_status",
+        capability: "ehr_status",
         probe_answer: "HTTP 500",
         continue_label: "Continue anyway",
-        finish_budget: Duration::from_mins(1),
+        version_after_probe: Some("1.0.1"),
+        finish_budget: Duration::from_mins(2),
     };
     let address = drive_wizard(&h, &sut, Some("scope-light")).await;
+    // The run records the label as the screen showed it at Continue (#670).
+    h.wait_xpath("//span[@id='live-sut' and normalize-space()='my-cdr 1.0.1']")
+        .await;
     h.capture("live-light").await;
-    read_record(&h, "system_options/", true, "results-light").await;
+    read_errored_beside_failed(&h, "results-light").await;
 
     // A link to the finished run's own id shows that run, after the reader
     // walked away to the record surfaces (#386). The permalink is asserted by
@@ -989,6 +1073,7 @@ async fn e2e_wizard_grades_the_real_cdrs() {
             capability: "ehr",
             probe_answer: "The server answered",
             continue_label: "Continue",
+            version_after_probe: None,
             finish_budget: Duration::from_mins(5),
         },
         DrivenSut {
@@ -999,6 +1084,7 @@ async fn e2e_wizard_grades_the_real_cdrs() {
             capability: "ehr",
             probe_answer: "The server answered",
             continue_label: "Continue",
+            version_after_probe: None,
             finish_budget: Duration::from_mins(5),
         },
     ];
@@ -1132,7 +1218,9 @@ impl ApiVisitor {
         self.call(
             <ProbeAndSave as ServerFn>::PATH,
             &format!(
-                "base_url={}&sut_name={sut_name}&sut_version=0.0.0-gate&auth=None&user=&password=&token=",
+                "base_url={}&sut_name={sut_name}&sut_version=0.0.0-gate\
+                 &server[auth]=None&server[user]=&server[password]=&server[token]=\
+                 &admin[auth]=None&admin[user]=&admin[password]=&admin[token]=",
                 encode(sut_base_url)
             ),
         )
@@ -1355,7 +1443,7 @@ async fn drive_to_live(h: &Harness, base_url: &str, sut_name: &str, filter: &str
         .await
         .expect("probe");
     h.wait_xpath("//body[contains(., 'HTTP 500')]").await;
-    h.wait_xpath("//a[contains(., 'Continue anyway')]")
+    h.wait_xpath("//button[contains(., 'Continue anyway')]")
         .await
         .click()
         .await
