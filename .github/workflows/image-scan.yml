@@ -19,7 +19,7 @@
 # surfaces here as well as in `cargo deny` on the next pull request.
 #
 # The adjudicated configuration carries over rather than being re-argued: the
-# HIGH/CRITICAL floor and `ignore-unfixed` live in `trivy.yaml`, which every lane
+# HIGH/CRITICAL floor and `ignore-unfixed` live in `security/trivy.yaml`, which every lane
 # that scans this image reads.
 #
 # RUN COLOUR. The run is RED only when the PROBE fails — an image that cannot be
@@ -118,7 +118,7 @@ jobs:
 
           # Every OpenVEX document under security/vex/, passed as repeated
           # --vex flags — the published, machine-readable adjudications bind
-          # here beside the .trivyignore.yaml entries trivy.yaml already wires,
+          # here beside the security/trivyignore.yaml entries security/trivy.yaml already wires,
           # and scripts/security/scan-images.sh passes the same set locally.
           vex_args=()
           for doc in security/vex/*.openvex.json; do
@@ -136,10 +136,10 @@ jobs:
           for platform in linux/amd64 linux/arm64; do
             arch="${platform##*/}"
             echo "::group::veredictum ${platform} (${digest})"
-            trivy image --config trivy.yaml --scanners vuln --platform "$platform" \
+            trivy image --config security/trivy.yaml --scanners vuln --platform "$platform" \
               "${vex_args[@]}" -f json -o "veredictum.${arch}.json" "$ref"
             count="$(jq '[.Results[]?.Vulnerabilities // [] | .[]] | length' "veredictum.${arch}.json")"
-            trivy image --config trivy.yaml --scanners vuln --platform "$platform" \
+            trivy image --config security/trivy.yaml --scanners vuln --platform "$platform" \
               "${vex_args[@]}" -f table "$ref" || true
             echo "::endgroup::"
             echo "| \`${platform}\` | \`${digest}\` | ${count} |" >> findings.md

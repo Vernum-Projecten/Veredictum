@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Rerun the published-image vulnerability scan locally — the same scan
 # image-scan.yml runs on schedule, byte-for-byte in configuration: trivy over
-# `trivy.yaml` (HIGH/CRITICAL floor, ignore-unfixed, `.trivyignore.yaml`) with
+# `security/trivy.yaml` (HIGH/CRITICAL floor, ignore-unfixed, `security/trivyignore.yaml`) with
 # every OpenVEX document under security/vex/ applied.
 #
 # Two modes:
@@ -70,7 +70,7 @@ for target in "${targets[@]}"; do
   safe=$(printf '%s' "${ref}_${platform}" | tr '/:@' '___')
   report="$out_dir/${safe}.json"
   echo "── scanning ${ref} ${platform:-'(as built)'}"
-  trivy image --skip-version-check --config trivy.yaml --scanners vuln \
+  trivy image --skip-version-check --config security/trivy.yaml --scanners vuln \
     "${platform_args[@]}" "${vex_args[@]}" -f json -o "$report" "$ref"
   count=$(jq '[.Results[]?.Vulnerabilities // [] | .[]] | length' "$report")
   if [[ "$count" -gt 0 ]]; then

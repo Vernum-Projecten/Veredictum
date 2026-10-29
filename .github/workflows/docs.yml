@@ -86,7 +86,7 @@ jobs:
           # The site's sources, the assemble script, the lint configuration, and
           # the job's own recipe — this workflow plus the toolchain action — so a
           # change to what the job DOES exercises the job it changes.
-          if echo "$changed" | grep -qE '^(website/|scripts/site/|\.mdbook-lint\.toml$|\.github/workflows/docs\.yml$|\.github/actions/docs-toolchain/)'; then
+          if echo "$changed" | grep -qE '^(website/|scripts/site/|\.github/workflows/docs\.yml$|\.github/actions/docs-toolchain/)'; then
             echo "docs=true" >> "$GITHUB_OUTPUT"
           else
             echo "No site-relevant paths touched — the docs build will be skipped."
@@ -108,7 +108,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/docs-toolchain
       - name: Markdown lint gate
-        run: mdbook-lint lint website/book/src
+        run: mdbook-lint lint --config website/book/mdbook-lint.toml website/book/src
       - name: Assemble _site (landing + /docs/)
         run: bash scripts/site/build.sh
       - name: Link-check gate (internal links only — blocking)
