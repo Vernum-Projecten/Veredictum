@@ -66,6 +66,10 @@ use crate::exec::transport::Transport;
 use crate::vocab::{HttpMethod, Iteration};
 
 /// What the evaluator needs to reach a server under test.
+///
+/// A catalogue run puts a principal's marker in `authorization` and
+/// `administrative`, never its credential: the transport puts the credential
+/// in the marker's place on the wire ([`crate::arazzo::credential`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunConfig {
     /// The base URL every OAS path is appended to.
@@ -203,11 +207,13 @@ impl<'d> Evaluator<'d> {
                 (prefix, Rc::new(ArazzoDocument::load(file)?)),
             );
         }
+        let mut har = Har::new(&config.base_url);
+        har.log.veredictum.administrative = config.administrative.is_some();
         Ok(Self {
             externals,
             document,
             name: name.to_owned(),
-            har: Har::new(&config.base_url),
+            har,
             schemas: ResponseSchemas::load(document, repo_root)?,
             config,
             repo_root: repo_root.to_owned(),
@@ -225,14 +231,6 @@ impl<'d> Evaluator<'d> {
         for workflow in &self.document.description().workflows {
             rows.extend(self.run_case(workflow, plan, transport)?);
         }
-        if let Some(left) = &self.replay
-            && !left.is_empty()
-        {
-            return Err(RunError::Replay(format!(
-                "{} recorded workflow run(s) were not replayed",
-                left.len()
-            )));
-        }
         Ok(Results {
             document: self.name.clone(),
             engine: Engine {
@@ -249,6 +247,23 @@ impl<'d> Evaluator<'d> {
     #[must_use]
     pub fn into_recording(self) -> Har {
         self.har
+    }
+
+    /// Records into `recording` instead of an empty one, so the runs of
+    /// several documents share one recording and one entry numbering.
+    pub(crate) fn continue_recording(&mut self, recording: Har) {
+        self.har = recording;
+    }
+
+    /// Replays from `inputs`, the recorded inputs of every workflow run not
+    /// yet replayed, oldest first.
+    pub(crate) fn replay_inputs(&mut self, inputs: VecDeque<Row>) {
+        self.replay = Some(inputs);
+    }
+
+    /// The recorded inputs this replay has not reached.
+    pub(crate) fn unreplayed(&mut self) -> VecDeque<Row> {
+        self.replay.take().unwrap_or_default()
     }
 
     fn case_id(&self, workflow_id: &str) -> String {
@@ -1217,30 +1232,58 @@ pub fn rejudge(
     plan: &Plan,
     recording: &Har,
 ) -> Result<Results, RunError> {
-    let config = RunConfig {
+    let config = rejudge_config(recording, signing);
+    let mut evaluator = Evaluator::new(document, name, config, repo_root)?;
+    evaluator.replay_inputs(recorded_inputs(recording));
+    let mut transport = HarTransport::new(recording);
+    let results = evaluator.run(plan, &mut transport)?;
+    replayed_whole(&evaluator.unreplayed(), &transport)?;
+    Ok(results)
+}
+
+/// The configuration a re-judgement of `recording` runs under: the recorded
+/// base URL, and a placeholder credential that is never sent anywhere.
+pub(crate) fn rejudge_config(recording: &Har, signing: Option<SigningMode>) -> RunConfig {
+    RunConfig {
         base_url: recording.log.veredictum.base_url.clone(),
         authorization: None,
         signing,
         administrative: Some(har::REDACTED.to_owned()),
-    };
-    let mut evaluator = Evaluator::new(document, name, config, repo_root)?;
-    evaluator.replay = Some(
-        recording
-            .log
-            .pages
-            .iter()
-            .map(|page| page.veredictum.inputs.clone())
-            .collect(),
-    );
-    let mut transport = HarTransport::new(recording);
-    let results = evaluator.run(plan, &mut transport)?;
+    }
+}
+
+/// The inputs of every workflow run `recording` holds, oldest first.
+pub(crate) fn recorded_inputs(recording: &Har) -> VecDeque<Row> {
+    recording
+        .log
+        .pages
+        .iter()
+        .map(|page| page.veredictum.inputs.clone())
+        .collect()
+}
+
+/// Refuses a re-judgement that left recorded workflow runs or exchanges
+/// unreplayed.
+///
+/// # Errors
+/// [`RunError::Replay`] naming what was left.
+pub(crate) fn replayed_whole(
+    unreplayed: &VecDeque<Row>,
+    transport: &HarTransport<'_>,
+) -> Result<(), RunError> {
+    if !unreplayed.is_empty() {
+        return Err(RunError::Replay(format!(
+            "{} recorded workflow run(s) were not replayed",
+            unreplayed.len()
+        )));
+    }
     if transport.remaining() > 0 {
         return Err(RunError::Replay(format!(
             "{} recorded exchange(s) were not replayed",
             transport.remaining()
         )));
     }
-    Ok(results)
+    Ok(())
 }
 
 #[cfg(test)]

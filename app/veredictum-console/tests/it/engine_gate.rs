@@ -263,3 +263,49 @@ fn a_console_run_and_a_cli_run_emit_identical_documents() -> Result<(), Box<dyn 
     assert_eq!(reread.sut.name, finished.results.sut.name);
     Ok(())
 }
+
+/// The image's entry point is the console binary, so an engine subcommand
+/// given to it reaches the pinned engine: its output and its exit status
+/// pass through unchanged, and an engine that cannot be found exits `2`.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn the_console_binary_hands_an_engine_subcommand_to_the_engine()
+-> Result<(), Box<dyn std::error::Error>> {
+    let binary = gate_binary();
+    if !binary.exists() {
+        eprintln!(
+            "SKIPPED(no engine binary at {}): build the workspace first, or set {}",
+            binary.display(),
+            engine::ENGINE_ENV
+        );
+        return Ok(());
+    }
+    let console = |engine_path: &Path, args: &[&str]| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_veredictum-console"))
+            .args(args)
+            .env(engine::ENGINE_ENV, engine_path)
+            .output()
+    };
+    let version = console(&binary, &["--version"])?;
+    assert_eq!(version.status.code(), Some(0), "{version:?}");
+    assert_eq!(
+        String::from_utf8(version.stdout)?.trim(),
+        engine::expected_version_report()
+    );
+
+    let missing = repo_root().join("no-such-recording.har");
+    let refused = console(&binary, &["test", "--rejudge", &missing.to_string_lossy()])?;
+    assert_eq!(refused.status.code(), Some(2), "{refused:?}");
+    assert!(
+        String::from_utf8(refused.stderr)?.contains("no-such-recording.har"),
+        "the engine's own diagnostic passes through"
+    );
+
+    let absent = console(Path::new("/nonexistent/veredictum"), &["--version"])?;
+    assert_eq!(absent.status.code(), Some(2), "{absent:?}");
+    assert!(String::from_utf8(absent.stderr)?.contains(engine::ENGINE_ENV));
+    Ok(())
+}

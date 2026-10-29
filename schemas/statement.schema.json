@@ -72,6 +72,7 @@
       "additionalProperties": false,
       "properties": {
         "capabilities": {
+          "description": "The capabilities the party claims. For the case-core catalogue each is a capability of the capability matrix; for the Arazzo catalogue each is a capability folder under `catalogue/cases/`, whose name is the folder's. Every workflow of an Arazzo document in a capability folder the statement does not claim is skipped not-claimed.",
           "type": "array",
           "items": {
             "type": "string",

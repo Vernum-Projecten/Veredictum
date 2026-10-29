@@ -715,6 +715,42 @@ jobs:
             echo "::error::the in-image engine reports '${reported}', not '${expected}…)' — the console refuses it and every run in this image fails"; exit 1
           fi
 
+      # The image runs the engine's `test` subcommand through its own entry
+      # point, over the Arazzo catalogue it ships (#768). The run is driven at
+      # a port nothing listens on inside a container with no network, so every
+      # row it drives is errored, none is failed, and the exit status is 1:
+      # that proves the shipped catalogue passes its gate in the image, the run
+      # writes into a mounted directory, and the exit status reaches the
+      # caller. The offline re-judgement then has to write the same bytes.
+      - name: The pushed image runs the Arazzo catalogue it ships
+        env:
+          IMAGE: ghcr.io/vernum-projecten/veredictum
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          out="$(mktemp -d)"
+          chmod 0777 "$out"
+          code=0
+          docker run --rm --network none -v "${out}:/work/out" "${IMAGE}@${DIGEST}" \
+            test --base-url http://127.0.0.1:9/ --out /work/out > "${out}/run.log" || code=$?
+          tail -n 4 "${out}/run.log"
+          if [[ "$code" != "1" ]]; then
+            echo "::error::a run against no server exited ${code}, not 1 (a row errored)"; exit 1
+          fi
+          jq -e '[.rows[] | select(.status == "errored")] | length > 0' "${out}/results.json" >/dev/null \
+            || { echo "::error::the run recorded no errored row"; exit 1; }
+          jq -e '[.rows[] | select(.status == "failed")] | length == 0' "${out}/results.json" >/dev/null \
+            || { echo "::error::a refused connection was judged failed; it is errored, never failed"; exit 1; }
+          test -s "${out}/recording.har" || { echo "::error::the run wrote no recording"; exit 1; }
+          code=0
+          docker run --rm --network none -v "${out}:/work/out" "${IMAGE}@${DIGEST}" \
+            test --rejudge /work/out/recording.har --out /work/out/rejudged > /dev/null || code=$?
+          if [[ "$code" != "1" ]]; then
+            echo "::error::the re-judgement exited ${code}, not the recorded run's 1"; exit 1
+          fi
+          cmp "${out}/results.json" "${out}/rejudged/results.json" \
+            || { echo "::error::the re-judgement did not write the recorded run's bytes"; exit 1; }
+
   # ── The gate that makes the pushed digest referencable ──────────────────────
   scan-and-tag:
     name: scan + tag

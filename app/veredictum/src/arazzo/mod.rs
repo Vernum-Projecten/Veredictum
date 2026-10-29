@@ -12,8 +12,10 @@
 //! Arazzo 1.1.0 is <https://spec.openapis.org/arazzo/v1.1.0.html>.
 
 pub mod capabilities;
+pub mod catalogue;
 pub mod check;
 pub mod cite;
+pub mod credential;
 pub mod derive;
 pub mod document;
 pub mod evaluate;

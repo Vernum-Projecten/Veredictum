@@ -32,8 +32,10 @@ use std::sync::LazyLock;
 
 use clap::{Parser, Subcommand};
 
+use veredictum::arazzo::credential::{CredentialSource, Role};
 use veredictum::bench::client::AuthKind;
 use veredictum::party::version_line;
+use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
 use veredictum::pipeline::assets::{
     conformance_assets, performance_assets, schema_files, stress_overlay,
 };
@@ -144,6 +146,92 @@ enum Command {
         /// byte-identical without it.
         #[arg(long)]
         progress: bool,
+    },
+    /// Drive the Arazzo catalogue against a server under test, or re-judge
+    /// the recording of an earlier run, and write `results.json` and the HAR
+    /// recording.
+    ///
+    /// The whole catalogue is gated first, as `validate` gates it, and nothing
+    /// runs while the gate has a finding. Every document under `cases/` runs,
+    /// in path order, except the shared setups under `cases/_setup/`, which
+    /// run only where a case names them in `dependsOn`. Every row is printed,
+    /// and a failed or errored row with its four-part explanation.
+    ///
+    /// A credential is read from the environment, never from an argument:
+    /// from the variables `--auth` and `--admin-auth` name, or from the file
+    /// named by the same variable with `_FILE` appended. Neither credential is
+    /// recorded. The recording holds the server's response bodies verbatim,
+    /// so it belongs where the operator keeps the run.
+    ///
+    /// Exit status: `0` when every row passed or was skipped, or failed only
+    /// as advisory (a SHOULD, which never counts against a capability); `1`
+    /// when any other row failed or errored; `2` when the run could not start
+    /// or finish: a usage error, a gate finding, an unreadable file, a missing
+    /// credential, or a recording that does not replay.
+    Test {
+        /// The catalogue root, holding `capabilities.yaml` and `cases/`. Its
+        /// parent holds the vendored `specs/` tree its citations and OAS
+        /// sources resolve against. The container image sets it to the
+        /// catalogue it ships.
+        #[arg(
+            long,
+            env = "VEREDICTUM_CATALOGUE",
+            hide_env_values = true,
+            default_value = "catalogue"
+        )]
+        root: PathBuf,
+        /// The server's base URL, up to and including the openEHR REST base
+        /// (for example `https://cdr.example/openehr/v1`).
+        #[arg(long, required_unless_present = "rejudge")]
+        base_url: Option<String>,
+        /// How the client presents itself: `none`, `basic` or `bearer`.
+        ///
+        /// `basic` reads `VEREDICTUM_SUT_USER` and `VEREDICTUM_SUT_PASSWORD`,
+        /// and `bearer` reads `VEREDICTUM_SUT_TOKEN`.
+        #[arg(long, default_value = "none")]
+        auth: String,
+        /// How the administrative principal presents itself: `none`, `basic`
+        /// or `bearer`. With `none`, every workflow with an administrative
+        /// step is skipped as `not-declared`.
+        ///
+        /// `basic` reads `VEREDICTUM_ADMIN_USER` and
+        /// `VEREDICTUM_ADMIN_PASSWORD`, and `bearer` reads
+        /// `VEREDICTUM_ADMIN_TOKEN`.
+        #[arg(long, default_value = "none")]
+        admin_auth: String,
+        /// The party's statement (JSON), which decides what runs.
+        ///
+        /// Its `claims.capabilities` names the capability folders under
+        /// `cases/` it claims, at least one; every workflow of a document in
+        /// another folder is skipped as `not-claimed`, while a setup a claimed
+        /// document depends on still runs. Its `options` list selects one arm
+        /// of each option in `capabilities.yaml`, and the documents of every
+        /// other arm are skipped as `option-not-selected`. A name that is not
+        /// a folder or an arm stops the run. Without a statement, every
+        /// capability runs and no arm is selected.
+        #[arg(long)]
+        statement: Option<PathBuf>,
+        /// The party's IXIT (JSON), which the `declared` inputs of a rows
+        /// file read. A row whose declared value is missing is skipped as
+        /// `not-declared`.
+        #[arg(long)]
+        ixit: Option<PathBuf>,
+        /// Run only this document, by its id (`ehr` for
+        /// `cases/ehr/ehr.arazzo.yaml`). Repeat the flag once per document;
+        /// without it, every document runs.
+        #[arg(long = "document", value_name = "ID")]
+        documents: Vec<String>,
+        /// Where `results.json` and `recording.har` are written. Required for
+        /// a live run; a re-judgement writes only `results.json`, and only
+        /// when this is given.
+        #[arg(long, required_unless_present = "rejudge")]
+        out: Option<PathBuf>,
+        /// Re-judge this HAR recording instead of driving a server: every
+        /// request is answered from the recording, so the results are the
+        /// bytes the recorded run wrote. Pass the root, statement, IXIT and
+        /// documents the recorded run was given.
+        #[arg(long, value_name = "RECORDING", conflicts_with_all = ["base_url", "auth", "admin_auth"])]
+        rejudge: Option<PathBuf>,
     },
     /// Read a server's identity from the ITS-REST System OPTIONS operation and
     /// print it as one JSON document.
@@ -630,6 +718,31 @@ fn main() -> ExitCode {
             },
             progress,
         ),
+        Command::Test {
+            root,
+            base_url,
+            auth,
+            admin_auth,
+            statement,
+            ixit,
+            documents,
+            out,
+            rejudge,
+        } => test_command(
+            &ArazzoRunRequest {
+                root: &root,
+                statement: statement.as_deref(),
+                ixit: ixit.as_deref(),
+                documents: &documents,
+            },
+            &TestTarget {
+                base_url: base_url.as_deref(),
+                auth: &auth,
+                admin_auth: &admin_auth,
+                rejudge: rejudge.as_deref(),
+            },
+            out.as_deref(),
+        ),
         Command::Identify { base_url, auth } => identify_command(&base_url, &auth),
         Command::Validate {
             root,
@@ -1072,6 +1185,86 @@ struct BenchInvocation<'a> {
 }
 
 /// Prints the server's identity document on stdout.
+/// What `test` drives: a server, or a recording.
+struct TestTarget<'a> {
+    /// The server's base URL, for a live run.
+    base_url: Option<&'a str>,
+    /// The `--auth` token.
+    auth: &'a str,
+    /// The `--admin-auth` token.
+    admin_auth: &'a str,
+    /// The recording, for a re-judgement.
+    rejudge: Option<&'a Path>,
+}
+
+/// Drives the Arazzo catalogue or re-judges its recording, prints every row
+/// and writes the run's files; the exit status is the run's.
+fn test_command(
+    request: &ArazzoRunRequest<'_>,
+    target: &TestTarget<'_>,
+    out: Option<&Path>,
+) -> ExitCode {
+    let drive = match (target.rejudge, target.base_url) {
+        (Some(recording), _) => Drive::Rejudge { recording },
+        (None, Some(base_url)) => {
+            // Only where each credential comes from is resolved here; its
+            // value is read inside the transport that sends it.
+            let (auth, admin_auth) = match (
+                AuthKind::parse(target.auth),
+                AuthKind::parse(target.admin_auth),
+            ) {
+                (Ok(auth), Ok(admin_auth)) => (auth, admin_auth),
+                (Err(e), _) | (_, Err(e)) => return fail(&e),
+            };
+            let located = CredentialSource::locate(auth, Role::Ordinary).and_then(|ordinary| {
+                CredentialSource::locate(admin_auth, Role::Administrative)
+                    .map(|administrative| (ordinary, administrative))
+            });
+            let (ordinary, administrative) = match located {
+                Ok(located) => located,
+                Err(e) => return fail(&e),
+            };
+            Drive::Live {
+                base_url,
+                ordinary,
+                administrative,
+            }
+        }
+        (None, None) => {
+            eprintln!("either --base-url or --rejudge is required");
+            return ExitCode::from(2);
+        }
+    };
+    let outcome = match run_catalogue(request, drive) {
+        Ok(outcome) => outcome,
+        Err(e) => return fail(&e),
+    };
+    for row in &outcome.results.rows {
+        println!("{row}");
+        if row.explanation.is_some() || row.skip.is_some() {
+            println!();
+        }
+    }
+    let tally = outcome.tally();
+    println!(
+        "{} row(s): {} passed, {} failed, {} errored, {} skipped",
+        tally.tests, tally.passed, tally.failed, tally.errored, tally.skipped
+    );
+    if let Some(out) = out {
+        let written = outcome.files().map_err(|e| fail(&e));
+        if let Err(code) = written.and_then(|files| emit(out, &files)) {
+            return code;
+        }
+    }
+    let red = outcome.red_rows().count();
+    if red == 0 {
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("{red} row(s) failed or errored");
+        ExitCode::from(1)
+    }
+}
+
 fn identify_command(base_url: &str, auth: &str) -> ExitCode {
     let auth = match AuthKind::parse(auth) {
         Ok(auth) => auth,

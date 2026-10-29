@@ -8,7 +8,8 @@
 //! ([`conformance`]), judging the recorded outcomes ([`judgement`]),
 //! rendering the deterministic published assets ([`assets`]), running the
 //! measured instruments ([`measured`]), and driving the universal benchmark
-//! ([`mod@bench`]), and exporting an Arazzo results document to the views a
+//! ([`mod@bench`]), driving the Arazzo catalogue or re-judging its recording
+//! ([`arazzo_run`]), and exporting an Arazzo results document to the views a
 //! vendor's CI shows ([`export`]). Every seam returns typed facts —
 //! never pre-rendered console text — so a second consumer renders its own
 //! views over the same values the command line prints.
@@ -25,6 +26,7 @@
               exchanges), whose shapes belong to the artifacts and the SUT"
 )]
 
+pub mod arazzo_run;
 pub mod assets;
 pub mod bench;
 pub mod catalogue;
@@ -143,6 +145,22 @@ pub enum Error {
     /// operator.
     #[error("{0}")]
     Identity(#[from] crate::identity::IdentityError),
+    /// The Arazzo catalogue has gate findings, so nothing was run.
+    #[error("{}\n{} gate finding(s) in the catalogue; nothing was run", join_lines(.0), .0.len())]
+    ArazzoGate(Vec<crate::arazzo::gates::GateFinding>),
+    /// The Arazzo catalogue, or the declarations it runs under, cannot be
+    /// planned.
+    #[error("{0}")]
+    ArazzoCatalogue(#[from] crate::arazzo::catalogue::CatalogueError),
+    /// An Arazzo document cannot be run, or a recording cannot be replayed.
+    #[error("{0}")]
+    ArazzoRun(#[from] crate::arazzo::evaluate::RunError),
+    /// A HAR recording cannot be read or written.
+    #[error("{0}")]
+    Recording(#[from] crate::arazzo::har::HarError),
+    /// A credential the run was asked to present no longer reads.
+    #[error("{0}")]
+    Credential(#[from] crate::arazzo::credential::CredentialError),
 }
 
 fn join_lines<T: std::fmt::Display>(items: &[T]) -> String {

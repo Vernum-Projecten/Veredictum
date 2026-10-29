@@ -11,7 +11,8 @@ one is written by hand and lives in `website/book/commands/`.
 Three commands make the conformance record (`validate`, `run`, `verdicts`),
 three measure (`perf`, `stress`, `bench`), `replay` re-judges a recorded run
 out of its own transcript, `evidence` carves the exchanges behind a red run's
-rows out of that transcript, `export` renders an Arazzo results document as
+rows out of that transcript, `test` drives the Arazzo catalogue or re-judges
+its recording, `export` renders an Arazzo results document as
 JUnit XML, CTRF and a Markdown summary for a CI system, `verify-record` checks
 a sealed bundle, and the rest render or explore.
 
@@ -85,6 +86,132 @@ Options:
 
 Drives every applicable case and records the exchange. Exits `1` if any case
 failed or errored.
+
+## test
+
+```text
+Drive the Arazzo catalogue against a server under test, or re-judge the recording of an earlier run, and write `results.json` and the HAR recording.
+
+The whole catalogue is gated first, as `validate` gates it, and nothing runs while the gate has a finding. Every document under `cases/` runs, in path order, except the shared setups under `cases/_setup/`, which run only where a case names them in `dependsOn`. Every row is printed, and a failed or errored row with its four-part explanation.
+
+A credential is read from the environment, never from an argument: from the variables `--auth` and `--admin-auth` name, or from the file named by the same variable with `_FILE` appended. Neither credential is recorded. The recording holds the server's response bodies verbatim, so it belongs where the operator keeps the run.
+
+Exit status: `0` when every row passed or was skipped, or failed only as advisory (a SHOULD, which never counts against a capability); `1` when any other row failed or errored; `2` when the run could not start or finish: a usage error, a gate finding, an unreadable file, a missing credential, or a recording that does not replay.
+
+Usage: veredictum test [OPTIONS]
+
+Options:
+      --root <ROOT>
+          The catalogue root, holding `capabilities.yaml` and `cases/`. Its parent holds the vendored `specs/` tree its citations and OAS sources resolve against. The container image sets it to the catalogue it ships
+          
+          [env: VEREDICTUM_CATALOGUE]
+          [default: catalogue]
+
+      --base-url <BASE_URL>
+          The server's base URL, up to and including the openEHR REST base (for example `https://cdr.example/openehr/v1`)
+
+      --auth <AUTH>
+          How the client presents itself: `none`, `basic` or `bearer`.
+          
+          `basic` reads `VEREDICTUM_SUT_USER` and `VEREDICTUM_SUT_PASSWORD`, and `bearer` reads `VEREDICTUM_SUT_TOKEN`.
+          
+          [default: none]
+
+      --admin-auth <ADMIN_AUTH>
+          How the administrative principal presents itself: `none`, `basic` or `bearer`. With `none`, every workflow with an administrative step is skipped as `not-declared`.
+          
+          `basic` reads `VEREDICTUM_ADMIN_USER` and `VEREDICTUM_ADMIN_PASSWORD`, and `bearer` reads `VEREDICTUM_ADMIN_TOKEN`.
+          
+          [default: none]
+
+      --statement <STATEMENT>
+          The party's statement (JSON), which decides what runs.
+          
+          Its `claims.capabilities` names the capability folders under `cases/` it claims, at least one; every workflow of a document in another folder is skipped as `not-claimed`, while a setup a claimed document depends on still runs. Its `options` list selects one arm of each option in `capabilities.yaml`, and the documents of every other arm are skipped as `option-not-selected`. A name that is not a folder or an arm stops the run. Without a statement, every capability runs and no arm is selected.
+
+      --ixit <IXIT>
+          The party's IXIT (JSON), which the `declared` inputs of a rows file read. A row whose declared value is missing is skipped as `not-declared`
+
+      --document <ID>
+          Run only this document, by its id (`ehr` for `cases/ehr/ehr.arazzo.yaml`). Repeat the flag once per document; without it, every document runs
+
+      --out <OUT>
+          Where `results.json` and `recording.har` are written. Required for a live run; a re-judgement writes only `results.json`, and only when this is given
+
+      --rejudge <RECORDING>
+          Re-judge this HAR recording instead of driving a server: every request is answered from the recording, so the results are the bytes the recorded run wrote. Pass the root, statement, IXIT and documents the recorded run was given
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+`test` drives the Arazzo catalogue under `catalogue/`, where `run` drives the
+case-core catalogue under `artifacts/`. The two live side by side until the
+cut-over to the Arazzo catalogue removes the case-core one.
+
+**What runs.** Every document under `cases/<capability>/`, in path order. The
+shared setups under `cases/_setup/` are not cases: a setup runs only where a
+case names it in `dependsOn`. `--document <ID>` narrows the run to named
+documents, which is how you re-drive one family while working on a fix; a
+narrowed `results.json` is a working tool, never the record you submit.
+
+**What the party declares.** A statement names the capabilities it claims in
+`claims.capabilities`, the field the published statement schema defines. For
+this catalogue a capability is a folder under `cases/` (`ehr`, `demographic`,
+`admin`, …), and a statement claims at least one. Every workflow of a document
+in a folder the statement does not claim is skipped as `not-claimed`, citing
+the schema's claims clause; no openEHR specification governs the claim
+mechanism, which is this instrument's own design. A setup a claimed document
+depends on still runs, wherever it lives. The statement's `options` list picks
+one arm of each option in `capabilities.yaml`, and the documents of every
+other arm are skipped as `option-not-selected`. A name that is not a folder, a
+token that names no arm, or two arms of one option stops the run. Without a
+statement, every capability runs and no arm is selected.
+
+```json
+{
+  "claims": { "capabilities": ["ehr", "ehr_status", "composition", "query"] },
+  "options": ["ehr-xml-unsupported", "authentication-required"]
+}
+```
+
+The IXIT answers the `declared` inputs a rows file reads. A workflow with an
+administrative step needs the administrative principal: without
+`--admin-auth`, it is skipped as `not-declared`. The `version-out-of-range`
+and `format-not-claimed` skips are not computed yet (#777, #778).
+
+**Credentials.** Each principal's secrets are read from the environment, from
+the variable itself or from a file named by the variable with `_FILE`
+appended, which is how container secrets are mounted. Setting both is
+refused. Neither credential is recorded: the HAR carries `[not recorded]` in
+place of every `Authorization` value, and records only whether the
+administrative principal was supplied, so a re-judgement skips the same
+workflows.
+
+**Re-judging.** `--rejudge <RECORDING>` answers every request from the
+recording and reuses every recorded input, so `results.json` comes out
+byte-identical. Pass the root, statement, IXIT and `--document` list the
+recorded run was given; a replay that does not line up with the recording is
+refused rather than judged.
+
+**In the container image.** The image's entry point hands any argument other
+than `healthcheck` to the engine, and `VEREDICTUM_CATALOGUE` points `--root`
+at the catalogue the image ships:
+
+```bash
+docker run --rm -v "$PWD/out:/work/out" \
+    -e VEREDICTUM_SUT_TOKEN \
+    ghcr.io/vernum-projecten/veredictum:<tag> \
+    test --base-url https://cdr.example/openehr/v1 --auth bearer --out /work/out
+```
+
+The image runs as uid 65532, so the mounted directory must be writable by it.
+
+**Other Arazzo tools.** The documents are plain Arazzo 1.1.0, so any Arazzo
+tool reads them and a workflow runner can smoke-run them. The verdict is
+`test`'s alone: the citations, the judges, the statement-driven selection and
+the attribution of every red row live in the `x-veredictum-*` extensions and
+in this pipeline, which a generic runner ignores.
 
 ## identify
 
@@ -767,9 +894,9 @@ printed to standard output and every other console line goes to standard
 error, so the summary can be piped.
 
 **A vendor's GitHub Actions job.** The workflow below drives the EHR workflows
-against the vendor's CDR through the repository's `arazzo_spike` example,
-which is how the Arazzo evaluator is run, then exports the results. The
-Markdown summary lands on the job's summary page, and the CTRF report is
+against the vendor's CDR with [`test`](#test), then exports the results. The
+run step fails the job when a row failed or errored; the export steps still run,
+so the Markdown summary lands on the job's summary page and the CTRF report is
 handed to `ctrf-io/github-test-reporter`, which can also comment on a pull
 request. In a real workflow, pin every `uses:` to a full commit SHA.
 
@@ -789,12 +916,11 @@ jobs:
         working-directory: veredictum
         env:
           CDR_BASE_URL: ${{ vars.CDR_BASE_URL }}
-          CDR_USER: ${{ secrets.CDR_USER }}
-          CDR_PASSWORD: ${{ secrets.CDR_PASSWORD }}
+          VEREDICTUM_SUT_USER: ${{ secrets.CDR_USER }}
+          VEREDICTUM_SUT_PASSWORD: ${{ secrets.CDR_PASSWORD }}
         run: |
-          cargo run --locked --example arazzo_spike -- \
-            --base-url "$CDR_BASE_URL" --user "$CDR_USER" --password "$CDR_PASSWORD" \
-            --document catalogue/cases/ehr/ehr.arazzo.yaml --out ../conformance
+          cargo run --locked -- test --base-url "$CDR_BASE_URL" --auth basic \
+            --document ehr --out ../conformance
       - name: Export the results to the job summary, JUnit and CTRF
         if: ${{ !cancelled() }}
         working-directory: veredictum

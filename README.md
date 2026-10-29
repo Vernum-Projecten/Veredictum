@@ -258,6 +258,30 @@ No installed binary? `cargo run -- <subcommand> …` from the clone does the
 same; the toolchain pins itself from `rust-toolchain.toml`, and the only
 extra tool is `cargo-nextest`, only if you intend to run the test suite.
 
+### Run the Arazzo catalogue
+
+The catalogue is moving to [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html)
+workflows over the released openEHR REST API OpenAPI documents, under
+`catalogue/`. `veredictum test` drives it, writes `results.json` and a HAR
+recording of every exchange, and exits `1` when a row failed or errored, so a
+CI job goes red on a failed row. The container image ships the catalogue and
+runs the same subcommand:
+
+```bash
+docker run --rm -v "$PWD/out:/work/out" -e VEREDICTUM_SUT_TOKEN \
+  ghcr.io/vernum-projecten/veredictum:<tag> \
+  test --base-url https://cdr.example/openehr/v1 --auth bearer --out /work/out
+```
+
+The documents are plain Arazzo 1.1.0: any Arazzo tool can read them, and a
+workflow runner can smoke-run them against a server. A conformance verdict
+comes only from `veredictum`, because the citation behind each criterion, the
+judges a plain condition cannot express, the selection of documents by your
+statement and the attribution of each red row live in its `x-veredictum-*`
+extensions and its pipeline, which a generic runner ignores.
+[The book](https://veredictum.eu/docs/running.html#the-arazzo-catalogue)
+covers the statement, the credentials and the offline re-judgement.
+
 ## Why an independent instrument
 
 A vendor's own test suite cannot answer the question a hospital procurement

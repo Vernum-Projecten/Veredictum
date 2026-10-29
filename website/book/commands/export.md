@@ -29,9 +29,9 @@ printed to standard output and every other console line goes to standard
 error, so the summary can be piped.
 
 **A vendor's GitHub Actions job.** The workflow below drives the EHR workflows
-against the vendor's CDR through the repository's `arazzo_spike` example,
-which is how the Arazzo evaluator is run, then exports the results. The
-Markdown summary lands on the job's summary page, and the CTRF report is
+against the vendor's CDR with [`test`](#test), then exports the results. The
+run step fails the job when a row failed or errored; the export steps still run,
+so the Markdown summary lands on the job's summary page and the CTRF report is
 handed to `ctrf-io/github-test-reporter`, which can also comment on a pull
 request. In a real workflow, pin every `uses:` to a full commit SHA.
 
@@ -51,12 +51,11 @@ jobs:
         working-directory: veredictum
         env:
           CDR_BASE_URL: ${{ vars.CDR_BASE_URL }}
-          CDR_USER: ${{ secrets.CDR_USER }}
-          CDR_PASSWORD: ${{ secrets.CDR_PASSWORD }}
+          VEREDICTUM_SUT_USER: ${{ secrets.CDR_USER }}
+          VEREDICTUM_SUT_PASSWORD: ${{ secrets.CDR_PASSWORD }}
         run: |
-          cargo run --locked --example arazzo_spike -- \
-            --base-url "$CDR_BASE_URL" --user "$CDR_USER" --password "$CDR_PASSWORD" \
-            --document catalogue/cases/ehr/ehr.arazzo.yaml --out ../conformance
+          cargo run --locked -- test --base-url "$CDR_BASE_URL" --auth basic \
+            --document ehr --out ../conformance
       - name: Export the results to the job summary, JUnit and CTRF
         if: ${{ !cancelled() }}
         working-directory: veredictum

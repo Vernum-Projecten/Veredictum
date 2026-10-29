@@ -11,6 +11,7 @@ one is written by hand and lives in `website/book/commands/`.
 Three commands make the conformance record (`validate`, `run`, `verdicts`),
 three measure (`perf`, `stress`, `bench`), `replay` re-judges a recorded run
 out of its own transcript, `evidence` carves the exchanges behind a red run's
-rows out of that transcript, `export` renders an Arazzo results document as
+rows out of that transcript, `test` drives the Arazzo catalogue or re-judges
+its recording, `export` renders an Arazzo results document as
 JUnit XML, CTRF and a Markdown summary for a CI system, `verify-record` checks
 a sealed bundle, and the rest render or explore.
