@@ -317,6 +317,10 @@ fn position(error: &ParseError) -> String {
             })
             .collect::<Vec<_>>()
             .join("; "),
+        ParseError::TooDeep { at, .. } => match &at.bytes {
+            Some(bytes) => format!("{error}, at {at}, bytes {}..{}", bytes.start, bytes.end),
+            None => format!("{error}, at {at}"),
+        },
     }
 }
 

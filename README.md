@@ -544,18 +544,6 @@ license and the `NOTICE` file, as its section 4 requires. The vendored
 specification text and clinical models keep their upstream terms, recorded
 per tree in `PROVENANCE.md` and declared machine-readably in `REUSE.toml`.
 
-One dependency has a different licence. `validate` parses every AQL query in
-the catalogue with [`openehr-query`](https://crates.io/crates/openehr-query),
-which is BUSL-1.1 (Business Source License 1.1). It is a Rust implementation of
-the released AQL grammar, and its owner approved its use here. It is linked
-into the `veredictum` binary and the container image, so those carry its terms
-as well. Non-production use is free. Production use is granted only for the
-Non-Commercial Purposes its licence defines, and any other production use needs
-a commercial licence from the Licensor, Cadasto B.V. Each published version
-becomes Apache-2.0 four years after its release. It is the only dependency
-outside the permissive set `deny.toml` allows, admitted by an exception that
-names that crate alone.
-
 ## openEHR
 
 openEHR® is the registered trademark of the openEHR Foundation. Veredictum
