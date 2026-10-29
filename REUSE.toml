@@ -139,6 +139,18 @@ precedence = "override"
 SPDX-FileCopyrightText = ["Veredictum contributors", "openEHR Foundation"]
 SPDX-License-Identifier = "Apache-2.0 AND CC-BY-SA-3.0"
 
+# ── Changelog fragments ─────────────────────────────────────────────────────
+# A fragment under `changelog.d/` is the literal text the release cut moves
+# into `CHANGELOG.md`, so it carries no header of its own. It is first-party
+# prose and the catch-all already covers it; this table names the directory so
+# the declaration sits where the convention is (#766). `closest` lets the
+# README beside the fragments keep its own header.
+[[annotations]]
+path = "changelog.d/*.md"
+precedence = "closest"
+SPDX-FileCopyrightText = "Veredictum contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
 # ── Our own provenance records inside the vendored trees ────────────────────
 # The PROVENANCE.md files are FIRST-PARTY prose about the upstream material:
 # what was fetched, from which commit, under which terms, and what exercises it.

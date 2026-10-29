@@ -126,8 +126,9 @@ These are the ones a pull request is most often refused for. The full set is in
   [`AI_STATEMENT.md`](AI_STATEMENT.md) § 10, which is where disclosure belongs.
 - The pull-request body declares `Closes #<n>`. One `Closes` keyword per issue:
   `Closes #1, #2` closes only #1.
-- A user-visible change adds an entry under `## [Unreleased]` in
-  [`CHANGELOG.md`](CHANGELOG.md) in the same pull request.
+- A user-visible change adds a changelog fragment under
+  [`changelog.d/`](changelog.d/README.md) in the same pull request. It does not
+  edit [`CHANGELOG.md`](CHANGELOG.md); the release cut folds the fragments in.
 - Tests accompany behaviour changes.
 
 ## Licensing of contributions

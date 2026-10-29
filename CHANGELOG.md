@@ -4,13 +4,15 @@ All notable changes to Veredictum are recorded here. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and the
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Every pull request with user-visible changes adds an entry under the Unreleased
-heading below, in the same pull request. User-visible here means the CLI surface,
-the published artifact schemas, verdict semantics, the container image, or
-anything a party's published conformance record depends on. The heading is named
-in prose rather than quoted verbatim on purpose: a release cut rewrites the first
-literal occurrence of it, and quoting it here is what turned this paragraph into
-a stray release heading at the v0.0.1-alpha.1 cut.
+Every pull request with user-visible changes adds a fragment under
+[`changelog.d/`](changelog.d/README.md) in the same pull request, and the
+release cut folds the fragments into the new version's section. Nothing is
+added under the Unreleased heading below by hand. User-visible here means the
+CLI surface, the published artifact schemas, verdict semantics, the container
+image, or anything a party's published conformance record depends on. The
+heading is named in prose rather than quoted verbatim on purpose: the
+v0.0.1-alpha.1 cut rewrote the first literal occurrence of it, which turned this
+paragraph into a stray release heading.
 
 Releases before `0.1.0-alpha.1` carried the repository's identity and its
 discipline; the instrument itself builds and runs from this repository from that
