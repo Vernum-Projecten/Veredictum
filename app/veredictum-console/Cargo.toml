@@ -84,7 +84,7 @@ zip = { version = "9", default-features = false, features = ["deflate"], optiona
 sha2 = { version = "0.11", optional = true }
 # `signal` carries the SIGTERM handler: the binary is PID 1 in the image, so
 # graceful shutdown on `docker stop` is its own duty (src/main.rs).
-tokio = { version = "1", features = ["rt-multi-thread", "signal"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "signal", "net", "io-util", "time"], optional = true }
 # `anyhow` stays legal in binary entry points only, and the ssr main is one;
 # library code returns typed `thiserror` errors.
 anyhow = { version = "1", optional = true }

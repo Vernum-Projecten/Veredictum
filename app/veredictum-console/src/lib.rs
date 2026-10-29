@@ -45,6 +45,8 @@ pub mod evidence_api;
 pub mod export;
 pub mod export_api;
 pub mod identity;
+#[cfg(feature = "ssr")]
+pub mod linger;
 pub mod pages;
 #[cfg(feature = "ssr")]
 pub mod posture;
