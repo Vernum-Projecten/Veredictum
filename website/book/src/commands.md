@@ -55,6 +55,9 @@ Options:
       --base-url <BASE_URL>
           The server's base URL, up to and including the openEHR REST base (for example `https://cdr.example/openehr/v1`)
 
+      --platform-url <PLATFORM_URL>
+          The SMART Platform base URL (for example `https://platform.example`), which SMART on openEHR serves its discovery document relative to and which can differ from the openEHR REST base. Without it, every workflow with a step sent to it is skipped as `not-declared`
+
       --auth <AUTH>
           How the client presents itself: `none`, `basic` or `bearer`.
           
@@ -75,7 +78,9 @@ Options:
           Its `claims.capabilities` names the capability folders under `cases/` it claims, at least one; every workflow of a document in another folder is skipped as `not-claimed`, while a setup a claimed document depends on still runs. Its `options` list selects one arm of each option in `capabilities.yaml`, and the documents of every other arm are skipped as `option-not-selected`. A name that is not a folder or an arm stops the run. Without a statement, every capability runs and no arm is selected.
 
       --ixit <IXIT>
-          The party's IXIT (JSON), which the `declared` inputs of a rows file read. A row whose declared value is missing is skipped as `not-declared`
+          The party's IXIT (JSON), which the `declared` inputs of a rows file read. A row whose declared value is missing is skipped as `not-declared`.
+          
+          Its `scoped_tokens` member declares the tokens a step that names a SMART scope set presents: `issued` maps a scope set to the variable (`VEREDICTUM_SCOPED_TOKEN_<NAME>`, or the file its `_FILE` names) holding a token issued for it, and `mint` declares a test issuer the deployment trusts, whose RSA key is read from `VEREDICTUM_SCOPED_TOKEN_KEY`. A row whose scope set neither covers is skipped as `not-declared`; a declared variable that is not set stops the run before any request.
 
       --document <ID>
           Run only this document, by its id (`ehr` for `cases/ehr/ehr.arazzo.yaml`). Repeat the flag once per document; without it, every document runs
@@ -141,7 +146,10 @@ statement, every capability runs and no arm is selected.
 
 The IXIT answers the `declared` inputs a rows file reads. A workflow with an
 administrative step needs the administrative principal: without
-`--admin-auth`, it is skipped as `not-declared`. The `version-out-of-range`
+`--admin-auth`, it is skipped as `not-declared`. A workflow sent to the SMART
+Platform base URL needs `--platform-url`, and a row that presents a SMART
+scope set needs a token for it (see SMART on openEHR below); either is skipped
+as `not-declared` without. The `version-out-of-range`
 and `format-not-claimed` skips are not computed yet (#777, #778).
 
 **Credentials.** Each principal's secrets are read from the environment, from
@@ -149,10 +157,70 @@ the variable itself or from a file named by the variable with `_FILE`
 appended, which is how container secrets are mounted. Setting both is
 refused. A variable set to the empty string counts as unset, because a CI
 system expands a secret it does not hold to an empty value, so the run stops
-on the missing credential instead of presenting an empty one. Neither credential is recorded: the HAR carries `[not recorded]` in
-place of every `Authorization` value, and records only whether the
-administrative principal was supplied, so a re-judgement skips the same
-workflows.
+on the missing credential instead of presenting an empty one. No credential
+is recorded: the HAR carries `[not recorded]` in place of every
+`Authorization` value, and records only whether the administrative principal
+was supplied, the Platform base URL, and which scope sets the IXIT covers, so
+a re-judgement skips the same workflows and rows.
+
+**SMART on openEHR.** The `smart` folder carries the SMART on openEHR
+documents. The specification is in the DEVELOPMENT state in Release-1.1.0, so
+a statement may leave the folder unclaimed. Two things set it apart.
+
+- **The Platform base URL:** SMART on openEHR serves its discovery document
+  "relative to the _Platform_ base URL", which can differ from the openEHR
+  REST base `--base-url` names. Pass it as `--platform-url` (for example
+  `https://platform.example`). The route lives in
+  `catalogue/sources/smart-platform.openapi.yaml`, Veredictum's own OpenAPI
+  document, whose root says `x-veredictum-base: platform`; no released
+  OpenAPI document declares it.
+- **Scoped tokens:** a step that says `x-veredictum-scope` presents an access
+  token whose `scope` claim is the named scope set, usually a rows-file input,
+  so each row carries its own token. The instrument never asks an
+  Authorization Server for one. The IXIT's `scoped_tokens` member says where
+  each comes from:
+
+  ```json
+  {
+    "scoped_tokens": {
+      "issued": {
+        "system/template-*.r": "VEREDICTUM_SCOPED_TOKEN_TEMPLATE_READ",
+        "system/template-*.crud": "VEREDICTUM_SCOPED_TOKEN_TEMPLATE_CRUD"
+      },
+      "mint": {
+        "issuer": "https://issuer.example",
+        "subject": "veredictum",
+        "audience": "cdr",
+        "kid": "test-issuer",
+        "ttl_seconds": 300,
+        "claims": { "roles": ["clinician"] }
+      }
+    }
+  }
+  ```
+
+  `issued` maps a scope set to the variable that holds a token your own
+  Authorization Server issued for it, read like every other credential from
+  the variable or its `_FILE`. A variable must be named
+  `VEREDICTUM_SCOPED_TOKEN_<NAME>`, so an IXIT cannot point the instrument at
+  any other secret in the environment. `mint` declares a test issuer your
+  deployment trusts: for a scope set with no issued token, the instrument signs
+  an RS256 token carrying `iss`, `sub`, `aud`, `iat`, `exp`, the
+  space-delimited `scope` and any further `claims`, with the RSA private key in
+  `VEREDICTUM_SCOPED_TOKEN_KEY` or `VEREDICTUM_SCOPED_TOKEN_KEY_FILE`. Never
+  give it key material a production deployment trusts. Scope sets compare as
+  sets, so `"openid user/x.r"` and `"user/x.r openid"` are one. Every declared
+  variable is checked before the first request: an unset one stops the run
+  with exit status 2. A row whose scope set neither member covers is skipped
+  as `not-declared`, citing the SMART sentence that has the Platform evaluate
+  scopes when it issues tokens.
+
+  No openEHR specification governs how a test instrument obtains tokens; the
+  member and the minting are this instrument's own design.
+
+The SMART text does not say what a request outside its granted scopes
+receives, or which operation a scope grants (upstream report #758), so the
+catalogue carries the granted side only.
 
 **Re-judging.** `--rejudge <RECORDING>` answers every request from the
 recording and reuses every recorded input, so `results.json` comes out

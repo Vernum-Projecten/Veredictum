@@ -60,7 +60,8 @@ use crate::arazzo::results::{
     Engine, ExchangeRef, Explanation, ResultRow, Results, Skip, SkipReason, Status, Whose, Why,
 };
 use crate::arazzo::rows::Row;
-use crate::arazzo::source::split_qualified;
+use crate::arazzo::scope::{self, Coverage, scope_of};
+use crate::arazzo::source::{Base, split_qualified};
 use crate::exec::signature::SigningMode;
 use crate::exec::transport::Transport;
 use crate::ixit::DeclaredEnvironment;
@@ -87,6 +88,46 @@ pub struct RunConfig {
     /// a caller skips those workflows first
     /// ([`crate::arazzo::principal::undeclared_skips`]).
     pub administrative: Option<String>,
+    /// The SMART Platform base URL a Platform source's paths are appended
+    /// to, if the party supplies one; a step on such a source is errored
+    /// without it, so a caller skips those workflows first
+    /// ([`crate::arazzo::platform::undeclared_skips`]).
+    pub platform_url: Option<String>,
+    /// The scope sets the party covers with a token. A row presenting
+    /// another is skipped as `not-declared`; a covered one is sent with the
+    /// scope set's marker ([`crate::arazzo::scope::marker`]).
+    pub scoped: Coverage,
+}
+
+impl RunConfig {
+    /// A configuration against `base_url` with no credential, no Platform
+    /// base URL and no scope set covered.
+    #[must_use]
+    pub fn new(base_url: &str) -> Self {
+        Self {
+            base_url: base_url.to_owned(),
+            authorization: None,
+            signing: None,
+            administrative: None,
+            platform_url: None,
+            scoped: Coverage::default(),
+        }
+    }
+
+    /// The empty recording a run under this configuration starts, its log
+    /// naming the base URLs and which principals and scope sets the run was
+    /// given, never a credential.
+    #[must_use]
+    pub fn recording(&self) -> Har {
+        let mut har = Har::new(&self.base_url);
+        har.log.veredictum.administrative = self.administrative.is_some();
+        har.log
+            .veredictum
+            .platform_url
+            .clone_from(&self.platform_url);
+        har.log.veredictum.scoped = self.scoped.clone();
+        har
+    }
 }
 
 /// What the caller decides about the document's workflows before a run.
@@ -222,8 +263,7 @@ impl<'d> Evaluator<'d> {
                 (prefix, Rc::new(ArazzoDocument::load(file)?)),
             );
         }
-        let mut har = Har::new(&config.base_url);
-        har.log.veredictum.administrative = config.administrative.is_some();
+        let har = config.recording();
         Ok(Self {
             externals,
             document,
@@ -339,6 +379,11 @@ impl<'d> Evaluator<'d> {
         let mut out = Vec::new();
         let mut produced = Vec::new();
         for (index, row) in rows.iter().enumerate() {
+            if let Some(skipped) = self.scope_skipped(workflow, &case, index, row) {
+                produced.push(BTreeMap::new());
+                out.push(skipped);
+                continue;
+            }
             let setup = if let Some(done) = &shared {
                 done.clone()
             } else {
@@ -485,6 +530,55 @@ impl<'d> Evaluator<'d> {
 
     /// Runs every workflow `workflow` depends on, depth first; `Err` carries
     /// the explanation of the first one that did not pass.
+    /// The skipped row `index` of `workflow` becomes when it, or a set-up it
+    /// runs, presents a scope set the party does not cover.
+    fn scope_skipped(
+        &self,
+        workflow: &Workflow,
+        case: &str,
+        index: usize,
+        row: &Row,
+    ) -> Option<ResultRow> {
+        self.uncovered_scope(self.document, workflow, row, &mut Vec::new())?;
+        Some(ResultRow {
+            case: case.to_owned(),
+            row: index,
+            status: Status::Skipped,
+            inputs: row.clone(),
+            generated: Vec::new(),
+            skip: Some(scope::undeclared_skip(&self.repo_root)),
+            explanation: None,
+        })
+    }
+
+    /// The first scope set a row of `workflow`, or a set-up it runs through
+    /// `dependsOn` at any depth, presents that the party does not cover. A
+    /// set-up runs with no row inputs, so only its literal scope sets count.
+    fn uncovered_scope(
+        &self,
+        document: &ArazzoDocument,
+        workflow: &Workflow,
+        inputs: &Row,
+        visited: &mut Vec<String>,
+    ) -> Option<scope::ScopeSet> {
+        if let Some(set) = scope::uncovered(workflow, inputs, &self.config.scoped) {
+            return Some(set);
+        }
+        workflow.depends_on.iter().find_map(|id| {
+            if visited.contains(id) {
+                return None;
+            }
+            visited.push(id.clone());
+            // NOTE: an unresolvable `dependsOn` is not "uncovered"; the set-up reports it as a run error.
+            let (owner, workflow_id) = match split_qualified(id) {
+                Some((source, workflow_id)) => (&*self.externals.get(source)?.1, workflow_id),
+                None => (document, id.as_str()),
+            };
+            let dependency = owner.workflow(workflow_id)?;
+            self.uncovered_scope(owner, dependency, &Row::new(), visited)
+        })
+    }
+
     fn setup(
         &mut self,
         (name, document): DocumentRef<'_>,
@@ -1030,7 +1124,14 @@ fn compose(
             other => return Err(format!("parameter location {other:?}")),
         }
     }
-    request.url = request_url(&operation.path, &request.path, &config.base_url, &query)?;
+    let base_url = match operation.base {
+        Base::Rest => config.base_url.as_str(),
+        Base::Platform => config
+            .platform_url
+            .as_deref()
+            .ok_or_else(|| "the SMART Platform base URL is not supplied".to_owned())?,
+    };
+    request.url = request_url(&operation.path, &request.path, base_url, &query)?;
     let mut body = None;
     let mut body_is_json = true;
     if let Some(request_body) = &step.request_body {
@@ -1060,10 +1161,10 @@ fn compose(
         body = Some(payload);
     }
     let mut sent_headers = request.headers.clone();
-    if let Some(authorization) = credential(step, config)? {
+    if let Some(authorization) = credential(step, config, scope.inputs)? {
         sent_headers
             .entry("authorization".to_owned())
-            .or_insert_with(|| authorization.clone());
+            .or_insert(authorization);
     }
     Ok(Composed {
         request,
@@ -1074,16 +1175,24 @@ fn compose(
     })
 }
 
-/// The `Authorization` value a step is sent with: the administrative
-/// principal's when the step names it, else the run's.
-fn credential<'c>(step: &Step, config: &'c RunConfig) -> Result<Option<&'c String>, String> {
+/// The `Authorization` value a step is sent with: the marker of the scope
+/// set it names, the administrative principal's when it names that, else the
+/// run's.
+fn credential(step: &Step, config: &RunConfig, inputs: &Row) -> Result<Option<String>, String> {
+    if let Some(reference) = scope_of(step.extensions.as_ref()).map_err(|e| e.to_string())? {
+        let set = reference.resolve(inputs)?;
+        if !config.scoped.covers(&set) {
+            return Err(format!("no token is supplied for the scope set `{set}`"));
+        }
+        return Ok(Some(scope::marker(&set)));
+    }
     match principal_of(step.extensions.as_ref()).map_err(|e| e.to_string())? {
         Some(Principal::Administrative) => config
             .administrative
-            .as_ref()
+            .clone()
             .map(Some)
             .ok_or_else(|| "the administrative principal is not supplied".to_owned()),
-        None => Ok(config.authorization.as_ref()),
+        None => Ok(config.authorization.clone()),
     }
 }
 
@@ -1287,6 +1396,8 @@ pub(crate) fn rejudge_config(recording: &Har, signing: Option<SigningMode>) -> R
         authorization: None,
         signing,
         administrative: Some(har::REDACTED.to_owned()),
+        platform_url: recording.log.veredictum.platform_url.clone(),
+        scoped: recording.log.veredictum.scoped.clone(),
     }
 }
 
@@ -1450,6 +1561,8 @@ workflows:
             authorization: Some("Basic eDp5".to_owned()),
             signing: None,
             administrative: Some("Basic YWRtaW46eA==".to_owned()),
+            platform_url: None,
+            scoped: Coverage::default(),
         }
     }
 
@@ -2548,6 +2661,250 @@ workflows:
             config,
             dir.path(),
             &admin_plan(),
+            &mut transport,
+        )
+        .unwrap();
+        assert_eq!(only(&results).status, Status::Errored);
+        assert!(transport.sent.is_empty());
+    }
+
+    const PLATFORM_OAS: &str = "openapi: 3.0.3
+info: { title: t, version: '1' }
+x-veredictum-base: platform
+paths:
+  /.well-known/smart-configuration:
+    get: { operationId: discover, responses: { default: { description: d } } }
+";
+
+    const REST_OAS: &str = "openapi: 3.0.3
+info: { title: t, version: '1' }
+paths:
+  /templates:
+    get: { operationId: list, responses: { default: { description: d } } }
+";
+
+    const SMART_DOC: &str = "arazzo: 1.1.0
+info: { title: t, version: '1' }
+sourceDescriptions:
+  - { name: platform, url: platform.yaml, type: openapi }
+  - { name: rest, url: rest.yaml, type: openapi }
+workflows:
+  - workflowId: smart
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    inputs: { type: object, properties: { scope: { type: string } } }
+    steps:
+      - stepId: discover
+        operationId: $sourceDescriptions.platform.discover
+        successCriteria: [{ condition: $statusCode == 200 }]
+      - stepId: list
+        operationId: $sourceDescriptions.rest.list
+        x-veredictum-scope: $inputs.scope
+        successCriteria: [{ condition: $statusCode == 200 }]
+";
+
+    fn smart_document() -> (assert_fs::TempDir, ArazzoDocument) {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("platform.yaml").write_str(PLATFORM_OAS).unwrap();
+        dir.child("rest.yaml").write_str(REST_OAS).unwrap();
+        dir.child("doc.yaml").write_str(SMART_DOC).unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("doc.yaml")).unwrap();
+        (dir, document)
+    }
+
+    fn smart_plan(scopes: &[&str]) -> Plan {
+        let rows: Vec<Row> = scopes
+            .iter()
+            .map(|scope| Row::from([("scope".to_owned(), Value::from(*scope))]))
+            .collect();
+        plan_with("smart", &rows, Iteration::ResetPerRow)
+    }
+
+    fn smart_config() -> RunConfig {
+        RunConfig {
+            platform_url: Some("http://platform/gw/".to_owned()),
+            scoped: Coverage {
+                issued: std::collections::BTreeSet::from([scope::ScopeSet::parse(
+                    "system/template-*.r",
+                )
+                .unwrap()]),
+                minted: false,
+            },
+            ..config()
+        }
+    }
+
+    #[test]
+    fn a_platform_step_goes_to_the_platform_base_and_a_scoped_step_carries_its_marker() {
+        let (dir, document) = smart_document();
+        let plan = smart_plan(&["system/template-*.r", "system/template-*.c"]);
+        let mut transport = Scripted::new(&[(200, ""), (200, "")]);
+        let (results, har) = run_document(
+            &document,
+            "smart",
+            smart_config(),
+            dir.path(),
+            &plan,
+            &mut transport,
+        )
+        .unwrap();
+        let statuses: Vec<Status> = results.rows.iter().map(|row| row.status).collect();
+        assert_eq!(statuses, [Status::Passed, Status::Skipped], "{results:?}");
+        let skip = results
+            .rows
+            .get(1)
+            .and_then(|row| row.skip.as_ref())
+            .unwrap();
+        assert_eq!(skip.reason, SkipReason::NotDeclared);
+        assert_eq!(skip.why.quote, scope::undeclared_citation().quote);
+        let sent: Vec<(&str, Option<&str>)> = transport
+            .sent
+            .iter()
+            .map(|(_, url, headers)| {
+                (
+                    url.as_str(),
+                    headers.get("authorization").map(String::as_str),
+                )
+            })
+            .collect();
+        let marker = scope::marker(&scope::ScopeSet::parse("system/template-*.r").unwrap());
+        assert_eq!(
+            sent,
+            [
+                (
+                    "http://platform/gw/.well-known/smart-configuration",
+                    Some("Basic eDp5")
+                ),
+                ("http://sut/v1/templates", Some(marker.as_str())),
+            ]
+        );
+        assert_eq!(
+            har.log.veredictum.platform_url.as_deref(),
+            Some("http://platform/gw/")
+        );
+        let text = har.to_text().unwrap();
+        assert!(!text.contains(scope::MARKER_PREFIX), "{text}");
+        let replayed = rejudge(&document, "smart", dir.path(), None, &plan, &har).unwrap();
+        assert_eq!(replayed.to_text().unwrap(), results.to_text().unwrap());
+    }
+
+    const SCOPED_SETUP_DOC: &str = "arazzo: 1.1.0
+info: { title: t, version: '1' }
+sourceDescriptions:
+  - { name: rest, url: rest.yaml, type: openapi }
+workflows:
+  - workflowId: prepare
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    steps:
+      - stepId: list
+        operationId: $sourceDescriptions.rest.list
+        x-veredictum-scope: system/template-*.crud
+        successCriteria: [{ condition: $statusCode == 200 }]
+  - workflowId: middle
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    dependsOn: [prepare]
+    steps:
+      - stepId: list
+        operationId: $sourceDescriptions.rest.list
+        successCriteria: [{ condition: $statusCode == 200 }]
+  - workflowId: use
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    dependsOn: [middle]
+    steps:
+      - stepId: list
+        operationId: $sourceDescriptions.rest.list
+        x-veredictum-scope: system/template-*.r
+        successCriteria: [{ condition: $statusCode == 200 }]
+";
+
+    #[test]
+    fn a_row_whose_set_up_presents_an_uncovered_scope_set_is_skipped_not_declared() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("rest.yaml").write_str(REST_OAS).unwrap();
+        dir.child("doc.yaml").write_str(SCOPED_SETUP_DOC).unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("doc.yaml")).unwrap();
+        let mut plan = plan_with("use", &[Row::new()], Iteration::ResetPerRow);
+        for other in ["prepare", "middle"] {
+            plan.skips
+                .insert(other.to_owned(), scope::undeclared_skip(dir.path()));
+        }
+        let read = scope::ScopeSet::parse("system/template-*.r").unwrap();
+        let crud = scope::ScopeSet::parse("system/template-*.crud").unwrap();
+        let covering = |sets: &[&scope::ScopeSet]| RunConfig {
+            scoped: Coverage {
+                issued: sets.iter().map(|set| (*set).clone()).collect(),
+                minted: false,
+            },
+            ..config()
+        };
+        let row = |results: &Results| {
+            results
+                .rows
+                .iter()
+                .find(|row| row.case == "doc/use")
+                .cloned()
+                .unwrap()
+        };
+
+        let mut transport = Scripted::new(&[]);
+        let (results, _) = run_document(
+            &document,
+            "doc",
+            covering(&[&read]),
+            dir.path(),
+            &plan,
+            &mut transport,
+        )
+        .unwrap();
+        let skipped = row(&results);
+        assert_eq!(skipped.status, Status::Skipped, "{results:?}");
+        assert_eq!(
+            skipped.skip.map(|skip| skip.reason),
+            Some(SkipReason::NotDeclared)
+        );
+        assert!(transport.sent.is_empty());
+
+        let mut transport = Scripted::new(&[(200, ""), (200, ""), (200, "")]);
+        let (results, _) = run_document(
+            &document,
+            "doc",
+            covering(&[&read, &crud]),
+            dir.path(),
+            &plan,
+            &mut transport,
+        )
+        .unwrap();
+        assert_eq!(row(&results).status, Status::Passed, "{results:?}");
+        let sent: Vec<Option<&str>> = transport
+            .sent
+            .iter()
+            .map(|(_, _, headers)| headers.get("authorization").map(String::as_str))
+            .collect();
+        let crud_marker = scope::marker(&crud);
+        let read_marker = scope::marker(&read);
+        assert_eq!(
+            sent,
+            [
+                Some(crud_marker.as_str()),
+                Some("Basic eDp5"),
+                Some(read_marker.as_str())
+            ]
+        );
+    }
+
+    #[test]
+    fn a_platform_step_without_the_platform_base_is_errored_never_failed() {
+        let (dir, document) = smart_document();
+        let config = RunConfig {
+            platform_url: None,
+            ..smart_config()
+        };
+        let mut transport = Scripted::new(&[]);
+        let (results, _) = run_document(
+            &document,
+            "smart",
+            config,
+            dir.path(),
+            &smart_plan(&["system/template-*.r"]),
             &mut transport,
         )
         .unwrap();

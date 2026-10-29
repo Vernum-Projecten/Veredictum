@@ -549,6 +549,12 @@ pub struct Ixit {
     /// they are not-applicable with that citation.
     #[serde(default)]
     pub smart: Option<SmartLane>,
+    /// The tokens a step that names a SMART scope set presents in
+    /// `veredictum test`: a token per scope set, from a variable, or a test
+    /// issuer that mints one. Absent => every row that presents a scope set
+    /// is skipped as `not-declared`.
+    #[serde(default)]
+    pub scoped_tokens: Option<crate::arazzo::credential::ScopedTokensDeclaration>,
     /// The party's DEFAULT terminology posture (see [`TerminologyLane`]).
     /// Present => the deployment is wired to the declared terminology
     /// servers and realizes the declared unresolvable-value-set posture;

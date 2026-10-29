@@ -57,6 +57,49 @@ pub struct Operation {
     pub method: HttpMethod,
     /// The path template, as the OAS `paths` key spells it.
     pub path: String,
+    /// The base URL the path template is appended to.
+    pub base: Base,
+}
+
+/// The specification-extension key, at the root of an OpenAPI source, that
+/// names the base URL its paths are appended to.
+pub const BASE_KEY: &str = "x-veredictum-base";
+
+/// The base URL a source's paths are appended to.
+///
+/// SMART on openEHR serves its discovery document "relative to the
+/// _Platform_ base URL" (ITS-REST
+/// `docs/smart_app_launch/master04-service_discovery.adoc` §Service
+/// Discovery), which is not the openEHR REST base every released OAS path is
+/// appended to. No openEHR spec governs the extension that names it — our
+/// own design.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Base {
+    /// The openEHR REST base URL, the base of a source without the key.
+    #[default]
+    Rest,
+    /// The SMART Platform base URL.
+    Platform,
+}
+
+impl Base {
+    /// All variants, in vocabulary order.
+    pub const ALL: &[Self] = &[Self::Rest, Self::Platform];
+
+    /// The token a source spells.
+    #[must_use]
+    pub fn token(self) -> &'static str {
+        match self {
+            Self::Rest => "rest",
+            Self::Platform => "platform",
+        }
+    }
+
+    /// Reads a token; an unknown one is `None`, never defaulted.
+    #[must_use]
+    pub fn parse(token: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|base| base.token() == token)
+    }
 }
 
 /// Why a source cannot be indexed.
@@ -85,6 +128,14 @@ pub enum SourceError {
         route: String,
         /// The method key.
         method: String,
+    },
+    /// The source's `x-veredictum-base` names no base of the vocabulary.
+    #[error("source `{path}`: `{BASE_KEY}` is {value}, which is not `rest` or `platform`")]
+    UnknownBase {
+        /// The file.
+        path: PathBuf,
+        /// The value, as JSON text.
+        value: String,
     },
     /// Two operations share one `operationId`.
     #[error("source `{path}`: operationId `{operation_id}` is declared twice")]
@@ -123,6 +174,16 @@ impl OperationIndex {
                 path: path.to_owned(),
                 reason: error.detail(),
             })?;
+        let base =
+            match document.get(BASE_KEY) {
+                None => Base::Rest,
+                Some(value) => value.as_str().and_then(Base::parse).ok_or_else(|| {
+                    SourceError::UnknownBase {
+                        path: path.to_owned(),
+                        value: value.to_string(),
+                    }
+                })?,
+            };
         let Some(Value::Object(paths)) = document.get("paths") else {
             return Err(SourceError::NoPaths(path.to_owned()));
         };
@@ -163,6 +224,7 @@ impl OperationIndex {
                     Operation {
                         method,
                         path: route.clone(),
+                        base,
                     },
                 );
                 if previous.is_some() {
@@ -514,6 +576,49 @@ mod tests {
     }
 
     #[test]
+    fn a_source_names_its_base_and_an_unknown_base_is_refused() {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        let file = |name: &str, base: &str| {
+            let child = dir.child(name);
+            child
+                .write_str(&format!(
+                    "openapi: 3.0.3\n{base}paths:\n  /a:\n    get:\n      operationId: a\n"
+                ))
+                .unwrap();
+            child.path().to_owned()
+        };
+        let base_of = |path: &Path| OperationIndex::load(path).unwrap().get("a").unwrap().base;
+        assert_eq!(base_of(&file("plain.yaml", "")), Base::Rest);
+        assert_eq!(
+            base_of(&file("platform.yaml", "x-veredictum-base: platform\n")),
+            Base::Platform
+        );
+        assert_eq!(
+            base_of(&file("rest.yaml", "x-veredictum-base: rest\n")),
+            Base::Rest
+        );
+        for (name, base) in [
+            ("gateway.yaml", "x-veredictum-base: gateway\n"),
+            ("number.yaml", "x-veredictum-base: 1\n"),
+        ] {
+            assert!(matches!(
+                OperationIndex::load(&file(name, base)),
+                Err(SourceError::UnknownBase { .. })
+            ));
+        }
+        let platform = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../catalogue/sources/smart-platform.openapi.yaml");
+        assert_eq!(
+            OperationIndex::load(&platform)
+                .unwrap()
+                .get("smart_configuration")
+                .map(|o| (o.method, o.base)),
+            Some((HttpMethod::Get, Base::Platform))
+        );
+    }
+
+    #[test]
     fn the_released_ehr_bundle_indexes_its_create_and_read_operations() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../specs/rest-oas/ehr-validation.openapi.yaml");
@@ -522,7 +627,8 @@ mod tests {
             index.get("ehr_create_with_id"),
             Some(&Operation {
                 method: HttpMethod::Put,
-                path: "/ehr/{ehr_id}".to_owned()
+                path: "/ehr/{ehr_id}".to_owned(),
+                base: Base::Rest,
             })
         );
         assert_eq!(

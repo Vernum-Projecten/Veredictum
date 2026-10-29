@@ -1,0 +1,11 @@
+# One row per scope set. `template-<templateId>` is "Access to operational
+# templates matching `<templateId>` expression", the `*` pattern matches
+# "All available templates or queries", and `r` is Read
+# (master08-scopes.adoc §Resource Scopes); the `.crud` row is that chapter's
+# maximal-table row `system/template-<templateId>.crud`, whose permission
+# tail holds `r` among others.
+workflow: smart_scopes/template_list-system_scope_granted
+iteration: reset_per_row
+rows:
+  - { scope: "system/template-*.r" }
+  - { scope: "system/template-*.crud" }

@@ -31,6 +31,7 @@ use crate::arazzo::expr::{Expr, JsonPathCriterion, ParseError, RegexCriterion, S
 use crate::arazzo::gates::Gate;
 use crate::arazzo::gates::profile::{ProfileHeader, RegexBreach, lint_regex};
 use crate::arazzo::principal::{PRINCIPAL_KEY, PrincipalError, principal_of};
+use crate::arazzo::scope::{SCOPE_KEY, ScopeError, scope_of};
 use crate::arazzo::source::{
     DeclaredParameter, Operation, OperationIndex, ParameterError, ParameterIn, ParameterIndex,
     SourceError, split_qualified,
@@ -450,6 +451,9 @@ impl ArazzoDocument {
         if let Err(error) = principal_of(step.extensions.as_ref()) {
             push(FindingKind::Principal(error));
         }
+        if let Err(error) = scope_of(step.extensions.as_ref()) {
+            push(FindingKind::Scope(error));
+        }
         for value in step.outputs.values() {
             match value {
                 ValueOrSelector::Literal(Value::String(text)) => {
@@ -790,6 +794,9 @@ pub enum FindingKind {
     /// An `x-veredictum-principal` that does not hold.
     #[error(transparent)]
     Principal(PrincipalError),
+    /// An `x-veredictum-scope` that does not hold.
+    #[error(transparent)]
+    Scope(ScopeError),
 }
 
 impl FindingKind {
@@ -805,7 +812,8 @@ impl FindingKind {
             | Self::Regex(_)
             | Self::Unsupported(_)
             | Self::Derive(_)
-            | Self::Principal(_) => Gate::Profile,
+            | Self::Principal(_)
+            | Self::Scope(_) => Gate::Profile,
             Self::Source(_)
             | Self::UnresolvedOperation(_)
             | Self::UnresolvedParameter(_)
@@ -847,7 +855,7 @@ fn unknown_keys(raw: &Value, back: &Value, at: &str, findings: &mut Vec<Finding>
     }
 }
 
-/// Reports every `x-` key that is not one of the catalogue's three extensions
+/// Reports every `x-` key that is not one of the catalogue's extensions
 /// at a place it is defined for. Request payloads are data and are skipped.
 fn extension_keys(value: &Value, at: &mut Vec<String>, findings: &mut Vec<Finding>) {
     match value {
@@ -857,7 +865,7 @@ fn extension_keys(value: &Value, at: &mut Vec<String>, findings: &mut Vec<Findin
                     let allowed = match key.as_str() {
                         CITE_KEY => is_workflow(at) || is_step(at) || is_criterion(at),
                         CHECK_KEY => is_criterion(at),
-                        DERIVE_KEY | PRINCIPAL_KEY => is_step(at),
+                        DERIVE_KEY | PRINCIPAL_KEY | SCOPE_KEY => is_step(at),
                         _ => false,
                     };
                     if !allowed {
@@ -946,6 +954,45 @@ mod tests {
     fn a_criterion_inherits_its_workflow_citation() {
         let (dir, doc) = fixture(&workflow(&cited(), "", "$statusCode == 404"));
         assert_eq!(doc.check(dir.path()), Vec::new());
+    }
+
+    #[test]
+    fn a_scope_set_is_gated_and_never_sits_beside_a_principal() {
+        let with = |extensions: &str| {
+            workflow(&cited(), "", "$statusCode == 404").replace(
+                "        operationId: $sourceDescriptions.ehr.ehr_get_by_id\n",
+                &format!(
+                    "        operationId: $sourceDescriptions.ehr.ehr_get_by_id\n{extensions}"
+                ),
+            )
+        };
+        for clean in [
+            "        x-veredictum-scope: 'system/template-*.r openid'\n",
+            "        x-veredictum-scope: $inputs.scope\n",
+            "        x-veredictum-scope: ''\n",
+        ] {
+            let (dir, doc) = fixture(&with(clean));
+            assert_eq!(doc.check(dir.path()), Vec::new(), "{clean}");
+        }
+        let refused = [
+            (
+                "        x-veredictum-scope: 'a\"b'\n",
+                ScopeError::Token("a\"b".to_owned()),
+            ),
+            ("        x-veredictum-scope: [a]\n", ScopeError::NotAString),
+            (
+                "        x-veredictum-scope: a\n        x-veredictum-principal: administrative\n",
+                ScopeError::WithPrincipal,
+            ),
+        ];
+        for (extensions, error) in refused {
+            let (dir, doc) = fixture(&with(extensions));
+            assert!(
+                kinds(&dir, &doc).contains(&FindingKind::Scope(error.clone())),
+                "{extensions}: {:?}",
+                kinds(&dir, &doc)
+            );
+        }
     }
 
     #[test]

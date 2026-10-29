@@ -6,7 +6,8 @@
 //! Every exchange is one HAR entry, and every workflow run (a row, or a setup
 //! workflow it depends on) is one HAR page whose `_veredictum` custom field
 //! carries the case id, the row and the inputs the run used, generated ones
-//! included. The log's own `_veredictum` field carries the base URL. With
+//! included. The log's own `_veredictum` field carries the base URLs and which
+//! principals and scope sets the run was given. With
 //! those, a recording alone re-judges to the same results.
 //! HAR 1.2 is <http://www.softwareishard.com/blog/har-12-spec/>; it allows
 //! custom fields whose names start with `_`. No openEHR spec governs the
@@ -24,6 +25,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::arazzo::rows::Row;
+use crate::arazzo::scope::Coverage;
 use crate::exec::transport::{RawResponse, Transport};
 use crate::vocab::HttpMethod;
 
@@ -74,6 +76,14 @@ pub struct LogContext {
     /// one.
     #[serde(default)]
     pub administrative: bool,
+    /// The SMART Platform base URL a Platform source's paths were appended
+    /// to, if the run was given one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub platform_url: Option<String>,
+    /// The scope sets the party covered with a token, so a re-judgement
+    /// skips the same scoped rows. No token is recorded.
+    #[serde(default, skip_serializing_if = "Coverage::is_empty")]
+    pub scoped: Coverage,
 }
 
 /// The HAR `page` object: one workflow run.
@@ -285,6 +295,8 @@ impl Har {
                 veredictum: LogContext {
                     base_url: base_url.to_owned(),
                     administrative: false,
+                    platform_url: None,
+                    scoped: Coverage::default(),
                 },
             },
         }
