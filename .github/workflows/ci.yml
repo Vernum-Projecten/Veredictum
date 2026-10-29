@@ -90,6 +90,7 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
       docker: ${{ steps.filter.outputs.docker }}
+      image: ${{ steps.filter.outputs.image }}
       action: ${{ steps.filter.outputs.action }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -131,6 +132,7 @@ jobs:
             {
               echo "code=true"
               echo "docker=true"
+              echo "image=true"
               echo "action=true"
             } >> "$GITHUB_OUTPUT"
             exit 0
@@ -159,6 +161,18 @@ jobs:
             echo "docker=true" >> "$GITHUB_OUTPUT"
           else
             echo "docker=false" >> "$GITHUB_OUTPUT"
+          fi
+          # The image build tier (#776): every path the build context admits
+          # and the image compiles or bakes, since its last step runs the
+          # engine's `test` over the shipped catalogue. perf/, schemas/ and
+          # app/veredictum/tests/ are left out because `.dockerignore` keeps
+          # them out of the context, so no change there can alter the image.
+          # `grep -v` exits 1 when nothing survives, which pipefail reads false.
+          if echo "$changed" | grep -vE '^app/veredictum/tests/' \
+            | grep -qE '^(app/|artifacts/|catalogue/|specs/|assets/brand/|docker/|deploy/hosted/|Cargo\.(toml|lock)$|rust-toolchain\.toml$|\.dockerignore$|\.hadolint\.yaml$|\.github/workflows/ci\.yml$)'; then
+            echo "image=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "image=false" >> "$GITHUB_OUTPUT"
           fi
           # The GitHub Action tier (#770): the action, its script and its test
           # material, the engine's command line the action calls, and this file.
@@ -542,12 +556,18 @@ jobs:
   # publishes nothing, so a poisoned cache could not ship a bad image; what it
   # could do is hand this guard a false green, and no other lane builds this
   # target from cold to catch that. A guard that can be talked into passing is
-  # the failure class the lane exists to remove, so it pays the full build. The
-  # `docker` path filter is what keeps that cost off unrelated changes.
+  # the failure class the lane exists to remove, so it pays the full build.
+  #
+  # The `image` path filter is every path the build context admits (#776): an
+  # engine, console or catalogue change can break `docker run <image> test`
+  # while the Dockerfile is untouched. Measured on the #775 runs, this job takes
+  # 14m43s to 15m37s cold against 7m20s to 15m38s for `build & test` beside it,
+  # so the cost is at most about eight minutes on `conclusion`; skipping it let
+  # a break first surface in the release smoke, after the tag.
   image-build:
     name: the image builds and carries its data
     needs: changes
-    if: needs.changes.outputs.docker == 'true'
+    if: needs.changes.outputs.image == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:

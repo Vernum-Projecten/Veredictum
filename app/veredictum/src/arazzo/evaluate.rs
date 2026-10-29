@@ -52,7 +52,7 @@ use crate::arazzo::document::{ArazzoDocument, CriterionPlan};
 use crate::arazzo::expr::{
     EvalError, Expr, Judgement, RequestView, ResponseView, Scope, value_text,
 };
-use crate::arazzo::gates::rows::{Aggregate, Declaration, InputShape, RowsFile};
+use crate::arazzo::gates::rows::{Aggregate, Declaration, InputShape, RowsFile, ServerOwnership};
 use crate::arazzo::har::{self, Har, HarTransport, PageContext, Recorded, RunRole};
 use crate::arazzo::oas::{OasError, ResponseSchemas};
 use crate::arazzo::principal::{Principal, principal_of};
@@ -99,6 +99,17 @@ pub struct Plan {
     pub ixit: Option<Value>,
     /// The party's statement, which a rows file's `declared` inputs read.
     pub statement: Option<Value>,
+}
+
+impl Plan {
+    /// Whether the rows file of `workflow_id` says `server: exclusive`,
+    /// whether or not the party declares such a server.
+    #[must_use]
+    pub fn is_exclusive(&self, workflow_id: &str) -> bool {
+        self.rows
+            .get(workflow_id)
+            .is_some_and(|file| file.server == Some(ServerOwnership::Exclusive))
+    }
 }
 
 /// Why a document cannot be run at all.
@@ -227,9 +238,25 @@ impl<'d> Evaluator<'d> {
     /// [`RunError`] when the document cannot be run at all; everything else
     /// becomes a row's classification.
     pub fn run(&mut self, plan: &Plan, transport: &mut dyn Transport) -> Result<Results, RunError> {
+        self.run_where(plan, transport, |_| true)
+    }
+
+    /// Runs, in document order, only the workflows `select` keeps.
+    ///
+    /// # Errors
+    /// [`RunError`] when the document cannot be run at all; everything else
+    /// becomes a row's classification.
+    pub fn run_where(
+        &mut self,
+        plan: &Plan,
+        transport: &mut dyn Transport,
+        select: impl Fn(&Workflow) -> bool,
+    ) -> Result<Results, RunError> {
         let mut rows = Vec::new();
         for workflow in &self.document.description().workflows {
-            rows.extend(self.run_case(workflow, plan, transport)?);
+            if select(workflow) {
+                rows.extend(self.run_case(workflow, plan, transport)?);
+            }
         }
         Ok(Results {
             document: self.name.clone(),
