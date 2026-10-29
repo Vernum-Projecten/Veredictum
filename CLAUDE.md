@@ -34,9 +34,9 @@ and the container image through the pipeline the Releasing section describes.
 | `app/veredictum/src/bin/veredictum.rs` | the instrument binary; every instrument is a subcommand of it |
 | `app/veredictum/tests/**` | the integration suite: catalogue gates, seeded-defect rejection, schema drift, the verification pack, the perf driver |
 | `app/veredictum-console/**` | the web console: the Leptos frontend the container image serves (#6, design #52); its rules are `.claude/rules/leptos-ui.md` |
-| `catalogue/**` | the conformance catalogue: Arazzo workflows per capability folder under `cases/`, `capabilities.yaml` options, rows files, `id-map.yaml` (docs/ARCHITECTURE.md §15) |
+| `catalogue/**` | the conformance catalogue: Arazzo workflows per capability folder under `cases/`, `capabilities.yaml` options, rows files, the test signing material under `keys/`, `id-map.yaml` (docs/ARCHITECTURE.md §15) |
 | `perf/**` | the performance schedule: its cases, journeys and payloads (docs/ARCHITECTURE.md §8.14) |
-| `fixtures/**` | test material: the named ICS fixture, the signing keys and the SMART lane's committed test issuer |
+| `fixtures/**` | test material: the named ICS fixture, a declaration and its ixit |
 | `schemas/**` | the published JSON Schemas for every artifact family (emitted, drift-guarded) |
 | `verification-pack/**` | the recorded HAR exchanges proving the evaluator re-judges them into their adjudicated results |
 | `specs/openehr/**` | the vendored released openEHR spec text: the oracle |

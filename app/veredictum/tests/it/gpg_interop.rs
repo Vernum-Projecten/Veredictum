@@ -24,8 +24,9 @@ use veredictum::record::{RecordedFile, seal};
 /// flags and the subkey binding signature.
 fn key_dir() -> PathBuf {
     Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-        .join("fixtures")
+        .join("catalogue")
         .join("keys")
+        .join("openpgp")
 }
 
 /// Whether `GnuPG` is callable, with its version line as the evidence.

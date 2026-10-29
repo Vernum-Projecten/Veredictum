@@ -50,7 +50,7 @@
 /src/                               @rubentalstra
 
 # ── Test fixtures ───────────────────────────────────────────────────────────
-# The named ICS fixture and the SMART lane's committed test issuer.
+# The named ICS fixture: a declaration and its ixit.
 /fixtures/                          @rubentalstra
 
 # ── Supply chain, CI and release ────────────────────────────────────────────

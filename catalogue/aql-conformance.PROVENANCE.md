@@ -1,7 +1,7 @@
 # Provenance: the AQL conformance corpus fixtures
 
-`aql_conformance.arazzo.yaml` beside this file carries, as inline request
-bodies, fixtures of the AQL conformance corpus, and the query documents
+`catalogue/cases/_setup/aql_conformance.arazzo.yaml` carries, as inline
+request bodies, fixtures of the AQL conformance corpus, and the query documents
 `catalogue/cases/query/aqlc_*.arazzo.yaml` carry its queries and expected
 answers. `catalogue/id-map.yaml` (`corpora: aql-conformance`) maps each of the
 corpus's 495 case ids to the workflows that carry it, or says why it is not
