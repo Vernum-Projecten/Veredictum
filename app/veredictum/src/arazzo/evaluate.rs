@@ -310,6 +310,8 @@ impl<'d> Evaluator<'d> {
             },
             instrument_status: crate::party::InstrumentStatus::CURRENT,
             base_url: self.config.base_url.clone(),
+            server: None,
+            review: Vec::new(),
             rows,
         })
     }

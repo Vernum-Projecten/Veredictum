@@ -11,12 +11,19 @@
 //! recording through them. The outcome carries the results document and
 //! the recording; where they are written is the caller's decision.
 //!
+//! The results record what the server stated through System OPTIONS
+//! ([`crate::arazzo::results::ServerIdentity`]), read from the recording so a
+//! re-judgement records the same, and the run's static review compares the
+//! statement's `spec_versions.its_rest` with the stated
+//! `restapi_specs_version` into [`ReviewNote`]s, which never change a row.
+//!
 //! The caller hands over where each credential comes from, never its value
 //! ([`CredentialSource`]). The value is read only inside the transport that
 //! sends it ([`CredentialedTransport`]), so nothing the run returns can carry
 //! it, and no credential is recorded. The scoped tokens the IXIT declares
 //! are located the same way ([`ScopedSources`]), before anything runs.
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
@@ -27,11 +34,12 @@ use crate::arazzo::evaluate::RunConfig;
 use crate::arazzo::export::Tally;
 use crate::arazzo::gates::check_catalogue;
 use crate::arazzo::har::Har;
-use crate::arazzo::results::{ResultRow, Results, Status, Whose};
+use crate::arazzo::results::{ResultRow, Results, ReviewNote, Status, Whose};
 use crate::exec::transport::HttpTransport;
 use crate::ixit::{DeclaredEnvironment, Ixit};
 use crate::pipeline::{Error, RenderedFile, load_party_json, read_json};
 use crate::schema::ixit_schema;
+use crate::vocab::SpecComponent;
 
 /// The file a run's results are written to.
 pub const RESULTS_FILE: &str = "results.json";
@@ -267,12 +275,18 @@ pub fn run_catalogue(
         declarations.statement.as_ref(),
         request.documents,
     )?;
+    let declared_its_rest = catalogue::declared_versions(
+        declarations.statement.as_ref(),
+        &BTreeSet::from([SpecComponent::ItsRest]),
+    )?
+    .remove(&SpecComponent::ItsRest)
+    .map(|version| version.to_string());
     let findings = check_catalogue(request.root, Some(&repo_root.join("specs/openehr")));
     if !findings.is_empty() {
         return Err(Error::ArazzoGate(findings));
     }
     let planned = selection.load(&repo_root, &declarations)?;
-    match target {
+    let mut outcome = match target {
         Target::Live {
             config,
             ordinary,
@@ -284,16 +298,20 @@ pub fn run_catalogue(
                 .with_scoped(&scoped)?;
             let (results, recording) =
                 catalogue::run(&planned, &config, &repo_root, &mut transport)?;
-            Ok(ArazzoRunOutcome {
+            ArazzoRunOutcome {
                 results,
                 recording: Some(recording),
-            })
+            }
         }
-        Target::Rejudge(recording) => Ok(ArazzoRunOutcome {
+        Target::Rejudge(recording) => ArazzoRunOutcome {
             results: catalogue::rejudge(&planned, &repo_root, &recording)?,
             recording: None,
-        }),
+        },
+    };
+    if let Some(server) = &outcome.results.server {
+        outcome.results.review = ReviewNote::review(declared_its_rest.as_deref(), server);
     }
+    Ok(outcome)
 }
 
 #[cfg(test)]

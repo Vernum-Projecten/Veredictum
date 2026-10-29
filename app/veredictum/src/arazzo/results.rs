@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::arazzo::cite::Citation;
 use crate::arazzo::rows::Row;
+use crate::identity::IdentityRead;
 use crate::party::InstrumentStatus;
 
 /// The four statuses a row ends in.
@@ -247,6 +248,14 @@ pub struct Results {
     pub instrument_status: InstrumentStatus,
     /// The base URL the run was driven against.
     pub base_url: String,
+    /// What the server stated about itself through System OPTIONS, on a
+    /// catalogue run; a single document's run reads no identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server: Option<ServerIdentity>,
+    /// What the run's static review found when it compared the statement
+    /// with [`Results::server`]. A note never changes a row's status.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub review: Vec<ReviewNote>,
     /// Every row, in document order.
     pub rows: Vec<ResultRow>,
 }
@@ -261,6 +270,130 @@ impl Results {
         let mut text = serde_json::to_string_pretty(self)?;
         text.push('\n');
         Ok(text)
+    }
+}
+
+/// What the server stated about itself through ITS-REST System OPTIONS
+/// (`specifications/operations/options.yaml`), and where the answer was read.
+///
+/// The operation says services SHOULD answer, so no outcome here is a
+/// finding and none counts toward conformance. A member the server did not
+/// state is absent; nothing fills it in.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "read", rename_all = "snake_case")]
+pub enum ServerIdentity {
+    /// The run's own System OPTIONS exchange, a workflow's step.
+    Exchange {
+        /// The 0-based entry of the HAR recording that holds the exchange.
+        entry: usize,
+        /// The classified answer.
+        answer: IdentityRead,
+    },
+    /// The read the instrument made after the catalogue ran, because the
+    /// run exchanged no System OPTIONS; the recording's log carries it.
+    Read {
+        /// The classified answer.
+        answer: IdentityRead,
+    },
+    /// The read the instrument made was not answered; the recording's log
+    /// carries the failure.
+    Unanswered {
+        /// The transport's own failure.
+        error: String,
+    },
+    /// A re-judged recording that carries no System OPTIONS answer.
+    NotRecorded,
+}
+
+impl ServerIdentity {
+    /// The answer, when one was read.
+    #[must_use]
+    pub fn answer(&self) -> Option<&IdentityRead> {
+        match self {
+            Self::Exchange { answer, .. } | Self::Read { answer } => Some(answer),
+            Self::Unanswered { .. } | Self::NotRecorded => None,
+        }
+    }
+
+    /// The `restapi_specs_version` the server stated, when it stated one
+    /// that is not blank.
+    #[must_use]
+    pub fn restapi_specs_version(&self) -> Option<&str> {
+        self.answer()
+            .and_then(IdentityRead::options)
+            .and_then(|options| options.restapi_specs_version.as_deref())
+            .filter(|version| !version.trim().is_empty())
+    }
+}
+
+/// What a static-review note compares.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ReviewKind {
+    /// The statement's `spec_versions.its_rest` differs from the
+    /// `restapi_specs_version` the server stated.
+    RestapiVersionDiffers,
+}
+
+impl ReviewKind {
+    /// All variants, in vocabulary order (schema emission derives from this).
+    pub const ALL: &[Self] = &[Self::RestapiVersionDiffers];
+}
+
+impl fmt::Display for ReviewKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::RestapiVersionDiffers => "restapi-version-differs",
+        })
+    }
+}
+
+/// One static-review note: the statement against what the server stated.
+///
+/// No openEHR spec governs the comparison — our own design. The note is a
+/// record for the reader of the results; it never changes a row's status or
+/// the run's exit status.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewNote {
+    /// What is compared.
+    pub kind: ReviewKind,
+    /// The value the statement declares.
+    pub declared: String,
+    /// The value the server stated.
+    pub stated: String,
+}
+
+impl ReviewNote {
+    /// Compares the statement's declared ITS-REST release with what `server`
+    /// stated: one note when the server stated a `restapi_specs_version` that
+    /// differs from `declared`, none otherwise.
+    ///
+    /// A version the server did not state, or a release the statement does
+    /// not declare, leaves nothing to compare. The texts are compared as
+    /// written, so `1.1` and `1.1.0` differ.
+    #[must_use]
+    pub fn review(declared: Option<&str>, server: &ServerIdentity) -> Vec<Self> {
+        match (declared, server.restapi_specs_version()) {
+            (Some(declared), Some(stated)) if declared != stated => vec![Self {
+                kind: ReviewKind::RestapiVersionDiffers,
+                declared: declared.to_owned(),
+                stated: stated.to_owned(),
+            }],
+            _ => Vec::new(),
+        }
+    }
+}
+
+impl fmt::Display for ReviewNote {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.kind {
+            ReviewKind::RestapiVersionDiffers => write!(
+                f,
+                "REVIEW   {}   the statement declares ITS-REST {}, and the server states \
+                 restapi_specs_version \"{}\" through System OPTIONS; no row depends on this",
+                self.kind, self.declared, self.stated
+            ),
+        }
     }
 }
 
@@ -382,6 +515,75 @@ mod tests {
             )
         );
         assert_eq!(upstream_link("artifacts/x.yaml", &root()), None);
+    }
+
+    fn stating(version: Option<&str>) -> ServerIdentity {
+        ServerIdentity::Read {
+            answer: IdentityRead::Offered {
+                status: 200,
+                options: crate::identity::OptionsDocument {
+                    restapi_specs_version: version.map(str::to_owned),
+                    ..crate::identity::OptionsDocument::default()
+                },
+            },
+        }
+    }
+
+    #[test]
+    fn only_a_stated_release_that_differs_from_the_declared_one_is_noted() {
+        assert_eq!(
+            ReviewNote::review(Some("1.1.0"), &stating(Some("1.0.3"))),
+            [ReviewNote {
+                kind: ReviewKind::RestapiVersionDiffers,
+                declared: "1.1.0".to_owned(),
+                stated: "1.0.3".to_owned(),
+            }]
+        );
+        assert_eq!(
+            ReviewNote::review(Some("1.1.0"), &stating(Some("1.1"))).len(),
+            1,
+            "the texts are compared as written"
+        );
+        assert_eq!(
+            ReviewNote::review(Some("1.1.0"), &stating(Some("1.1.0"))),
+            []
+        );
+        assert_eq!(ReviewNote::review(None, &stating(Some("1.0.3"))), []);
+        assert_eq!(ReviewNote::review(Some("1.1.0"), &stating(None)), []);
+        assert_eq!(ReviewNote::review(Some("1.1.0"), &stating(Some(" "))), []);
+        assert_eq!(
+            ReviewNote::review(Some("1.1.0"), &ServerIdentity::NotRecorded),
+            []
+        );
+        let offered_nothing = ServerIdentity::Exchange {
+            entry: 0,
+            answer: IdentityRead::NotOffered { status: 405 },
+        };
+        assert_eq!(offered_nothing.restapi_specs_version(), None);
+        assert_eq!(ReviewNote::review(Some("1.1.0"), &offered_nothing), []);
+    }
+
+    #[test]
+    fn a_server_identity_round_trips_under_its_read_tag() {
+        let identity = stating(Some("1.0.3"));
+        let text = serde_json::to_value(&identity).unwrap();
+        assert_eq!(
+            text,
+            serde_json::json!({
+                "read": "read",
+                "answer": { "outcome": "offered", "status": 200,
+                            "options": { "restapi_specs_version": "1.0.3" } }
+            })
+        );
+        assert_eq!(
+            serde_json::from_value::<ServerIdentity>(text).unwrap(),
+            identity
+        );
+        assert!(
+            serde_json::from_value::<ServerIdentity>(serde_json::json!({ "read": "guessed" }))
+                .is_err(),
+            "an unknown read is refused"
+        );
     }
 
     #[test]

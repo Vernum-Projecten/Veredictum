@@ -238,12 +238,16 @@ fn an_exclusive_workflow_runs_after_every_other_and_its_rejudgement_writes_the_s
             passed("a_wipe/wipe")
         ]
     );
-    let sent: Vec<String> = sut
-        .requests()
+    let (catalogue, identity_read) = sut.catalogue_requests();
+    let sent: Vec<String> = catalogue
         .iter()
         .map(|request| request.method.to_string())
         .collect();
     assert_eq!(sent, ["GET", "GET", "DELETE", "GET"]);
+    assert!(
+        identity_read,
+        "the run exchanged no System OPTIONS and read none"
+    );
 
     let again = dir.path().join("rejudged");
     let rejudged = test_command(
