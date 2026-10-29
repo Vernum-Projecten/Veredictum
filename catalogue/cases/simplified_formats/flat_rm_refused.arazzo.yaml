@@ -1,0 +1,206 @@
+# COMPOSITION creates from Simplified Flat JSON documents of the template
+# test_all_types.en.v1 a service that processes the format refuses: part of
+# the accepting arm of the `composition-flat-write` option, as Arazzo 1.1.0
+# workflows over the released ITS-REST `-validation` OAS. Each refusal changes
+# one thing in a valid document of `flat_ranges.arazzo.yaml` or
+# `flat_rm_attributes.arazzo.yaml`, whose workflows
+# create_composition-flat-reference_range,
+# create_composition-flat-reference_range_upper_unbounded,
+# create_composition-flat-dv_interval_upper_unbounded and
+# create_composition-flat-link_composition are the valid twins. A document
+# whose content breaks a required mapping row or an RM invariant is answered
+# 422. Every criterion resolves to an `x-veredictum-cite` (its own, else its
+# step's, else its workflow's), and every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: Optional RM attributes from the Simplified Flat JSON format, refused
+  version: 0.1.0
+  description: >-
+    Flat documents of the template test_all_types.en.v1 whose reference
+    range, interval or link breaks a required row of
+    master05-rm_mapping.adoc or an invariant of the BASE Interval class.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: sf
+    url: ../_setup/simplified_formats.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-flat-reference_range_meaning_missing
+    summary: A flat reference range with no meaning is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose quantity carries
+      _other_reference_ranges:0 from 60.0 mg to 80.0 mg and no meaning. The
+      create is answered 422 Unprocessable Entity. The meaning row of
+      master05 is mistyped, so the refusal names the report.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: REFERENCE_RANGE
+      quote: '| \meaning | <<DV_TEXT,DV_TEXT>> | meaning | yes |'
+      report: 721
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: '`201 Created` is returned when the EHR has been successfully created,'
+      - stepId: create
+        description: Create the COMPOSITION from the flat document whose reference range has no meaning.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/lower|magnitude: 60.0
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/lower|unit: mg
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/upper|magnitude: 80.0
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/upper|unit: mg
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: 'The request was well-formed but was unable to be followed due to semantic errors'
+
+  - workflowId: create_composition-flat-reference_range_upper_included_unbounded
+    summary: A flat reference range both upper unbounded and upper included is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose quantity carries
+      _other_reference_ranges:0 from 90.0 mg with |upper_unbounded true and
+      |upper_included true, which the BASE Interval invariant
+      Upper_included_valid forbids. The create is answered 422 Unprocessable
+      Entity.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/BASE/docs/UML/classes/interval.adoc
+      section: Interval Class
+      quote: '__Upper_included_valid__: `upper_unbounded implies not upper_included`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document whose reference range is upper unbounded and includes its upper limit.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/lower|magnitude: 90.0
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/lower|unit: mg
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0|upper_unbounded: true
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0|upper_included: true
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/meaning|value: high
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: 'The request was well-formed but was unable to be followed due to semantic errors'
+
+  - workflowId: create_composition-flat-dv_interval_upper_included_unbounded
+    summary: A flat DV_INTERVAL both upper unbounded and upper included is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose interval_quantity
+      gives a lower of 65.42 mg with |upper_unbounded true and
+      |upper_included true, which the BASE Interval invariant
+      Upper_included_valid forbids. The create is answered 422 Unprocessable
+      Entity.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/BASE/docs/UML/classes/interval.adoc
+      section: Interval Class
+      quote: '__Upper_included_valid__: `upper_unbounded implies not upper_included`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document whose DV_INTERVAL is upper unbounded and includes its upper limit.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types_1:0/interval_quantity/lower|magnitude: 65.42
+            test_all_types/test_all_types_1:0/interval_quantity/lower|unit: mg
+            test_all_types/test_all_types_1:0/interval_quantity|upper_unbounded: true
+            test_all_types/test_all_types_1:0/interval_quantity|upper_included: true
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: 'The request was well-formed but was unable to be followed due to semantic errors'
+
+  - workflowId: create_composition-flat-link_target_missing
+    summary: A flat link with no target is refused with 422
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose COMPOSITION carries
+      _link:0 with a type and a meaning and no target. The create is
+      answered 422 Unprocessable Entity.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: LINK
+      quote: '| `\|target` | STRING | target.value | yes |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the flat document whose link has no target.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/_link:0|type: problem
+            test_all_types/_link:0|meaning: problem related note
+        successCriteria:
+          - condition: $statusCode == 422
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: 'The request was well-formed but was unable to be followed due to semantic errors'

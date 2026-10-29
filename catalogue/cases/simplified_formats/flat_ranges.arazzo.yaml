@@ -1,0 +1,460 @@
+# COMPOSITIONs created from the Simplified Flat JSON format whose DV_QUANTITY
+# carries other reference ranges and whose DV_INTERVALs set their boundary
+# flags, for a service that processes the format: part of the accepting arm
+# of the `composition-flat-write` option, as Arazzo 1.1.0 workflows over the
+# released ITS-REST `-validation` OAS. Each workflow commits the same flat
+# document of the template test_all_types.en.v1 and reads the COMPOSITION
+# back in canonical JSON. The REFERENCE_RANGE meaning row and the DV_INTERVAL
+# lower_unbounded row of master05 are mistyped (upstream report #721), so a
+# criterion that rests on either names the report. Every criterion resolves
+# to an `x-veredictum-cite` (its own, else its step's, else its workflow's),
+# and every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Reference ranges and interval boundaries from the Simplified Flat JSON format
+  version: 0.1.0
+  description: >-
+    The REFERENCE_RANGE and DV_INTERVAL mappings of master05-rm_mapping.adoc,
+    one row or one default per workflow, judged on the canonical JSON of the
+    COMPOSITION a flat document of the template test_all_types.en.v1
+    created.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: sf
+    url: ../_setup/simplified_formats.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-flat-reference_range
+    summary: A flat _other_reference_ranges entry sets the range and the meaning of a REFERENCE_RANGE
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose quantity carries
+      _other_reference_ranges:0 from 60.0 mg to 80.0 mg meaning normal, and
+      reads the COMPOSITION back in canonical JSON. The DV_QUANTITY carries
+      an other reference range whose range runs from 60.0 to 80.0 and whose
+      meaning is normal.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: REFERENCE_RANGE
+      quote: '| `/lower` | T | range.lower | no |'
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &commit
+        stepId: commit
+        description: Create the COMPOSITION from the flat document and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: &commit_parameters
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/lower|magnitude: 60.0
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/lower|unit: mg
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/upper|magnitude: 80.0
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/upper|unit: mg
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/meaning|value: normal
+        successCriteria:
+          - &composition_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: &read_canonical
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &composition_retrieved
+            condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested COMPOSITION is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].value.other_reference_ranges[?@.range.lower.magnitude == 60.0 && @.range.lower.units == 'mg']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].value.other_reference_ranges[?@.range.upper.magnitude == 80.0 && @.range.upper.units == 'mg']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: REFERENCE_RANGE
+              quote: '| `/upper` | T | range.upper | no |'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].value.other_reference_ranges[?@.range.lower.magnitude == 60.0 && @.meaning.value == 'normal']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: REFERENCE_RANGE
+              quote: '| \meaning | <<DV_TEXT,DV_TEXT>> | meaning | yes |'
+              report: 721
+
+  - workflowId: create_composition-flat-reference_range_flag_defaults
+    summary: A flat reference range that sets no boundary flag is bounded and includes both limits
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose quantity carries
+      _other_reference_ranges:0 with a lower and an upper and no boundary
+      flag, and reads the COMPOSITION back in canonical JSON. That range is
+      neither lower nor upper unbounded, and it includes both limits.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: REFERENCE_RANGE
+      quote: '| `\|lower_included` | Boolean | range.lower_included | no | defaults to true'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_canonical
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].value.other_reference_ranges[?@.meaning.value == 'normal' && @.range.lower_included == true]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].value.other_reference_ranges[?@.meaning.value == 'normal' && @.range.upper_included == true]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: REFERENCE_RANGE
+              quote: '| `\|upper_included` | Boolean | range.upper_included | no | defaults to true'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].value.other_reference_ranges[?@.meaning.value == 'normal' && @.range.lower_unbounded == false]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: REFERENCE_RANGE
+              quote: '| `\|lower_unbounded` | Boolean | range.lower_unbounded | no | defaults to false'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].value.other_reference_ranges[?@.meaning.value == 'normal' && @.range.upper_unbounded == false]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: REFERENCE_RANGE
+              quote: '| `\|upper_unbounded` | Boolean | range.upper_unbounded | no | defaults to false'
+
+  - workflowId: create_composition-flat-reference_range_upper_unbounded
+    summary: The flat |upper_unbounded and |upper_included of a reference range set its range flags
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose quantity carries
+      _other_reference_ranges:0 from 90.0 mg with |upper_unbounded true and
+      |upper_included false, and reads the COMPOSITION back in canonical
+      JSON. That range is upper unbounded and does not include its upper
+      limit.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: REFERENCE_RANGE
+      quote: '| `\|upper_unbounded` | Boolean | range.upper_unbounded | no | defaults to false'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &commit_range_upper
+        stepId: commit
+        description: Create the COMPOSITION from the flat document whose reference range is upper unbounded and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: *commit_parameters
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/lower|magnitude: 90.0
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/lower|unit: mg
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0|upper_unbounded: true
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0|upper_included: false
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/meaning|value: high
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_canonical
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].value.other_reference_ranges[?@.meaning.value == 'high' && @.range.upper_unbounded == true]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].value.other_reference_ranges[?@.meaning.value == 'high' && @.range.upper_included == false]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: REFERENCE_RANGE
+              quote: '| `\|upper_included` | Boolean | range.upper_included | no | defaults to true'
+
+  - workflowId: create_composition-flat-reference_range_lower_unbounded
+    summary: The flat |lower_unbounded and |lower_included of a reference range set its range flags
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose quantity carries
+      _other_reference_ranges:0 up to 50.0 mg with |lower_unbounded true and
+      |lower_included false, and reads the COMPOSITION back in canonical
+      JSON. That range is lower unbounded and does not include its lower
+      limit.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: REFERENCE_RANGE
+      quote: '| `\|lower_unbounded` | Boolean | range.lower_unbounded | no | defaults to false'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &commit_range_lower
+        stepId: commit
+        description: Create the COMPOSITION from the flat document whose reference range is lower unbounded and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: *commit_parameters
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0|lower_unbounded: true
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0|lower_included: false
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/upper|magnitude: 50.0
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/upper|unit: mg
+            test_all_types/test_all_types:0/quantity/_other_reference_ranges:0/meaning|value: low
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_canonical
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].value.other_reference_ranges[?@.meaning.value == 'low' && @.range.lower_unbounded == true]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].value.other_reference_ranges[?@.meaning.value == 'low' && @.range.lower_included == false]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: REFERENCE_RANGE
+              quote: '| `\|lower_included` | Boolean | range.lower_included | no | defaults to true'
+
+  - workflowId: create_composition-flat-dv_interval_flag_defaults
+    summary: A flat DV_INTERVAL that sets no boundary flag is bounded and includes both limits
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose interval_count gives a
+      lower of 5 and an upper of 8 and no boundary flag, and reads the
+      COMPOSITION back in canonical JSON. That DV_INTERVAL is neither lower
+      nor upper unbounded, and it includes both limits.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_INTERVAL
+      quote: '| `\|lower_included` | BOOLEAN | lower_included | no | defaults to true. only in output if false'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &commit_interval
+        stepId: commit
+        description: Create the COMPOSITION from the flat document whose DV_INTERVAL sets no flag and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: *commit_parameters
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types_1:0/interval_count/lower: 5
+            test_all_types/test_all_types_1:0/interval_count/upper: 8
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_canonical
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0003' && @.value.lower_included == true]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0003' && @.value.upper_included == true]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `\|upper_included` | BOOLEAN | upper_included | no | defaults to true. only in output if false'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0003' && @.value.lower_unbounded == false]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `\|lower_unbounded` | BOOLEAN | `\|lower_unbounded` | no | defaults to false. only in output if true'
+              report: 721
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0003' && @.value.upper_unbounded == false]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `\|upper_unbounded` | BOOLEAN | upper_unbounded | no | defaults to false, only in output if true'
+
+  - workflowId: create_composition-flat-dv_interval_upper_unbounded
+    summary: The flat |upper_unbounded and |upper_included of a DV_INTERVAL set its flags
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose interval_quantity gives
+      a lower of 65.42 mg with |upper_unbounded true and |upper_included
+      false, and reads the COMPOSITION back in canonical JSON. That
+      DV_INTERVAL is upper unbounded and does not include its upper limit.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_INTERVAL
+      quote: '| `\|upper_unbounded` | BOOLEAN | upper_unbounded | no | defaults to false, only in output if true'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &commit_interval_upper
+        stepId: commit
+        description: Create the COMPOSITION from the flat document whose DV_INTERVAL is upper unbounded and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: *commit_parameters
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types_1:0/interval_quantity/lower|magnitude: 65.42
+            test_all_types/test_all_types_1:0/interval_quantity/lower|unit: mg
+            test_all_types/test_all_types_1:0/interval_quantity|upper_unbounded: true
+            test_all_types/test_all_types_1:0/interval_quantity|upper_included: false
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_canonical
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0004' && @.value.upper_unbounded == true]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0004' && @.value.upper_included == false]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `\|upper_included` | BOOLEAN | upper_included | no | defaults to true. only in output if false'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0004' && @.value.lower.magnitude == 65.42]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `/lower` | T | lower | no |'
+
+  - workflowId: create_composition-flat-dv_interval_lower_unbounded
+    summary: The flat |lower_unbounded and |lower_included of a DV_INTERVAL set its flags
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose interval_datetime gives
+      an upper with |lower_unbounded true and |lower_included false, and
+      reads the COMPOSITION back in canonical JSON. That DV_INTERVAL is lower
+      unbounded and does not include its lower limit. The lower_unbounded
+      row of master05 repeats the suffix as its RM path, so the attribute is
+      judged by its BASE name.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_INTERVAL
+      quote: '| `\|lower_included` | BOOLEAN | lower_included | no | defaults to true. only in output if false'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - &commit_interval_lower
+        stepId: commit
+        description: Create the COMPOSITION from the flat document whose DV_INTERVAL is lower unbounded and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters: *commit_parameters
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types_1:0/interval_datetime/upper: "2019-03-22T22:36:25.232+01:00"
+            test_all_types/test_all_types_1:0/interval_datetime|lower_unbounded: true
+            test_all_types/test_all_types_1:0/interval_datetime|lower_included: false
+        successCriteria:
+          - *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters: *read_canonical
+        successCriteria:
+          - *composition_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0005' && @.value.lower_included == false]"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0005' && @.value.lower_unbounded == true]"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `\|lower_unbounded` | BOOLEAN | `\|lower_unbounded` | no | defaults to false. only in output if true'
+              report: 721

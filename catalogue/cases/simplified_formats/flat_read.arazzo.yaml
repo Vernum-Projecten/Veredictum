@@ -1,0 +1,301 @@
+# COMPOSITIONs created from the Simplified Flat JSON format and read back in
+# it, for a service that processes and serves the format: part of the
+# accepting arm of the `composition-flat-write` option and of the serving arm
+# of the `composition-flat-read` option, as Arazzo 1.1.0 workflows over the
+# released ITS-REST `-validation` OAS. Each workflow commits a flat document
+# and reads the COMPOSITION with Accept application/openehr.wt.flat+json, and
+# judges the keys of the answer. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: The Simplified Flat JSON format of a stored COMPOSITION
+  version: 0.1.0
+  description: >-
+    The Flat format rules of master04-basic_concepts.adoc and the output
+    notes of the DV_INTERVAL mapping of master05-rm_mapping.adoc, judged on
+    a COMPOSITION read back with Accept application/openehr.wt.flat+json.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: sf
+    url: ../_setup/simplified_formats.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: get_composition-flat-leaf_keys
+    summary: A COMPOSITION read in the Flat format keys each value by its full path with its attribute suffix
+    description: >-
+      Creates an EHR, creates a COMPOSITION of the template cnf.vitals from
+      a flat document with one body temperature of 37.2 Cel, and reads it
+      back with Accept application/openehr.wt.flat+json. The answer carries
+      the key vitals/body_temperature:0/any_event:0/temperature|magnitude
+      with the value 37.2 and the key ending in |unit with the value Cel.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Flat format
+      quote: 'Keys are full WT paths (with instance indices and attribute suffixes)'
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: '`201 Created` is returned when the EHR has been successfully created,'
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document with one body temperature and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: cnf.vitals }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in the Flat format.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/openehr.wt.flat+json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/vitals~1body_temperature:0~1any_event:0~1temperature|magnitude
+            type: regex
+            condition: '^37\.2$'
+          - context: $response.body#/vitals~1body_temperature:0~1any_event:0~1temperature|unit
+            type: regex
+            condition: '^Cel$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+              section: Flat format
+              quote: 'Attribute suffixes MUST be separated by pipe (`|`)'
+
+  - workflowId: get_composition-flat-other_open_value_set
+    summary: A COMPOSITION read in the Flat format emits a free-text value of an open value-set with |other
+    description: >-
+      Creates an EHR, creates a COMPOSITION of the template cnf.vitals from
+      a flat document whose Symptom, an open value-set, is given only by
+      |other, and reads it back with Accept
+      application/openehr.wt.flat+json. The answer carries the key
+      vitals/body_temperature:0/any_event:0/symptom|other with that text.
+      The release recommends this output, so the row is advisory.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
+      section: Open Value-Sets and the `|other` Suffix
+      quote: 'On *read*: when the leaf carries a `DV_TEXT` whose archetype constraint is `DV_CODED_TEXT` with `listOpen: true`, the server SHOULD emit it via `<path>|other: "<text>"` so that round-trip equality holds at the FLAT level.'
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose Symptom is given by |other and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: cnf.vitals }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+            vitals/body_temperature:0/any_event:0/symptom|other: custom free text
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in the Flat format.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/openehr.wt.flat+json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/vitals~1body_temperature:0~1any_event:0~1symptom|other
+            type: regex
+            condition: '^custom free text$'
+
+  - workflowId: get_composition-flat-interval_default_flags
+    summary: A COMPOSITION read in the Flat format emits no boundary flag of a bounded DV_INTERVAL that includes both limits
+    description: >-
+      Creates an EHR, creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose interval_count gives a
+      lower of 5 and an upper of 8 and no boundary flag, and reads it back
+      with Accept application/openehr.wt.flat+json. The answer carries no
+      |lower_included, |upper_included, |lower_unbounded or |upper_unbounded
+      key for that interval.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_INTERVAL
+      quote: '| `\|lower_included` | BOOLEAN | lower_included | no | defaults to true. only in output if false'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose DV_INTERVAL sets no flag and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types_1:0/interval_count/lower: 5
+            test_all_types/test_all_types_1:0/interval_count/upper: 8
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in the Flat format.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/openehr.wt.flat+json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - condition: $response.body#/test_all_types~1test_all_types_1:0~1interval_count|lower_included == null
+          - condition: $response.body#/test_all_types~1test_all_types_1:0~1interval_count|upper_included == null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `\|upper_included` | BOOLEAN | upper_included | no | defaults to true. only in output if false'
+          - condition: $response.body#/test_all_types~1test_all_types_1:0~1interval_count|lower_unbounded == null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `\|lower_unbounded` | BOOLEAN | `\|lower_unbounded` | no | defaults to false. only in output if true'
+              report: 721
+          - condition: $response.body#/test_all_types~1test_all_types_1:0~1interval_count|upper_unbounded == null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `\|upper_unbounded` | BOOLEAN | upper_unbounded | no | defaults to false, only in output if true'
+
+  - workflowId: get_composition-flat-interval_set_flags
+    summary: A COMPOSITION read in the Flat format emits the boundary flags of an upper unbounded DV_INTERVAL
+    description: >-
+      Creates an EHR, creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose interval_quantity
+      gives a lower of 65.42 mg with |upper_unbounded true and
+      |upper_included false, and reads it back with Accept
+      application/openehr.wt.flat+json. The answer carries |upper_unbounded
+      true and |upper_included false for that interval.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: DV_INTERVAL
+      quote: '| `\|upper_unbounded` | BOOLEAN | upper_unbounded | no | defaults to false, only in output if true'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose DV_INTERVAL is upper unbounded and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types_1:0/interval_quantity/lower|magnitude: 65.42
+            test_all_types/test_all_types_1:0/interval_quantity/lower|unit: mg
+            test_all_types/test_all_types_1:0/interval_quantity|upper_unbounded: true
+            test_all_types/test_all_types_1:0/interval_quantity|upper_included: false
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in the Flat format.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/openehr.wt.flat+json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/test_all_types~1test_all_types_1:0~1interval_quantity|upper_unbounded
+            type: regex
+            condition: '^true$'
+          - context: $response.body#/test_all_types~1test_all_types_1:0~1interval_quantity|upper_included
+            type: regex
+            condition: '^false$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: DV_INTERVAL
+              quote: '| `\|upper_included` | BOOLEAN | upper_included | no | defaults to true. only in output if false'
