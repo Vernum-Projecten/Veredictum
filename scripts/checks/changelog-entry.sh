@@ -12,14 +12,16 @@
 #      (`changelog.d/README.md`), so two open pull requests never edit the same
 #      lines. The release cut is no exception to write: its lines land under
 #      the new `## [X.Y.Z] - YYYY-MM-DD` heading, below the empty Unreleased
-#      heading it re-adds, so the rule holds for it unchanged.
+#      heading it re-adds, so the rule holds for it unchanged. A
+#      release-candidate cut (`## [X.Y.Z-rcN] - YYYY-MM-DD`) leaves the
+#      Unreleased section exactly as it was, so it holds for that cut too.
 #   2. REQUIRED, unless waived: a change that touches a user-visible path adds
 #      at least one file under `changelog.d/` other than its README. The
 #      `--no-changelog-label` flag (the CI step passes it when the pull request
 #      carries the `no-changelog` label) waives this rule and only this one. A
-#      release cut, recognised by a `## [X.Y.Z] - ` heading it adds to
-#      `CHANGELOG.md`, satisfies it: the cut folds the fragments in and deletes
-#      them, and its version bump touches `Cargo.toml`.
+#      release cut, recognised by a `## [X.Y.Z] - ` or `## [X.Y.Z-rcN] - `
+#      heading it adds to `CHANGELOG.md`, satisfies it: the cut folds the
+#      fragments in, and its version bump touches `Cargo.toml`.
 #
 # The path set lives HERE rather than in the workflow, so "user-visible" is one
 # declared list a reader can check against `CHANGELOG.md`'s own definition of
@@ -74,10 +76,23 @@ readonly USER_VISIBLE_PATHS=(
   'scripts/action/run\.sh$'
 )
 
+# unreleased_lines: the non-blank lines of the Unreleased section of the
+# changelog on stdin, as `<line number><TAB><text>`; exits 1 when the changelog
+# has no Unreleased heading. It reads to the end rather than exiting early, so
+# the `git show` feeding it never meets a closed pipe.
+unreleased_lines() {
+  awk '
+    !start && /^## \[Unreleased\][[:space:]]*$/ { start = 1; next }
+    start && /^## / { done = 1 }
+    start && !done && /[^[:space:]]/ { print NR "\t" $0 }
+    END { if (!start) exit 1 }
+  '
+}
+
 # guard <repo> <base> <head> <waived: 0|1>
 guard() {
   local repo="$1" base="$2" head="$3" waived="$4" status=0
-  local pattern changed touched range under cut fragments
+  local pattern changed touched merge_base under cut fragments
 
   pattern="$(printf '%s|' "${USER_VISIBLE_PATHS[@]}")"
   pattern="^(${pattern%|})"
@@ -86,34 +101,38 @@ guard() {
   # against it.
   changed="$(git -C "$repo" diff --name-only "$base...$head")"
 
-  # Rule 1. The Unreleased section at head runs from its heading to the next
-  # `## ` heading; an added line strictly inside that range is refused.
+  # Rule 1. The Unreleased section runs from its heading to the next `## `
+  # heading. A non-blank line in it at head that it did not hold at the merge
+  # base (counted, so a duplicated line is an added one) is refused. The
+  # sections are compared, never the diff hunks: a release-candidate cut keeps
+  # the Unreleased entries and writes the same lines again under its own
+  # heading, and a diff may place either copy on its `+` side.
   if printf '%s\n' "$changed" | grep -qx 'CHANGELOG.md'; then
-    if ! range="$(git -C "$repo" show "$head:CHANGELOG.md" | awk '
-      !start && /^## \[Unreleased\][[:space:]]*$/ { start = NR; next }
-      start && !end && /^## / { end = NR }
-      END { if (!start) exit 1; print start, (end ? end : NR + 1) }
-    ')"; then
+    if ! git -C "$repo" show "$head:CHANGELOG.md" | unreleased_lines >/dev/null; then
       echo "::error::CHANGELOG.md at ${head} has no '## [Unreleased]' heading; the release cut re-adds it, and nothing else may remove it." >&2
       return 1
     fi
-    under="$(git -C "$repo" diff -U0 "$base...$head" -- CHANGELOG.md | awk -v range="$range" '
-      BEGIN { split(range, r, " ") }
-      /^@@ / { match($0, /\+[0-9]+/); at = substr($0, RSTART + 1, RLENGTH - 1) + 0; hunk = 1; next }
-      !hunk { next }
-      /^\+/ {
-        text = substr($0, 2)
-        if (at > r[1] && at < r[2] && text ~ /[^[:space:]]/) print "  CHANGELOG.md:" at ": " text
-        at++
-      }
-    ')"
+    merge_base="$(git -C "$repo" merge-base "$base" "$head")"
+    under="$(
+      {
+        git -C "$repo" show "$merge_base:CHANGELOG.md" 2>/dev/null | unreleased_lines || true
+        echo '--head--'
+        git -C "$repo" show "$head:CHANGELOG.md" | unreleased_lines
+      } | awk '
+        $0 == "--head--" { head = 1; next }
+        { split($0, field, "\t"); text = substr($0, length(field[1]) + 2) }
+        !head { held[text]++; next }
+        held[text] > 0 { held[text]--; next }
+        { print "  CHANGELOG.md:" field[1] ": " text }
+      '
+    )"
     if [[ -n "$under" ]]; then
       echo "::error::This change adds lines under the Unreleased heading of CHANGELOG.md. Entries are fragments now: move the text to changelog.d/<issue>-<slug>.<section>.md (changelog.d/README.md). No label waives this." >&2
       printf '%s\n' "$under" >&2
       status=1
     fi
     cut="$(git -C "$repo" diff -U0 "$base...$head" -- CHANGELOG.md |
-      grep -cE '^\+## \[[0-9]+\.[0-9]+\.[0-9]+\] - ' || true)"
+      grep -cE '^\+## \[[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?\] - ' || true)"
   else
     cut=0
   fi
@@ -230,6 +249,27 @@ awk '
   { print }
 ' CHANGELOG.md > c && mv c CHANGELOG.md
 CUT
+)"
+
+  # A release-candidate cut keeps the Unreleased entries and the fragments, and
+  # writes the same entries again under its own heading.
+  local candidate
+  candidate="$(cat <<'CUT'
+printf '[package]\nversion = "0.2.0-rc1"\n' > Cargo.toml
+awk '
+  /^## \[0\.1\.0\]/ { print "## [0.2.0-rc1] - 2026-10-28"; print ""; print "### Added"; print ""; print "- An entry already here (#2)."; print "- An older fragment. (#1)"; print "" }
+  /^\[unreleased\]:/ { print "[unreleased]: https://example.invalid/r/compare/v0.2.0-rc1...HEAD"; print "[0.2.0-rc1]: https://example.invalid/r/compare/v0.1.0...v0.2.0-rc1"; next }
+  { print }
+' CHANGELOG.md > c && mv c CHANGELOG.md
+CUT
+)"
+  case_ "a release-candidate cut" 0 0 "$candidate"
+  case_ "a release-candidate cut, plus a line under Unreleased" 1 0 "$candidate && $under"
+  case_ "an Unreleased entry duplicated" 1 0 \
+    "awk '{ print } /^- An entry already here/ { print }' CHANGELOG.md > c && mv c CHANGELOG.md"
+  case_ "a heading that is not a cut" 1 0 "$src && $(cat <<'NOTCUT'
+awk '/^## \[0\.1\.0\]/ { print "## [0.2.0-beta1] - 2026-10-28"; print ""; print "### Added"; print ""; print "- A beta."; print "" } { print }' CHANGELOG.md > c && mv c CHANGELOG.md
+NOTCUT
 )"
 
   [[ "$fail" -eq 0 ]] || { echo "changelog-entry: self-test FAILED" >&2; return 1; }
