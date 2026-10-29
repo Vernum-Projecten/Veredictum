@@ -158,7 +158,9 @@ The run gates the whole catalogue first and runs nothing while the gate has a
 finding. The statement's `claims.capabilities` names the capability folders
 under `catalogue/cases/` you claim, and every workflow of a document in
 another folder is skipped as `not-claimed`; its `options` pick the arm of each
-option in `catalogue/capabilities.yaml`. Without a statement, everything runs. It writes `out/results.json`, one row per workflow row, and
+option in `catalogue/capabilities.yaml`. Without a statement, everything runs.
+A SMART on openEHR Platform also passes `--platform-url` and declares its
+scoped tokens in the IXIT ([`test`](commands.md#test)). It writes `out/results.json`, one row per workflow row, and
 `out/recording.har`, every exchange as HAR 1.2. The recording holds the
 server's response bodies verbatim, so it stays where you keep the run.
 `--rejudge out/recording.har` judges the recording again with no server, and
