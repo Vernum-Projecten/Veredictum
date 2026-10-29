@@ -110,11 +110,26 @@ impl CredentialSignals {
 
     /// The values the controls hold now.
     fn read(self) -> CredentialForm {
+        let auth = self.auth.get();
+        let basic = matches!(auth, AuthChoice::Basic);
+        let bearer = matches!(auth, AuthChoice::Bearer);
         CredentialForm {
-            auth: self.auth.get(),
-            user: self.user.get(),
-            password: self.password.get(),
-            token: self.token.get(),
+            auth,
+            user: if basic {
+                self.user.get()
+            } else {
+                String::new()
+            },
+            password: if basic {
+                self.password.get()
+            } else {
+                String::new()
+            },
+            token: if bearer {
+                self.token.get()
+            } else {
+                String::new()
+            },
         }
     }
 }
@@ -356,6 +371,7 @@ fn continue_view(
             id="connect-continue"
             type="button"
             class=BTN_PRIMARY
+            prop:disabled=move || proceed.pending().get()
             on:click=move |_| {
                 proceed.dispatch((sut_name.get(), sut_version.get()));
             }
@@ -580,7 +596,12 @@ pub fn Connect() -> impl IntoView {
                 {identity}
                 {credentials}
                 <div class="flex items-center gap-2">
-                    <button type="button" class=BTN_SECONDARY on:click=dispatch_probe>
+                    <button
+                        type="button"
+                        class=BTN_SECONDARY
+                        prop:disabled=move || probe.pending().get()
+                        on:click=dispatch_probe
+                    >
                         {move || {
                             if probe.pending().get() { "Probing…" } else { "Probe connection" }
                         }}
