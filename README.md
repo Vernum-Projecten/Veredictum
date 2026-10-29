@@ -126,18 +126,20 @@ One command surface answers four different questions about a server:
 | **Where does it break?** | `stress` steps load up to the maximum sustainable throughput; `stress-compare` overlays two committed stress reports; `aql-probe` explores AQL behaviour over the seeded corpus with per-statement database attribution. All three are exploration and never produce a conformance record. |
 | **How fast is it?** | `bench` runs an embedded benchmark pack against any reachable CDR from a base URL and credentials; `bench-compare` aligns committed results into one table; `bench-packs` writes the byte-deterministic description of what every pack runs. Comparative speed only, never a conformance verdict. |
 
-Three more subcommands serve the records themselves: `verdicts` re-derives
-the measured class verdicts, `verify-record` checks a sealed bundle,
+Four more subcommands serve the records themselves: `verdicts` re-derives
+the measured class verdicts, `verify` checks a conformance certificate,
 `emit-schemas` writes the published JSON Schemas, and `perf-assets` renders
 the published charts from committed artifacts. `veredictum --help` is the
 authoritative list.
 
-`verdicts` takes `--sign-key`, which seals the documents it emits
-with a SHA-256 digest manifest and a detached OpenPGP signature over it.
-`verify-record` recomputes every digest and checks that signature against a
-public key you supply, so a published record is tamper-evident to anyone who
-has the key. The bundle is ordinary files, so `gpg --verify` and `sha256sum`
-answer the same questions without this tool.
+A certificate is a JWS (RFC 7515) signed with Ed25519, and its payload names
+the server, the catalogue revision, the engine version, the verdict summary
+and the SHA-256 digests of the run's `results.json` and HAR recording.
+`veredictum verify <certificate> --jwks <file>` checks it offline against the
+published JWK Set, so anyone holding the set can check a certificate without
+the console, and any JOSE library can do the same. The hosted instrument
+issues none yet: it runs in trial mode, where runs, results and verdicts work
+and no certificate is created.
 
 ## Quick start
 

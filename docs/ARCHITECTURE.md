@@ -1334,7 +1334,8 @@ tracker): the deliberate library API (`veredictum::pipeline`, one seam per
 whole operation; #22); publication on crates.io with the signed release
 pipeline, SBOMs and the multi-architecture container image (#5, #12); the
 signed run record (a byte-deterministic digest manifest, a detached OpenPGP
-signature, and the `verify-record` verb; #62); the machine-readable
+signature, and the `verify-record` verb; #62; retired by #593 for the JWS
+certificate of §15.10); the machine-readable
 `run --progress` stream for drivers (#81); and the web console over the
 published crate (#6; the ratified screen record is #61; shipped so far:
 #63–#67 — the shell and design system, the read surfaces, the full run
@@ -1865,19 +1866,45 @@ vendor reads why a row is red without opening `results.json`.
 - `results.json` is the conformance test report (§8.10). The statement, IXIT,
   selection and verdict computation are §8.10 and §8.11, and the verification
   pack is §8.12.
-- A certificate is a JWS (RFC 7515) signed with Ed25519 (RFC 8037). Its
-  payload names the SUT, the catalogue revision, the engine version, the
-  verdict summary and the digests of the recorded exchanges. The verifying key
-  is a JWK (RFC 7517) in a JWK Set served at
-  `https://console.veredictum.eu/.well-known/jwks.json` and committed in this
-  repository. `veredictum verify` checks a certificate offline against that
-  set.
+- **The decision (#592).** Veredictum publishes no results itself: no
+  registry, no public board, and no record or certificate committed to the
+  repository. A vendor certifies through the hosted instrument, which issues
+  and keeps the certificate, and the vendor receives a copy. Verification is by
+  public-key signature outside the console, with the CLI alone.
+- A certificate is a JWS (RFC 7515) signed with Ed25519 (RFC 8037), chosen over
+  an OpenPGP detached signature (the retired run record), an in-toto statement
+  in a DSSE envelope and X.509, because any JOSE library verifies it with the
+  public key alone and the engine already carried a JOSE implementation for the
+  SMART lane. Its payload (`schemas/certificate.schema.json`) names the SUT
+  with each identity field's source, the base URL, the catalogue revision as a
+  digest of the catalogue tree, the engine version and approval status, the
+  verdict summary, and the SHA-256 digests of `results.json` and the HAR
+  recording. The header carries the `kid`.
+- The verifying keys are a JWK Set (RFC 7517, `schemas/jwks.schema.json`)
+  committed as `deploy/hosted/jwks.json`, compiled into the console and served
+  at `https://console.veredictum.eu/.well-known/jwks.json`; a console test holds
+  the served bytes to the committed ones. Two key members are the instrument's
+  own: `expires_at` bounds when a key may sign, and `revoked_at` withdraws
+  everything it signed. `veredictum verify` checks a certificate offline against
+  the set and refuses a changed payload, an unknown `kid`, another algorithm, a
+  revoked key and a key that expired before the certificate was issued, each as
+  its own error variant. A rotation is a JWKS append.
 - Issuance is off by default (trial mode): runs, results and verdicts work, no
-  certificate is created, every run page says so, and no private key is loaded.
-  Turning it on is an `.env` setting and a redeploy.
-- With issuance on, the hosted machine keeps every certificate and its results,
-  and the vendor downloads a copy. The machine is backed up, and the signing
-  key has a written rotation and revocation procedure.
+  certificate is created, every page's status banner says so, and no private
+  key is loaded. Only `VEREDICTUM_CERTIFICATES=issue` turns it on, so a typo
+  keeps trial mode. Turning it on is an `.env` setting and a redeploy, once a
+  release has shipped the set that publishes the key.
+- **The consequences.** The signing key moves onto the hosted machine, which
+  until now held no credential because a visitor can reach it: it is a file
+  readable by the console user alone, generated on the box and never copied
+  off it, and a stolen key signs anything until it is revoked. The machine
+  holds durable state for the first time, so it keeps every certified run
+  (certificate, results and recording, which a re-issue after a revocation
+  reads), is backed up, and gives the vendor the same three files (#824).
+  Issuance is switched on in v1.0.0 (#825). The foundation hand-over moves the
+  machine, the catalogue governance and the signing, the last by a rotation to a
+  key the foundation generates, so no private key changes hands.
+  `deploy/hosted/README.md` carries the procedures.
 - The console offers connect, scope, live run, results, verdicts and the
   certificate download. The measured instruments (perf, stress, probe, bench)
   run from the CLI only; perf, stress and probe read the performance schedule

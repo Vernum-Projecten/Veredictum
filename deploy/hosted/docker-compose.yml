@@ -53,9 +53,14 @@ services:
       # stays one so a box this file reaches without its `.env` starts small.
       VEREDICTUM_MAX_CONCURRENT_RUNS: "${VEREDICTUM_MAX_CONCURRENT_RUNS:-1}"
     env_file:
-      # Holds CONSOLE_IMAGE and the concurrency cap. Readable by the service
-      # user alone.
+      # Holds CONSOLE_IMAGE, the concurrency cap and the certificate setting.
+      # Readable by the service user alone.
       - .env
+    volumes:
+      # The signing key's directory, read-only. In trial mode, the default, the
+      # console never opens it, so it may be empty; README.md, section
+      # "Certificates", is how a key gets there.
+      - ./signing:/run/veredictum/signing:ro
     expose:
       - "3000"
 

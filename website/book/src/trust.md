@@ -30,7 +30,7 @@ If that check fails, do not run the file.
   reads the catalogue and the vendored specs, and writes into `--out`. It
   creates and deletes data on the target, which is why you point it at a test
   system. With `--rejudge` it sends nothing at all.
-- **`validate`, `verdicts`, `export`, `verify-record`, `bench-compare`, the
+- **`validate`, `verdicts`, `export`, `verify`, `bench-compare`, the
   asset renderer** are offline: they read the paths you pass and write where you
   say. No network at all.
 - **The console image** binds loopback by default, has no login, and reaches
@@ -44,3 +44,31 @@ not loopback.
 A conformance run's recording carries the exchanges its results are
 re-judged from (`veredictum test --rejudge`), and a bench record embeds the histograms
 its summary is re-derived from, so both are checkable after the fact.
+
+## Verifying a certificate
+
+A certificate from the hosted instrument is a JWS (RFC 7515) signed with
+Ed25519. Check it offline against the published JWK Set, which is served at
+`https://console.veredictum.eu/.well-known/jwks.json` and committed in the
+repository as `deploy/hosted/jwks.json`:
+
+```bash
+veredictum verify certificate.jws --jwks jwks.json
+sha256sum results.json recording.har
+```
+
+`verify` exits `0` and prints what the certificate states, or exits `1` and
+names the refusal: a payload or header changed after signing, a key the set
+does not hold, an algorithm other than `EdDSA`, a key the set marks revoked,
+or a key that expired before the certificate was issued. The two digests it
+prints are the ones `sha256sum` should print for the run's files. A valid
+signature proves the key's holder signed that payload unchanged; it claims
+nothing the payload does not name.
+
+Any JOSE library verifies the same signature. Two members of a key in the set
+are this instrument's own, `expires_at` and `revoked_at`, and a generic library
+ignores them, so check `revoked_at` yourself if you verify that way.
+
+The hosted instrument runs in trial mode today: runs, results and verdicts are
+complete, every page says it is a trial, and no certificate is issued, so the
+published set holds no key yet.

@@ -112,6 +112,21 @@ directory.
 
 ![The results surface with a detail open](console/img/results-light.png)
 
+## Certificates, and trial mode
+
+A console issues certificates only when `VEREDICTUM_CERTIFICATES=issue` is
+set; unset, `trial` or any other value is trial mode, which is the default.
+In trial mode every page's status banner says so, the results page says no
+certificate is issued, and the console reads no signing key at all.
+
+With issuance on, the console also reads the Ed25519 key that
+`VEREDICTUM_SIGNING_KEY_FILE` names and the key id `VEREDICTUM_SIGNING_KID`
+gives it, and refuses to start unless the JWK Set it serves at
+`/.well-known/jwks.json` publishes that key, unrevoked and unexpired. Each
+finished run then gets `certificate.jws` beside its results, and the results
+page offers it as a download. [Verifying a certificate](trust.md#verifying-a-certificate)
+is the reader's side.
+
 ## Running it in public
 
 The hosted instrument at
