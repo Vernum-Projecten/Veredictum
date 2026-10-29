@@ -186,19 +186,28 @@ Data API pattern, never `git commit` and push, and never the contents API.
 ### 10. Keep the changelog
 
 `CHANGELOG.md` follows Keep a Changelog 1.1.0. Every PR with user-visible
-changes adds an entry under `## [Unreleased]` in the same PR. User-visible here
-means the CLI surface, the catalogue's published schemas, verdict semantics,
-the container image, or anything a party's published record depends on.
-Releases are cut from the changelog: rename the Unreleased heading to the
-version with its date, re-add an empty one, update the link references, then
-tag. Rewrite the HEADING, not the first textual match — the v0.0.1-alpha.1 cut
-rewrote a mention inside a paragraph and left the release with no section.
-Milestones are releases, and a release is cut when its milestone reaches zero
-open issues. `scripts/checks/changelog-structure.sh` runs in CI on every change, and
-`scripts/checks/changelog-entry.sh` (#10) REQUIRES an entry when a
-user-visible surface changes, waived only by the `no-changelog` label. The full cut procedure is the Releasing section below, and the pipeline
-reads this file: a missing or empty section for the tagged version fails `plan`
-before anything is published.
+changes adds a fragment under `changelog.d/` in the same PR, and never edits
+`CHANGELOG.md`: `changelog.d/<issue>-<kebab-slug>.<section>.md`, holding the
+entry as it will read (`changelog.d/README.md` has the format). Each PR writes
+its own file, so open PRs stop conflicting over the Unreleased section (#766).
+User-visible here means the CLI surface, the catalogue's published schemas,
+verdict semantics, the container image, or anything a party's published record
+depends on. Releases are cut from the changelog:
+`scripts/release/changelog.sh --assemble X.Y.Z YYYY-MM-DD` renames the
+Unreleased heading to the version with its date, folds the fragments in,
+re-adds an empty Unreleased heading, updates the link references and deletes
+the fragments; then tag. The script rewrites the HEADING, never the first
+textual match — the v0.0.1-alpha.1 cut rewrote a mention inside a paragraph
+and left the release with no section. Milestones are releases, and a release
+is cut when its milestone reaches zero open issues.
+`scripts/checks/changelog-structure.sh` and `changelog.sh --check`,
+`--check-preview` run in CI on every change, and
+`scripts/checks/changelog-entry.sh` (#10, #766) REQUIRES a fragment when a
+user-visible surface changes, waived only by the `no-changelog` label, and
+REFUSES any line added under the Unreleased heading, which no label waives. The
+full cut procedure is the Releasing section below, and the pipeline reads this
+file: a missing or empty section for the tagged version, or a fragment left in
+`changelog.d/`, fails `plan` before anything is published.
 
 ### 11. Cite only durable references
 
@@ -397,11 +406,15 @@ pipeline is a `needs` edge, so no leg guesses whether an earlier one finished.
 
 **Cut the release in one pull request**, on a `release/vX.Y.Z` branch:
 
-1. `CHANGELOG.md`: rename the Unreleased heading to `## [X.Y.Z] - YYYY-MM-DD`,
-   re-add an empty Unreleased heading above it, and add both link references at
-   the bottom. Rewrite the HEADING, never the first textual match — the
-   v0.0.1-alpha.1 cut rewrote a mention inside the intro paragraph and shipped a
-   release with no section at all.
+1. `CHANGELOG.md`: run
+   `scripts/release/changelog.sh --assemble X.Y.Z YYYY-MM-DD` and commit what
+   it writes. It renames the Unreleased heading to `## [X.Y.Z] - YYYY-MM-DD`,
+   folds every `changelog.d/` fragment in after the entries already there,
+   re-adds an empty Unreleased heading above it, updates the `[unreleased]`
+   link reference and adds the `[X.Y.Z]` one, and deletes the fragments. It
+   rewrites the HEADING, never the first textual match — the v0.0.1-alpha.1 cut
+   rewrote a mention inside the intro paragraph and shipped a release with no
+   section at all. `--preview` shows the result first without writing anything.
 2. `Cargo.toml` `[package] version`, and `Cargo.lock` with it (`cargo check`).
    A content PR MAY pre-bump the version when its change is what the next
    release exists to ship (the way #36 moved alpha.3 → alpha.4 for the lib

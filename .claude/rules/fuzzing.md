@@ -81,7 +81,7 @@ Fixed, in this order. A finding that is only fixed comes back.
 6. **Replay** it: `cargo +nightly fuzz run <target> fuzz/regressions/<target>/*`
    must exit clean.
 7. **Changelog and issue.** A bound that changes what the instrument accepts is
-   user-visible; it gets a `CHANGELOG.md` entry under Unreleased in the same
+   user-visible; it gets a changelog fragment under `changelog.d/` in the same
    pull request.
 
 `fuzz/artifacts/` is scratch and is not tracked. `fuzz/regressions/` is the
