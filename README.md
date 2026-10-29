@@ -41,7 +41,7 @@
 </p>
 
 <p align="center">
-<strong>the released openEHR specifications, version-aware per case</strong> &nbsp;·&nbsp; <strong>1146 spec-cited cases</strong> &nbsp;·&nbsp; <strong>249 operation bindings</strong>
+<strong>the released openEHR specifications, version-aware per case</strong> &nbsp;·&nbsp; <strong>1649 spec-cited cases</strong> &nbsp;·&nbsp; <strong>249 operation bindings</strong>
 </p>
 
 <!--
@@ -109,7 +109,7 @@ and reproducible, which is the stability that matters for a verdict.
 ## What it does
 
 The instrument is one binary plus a data tree. The data tree is a
-machine-readable catalogue of 1146 test cases. Each case cites the
+machine-readable catalogue of 1649 test cases. Each case cites the
 specification section it enforces, and the released specification text is
 vendored in this repository, so every citation resolves against text you can
 read. The case and binding counts on this page are the line

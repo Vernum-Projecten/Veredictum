@@ -2,23 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The verdict pipeline — a **pure** function of (statement, results,
-//! catalogue cases, capability matrix, ambiguity register).
+//! performance cases).
 //!
-//! Verdicts are computed, never asserted (the schedule's core discipline):
-//! the same inputs always produce the same [`VerdictReport`].
+//! Verdicts are computed, never asserted: the same inputs always produce the
+//! same [`VerdictReport`]. A measured class verdict is re-derived from the
+//! measurement records' embedded histograms against the performance
+//! schedule's case, and the performance claim is reviewed: a claimed class
+//! needs measured evidence in a described deployment, a measurement needs its
+//! case, and a stored verdict that does not re-derive is flagged.
 //!
-//! ISO/IEC 9646 frames this as relating the ICS (the [`Statement`] claims) to
-//! the campaign [`Results`] through the Abstract Test Suite (the catalogue
-//! cases) and the profile matrix. The four steps mirror that:
-//!
-//! 1. **Static review** — is the claim itself legal against the matrix and
-//!    the option register?
-//! 2. **Selection** — which catalogue cases are in scope for the claim and
-//!    the declared spec versions, and what is each one's effective outcome?
-//! 3. **(execution)** — performed by [`crate::exec`]; its records arrive as
-//!    the [`Results`] outcomes this pipeline consumes.
-//! 4. **Rollup** — per-capability evidence, per-tier profile verdicts, and
-//!    the coverage bound.
+//! Conformance verdicts over the Arazzo catalogue are the rows of
+//! `veredictum test`'s results document, and its exit status.
 
 #![allow(
     clippy::disallowed_types,
@@ -29,117 +23,15 @@
 
 use serde::Serialize;
 
-use crate::ids::{CapabilityName, CaseId, OptionTag};
-use crate::model::capability::CapabilityMatrix;
-use crate::model::case::CaseCore;
-use crate::model::register::AmbiguityRegister;
-use crate::party::{OutcomeStatus, Results, Statement};
+use crate::ids::CaseId;
+use crate::party::{Results, Statement};
 use crate::perf::{ClassVerdict, PerfClass, PerformanceCase, class_verdict};
-use crate::vocab::{CaseStatus, Disposition, Family, FormatName, Tier};
 
 /// One static-review problem with the claim (never a per-case verdict).
 #[derive(Debug, Clone, Serialize)]
 pub struct ReviewFinding {
     /// Human-readable description of the illegal or incomplete claim.
     pub message: String,
-}
-
-/// The evidence a capability accumulated across its selected, gating cases.
-/// (`Deserialize` because the committed verdicts.json is the render input
-/// of the conformance assets.)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Evidence {
-    /// A selected gating case for the capability passed and none failed.
-    Passed,
-    /// A selected gating case for the capability failed (a failed case marks
-    /// every verdict-bearing capability it names Failed).
-    Failed,
-    /// A selected gating case ERRORED (an inconclusive exchange — a status
-    /// mapping to no declared outcome, a transport fault, a step-resolution
-    /// failure) and none failed. Inconclusive is never a SUT failure
-    /// (`cnf-triage` law) but it must not be absorbed into a green
-    /// capability either: an errored row blocks `Passed` until the run is
-    /// clean (the 2026-07-28 posture run published `CompositionOps` `passed`
-    /// while both minimal-Prefer cases sat errored on a wire-visible
-    /// defect — luck, not design).
-    Inconclusive,
-    /// Cases exist in the catalogue but none produced a gating pass/fail
-    /// (all not-applicable / skipped / not driven / errored / excused) — OR
-    /// the catalogue names no case at all. This is the WHOLE not-evidenced
-    /// space: the former `Unrealized` and `NoCases` variants are DELETED
-    /// (FerroEHR#626, the final FerroEHR#610 ratchet) because the states they excused are
-    /// unrepresentable now — the claim-completeness gate refuses a claimed
-    /// capability with zero verdict-bearing cases before any SUT composes,
-    /// and every excused claim is realized or corrected. The
-    /// accepted consequence is absolute: a party claiming a tier whose
-    /// required capability it cannot evidence FAILS that tier — the upstream
-    /// Java product included; no excuse arm survives in
-    /// this module's `required_all_passed`.
-    NotEvidenced,
-    /// The capability is absent from the party's ICS, so no case naming it was
-    /// ever selected. Distinct from `NotEvidenced`, which means CLAIMED and
-    /// unevidenced: the matrix row is published for every capability (the
-    /// matrix is the Profiles book as data, not a claim list), so without this
-    /// token an unclaimed row reads under a claimed party's token (FerroEHR#2363).
-    /// It satisfies no tier — a claimed profile whose required capability is
-    /// unclaimed still fails, exactly as before.
-    NotClaimed,
-}
-
-/// The selected gating cases behind one capability's [`Evidence`], counted by
-/// effective outcome.
-///
-/// The headline `Evidence` is a single worst-wins token, so an inconclusive
-/// row inside a capability that also has passes is invisible in it (issue
-/// FerroEHR#629: 98 errored rows contributed nothing a reader of the report could
-/// see). The tally is published beside the token so an inconclusive — which
-/// is never a SUT failure, but is also never evidence of conformance — is
-/// always countable, and a real divergence can never hide behind an errored
-/// exchange.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, serde::Deserialize)]
-pub struct CapabilityTally {
-    /// Gating cases that passed.
-    pub passed: usize,
-    /// Gating cases that failed.
-    pub failed: usize,
-    /// Gating cases whose exchange was inconclusive (errored).
-    pub inconclusive: usize,
-    /// Gating cases selected but never driven to a conclusive or inconclusive
-    /// result (not-applicable, register-excused, skipped, not driven,
-    /// option-deselected).
-    pub unevidenced: usize,
-}
-
-impl CapabilityTally {
-    /// Total selected gating cases for the capability.
-    #[must_use]
-    pub fn selected(&self) -> usize {
-        self.passed + self.failed + self.inconclusive + self.unevidenced
-    }
-}
-
-/// A profile-tier verdict.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ProfileVerdict {
-    /// Every required capability of the tier chain is `Passed`.
-    Pass,
-    /// A required capability is not `Passed`.
-    Fail,
-    /// The tier is not among the statement's claimed profiles.
-    NotClaimed,
-}
-
-/// The SEC-BASIC security-family verdict (present only when SEC-BASIC is
-/// claimed).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SecBasicVerdict {
-    /// Every required Security capability is `Passed`.
-    Pass,
-    /// A required Security capability is not `Passed`.
-    Fail,
 }
 
 /// One measured performance-class verdict.
@@ -161,216 +53,45 @@ pub struct PerformanceVerdict {
     pub violations: Vec<String>,
 }
 
-/// The coverage bound: how many in-scope cases were selected and how many
-/// were actually driven (executed to a pass/fail/errored result).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-pub struct Coverage {
-    /// In-scope cases (intersect the claim, pass the `applies` filter).
-    pub selected: usize,
-    /// Of those, cases with an executed result (`passed`/`failed`/`errored`).
-    pub driven: usize,
-    /// Of the driven, cases whose effective outcome is passed — the
-    /// IN-SCOPE pass count the published comparison headlines (the raw
-    /// record books release-dated and unclaimed surfaces a party never
-    /// claimed; these three fields never do).
-    #[serde(default)]
-    pub passed: usize,
-    /// Of the driven, cases whose effective outcome is failed.
-    #[serde(default)]
-    pub failed: usize,
-    /// Of the driven, cases whose effective outcome is errored
-    /// (inconclusive — never a failure of the behaviour under test).
-    #[serde(default)]
-    pub inconclusive: usize,
-}
-
 /// The computed verdict report.
-///
-/// # Judgment call
-/// The task pins the four data fields below; `review` is added because a
-/// discarded static-review step is worthless — a runner that cannot surface
-/// an illegal claim cannot be honest. It never gates the computed verdicts
-/// (those follow only from evidence), it makes the claim's legality visible.
 #[derive(Debug, Clone, Serialize)]
 pub struct VerdictReport {
-    /// Static-review findings against the claim (empty ⇒ the claim is legal).
+    /// Static-review findings against the performance claim and the
+    /// measurement records (empty ⇒ the claim is legal and every stored
+    /// verdict re-derives).
     pub review: Vec<ReviewFinding>,
-    /// Per-capability evidence, in capability-matrix authored order.
-    pub capabilities: Vec<(CapabilityName, Evidence)>,
-    /// The selected-gating-case counts behind each capability's evidence, in
-    /// the same order — so an inconclusive row is countable per capability
-    /// and never disappears behind a worst-wins token.
-    pub capability_tallies: Vec<(CapabilityName, CapabilityTally)>,
-    /// Per-tier platform-profile verdicts (`CORE`, `STANDARD`, `OPTIONS`).
-    pub profiles: Vec<(Tier, ProfileVerdict)>,
-    /// The SEC-BASIC verdict when the Security profile is claimed.
-    pub security: Option<SecBasicVerdict>,
     /// The measured performance-class verdicts (one per measurement in the
     /// results; empty when the campaign carried no measured runs).
     pub performance: Vec<PerformanceVerdict>,
-    /// The coverage bound.
-    pub coverage: Coverage,
 }
 
-/// The effective, in-scope outcome of one selected case (results rollup +
-/// option/report-only metadata).
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Effective {
-    Passed,
-    Failed,
-    Errored,
-    NotApplicable,
-    /// Every record is not-applicable AND every citation references a
-    /// registered ambiguity (`AMB-n`) — a schedule-registered technology-
-    /// profile exclusion (e.g. an unrealized wire), never an environmental
-    /// one. Excuses a required capability instead of failing its tier.
-    ExcusedByRegister,
-    Skipped,
-    /// Selected but no results record drove it.
-    NotDriven,
-    /// Option-tagged, tag not declared by the ICS.
-    Deselected,
-}
-
-impl Effective {
-    /// Whether this outcome was executed to a conclusive/inconclusive result.
-    fn driven(&self) -> bool {
-        matches!(
-            self,
-            Effective::Passed | Effective::Failed | Effective::Errored
-        )
-    }
-}
-
-/// A catalogue case that survived the selection filter.
-struct Selected<'a> {
-    case: &'a CaseCore,
-    /// Whether the case gates verdicts (false when subject to a `report_only`
-    /// ambiguity — it reports but never contributes to profile computation).
-    gating: bool,
-    effective: Effective,
-}
-
-// ── the pipeline entry point ─────────────────────────────────────────────────
-
-/// Compute the verdict report from a statement + its results against the
-/// catalogue, matrix, and ambiguity register. Pure and total.
+/// Compute the verdict report from a statement and its results against the
+/// performance schedule's cases. Pure and total.
 #[must_use]
 pub fn compute(
     statement: &Statement,
     results: &Results,
-    cases: &[CaseCore],
     perf_cases: &[PerformanceCase],
-    matrix: &CapabilityMatrix,
-    register: &AmbiguityRegister,
 ) -> VerdictReport {
-    let mut review = static_review(statement, cases, matrix, register);
-    // The results record's technology profile is the selection filter for
-    // every gating roll-up below, so a divergence from the statement's claim
-    // means records were (de)selected under a DIFFERENT profile than the one
-    // being certified — stale results, or a run driven without the statement.
-    // Surfaced as a review finding, never silently tolerated (a narrower
-    // recorded profile deselects failed rows: the false-green shape found on
-    // the FerroEHR#288 convergence run, 2026-07-28).
-    if let Some(claimed) = statement
-        .tech_profiles
-        .iter()
-        .find(|p| p.its == results.tech_profile.its)
+    let mut review = Vec::new();
+    // A performance claim requires an environment reference: a class is only
+    // earned in a described deployment.
+    if let Some(perf) = &statement.performance
+        && perf.environment_ref.trim().is_empty()
     {
-        let mut recorded = results.tech_profile.formats.clone();
-        let mut declared = claimed.formats.clone();
-        recorded.sort_unstable_by_key(|f| format!("{f:?}"));
-        declared.sort_unstable_by_key(|f| format!("{f:?}"));
-        if recorded != declared {
-            review.push(ReviewFinding {
-                message: format!(
-                    "results.tech_profile.formats {:?} diverges from the statement's {:?} \
-                     tech-profile claim {:?} — the run's gating selection does not match the \
-                     certified claim; re-run against the current statement",
-                    results.tech_profile.formats, results.tech_profile.its, claimed.formats
-                ),
-            });
-        }
-    }
-    // The SUT's own System-manifest advertisement, when the campaign drove
-    // it, must agree with the statement's declaration. The manifest is never
-    // the source of truth (the released `Options` schema has no `required`
-    // list, and a server could dodge every release-dated MUST by
-    // under-advertising) — but a DISAGREEMENT means either the declaration
-    // or the deployment is wrong, and a certification must not rest on that.
-    if let (Some(served), Some(declared)) = (
-        results.restapi_specs_version.as_deref(),
-        statement.spec_versions.its_rest.as_deref(),
-    ) {
-        let same = match (
-            semver::Version::parse(served),
-            semver::Version::parse(declared),
-        ) {
-            (Ok(observed), Ok(claimed)) => observed == claimed,
-            _ => served == declared,
-        };
-        if !same {
-            review.push(ReviewFinding {
-                message: format!(
-                    "the SUT's System OPTIONS manifest advertises restapi_specs_version \
-                     {served} but the statement declares spec_versions.its_rest {declared} — \
-                     the declaration and the deployment disagree; fix whichever is wrong \
-                     (the manifest member is optional and is never the source of truth)"
-                ),
-            });
-        }
+        review.push(ReviewFinding {
+            message: format!(
+                "performance class {:?} is claimed without an environment reference",
+                perf.class
+            ),
+        });
     }
     let performance = measured_verdicts(statement, results, perf_cases, &mut review);
-    let selected = select(statement, results, cases, register);
-
-    let capabilities: Vec<(CapabilityName, Evidence)> = matrix
-        .entries()
-        .iter()
-        .map(|(name, _)| {
-            (
-                name.clone(),
-                capability_evidence(name, &statement.claims.capabilities, &selected),
-            )
-        })
-        .collect();
-    let capability_tallies: Vec<(CapabilityName, CapabilityTally)> = matrix
-        .entries()
-        .iter()
-        .map(|(name, _)| (name.clone(), capability_tally(name, &selected)))
-        .collect();
-
-    let profiles = platform_profiles(statement, matrix, &capabilities);
-    let security = security_verdict(statement, matrix, &capabilities);
-
-    let coverage = Coverage {
-        selected: selected.len(),
-        driven: selected.iter().filter(|s| s.effective.driven()).count(),
-        passed: selected
-            .iter()
-            .filter(|s| s.effective == Effective::Passed)
-            .count(),
-        failed: selected
-            .iter()
-            .filter(|s| s.effective == Effective::Failed)
-            .count(),
-        inconclusive: selected
-            .iter()
-            .filter(|s| s.effective == Effective::Errored)
-            .count(),
-    };
-
     VerdictReport {
         review,
-        capabilities,
-        capability_tallies,
-        profiles,
-        security,
         performance,
-        coverage,
     }
 }
-
-// ── step 5: measured verdicts (the second machinery) ────────────────────────
 
 /// Re-derive every measured class verdict from the measurement records
 /// (decoded histograms, never the summary fields) against the catalogue's
@@ -449,1133 +170,38 @@ fn measured_verdicts(
     verdicts
 }
 
-// ── step 1: static review ────────────────────────────────────────────────────
-
-fn static_review(
-    statement: &Statement,
-    cases: &[CaseCore],
-    matrix: &CapabilityMatrix,
-    register: &AmbiguityRegister,
-) -> Vec<ReviewFinding> {
-    let mut findings = Vec::new();
-    let claimed = &statement.claims.capabilities;
-
-    // Every claimed capability resolves in the matrix.
-    for cap in claimed {
-        if matrix.get(cap).is_none() {
-            findings.push(ReviewFinding {
-                message: format!("claimed capability {cap} is not in the capability matrix"),
-            });
-        }
-    }
-
-    // Tier-chain completeness: claiming a profile requires claiming every
-    // required capability of that tier (and of the tiers it depends on).
-    let claims_profile = |t: Tier| statement.claims.profiles.contains(&t);
-    if claims_profile(Tier::Core) {
-        require_tier_caps(&[Tier::Core], "CORE", claimed, matrix, &mut findings);
-    }
-    if claims_profile(Tier::Standard) {
-        if !claims_profile(Tier::Core) {
-            findings.push(ReviewFinding {
-                message: "STANDARD is claimed but CORE is not (STANDARD requires CORE)".to_owned(),
-            });
-        }
-        require_tier_caps(
-            &[Tier::Core, Tier::Standard],
-            "STANDARD",
-            claimed,
-            matrix,
-            &mut findings,
-        );
-    }
-    if claims_profile(Tier::SecBasic) {
-        require_tier_caps(
-            &[Tier::SecBasic],
-            "SEC-BASIC",
-            claimed,
-            matrix,
-            &mut findings,
-        );
-    }
-
-    // Tier-family consistency: a claimed profile tier must be represented by
-    // at least one claimed capability of that tier.
-    for tier in &statement.claims.profiles {
-        if *tier == Tier::Options {
-            continue; // OPTIONS is a catch-all pseudo-profile
-        }
-        let represented = claimed
-            .iter()
-            .filter_map(|c| matrix.get(c))
-            .any(|e| e.tier == *tier);
-        if !represented {
-            findings.push(ReviewFinding {
-                message: format!(
-                    "profile {tier:?} is claimed but no claimed capability carries that tier"
-                ),
-            });
-        }
-    }
-
-    // Every option FAMILY whose sibling cases intersect the claim is answered
-    // with exactly one arm. Per family, never per entry: one entry may branch
-    // into several independent families, and an entry-wide test is satisfied
-    // by the first family answered while the rest deselect in silence.
-    for gap in option_family_gaps(statement, cases, register) {
-        findings.push(ReviewFinding {
-            message: gap.message(),
-        });
-    }
-
-    // A performance claim requires an environment reference.
-    if let Some(perf) = &statement.performance
-        && perf.environment_ref.trim().is_empty()
-    {
-        findings.push(ReviewFinding {
-            message: format!(
-                "performance class {:?} is claimed without an environment reference",
-                perf.class
-            ),
-        });
-    }
-
-    findings
-}
-
-fn require_tier_caps(
-    tiers: &[Tier],
-    label: &str,
-    claimed: &[CapabilityName],
-    matrix: &CapabilityMatrix,
-    findings: &mut Vec<ReviewFinding>,
-) {
-    for (name, entry) in matrix.entries() {
-        if entry.required && tiers.contains(&entry.tier) && !claimed.contains(name) {
-            findings.push(ReviewFinding {
-                message: format!(
-                    "{label} is claimed but required capability {name} is not claimed"
-                ),
-            });
-        }
-    }
-}
-
-/// One option FAMILY a declaration reaches but does not answer with exactly
-/// one arm.
-///
-/// The arms of a family are mutually exclusive by the register entry that
-/// declares them, so a conformant deployment realizes exactly one. A family
-/// with no arm declared deselects EVERY one of its rows, which is a narrower
-/// claim published as a complete one; a family with several declared selects
-/// rows whose expectations contradict each other.
-#[derive(Debug, Clone)]
-pub struct OptionFamilyGap {
-    /// The register entry the family belongs to.
-    pub entry: crate::ids::AmbiguityId,
-    /// The family the declaration has to answer.
-    pub family: crate::ids::OptionFamilyName,
-    /// The family's mutually exclusive arms.
-    pub arms: Vec<OptionTag>,
-    /// The arms the declaration did declare: none, or more than one.
-    pub declared: Vec<OptionTag>,
-}
-
-impl OptionFamilyGap {
-    /// The one-line finding, shared by the static review, the `validate` gate
-    /// and the drive-time citation so all three say the same thing.
-    #[must_use]
-    pub fn message(&self) -> String {
-        let arms = join_tags(&self.arms);
-        if self.declared.is_empty() {
-            return format!(
-                "option_select {} governs claimed cases and the ICS declares no arm of its \
-                 `{}` option family (one of: {arms}) — every row of that family deselects, so \
-                 the claim is narrower than the record reports it",
-                self.entry, self.family
-            );
-        }
-        format!(
-            "option_select {} governs claimed cases and the ICS declares {} for its `{}` \
-             option family (one of: {arms}) — the arms are mutually exclusive, so a deployment \
-             realizes exactly one",
-            self.entry,
-            join_tags(&self.declared),
-            self.family
-        )
-    }
-}
-
-fn join_tags(tags: &[OptionTag]) -> String {
-    tags.iter()
-        .map(OptionTag::as_str)
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-/// Every option family the claim reaches that the declaration does not answer
-/// with exactly one arm.
-///
-/// A family is REACHED when an active case carrying one of its arms gates a
-/// capability the declaration claims, which is the predicate selection itself
-/// uses: a family nothing in scope turns on asks no question and needs no
-/// answer.
-#[must_use]
-pub fn option_family_gaps<'c>(
-    statement: &Statement,
-    cases: impl IntoIterator<Item = &'c CaseCore>,
-    register: &AmbiguityRegister,
-) -> Vec<OptionFamilyGap> {
-    let cases: Vec<&CaseCore> = cases.into_iter().collect();
-    let claimed = &statement.claims.capabilities;
-    let mut gaps = Vec::new();
-    for (id, entry) in register.entries() {
-        if entry.disposition != Disposition::OptionSelect {
-            continue;
-        }
-        for (family, arms) in entry.options.families() {
-            let reached = cases.iter().any(|c| {
-                c.status == CaseStatus::Active
-                    && c.option.as_ref().is_some_and(|t| arms.contains(t))
-                    && intersects(&c.capabilities, claimed)
-            });
-            if !reached {
-                continue;
-            }
-            let declared: Vec<OptionTag> = arms
-                .iter()
-                .filter(|arm| statement.options.contains(arm))
-                .cloned()
-                .collect();
-            if declared.len() == 1 {
-                continue;
-            }
-            gaps.push(OptionFamilyGap {
-                entry: id.clone(),
-                family: family.clone(),
-                arms: arms.clone(),
-                declared,
-            });
-        }
-    }
-    gaps
-}
-
-// ── step 2: selection ────────────────────────────────────────────────────────
-
-fn select<'a>(
-    statement: &Statement,
-    results: &Results,
-    cases: &'a [CaseCore],
-    register: &AmbiguityRegister,
-) -> Vec<Selected<'a>> {
-    let mut selected = Vec::new();
-    for case in cases {
-        if case.status != CaseStatus::Active {
-            continue;
-        }
-        if !intersects(&case.capabilities, &statement.claims.capabilities) {
-            continue; // out of scope for the claim
-        }
-        if !applies_satisfied(case, &statement.spec_versions) {
-            continue; // out of scope for the declared spec versions
-        }
-
-        let gating = !is_report_only(case, register);
-        let effective = effective_outcome(case, statement, results);
-        selected.push(Selected {
-            case,
-            gating,
-            effective,
-        });
-    }
-    selected
-}
-
-/// A case applies iff every declared `applies` range is satisfied by a
-/// declared spec version. An undeclared or unparsable version fails the
-/// filter (the case is out of scope, not a defect the pipeline reports) —
-/// the one polarity [`crate::model::case::Applies::satisfied_by`] fixes for
-/// every consulting site.
-fn applies_satisfied(case: &CaseCore, versions: &crate::party::SpecVersions) -> bool {
-    case.applies.satisfied_by(versions)
-}
-
-fn is_report_only(case: &CaseCore, register: &AmbiguityRegister) -> bool {
-    case.ambiguities.iter().any(|id| {
-        register
-            .get(id)
-            .is_some_and(|e| e.disposition == Disposition::ReportOnly)
-    })
-}
-
-/// The effective outcome of a selected case: an undeclared option tag
-/// deselects it; otherwise the results records (across the tech profile's
-/// formats) roll up.
-fn effective_outcome(case: &CaseCore, statement: &Statement, results: &Results) -> Effective {
-    if let Some(tag) = &case.option
-        && !statement.options.contains(tag)
-    {
-        return Effective::Deselected;
-    }
-    rollup_results(&case.id, &results.outcomes, &results.tech_profile.formats)
-}
-
-/// Roll the (possibly multiple, per-format) results records for a case up into
-/// one effective outcome: any failed → `Failed`; else any errored →
-/// `Errored`; else any passed → `Passed`; else all not-applicable →
-/// `NotApplicable`; else all skipped → `Skipped`; no records → `NotDriven`.
-fn rollup_results(
-    case: &CaseId,
-    outcomes: &[crate::party::OutcomeRecord],
-    formats: &[FormatName],
-) -> Effective {
-    let relevant: Vec<&crate::party::OutcomeRecord> = outcomes
-        .iter()
-        .filter(|o| &o.case == case && format_in_profile(o.format, formats))
-        .collect();
-    if relevant.is_empty() {
-        return Effective::NotDriven;
-    }
-    let has = |s: OutcomeStatus| relevant.iter().any(|o| o.status == s);
-    let all_na = relevant
-        .iter()
-        .all(|o| o.status == OutcomeStatus::NotApplicable);
-    if all_na
-        && relevant
-            .iter()
-            .all(|o| o.citation.as_deref().is_some_and(|c| c.contains("AMB-")))
-    {
-        return Effective::ExcusedByRegister;
-    }
-    if has(OutcomeStatus::Failed) {
-        Effective::Failed
-    } else if has(OutcomeStatus::Errored) {
-        Effective::Errored
-    } else if has(OutcomeStatus::Passed) {
-        Effective::Passed
-    } else if relevant
-        .iter()
-        .all(|o| o.status == OutcomeStatus::NotApplicable)
-    {
-        Effective::NotApplicable
-    } else if relevant.iter().all(|o| o.status == OutcomeStatus::Skipped) {
-        Effective::Skipped
-    } else {
-        Effective::NotApplicable
-    }
-}
-
-/// A format-less record (`None`) matches any profile; a format-tagged record
-/// matches only when that format is in the profile.
-fn format_in_profile(format: Option<FormatName>, formats: &[FormatName]) -> bool {
-    format.is_none_or(|f| formats.is_empty() || formats.contains(&f))
-}
-
-// ── step 4: rollup ───────────────────────────────────────────────────────────
-
-fn capability_evidence(
-    cap: &CapabilityName,
-    claimed: &[CapabilityName],
-    selected: &[Selected<'_>],
-) -> Evidence {
-    // An unclaimed capability selects no case at all (step 2's first filter),
-    // so its evidence is the ABSENCE of a claim, not an absence of evidence.
-    if !claimed.contains(cap) {
-        return Evidence::NotClaimed;
-    }
-    let relevant: Vec<&Selected<'_>> = selected
-        .iter()
-        .filter(|s| s.gating && s.case.capabilities.contains(cap))
-        .collect();
-
-    if relevant.iter().any(|s| s.effective == Effective::Failed) {
-        return Evidence::Failed;
-    }
-    if relevant.iter().any(|s| s.effective == Effective::Errored) {
-        return Evidence::Inconclusive;
-    }
-    if relevant.iter().any(|s| s.effective == Effective::Passed) {
-        return Evidence::Passed;
-    }
-    // All-excused, nothing-selected, and no-case-at-all are ONE state now:
-    // not evidenced (FerroEHR#626 — the excuse variants are deleted; the
-    // claim-completeness gate already refuses the catalogue shapes that
-    // used to need them).
-    Evidence::NotEvidenced
-}
-
-/// Count the capability's selected gating cases by effective outcome — the
-/// same population `capability_evidence` reduces to one token.
-fn capability_tally(cap: &CapabilityName, selected: &[Selected<'_>]) -> CapabilityTally {
-    let mut tally = CapabilityTally::default();
-    for case in selected
-        .iter()
-        .filter(|s| s.gating && s.case.capabilities.contains(cap))
-    {
-        match case.effective {
-            Effective::Passed => tally.passed += 1,
-            Effective::Failed => tally.failed += 1,
-            Effective::Errored => tally.inconclusive += 1,
-            Effective::NotApplicable
-            | Effective::ExcusedByRegister
-            | Effective::Skipped
-            | Effective::NotDriven
-            | Effective::Deselected => tally.unevidenced += 1,
-        }
-    }
-    tally
-}
-
-fn evidence_of(caps: &[(CapabilityName, Evidence)], name: &CapabilityName) -> Option<Evidence> {
-    caps.iter().find(|(n, _)| n == name).map(|(_, e)| *e)
-}
-
-/// The capabilities a tier's verdict is judged on — the SAME set the verdict
-/// functions below quantify over.
-///
-/// This exists so a published count and the verdict beside it cannot describe
-/// different sets. Deriving a count independently is what produced a "FAIL 5/5
-/// capabilities" badge once: the count was tier-local while the verdict was
-/// cumulative, and both were individually correct.
-///
-/// - `CORE` / `STANDARD`: the CUMULATIVE required Platform capabilities
-///   (`STANDARD` = CORE + STANDARD), matching `required_all_passed`.
-/// - `OPTIONS`: the optional Platform capabilities, matching the any-passes
-///   rule in `platform_profiles`.
-/// - `SEC-BASIC`: the required Security-family capabilities, matching
-///   `security_verdict`.
-/// - The Enterprise tiers have no verdict rule, so they have no member set.
-#[must_use]
-pub fn tier_members(tier: Tier, matrix: &CapabilityMatrix) -> Vec<CapabilityName> {
-    let cumulative: &[Tier] = match tier {
-        Tier::Core => &[Tier::Core],
-        Tier::Standard => &[Tier::Core, Tier::Standard],
-        _ => &[],
-    };
-    matrix
-        .entries()
-        .iter()
-        .filter(|(_, e)| match tier {
-            Tier::Core | Tier::Standard => e.required && cumulative.contains(&e.tier),
-            Tier::Options => e.family == Family::Platform && !e.required && e.tier == Tier::Options,
-            Tier::SecBasic => e.required && e.family == Family::Security,
-            Tier::EnterpriseD | Tier::EnterpriseM | Tier::EnterpriseX => false,
-        })
-        .map(|(name, _)| name.clone())
-        .collect()
-}
-
-/// Every required capability of the given tiers is `Passed`.
-fn required_all_passed(
-    tiers: &[Tier],
-    matrix: &CapabilityMatrix,
-    caps: &[(CapabilityName, Evidence)],
-) -> bool {
-    matrix
-        .entries()
-        .iter()
-        .filter(|(_, e)| e.required && tiers.contains(&e.tier))
-        .all(|(name, _)| {
-            // ABSOLUTE (FerroEHR#626): only executed passing evidence satisfies a
-            // required capability — no excuse arm. A tier claimed without
-            // the evidence FAILS, whoever the party is.
-            matches!(evidence_of(caps, name), Some(Evidence::Passed))
-        })
-}
-
-fn platform_profiles(
-    statement: &Statement,
-    matrix: &CapabilityMatrix,
-    caps: &[(CapabilityName, Evidence)],
-) -> Vec<(Tier, ProfileVerdict)> {
-    let claimed = |t: Tier| statement.claims.profiles.contains(&t);
-    let mut out = Vec::new();
-
-    for tier in [Tier::Core, Tier::Standard, Tier::Options] {
-        let verdict = if claimed(tier) {
-            match tier {
-                Tier::Core => bool_verdict(required_all_passed(&[Tier::Core], matrix, caps)),
-                Tier::Standard => bool_verdict(required_all_passed(
-                    &[Tier::Core, Tier::Standard],
-                    matrix,
-                    caps,
-                )),
-                // OPTIONS is the catch-all pseudo-profile: any optional
-                // Platform capability passing achieves it.
-                Tier::Options => bool_verdict(matrix.entries().iter().any(|(name, e)| {
-                    e.family == Family::Platform
-                        && !e.required
-                        && evidence_of(caps, name) == Some(Evidence::Passed)
-                })),
-                _ => ProfileVerdict::NotClaimed,
-            }
-        } else {
-            ProfileVerdict::NotClaimed
-        };
-        out.push((tier, verdict));
-    }
-    out
-}
-
-fn security_verdict(
-    statement: &Statement,
-    matrix: &CapabilityMatrix,
-    caps: &[(CapabilityName, Evidence)],
-) -> Option<SecBasicVerdict> {
-    if !statement.claims.profiles.contains(&Tier::SecBasic) {
-        return None;
-    }
-    let pass = matrix
-        .entries()
-        .iter()
-        .filter(|(_, e)| e.required && e.family == Family::Security)
-        .all(|(name, _)| evidence_of(caps, name) == Some(Evidence::Passed));
-    Some(if pass {
-        SecBasicVerdict::Pass
-    } else {
-        SecBasicVerdict::Fail
-    })
-}
-
-fn bool_verdict(pass: bool) -> ProfileVerdict {
-    if pass {
-        ProfileVerdict::Pass
-    } else {
-        ProfileVerdict::Fail
-    }
-}
-
-fn intersects(a: &[CapabilityName], b: &[CapabilityName]) -> bool {
-    a.iter().any(|x| b.contains(x))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn matrix() -> CapabilityMatrix {
-        serde_json::from_value(serde_json::json!({
-            "EhrOperations": { "family": "Platform", "tier": "CORE", "required": true },
-            "AqlBasic": { "family": "Platform", "tier": "STANDARD", "required": true },
-            "SimplifiedFormats": { "family": "Platform", "tier": "OPTIONS", "required": false },
-            "AuthenticatedAccess": { "family": "Security", "tier": "SEC-BASIC", "required": true }
-        }))
-        .unwrap()
-    }
-
-    fn register() -> AmbiguityRegister {
-        serde_json::from_value(serde_json::json!({
-            "AMB-5": { "ambiguity": "a", "source": "s", "handling": "h",
-                        "disposition": "report_only" },
-            "AMB-39": { "ambiguity": "a", "source": "s", "handling": "h",
-                         "disposition": "option_select",
-                         "options": {
-                             "sf-deprecated-types":
-                                 ["sf-deprecated-types-supported", "sf-deprecated-types-unsupported"],
-                             "sf-deprecated-media":
-                                 ["sf-deprecated-media-supported", "sf-deprecated-media-unsupported"]
-                         } }
-        }))
-        .unwrap()
-    }
-
-    fn case(json: serde_json::Value) -> CaseCore {
-        serde_json::from_value(json).unwrap()
-    }
-
-    fn functional_case(id: &str, caps: &[&str], profiles: &[&str]) -> CaseCore {
-        case(serde_json::json!({
-            "id": id, "kind": "functional", "component": "EHR",
-            "sm_operation": "I_EHR_SERVICE.create_ehr",
-            "capabilities": caps, "profiles": profiles,
-            "test_purpose": "t", "description": "d",
-            "spec_refs": ["CNF platform_test_schedule master06 §x"],
-            "flow": [ { "step": 1, "call": "create_ehr", "expect": "created" } ]
-        }))
-    }
-
-    fn statement(caps: &[&str], profiles: &[&str], options: &[&str]) -> Statement {
+    fn statement() -> Statement {
         serde_json::from_value(serde_json::json!({
             "product": { "name": "p", "version": "1", "vendor": "v", "identifier": "i" },
             "schedule_release": "CNF-2.0",
-            "spec_versions": { "rm": "1.2.0", "its_rest": "1.1.0" },
-            "claims": { "capabilities": caps, "profiles": profiles },
-            "tech_profiles": [ { "its": "its-rest", "formats": ["canonical-json"] } ],
-            "options": options
+            "claims": { "capabilities": ["ehr"] }
         }))
         .unwrap()
     }
 
-    fn results(outcomes: serde_json::Value) -> Results {
-        let mut value = serde_json::json!({
+    fn results() -> Results {
+        serde_json::from_value(serde_json::json!({
             "sut": { "name": { "value": "s", "source": "operator" }, "version": { "value": "1", "source": "operator" } },
             "runner": { "name": "veredictum", "version": "0", "verification_pack_status": "passed" },
             "instrument_status": "pre-approval",
             "schedule_release": "CNF-2.0",
             "tech_profile": { "its": "its-rest", "formats": ["canonical-json"] },
-            "ixit_digest": "d"
-        });
-        if let serde_json::Value::Object(map) = &mut value {
-            map.insert("outcomes".to_owned(), outcomes);
-        }
-        serde_json::from_value(value).unwrap()
-    }
-
-    /// The System-manifest advertisement check (FerroEHR#634): a served
-    /// `restapi_specs_version` that disagrees with the statement's
-    /// `spec_versions.its_rest` is a static-review finding; agreement (or an
-    /// absent member — it is optional in the released `Options` schema)
-    /// raises nothing.
-    #[test]
-    fn manifest_advertised_its_rest_divergence_is_a_review_finding() {
-        let cases = vec![functional_case(
-            "I_EHR_SERVICE.create_ehr-main",
-            &["EhrOperations"],
-            &["CORE"],
-        )];
-        let st = statement(&["EhrOperations"], &["CORE"], &[]);
-        let outcomes = serde_json::json!([
-            { "case": "I_EHR_SERVICE.create_ehr-main", "format": "canonical-json",
-              "status": "passed", "rows_driven": 1, "rows_total": 1 }
-        ]);
-
-        // Divergence: served 1.0.3 vs declared 1.1.0 → exactly one finding.
-        let mut diverging = results(outcomes.clone());
-        diverging.restapi_specs_version = Some("1.0.3".to_owned());
-        let report = compute(&st, &diverging, &cases, &[], &matrix(), &register());
-        assert_eq!(
-            report
-                .review
-                .iter()
-                .filter(|f| f.message.contains("restapi_specs_version"))
-                .count(),
-            1,
-            "review: {:?}",
-            report.review
-        );
-
-        // Agreement (semver-equal): no finding.
-        let mut agreeing = results(outcomes.clone());
-        agreeing.restapi_specs_version = Some("1.1.0".to_owned());
-        let report = compute(&st, &agreeing, &cases, &[], &matrix(), &register());
-        assert!(
-            report
-                .review
-                .iter()
-                .all(|f| !f.message.contains("restapi_specs_version")),
-            "review: {:?}",
-            report.review
-        );
-
-        // Absent member (optional in the released schema): no finding.
-        let report = compute(&st, &results(outcomes), &cases, &[], &matrix(), &register());
-        assert!(
-            report
-                .review
-                .iter()
-                .all(|f| !f.message.contains("restapi_specs_version"))
-        );
-    }
-
-    /// Selection intersects the case's capabilities with the claim, so a case
-    /// declaring none is deselected against every statement and bears no
-    /// verdict. The runner excuses the same case rather than driving it
-    /// ([`crate::run`]), and the case-core schema refuses the empty list at
-    /// authoring time.
-    #[test]
-    fn a_capability_less_case_is_deselected() {
-        let cases = vec![
-            functional_case(
-                "I_EHR_SERVICE.create_ehr-main",
-                &["EhrOperations"],
-                &["CORE"],
-            ),
-            functional_case("I_EHR_SERVICE.create_ehr-nocaps", &[], &["CORE"]),
-        ];
-        let st = statement(&["EhrOperations"], &["CORE"], &[]);
-        let selected = select(&st, &results(serde_json::json!([])), &cases, &register());
-        let ids: Vec<String> = selected.iter().map(|s| s.case.id.to_string()).collect();
-        assert_eq!(ids, vec!["I_EHR_SERVICE.create_ehr-main".to_owned()]);
-    }
-
-    #[test]
-    fn passing_core_claim_passes() {
-        let cases = vec![functional_case(
-            "I_EHR_SERVICE.create_ehr-main",
-            &["EhrOperations"],
-            &["CORE"],
-        )];
-        let st = statement(&["EhrOperations"], &["CORE"], &[]);
-        let rs = results(serde_json::json!([
-            { "case": "I_EHR_SERVICE.create_ehr-main", "format": "canonical-json",
-              "status": "passed", "rows_driven": 1, "rows_total": 1 }
-        ]));
-        let report = compute(&st, &rs, &cases, &[], &matrix(), &register());
-        assert!(report.review.is_empty(), "{:?}", report.review);
-        assert_eq!(
-            evidence_of(
-                &report.capabilities,
-                &CapabilityName::parse("EhrOperations").unwrap()
-            ),
-            Some(Evidence::Passed)
-        );
-        assert_eq!(
-            report
-                .profiles
-                .iter()
-                .find(|(t, _)| *t == Tier::Core)
-                .map(|(_, v)| *v),
-            Some(ProfileVerdict::Pass)
-        );
-        assert_eq!(report.coverage.selected, 1);
-        assert_eq!(report.coverage.driven, 1);
-    }
-
-    #[test]
-    fn failing_case_marks_capability_failed() {
-        let cases = vec![functional_case(
-            "I_EHR_SERVICE.create_ehr-main",
-            &["EhrOperations"],
-            &["CORE"],
-        )];
-        let st = statement(&["EhrOperations"], &["CORE"], &[]);
-        let rs = results(serde_json::json!([
-            { "case": "I_EHR_SERVICE.create_ehr-main", "format": "canonical-json",
-              "status": "failed", "rows_driven": 1, "rows_total": 1, "failing_step": 1 }
-        ]));
-        let report = compute(&st, &rs, &cases, &[], &matrix(), &register());
-        assert_eq!(
-            evidence_of(
-                &report.capabilities,
-                &CapabilityName::parse("EhrOperations").unwrap()
-            ),
-            Some(Evidence::Failed)
-        );
-        assert_eq!(
-            report
-                .profiles
-                .iter()
-                .find(|(t, _)| *t == Tier::Core)
-                .map(|(_, v)| *v),
-            Some(ProfileVerdict::Fail)
-        );
-    }
-
-    #[test]
-    fn diverging_recorded_tech_profile_is_a_review_finding() {
-        // A results record whose tech profile is NARROWER than the statement's
-        // claim deselects that format's rows from every gating roll-up — the
-        // false-green shape (a failed canonical-xml case invisible behind a
-        // PASS). The divergence itself must surface as a review finding.
-        let cases = vec![functional_case(
-            "I_EHR_SERVICE.create_ehr-main",
-            &["EhrOperations"],
-            &["CORE"],
-        )];
-        let mut st = statement(&["EhrOperations"], &["CORE"], &[]);
-        st.tech_profiles[0].formats = vec![FormatName::CanonicalJson, FormatName::CanonicalXml];
-        let rs = results(serde_json::json!([
-            { "case": "I_EHR_SERVICE.create_ehr-main", "format": "canonical-json",
-              "status": "passed", "rows_driven": 1, "rows_total": 1 }
-        ]));
-        let report = compute(&st, &rs, &cases, &[], &matrix(), &register());
-        assert!(
-            report
-                .review
-                .iter()
-                .any(|f| f.message.contains("diverges from the statement's")),
-            "expected the tech-profile divergence review finding, got {:?}",
-            report.review
-        );
-        // And the matching profile stays clean.
-        st.tech_profiles[0].formats = vec![FormatName::CanonicalJson];
-        let report = compute(&st, &rs, &cases, &[], &matrix(), &register());
-        assert!(
-            !report
-                .review
-                .iter()
-                .any(|f| f.message.contains("diverges from the statement's")),
-            "{:?}",
-            report.review
-        );
-    }
-
-    #[test]
-    fn option_deselection_yields_no_gating_evidence() {
-        // A SimplifiedFormats case tagged with the unsupported option; the ICS
-        // declares the supported branch instead, so the case is deselected and
-        // contributes no gating evidence.
-        let mut c = functional_case(
-            "SF-FLAT-deprecated_unsupported",
-            &["SimplifiedFormats"],
-            &["OPTIONS"],
-        );
-        c.option = Some(OptionTag::parse("sf-deprecated-types-unsupported").unwrap());
-        c.ambiguities = vec![crate::ids::AmbiguityId::parse("AMB-39").unwrap()];
-        let cases = vec![c];
-        let st = statement(
-            &["SimplifiedFormats"],
-            &["OPTIONS"],
-            &["sf-deprecated-types-supported"],
-        );
-        let rs = results(serde_json::json!([
-            { "case": "SF-FLAT-deprecated_unsupported", "format": "canonical-json",
-              "status": "passed", "rows_driven": 1, "rows_total": 1 }
-        ]));
-        let report = compute(&st, &rs, &cases, &[], &matrix(), &register());
-        // Deselected: the result is ignored, so no gating pass exists.
-        assert_eq!(
-            evidence_of(
-                &report.capabilities,
-                &CapabilityName::parse("SimplifiedFormats").unwrap()
-            ),
-            Some(Evidence::NotEvidenced)
-        );
-        assert!(report.review.is_empty(), "{:?}", report.review);
-    }
-
-    #[test]
-    fn report_only_case_never_gates() {
-        // A failing case subject to a report_only ambiguity must NOT mark its
-        // capability Failed.
-        let mut c = functional_case(
-            "I_EHR_COMPOSITION.persistent-uniqueness",
-            &["EhrOperations"],
-            &["CORE"],
-        );
-        c.ambiguities = vec![crate::ids::AmbiguityId::parse("AMB-5").unwrap()];
-        let cases = vec![c];
-        let st = statement(&["EhrOperations"], &["CORE"], &[]);
-        let rs = results(serde_json::json!([
-            { "case": "I_EHR_COMPOSITION.persistent-uniqueness", "format": "canonical-json",
-              "status": "failed", "rows_driven": 1, "rows_total": 1, "failing_step": 1 }
-        ]));
-        let report = compute(&st, &rs, &cases, &[], &matrix(), &register());
-        // No gating case, catalogue has one -> NotEvidenced, not Failed.
-        assert_eq!(
-            evidence_of(
-                &report.capabilities,
-                &CapabilityName::parse("EhrOperations").unwrap()
-            ),
-            Some(Evidence::NotEvidenced)
-        );
-    }
-
-    #[test]
-    fn no_cases_coverage_prints() {
-        // No catalogue case names AqlBasic -> the whole not-evidenced space
-        // is one variant now (FerroEHR#626); selected/driven zero. The shape itself
-        // (a claim with zero cases) is refused upstream by the
-        // claim-completeness gate before any SUT composes.
-        let cases: Vec<CaseCore> = Vec::new();
-        let st = statement(&["AqlBasic"], &[], &[]);
-        let rs = results(serde_json::json!([]));
-        let report = compute(&st, &rs, &cases, &[], &matrix(), &register());
-        assert_eq!(
-            evidence_of(
-                &report.capabilities,
-                &CapabilityName::parse("AqlBasic").unwrap()
-            ),
-            Some(Evidence::NotEvidenced)
-        );
-        assert_eq!(report.coverage.selected, 0);
-        assert_eq!(report.coverage.driven, 0);
-    }
-
-    #[test]
-    fn security_verdict_is_optional_and_computed() {
-        let cases = vec![functional_case(
-            "I_EHR_SERVICE.auth",
-            &["AuthenticatedAccess"],
-            &["SEC-BASIC"],
-        )];
-        let unclaimed = statement(&["EhrOperations"], &["CORE"], &[]);
-        let rs = results(serde_json::json!([]));
-        assert!(
-            compute(&unclaimed, &rs, &cases, &[], &matrix(), &register())
-                .security
-                .is_none()
-        );
-
-        let claimed = statement(&["AuthenticatedAccess"], &["SEC-BASIC"], &[]);
-        let rs = results(serde_json::json!([
-            { "case": "I_EHR_SERVICE.auth", "format": "canonical-json",
-              "status": "passed", "rows_driven": 1, "rows_total": 1 }
-        ]));
-        assert_eq!(
-            compute(&claimed, &rs, &cases, &[], &matrix(), &register()).security,
-            Some(SecBasicVerdict::Pass)
-        );
-    }
-
-    /// An UNCLAIMED capability reads `not_claimed`, never `not_evidenced`
-    /// (FerroEHR#2363): the published grid carries the whole matrix, and
-    /// `not_evidenced` means claimed-and-unevidenced. The distinction is
-    /// presentational only — neither token satisfies a tier.
-    #[test]
-    fn an_unclaimed_capability_is_not_claimed_never_not_evidenced() {
-        let cases = vec![
-            functional_case(
-                "I_EHR_SERVICE.create_ehr-main",
-                &["EhrOperations"],
-                &["CORE"],
-            ),
-            functional_case("SF-FLAT-main", &["SimplifiedFormats"], &["OPTIONS"]),
-        ];
-        // AqlBasic is claimed with no result; SimplifiedFormats is unclaimed.
-        let st = statement(&["EhrOperations", "AqlBasic"], &["CORE"], &[]);
-        let rs = results(serde_json::json!([
-            { "case": "I_EHR_SERVICE.create_ehr-main", "format": "canonical-json",
-              "status": "passed", "rows_driven": 1, "rows_total": 1 },
-            { "case": "SF-FLAT-main", "format": "canonical-json",
-              "status": "failed", "rows_driven": 1, "rows_total": 1, "failing_step": 1 }
-        ]));
-        let report = compute(&st, &rs, &cases, &[], &matrix(), &register());
-        assert_eq!(
-            evidence_of(
-                &report.capabilities,
-                &CapabilityName::parse("SimplifiedFormats").unwrap()
-            ),
-            Some(Evidence::NotClaimed),
-            "an unclaimed capability's failing rows are out of scope, and the token says so"
-        );
-        assert_eq!(
-            evidence_of(
-                &report.capabilities,
-                &CapabilityName::parse("AqlBasic").unwrap()
-            ),
-            Some(Evidence::NotEvidenced),
-            "claimed-but-unevidenced keeps its own token"
-        );
-        assert_eq!(
-            evidence_of(
-                &report.capabilities,
-                &CapabilityName::parse("EhrOperations").unwrap()
-            ),
-            Some(Evidence::Passed)
-        );
-        // The OPTIONS pseudo-profile takes no credit from an unclaimed row.
-        let claims_options = statement(&["EhrOperations"], &["CORE", "OPTIONS"], &[]);
-        let report = compute(&claims_options, &rs, &cases, &[], &matrix(), &register());
-        assert_eq!(
-            report
-                .profiles
-                .iter()
-                .find(|(t, _)| *t == Tier::Options)
-                .map(|(_, v)| *v),
-            Some(ProfileVerdict::Fail)
-        );
-    }
-
-    #[test]
-    fn standard_requires_core_static_review() {
-        let cases: Vec<CaseCore> = Vec::new();
-        let st = statement(&["AqlBasic"], &["STANDARD"], &[]);
-        let report = compute(
-            &st,
-            &results(serde_json::json!([])),
-            &cases,
-            &[],
-            &matrix(),
-            &register(),
-        );
-        assert!(
-            report
-                .review
-                .iter()
-                .any(|f| f.message.contains("STANDARD requires CORE")),
-            "{:?}",
-            report.review
-        );
+            "ixit_digest": "d",
+            "outcomes": []
+        }))
+        .unwrap()
     }
 
     fn messages(report: &VerdictReport) -> Vec<&str> {
         report.review.iter().map(|f| f.message.as_str()).collect()
     }
 
-    /// A capability the statement claims but the matrix does not carry is a
-    /// review finding: the claim names a rating dimension no verdict exists
-    /// for, so nothing could ever evidence it.
-    #[test]
-    fn an_unknown_claimed_capability_is_a_review_finding() {
-        let st = statement(&["NoSuchCapability"], &[], &[]);
-        let report = compute(
-            &st,
-            &results(serde_json::json!([])),
-            &[],
-            &[],
-            &matrix(),
-            &register(),
-        );
-        assert!(
-            messages(&report)
-                .contains(&"claimed capability NoSuchCapability is not in the capability matrix"),
-            "{:?}",
-            report.review
-        );
-    }
-
-    /// A tier is claimed through the capabilities that carry it, so a profile
-    /// no claimed capability belongs to rests on nothing.
-    #[test]
-    fn a_profile_tier_no_claimed_capability_carries_is_a_review_finding() {
-        let st = statement(&["EhrOperations"], &["CORE", "SEC-BASIC"], &[]);
-        let report = compute(
-            &st,
-            &results(serde_json::json!([])),
-            &[],
-            &[],
-            &matrix(),
-            &register(),
-        );
-        assert!(
-            messages(&report).iter().any(|m| m.contains(
-                "profile SecBasic is claimed but no claimed capability carries that tier"
-            )),
-            "{:?}",
-            report.review
-        );
-    }
-
-    /// An `option_select` register entry governing claimed cases needs the ICS
-    /// to declare one of its branches; otherwise the run drives sibling cases
-    /// whose expectations nothing selected between.
-    #[test]
-    fn an_option_select_over_claimed_cases_needs_a_declared_option() {
-        let mut governed = functional_case(
-            "SF-deprecated_types-supported",
-            &["SimplifiedFormats"],
-            &["OPTIONS"],
-        );
-        governed.option = Some(OptionTag::parse("sf-deprecated-types-supported").unwrap());
-        let st = statement(&["SimplifiedFormats"], &["OPTIONS"], &[]);
-        let report = compute(
-            &st,
-            &results(serde_json::json!([])),
-            &[governed],
-            &[],
-            &matrix(),
-            &register(),
-        );
-        assert!(
-            messages(&report)
-                .iter()
-                .any(|m| m.starts_with("option_select AMB-39 governs claimed cases")),
-            "{:?}",
-            report.review
-        );
-
-        // The same catalogue with the branch declared raises nothing.
-        let declaring = statement(
-            &["SimplifiedFormats"],
-            &["OPTIONS"],
-            &["sf-deprecated-types-supported"],
-        );
-        let mut governed = functional_case(
-            "SF-deprecated_types-supported",
-            &["SimplifiedFormats"],
-            &["OPTIONS"],
-        );
-        governed.option = Some(OptionTag::parse("sf-deprecated-types-supported").unwrap());
-        let report = compute(
-            &declaring,
-            &results(serde_json::json!([])),
-            &[governed],
-            &[],
-            &matrix(),
-            &register(),
-        );
-        assert!(
-            messages(&report)
-                .iter()
-                .all(|m| !m.starts_with("option_select")),
-            "{:?}",
-            report.review
-        );
-    }
-
-    /// One register entry may branch into several INDEPENDENT families, and
-    /// answering one of them says nothing about the rest (#462).
-    ///
-    /// The entry-wide test this replaced was satisfied by any single declared
-    /// option, so the second family's rows deselected in silence while the
-    /// claim read as complete.
-    #[test]
-    fn answering_one_family_of_an_entry_does_not_answer_its_others() {
-        let mut answered = functional_case(
-            "SF-deprecated_types-supported",
-            &["SimplifiedFormats"],
-            &["OPTIONS"],
-        );
-        answered.option = Some(OptionTag::parse("sf-deprecated-types-supported").unwrap());
-        let mut unanswered = functional_case(
-            "SF-deprecated_media-supported",
-            &["SimplifiedFormats"],
-            &["OPTIONS"],
-        );
-        unanswered.option = Some(OptionTag::parse("sf-deprecated-media-supported").unwrap());
-        let st = statement(
-            &["SimplifiedFormats"],
-            &["OPTIONS"],
-            &["sf-deprecated-types-supported"],
-        );
-        let report = compute(
-            &st,
-            &results(serde_json::json!([])),
-            &[answered, unanswered],
-            &[],
-            &matrix(),
-            &register(),
-        );
-        let option_findings: Vec<&str> = messages(&report)
-            .into_iter()
-            .filter(|m| m.starts_with("option_select"))
-            .collect();
-        let [only] = option_findings.as_slice() else {
-            panic!("expected exactly one unanswered family, got {option_findings:?}");
-        };
-        assert!(only.contains("sf-deprecated-media"), "{only}");
-        assert!(only.contains("declares no arm"), "{only}");
-    }
-
-    /// The arms of one family are mutually exclusive, so a declaration naming
-    /// several of them describes a deployment that cannot exist.
-    #[test]
-    fn declaring_several_arms_of_one_family_is_a_review_finding() {
-        let mut governed = functional_case(
-            "SF-deprecated_types-supported",
-            &["SimplifiedFormats"],
-            &["OPTIONS"],
-        );
-        governed.option = Some(OptionTag::parse("sf-deprecated-types-supported").unwrap());
-        let st = statement(
-            &["SimplifiedFormats"],
-            &["OPTIONS"],
-            &[
-                "sf-deprecated-types-supported",
-                "sf-deprecated-types-unsupported",
-            ],
-        );
-        let report = compute(
-            &st,
-            &results(serde_json::json!([])),
-            &[governed],
-            &[],
-            &matrix(),
-            &register(),
-        );
-        assert!(
-            messages(&report)
-                .iter()
-                .any(|m| m.starts_with("option_select AMB-39") && m.contains("mutually exclusive")),
-            "{:?}",
-            report.review
-        );
-    }
-
     fn statement_with_performance(class: &str, environment_ref: &str) -> Statement {
-        let mut st = statement(&["EhrOperations"], &[], &[]);
+        let mut st = statement();
         st.performance = Some(crate::party::Performance {
             class: class.to_owned(),
             environment_ref: environment_ref.to_owned(),
@@ -1589,14 +215,7 @@ mod tests {
     /// earned in a described deployment.
     #[test]
     fn a_malformed_performance_claim_is_reviewed_on_both_of_its_parts() {
-        let report = compute(
-            &statement_with_performance("XL", "  "),
-            &results(serde_json::json!([])),
-            &[],
-            &[],
-            &matrix(),
-            &register(),
-        );
+        let report = compute(&statement_with_performance("XL", "  "), &results(), &[]);
         assert!(
             messages(&report).contains(&"performance claim: unknown performance class \"XL\""),
             "{:?}",
@@ -1615,14 +234,7 @@ mod tests {
     /// so the claim is reviewed rather than quietly unverdicted.
     #[test]
     fn a_claimed_class_with_no_measurement_is_a_review_finding() {
-        let report = compute(
-            &statement_with_performance("POC", "env-1"),
-            &results(serde_json::json!([])),
-            &[],
-            &[],
-            &matrix(),
-            &register(),
-        );
+        let report = compute(&statement_with_performance("POC", "env-1"), &results(), &[]);
         assert_eq!(
             messages(&report),
             ["performance class POC is claimed but the results carry no measurement for it"]
@@ -1669,7 +281,7 @@ mod tests {
     }
 
     fn results_with(measurement: crate::perf::Measurement) -> Results {
-        let mut rs = results(serde_json::json!([]));
+        let mut rs = results();
         rs.measurements = vec![measurement];
         rs
     }
@@ -1680,12 +292,9 @@ mod tests {
     #[test]
     fn a_measurement_without_its_catalogue_case_is_a_review_finding() {
         let report = compute(
-            &statement(&["EhrOperations"], &[], &[]),
+            &statement(),
             &results_with(measurement("earned", "ehr_create")),
             &[],
-            &[],
-            &matrix(),
-            &register(),
         );
         assert_eq!(
             messages(&report),
@@ -1703,12 +312,9 @@ mod tests {
     fn a_stored_verdict_that_does_not_re_derive_is_flagged() {
         let case = perf_case(&serde_json::json!({ "metric": "offered_load_sustained", "min": 2 }));
         let report = compute(
-            &statement(&["EhrOperations"], &[], &[]),
+            &statement(),
             &results_with(measurement("not-earned", "ehr_create")),
-            &[],
             std::slice::from_ref(&case),
-            &matrix(),
-            &register(),
         );
         assert!(
             messages(&report).iter().any(|m| m.contains(
@@ -1721,12 +327,9 @@ mod tests {
 
         // An agreeing record re-derives silently.
         let report = compute(
-            &statement(&["EhrOperations"], &[], &[]),
+            &statement(),
             &results_with(measurement("earned", "ehr_create")),
-            &[],
             std::slice::from_ref(&case),
-            &matrix(),
-            &register(),
         );
         assert!(report.review.is_empty(), "{:?}", report.review);
     }
@@ -1740,12 +343,9 @@ mod tests {
             &serde_json::json!({ "metric": "latency_p99", "operation": "aql_query", "max": 1000 }),
         );
         let report = compute(
-            &statement(&["EhrOperations"], &[], &[]),
+            &statement(),
             &results_with(measurement("earned", "ehr_create")),
-            &[],
             &[case],
-            &matrix(),
-            &register(),
         );
         assert_eq!(
             messages(&report),
@@ -1754,157 +354,5 @@ mod tests {
             ]
         );
         assert!(report.performance.is_empty());
-    }
-
-    /// A served manifest version outside semver is compared as text, so a
-    /// non-numeric advertisement still has to match the declaration rather
-    /// than being waved through as unparsable.
-    #[test]
-    fn a_non_semver_manifest_version_is_compared_literally() {
-        let st = statement(&["EhrOperations"], &[], &[]);
-        let mut same = results(serde_json::json!([]));
-        same.restapi_specs_version = Some("1.1.0-rc.candidate".to_owned());
-        let mut statement_same = st.clone();
-        statement_same.spec_versions.its_rest = Some("1.1.0-rc.candidate".to_owned());
-        let report = compute(&statement_same, &same, &[], &[], &matrix(), &register());
-        assert!(
-            messages(&report)
-                .iter()
-                .all(|m| !m.contains("restapi_specs_version")),
-            "{:?}",
-            report.review
-        );
-
-        let mut different = results(serde_json::json!([]));
-        different.restapi_specs_version = Some("release-candidate".to_owned());
-        let report = compute(&st, &different, &[], &[], &matrix(), &register());
-        assert!(
-            messages(&report)
-                .iter()
-                .any(|m| m.contains("restapi_specs_version")),
-            "{:?}",
-            report.review
-        );
-    }
-
-    fn one_case_report(status: &str, citation: Option<&str>) -> VerdictReport {
-        let case = functional_case(
-            "I_EHR_SERVICE.create_ehr-main",
-            &["EhrOperations"],
-            &["CORE"],
-        );
-        let mut record = serde_json::json!({
-            "case": "I_EHR_SERVICE.create_ehr-main", "format": "canonical-json",
-            "status": status, "rows_driven": 1, "rows_total": 1
-        });
-        if let (Some(citation), Some(map)) = (citation, record.as_object_mut()) {
-            map.insert("citation".to_owned(), serde_json::json!(citation));
-        }
-        compute(
-            &statement(&["EhrOperations"], &["CORE"], &[]),
-            &results(serde_json::json!([record])),
-            std::slice::from_ref(&case),
-            &[],
-            &matrix(),
-            &register(),
-        )
-    }
-
-    fn evidence_for(report: &VerdictReport, name: &str) -> Evidence {
-        let wanted = CapabilityName::parse(name).unwrap();
-        evidence_of(&report.capabilities, &wanted).unwrap()
-    }
-
-    fn tally_for(report: &VerdictReport, name: &str) -> CapabilityTally {
-        let wanted = CapabilityName::parse(name).unwrap();
-        report
-            .capability_tallies
-            .iter()
-            .find(|(n, _)| *n == wanted)
-            .map(|(_, t)| *t)
-            .unwrap()
-    }
-
-    /// An errored row is the runner's own inconclusive result, never a SUT
-    /// failure: the capability reads Inconclusive and the tally counts it
-    /// there, so a transport fault can never be published as a pass or a
-    /// fail.
-    #[test]
-    fn an_errored_row_makes_its_capability_inconclusive() {
-        let report = one_case_report("errored", None);
-        assert_eq!(
-            evidence_for(&report, "EhrOperations"),
-            Evidence::Inconclusive
-        );
-        assert_eq!(tally_for(&report, "EhrOperations").inconclusive, 1);
-        assert_eq!(report.coverage.inconclusive, 1);
-    }
-
-    /// A not-applicable row excused by a register citation is excused
-    /// EVIDENCE, not a pass: the capability stays unevidenced and the tally
-    /// counts it so.
-    #[test]
-    fn a_row_excused_by_the_register_evidences_nothing() {
-        let report = one_case_report("not_applicable", Some("AMB-32 — no released wire"));
-        assert_eq!(
-            evidence_for(&report, "EhrOperations"),
-            Evidence::NotEvidenced
-        );
-        assert_eq!(tally_for(&report, "EhrOperations").unevidenced, 1);
-    }
-
-    /// A not-applicable row with a non-register citation, and a skipped row,
-    /// both evidence nothing either — the excuse arms were deleted, so no
-    /// path turns an undriven row into a pass.
-    #[test]
-    fn a_not_applicable_or_skipped_row_evidences_nothing() {
-        for (status, citation) in [
-            ("not_applicable", "ITS-REST master05 §Directory — no route"),
-            ("skipped", "operator selection"),
-        ] {
-            let report = one_case_report(status, Some(citation));
-            assert_eq!(
-                evidence_for(&report, "EhrOperations"),
-                Evidence::NotEvidenced,
-                "{status}"
-            );
-            assert_eq!(
-                tally_for(&report, "EhrOperations").unevidenced,
-                1,
-                "{status}"
-            );
-        }
-    }
-
-    /// SEC-BASIC fails when its required Security capability carries no
-    /// passing evidence — a claimed security profile is never earned by
-    /// silence.
-    #[test]
-    fn sec_basic_fails_without_passing_security_evidence() {
-        let st = statement(&["AuthenticatedAccess"], &["SEC-BASIC"], &[]);
-        let report = compute(
-            &st,
-            &results(serde_json::json!([])),
-            &[],
-            &[],
-            &matrix(),
-            &register(),
-        );
-        assert_eq!(report.security, Some(SecBasicVerdict::Fail));
-    }
-
-    /// The Enterprise tiers carry no verdict rule, so they have no member set
-    /// — a count rendered beside them would describe a population no verdict
-    /// quantifies over.
-    #[test]
-    fn the_enterprise_tiers_have_no_member_set() {
-        let matrix = matrix();
-        for tier in [Tier::EnterpriseD, Tier::EnterpriseM, Tier::EnterpriseX] {
-            assert!(tier_members(tier, &matrix).is_empty(), "{tier:?}");
-        }
-        assert_eq!(
-            tier_members(Tier::SecBasic, &matrix),
-            vec![CapabilityName::parse("AuthenticatedAccess").unwrap()]
-        );
     }
 }

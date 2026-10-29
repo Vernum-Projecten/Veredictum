@@ -285,7 +285,7 @@ fn route(
             format!("ETag: W/\"{}\"\r\n", fresh_uid(uid_counter)),
             String::new(),
         ),
-        // The MESSAGE extension route (register AMB-34): a whole-EHR export
+        // The MESSAGE extension route: a whole-EHR export
         // reads a list.
         ("GET", p) if p.contains("/message/export/") => (
             "200 OK",

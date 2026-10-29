@@ -52,21 +52,15 @@ jobs:
     permissions:
       contents: read
     strategy:
-      # One failing target must not hide the other five.
+      # One failing target must not hide the other two.
       fail-fast: false
       matrix:
         include:
           # `max_len` bounds the inputs libFuzzer GENERATES, per target. A
-          # reference or an identifier is a short string off a YAML line; a
-          # citation is a sentence; an artifact is a whole document.
-          - target: reference_grammar
-            max_len: 256
+          # literal is a short string off a rows file; a party document is a
+          # whole document.
           - target: literal_grammar
             max_len: 4096
-          - target: citation
-            max_len: 4096
-          - target: artifact_yaml
-            max_len: 16384
           - target: party_document
             max_len: 16384
           # An encoded histogram is a header plus a compressed payload; the

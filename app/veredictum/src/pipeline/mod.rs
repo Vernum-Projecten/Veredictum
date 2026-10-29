@@ -3,14 +3,13 @@
 
 //! The instrument's end-to-end seams, as a consumable API.
 //!
-//! Each module here is one whole operation: loading and validating a
-//! catalogue ([`catalogue`]), driving it against a running system under test
-//! ([`conformance`]), judging the recorded outcomes ([`judgement`]),
-//! rendering the deterministic published assets ([`assets`]), running the
-//! measured instruments ([`measured`]), and driving the universal benchmark
-//! ([`mod@bench`]), driving the Arazzo catalogue or re-judging its recording
-//! ([`arazzo_run`]), and exporting an Arazzo results document to the views a
-//! vendor's CI shows ([`export`]). Every seam returns typed facts —
+//! Each module here is one whole operation: gating and listing the Arazzo
+//! catalogue ([`listing`]), driving it against a running system under test or
+//! re-judging its recording ([`arazzo_run`]), exporting its results document
+//! to the views a vendor's CI shows ([`export`]), judging a measured campaign
+//! ([`judgement`]), rendering the deterministic published assets
+//! ([`assets`]), running the measured instruments ([`measured`]), and driving
+//! the universal benchmark ([`mod@bench`]). Every seam returns typed facts —
 //! never pre-rendered console text — so a second consumer renders its own
 //! views over the same values the command line prints.
 //!
@@ -29,14 +28,10 @@
 pub mod arazzo_run;
 pub mod assets;
 pub mod bench;
-pub mod catalogue;
-pub mod conformance;
-pub mod evidence;
 pub mod export;
 pub mod judgement;
 pub mod listing;
 pub mod measured;
-pub mod replay;
 
 use std::path::{Path, PathBuf};
 
@@ -135,10 +130,6 @@ pub enum Error {
     /// prefix so the caller can print it unchanged.
     #[error("{0}")]
     Instrument(String),
-    /// The evidence export would have handed back a bundle with nothing in
-    /// it, which is the one thing that document may never be.
-    #[error("{0}")]
-    Evidence(#[from] crate::evidence::EvidenceError),
     /// A view of an Arazzo results document could not be written.
     #[error("{0}")]
     Export(#[from] crate::arazzo::export::ExportError),
@@ -178,24 +169,6 @@ fn join_prefixed<T: std::fmt::Display>(items: &[T], prefix: &str) -> String {
         .map(|item| format!("{prefix}{item}"))
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-/// Loads one artifact root, refusing a tree whose files did not all load.
-///
-/// The two failure directions are kept apart on purpose: a root that cannot
-/// be opened at all is a runner defect, while files that failed their own
-/// load stages are reported one diagnostic per file.
-///
-/// # Errors
-/// [`Error::Catalogue`] when the root itself cannot be opened, or
-/// [`Error::Artifacts`] when any file under it failed to load.
-pub fn load_clean_root(root: &Path) -> Result<crate::artifacts::Loaded, Error> {
-    let loaded = crate::artifacts::load_root(root).map_err(Error::Catalogue)?;
-    if loaded.errors.is_empty() {
-        Ok(loaded)
-    } else {
-        Err(Error::Artifacts(loaded.errors))
-    }
 }
 
 /// Loads one JSON party artifact, validating it against its emitted schema
@@ -387,36 +360,6 @@ mod tests {
         let error =
             load_ixit(&dir.path().join("absent.json")).expect_err("nothing was written there");
         assert!(matches!(error, Error::Read { .. }), "{error}");
-    }
-
-    /// A tree whose files failed their own load stages is reported one
-    /// diagnostic per FILE, and every diagnostic reaches the rendered error —
-    /// a summary naming only the first would hide the rest of the tree.
-    #[test]
-    fn a_defective_tree_renders_one_diagnostic_per_file() {
-        let dir = assert_fs::TempDir::new().expect("temp dir");
-        let root = dir.path().join("artifacts");
-        std::fs::create_dir_all(root.join("schedule/performance"))
-            .expect("the performance directory");
-        for name in ["PERF-one.yaml", "PERF-two.yaml"] {
-            std::fs::write(
-                root.join("schedule/performance").join(name),
-                "id: [broken\n",
-            )
-            .expect("staging a defective case");
-        }
-        let error = load_clean_root(&root).expect_err("neither case loads");
-        let Error::Artifacts(diagnostics) = &error else {
-            panic!("a per-file failure is Error::Artifacts, got {error}");
-        };
-        assert_eq!(diagnostics.len(), 2, "{diagnostics:?}");
-        let rendered = error.to_string();
-        for name in ["PERF-one.yaml", "PERF-two.yaml"] {
-            assert!(
-                rendered.contains(name),
-                "the rendered error hides {name}: {rendered}"
-            );
-        }
     }
 
     /// Every emitted document is pretty JSON with a trailing newline, which is

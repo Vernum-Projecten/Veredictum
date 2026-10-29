@@ -139,7 +139,8 @@ pub struct BearerMint {
 /// server does when that query cannot be answered at all. Both answers —
 /// accept the data, or refuse it — are consistent with every released
 /// sentence, so which one a deployment realizes is a DEPLOYMENT fact no
-/// released operation discloses (register AMB-172), exactly like the signing
+/// released operation discloses (the `terminology-binding-unresolvable` option
+/// in `capabilities.yaml`), exactly like the signing
 /// mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

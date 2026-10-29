@@ -9,7 +9,7 @@
 #
 # Claude Code PreToolUse hook (matcher: Write|Edit|NotebookEdit). NON-BLOCKING
 # reminder fired when a catalogue EXPECTATION artifact is edited
-# (artifacts/{schedule,bindings,vocab}/**). It injects the attribution law as
+# (catalogue/**). It injects the attribution law as
 # additionalContext so the agent self-checks — at the exact moment of the edit —
 # that it is correcting the catalogue toward the SPEC, not bending an
 # expectation to match observed server behaviour.
@@ -36,9 +36,7 @@ fi
 [[ -n "${path:-}" ]] || exit 0
 
 case "$path" in
-  */artifacts/schedule/* | artifacts/schedule/* | \
-  */artifacts/bindings/* | artifacts/bindings/* | \
-  */artifacts/vocab/*    | artifacts/vocab/*) ;;
+  */catalogue/* | catalogue/*) ;;
   *) exit 0 ;;
 esac
 

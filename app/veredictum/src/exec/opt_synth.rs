@@ -28,7 +28,7 @@
 //! validity axis the ITS-XML 1.0.2 wire serializes. The `millisecond_validity`
 //! columns and the `C_DURATION` seconds-versus-fractional distinction have no
 //! wire form at all, so a row whose expected rejection rests solely on those
-//! axes is gated per-row N/A upstream (AMB-42,
+//! axes is gated per-row N/A upstream (upstream report #719,
 //! [`crate::exec::content_synth::unrealizable_row`]).
 
 #![expect(
@@ -254,8 +254,8 @@ fn validity_kind_code(token: Option<&str>) -> Option<&'static str> {
 }
 
 /// `<timezone_validity>` element (the ONE validity the ITS-XML 1.0.2
-/// `Archetype.xsd` serializes on `C_TIME`/`C_DATE_TIME` — see AMB-42 for the
-/// unserializable millisecond axis).
+/// `Archetype.xsd` serializes on `C_TIME`/`C_DATE_TIME` — upstream report #719
+/// records the unserializable millisecond axis).
 fn timezone_validity_elem(token: Option<&str>) -> String {
     validity_kind_code(token)
         .map(|code| format!("<timezone_validity>{code}</timezone_validity>"))
@@ -1397,65 +1397,6 @@ mod tests {
             )
             .is_err()
         );
-    }
-
-    /// Every committed content row still synthesizes an OPT — the guard the
-    /// new list-member pre-flight needs, and the coverage hole it closes: no
-    /// gate exercised the synthesizer over the catalogue, so a synthesis
-    /// refusal only ever surfaced mid-run as an errored row.
-    #[test]
-    fn every_committed_content_row_synthesizes() {
-        let root =
-            std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join("artifacts");
-        let loaded = crate::artifacts::load_root(&root).expect("the committed artifact root");
-        assert!(
-            loaded.errors.is_empty(),
-            "artifact load: {:?}",
-            loaded.errors
-        );
-        let set = loaded.set;
-        let mut rows = 0_usize;
-        for (_, authored) in &set.cases {
-            if !matches!(authored.kind, crate::vocab::CaseKind::Content) {
-                continue;
-            }
-            // The driver synthesizes a per-row OPT only for a VARYING-
-            // constraint case; a constant-constraint one commits against its
-            // baked template (`driver::provision_synthesized_opt`).
-            if authored
-                .constraint_context
-                .as_ref()
-                .is_none_or(|c| c.constraint_columns.is_empty())
-            {
-                continue;
-            }
-            let case = crate::run::synthesize_content_case(authored);
-            let (Some(rm_class), Some(matrix)) = (
-                case.rm_class.as_deref(),
-                case.parameters.as_ref().and_then(|p| p.matrix.as_ref()),
-            ) else {
-                continue;
-            };
-            let case_id = case.id.to_string();
-            for (row, cells) in matrix.rows.iter().enumerate() {
-                if crate::exec::content_synth::unrealizable_row(rm_class, &matrix.columns, cells)
-                    .is_some()
-                {
-                    continue;
-                }
-                let template_id = crate::exec::recipes::synth_template_id(&case_id, row, cells);
-                let synthesized = crate::exec::content_synth::synthesize_opt(
-                    &case_id,
-                    rm_class,
-                    &template_id,
-                    &matrix.columns,
-                    cells,
-                );
-                assert!(synthesized.is_ok(), "{case_id} row {row}: {synthesized:?}");
-                rows += 1;
-            }
-        }
-        assert!(rows > 100, "the sweep must actually reach the rows: {rows}");
     }
 
     #[test]

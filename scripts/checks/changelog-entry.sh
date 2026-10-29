@@ -29,7 +29,7 @@
 #
 #   app/veredictum/src/   the runner and the CLI, including verdict semantics
 #   app/veredictum-console/src/   the web console the image serves
-#   artifacts/      the catalogue — a case, a binding or a register entry
+#   catalogue/      the catalogue — a workflow, a rows file or an option
 #                   changes what a run reports about somebody's server
 #   perf/           the performance schedule — a class case, a journey or a
 #                   payload changes what a measured run records
@@ -62,7 +62,7 @@ readonly SELF
 readonly USER_VISIBLE_PATHS=(
   'app/veredictum/src/'
   'app/veredictum-console/src/'
-  'artifacts/'
+  'catalogue/'
   'perf/'
   'schemas/'
   'docker/'

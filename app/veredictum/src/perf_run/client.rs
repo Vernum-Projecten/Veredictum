@@ -268,7 +268,7 @@ impl PerfClient {
 impl MintedGrant {
     /// Sign one token for this principal's standing grant.
     fn freshly_minted(&self) -> Result<Arc<MintedToken>, String> {
-        let token = crate::exec::driver::mint_access_token(
+        let token = crate::exec::auth::mint_access_token(
             &self.mint,
             self.subject.as_deref(),
             self.roles.as_deref(),
@@ -277,14 +277,14 @@ impl MintedGrant {
         let ttl_ms = i64::try_from(self.mint.ttl_seconds.saturating_mul(1_000)).unwrap_or(i64::MAX);
         Ok(Arc::new(MintedToken {
             header: format!("Bearer {token}"),
-            expires_at_ms: crate::exec::driver::now_ms().saturating_add(ttl_ms),
+            expires_at_ms: crate::exec::auth::now_ms().saturating_add(ttl_ms),
         }))
     }
 
     /// The token to present now, re-minting once when the standing one is
     /// within the refresh margin of its declared expiry.
     fn presentable(&self) -> Result<String, String> {
-        let now = crate::exec::driver::now_ms();
+        let now = crate::exec::auth::now_ms();
         {
             let current = self
                 .current

@@ -2,19 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #![recursion_limit = "256"]
-//! CNF 2.0 reference runner — the typed schedule-artifact model, validator,
-//! and JSON-Schema emission for the openEHR conformance framework.
+//! Veredictum, the conformance instrument for openEHR clinical data
+//! repositories: the Arazzo catalogue's model, gates and evaluator, the
+//! measured instruments, and JSON-Schema emission.
 //!
-//! The conformance oracle is the vendored openEHR CNF component
-//! (`specs/openehr/CNF/`); the artifact families this crate models are
-//! the machine-readable normative form of the Platform Conformance Test
-//! Schedule (case cores, operation bindings, vocabularies incl. the
-//! capability matrix, corpus manifest, ambiguity register). Every closed
-//! vocabulary is a Rust enum/newtype so illegal states are unrepresentable.
+//! The conformance oracle is the vendored released openEHR specification
+//! text (`specs/openehr/`). The catalogue is Arazzo 1.1.0 workflows over the
+//! released ITS-REST operations ([`arazzo`]), and every closed vocabulary is
+//! a Rust enum or newtype so illegal states are unrepresentable.
 //!
 //! [`pipeline`] is the entry point for driving the instrument: one seam per
-//! whole operation — validate a catalogue, run it against a system under
-//! test, judge the recorded outcomes, render the published assets, measure a
+//! whole operation — gate and list a catalogue, run it against a system under
+//! test, judge a measured record, render the published assets, measure a
 //! class — each returning typed facts rather than console text. The bundled
 //! `veredictum` binary is a command-line layer over exactly those seams, so
 //! a second consumer drives the same engine and renders its own views.
@@ -29,11 +28,7 @@
               carries inputs, payloads and extensions as JSON values"
 )]
 pub mod arazzo;
-pub mod artifacts;
-pub mod badges;
 pub mod bench;
-pub mod conf_assets;
-pub mod evidence;
 pub mod exec;
 pub mod identity;
 pub mod ids;
@@ -49,9 +44,6 @@ pub mod perf_schedule;
 pub mod pipeline;
 pub mod probe;
 pub mod record;
-pub mod refgrammar;
-pub mod render;
-pub mod run;
 pub mod schema;
 pub mod stress;
 pub mod transcript;

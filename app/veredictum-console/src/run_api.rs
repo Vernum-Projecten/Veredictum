@@ -922,7 +922,6 @@ pub mod read {
             },
             tech_profiles: Vec::new(),
             options: Vec::new(),
-            served_extensions: Vec::new(),
             performance: None,
             non_functional: std::collections::BTreeMap::new(),
             evidence: Vec::new(),

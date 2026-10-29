@@ -12,7 +12,7 @@
 #
 # One awk process scans the whole file list (#333): the original
 # awk-per-file loop died with SIGBUS on macOS part-way through
-# `artifacts/schedule/`, and a per-file `return $count` would overflow a
+# the case-core schedule tree, and a per-file `return $count` would overflow a
 # shell return code past 255 findings anyway. The tally is printed, never
 # returned.
 #

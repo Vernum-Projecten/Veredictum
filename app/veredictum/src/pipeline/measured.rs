@@ -562,6 +562,7 @@ fn merge_measurement(
     measurement: Measurement,
     observe: &(dyn Fn(MeasuredEvent<'_>) + Sync),
 ) -> Result<(), Error> {
+    // TODO(#800): no remaining command writes the measured record this merges into.
     let mut results: crate::party::Results =
         load_party_json(request.results, &results_schema(), "results.schema.json")?;
     results.measurements.retain(|m| m.case != measurement.case);

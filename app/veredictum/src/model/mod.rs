@@ -1,15 +1,9 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The typed artifact model — one module per artifact family.
+//! The typed values the Arazzo judges and recipes read out of a rows file,
+//! and the order-preserving map deserializers the measured schedule uses.
 
 pub mod assertion;
-pub mod binding;
-pub mod capability;
 pub mod case;
-pub mod corpus;
 pub(crate) mod de;
-pub mod register;
-pub mod value;
-pub mod vocab_files;
-pub mod wire_surface;

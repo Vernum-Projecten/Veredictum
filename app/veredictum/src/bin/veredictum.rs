@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The CNF 2.0 reference runner CLI.
+//! The Veredictum command line.
 //!
 //! Every instrument is a subcommand. `veredictum --help` lists them, and
 //! `veredictum <subcommand> --help` documents one; the book's command
@@ -36,30 +36,19 @@ use veredictum::arazzo::credential::{CredentialSource, Role};
 use veredictum::bench::client::AuthKind;
 use veredictum::party::version_line;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
-use veredictum::pipeline::assets::{
-    conformance_assets, performance_assets, schema_files, stress_overlay,
-};
+use veredictum::pipeline::assets::{performance_assets, schema_files, stress_overlay};
 use veredictum::pipeline::bench::{BenchRequest, compare_bench, describe_packs, run_bench};
-use veredictum::pipeline::catalogue::{
-    coverage_report_path, validate_tree_reviewing, write_coverage_report,
-};
-use veredictum::pipeline::conformance::{RunRequest, RunWarning, execute_run};
-use veredictum::pipeline::evidence::{EvidenceRequest, export_evidence};
 use veredictum::pipeline::export::export_results;
 use veredictum::pipeline::judgement::{JudgementRequest, judge};
 use veredictum::pipeline::measured::{
     MeasuredEvent, MeasuredRequest, ProbeRequest, StressRequest, SustainedWindow, run_aql_probe,
     run_measured, run_stress,
 };
-use veredictum::pipeline::replay::{
-    ReplayRequest, SelectionAgreement, divergences, replay_run, selection_agreement,
-};
 use veredictum::pipeline::{RenderedFile, ensure_parent_dir, to_json_document, write_file};
 use veredictum::record::{
     DigestOutcome, HONESTY_LINE, MANIFEST_FILE, RecordedFile, SIGNATURE_FILE, SignatureOutcome,
     seal, verify_bundle,
 };
-use veredictum::transcript::Recording;
 
 /// What `--version` prints after the name: the version and the instrument's
 /// approval status, `0.1.7 (pre-approval: not yet approved by the openEHR SEC)`
@@ -85,68 +74,6 @@ enum Command {
         #[arg(long)]
         out: PathBuf,
     },
-    /// Execute the catalogue against a live SUT (from its ixit topology)
-    /// and emit results.json + the run report.
-    Run {
-        /// The artifact root.
-        #[arg(long)]
-        root: PathBuf,
-        /// The ixit topology file (JSON).
-        #[arg(long)]
-        ixit: PathBuf,
-        /// Output directory for results.json + the run summary.
-        #[arg(long)]
-        out: PathBuf,
-        /// SUT display name, recorded only when the server does not state its
-        /// own `solution` through System OPTIONS.
-        ///
-        /// The run reads `OPTIONS <base>/` on the ixit's `sut` instance before
-        /// it drives anything. A value the server states wins over this flag,
-        /// and a differing flag is named in a notice. With neither, the run
-        /// refuses to start.
-        #[arg(long)]
-        sut_name: Option<String>,
-        /// SUT version label, recorded only when the server does not state its
-        /// own `solution_version` through System OPTIONS.
-        #[arg(long)]
-        sut_version: Option<String>,
-        /// Only run cases whose id contains this substring.
-        #[arg(long)]
-        filter: Option<String>,
-        /// The party statement (ICS) — the list ISO/IEC 9646 test selection
-        /// selects from. Supplied, an option-gated case whose arm the ICS does
-        /// not declare is recorded N/A at drive time; absent, NO arm of a
-        /// mutually exclusive branch is selected, so every such case and every
-        /// extension route is recorded N/A with its citation and the run says
-        /// so once.
-        #[arg(long)]
-        statement: Option<PathBuf>,
-        /// An armored OpenPGP secret key — when supplied, the emitted
-        /// documents are sealed with `record-manifest.json` and its detached
-        /// signature, which `verify-record` and `gpg --verify` both check.
-        #[arg(long)]
-        sign_key: Option<PathBuf>,
-        /// The passphrase unlocking `--sign-key`. Supply it through the
-        /// environment: a passphrase on the command line is visible to every
-        /// process on the host.
-        #[arg(long, env = "VEREDICTUM_SIGN_PASSPHRASE", hide_env_values = true)]
-        sign_passphrase: Option<String>,
-        /// Persist the wire exchanges beside results.json as transcript.json.
-        ///
-        /// OFF by default. The artifact can carry real patient data — a SUT's
-        /// response body is recorded verbatim — so it is operator-controlled
-        /// output, never a log: store it where the record itself is stored.
-        /// The `authorization` request header's value is withheld; everything
-        /// else lands exactly as it went out and came back.
-        #[arg(long)]
-        record_exchanges: bool,
-        /// Print one machine-parseable line per processed case:
-        /// `progress: <k>/<n> <case-id>` after `progress: 0/<n>` — a stable
-        /// grammar a driver may parse. Off by default, so existing output is
-        /// byte-identical without it.
-        #[arg(long)]
-        progress: bool,
-    },
     /// Drive the Arazzo catalogue against a server under test, or re-judge
     /// the recording of an earlier run, and write `results.json` and the HAR
     /// recording.
@@ -170,6 +97,7 @@ enum Command {
     /// when any other row failed or errored; `2` when the run could not start
     /// or finish: a usage error, a gate finding, an unreadable file, a missing
     /// credential, or a recording that does not replay.
+    #[command(visible_alias = "run")]
     Test {
         /// The catalogue root, holding `capabilities.yaml` and `cases/`. Its
         /// parent holds the vendored `specs/` tree its citations and OAS
@@ -255,25 +183,19 @@ enum Command {
         #[arg(long, default_value = "none")]
         auth: String,
     },
-    /// Validate one artifact tree through every machine gate.
+    /// Validate the Arazzo catalogue through every gate, and review one
+    /// supplied statement against it.
     Validate {
-        /// The artifact root (schedule/, bindings/, vocab/, corpus/, registers/).
+        /// The catalogue root, holding `capabilities.yaml` and `cases/`.
         #[arg(long)]
         root: PathBuf,
-        /// The vendored openEHR spec tree; enables SM-operation and spec-ref
-        /// resolution.
+        /// The vendored openEHR spec tree; enables citation resolution and
+        /// the surface gate.
         #[arg(long)]
         specs: Option<PathBuf>,
-        /// Also refresh `<ROOT>/coverage-report.md` from `--specs`.
-        ///
-        /// OFF by default: `validate` is a check verb, and a check that
-        /// mutates the working tree is a trap for read-only and fenced
-        /// invocations. The pipeline scripts that publish the report pass
-        /// this explicitly.
-        #[arg(long)]
-        write_report: bool,
         /// A submitted declaration (`statement.json`) to hold to the static
-        /// conformance review, with the `ixit.json` beside it.
+        /// review: its published schema, the capability folders it claims and
+        /// the option arms it selects.
         ///
         /// ISO/IEC 9646-7 assigns an ICS proforma's support and
         /// supported-values columns to the supplier of the implementation, so
@@ -293,8 +215,8 @@ enum Command {
         /// mandatory for a measured run.
         #[arg(long)]
         ixit: PathBuf,
-        /// The results.json to merge the measurement records into (written
-        /// by a prior `run`).
+        /// The measured results record (`results.schema.json`) to merge the
+        /// measurement records into.
         #[arg(long)]
         results: PathBuf,
         /// Select the performance case(s) of this class (POC | S | L | R).
@@ -494,29 +416,9 @@ enum Command {
         #[arg(long)]
         stress: Option<PathBuf>,
     },
-    /// Render the conformance visuals (the capability heat grid + the
-    /// per-chapter outcome bars) deterministically FROM the committed party
-    /// artifacts — the perf-assets pattern for functional conformance.
-    ConformanceAssets {
-        /// The artifact root (for the capability matrix).
-        #[arg(long)]
-        root: PathBuf,
-        /// The committed results.json.
-        #[arg(long)]
-        results: PathBuf,
-        /// The committed verdicts.json.
-        #[arg(long)]
-        verdicts: PathBuf,
-        /// Output directory for the SVG files.
-        #[arg(long)]
-        out: PathBuf,
-        /// A suffix appended to the SVG file stems (`-ehrbase` for the
-        /// comparison SUT's copies).
-        #[arg(long, default_value = "")]
-        suffix: String,
-    },
-    /// Compute the verdicts from a statement + results against an artifact
-    /// tree (the pure pipeline) and write the rendered submission documents.
+    /// Re-derive the measured performance-class verdicts from a statement and
+    /// a results record against the performance schedule (the pure
+    /// pipeline), and write them as `verdicts.json`.
     Verdicts {
         /// The party statement (`statement.json`).
         #[arg(long)]
@@ -524,15 +426,16 @@ enum Command {
         /// The party results (`results.json`).
         #[arg(long)]
         results: PathBuf,
-        /// The artifact root (schedule/, vocab/, registers/).
+        /// The performance schedule root, `perf/` in this repository
+        /// (classes/, journeys.yaml, payloads.yaml, payloads/).
         #[arg(long)]
         root: PathBuf,
-        /// Output directory for the rendered documents + verdicts.json.
+        /// Output directory for verdicts.json.
         #[arg(long)]
         out: PathBuf,
-        /// An armored OpenPGP secret key — when supplied, the rendered
-        /// documents are sealed with `record-manifest.json` and its detached
-        /// signature, which `verify-record` and `gpg --verify` both check.
+        /// An armored OpenPGP secret key — when supplied, verdicts.json is
+        /// sealed with `record-manifest.json` and its detached signature,
+        /// which `verify-record` and `gpg --verify` both check.
         #[arg(long)]
         sign_key: Option<PathBuf>,
         /// The passphrase unlocking `--sign-key`. Supply it through the
@@ -540,68 +443,6 @@ enum Command {
         /// process on the host.
         #[arg(long, env = "VEREDICTUM_SIGN_PASSPHRASE", hide_env_values = true)]
         sign_passphrase: Option<String>,
-    },
-    /// Re-judge a recorded run from its transcript, answering every composed
-    /// request out of the recording instead of a server, and optionally
-    /// refuse a results document the recorded exchanges do not support.
-    Replay {
-        /// The artifact root (schedule/, bindings/, corpus/, vocab/).
-        #[arg(long)]
-        root: PathBuf,
-        /// The ixit topology the recorded run was driven under.
-        #[arg(long)]
-        ixit: PathBuf,
-        /// The transcript of that run (`transcript.json`).
-        #[arg(long)]
-        transcript: PathBuf,
-        /// The party statement ISO/IEC 9646 test selection re-applies: it
-        /// decides which option arm, extension route, claimed capability and
-        /// release floor the re-judgement selects. Omitting it re-derives a
-        /// whole-catalogue sweep stamped `selection_basis: statement_blind`,
-        /// which `--against` refuses to hold against a record an ICS
-        /// selected.
-        #[arg(long)]
-        statement: Option<PathBuf>,
-        /// Re-judge only cases whose id contains this substring.
-        #[arg(long)]
-        filter: Option<String>,
-        /// Where the re-judged `results.json` is written.
-        #[arg(long)]
-        out: Option<PathBuf>,
-        /// The submitted `results.json` the re-judgement is held against:
-        /// any row whose status or row counts differ fails the command.
-        #[arg(long)]
-        against: Option<PathBuf>,
-        /// Print `progress: <k>/<n> <case>` lines while re-judging.
-        #[arg(long)]
-        progress: bool,
-    },
-    /// Export a finished run's recorded exchanges for a named set of cases:
-    /// the triage input, carved out of the run's own transcript. No statement
-    /// is read, and a bundle that would carry nothing is refused.
-    #[command(group(clap::ArgGroup::new("selection").required(true).multiple(true)))]
-    Evidence {
-        /// The run's `transcript.json` (written by `run --record-exchanges`).
-        #[arg(long)]
-        transcript: PathBuf,
-        /// The run's `results.json`. Required by `--failing`, and otherwise
-        /// optional: supplying it puts each exported case's outcome row
-        /// beside its exchanges.
-        #[arg(long)]
-        results: Option<PathBuf>,
-        /// Export the red rows the results record names — every `failed` and
-        /// every `errored` case. The one-command triage input.
-        #[arg(long, requires = "results", group = "selection")]
-        failing: bool,
-        /// Export this case, by id. Repeat the flag once per case.
-        #[arg(long = "only", group = "selection")]
-        only: Vec<String>,
-        /// Export cases whose id contains this substring.
-        #[arg(long, group = "selection")]
-        filter: Option<String>,
-        /// Where the bundle is written.
-        #[arg(long)]
-        out: PathBuf,
     },
     /// Write the views of an Arazzo results document a vendor's CI shows:
     /// JUnit XML, CTRF 0.2.0 JSON and a Markdown summary, each a
@@ -691,35 +532,6 @@ fn emit_one(path: &Path, body: &str) -> Result<(), ExitCode> {
 fn main() -> ExitCode {
     match Cli::parse().command {
         Command::EmitSchemas { out } => emit_schemas_command(&out),
-        Command::Run {
-            root,
-            ixit,
-            out,
-            sut_name,
-            sut_version,
-            filter,
-            statement,
-            sign_key,
-            sign_passphrase,
-            record_exchanges,
-            progress,
-        } => run_command(
-            &RunRequest {
-                root: &root,
-                ixit: &ixit,
-                out_dir: &out,
-                sut_name: sut_name.as_deref(),
-                sut_version: sut_version.as_deref(),
-                filter: filter.as_deref(),
-                statement: statement.as_deref(),
-                recording: Recording::from(record_exchanges),
-            },
-            &Signing {
-                key: sign_key,
-                passphrase: sign_passphrase,
-            },
-            progress,
-        ),
         Command::Test {
             root,
             base_url,
@@ -749,48 +561,8 @@ fn main() -> ExitCode {
         Command::Validate {
             root,
             specs,
-            write_report,
             statement,
-        } => validate_command(&root, specs.as_deref(), write_report, statement.as_deref()),
-        Command::Replay {
-            root,
-            ixit,
-            transcript,
-            statement,
-            filter,
-            out,
-            against,
-            progress,
-        } => replay_command(
-            &ReplayRequest {
-                root: &root,
-                ixit: &ixit,
-                transcript: &transcript,
-                statement: statement.as_deref(),
-                filter: filter.as_deref(),
-                only: None,
-            },
-            out.as_deref(),
-            against.as_deref(),
-            progress,
-        ),
-        Command::Evidence {
-            transcript,
-            results,
-            failing,
-            only,
-            filter,
-            out,
-        } => evidence_command(
-            &EvidenceRequest {
-                transcript: &transcript,
-                results: results.as_deref(),
-                only: &only,
-                filter: filter.as_deref(),
-                failing,
-            },
-            &out,
-        ),
+        } => validate_command(&root, specs.as_deref(), statement.as_deref()),
         Command::Export {
             results,
             junit,
@@ -895,13 +667,6 @@ fn main() -> ExitCode {
             summary,
             stress,
         } => perf_assets_command(&root, &results, &out, summary.as_deref(), stress.as_deref()),
-        Command::ConformanceAssets {
-            root,
-            results,
-            verdicts,
-            out,
-            suffix,
-        } => conformance_assets_command(&root, &results, &verdicts, &out, &suffix),
         Command::Verdicts {
             statement,
             results,
@@ -932,38 +697,15 @@ fn emit_schemas_command(out: &Path) -> ExitCode {
     }
 }
 
-fn validate_command(
-    root: &Path,
-    specs: Option<&Path>,
-    write_report: bool,
-    declaration: Option<&Path>,
-) -> ExitCode {
-    let validation = match validate_tree_reviewing(root, specs, declaration) {
+fn validate_command(root: &Path, specs: Option<&Path>, declaration: Option<&Path>) -> ExitCode {
+    let validation = match veredictum::validate::validate(root, specs, declaration) {
         Ok(validation) => validation,
         Err(e) => return fail(&e),
     };
     for finding in &validation.findings {
         println!("{finding}");
     }
-    if write_report && let Some(specs) = specs {
-        let path = coverage_report_path(root);
-        match write_coverage_report(&validation.loaded.set, specs, &path) {
-            Ok(()) => println!("wrote {}", path.display()),
-            Err(e) => eprintln!("warning: {e}"),
-        }
-    }
-    println!(
-        "{} case(s), {} binding(s), {} capability row(s), {} finding(s)",
-        validation.loaded.set.cases.len(),
-        validation.loaded.set.bindings.len(),
-        validation
-            .loaded
-            .set
-            .matrix
-            .as_ref()
-            .map_or(0, |(_, matrix)| matrix.entries().len()),
-        validation.findings.len()
-    );
+    println!("{}", validation.summary());
     if validation.is_clean() {
         ExitCode::SUCCESS
     } else {
@@ -996,15 +738,6 @@ fn seal_emitted(out: &Path, files: &[RecordedFile<'_>], signing: &Signing) -> Re
             },
         ],
     )
-}
-
-/// The bundle-relative name a pipeline-produced path carries.
-fn record_name(path: &Path) -> Result<&str, ExitCode> {
-    let Some(name) = path.file_name().and_then(std::ffi::OsStr::to_str) else {
-        eprintln!("cannot name {} in the record manifest", path.display());
-        return Err(ExitCode::from(2));
-    };
-    Ok(name)
 }
 
 fn verify_record_command(record: &Path, key: &Path) -> ExitCode {
@@ -1073,33 +806,14 @@ fn verdicts_command(request: &JudgementRequest<'_>, out: &Path, signing: &Signin
         println!("static-review: {}", finding.message);
     }
     println!(
-        "{} capability verdict(s), {} of {} cases driven, {} review finding(s)",
-        judgement.report.capabilities.len(),
-        judgement.report.coverage.driven,
-        judgement.report.coverage.selected,
+        "{} performance verdict(s), {} review finding(s)",
+        judgement.report.performance.len(),
         judgement.report.review.len(),
     );
     if judgement.is_clean() {
         ExitCode::SUCCESS
     } else {
         ExitCode::from(1)
-    }
-}
-
-fn conformance_assets_command(
-    root: &Path,
-    results: &Path,
-    verdicts: &Path,
-    out: &Path,
-    suffix: &str,
-) -> ExitCode {
-    let files = match conformance_assets(root, results, verdicts, suffix) {
-        Ok(files) => files,
-        Err(e) => return fail(&e),
-    };
-    match emit(out, &files) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(code) => code,
     }
 }
 
@@ -1475,112 +1189,6 @@ fn perf_command(
     }
 }
 
-/// Says where the transcript landed, with the caution its content earns.
-fn report_transcript(outcome: &veredictum::pipeline::conformance::RunOutcome) {
-    let Some(path) = &outcome.transcript_path else {
-        return;
-    };
-    let exchanges: usize = outcome
-        .report
-        .transcripts
-        .iter()
-        .map(|case| case.exchanges.len())
-        .sum();
-    println!(
-        "wrote {} ({exchanges} recorded exchange(s)) — it can carry real patient data; store it as you store the record",
-        path.display()
-    );
-}
-
-/// Builds and writes every document a run emits, paired with the name each
-/// one carries in the record manifest.
-///
-/// The transcript is written before the manifest is built, so a sealed bundle
-/// covers every document the run emitted.
-///
-/// # Errors
-///
-/// Returns the process exit code the failure earns: a rendering failure or an
-/// unwritable path fails through [`fail`], and a path with no file name is a
-/// usage error.
-fn emit_documents(
-    outcome: &veredictum::pipeline::conformance::RunOutcome,
-) -> Result<Vec<(&str, String)>, ExitCode> {
-    let document = match outcome.results_document() {
-        Ok(document) => document,
-        Err(e) => return Err(fail(&e)),
-    };
-    if let Err(e) = write_file(&outcome.results_path, &document) {
-        return Err(fail(&e));
-    }
-    let exceptions = match outcome.exceptions_document() {
-        Ok(document) => document,
-        Err(e) => return Err(fail(&e)),
-    };
-    if let Err(e) = write_file(&outcome.exceptions_path, &exceptions) {
-        return Err(fail(&e));
-    }
-    let transcript = match outcome.transcript_document() {
-        Ok(transcript) => transcript,
-        Err(e) => return Err(fail(&e)),
-    };
-    if let (Some(body), Some(path)) = (transcript.as_ref(), outcome.transcript_path.as_ref())
-        && let Err(e) = write_file(path, body)
-    {
-        return Err(fail(&e));
-    }
-    let names = match (
-        record_name(&outcome.results_path),
-        record_name(&outcome.exceptions_path),
-    ) {
-        (Ok(results), Ok(exceptions)) => [results, exceptions],
-        (Err(code), _) | (_, Err(code)) => return Err(code),
-    };
-    let [results_name, exceptions_name] = names;
-    let mut emitted = vec![(results_name, document), (exceptions_name, exceptions)];
-    if let (Some(body), Some(path)) = (transcript, outcome.transcript_path.as_ref()) {
-        emitted.push((record_name(path)?, body));
-    }
-    Ok(emitted)
-}
-
-/// Exports a finished run's recorded exchanges for the selected cases.
-///
-/// The exit code carries the answer: `0` when a bundle was written, `2` when
-/// the export was refused — an unreadable document, a selector the run cannot
-/// satisfy, or a bundle that would have carried nothing.
-fn evidence_command(request: &EvidenceRequest<'_>, out: &Path) -> ExitCode {
-    let bundle = match export_evidence(request) {
-        Ok(bundle) => bundle,
-        Err(e) => return fail(&e),
-    };
-    let document = match to_json_document(&bundle, "evidence bundle") {
-        Ok(document) => document,
-        Err(e) => return fail(&e),
-    };
-    if let Err(code) = emit_one(out, &document) {
-        return code;
-    }
-    println!(
-        "wrote {}: {} case(s), {} exchange(s) against {} {}",
-        out.display(),
-        bundle.cases.len(),
-        bundle.exchange_count(),
-        bundle.sut.name.value,
-        bundle.sut.version.value
-    );
-    // A half-matched selection is stated on the console as well as in the
-    // document, so it is seen without opening the file.
-    if !bundle.without_exchanges.is_empty() {
-        eprintln!(
-            "{} selected case(s) carry no recorded exchange: {}",
-            bundle.without_exchanges.len(),
-            bundle.without_exchanges.join(", ")
-        );
-    }
-    ExitCode::SUCCESS
-}
-
 /// Where `export` writes each view; a view with no target is not written.
 struct ExportTargets<'a> {
     /// The JUnit XML file.
@@ -1634,199 +1242,4 @@ fn export_command(results: &Path, targets: &ExportTargets<'_>) -> ExitCode {
         print!("{}", views.markdown);
     }
     ExitCode::SUCCESS
-}
-
-/// Reads a committed results document.
-fn read_results(path: &Path) -> Result<veredictum::party::Results, String> {
-    let text = std::fs::read_to_string(path)
-        .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
-    serde_json::from_str(&text)
-        .map_err(|e| format!("{} does not parse as results.json: {e}", path.display()))
-}
-
-/// Re-judges a recorded run and, when held against a submitted record,
-/// refuses any row the recorded exchanges do not support.
-///
-/// The exit code carries the answer: `0` when the re-judgement agrees (or
-/// when nothing was held against it), `1` when a row diverges, `2` when the
-/// replay could not run at all or was selected under a claim the record it is
-/// held against was not written under.
-fn replay_command(
-    request: &ReplayRequest<'_>,
-    out: Option<&Path>,
-    against: Option<&Path>,
-    progress: bool,
-) -> ExitCode {
-    let mut report_progress = |event: veredictum::run::Progress<'_>| {
-        if progress {
-            use std::io::Write as _;
-            println!("{}", event.render_line());
-            let _flush = std::io::stdout().flush();
-        }
-    };
-    // The record decides which cases are re-judged, when there is one: a
-    // re-derivation answers whether the rows a record claims follow from the
-    // exchanges it carries, and a case the run never selected has neither a
-    // row nor a recording.
-    let submitted = match against.map(read_results) {
-        None => None,
-        Some(Ok(results)) => Some(results),
-        Some(Err(reason)) => {
-            eprintln!("{reason}");
-            return ExitCode::from(2);
-        }
-    };
-    let only: Option<Vec<String>> = submitted.as_ref().map(|results| {
-        let mut ids: Vec<String> = results
-            .outcomes
-            .iter()
-            .map(|outcome| outcome.case.to_string())
-            .collect();
-        ids.sort_unstable();
-        ids.dedup();
-        ids
-    });
-    let request = ReplayRequest {
-        only: only.as_deref(),
-        ..*request
-    };
-    let outcome = match replay_run(&request, &report_warning, &mut report_progress) {
-        Ok(outcome) => outcome,
-        Err(e) => return fail(&e),
-    };
-    let document = match serde_json::to_string_pretty(&outcome.results) {
-        Ok(text) => format!(
-            "{text}
-"
-        ),
-        Err(e) => {
-            eprintln!("cannot serialize the re-judged results: {e}");
-            return ExitCode::from(2);
-        }
-    };
-    if let Some(path) = out {
-        if let Some(parent) = path.parent()
-            && let Err(e) = std::fs::create_dir_all(parent)
-        {
-            eprintln!("cannot create {}: {e}", parent.display());
-            return ExitCode::from(2);
-        }
-        if let Err(e) = std::fs::write(path, &document) {
-            eprintln!("cannot write {}: {e}", path.display());
-            return ExitCode::from(2);
-        }
-    }
-    println!(
-        "re-judged {} case-record(s) from the recording: {} passed / {} failed / {} errored / {} n-a",
-        outcome.results.outcomes.len(),
-        outcome.counts.passed,
-        outcome.counts.failed,
-        outcome.counts.errored,
-        outcome.counts.not_applicable
-    );
-    let (Some(submitted_path), Some(submitted)) = (against, submitted) else {
-        return ExitCode::SUCCESS;
-    };
-    let agreement = selection_agreement(&submitted, &outcome.results);
-    if agreement.refuses() {
-        eprintln!(
-            "{} was not re-derived: {agreement}",
-            submitted_path.display()
-        );
-        eprintln!(
-            "pass the statement that record was selected against with --statement, or omit it to re-derive a blind sweep"
-        );
-        return ExitCode::from(2);
-    }
-    if agreement != SelectionAgreement::Same {
-        eprintln!("warning: {agreement}");
-    }
-    let found = divergences(&submitted, &outcome.results);
-    if found.is_empty() {
-        println!(
-            "every row of {} follows from the recorded exchanges",
-            submitted_path.display()
-        );
-        return ExitCode::SUCCESS;
-    }
-    eprintln!(
-        "{} row(s) of {} do not follow from the recorded exchanges:",
-        found.len(),
-        submitted_path.display()
-    );
-    for divergence in &found {
-        eprintln!("  {divergence}");
-    }
-    ExitCode::from(1)
-}
-
-/// Prints one run-level advisory, in the words the library renders it in.
-///
-/// Every command with a warn channel prints through here, so `run` and
-/// `replay` announce the same campaign with the same sentence rather than two
-/// that mean the same thing.
-fn report_warning(warning: RunWarning<'_>) {
-    for line in warning.lines() {
-        eprintln!("warning: {line}");
-    }
-}
-
-fn run_command(request: &RunRequest<'_>, signing: &Signing, progress: bool) -> ExitCode {
-    // The progress stream is line-flushed on purpose: a driver reads this
-    // through a pipe, where stdout is block-buffered and an unflushed line
-    // arrives only in bursts.
-    let mut report_progress = |event: veredictum::run::Progress<'_>| {
-        if progress {
-            use std::io::Write as _;
-            println!("{}", event.render_line());
-            let _flush = std::io::stdout().flush();
-        }
-    };
-    let outcome = match execute_run(request, &report_warning, &mut report_progress) {
-        Ok(outcome) => outcome,
-        Err(e) => return fail(&e),
-    };
-    if let Err(e) = std::fs::create_dir_all(request.out_dir) {
-        eprintln!("cannot create {}: {e}", request.out_dir.display());
-        return ExitCode::from(2);
-    }
-    let emitted = match emit_documents(&outcome) {
-        Ok(emitted) => emitted,
-        Err(code) => return code,
-    };
-    let sealed: Vec<RecordedFile<'_>> = emitted
-        .iter()
-        .map(|(name, body)| RecordedFile {
-            name,
-            body: body.as_bytes(),
-        })
-        .collect();
-    if let Err(code) = seal_emitted(request.out_dir, &sealed, signing) {
-        return code;
-    }
-    println!(
-        "{} case-records: {} passed / {} failed / {} errored / {} n-a; interpreter coverage {:.1}% ({} exceptions); wrote {}",
-        outcome.report.records.len(),
-        outcome.counts.passed,
-        outcome.counts.failed,
-        outcome.counts.errored,
-        outcome.counts.not_applicable,
-        outcome.report.interpreter_coverage() * 100.0,
-        outcome.report.exceptions.len(),
-        outcome.results_path.display()
-    );
-    // Non-gating observations: a SHOULD the SUT did not follow while meeting
-    // every MUST the row gates on. They change no verdict, so they stay out of
-    // `results.json` and are reported here instead of being swallowed.
-    for record in &outcome.report.records {
-        for advisory in &record.advisories {
-            println!("observed: {} {advisory}", record.case);
-        }
-    }
-    report_transcript(&outcome);
-    if outcome.is_clean() {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::from(1)
-    }
 }

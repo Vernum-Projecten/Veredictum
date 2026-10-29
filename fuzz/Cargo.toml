@@ -35,29 +35,8 @@ debug-assertions = true
 overflow-checks = true
 
 [[bin]]
-name = "reference_grammar"
-path = "fuzz_targets/reference_grammar.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
 name = "literal_grammar"
 path = "fuzz_targets/literal_grammar.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "citation"
-path = "fuzz_targets/citation.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "artifact_yaml"
-path = "fuzz_targets/artifact_yaml.rs"
 test = false
 doc = false
 bench = false

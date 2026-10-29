@@ -61,9 +61,6 @@ struct MapEntry {
 #[serde(deny_unknown_fields)]
 struct IdMap {
     cases: std::collections::BTreeMap<String, MapEntry>,
-    /// The old ids of a component whose own family is not converted yet.
-    #[serde(default)]
-    pending: std::collections::BTreeSet<String>,
     /// The cases of a query collection maintained elsewhere, by its name.
     #[serde(default)]
     corpora: std::collections::BTreeMap<String, Corpus>,
@@ -78,31 +75,12 @@ struct Corpus {
     cases: std::collections::BTreeMap<String, MapEntry>,
 }
 
-/// The `id` of every case core under `dir`, read from the case file itself.
-fn case_ids(dir: &Path, out: &mut Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
-    for entry in std::fs::read_dir(dir)? {
-        let path = entry?.path();
-        if path.is_dir() {
-            case_ids(&path, out)?;
-        } else if path.extension().is_some_and(|e| e == "yaml") {
-            let core = veredictum::load::yaml_file_to_value(&path)?;
-            let id = core
-                .get("id")
-                .and_then(serde_json::Value::as_str)
-                .ok_or_else(|| format!("{} carries no case id", path.display()))?;
-            out.push(id.to_owned());
-        }
-    }
-    Ok(())
-}
-
 #[test]
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book ch11 test shape: plumbing propagates with `?`, and the assertions are how the test fails"
 )]
-fn the_id_map_resolves_on_both_sides_and_covers_every_old_case()
--> Result<(), Box<dyn std::error::Error>> {
+fn every_new_id_of_the_id_map_names_a_workflow() -> Result<(), Box<dyn std::error::Error>> {
     let root = repo_root();
     let map: IdMap = serde_json::from_value(veredictum::load::yaml_file_to_value(
         &root.join("catalogue/id-map.yaml"),
@@ -122,27 +100,8 @@ fn the_id_map_resolves_on_both_sides_and_covers_every_old_case()
             workflows.insert(format!("{name}/{}", workflow.workflow_id));
         }
     }
-    let mut old = Vec::new();
-    case_ids(&root.join("artifacts/schedule"), &mut old)?;
-    assert!(!old.is_empty(), "no case core under artifacts/schedule");
-    for id in &old {
-        assert!(
-            map.cases.contains_key(id)
-                || map.pending.contains(id)
-                || map.corpora.values().any(|c| c.cases.contains_key(id)),
-            "{id} is missing from the id map"
-        );
-    }
-    // TODO(#604): the cut-over refuses any id still listed under `pending`.
-    for id in &map.pending {
-        assert!(old.contains(id), "pending {id} names no case core");
-        assert!(
-            !map.cases.contains_key(id),
-            "{id} is both mapped and pending"
-        );
-    }
+    assert!(!map.cases.is_empty(), "the id map carries the old case ids");
     for (id, entry) in &map.cases {
-        assert!(old.contains(id), "{id} names no case core");
         assert!(
             !entry.new.is_empty() || entry.open.is_some(),
             "{id}: an entry carries new ids or says why it has none"

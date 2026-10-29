@@ -87,7 +87,7 @@ fn axis_refusal(column: &str, detail: &str) -> SynthError {
     ))
 }
 
-/// AMB-42 realizability gate.
+/// The OPT 1.4 realizability gate.
 ///
 /// A rejected-expected row whose every violated constraint axis is
 /// unserializable on the OPT 1.4 wire cannot be driven, because its ground OPT
@@ -97,8 +97,8 @@ fn axis_refusal(column: &str, detail: &str) -> SynthError {
 /// `seconds_allowed` versus `fractional_seconds_allowed` distinction collapses
 /// into the single pattern `S` slot. AOM-1.4 defines the fields (`c_time.adoc`,
 /// `c_duration.adoc`) and CNF master17.4 tests them; the serialization gap is
-/// the register entry's subject. Returns the excusing citation, or `None` when
-/// the row is realizable.
+/// upstream report #719. Returns the excusing citation, or `None` when the row
+/// is realizable.
 #[must_use]
 pub fn unrealizable_row(
     rm_class: &str,
@@ -164,7 +164,7 @@ pub fn unrealizable_row(
         .all(inexpressible)
         && violations.iter().all(serde_json::Value::is_string);
     all_inexpressible.then(|| {
-        "AMB-42: the violated constraint axes (millisecond_validity / the C_DURATION \
+        "upstream report #719: the violated constraint axes (millisecond_validity / the C_DURATION \
          seconds-vs-fractional distinction) are unserializable in the ITS-XML 1.0.2 \
          OPT wire (Archetype.xsd C_TIME/C_DATE_TIME/C_DURATION) — the row's ground \
          OPT cannot exist on this technology profile"

@@ -1,12 +1,11 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Integration tests for `veredictum`, the CNF 2.0 conformance runner: the
-//! committed catalogue's artifact gates and schema-drift guards, the
-//! claim/coverage completeness gates, the vendored corpus packs, defect-fixture
-//! rejection, the measured-performance driver, the universal-benchmark engine,
-//! the published pack manifest, the self-verification pack, and the
-//! wire-speaking modules against the `fake_sut` harness.
+//! Integration tests for `veredictum`: the Arazzo catalogue's gates, its CLI,
+//! its evaluator and verification pack, the results export, the schema-drift
+//! guards, the measured-performance driver, the universal-benchmark engine and
+//! its published pack manifest, and the wire-speaking modules against
+//! in-process fixture servers.
 //!
 //! One binary per crate, split into topic modules: Cargo compiles and links
 //! every top-level `tests/*.rs` as its own crate
@@ -25,33 +24,17 @@ mod arazzo_cli;
 mod arazzo_derive;
 mod arazzo_exclusive;
 mod arazzo_pack;
-mod artifact_gates;
 mod bench_engine;
 mod bench_manifest;
 mod bench_posture;
-mod claim_completeness;
-mod corpus_packs;
 mod defect_rejection;
-mod driver_wire;
 mod env_coupled;
-mod equivalent_documents;
 mod fake_sut;
-mod folder_provisioning;
 mod gpg_interop;
 mod identity_wire;
 mod measured_wire;
 mod perf_driver;
-mod perf_schedule;
 mod perf_seeding;
 mod pipeline_seams;
-mod postconditions;
-mod provisioning_wire;
-mod rederivation;
 mod results_export;
-mod run_execution;
-mod run_transcript;
 mod schema_drift;
-mod signature_asserts;
-mod unparsed_bodies;
-mod verification_pack;
-mod version_asserts;

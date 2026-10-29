@@ -59,21 +59,12 @@ precedence = "override"
 SPDX-FileCopyrightText = "openEHR Foundation"
 SPDX-License-Identifier = "Apache-2.0"
 
-# ── The clinical-model corpora ──────────────────────────────────────────────
-# CKM-derived archetypes and operational templates, plus the upstream ADL 2
-# reference pack. Both CC-BY-SA versions occur across these trees, so `AND` is
-# the only true statement about the tree as a whole; each archetype's own
-# `licence` metadata remains the authority for that individual file.
-[[annotations]]
-path = "artifacts/corpus/**"
-precedence = "override"
-SPDX-FileCopyrightText = ["openEHR Foundation", "the respective archetype authors"]
-SPDX-License-Identifier = "CC-BY-SA-3.0 AND CC-BY-SA-4.0"
-
 # ── The performance schedule's payloads ─────────────────────────────────────
-# The request bodies and operational templates the measured instruments send,
-# copied byte-identically from the corpus entries of the same keys, so they
-# carry the declaration the corpus tree gives them.
+# The request bodies and operational templates the measured instruments send:
+# CKM exports and archetype-built templates, so they carry the CKM archetype
+# licences. Both CC-BY-SA versions occur, so `AND` is the only true statement
+# about the tree as a whole; each archetype's own `licence` metadata remains
+# the authority for that individual file.
 [[annotations]]
 path = "perf/payloads/**"
 precedence = "override"
@@ -172,10 +163,7 @@ path = [
   "specs/its-xml-schemas/PROVENANCE.md",
   "specs/its-json-schemas/PROVENANCE.md",
   "specs/rest-oas/PROVENANCE.md",
-  "artifacts/corpus/archetypes/adl2/PROVENANCE.md",
-  "artifacts/corpus/archetypes/ckm/PROVENANCE.md",
   "perf/payloads/ckm/PROVENANCE.md",
-  "artifacts/corpus/templates/ckm/full/PROVENANCE.md",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Veredictum contributors"
@@ -228,7 +216,7 @@ SPDX-License-Identifier = "Apache-2.0 AND MIT"
 # and two of our own built on openEHR archetypes (cnf.vitals and
 # cnf.tpl.sf_interval_event). The flat documents of `flat_context` and
 # `flat_mapping` are adapted from the CNF Robot corpus's flat compositions.
-# They carry the terms of `artifacts/corpus/**` beside our own text.
+# They carry the CKM archetype licences beside our own text.
 [[annotations]]
 path = [
   "catalogue/cases/_setup/simplified_formats.arazzo.yaml",

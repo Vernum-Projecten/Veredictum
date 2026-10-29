@@ -726,7 +726,7 @@ mod tests {
         let mut checker = QuoteChecker::new(dir.path());
         for source in [
             "specs/openehr/SM/docs/x.adoc",
-            "artifacts/registers/ambiguities.yaml",
+            "catalogue/id-map.yaml",
             "specs/openehr/../../README.md",
         ] {
             assert!(

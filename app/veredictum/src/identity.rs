@@ -239,7 +239,7 @@ pub struct IdentityExchange {
 /// [`IdentityError::Credential`] when a named variable is unset or a token
 /// cannot be minted.
 pub fn authorization(ixit: &Ixit, auth: &AuthMode) -> Result<Option<String>, IdentityError> {
-    crate::exec::driver::HttpDriver::lane_auth_header(ixit.smart.as_ref(), auth, None)
+    crate::exec::auth::lane_auth_header(ixit.smart.as_ref(), auth, None)
         .map_err(IdentityError::Credential)
 }
 
@@ -315,9 +315,8 @@ pub fn identify(
     base_url: &str,
     auth: crate::bench::client::AuthKind,
 ) -> Result<IdentityRead, IdentityError> {
-    let authorization =
-        crate::exec::driver::HttpDriver::lane_auth_header(None, &auth_mode(auth), None)
-            .map_err(IdentityError::Credential)?;
+    let authorization = crate::exec::auth::lane_auth_header(None, &auth_mode(auth), None)
+        .map_err(IdentityError::Credential)?;
     let mut transport =
         crate::exec::transport::HttpTransport::new().map_err(IdentityError::Transport)?;
     read(&mut transport, base_url, authorization.as_deref()).map(|answered| answered.read)

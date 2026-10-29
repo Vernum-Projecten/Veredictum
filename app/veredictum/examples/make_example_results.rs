@@ -25,13 +25,11 @@ use hdrhistogram::Histogram;
 use veredictum::ids::CaseId;
 use veredictum::ixit::Environment;
 use veredictum::party::{
-    AmbiguityDisposition, IdentityField, InstrumentStatus, OutcomeRecord, OutcomeStatus,
-    RecordedTechProfile, Results, Runner, SelectionBasis, Sut, TechProfileSource,
-    VerificationPackStatus,
+    IdentityField, InstrumentStatus, OutcomeRecord, OutcomeStatus, RecordedTechProfile, Results,
+    Runner, SelectionBasis, Sut, TechProfileSource, VerificationPackStatus, ixit_digest,
+    statement_digest,
 };
 use veredictum::perf::{Measurement, OperationMeasurement, PerfClass, class_verdict};
-use veredictum::pipeline::conformance::{ixit_digest, statement_digest};
-use veredictum::pipeline::load_clean_root;
 use veredictum::pipeline::measured::{load_clean_schedule, performance_case_of_class};
 use veredictum::vocab::{FormatName, ItsName};
 
@@ -75,7 +73,6 @@ fn histogram(base_us: u64) -> Result<Histogram<u64>, Box<dyn std::error::Error>>
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let loaded = load_clean_root(std::path::Path::new("artifacts"))?;
     let schedule = load_clean_schedule(std::path::Path::new("perf"))?;
     let (_, poc) = performance_case_of_class(&schedule, PerfClass::Poc, "POC")?;
 
@@ -150,7 +147,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             violations,
             resources: None,
         }],
-        ambiguity_dispositions: first_option_disposition(&loaded)?,
     };
 
     results
@@ -158,8 +154,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|errors| format!("example violates its own invariants: {errors:?}"))?;
 
     let json = serde_json::to_string_pretty(&results)?;
-    // The catalogue is read from the working directory and the document is
-    // written beside this file, so the one documented invocation reaches both.
+    // The performance schedule is read from the working directory and the
+    // document is written beside this file, so the one documented invocation
+    // reaches both.
     // One optional argument names another target, which is how the drift gate
     // renders the document without writing into the tree.
     let out = match std::env::args().nth(1) {
@@ -174,31 +171,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn poc_case_id(case: &veredictum::perf::PerformanceCase) -> CaseId {
     case.id.clone()
-}
-
-// One disposition, read from the catalogue's own register rather than invented:
-// the first arm of the first `option_select` entry, which is the shape a run
-// under a declaration that answers that family records.
-fn first_option_disposition(
-    loaded: &veredictum::artifacts::Loaded,
-) -> Result<Vec<AmbiguityDisposition>, Box<dyn std::error::Error>> {
-    let (_, register) = loaded
-        .set
-        .register
-        .as_ref()
-        .ok_or("the catalogue carries an ambiguity register")?;
-    let (id, entry) = register
-        .entries()
-        .iter()
-        .find(|(_, entry)| entry.disposition == veredictum::vocab::Disposition::OptionSelect)
-        .ok_or("the register carries an option_select entry")?;
-    let arm = entry
-        .options
-        .tags()
-        .next()
-        .ok_or("an option_select entry enumerates at least one arm")?;
-    Ok(vec![AmbiguityDisposition {
-        ambiguity: id.clone(),
-        option: Some(arm.clone()),
-    }])
 }
