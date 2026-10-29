@@ -105,8 +105,8 @@ gate slow  "unused dependencies"      "cargo machete"
 # here rather than remembered.
 gate slow  "console journeys"         "bash scripts/ui-e2e.sh" docker
 # The GitHub Action's CI job drives the action through the runner, which no
-# local command can; what runs here is the image that job builds.
-gate slow  "action stand-in image"    "bash scripts/action/stand-in-image.sh" docker
+# local command can; what runs here is the two images that job builds.
+gate slow  "action stand-in images"   "bash scripts/action/stand-in-image.sh" docker
 gate slow  "fuzz harnesses build"     "cargo +nightly fuzz build --target \$(rustc -vV | sed -n 's|^host: ||p')" cargo-fuzz
 
 WANT="guard rust"

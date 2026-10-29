@@ -13,19 +13,28 @@
 # entry point is the console, which hands `test` and `export` to that same
 # engine; the release pipeline's smoke run proves that hand-off.
 #
+# The `stub-sut` target is the job's fake server under test, the crate's
+# `stub_sut` example, in its own image on the same base.
+#
 # Built from the repository root by scripts/action/stand-in-image.sh. The
-# builder is the release image's own digest-pinned builder base, and the
-# engine is a debug build: this image is judged on what it wires, and a debug
-# build compiles in less time.
+# builder is the release image's own digest-pinned builder base, and both
+# binaries are debug builds: the images are judged on what they wire, and a
+# debug build compiles in less time.
 FROM rust:1.98.1-slim-trixie@sha256:4cd829461bd5c4d511c32e269da9cb8929223b666519d8004e35fc8d1d771ab7 AS builder
 WORKDIR /app
 COPY . .
 RUN --mount=type=cache,target=/app/target,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
-    cargo build --locked -p veredictum --bin veredictum \
-    && install -m 0755 target/debug/veredictum /usr/local/bin/veredictum
+    cargo build --locked -p veredictum --bin veredictum --example stub_sut \
+    && install -m 0755 target/debug/veredictum /usr/local/bin/veredictum \
+    && install -m 0755 target/debug/examples/stub_sut /usr/local/bin/stub_sut
 
-FROM gcr.io/distroless/cc-debian13:nonroot@sha256:83b9b50586253821cf63ffcec87d3d94265a093ad30da232039af962dd8f4edf
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:83b9b50586253821cf63ffcec87d3d94265a093ad30da232039af962dd8f4edf AS stub-sut
+USER 65532:65532
+COPY --from=builder /usr/local/bin/stub_sut /usr/local/bin/stub_sut
+ENTRYPOINT ["/usr/local/bin/stub_sut"]
+
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:83b9b50586253821cf63ffcec87d3d94265a093ad30da232039af962dd8f4edf AS engine
 USER 65532:65532
 WORKDIR /app
 ENV VEREDICTUM_CATALOGUE=/work/catalogue

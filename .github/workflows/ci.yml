@@ -175,8 +175,9 @@ jobs:
             echo "image=false" >> "$GITHUB_OUTPUT"
           fi
           # The GitHub Action tier (#770): the action, its script and its test
-          # material, the engine's command line the action calls, and this file.
-          if echo "$changed" | grep -qE '^(action\.yml$|scripts/action/|app/veredictum/src/bin/veredictum\.rs$|\.github/workflows/ci\.yml$)'; then
+          # material, the fake server, the engine's command line the action
+          # calls, and this file.
+          if echo "$changed" | grep -qE '^(action\.yml$|scripts/action/|app/veredictum/examples/stub_sut\.rs$|app/veredictum/src/bin/veredictum\.rs$|\.github/workflows/ci\.yml$)'; then
             echo "action=true" >> "$GITHUB_OUTPUT"
           else
             echo "action=false" >> "$GITHUB_OUTPUT"
@@ -1092,8 +1093,9 @@ jobs:
   # credential is an empty secret cannot start and fails it with 2. The image
   # is a stand-in built from this tree, because a pull request has no release
   # image: the engine, the catalogue and the specification trees at the release
-  # image's paths (scripts/action/test/engine.Dockerfile). The release smoke run
-  # covers the release image's own entry point.
+  # image's paths (scripts/action/test/engine.Dockerfile, which also builds the
+  # fake server). The release smoke run covers the release image's own entry
+  # point.
   action:
     name: the GitHub Action drives a server
     needs: changes
@@ -1107,19 +1109,21 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Build the stand-in for the release image
+      - name: Build the stand-in for the release image and the fake server
         run: bash scripts/action/stand-in-image.sh
 
-      # A background process outlives its step and is stopped with the job.
+      # The fake server is the crate's `stub_sut` example: OPTIONS is answered
+      # 200 and every other request 404. Its container outlives this step and
+      # is removed with the job.
       - name: Start the fake server under test
         run: |
           set -euo pipefail
-          nohup python3 scripts/action/test/stub-sut.py 18089 > "$RUNNER_TEMP/stub-sut.log" 2>&1 &
+          docker run -d --rm --name stub-sut --network host veredictum-action-stub-sut:local 18089
           for _ in $(seq 1 50); do
             if curl -fsS -o /dev/null -X OPTIONS http://127.0.0.1:18089/openehr/v1; then exit 0; fi
             sleep 0.2
           done
-          cat "$RUNNER_TEMP/stub-sut.log"
+          docker logs stub-sut
           echo "::error::the fake server did not start" >&2
           exit 1
 
