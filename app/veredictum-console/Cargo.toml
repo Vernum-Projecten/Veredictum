@@ -34,7 +34,7 @@ veredictum = { version = "=0.1.7", optional = true }
 # The pasted claim is held to the PUBLISHED statement schema, not only to
 # serde's leniency: the same validator crate the engine uses, over the
 # schema document the engine's own `schema` module emits (#101).
-jsonschema = { version = "0.58.6", optional = true, default-features = false }
+jsonschema = { version = "0.59.0", optional = true, default-features = false }
 
 leptos = "0.8"
 leptos_meta = "0.8"
@@ -141,7 +141,7 @@ zip = { version = "9", default-features = false, features = ["deflate"] }
 # for the `macros` feature the `#[tokio::test]` attribute needs; the ssr
 # dependency above carries only what the server binary uses. Dev-only, so
 # neither crate reaches the ssr binary or the hydrate bundle.
-thirtyfour = "0.37.2"
+thirtyfour = "0.38.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 # The concurrency journey (#389) is TWO visitors: the browser, and the journey
 # itself calling the same public server-function endpoints under a different
