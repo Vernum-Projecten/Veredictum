@@ -1494,20 +1494,22 @@ catalogue/
   datasets/<name>/                     data a server is seeded with (§15.11)
   payloads/                            request bodies, templates, archetypes, MANIFEST.yaml
   recipes/                             code that generates payloads
-  keys/                                signing material for the signature checks
+  keys/<kind>/                         signing material: the OpenPGP version-signing pair and the SMART test issuer
   sources/veredictum-extensions.openapi.yaml   the routes no openEHR OAS describes
 schemas/                               statement, results, ixit, matrix, rows,
                                        dataset, certificate payload, extension schema
+perf/                                  the performance schedule: classes, journeys, payloads (§8.14), a sibling
+                                       of the catalogue because a measurement is not a conformance verdict
 ```
 
 A case's files sit together: a capability's folder holds its Arazzo documents
 and their rows files. "Payloads" is Arazzo's own word for a request body
 (`requestBody.payload`).
 
-Of that layout, `capabilities.yaml`, `cases/` and `sources/` exist today,
-beside `id-map.yaml` (every former case-core id mapped to its workflows, #603).
-Request bodies are inline in the workflows, and `datasets/`, `payloads/`,
-`recipes/` and `keys/` arrive with the first case that needs one.
+Of that layout, `capabilities.yaml`, `cases/`, `keys/` and `sources/` exist
+today, beside `id-map.yaml` (every former case-core id mapped to its workflows,
+#603). Request bodies are inline in the workflows, and `datasets/`,
+`payloads/` and `recipes/` arrive with the first case that needs one.
 
 - **Sources.** Every document lists the released
   `specs/rest-oas/<group>-validation.openapi.yaml` bundles it calls, each with

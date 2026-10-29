@@ -69,7 +69,7 @@ jobs:
           exit-code: "1"
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          trivy-config: trivy.yaml
+          trivy-config: security/trivy.yaml
 
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
@@ -81,7 +81,7 @@ jobs:
           exit-code: "1"
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          trivy-config: trivy.yaml
+          trivy-config: security/trivy.yaml
 
   # Tags exist only AFTER the scan passes. `imagetools create` over a single
   # source re-tags the SAME digest, so the attestations bound to it stay valid.

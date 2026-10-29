@@ -123,7 +123,7 @@ These are the ones a pull request is most often refused for. The full set is in
   trailer, a pull-request title or body, an issue, or a code comment. Commit
   and pull-request text describe the change and nothing else. If you used an AI
   tool, disclose it in the pull-request description per
-  [`AI_STATEMENT.md`](AI_STATEMENT.md) § 10, which is where disclosure belongs.
+  [`docs/AI_STATEMENT.md`](docs/AI_STATEMENT.md) § 10, which is where disclosure belongs.
 - The pull-request body declares `Closes #<n>`. One `Closes` keyword per issue:
   `Closes #1, #2` closes only #1.
 - A user-visible change adds a changelog fragment under

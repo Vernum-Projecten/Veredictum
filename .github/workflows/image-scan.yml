@@ -19,7 +19,7 @@
 # surfaces here as well as in `cargo deny` on the next pull request.
 #
 # The adjudicated configuration carries over rather than being re-argued: the
-# HIGH/CRITICAL floor and `ignore-unfixed` live in `trivy.yaml`, which every lane
+# HIGH/CRITICAL floor and `ignore-unfixed` live in `security/trivy.yaml`, which every lane
 # that scans this image reads.
 #
 # RUN COLOUR. The run is RED only when the PROBE fails — an image that cannot be
@@ -118,7 +118,7 @@ jobs:
 
           # Every OpenVEX document under security/vex/, passed as repeated
           # --vex flags — the published, machine-readable adjudications bind
-          # here beside the .trivyignore.yaml entries trivy.yaml already wires,
+          # here beside the security/trivyignore.yaml entries security/trivy.yaml already wires,
           # and scripts/security/scan-images.sh passes the same set locally.
           vex_args=()
           for doc in security/vex/*.openvex.json; do
@@ -136,10 +136,10 @@ jobs:
           for platform in linux/amd64 linux/arm64; do
             arch="${platform##*/}"
             echo "::group::veredictum ${platform} (${digest})"
-            trivy image --config trivy.yaml --scanners vuln --platform "$platform" \
+            trivy image --config security/trivy.yaml --scanners vuln --platform "$platform" \
               "${vex_args[@]}" -f json -o "veredictum.${arch}.json" "$ref"
             count="$(jq '[.Results[]?.Vulnerabilities // [] | .[]] | length' "veredictum.${arch}.json")"
-            trivy image --config trivy.yaml --scanners vuln --platform "$platform" \
+            trivy image --config security/trivy.yaml --scanners vuln --platform "$platform" \
               "${vex_args[@]}" -f table "$ref" || true
             echo "::endgroup::"
             echo "| \`${platform}\` | \`${digest}\` | ${count} |" >> findings.md
@@ -206,7 +206,7 @@ jobs:
             printf '\nFull reports are attached to the run as `image-scan-reports`: %s\n' "$RUN_URL"
             printf '\nThese are findings **with a fix available**, so the remedy is a rebuild and'
             printf ' a re-release of the image. A finding in the base layer is fixed by bumping'
-            printf ' the pinned digest in `docker/Dockerfile`; a finding in the Rust dependency'
+            printf ' the pinned digest in `deploy/docker/Dockerfile`; a finding in the Rust dependency'
             printf ' graph is fixed the way `cargo deny` findings are fixed. Either way the fix'
             printf ' only reaches users on the next tag, because the image republishes on a tag.\n'
           } > body.md

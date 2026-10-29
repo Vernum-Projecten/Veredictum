@@ -63,7 +63,7 @@ The fastest start is the operator compose file, which pins the image to the
 version it shipped with and binds the console to loopback on port 3210:
 
 ```bash
-curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/docker/docker-compose.yml
+curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/deploy/docker/docker-compose.yml
 docker compose up
 ```
 
@@ -137,7 +137,7 @@ veredictum validate --root catalogue --specs specs/openehr
 A working install over an intact clone prints one line and exits zero:
 
 ```text
-203 document(s), 1649 workflow(s), 375 rows file(s), 14 capability folder(s), 0 finding(s)
+205 document(s), 1651 workflow(s), 376 rows file(s), 15 capability folder(s), 0 finding(s)
 ```
 
 Any finding count above zero is a failure of the catalogue, not of your setup,

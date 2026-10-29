@@ -50,7 +50,7 @@ jobs:
       # journeys` job, with the versions read from the Dockerfile's ARGs.
       - name: Fetch cargo-leptos and Tailwind (pinned, checksum-verified)
         env:
-          DOCKERFILE: docker/Dockerfile
+          DOCKERFILE: deploy/docker/Dockerfile
         run: |
           set -euo pipefail
           clv="$(grep -E '^ARG CARGO_LEPTOS_VERSION=' "$DOCKERFILE" | head -1 | cut -d= -f2)"

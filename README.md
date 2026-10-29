@@ -41,7 +41,7 @@
 </p>
 
 <p align="center">
-<strong>the released openEHR specifications, version-aware per case</strong> &nbsp;·&nbsp; <strong>1649 spec-cited cases</strong> &nbsp;·&nbsp; <strong>203 Arazzo documents</strong>
+<strong>the released openEHR specifications, version-aware per case</strong> &nbsp;·&nbsp; <strong>1651 spec-cited cases</strong> &nbsp;·&nbsp; <strong>205 Arazzo documents</strong>
 </p>
 
 <!--
@@ -109,9 +109,9 @@ and reproducible, which is the stability that matters for a verdict.
 ## What it does
 
 The instrument is one binary plus a data tree. The data tree is a
-machine-readable catalogue of 1649 test cases: [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html)
+machine-readable catalogue of 1651 test cases: [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html)
 workflows over the released openEHR REST API OpenAPI documents, in
-203 Arazzo documents under `catalogue/`. Each case cites the specification
+205 Arazzo documents under `catalogue/`. Each case cites the specification
 section it enforces, and the released specification text is vendored in this
 repository, so every citation resolves against text you can read. The counts
 on this page are the line `veredictum validate` prints over `catalogue/`, and
@@ -152,7 +152,7 @@ which lives in this repository — that path closes the section.
 ### docker compose up — the console
 
 ```bash
-curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/docker/docker-compose.yml
+curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/deploy/docker/docker-compose.yml
 docker compose up
 ```
 
@@ -383,7 +383,7 @@ they describe.
 
 | | |
 |---|---|
-| **The catalogue** | `catalogue/cases/` — 1649 workflows in 203 Arazzo documents, one small isolated case per behaviour, so a red row names one defect. Grouped in 14 capability folders: EHR, EHR status, composition, content, contribution, directory, item tags, query, definition, demographic, admin, security, simplified formats, system. Every criterion carries the released sentence it enforces |
+| **The catalogue** | `catalogue/cases/` — 1651 workflows in 205 Arazzo documents, one small isolated case per behaviour, so a red row names one defect. Grouped in 15 capability folders: EHR, EHR status, composition, content, contribution, directory, item tags, query, definition, demographic, admin, security, simplified formats, SMART, system. Every criterion carries the released sentence it enforces |
 | **The options** | `catalogue/capabilities.yaml` — the behaviours the release leaves to the implementation, each an option with its arms; a party's statement picks one arm of each, and the documents of every other arm are skipped |
 | **The id map** | `catalogue/id-map.yaml` — every case id of the former case-core catalogue, mapped to the workflows that carry it or to the reason none does |
 | **The performance schedule** | `perf/` — the four class cases, the journey catalogue and the payloads `perf`, `stress` and `aql-probe` read, kept apart from the conformance catalogue |
@@ -401,7 +401,7 @@ verdicts, and the verification pack exists to check exactly that. A
 certificate row a human typed is a defect.
 
 Two verdict machineries share that discipline
-([`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md) §8):
+([`docs/ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md) §8):
 
 - **Conformance by assertion:** the statement selects the applicable
   documents, the criteria judge each recorded exchange, and each row ends
@@ -422,7 +422,7 @@ slowed-down client.
 
 The performance classes anchor to population served rather than to a
 concurrent-user guess, with the full derivation from OECD, Eurostat and NHS
-activity statistics in [`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md) §8.14:
+activity statistics in [`docs/ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md) §8.14:
 
 | Class | Population served | Corpus | Sustained arrival floor | p99 budget | Error rate |
 |---|---|---|---|---|---|
@@ -468,7 +468,7 @@ about what it observed. The seal above is the mark of that verdict.
 
 ## Design record
 
-[`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md) carries the reasoning rather than a
+[`docs/ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md) carries the reasoning rather than a
 summary of it: the Arazzo catalogue with its extensions, condition profile
 and gates, the party documents, the verdict computation, and the
 population-anchored performance-class model with its hospital-simulation

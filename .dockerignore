@@ -1,5 +1,5 @@
 # The build-context ignore file for the ONE image this repository builds
-# (docker/Dockerfile). A Dockerfile-adjacent
+# (deploy/docker/Dockerfile). A Dockerfile-adjacent
 # `*.dockerignore` would SHADOW this file entirely
 # (https://docs.docker.com/build/concepts/context — a Dockerfile-specific
 # ignore-file takes precedence), so there is only this one — the FerroEHR shape.
@@ -51,6 +51,11 @@ assets/
 
 # Tests and their fixtures: nothing in the image runs them.
 app/veredictum/tests/
+
+# The catalogue's test signing material: two committed private keys, public
+# by design but never shipped in a published image. A run that needs them is
+# given them by its operator, and no catalogue document reads them.
+catalogue/keys/
 
 # The performance schedule: the measured instruments run from the command
 # line on hardware the operator describes, and nothing in the image reads it.

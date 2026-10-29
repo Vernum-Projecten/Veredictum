@@ -6,7 +6,7 @@
 | Effective date | 2026-08-26 |
 | Status | Active |
 | Author and owner | Ruben Talstra, maintainer |
-| Canonical location | `AI_STATEMENT.md` at the repository root |
+| Canonical location | `docs/AI_STATEMENT.md` |
 | Licence | Apache-2.0, like the rest of the project's own text |
 | Review | at every major or minor release, and on any trigger in §13 |
 
@@ -131,7 +131,7 @@ the maintainer's cooperation.**
   is enforced by review against the cited text.
 - **The specification is never a suspect, and no server ever sets an
   expectation.** The attribution law
-  ([`.claude/rules/cnf-triage.md`](.claude/rules/cnf-triage.md)) forbids reading
+  ([`.claude/rules/cnf-triage.md`](../.claude/rules/cnf-triage.md)) forbids reading
   a server's response to decide what an expectation should be, and forbids
   adjusting an expectation to match observed behaviour. Both are the failure
   modes an AI-assisted workflow would otherwise drift into fastest.
@@ -148,7 +148,7 @@ the maintainer's cooperation.**
   run proves is part of the result.
 - **Tests and expectations shall not be weakened to make a run pass.** A
   standing hard rule for humans and tools alike
-  ([`.claude/rules/testing.md`](.claude/rules/testing.md)).
+  ([`.claude/rules/testing.md`](../.claude/rules/testing.md)).
 - **Static and supply-chain gates.** No `unsafe`, deny-tier lints on panicking
   shortcuts, typed errors, machine-checked comment style, `cargo deny` policy,
   and workflow security audits — all running in this repository's CI. Signed
@@ -174,7 +174,7 @@ software.
 
 Two points specific to this repository. The vendored openEHR specification text
 and the vendored corpora are **redistributed verbatim under their own upstream
-terms**, declared in [`REUSE.toml`](REUSE.toml) and in each tree's
+terms**, declared in [`REUSE.toml`](../REUSE.toml) and in each tree's
 `PROVENANCE.md`; no AI tool edits them, and hand-editing a vendored tree is
 forbidden by the project's own corpus discipline. Quoting a specification
 sentence inside a case citation is fair quotation of the authority the case is
@@ -193,7 +193,7 @@ One class deserves naming because the instrument's job creates it: a run holds
 **credentials for the system under test**, declared in that party's IXIT. Those
 are the operator's secrets, they never enter a prompt, and keeping them out of
 published artifacts is treated as a security property with its own scope note in
-[SECURITY.md](SECURITY.md). Vendor-side data handling for the AI tools is
+[SECURITY.md](../SECURITY.md). Vendor-side data handling for the AI tools is
 governed by the tool vendor's terms; this document makes no claim on the
 vendor's behalf, because such claims go stale silently.
 
@@ -211,7 +211,7 @@ For a contribution that touches the catalogue, the bar is higher and it is not
 about the tool: **an expectation arrives with the specification section it came
 from, quoted.** A case without a citation is refused regardless of who or what
 wrote it. The contributor remains responsible for the submission in full, under
-the same [CONTRIBUTING.md](CONTRIBUTING.md) bar as any other work: understood,
+the same [CONTRIBUTING.md](../CONTRIBUTING.md) bar as any other work: understood,
 explained on request, tested, and honest.
 
 ## 11. Prohibited uses
@@ -272,19 +272,19 @@ the same one.
 A suspected provenance, licensing, or quality problem in this repository,
 including a claim in this document that does not survive checking, is a report
 this project wants. Open an issue and cite this file. For anything
-security-sensitive, use the private route in [SECURITY.md](SECURITY.md). The
+security-sensitive, use the private route in [SECURITY.md](../SECURITY.md). The
 handling commitment is the same as for any defect: attributed, answered on the
 tracker, and never silently absorbed.
 
 ## 15. References
 
 **Normative for this project**, the documents that bind the practice described
-here: the [Apache-2.0 licence](LICENSE); the released openEHR specifications
+here: the [Apache-2.0 licence](../LICENSE); the released openEHR specifications
 (vendored in this repository at `specs/openehr/`); this repository's rule set
-([`.claude/rules/`](.claude/rules/), in particular `cnf-triage.md`,
+([`.claude/rules/`](../.claude/rules/), in particular `cnf-triage.md`,
 `testing.md`, `reliability.md`, `comments.md`, `writing-style.md`);
 [GOVERNANCE.md](GOVERNANCE.md), [MAINTAINERS.md](MAINTAINERS.md),
-[CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md).
+[CONTRIBUTING.md](../CONTRIBUTING.md), [SECURITY.md](../SECURITY.md).
 
 **Informative**, the sources this document's structure and positions draw on:
 the W3C AI Content Disclosure vocabulary; the ISO/IEC Directives Part 2 document

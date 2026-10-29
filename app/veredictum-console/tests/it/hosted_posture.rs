@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The hosted posture travels INSIDE the image (#423): `docker/Dockerfile`
+//! The hosted posture travels INSIDE the image (#423): `deploy/docker/Dockerfile`
 //! bakes the compose file and the Caddyfile the hosted box runs, and the one
 //! command that box's deploy key may run extracts them from the image it just
 //! pulled. Two files, three places, and the paths must agree — a Dockerfile
@@ -23,13 +23,13 @@ fn repo_root() -> &'static Path {
     Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
 }
 
-/// The posture files `docker/Dockerfile` COPYs into the image, as
+/// The posture files `deploy/docker/Dockerfile` COPYs into the image, as
 /// `(build-context source, container path)` pairs.
 ///
 /// READ out of the Dockerfile, because a constant restating the paths here
 /// would prove nothing about what the image ships.
 fn baked_posture() -> Result<Vec<(PathBuf, String)>, Box<dyn std::error::Error>> {
-    let dockerfile = std::fs::read_to_string(repo_root().join("docker/Dockerfile"))?;
+    let dockerfile = std::fs::read_to_string(repo_root().join("deploy/docker/Dockerfile"))?;
     Ok(dockerfile
         .lines()
         .filter_map(|line| line.trim().strip_prefix("COPY "))

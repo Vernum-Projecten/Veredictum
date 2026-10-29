@@ -4,7 +4,7 @@
 #
 # A stand-in for the release image, for the GitHub Action's CI job (#770).
 #
-# A pull request has no release image to run, and building docker/Dockerfile
+# A pull request has no release image to run, and building deploy/docker/Dockerfile
 # from source costs the console's whole WASM build. This image carries what
 # the action reads from the release image and nothing else: the engine at the
 # release image's path as the entry point, the Arazzo catalogue and the

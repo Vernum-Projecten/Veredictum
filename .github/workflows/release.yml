@@ -337,7 +337,7 @@ jobs:
           # against this same commit.
           files: |
             veredictum-${{ needs.plan.outputs.tag }}.spdx.json
-            docker/docker-compose.yml
+            deploy/docker/docker-compose.yml
           # Only an explicitly suffixed tag is a pre-release. The rule's one
           # definition lives in .github/actions/release-kind, which `plan` ran.
           prerelease: ${{ needs.plan.outputs.is-prerelease }}
@@ -475,14 +475,14 @@ jobs:
           set -euo pipefail
           channel="$(grep -E '^channel' rust-toolchain.toml | sed -E 's/.*"(.*)".*/\1/')"
           have="$(rustc --version | awk '{print $2}')"
-          arg="$(grep -E '^ARG RUST_VERSION=' docker/Dockerfile | head -1 | cut -d= -f2)"
+          arg="$(grep -E '^ARG RUST_VERSION=' deploy/docker/Dockerfile | head -1 | cut -d= -f2)"
           echo "rust-toolchain=$channel  container-rustc=$have  Dockerfile ARG=$arg"
           if [ "$channel" != "$have" ]; then
             echo "::error::job container rustc ($have) != rust-toolchain.toml ($channel). Bump the container: tag in release.yml."
             exit 1
           fi
           if [ "$channel" != "$arg" ]; then
-            echo "::error::docker/Dockerfile RUST_VERSION ($arg) != rust-toolchain.toml ($channel)."
+            echo "::error::deploy/docker/Dockerfile RUST_VERSION ($arg) != rust-toolchain.toml ($channel)."
             exit 1
           fi
 
@@ -563,7 +563,7 @@ jobs:
         env:
           # The versions are single-sourced from the Dockerfile's ARGs by the
           # step below, so the lane and the from-source image cannot drift.
-          DOCKERFILE: docker/Dockerfile
+          DOCKERFILE: deploy/docker/Dockerfile
         run: |
           set -euo pipefail
           clv="$(grep -E '^ARG CARGO_LEPTOS_VERSION=' "$DOCKERFILE" | head -1 | cut -d= -f2)"
@@ -612,7 +612,7 @@ jobs:
     with:
       image: ghcr.io/vernum-projecten/veredictum
       defer-tags: true
-      dockerfile: docker/Dockerfile
+      dockerfile: deploy/docker/Dockerfile
       target: runtime-prebuilt
       binary-artifact-prefix: veredictum-console
       site-artifact: veredictum-console-site

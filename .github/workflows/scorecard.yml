@@ -23,7 +23,7 @@
 #     caution, not a judgement about activity, and it expires by itself.
 #   * `Code-Review` — wants a second human to approve pull requests. With one
 #     maintainer the only ways to move it are to add a reviewer or to fake one.
-#     GOVERNANCE.md and MAINTAINERS.md are honest about the bus factor instead.
+#     docs/GOVERNANCE.md and docs/MAINTAINERS.md are honest about the bus factor instead.
 #
 # WHAT THE CODE MIGRATION SETTLED, and what it did not. The instrument itself is
 # here now, so each remaining low check has a named owner rather than a blanket

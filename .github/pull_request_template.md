@@ -30,5 +30,5 @@ An expectation with no citation is not reviewable.
 HARD RULE: this description, the title, and every commit contain NO AI or tool
 attribution. No "Co-Authored-By" trailer of any kind, no "Generated with", no
 robot emoji. Describe only the change. If an AI tool was used, disclose it in
-this description per AI_STATEMENT.md § 10.
+this description per docs/AI_STATEMENT.md § 10.
 -->

@@ -1,5 +1,6 @@
-# mdbook-lint configuration (the Docs workflow runs `mdbook-lint lint
-# website/book/src`).
+# mdbook-lint configuration (the Docs workflow runs `mdbook-lint lint --config
+# website/book/mdbook-lint.toml website/book/src`). It is passed explicitly:
+# mdbook-lint otherwise searches the working directory and its parents.
 #
 # Four rule classes are disabled, each for a property of this book rather than
 # to quiet a warning:

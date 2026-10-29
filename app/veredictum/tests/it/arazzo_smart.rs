@@ -394,7 +394,7 @@ fn a_declared_test_issuer_mints_each_row_a_token_with_its_scope_claim() -> Falli
         }}}),
     )?;
     let key = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../fixtures/smart-test-issuer/cnf-smart-test.key.pem");
+        .join("../../catalogue/keys/smart-test-issuer/cnf-smart-test.key.pem");
     let out = dir.path().join("run");
     let base_url = format!("{}/openehr/v1", sut.base_url());
     let output = test_command(

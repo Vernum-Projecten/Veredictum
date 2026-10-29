@@ -10,7 +10,7 @@
 failureThreshold: warning
 
 # The one adjudicated exemption. DL3008 wants apt packages version-pinned; the
-# console builder (docker/Dockerfile) installs `curl` and
+# console builder (deploy/docker/Dockerfile) installs `curl` and
 # `ca-certificates` to fetch its pinned tool binaries, and Debian rolls
 # security point releases under those names — a version pin there fails every
 # rebuild after a point release while pinning nothing that ships: the

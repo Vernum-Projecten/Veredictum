@@ -36,7 +36,7 @@
 #   perf/           the performance schedule — a class case, a journey or a
 #                   payload changes what a measured run records
 #   schemas/        the published JSON Schemas an integrator authors against
-#   docker/         the container image, and the ignore file that decides what
+#   deploy/docker/  the container image, and the ignore file that decides what
 #   .dockerignore   its build can even see
 #   Cargo.toml      the package identity, the dependency set, and the lint tables
 #   Cargo.lock      that decide what compiles
@@ -67,7 +67,7 @@ readonly USER_VISIBLE_PATHS=(
   'catalogue/'
   'perf/'
   'schemas/'
-  'docker/'
+  'deploy/docker/'
   '\.dockerignore$'
   'Cargo\.toml$'
   'Cargo\.lock$'

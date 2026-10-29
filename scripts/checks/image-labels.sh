@@ -31,7 +31,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 readonly IMAGE=veredictum
-readonly DOCKERFILE=docker/Dockerfile
+readonly DOCKERFILE=deploy/docker/Dockerfile
 readonly WORKFLOW=.github/workflows/release.yml
 readonly BUILD_WORKFLOW=.github/workflows/build-image.yml
 

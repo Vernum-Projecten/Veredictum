@@ -12,7 +12,7 @@
 #
 # Adjudicated 2026-09-01 (#466): these figures stay hand-written, and this
 # guard stays. Every one of them sits inside a sentence a human wrote — a
-# landing-page claim, a book paragraph, an argument in `ARCHITECTURE.md` — so
+# landing-page claim, a book paragraph, an argument in `docs/ARCHITECTURE.md` — so
 # substituting the number would mean templating the prose around it, which is
 # the one thing #466 rules out. The number is derived from the catalogue on
 # every run instead, and a disagreement fails the build.
@@ -23,7 +23,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-SURFACES=(website/landing/index.html website/book/src README.md ARCHITECTURE.md)
+SURFACES=(website/landing/index.html website/book/src README.md docs/ARCHITECTURE.md)
 
 # Every extraction below ends in `|| true`, and that is load-bearing: under
 # `set -e` a `$( … | grep )` whose grep matches nothing exits the script on the

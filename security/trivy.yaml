@@ -27,7 +27,7 @@ vulnerability:
   # while the configuration looked correct.
   ignore-unfixed: true
 
-ignorefile: .trivyignore.yaml
+ignorefile: security/trivyignore.yaml
 
 scan:
   skip-dirs:
