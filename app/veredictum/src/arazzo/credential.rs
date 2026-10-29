@@ -11,10 +11,12 @@
 //! reading it. Its value is read once, when [`CredentialedTransport`] is
 //! built, and stays inside that transport. The evaluator sends a principal's
 //! step with that principal's marker as its `Authorization` value
-//! ([`ORDINARY_MARKER`], [`ADMINISTRATIVE_MARKER`]), and the transport puts
-//! the credential in the marker's place on the wire, so the plan, the
-//! results and the recording only ever hold the marker. No openEHR spec
-//! governs this — our own design.
+//! ([`ORDINARY_MARKER`], [`ADMINISTRATIVE_MARKER`]), and a scoped step with
+//! its scope set's marker ([`crate::arazzo::scope::marker`]); the transport
+//! puts the credential or token in the marker's place on the wire, so the
+//! plan, the results and the recording only ever hold the marker. The
+//! scoped tokens are declared in the IXIT ([`ScopedSources`]). No openEHR
+//! spec governs this — our own design.
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -22,8 +24,10 @@ use std::fmt;
 use std::path::PathBuf;
 
 use base64::Engine as _;
+use serde::Deserialize;
 use serde_json::Value;
 
+use crate::arazzo::scope::{self, Coverage, ScopeSet};
 use crate::bench::client::AuthKind;
 use crate::exec::transport::{RawResponse, Transport};
 use crate::vocab::HttpMethod;
@@ -47,6 +51,16 @@ pub const ADMIN_PASSWORD_ENV: &str = "VEREDICTUM_ADMIN_PASSWORD";
 
 /// The token of the administrative principal under `bearer`.
 pub const ADMIN_TOKEN_ENV: &str = "VEREDICTUM_ADMIN_TOKEN";
+
+/// The IXIT member that declares the tokens a scoped step presents.
+pub const SCOPED_TOKENS_MEMBER: &str = "scoped_tokens";
+
+/// The prefix every variable a supplied scoped token is read from carries,
+/// so an IXIT can name no other variable of the environment.
+pub const SCOPED_TOKEN_PREFIX: &str = "VEREDICTUM_SCOPED_TOKEN_";
+
+/// The RSA private key, in PEM, a declared test issuer signs with.
+pub const SCOPED_KEY_ENV: &str = "VEREDICTUM_SCOPED_TOKEN_KEY";
 
 /// The principal a credential belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -119,6 +133,12 @@ pub enum CredentialError {
     /// The variable is set but does not read as text.
     #[error("{0} is set but is not valid Unicode")]
     NotUnicode(String),
+    /// The IXIT's `scoped_tokens` member does not declare scoped tokens.
+    #[error("the IXIT's `{SCOPED_TOKENS_MEMBER}` member: {0}")]
+    Declaration(String),
+    /// The test issuer's signing key is not an RSA private key in PEM.
+    #[error("{SCOPED_KEY_ENV} does not hold an RSA private key in PEM: {0}")]
+    Key(String),
 }
 
 /// Where one secret is read from.
@@ -289,8 +309,218 @@ impl Credential {
     }
 }
 
-/// A transport that puts each principal's credential in place of its marker
-/// and hands the request to the transport it wraps.
+/// The test issuer an IXIT declares, which mints a token for any scope set.
+///
+/// The minted token is an RS256 JSON Web Token (RFC 7519) carrying `iss`,
+/// `sub`, `aud` when declared, `iat`, `exp`, the space-delimited `scope`
+/// claim (RFC 6749 §3.3) and any further claims the IXIT declares.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MintDeclaration {
+    /// The `iss` claim.
+    pub issuer: String,
+    /// The `sub` claim.
+    pub subject: String,
+    /// The `aud` claim, if the deployment checks one.
+    pub audience: Option<String>,
+    /// The `kid` header parameter naming the key the deployment verifies
+    /// with.
+    pub kid: String,
+    /// How long a minted token lives, in seconds.
+    pub ttl_seconds: u32,
+    /// Further claims, such as the role claim a deployment's own access
+    /// control reads. None may name a claim the minter sets.
+    #[serde(default)]
+    pub claims: serde_json::Map<String, Value>,
+}
+
+/// The claims a minted token always carries, which the IXIT cannot set.
+const MINTED_CLAIMS: [&str; 6] = ["iss", "sub", "aud", "iat", "exp", "scope"];
+
+/// The IXIT's `scoped_tokens` member.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ScopedDeclaration {
+    /// The variable each supplied token is read from, by scope set.
+    #[serde(default)]
+    issued: BTreeMap<String, String>,
+    /// The test issuer, if the deployment trusts one.
+    mint: Option<MintDeclaration>,
+}
+
+/// Where the tokens a scoped step presents come from: a locator that holds
+/// no secret.
+///
+/// The IXIT's `scoped_tokens` member declares them. Its `issued` map names,
+/// for each scope set, the variable (or the `_FILE` variable) holding a
+/// token the party's own Authorization Server issued for it; its `mint`
+/// member declares a test issuer the deployment trusts, whose RSA key is read
+/// from [`SCOPED_KEY_ENV`]. A supplied token wins over a minted one. No
+/// openEHR spec governs this — our own design.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ScopedSources {
+    issued: BTreeMap<ScopeSet, SecretSource>,
+    mint: Option<(MintDeclaration, SecretSource)>,
+}
+
+impl ScopedSources {
+    /// Locates every token the IXIT declares in the process environment,
+    /// without reading it.
+    ///
+    /// # Errors
+    /// [`CredentialError::Declaration`] when the member does not declare
+    /// scoped tokens, and the errors of [`CredentialSource::locate`] for a
+    /// variable it names.
+    pub fn locate(ixit: Option<&Value>) -> Result<Self, CredentialError> {
+        Self::locate_with(ixit, &|name| std::env::var_os(name))
+    }
+
+    /// [`Self::locate`] over `lookup` in place of the process environment.
+    ///
+    /// # Errors
+    /// As [`Self::locate`].
+    pub fn locate_with(
+        ixit: Option<&Value>,
+        lookup: &dyn Fn(&str) -> Option<OsString>,
+    ) -> Result<Self, CredentialError> {
+        let Some(member) = ixit.and_then(|ixit| ixit.get(SCOPED_TOKENS_MEMBER)) else {
+            return Ok(Self::default());
+        };
+        let bad = |reason: String| CredentialError::Declaration(reason);
+        let declared: ScopedDeclaration =
+            serde_json::from_value(member.clone()).map_err(|e| bad(e.to_string()))?;
+        let mut issued = BTreeMap::new();
+        for (scope, variable) in &declared.issued {
+            let set = ScopeSet::parse(scope).map_err(|e| bad(e.to_string()))?;
+            let named = variable
+                .strip_prefix(SCOPED_TOKEN_PREFIX)
+                .is_some_and(|rest| {
+                    !rest.is_empty()
+                        && rest
+                            .chars()
+                            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+                });
+            if !named || variable == SCOPED_KEY_ENV {
+                return Err(bad(format!(
+                    "`{variable}` is not a variable named `{SCOPED_TOKEN_PREFIX}<NAME>` \
+                     (upper-case letters, digits and `_`, and not {SCOPED_KEY_ENV})"
+                )));
+            }
+            let source = locate_secret(variable, lookup)?;
+            if issued.insert(set.clone(), source).is_some() {
+                return Err(bad(format!("the scope set `{set}` is declared twice")));
+            }
+        }
+        let mint = match declared.mint {
+            None => None,
+            Some(mint) => {
+                if mint.ttl_seconds == 0 {
+                    return Err(bad("`mint.ttl_seconds` must be at least 1".to_owned()));
+                }
+                if let Some(claim) = MINTED_CLAIMS.iter().find(|c| mint.claims.contains_key(**c)) {
+                    return Err(bad(format!(
+                        "`mint.claims` sets `{claim}`, which the minter sets"
+                    )));
+                }
+                let key = locate_secret(SCOPED_KEY_ENV, lookup)?;
+                Some((mint, key))
+            }
+        };
+        Ok(Self { issued, mint })
+    }
+
+    /// The scope sets these sources cover, which names no token.
+    #[must_use]
+    pub fn coverage(&self) -> Coverage {
+        Coverage {
+            issued: self.issued.keys().cloned().collect(),
+            minted: self.mint.is_some(),
+        }
+    }
+}
+
+/// A declared test issuer with its key read.
+struct Minter {
+    declaration: MintDeclaration,
+    key: jsonwebtoken::EncodingKey,
+}
+
+impl fmt::Debug for Minter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Minter")
+            .field("declaration", &self.declaration)
+            .field("key", &"<redacted>")
+            .finish()
+    }
+}
+
+impl Minter {
+    /// Mints a token whose `scope` claim is `set`, valid from now.
+    fn mint(&self, set: &ScopeSet) -> Result<Credential, String> {
+        let declaration = &self.declaration;
+        let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
+        header.kid = Some(declaration.kid.clone());
+        let issued_at = jiff::Timestamp::now().as_second();
+        let expires_at = issued_at.saturating_add(i64::from(declaration.ttl_seconds));
+        let mut claims = declaration.claims.clone();
+        claims.insert("iss".to_owned(), Value::String(declaration.issuer.clone()));
+        claims.insert("sub".to_owned(), Value::String(declaration.subject.clone()));
+        if let Some(audience) = &declaration.audience {
+            claims.insert("aud".to_owned(), Value::String(audience.clone()));
+        }
+        claims.insert("iat".to_owned(), Value::from(issued_at));
+        claims.insert("exp".to_owned(), Value::from(expires_at));
+        claims.insert("scope".to_owned(), Value::String(set.to_string()));
+        jsonwebtoken::encode(&header, &claims, &self.key)
+            .map(|token| Credential(format!("Bearer {token}")))
+            .map_err(|e| format!("the test issuer cannot sign a token: {e}"))
+    }
+}
+
+/// The tokens scoped steps present, read once.
+#[derive(Debug, Default)]
+struct ScopedTokens {
+    issued: BTreeMap<ScopeSet, Credential>,
+    minter: Option<Minter>,
+}
+
+impl ScopedTokens {
+    fn read(sources: &ScopedSources) -> Result<Self, CredentialError> {
+        let mut issued = BTreeMap::new();
+        for (set, source) in &sources.issued {
+            issued.insert(set.clone(), Credential(format!("Bearer {}", read(source)?)));
+        }
+        let minter = match &sources.mint {
+            None => None,
+            Some((declaration, key)) => {
+                let pem = read(key)?;
+                let key = jsonwebtoken::EncodingKey::from_rsa_pem(pem.as_bytes())
+                    .map_err(|e| CredentialError::Key(e.to_string()))?;
+                Some(Minter {
+                    declaration: declaration.clone(),
+                    key,
+                })
+            }
+        };
+        Ok(Self { issued, minter })
+    }
+
+    /// The `Authorization` value for `set`: the supplied token, else a
+    /// minted one.
+    fn token(&self, set: &ScopeSet) -> Result<String, String> {
+        if let Some(Credential(value)) = self.issued.get(set) {
+            return Ok(value.clone());
+        }
+        match &self.minter {
+            Some(minter) => minter.mint(set).map(|Credential(value)| value),
+            None => Err(format!("no token is supplied for the scope set `{set}`")),
+        }
+    }
+}
+
+/// A transport that puts each principal's credential, and each scoped
+/// step's token, in place of its marker and hands the request to the
+/// transport it wraps.
 ///
 /// A request whose `Authorization` is anything other than a marker, such as
 /// a deliberately invalid credential a step sets, is sent unchanged.
@@ -299,6 +529,7 @@ pub struct CredentialedTransport<T> {
     inner: T,
     ordinary: Option<Credential>,
     administrative: Option<Credential>,
+    scoped: ScopedTokens,
 }
 
 impl<T: Transport> CredentialedTransport<T> {
@@ -315,8 +546,27 @@ impl<T: Transport> CredentialedTransport<T> {
             inner,
             ordinary: Credential::read(ordinary)?,
             administrative: Credential::read(administrative)?,
+            scoped: ScopedTokens::default(),
         })
     }
+
+    /// Reads the scoped tokens `sources` locate, and the test issuer's key,
+    /// once.
+    ///
+    /// # Errors
+    /// [`CredentialError`] when a located secret no longer reads, or the
+    /// test issuer's key is not an RSA private key in PEM.
+    pub fn with_scoped(mut self, sources: &ScopedSources) -> Result<Self, CredentialError> {
+        self.scoped = ScopedTokens::read(sources)?;
+        Ok(self)
+    }
+}
+
+/// The `Authorization` value of a principal's credential, if supplied.
+fn held(credential: Option<&Credential>, role: Role) -> Result<String, String> {
+    credential
+        .map(|Credential(value)| value.clone())
+        .ok_or_else(|| format!("the {role:?} principal's credential is not supplied"))
 }
 
 impl<T: Transport> Transport for CredentialedTransport<T> {
@@ -328,22 +578,28 @@ impl<T: Transport> Transport for CredentialedTransport<T> {
         body: Option<&Value>,
         body_is_json: bool,
     ) -> Result<RawResponse, String> {
-        let (role, held) = match headers.get("authorization").map(String::as_str) {
-            Some(ORDINARY_MARKER) => (Role::Ordinary, &self.ordinary),
-            Some(ADMINISTRATIVE_MARKER) => (Role::Administrative, &self.administrative),
-            _ => {
+        let presented = headers.get("authorization").map(String::as_str);
+        let value = match presented {
+            Some(ORDINARY_MARKER) => held(self.ordinary.as_ref(), Role::Ordinary)?,
+            Some(ADMINISTRATIVE_MARKER) => {
+                held(self.administrative.as_ref(), Role::Administrative)?
+            }
+            Some(other) => match scope::from_marker(other) {
+                Some(set) => self.scoped.token(&set.map_err(|e| e.to_string())?)?,
+                None => {
+                    return self
+                        .inner
+                        .exchange(method, url, headers, body, body_is_json);
+                }
+            },
+            None => {
                 return self
                     .inner
                     .exchange(method, url, headers, body, body_is_json);
             }
         };
-        let Some(Credential(value)) = held else {
-            return Err(format!(
-                "the {role:?} principal's credential is not supplied"
-            ));
-        };
         let mut sent = headers.clone();
-        sent.insert("authorization".to_owned(), value.clone());
+        sent.insert("authorization".to_owned(), value);
         self.inner.exchange(method, url, &sent, body, body_is_json)
     }
 }
@@ -354,7 +610,7 @@ mod tests {
     use assert_fs::prelude::*;
     use reqwest::StatusCode;
 
-    fn lookup(vars: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> {
+    fn lookup(vars: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> + use<> {
         let vars: BTreeMap<String, OsString> = vars
             .iter()
             .map(|(k, v)| ((*k).to_owned(), OsString::from(v)))
@@ -466,6 +722,7 @@ mod tests {
             inner: Sent::default(),
             ordinary: Some(credential),
             administrative: None,
+            scoped: ScopedTokens::default(),
         };
         assert!(!format!("{transport:?}").contains("t0ken-value"));
     }
@@ -498,6 +755,7 @@ mod tests {
             inner: Sent::default(),
             ordinary: Some(Credential("Basic b3JkaW5hcnk=".to_owned())),
             administrative: None,
+            scoped: ScopedTokens::default(),
         };
         let send = |transport: &mut CredentialedTransport<Sent>, value: &str| {
             let headers = BTreeMap::from([("authorization".to_owned(), value.to_owned())]);
@@ -522,5 +780,192 @@ mod tests {
             delivered,
             ["Basic b3JkaW5hcnk=", "Bearer veredictum-invalid-credential"]
         );
+    }
+
+    fn set(text: &str) -> ScopeSet {
+        ScopeSet::parse(text).unwrap()
+    }
+
+    /// `object` with `key` set to `value`.
+    fn with(object: &Value, key: &str, value: Value) -> Value {
+        let mut out = object.clone();
+        if let Some(map) = out.as_object_mut() {
+            map.insert(key.to_owned(), value);
+        }
+        out
+    }
+
+    fn scoped_ixit(member: Value) -> Value {
+        Value::Object(serde_json::Map::from_iter([(
+            SCOPED_TOKENS_MEMBER.to_owned(),
+            member,
+        )]))
+    }
+
+    /// The committed test issuer's RSA key, which is not secret.
+    fn test_key() -> PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/smart-test-issuer/cnf-smart-test.key.pem")
+    }
+
+    #[test]
+    fn scoped_tokens_are_located_from_the_ixit_without_being_read() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        let file = dir.child("crud");
+        file.write_str("tok-crud\n").unwrap();
+        let path = file.path().to_str().unwrap();
+        let vars = lookup(&[
+            ("VEREDICTUM_SCOPED_TOKEN_READ", "tok-read"),
+            ("VEREDICTUM_SCOPED_TOKEN_CRUD_FILE", path),
+        ]);
+        let ixit = scoped_ixit(serde_json::json!({ "issued": {
+            "system/template-*.r": "VEREDICTUM_SCOPED_TOKEN_READ",
+            "system/template-*.crud": "VEREDICTUM_SCOPED_TOKEN_CRUD"
+        }}));
+        let sources = ScopedSources::locate_with(Some(&ixit), &vars).unwrap();
+        let coverage = sources.coverage();
+        assert!(coverage.covers(&set("system/template-*.r")));
+        assert!(coverage.covers(&set("system/template-*.crud")));
+        assert!(!coverage.covers(&set("system/template-*.c")));
+        assert!(!coverage.minted);
+        assert_eq!(
+            ScopedSources::locate_with(None, &vars).unwrap(),
+            ScopedSources::default()
+        );
+        let unset = scoped_ixit(serde_json::json!({ "issued": {
+            "a": "VEREDICTUM_SCOPED_TOKEN_UNSET"
+        }}));
+        assert!(matches!(
+            ScopedSources::locate_with(Some(&unset), &vars),
+            Err(CredentialError::Missing { variable, .. }) if variable == "VEREDICTUM_SCOPED_TOKEN_UNSET"
+        ));
+    }
+
+    #[test]
+    fn a_malformed_scoped_declaration_is_refused() {
+        let vars = lookup(&[("VEREDICTUM_SCOPED_TOKEN_A", "t"), ("HOME", "/root")]);
+        let mint =
+            serde_json::json!({ "issuer": "i", "subject": "s", "kid": "k", "ttl_seconds": 60 });
+        let refused = [
+            serde_json::json!({ "issued": { "a": "HOME" } }),
+            serde_json::json!({ "issued": { "a": "VEREDICTUM_SCOPED_TOKEN_" } }),
+            serde_json::json!({ "issued": { "a": "VEREDICTUM_SCOPED_TOKEN_KEY" } }),
+            serde_json::json!({ "issued": { "a\"": "VEREDICTUM_SCOPED_TOKEN_A" } }),
+            serde_json::json!({ "issued": {
+                "a b": "VEREDICTUM_SCOPED_TOKEN_A", "b a": "VEREDICTUM_SCOPED_TOKEN_A"
+            }}),
+            serde_json::json!({ "issuer": "i" }),
+            serde_json::json!({ "mint": { "issuer": "i" } }),
+            serde_json::json!({ "mint": with(&mint, "ttl_seconds", serde_json::json!(0)) }),
+            serde_json::json!({ "mint": with(&mint, "claims", serde_json::json!({ "scope": "x" })) }),
+        ];
+        for member in refused {
+            assert!(
+                matches!(
+                    ScopedSources::locate_with(Some(&scoped_ixit(member.clone())), &vars),
+                    Err(CredentialError::Declaration(_))
+                ),
+                "{member}"
+            );
+        }
+        assert!(matches!(
+            ScopedSources::locate_with(
+                Some(&scoped_ixit(serde_json::json!({ "mint": mint }))),
+                &vars
+            ),
+            Err(CredentialError::Missing { variable, .. }) if variable == SCOPED_KEY_ENV
+        ));
+    }
+
+    #[test]
+    fn the_transport_puts_the_scoped_token_in_place_of_its_marker() {
+        let mut transport = CredentialedTransport {
+            inner: Sent::default(),
+            ordinary: None,
+            administrative: None,
+            scoped: ScopedTokens {
+                issued: BTreeMap::from([(set("a b"), Credential("Bearer tok-ab".to_owned()))]),
+                minter: None,
+            },
+        };
+        let send = |transport: &mut CredentialedTransport<Sent>, value: &str| {
+            let headers = BTreeMap::from([("authorization".to_owned(), value.to_owned())]);
+            transport.exchange(
+                HttpMethod::Get,
+                "https://sut.invalid/x",
+                &headers,
+                None,
+                true,
+            )
+        };
+        assert!(send(&mut transport, &scope::marker(&set("b a"))).is_ok());
+        let refused = send(&mut transport, &scope::marker(&set("c")));
+        assert!(refused.is_err_and(|e| e.contains("`c`") && !e.contains("tok-ab")));
+        assert_eq!(transport.inner.0.len(), 1);
+        assert_eq!(
+            transport
+                .inner
+                .0
+                .first()
+                .and_then(|h| h.get("authorization"))
+                .map(String::as_str),
+            Some("Bearer tok-ab")
+        );
+    }
+
+    #[test]
+    fn a_declared_test_issuer_mints_a_token_carrying_the_scope_set() {
+        let key = test_key();
+        let key = key.to_str().unwrap();
+        let vars = lookup(&[("VEREDICTUM_SCOPED_TOKEN_KEY_FILE", key)]);
+        let ixit = scoped_ixit(serde_json::json!({ "mint": {
+            "issuer": "https://issuer.example", "subject": "app", "audience": "cdr",
+            "kid": "cnf-smart-test", "ttl_seconds": 300, "claims": { "roles": ["clinician"] }
+        }}));
+        let sources = ScopedSources::locate_with(Some(&ixit), &vars).unwrap();
+        assert!(sources.coverage().covers(&set("anything")));
+        let tokens = ScopedTokens::read(&sources).unwrap();
+        assert!(!format!("{tokens:?}").contains("PRIVATE"));
+        let value = tokens.token(&set("system/template-*.r openid")).unwrap();
+        let jwt = value.strip_prefix("Bearer ").unwrap();
+        let mut parts = jwt.split('.');
+        let decode = |part: Option<&str>| -> Value {
+            let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(part.unwrap())
+                .unwrap();
+            serde_json::from_slice(&bytes).unwrap()
+        };
+        let header = decode(parts.next());
+        let claims = decode(parts.next());
+        assert_eq!(header.get("alg"), Some(&Value::from("RS256")));
+        assert_eq!(header.get("kid"), Some(&Value::from("cnf-smart-test")));
+        assert_eq!(
+            claims.get("scope"),
+            Some(&Value::from("openid system/template-*.r"))
+        );
+        assert_eq!(claims.get("aud"), Some(&Value::from("cdr")));
+        assert_eq!(claims.get("roles"), Some(&serde_json::json!(["clinician"])));
+        let lifetime = claims.get("exp").and_then(Value::as_i64).unwrap()
+            - claims.get("iat").and_then(Value::as_i64).unwrap();
+        assert_eq!(lifetime, 300);
+    }
+
+    #[test]
+    fn a_test_issuer_key_that_is_not_an_rsa_pem_is_refused() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        let file = dir.child("key.pem");
+        file.write_str("not a key").unwrap();
+        let vars = lookup(&[(
+            "VEREDICTUM_SCOPED_TOKEN_KEY_FILE",
+            file.path().to_str().unwrap(),
+        )]);
+        let ixit = scoped_ixit(serde_json::json!({ "mint": {
+            "issuer": "i", "subject": "s", "kid": "k", "ttl_seconds": 1
+        }}));
+        let sources = ScopedSources::locate_with(Some(&ixit), &vars).unwrap();
+        assert!(matches!(
+            ScopedTokens::read(&sources),
+            Err(CredentialError::Key(_))
+        ));
     }
 }

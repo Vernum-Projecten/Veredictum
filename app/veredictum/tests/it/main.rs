@@ -25,6 +25,7 @@ mod arazzo_cli;
 mod arazzo_derive;
 mod arazzo_exclusive;
 mod arazzo_pack;
+mod arazzo_smart;
 mod artifact_gates;
 mod bench_engine;
 mod bench_manifest;

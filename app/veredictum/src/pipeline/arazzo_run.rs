@@ -14,14 +14,15 @@
 //! The caller hands over where each credential comes from, never its value
 //! ([`CredentialSource`]). The value is read only inside the transport that
 //! sends it ([`CredentialedTransport`]), so nothing the run returns can carry
-//! it, and neither credential is recorded.
+//! it, and no credential is recorded. The scoped tokens the IXIT declares
+//! are located the same way ([`ScopedSources`]), before anything runs.
 
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
 use crate::arazzo::catalogue::{self, Declarations, Selection};
-use crate::arazzo::credential::{CredentialSource, CredentialedTransport, Role};
+use crate::arazzo::credential::{CredentialSource, CredentialedTransport, Role, ScopedSources};
 use crate::arazzo::evaluate::RunConfig;
 use crate::arazzo::export::Tally;
 use crate::arazzo::gates::check_catalogue;
@@ -53,6 +54,10 @@ pub struct ArazzoRunRequest<'a> {
 
 /// What the run is driven against.
 #[derive(Debug, Clone)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "one value is built and moved once per run, so boxing a variant saves nothing"
+)]
 pub enum Drive<'a> {
     /// A server under test, over HTTP.
     Live {
@@ -64,6 +69,10 @@ pub enum Drive<'a> {
         /// [`CredentialSource::None`], every workflow that needs it is
         /// skipped as `not-declared`.
         administrative: CredentialSource,
+        /// The SMART Platform base URL a Platform source's paths are appended
+        /// to; without it, every workflow with a step sent to it is skipped as
+        /// `not-declared`.
+        platform_url: Option<&'a str>,
     },
     /// The HAR recording of an earlier run, without a server.
     Rejudge {
@@ -145,6 +154,10 @@ pub fn repo_root_of(root: &Path) -> PathBuf {
 }
 
 /// What a run drives.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "one value is built and moved once per run, so boxing a variant saves nothing"
+)]
 enum Target {
     /// A server, under this configuration, with credentials from these
     /// sources.
@@ -152,6 +165,7 @@ enum Target {
         config: RunConfig,
         ordinary: CredentialSource,
         administrative: CredentialSource,
+        scoped: ScopedSources,
     },
     /// This recording.
     Rejudge(Har),
@@ -174,7 +188,8 @@ fn marker(source: &CredentialSource, role: Role) -> Option<String> {
 /// [`Error::ArazzoCatalogue`] when the catalogue cannot be planned,
 /// [`Error::ArazzoGate`] when the catalogue has a gate finding,
 /// [`Error::Instrument`] when no HTTP client can be built,
-/// [`Error::Credential`] when a located credential no longer reads, and
+/// [`Error::Credential`] when a located credential no longer reads, or the
+/// IXIT's scoped tokens are malformed or not in the environment, and
 /// [`Error::ArazzoRun`] when a document cannot be run or the recording does
 /// not replay.
 pub fn run_catalogue(
@@ -189,29 +204,36 @@ pub fn run_catalogue(
         statement: read(request.statement, "the statement")?,
         ixit: read(request.ixit, "the IXIT")?,
         administrative: false,
+        platform: false,
     };
     let target = match drive {
         Drive::Live {
             base_url,
             ordinary,
             administrative,
+            platform_url,
         } => {
+            let scoped = ScopedSources::locate(declarations.ixit.as_ref())?;
             let config = RunConfig {
-                base_url: base_url.to_owned(),
                 authorization: marker(&ordinary, Role::Ordinary),
-                signing: None,
                 administrative: marker(&administrative, Role::Administrative),
+                platform_url: platform_url.map(str::to_owned),
+                scoped: scoped.coverage(),
+                ..RunConfig::new(base_url)
             };
             declarations.administrative = administrative.is_supplied();
+            declarations.platform = platform_url.is_some();
             Target::Live {
                 config,
                 ordinary,
                 administrative,
+                scoped,
             }
         }
         Drive::Rejudge { recording } => {
             let recording = Har::read(recording)?;
             declarations.administrative = recording.log.veredictum.administrative;
+            declarations.platform = recording.log.veredictum.platform_url.is_some();
             Target::Rejudge(recording)
         }
     };
@@ -230,9 +252,11 @@ pub fn run_catalogue(
             config,
             ordinary,
             administrative,
+            scoped,
         } => {
             let http = HttpTransport::new().map_err(Error::Instrument)?;
-            let mut transport = CredentialedTransport::new(http, &ordinary, &administrative)?;
+            let mut transport = CredentialedTransport::new(http, &ordinary, &administrative)?
+                .with_scoped(&scoped)?;
             let (results, recording) =
                 catalogue::run(&planned, &config, &repo_root, &mut transport)?;
             Ok(ArazzoRunOutcome {

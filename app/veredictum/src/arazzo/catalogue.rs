@@ -15,10 +15,11 @@
 //! `options` select the arm of every option in `capabilities.yaml`; its IXIT and
 //! statement answer a rows file's `declared` inputs, and a party that
 //! supplies no administrative principal has every workflow that needs one
-//! skipped as `not-declared`. The documents share one recording, so an entry
-//! index in the results names the same exchange the recording holds, and a
-//! re-judgement replays the recording through the documents in the same
-//! order. No openEHR spec governs this — our own design.
+//! skipped as `not-declared`, as does one that supplies no SMART Platform
+//! base URL for every workflow with a step sent to it. The documents share
+//! one recording, so an entry index in the results names the same exchange
+//! the recording holds, and a re-judgement replays the recording through the
+//! documents in the same order. No openEHR spec governs this — our own design.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -32,6 +33,7 @@ use crate::arazzo::evaluate::{
 };
 use crate::arazzo::gates::{CASES_DIR, DOCUMENT_SUFFIX};
 use crate::arazzo::har::{Har, HarTransport};
+use crate::arazzo::platform;
 use crate::arazzo::principal::{self, Principal};
 use crate::arazzo::results::{Engine, Results, Skip, SkipReason, Why};
 use crate::arazzo::rows::{self, RowsError, rows_path};
@@ -127,6 +129,8 @@ pub struct Declarations {
     pub ixit: Option<Value>,
     /// Whether the party supplies the administrative principal.
     pub administrative: bool,
+    /// Whether the party supplies the SMART Platform base URL.
+    pub platform: bool,
 }
 
 /// One document of the run, with the plan it runs under.
@@ -322,10 +326,10 @@ pub struct Choice<'a> {
 ///
 /// It skips the documents of a capability the statement does not claim,
 /// then those of an arm it does not select, then the workflows of an
-/// administrative principal the party does not supply, and carries the
-/// declarations and every rows file beside the document. Only the
-/// document's own workflows are skipped: a setup it names in `dependsOn`
-/// runs whichever folder holds it.
+/// administrative principal or a Platform base URL the party does not
+/// supply, and carries the declarations and every rows file beside the
+/// document. Only the document's own workflows are skipped: a setup it
+/// names in `dependsOn` runs whichever folder holds it.
 ///
 /// # Errors
 /// [`CatalogueError::Rows`] when a rows file beside the document does not
@@ -356,6 +360,11 @@ pub fn plan(
         for (workflow, skip) in
             principal::undeclared_skips(document, Principal::Administrative, repo_root)
         {
+            plan.skips.entry(workflow).or_insert(skip);
+        }
+    }
+    if !declarations.platform {
+        for (workflow, skip) in platform::undeclared_skips(document, repo_root) {
             plan.skips.entry(workflow).or_insert(skip);
         }
     }
@@ -538,8 +547,7 @@ pub fn run(
     repo_root: &Path,
     transport: &mut dyn Transport,
 ) -> Result<(Results, Har), RunError> {
-    let mut recording = Har::new(&config.base_url);
-    recording.log.veredictum.administrative = config.administrative.is_some();
+    let mut recording = config.recording();
     let mut rows = Vec::new();
     for (phase, document) in drive_order(planned) {
         let mut evaluator = Evaluator::new(
