@@ -5697,7 +5697,6 @@ dependencies = [
  "regex-syntax",
  "reqwest",
  "roas-arazzo",
- "semver",
  "serde",
  "serde-saphyr",
  "serde_jcs",

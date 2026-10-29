@@ -76,7 +76,6 @@ serde-saphyr = "2.0.0"
 # against them before typed parsing.
 jsonschema = "0.59.0"
 # `applies` spec-version ranges use the Cargo/semver requirement grammar.
-semver = "1.0.28"
 regex = "1"
 # Wall-clock time (token `iat`/`exp`, run stamps) comes from the pinned time
 # library, never `std::time::SystemTime` (clippy.toml `disallowed-methods`);
