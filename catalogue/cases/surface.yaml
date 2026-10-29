@@ -114,19 +114,15 @@ gaps:
   - { api: definition, operation: definition_template_adl2_version_get, header: Accept, value: application/xml, issue: 714 }
   - { api: definition, operation: definition_template_adl2_version_get, status: "200", issue: 714 }
   - { api: definition, operation: definition_template_adl2_version_get, status: "400", issue: 714 }
-# The Query branches the QUERY and DEFINITION conversion leaves open, covered
-# by #711: the 400 of a refused stored-query execution and version store, and
-# the 408 of a query that times out, which no workflow can provoke on demand.
-  - { api: definition, operation: definition_query_version_store.yaml, status: "400", issue: 711 }
-  - { api: query, operation: query_execute_adhoc_query, status: "408", issue: 711 }
-  - { api: query, operation: query_execute_adhoc_query_body, status: "408", issue: 711 }
-  - { api: query, operation: query_execute_stored_query, status: "400", issue: 711 }
-  - { api: query, operation: query_execute_stored_query, status: "408", issue: 711 }
-  - { api: query, operation: query_execute_stored_query_body, status: "408", issue: 711 }
-  - { api: query, operation: query_execute_stored_query_version, status: "400", issue: 711 }
-  - { api: query, operation: query_execute_stored_query_version, status: "408", issue: 711 }
-  - { api: query, operation: query_execute_stored_query_version_body, status: "400", issue: 711 }
-  - { api: query, operation: query_execute_stored_query_version_body, status: "408", issue: 711 }
+# The 408 of a query that times out. The release names no maximum execution
+# time and gives a client no parameter or header to set one, so no workflow
+# can provoke the branch on demand: upstream report #754.
+  - { api: query, operation: query_execute_adhoc_query, status: "408", issue: 754 }
+  - { api: query, operation: query_execute_adhoc_query_body, status: "408", issue: 754 }
+  - { api: query, operation: query_execute_stored_query, status: "408", issue: 754 }
+  - { api: query, operation: query_execute_stored_query_body, status: "408", issue: 754 }
+  - { api: query, operation: query_execute_stored_query_version, status: "408", issue: 754 }
+  - { api: query, operation: query_execute_stored_query_version_body, status: "408", issue: 754 }
 # An XML request body on a CONTRIBUTION or directory write: only the refusing
 # arms of `contribution-xml-write` and `directory-xml-write` have a document.
 # No published XSD declares an element or a type for the CONTRIBUTION commit

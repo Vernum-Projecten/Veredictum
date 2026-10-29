@@ -197,10 +197,10 @@ options:
       quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
   query-ehr-scope:
     description: >-
-      Whether the service restricts an ad-hoc query to the EHR the ehr_id
-      query parameter names. The release lets the backend use the parameter
-      for routing and optimisation, so a service that treats it as a hint
-      declares the other arm, which has no document.
+      Whether the service restricts a query to the EHR the ehr_id query
+      parameter or the openehr-ehr-id request header names. The release lets
+      the backend use the scope for routing and optimisation, so a service
+      that treats it as a hint declares the other arm, which has no document.
     arms:
       query-ehr-scope-filters:
         documents: [aql_ehr_scope]
@@ -218,7 +218,7 @@ options:
       service that declines it declares the other arm, which has no document.
     arms:
       aql-top-supported:
-        documents: [aqlc_top]
+        documents: [aqlc_top, aql_stored_top]
       aql-top-declined:
         documents: []
     x-veredictum-cite:

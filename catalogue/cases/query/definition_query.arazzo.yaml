@@ -1,8 +1,9 @@
 # The stored-query definitions of the DEFINITION API: storing a query at a
 # version and without one, reading a version back, the version prefixes of the
-# read, a version that is stored twice or never, the listing by name and the
-# reserved name. Each workflow stores under a fresh qualified_query_name. Every
-# quote is copied verbatim from the named vendored file.
+# read, a version that is stored twice or never, the listing by name and by a
+# name prefix, the name forms the release allows, and the stores and reads it
+# refuses. Each workflow stores under a fresh qualified_query_name. Every quote
+# is copied verbatim from the named vendored file.
 arazzo: "1.1.0"
 info:
   title: Stored query definitions
@@ -392,3 +393,420 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/400.yaml
               section: description
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: store_version-malformed_version
+    summary: Storing a query at a version that is not a SEMVER version is refused with 400
+    description: >-
+      Stores a query under a fresh name at the version v1.x, which is neither
+      an exact SEMVER version nor a major or major.minor prefix, so the
+      version parameter is syntactically invalid. The store is refused with
+      400.
+    x-veredictum-cite:
+      source: specs/rest-oas/query-validation.openapi.yaml
+      section: tags
+      quote: "The `version` identifier is in the format specified by [SEMVER](https://semver.org/) style (i.e. `major.minor.patch`)."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store
+        description: Store the query at the version v1.x.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}" }
+          - { name: version, in: path, value: "v1.x" }
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: text/plain
+          payload: "SELECT e/ehr_id/value FROM EHR e[ehr_id/value=$ehr_id]"
+        successCriteria:
+          - condition: "$statusCode == 400"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: store_version-query_not_parsed
+    summary: Storing a query text the AQL grammar refuses is refused with 400
+    description: >-
+      Stores, at version 1.0.0 under a fresh name, a query text with no FROM
+      clause, which does not parse under the released AQL grammar
+      (AqlParser.g4 selectQuery). The content is syntactically invalid, so
+      the store is refused with 400.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/400.yaml
+      section: description
+      quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store
+        description: Store the query text without a FROM clause at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: text/plain
+          payload: "SELECT e/ehr_id/value"
+        successCriteria:
+          - condition: "$statusCode == 400"
+
+  - workflowId: store_version-dotted_name
+    summary: A query name with dots is stored and read back
+    description: >-
+      Stores a query at version 1.0.0 under a fresh name whose query-name
+      part holds dots, and reads it back at 1.0.0. The definition names the
+      query with its dots.
+    x-veredictum-cite:
+      source: specs/rest-oas/query-validation.openapi.yaml
+      section: tags
+      quote: "The `query-name` may include any combination of characters, matched by the pattern `[a-zA-Z0-9_.-]`."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store
+        description: Store the query at version 1.0.0 under the dotted name.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq.dotted.{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: text/plain
+          payload: "SELECT e/ehr_id/value FROM EHR e[ehr_id/value=$ehr_id]"
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: read
+        description: Read the definition at 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_get
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq.dotted.{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_get.yaml
+              section: description
+              quote: "`200 OK` is returned when the stored AQL is successfully retrieved."
+          - context: $response.body#/name
+            type: regex
+            condition: '^org\.veredictum::dq\.dotted\.{$inputs.run}$'
+
+  - workflowId: store_version-unqualified_name
+    summary: A query name without a namespace is stored and read back
+    description: >-
+      Stores a query at version 1.0.0 under a fresh name with no namespace,
+      and reads it back at 1.0.0 by that name. The name the definition
+      carries is not judged: the release does not say whether a service
+      records a default namespace.
+    x-veredictum-cite:
+      source: specs/rest-oas/query-validation.openapi.yaml
+      section: tags
+      quote: "Usually a `qualified_query_name` has a format of `[{namespace}::]{query-name}`."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store
+        description: Store the query at version 1.0.0 under the name without a namespace.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "dq-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: text/plain
+          payload: "SELECT e/ehr_id/value FROM EHR e[ehr_id/value=$ehr_id]"
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: read
+        description: Read the definition at 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_get
+        parameters:
+          - { name: qualified_query_name, in: path, value: "dq-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_get.yaml
+              section: description
+              quote: "`200 OK` is returned when the stored AQL is successfully retrieved."
+
+  - workflowId: list-prefix_several_names
+    summary: A listing by a name prefix returns every query whose name starts with it
+    description: >-
+      Stores two queries at version 1.0.0 under two fresh names that share a
+      prefix, and lists the prefix. The list holds both names.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/definition_query_list.yaml
+      section: description
+      quote: "`GET https://openEHRSys.example.com/v1/definition/query/org.openehr` will list all versions of all queries with names starting with `org.openehr`"
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-first
+        description: Store the first query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}-first" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: text/plain
+          payload: "SELECT e/ehr_id/value FROM EHR e[ehr_id/value=$ehr_id]"
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-second
+        description: Store the second query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}-second" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: text/plain
+          payload: "SELECT e/ehr_id/value FROM EHR e[ehr_id/value=$ehr_id]"
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: list
+        description: List the stored queries matched by the shared prefix.
+        operationId: $sourceDescriptions.definition.definition_query_list
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_QueryList.yaml
+              section: description
+              quote: "`200 OK` is returned when the query resources are successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.name == 'org.veredictum::dq-{$inputs.run}-first']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.name == 'org.veredictum::dq-{$inputs.run}-second']"
+
+  - workflowId: list-every_version
+    summary: A listing by a query name returns every stored version of it
+    description: >-
+      Stores a query at 1.0.0 and at 1.1.0 under a fresh name, and lists the
+      name. The list holds the definition at each of the two versions; their
+      order is not judged.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/definition_query_list.yaml
+      section: description
+      quote: "`GET https://openEHRSys.example.com/v1/definition/query/org.openehr::compositions` will list all versions of the query named `org.openehr::compositions`"
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: text/plain
+          payload: "SELECT e/ehr_id/value FROM EHR e[ehr_id/value=$ehr_id]"
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-1_1_0
+        description: Store the query at version 1.1.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}" }
+          - { name: version, in: path, value: "1.1.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: text/plain
+          payload: "SELECT e/ehr_id/value FROM EHR e[ehr_id/value=$ehr_id]"
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: list
+        description: List the stored queries matched by the fresh name.
+        operationId: $sourceDescriptions.definition.definition_query_list
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_QueryList.yaml
+              section: description
+              quote: "`200 OK` is returned when the query resources are successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.name == 'org.veredictum::dq-{$inputs.run}' && @.version == '1.0.0']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.name == 'org.veredictum::dq-{$inputs.run}' && @.version == '1.1.0']"
+
+  - workflowId: get-version_xml_not_acceptable
+    summary: Reading a stored query with Accept application/xml is refused with 406
+    description: >-
+      Stores a query at version 1.0.0 under a fresh name and reads it at
+      1.0.0 with Accept application/xml. The release defines no canonical XML
+      form of a stored query, so no service can fulfil the request and the
+      read is refused with 406.
+    x-veredictum-cite: &xml_refused
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store
+        description: Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: text/plain
+          payload: "SELECT e/ehr_id/value FROM EHR e[ehr_id/value=$ehr_id]"
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: read
+        description: Read the definition at 1.0.0 with Accept application/xml.
+        operationId: $sourceDescriptions.definition.definition_query_version_get
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: "$statusCode == 406"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+              section: XML Format
+              quote: "When resources are serialized in **canonical XML** format, both request payloads and responses MUST conform to the [published XSDs](https://specifications.openehr.org/releases/ITS-XML/latest)."
+
+  - workflowId: list-xml_not_acceptable
+    summary: Listing stored queries with Accept application/xml is refused with 406
+    description: >-
+      Stores a query at version 1.0.0 under a fresh name and lists the name
+      with Accept application/xml. The release defines no canonical XML form
+      of a stored query list, so no service can fulfil the request and the
+      listing is refused with 406.
+    x-veredictum-cite: *xml_refused
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store
+        description: Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: text/plain
+          payload: "SELECT e/ehr_id/value FROM EHR e[ehr_id/value=$ehr_id]"
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: list
+        description: List the stored queries matched by the fresh name with Accept application/xml.
+        operationId: $sourceDescriptions.definition.definition_query_list
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}" }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: "$statusCode == 406"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+              section: XML Format
+              quote: "When resources are serialized in **canonical XML** format, both request payloads and responses MUST conform to the [published XSDs](https://specifications.openehr.org/releases/ITS-XML/latest)."
+
+  - workflowId: store-wrong_media
+    summary: Storing a query sent as application/json is refused with 415
+    description: >-
+      Stores a query under a fresh name as a JSON body with Content-Type
+      application/json. The store takes a text/plain body only, so the
+      payload is in a format the method does not support.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: HTTP status codes
+      quote: "| 415  | Unsupported Media Type | The service is refusing the request because the payload is in a format not supported by this method on the target resource                                                 |"
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store
+        description: Store the query as an application/json body.
+        operationId: $sourceDescriptions.definition.definition_query_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::dq-{$inputs.run}" }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: "SELECT e/ehr_id/value FROM EHR e[ehr_id/value=$ehr_id]"
+        successCriteria:
+          - condition: "$statusCode == 415"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "To indicate the status of a request or operation, an appropriate HTTP status code MUST be used as described above."

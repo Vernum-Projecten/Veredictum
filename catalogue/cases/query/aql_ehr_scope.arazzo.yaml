@@ -1,18 +1,24 @@
-# The single-EHR scope of an ad-hoc query, on the arm of the query-ehr-scope
-# option whose service filters by it: ITS-REST docs/query/Request.md lets the
-# backend use the ehr_id parameter "to perform routing, optimizations or
-# similar", so a service that treats it as a hint declares the other arm. Every
-# quote is copied verbatim from the named vendored file.
+# The single-EHR scope of an ad-hoc and a stored query, by the ehr_id
+# parameter and the openehr-ehr-id request header, on the arm of the
+# query-ehr-scope option whose service filters by it: ITS-REST
+# docs/query/Request.md lets the backend use the ehr_id parameter "to perform
+# routing, optimizations or similar", so a service that treats it as a hint
+# declares the other arm. Every quote is copied verbatim from the named
+# vendored file.
 arazzo: "1.1.0"
 info:
   title: AQL single-EHR scope
   version: "0.1.0"
   description: >-
-    The ehr_id query parameter of the ad-hoc AQL GET, judged where the
-    service declares that it filters the result to that EHR.
+    The ehr_id query parameter and the openehr-ehr-id request header of
+    the AQL executions, judged where the service declares that it filters
+    the result to that EHR.
 sourceDescriptions:
   - name: query
     url: "../../../specs/rest-oas/query-validation.openapi.yaml"
+    type: openapi
+  - name: definition
+    url: "../../../specs/rest-oas/definition-validation.openapi.yaml"
     type: openapi
   - name: setup
     url: "../_setup/templates.arazzo.yaml"
@@ -104,3 +110,157 @@ workflows:
               match: count
               count: 0
               columns: [uid]
+
+  - workflowId: get-ehr_id_header
+    summary: The openehr-ehr-id request header scopes an ad-hoc GET to one EHR
+    description: >-
+      Executes a query over every EHR's COMPOSITIONs with GET, sending the
+      dataset ehr_id in the openehr-ehr-id request header. On the arm of
+      query-ehr-scope that filters, the result is the five dataset
+      COMPOSITIONs and nothing from any other EHR.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite: &header_scope
+      source: specs/openehr/ITS-REST/specifications/docs/query/Query_types.md
+      section: Single EHR queries
+      quote: "This is achieved by supplying an `ehr_id` query parameter or setting an `openehr-ehr-id` request header."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query with the dataset ehr_id in the openehr-ehr-id
+          request header.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT c/name/value AS name FROM EHR e CONTAINS COMPOSITION c
+          - name: openehr-ehr-id
+            in: header
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite: &ok
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check: &five_visits
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[alpha visit], [beta visit], [gamma visit], ["delta ?visit"], [epsilon note]]
+
+  - workflowId: post-ehr_id_header
+    summary: The openehr-ehr-id request header scopes an ad-hoc POST to one EHR
+    description: >-
+      Executes a query over every EHR's COMPOSITIONs with POST, sending the
+      dataset ehr_id in the openehr-ehr-id request header. On the arm of
+      query-ehr-scope that filters, the result is the five dataset
+      COMPOSITIONs and nothing from any other EHR.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite: *header_scope
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query with the dataset ehr_id in the openehr-ehr-id
+          request header.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: openehr-ehr-id
+            in: header
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/name/value AS name FROM EHR e CONTAINS COMPOSITION c
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite: *ok
+          - condition: "$statusCode == 200"
+            x-veredictum-check: *five_visits
+
+  - workflowId: get-ehr_id_parameter_and_header
+    summary: The ehr_id parameter and the openehr-ehr-id header naming one EHR scope a query to it
+    description: >-
+      Executes a query over every EHR's COMPOSITIONs with GET, sending the
+      dataset ehr_id both as the ehr_id query parameter and in the
+      openehr-ehr-id request header. On the arm of query-ehr-scope that
+      filters, the result is the five dataset COMPOSITIONs.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite: *header_scope
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query with the dataset ehr_id as the ehr_id query
+          parameter and in the openehr-ehr-id request header.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT c/name/value AS name FROM EHR e CONTAINS COMPOSITION c
+          - name: ehr_id
+            in: query
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - name: openehr-ehr-id
+            in: header
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite: *ok
+          - condition: "$statusCode == 200"
+            x-veredictum-check: *five_visits
+
+  - workflowId: get-stored_ehr_id_header
+    summary: The openehr-ehr-id request header scopes a stored query to one EHR
+    description: >-
+      Stores, at 1.0.0 under a fresh name, a query over every EHR's
+      COMPOSITIONs, and executes it by name with GET, sending the dataset
+      ehr_id in the openehr-ehr-id request header. On the arm of
+      query-ehr-scope that filters, the result is the five dataset
+      COMPOSITIONs.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/query/Request.md
+      section: Common Headers and Query Parameters
+      quote: "`openehr-ehr-id` - used to execute the query within a single EHR context: an EHR identifier taken from EHR.ehr_id.value"
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::scope-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: SELECT c/name/value AS name FROM EHR e CONTAINS COMPOSITION c
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query by name with the dataset ehr_id in the
+          openehr-ehr-id request header.
+        operationId: $sourceDescriptions.query.query_execute_stored_query
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::scope-{$inputs.run}" }
+          - name: openehr-ehr-id
+            in: header
+            value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite: *ok
+          - condition: "$statusCode == 200"
+            x-veredictum-check: *five_visits

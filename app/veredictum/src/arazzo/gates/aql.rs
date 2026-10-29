@@ -171,9 +171,25 @@ fn query_of(step: &Step, carrier: Carrier, inputs: &BTreeMap<String, Value>) -> 
             if language.as_deref().is_some_and(|l| l != AQL) {
                 return None;
             }
+            let media = step.request_body.as_ref()?.content_type.as_deref();
+            if media.is_some_and(|m| !is_text_plain(m)) {
+                return None;
+            }
             body(step, &scope, "").as_ref().map(text_of)
         }
     }
+}
+
+/// Whether `media` names `text/plain`, the only request body the stores
+/// declare (`definition-validation.openapi.yaml`, the `put` operations of
+/// `/definition/query/{qualified_query_name}` and its `{version}` path); a
+/// body sent in another media type is not AQL text but the payload of a
+/// request the server refuses for its format.
+fn is_text_plain(media: &str) -> bool {
+    media
+        .split(';')
+        .next()
+        .is_some_and(|essence| essence.trim().eq_ignore_ascii_case("text/plain"))
 }
 
 /// The text a value is sent as.
@@ -474,6 +490,33 @@ mod tests {
         let earlier = get_step("$steps.list.outputs.q", 200);
         let found = check_workflow("query/w", &workflow(&json!([store, earlier])), None);
         assert_eq!(found, Vec::new());
+    }
+
+    #[test]
+    fn a_store_body_in_another_media_type_is_not_aql_text() {
+        let store = |media: &str| {
+            json!({
+                "stepId": "store",
+                "operationId": "$sourceDescriptions.definition.definition_query_store.yaml",
+                "parameters": [{ "name": "qualified_query_name", "in": "path", "value": "org::q" }],
+                "requestBody": { "contentType": media, "payload": { "q": VALID } },
+                "successCriteria": [{ "condition": "$statusCode == 415" }]
+            })
+        };
+        let json_body = check_workflow(
+            "query/w",
+            &workflow(&json!([store("application/json")])),
+            None,
+        );
+        assert_eq!(json_body, Vec::new());
+        let text_body = check_workflow(
+            "query/w",
+            &workflow(&json!([store("text/plain; charset=utf-8")])),
+            None,
+        );
+        assert_eq!(text_body.len(), 1, "{text_body:?}");
+        assert!(is_text_plain("Text/Plain"));
+        assert!(!is_text_plain("application/json"));
     }
 
     #[test]

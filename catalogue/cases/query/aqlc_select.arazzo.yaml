@@ -147,6 +147,57 @@ workflows:
               context: $response.body
               match: count
               count: 1
+  - workflowId: identified_path-trivia_inside_node_predicates_is_not_part_of_the_predicate
+    summary: Whitespace and a comment inside a node predicate do not change the answer
+    description: 'Carries aql-conformance case SELECT.identified_path.trivia_inside_node_predicates_is_not_part_of_the_predicate
+      (level core, corpus/cases/SELECT/trivia_inside_node_predicates.yaml): over the set-up seed-vital_signs,
+      the query of identified_path-content_typed_numeric_leaves, spelled with padding inside its brackets
+      and a line comment before a closing bracket, returns the one row the case expects. The lexer skips
+      whitespace and sends a comment to its own channel, so neither is part of a predicate.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master07-grammar.adoc
+      section: AQL Syntax Specification
+      quote: 'WS: [ \t\r\n]+ -> skip;'
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: |-
+              SELECT o/data[ at0001 ]/events[at0006 -- the only event
+              ]/data[at0003]/items[at0004]/value/magnitude FROM EHR e CONTAINS COMPOSITION c
+              CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v1]
+              WHERE e/ehr_id/value = $ehr_id
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/QUERY/docs/AQL/master07-grammar.adoc
+              section: AQL Syntax Specification
+              quote: ') -> channel(COMMENT_CHANNEL);'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 1
   - workflowId: identified_path-ehr_id_scalar
     summary: EHR id projects as a scalar and echoes the EHR under test
     description: 'Carries aql-conformance case SELECT.identified_path.ehr_id_scalar (level core, corpus/cases/SELECT/ehr_id_scalar.yaml):
