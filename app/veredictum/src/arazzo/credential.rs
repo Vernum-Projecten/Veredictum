@@ -457,7 +457,13 @@ mod tests {
         };
         let send = |transport: &mut CredentialedTransport<Sent>, value: &str| {
             let headers = BTreeMap::from([("authorization".to_owned(), value.to_owned())]);
-            transport.exchange(HttpMethod::Get, "http://sut/ehr", &headers, None, true)
+            transport.exchange(
+                HttpMethod::Get,
+                "https://sut.invalid/ehr",
+                &headers,
+                None,
+                true,
+            )
         };
         assert!(send(&mut transport, ORDINARY_MARKER).is_ok());
         assert!(send(&mut transport, "Bearer veredictum-invalid-credential").is_ok());
