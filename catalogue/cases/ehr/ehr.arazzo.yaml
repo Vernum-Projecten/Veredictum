@@ -201,6 +201,7 @@ workflows:
               quote: "`200 OK` is returned when the requested EHR resource is successfully retrieved."
 
   - workflowId: create_ehr-invalid_ehr_id
+    x-veredictum-control: create_ehr-with_id
     summary: An ehr_id that is not a HIER_OBJECT_ID is refused on create
     description: >-
       Creates an EHR naming an ehr_id that matches none of the UID string
@@ -471,6 +472,7 @@ workflows:
               quote: "These subject parameters will be matched against EHR's EHR_STATUS.subject.external_ref.id.value and EHR_STATUS.subject.external_ref.namespace values."
 
   - workflowId: create_ehr-status_without_archetype_details
+    x-veredictum-control: create_ehr-provided_status
     summary: An EHR_STATUS without archetype_details is refused on create
     description: >-
       Creates an EHR whose EHR_STATUS carries no archetype_details. An
@@ -1137,6 +1139,7 @@ workflows:
             condition: '^application/json'
 
   - workflowId: create_ehr-invalid_status-missing_required
+    x-veredictum-control: create_ehr-provided_status
     summary: An EHR_STATUS that lacks a member the request schema requires is refused
     description: >-
       Creates an EHR whose EHR_STATUS lacks subject, is_queryable or
@@ -1167,6 +1170,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: get_ehr-malformed_ehr_id
+    x-veredictum-control: get_ehr-by_id
     summary: A read whose ehr_id segment is not a well-formed identifier is refused as a client error
     description: >-
       Retrieves an EHR by an ehr_id path segment that is no identifier of any

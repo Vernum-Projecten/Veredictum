@@ -82,6 +82,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_proportion-validate_any_fraction-c_integer_list
+    x-veredictum-control: dv_proportion-validate_any_fraction-accepted
     summary: "DV_PROPORTION type constrained to C_INTEGER.list = [3,4]: a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION type
@@ -200,6 +201,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_proportion-validate_fraction-c_integer_list
+    x-veredictum-control: dv_proportion-validate_fraction-accepted
     summary: "DV_PROPORTION type constrained to C_INTEGER.list = [3] (fraction): a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION type
@@ -319,6 +321,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_proportion-validate_integer_fraction-c_integer_list
+    x-veredictum-control: dv_proportion-validate_integer_fraction-accepted
     summary: "DV_PROPORTION type constrained to C_INTEGER.list = [4] (integer fraction): a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION type
@@ -438,6 +441,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_proportion-validate_open-valid_denominator
+    x-veredictum-control: dv_proportion-validate_open-accepted
     summary: "DV_PROPORTION intrinsic invariants (type, numerator, denominator, precision): a breach of the Valid_denominator invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION intrinsic
@@ -498,6 +502,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_proportion-validate_open-unitary_validity
+    x-veredictum-control: dv_proportion-validate_open-accepted
     summary: "DV_PROPORTION intrinsic invariants (type, numerator, denominator, precision): a breach of the Unitary_validity invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION intrinsic
@@ -558,6 +563,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_proportion-validate_open-percent_validity
+    x-veredictum-control: dv_proportion-validate_open-accepted
     summary: "DV_PROPORTION intrinsic invariants (type, numerator, denominator, precision): a breach of the Percent_validity invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION intrinsic
@@ -618,6 +624,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_proportion-validate_open-fraction_validity
+    x-veredictum-control: dv_proportion-validate_open-accepted
     summary: "DV_PROPORTION intrinsic invariants (type, numerator, denominator, precision): a breach of the Fraction_validity invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION intrinsic
@@ -678,6 +685,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_proportion-validate_open-is_integral_validity
+    x-veredictum-control: dv_proportion-validate_open-accepted
     summary: "DV_PROPORTION intrinsic invariants (type, numerator, denominator, precision): a breach of the Is_integral_validity invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION intrinsic
@@ -738,6 +746,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_proportion-validate_open-type_validity
+    x-veredictum-control: dv_proportion-validate_open-accepted
     summary: "DV_PROPORTION intrinsic invariants (type, numerator, denominator, precision): a breach of the Type_validity invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION intrinsic
@@ -856,6 +865,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_proportion-validate_percent-c_integer_list
+    x-veredictum-control: dv_proportion-validate_percent-accepted
     summary: "DV_PROPORTION type constrained to C_INTEGER.list = [2] (percent): a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION type
@@ -974,6 +984,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_proportion-validate_ratio-c_integer_list
+    x-veredictum-control: dv_proportion-validate_ratio-accepted
     summary: "DV_PROPORTION type constrained to C_INTEGER.list = [0] (ratio): a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION type
@@ -1092,6 +1103,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_proportion-validate_ratio_range-c_real_range
+    x-veredictum-control: dv_proportion-validate_ratio_range-accepted
     summary: "DV_PROPORTION ratio with C_REAL.range numerator=5..20, denominator=200..600: a value outside the C_REAL range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION ratio with
@@ -1210,6 +1222,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_proportion-validate_unitary-c_integer_list
+    x-veredictum-control: dv_proportion-validate_unitary-accepted
     summary: "DV_PROPORTION type constrained to C_INTEGER.list = [1] (unitary): a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PROPORTION type

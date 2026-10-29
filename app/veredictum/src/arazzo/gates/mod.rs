@@ -39,7 +39,8 @@ pub enum Gate {
     /// The official Arazzo 1.1 JSON Schema, the model's own validation, and
     /// the `workflowId` alphabet.
     Schema,
-    /// A key Arazzo does not define, or an extension outside the two.
+    /// A key Arazzo does not define, or an extension outside the catalogue's
+    /// own six or outside the place each is allowed.
     Keys,
     /// A source, an `operationId` or a parameter that does not resolve.
     Source,

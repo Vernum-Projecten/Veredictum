@@ -80,6 +80,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_quantity-validate_open-magnitude_units_missing
+    x-veredictum-control: dv_quantity-validate_open-accepted
     summary: "DV_QUANTITY against an open constraint ({*}): magnitude/units mandatory: a body with no magnitude and no units is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against an
@@ -139,6 +140,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_quantity-validate_open-magnitude_missing
+    x-veredictum-control: dv_quantity-validate_open-accepted
     summary: "DV_QUANTITY against an open constraint ({*}): magnitude/units mandatory: a body with no magnitude is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against an
@@ -198,6 +200,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_quantity-validate_open-units_missing
+    x-veredictum-control: dv_quantity-validate_open-accepted
     summary: "DV_QUANTITY against an open constraint ({*}): magnitude/units mandatory: a body with no units is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against an
@@ -313,6 +316,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_quantity-validate_property-c_dv_quantity_property
+    x-veredictum-control: dv_quantity-validate_property-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY property=openehr::122 (length), no units list: units of another property than the C_DV_QUANTITY names is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -371,6 +375,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_quantity-validate_property-magnitude_units_missing
+    x-veredictum-control: dv_quantity-validate_property-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY property=openehr::122 (length), no units list: a body with no magnitude and no units is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -430,6 +435,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_quantity-validate_property-magnitude_missing
+    x-veredictum-control: dv_quantity-validate_property-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY property=openehr::122 (length), no units list: a body with no magnitude is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -489,6 +495,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_quantity-validate_property-units_missing
+    x-veredictum-control: dv_quantity-validate_property-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY property=openehr::122 (length), no units list: a body with no units is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -605,6 +612,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_quantity-validate_property_units-c_dv_quantity_property
+    x-veredictum-control: dv_quantity-validate_property_units-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY property=openehr::122 (length), list=[cm, m]: units of another property than the C_DV_QUANTITY names is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -663,6 +671,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_quantity-validate_property_units-c_dv_quantity_list
+    x-veredictum-control: dv_quantity-validate_property_units-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY property=openehr::122 (length), list=[cm, m]: a quantity outside the C_DV_QUANTITY list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -721,6 +730,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_quantity-validate_property_units-magnitude_units_missing
+    x-veredictum-control: dv_quantity-validate_property_units-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY property=openehr::122 (length), list=[cm, m]: a body with no magnitude and no units is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -780,6 +790,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_quantity-validate_property_units-magnitude_missing
+    x-veredictum-control: dv_quantity-validate_property_units-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY property=openehr::122 (length), list=[cm, m]: a body with no magnitude is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -839,6 +850,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_quantity-validate_property_units-units_missing
+    x-veredictum-control: dv_quantity-validate_property_units-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY property=openehr::122 (length), list=[cm, m]: a body with no units is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -955,6 +967,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_quantity-validate_property_units_mag-c_dv_quantity_property
+    x-veredictum-control: dv_quantity-validate_property_units_mag-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY with property, units and magnitude range: units of another property than the C_DV_QUANTITY names is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -1013,6 +1026,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_quantity-validate_property_units_mag-c_dv_quantity_list
+    x-veredictum-control: dv_quantity-validate_property_units_mag-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY with property, units and magnitude range: a quantity outside the C_DV_QUANTITY list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -1071,6 +1085,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_quantity-validate_property_units_mag-magnitude_units_missing
+    x-veredictum-control: dv_quantity-validate_property_units_mag-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY with property, units and magnitude range: a body with no magnitude and no units is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -1130,6 +1145,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_quantity-validate_property_units_mag-magnitude_missing
+    x-veredictum-control: dv_quantity-validate_property_units_mag-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY with property, units and magnitude range: a body with no magnitude is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against
@@ -1189,6 +1205,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_quantity-validate_property_units_mag-units_missing
+    x-veredictum-control: dv_quantity-validate_property_units_mag-accepted
     summary: "DV_QUANTITY against C_DV_QUANTITY with property, units and magnitude range: a body with no units is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_QUANTITY against

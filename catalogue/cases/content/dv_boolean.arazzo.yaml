@@ -138,6 +138,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_boolean-only_false_allowed-c_boolean_true_valid
+    x-veredictum-control: dv_boolean-only_false_allowed-accepted
     summary: "DV_BOOLEAN against a C_BOOLEAN that permits only false: a true value the C_BOOLEAN does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_BOOLEAN against a
@@ -254,6 +255,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_boolean-only_true_allowed-c_boolean_false_valid
+    x-veredictum-control: dv_boolean-only_true_allowed-accepted
     summary: "DV_BOOLEAN against a C_BOOLEAN that permits only true: a false value the C_BOOLEAN does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_BOOLEAN against a

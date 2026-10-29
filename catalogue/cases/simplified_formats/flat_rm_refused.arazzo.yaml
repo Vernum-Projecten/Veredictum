@@ -27,8 +27,15 @@ sourceDescriptions:
   - name: sf
     url: ../_setup/simplified_formats.arazzo.yaml
     type: arazzo
+  - name: flat_ranges
+    url: flat_ranges.arazzo.yaml
+    type: arazzo
+  - name: flat_rm_attributes
+    url: flat_rm_attributes.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: create_composition-flat-reference_range_meaning_missing
+    x-veredictum-control: $sourceDescriptions.flat_ranges.create_composition-flat-reference_range
     summary: A flat reference range with no meaning is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template
@@ -85,6 +92,7 @@ workflows:
               quote: 'The request was well-formed but was unable to be followed due to semantic errors'
 
   - workflowId: create_composition-flat-reference_range_upper_included_unbounded
+    x-veredictum-control: $sourceDescriptions.flat_ranges.create_composition-flat-reference_range_upper_unbounded
     summary: A flat reference range both upper unbounded and upper included is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template
@@ -128,6 +136,7 @@ workflows:
               quote: 'The request was well-formed but was unable to be followed due to semantic errors'
 
   - workflowId: create_composition-flat-dv_interval_upper_included_unbounded
+    x-veredictum-control: $sourceDescriptions.flat_ranges.create_composition-flat-dv_interval_upper_unbounded
     summary: A flat DV_INTERVAL both upper unbounded and upper included is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template
@@ -168,6 +177,7 @@ workflows:
               quote: 'The request was well-formed but was unable to be followed due to semantic errors'
 
   - workflowId: create_composition-flat-link_target_missing
+    x-veredictum-control: $sourceDescriptions.flat_rm_attributes.create_composition-flat-link_composition
     summary: A flat link with no target is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template

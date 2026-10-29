@@ -97,6 +97,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: cluster-items_cardinality-c_multiple_attribute_cardinality
+    x-veredictum-control: cluster-items_cardinality-accepted
     summary: "CLUSTER.items member count against every cardinality interval, over an RM-mandatory container: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (CLUSTER.items member
@@ -171,6 +172,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: cluster-items_cardinality-items_missing
+    x-veredictum-control: cluster-items_cardinality-accepted
     summary: "CLUSTER.items member count against every cardinality interval, over an RM-mandatory container: a body with a CLUSTER without items is refused with 400"
     description: >-
       Commits the rows' content against the template (CLUSTER.items member

@@ -20,6 +20,9 @@ sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
     type: openapi
+  - name: directory_create
+    url: directory_create.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: create_directory-unknown_ehr
     summary: A directory create in an EHR that does not exist is answered 404
@@ -181,6 +184,7 @@ workflows:
       - *no_directory
 
   - workflowId: create_directory-name_missing
+    x-veredictum-control: $sourceDescriptions.directory_create.create_directory
     summary: A directory FOLDER with no name is refused with 400
     description: >-
       Creates an EHR, then creates a directory FOLDER that carries no name.
@@ -214,6 +218,7 @@ workflows:
       - *no_directory
 
   - workflowId: create_directory-folders_empty
+    x-veredictum-control: $sourceDescriptions.directory_create.create_directory
     summary: A directory FOLDER whose folders list is present but empty is refused with 400
     description: >-
       Creates an EHR, then creates a directory FOLDER whose folders list is
@@ -246,6 +251,7 @@ workflows:
       - *no_directory
 
   - workflowId: create_directory-items_by_value
+    x-veredictum-control: $sourceDescriptions.directory_create.create_directory-with_items
     summary: A directory FOLDER holding a COMPOSITION by value in its items is refused with 400
     description: >-
       Creates an EHR, then creates a directory FOLDER whose items list holds a
@@ -281,6 +287,7 @@ workflows:
       - *no_directory
 
   - workflowId: create_directory-link_meaning_missing
+    x-veredictum-control: $sourceDescriptions.directory_create.create_directory-link
     summary: A directory FOLDER whose LINK has no meaning is refused with 400
     description: >-
       Creates an EHR, then creates a directory FOLDER carrying a LINK with no
@@ -316,6 +323,7 @@ workflows:
       - *no_directory
 
   - workflowId: create_directory-details_not_item_structure
+    x-veredictum-control: $sourceDescriptions.directory_create.create_directory
     summary: A directory FOLDER whose details is a data value is refused with 400
     description: >-
       Creates an EHR, then creates a directory FOLDER whose details is a
@@ -348,6 +356,7 @@ workflows:
       - *no_directory
 
   - workflowId: create_directory-cluster_no_items
+    x-veredictum-control: $sourceDescriptions.directory_create.create_directory
     summary: A directory FOLDER whose details hold a CLUSTER with no items is refused with 400
     description: >-
       Creates an EHR, then creates a directory FOLDER whose details ITEM_TREE
@@ -388,6 +397,7 @@ workflows:
       - *no_directory
 
   - workflowId: create_directory-paragraph_no_items
+    x-veredictum-control: $sourceDescriptions.directory_create.create_directory
     summary: A directory FOLDER whose details hold a DV_PARAGRAPH with no items is refused with 400
     description: >-
       Creates an EHR, then creates a directory FOLDER whose details ITEM_TREE
@@ -429,6 +439,7 @@ workflows:
       - *no_directory
 
   - workflowId: create_directory-archetype_node_id_empty
+    x-veredictum-control: $sourceDescriptions.directory_create.create_directory
     summary: A directory FOLDER whose archetype_node_id is empty is refused with 422
     description: >-
       Creates an EHR, then creates a directory FOLDER whose archetype_node_id
@@ -462,6 +473,7 @@ workflows:
       - *no_directory
 
   - workflowId: create_directory-archetype_id_mismatch
+    x-veredictum-control: $sourceDescriptions.directory_create.create_directory
     summary: A root FOLDER whose archetype_node_id differs from its archetype_id is refused with 422
     description: >-
       Creates an EHR, then creates a directory FOLDER whose archetype_details
@@ -496,6 +508,7 @@ workflows:
       - *no_directory
 
   - workflowId: create_directory-archetype_details_missing
+    x-veredictum-control: $sourceDescriptions.directory_create.create_directory
     summary: A root FOLDER whose archetype_node_id is an archetype id and which has no archetype_details is refused with 422
     description: >-
       Creates an EHR, then creates a directory FOLDER whose archetype_node_id

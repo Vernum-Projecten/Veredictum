@@ -20,8 +20,12 @@ sourceDescriptions:
   - name: setup
     url: "../_setup/templates.arazzo.yaml"
     type: arazzo
+  - name: aql_stored
+    url: aql_stored.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: get-fetch_with_top
+    x-veredictum-control: $sourceDescriptions.aql_stored.get-latest
     summary: fetch combined with a stored query that uses TOP is refused with 400
     description: >-
       Stores 1.0.0 of a query that selects TOP 2 under a fresh name, then

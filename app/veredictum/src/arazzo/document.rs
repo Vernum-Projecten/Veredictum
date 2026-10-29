@@ -11,7 +11,7 @@
 //! outside the profile, an operation or parameter that does not resolve, and
 //! a construct the evaluator does not drive yet.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
@@ -26,6 +26,7 @@ use serde_json::Value;
 
 use crate::arazzo::check::Check;
 use crate::arazzo::cite::{CITE_KEY, Citation, CiteError, QuoteChecker, check_level, citation_of};
+use crate::arazzo::control::{CONTROL_KEY, Control, ControlError, control_of, is_refusal};
 use crate::arazzo::derive::{DERIVE_KEY, DeriveError, derivations_of};
 use crate::arazzo::expr::{Expr, JsonPathCriterion, ParseError, RegexCriterion, SimpleCondition};
 use crate::arazzo::gates::Gate;
@@ -36,6 +37,10 @@ use crate::arazzo::source::{
     DeclaredParameter, Operation, OperationIndex, ParameterError, ParameterIn, ParameterIndex,
     SourceError, split_qualified,
 };
+
+/// Every workflow of one `type: arazzo` source, by id, with whether it is a
+/// refusal workflow.
+type Dependency = BTreeMap<String, bool>;
 
 /// The specification-extension key of the catalogue's own judges.
 pub const CHECK_KEY: &str = "x-veredictum-check";
@@ -251,12 +256,19 @@ impl ArazzoDocument {
         findings
     }
 
-    /// Loads each `type: arazzo` source a `dependsOn` names once, keeping
-    /// its workflow ids or the reason it did not load.
-    fn dependency_sources(&self) -> BTreeMap<&str, Result<BTreeSet<String>, String>> {
+    /// Loads each `type: arazzo` source a `dependsOn` or an
+    /// `x-veredictum-control` names once, keeping whether each of its
+    /// workflows is a refusal workflow, by id, or the reason it did not load.
+    fn dependency_sources(&self) -> BTreeMap<&str, Result<Dependency, String>> {
         let mut loaded = BTreeMap::new();
         for workflow in &self.description.workflows {
-            for id in &workflow.depends_on {
+            // NOTE: no openEHR spec governs this — our own design; a malformed control is
+            // `check_control`'s finding, so here it names no source to load.
+            let controls = match control_of(workflow.extensions.as_ref()) {
+                Ok(Some(Control::Workflows(named))) => named,
+                _ => Vec::new(),
+            };
+            for id in workflow.depends_on.iter().chain(&controls) {
                 let Some((source, _)) = split_qualified(id) else {
                     continue;
                 };
@@ -270,7 +282,7 @@ impl ArazzoDocument {
                                 .description
                                 .workflows
                                 .iter()
-                                .map(|w| w.workflow_id.clone())
+                                .map(|w| (w.workflow_id.clone(), is_refusal(w)))
                                 .collect()
                         })
                         .map_err(|error| error.to_string())
@@ -284,7 +296,7 @@ impl ArazzoDocument {
         &self,
         workflow: &Workflow,
         mut quotes: Option<&mut QuoteChecker<'_>>,
-        dependencies: &BTreeMap<&str, Result<BTreeSet<String>, String>>,
+        dependencies: &BTreeMap<&str, Result<Dependency, String>>,
         findings: &mut Vec<Finding>,
     ) {
         let at = workflow.workflow_id.clone();
@@ -301,6 +313,9 @@ impl ArazzoDocument {
             if let Some(problem) = self.dependency_problem(id, dependencies) {
                 findings.push(Finding::new(&at, FindingKind::Unsupported(problem)));
             }
+        }
+        for error in self.check_controls(workflow, dependencies) {
+            findings.push(Finding::new(&at, FindingKind::Control(error)));
         }
         if !workflow.success_actions.is_empty()
             || !workflow.failure_actions.is_empty()
@@ -348,7 +363,7 @@ impl ArazzoDocument {
     fn dependency_problem(
         &self,
         id: &str,
-        dependencies: &BTreeMap<&str, Result<BTreeSet<String>, String>>,
+        dependencies: &BTreeMap<&str, Result<Dependency, String>>,
     ) -> Option<String> {
         let Some((source, workflow_id)) = split_qualified(id) else {
             return self
@@ -362,7 +377,7 @@ impl ArazzoDocument {
             ));
         };
         match dependencies.get(source) {
-            Some(Ok(workflows)) if workflows.contains(workflow_id) => None,
+            Some(Ok(workflows)) if workflows.contains_key(workflow_id) => None,
             Some(Ok(_)) => Some(format!(
                 "dependsOn `{id}`, which is not a workflow of `{}`",
                 file.display()
@@ -372,6 +387,61 @@ impl ArazzoDocument {
                 "dependsOn `{id}`: `{}` was not loaded",
                 file.display()
             )),
+        }
+    }
+
+    /// Checks a workflow's `x-veredictum-control`: a refusal workflow names
+    /// at least one control, any other names none, and each one it names is
+    /// another workflow that exists and is not itself a refusal workflow.
+    fn check_controls(
+        &self,
+        workflow: &Workflow,
+        dependencies: &BTreeMap<&str, Result<Dependency, String>>,
+    ) -> Vec<ControlError> {
+        let control = match control_of(workflow.extensions.as_ref()) {
+            Ok(control) => control,
+            Err(error) => return vec![error],
+        };
+        match (is_refusal(workflow), control) {
+            (true, None) => vec![ControlError::Missing],
+            (false, Some(_)) => vec![ControlError::NotRefusal],
+            (false, None) | (true, Some(Control::Pending(_))) => Vec::new(),
+            (true, Some(Control::Workflows(controls))) => controls
+                .into_iter()
+                .filter_map(|control| self.check_control(workflow, control, dependencies).err())
+                .collect(),
+        }
+    }
+
+    /// Checks one control a refusal workflow names.
+    fn check_control(
+        &self,
+        workflow: &Workflow,
+        control: String,
+        dependencies: &BTreeMap<&str, Result<Dependency, String>>,
+    ) -> Result<(), ControlError> {
+        if control == workflow.workflow_id {
+            return Err(ControlError::Itself);
+        }
+        let refuses = match split_qualified(&control) {
+            None => self.workflow(&control).map(is_refusal),
+            Some((source, workflow_id)) => match dependencies.get(source) {
+                Some(Ok(workflows)) => workflows.get(workflow_id).copied(),
+                _ => None,
+            },
+        };
+        match refuses {
+            None => {
+                let reason = if split_qualified(&control).is_some() {
+                    self.dependency_problem(&control, dependencies)
+                        .unwrap_or_else(|| "which is not a workflow of its source".to_owned())
+                } else {
+                    "which is not a workflow of this document".to_owned()
+                };
+                Err(ControlError::Unknown { control, reason })
+            }
+            Some(true) => Err(ControlError::ControlRefuses(control)),
+            Some(false) => Ok(()),
         }
     }
 
@@ -804,6 +874,10 @@ pub enum FindingKind {
     /// An `x-veredictum-scope` that does not hold.
     #[error(transparent)]
     Scope(ScopeError),
+    /// A refusal workflow's `x-veredictum-control` that is absent or does
+    /// not name a control, or a control on any other workflow.
+    #[error(transparent)]
+    Control(ControlError),
 }
 
 impl FindingKind {
@@ -825,6 +899,7 @@ impl FindingKind {
             | Self::UnresolvedOperation(_)
             | Self::UnresolvedParameter(_)
             | Self::UndeclaredParameter { .. } => Gate::Source,
+            Self::Control(_) => Gate::Identity,
         }
     }
 }
@@ -871,6 +946,7 @@ fn extension_keys(value: &Value, at: &mut Vec<String>, findings: &mut Vec<Findin
                 if key.starts_with("x-") {
                     let allowed = match key.as_str() {
                         CITE_KEY => is_workflow(at) || is_step(at) || is_criterion(at),
+                        CONTROL_KEY => is_workflow(at),
                         CHECK_KEY => is_criterion(at),
                         DERIVE_KEY | PRINCIPAL_KEY | SCOPE_KEY => is_step(at),
                         _ => false,
@@ -1412,6 +1488,103 @@ mod tests {
             kinds(&dir, &doc).contains(&FindingKind::WorkflowId("w.1".to_owned())),
             "{:?}",
             kinds(&dir, &doc)
+        );
+    }
+
+    fn refusal(id: &str, control: Option<&str>) -> String {
+        let extensions = match control {
+            Some(control) => format!("{}    x-veredictum-control: {control}\n", cited()),
+            None => cited(),
+        };
+        workflow(&extensions, "", "$statusCode == 400")
+            .replace("workflowId: w", &format!("workflowId: {id}"))
+    }
+
+    fn twin() -> String {
+        workflow(&cited(), "", "$statusCode == 404").replace("workflowId: w", "workflowId: twin")
+    }
+
+    #[test]
+    fn a_refusal_names_a_control_that_exists_and_accepts() {
+        for control in ["twin", "[twin]", "{ pending: 835 }"] {
+            let (dir, doc) = fixture(&(refusal("w", Some(control)) + &twin()));
+            assert_eq!(doc.check(dir.path()), Vec::new(), "{control}");
+        }
+        let refused = [
+            (refusal("w", None) + &twin(), ControlError::Missing),
+            (
+                refusal("w", Some("nope")) + &twin(),
+                ControlError::Unknown {
+                    control: "nope".to_owned(),
+                    reason: "which is not a workflow of this document".to_owned(),
+                },
+            ),
+            (refusal("w", Some("w")) + &twin(), ControlError::Itself),
+            (refusal("w", Some("[]")) + &twin(), ControlError::Shape),
+            (refusal("w", Some("{ pending: 0 }")) + &twin(), ControlError::Pending),
+            (refusal("w", Some("{ pending: x }")) + &twin(), ControlError::Pending),
+            (refusal("w", Some("{ pending: 1, extra: 2 }")) + &twin(), ControlError::Shape),
+            (
+                twin().replace(
+                    "workflowId: twin\n",
+                    "workflowId: twin\n    x-veredictum-control: { pending: 7 }\n",
+                ) + &refusal("w", Some("twin")),
+                ControlError::NotRefusal,
+            ),
+            (refusal("w", Some("[twin, 3]")) + &twin(), ControlError::Shape),
+            (
+                refusal("w", Some("[twin, nope]")) + &twin(),
+                ControlError::Unknown {
+                    control: "nope".to_owned(),
+                    reason: "which is not a workflow of this document".to_owned(),
+                },
+            ),
+            (
+                refusal("w", Some("other")) + &refusal("other", Some("twin")) + &twin(),
+                ControlError::ControlRefuses("other".to_owned()),
+            ),
+            (
+                twin().replace(
+                    "workflowId: twin\n",
+                    "workflowId: twin\n    x-veredictum-control: w\n",
+                ) + &refusal("w", Some("twin")),
+                ControlError::NotRefusal,
+            ),
+            (
+                refusal("w", Some("$sourceDescriptions.ehr.twin")) + &twin(),
+                ControlError::Unknown {
+                    control: "$sourceDescriptions.ehr.twin".to_owned(),
+                    reason: "dependsOn `$sourceDescriptions.ehr.twin`, whose source `ehr` is not a `type: arazzo` source".to_owned(),
+                },
+            ),
+        ];
+        for (workflows, error) in refused {
+            let (dir, doc) = fixture(&workflows);
+            assert!(
+                kinds(&dir, &doc).contains(&FindingKind::Control(error.clone())),
+                "{error}: {:?}",
+                kinds(&dir, &doc)
+            );
+        }
+    }
+
+    #[test]
+    fn a_control_of_another_document_resolves_through_its_arazzo_source() {
+        let (dir, _) = fixture(&twin());
+        let workflows = refusal("w", Some("$sourceDescriptions.other.twin"));
+        let doc = format!(
+            "arazzo: 1.1.0\ninfo: {{ title: t, version: '1' }}\nsourceDescriptions:\n  - {{ name: ehr, url: ../../specs/rest-oas/ehr.yaml, type: openapi }}\n  - {{ name: other, url: ehr.arazzo.yaml, type: arazzo }}\nworkflows:\n{workflows}"
+        );
+        let file = dir.child("catalogue/cases/refused.arazzo.yaml");
+        file.write_str(&doc).unwrap();
+        let loaded = ArazzoDocument::load(file.path()).unwrap();
+        assert_eq!(loaded.check(dir.path()), Vec::new());
+        assert_eq!(
+            crate::arazzo::control::controls(&loaded, "refused"),
+            BTreeMap::from([(
+                "refused/w".to_owned(),
+                Control::Workflows(vec!["ehr/twin".to_owned()])
+            )])
         );
     }
 }

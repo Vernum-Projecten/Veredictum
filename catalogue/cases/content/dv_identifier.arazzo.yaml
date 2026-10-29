@@ -98,6 +98,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_identifier-validate_all_list-c_string_list
+    x-veredictum-control: dv_identifier-validate_all_list-accepted
     summary: "DV_IDENTIFIER attributes against a C_STRING.list constraint ([XYZ]): a string outside the C_STRING list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_IDENTIFIER attributes
@@ -174,6 +175,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_identifier-validate_all_list-id_missing
+    x-veredictum-control: dv_identifier-validate_all_list-accepted
     summary: "DV_IDENTIFIER attributes against a C_STRING.list constraint ([XYZ]): a body with no id is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_IDENTIFIER attributes
@@ -324,6 +326,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_identifier-validate_all_pattern-c_string_pattern
+    x-veredictum-control: dv_identifier-validate_all_pattern-accepted
     summary: "DV_IDENTIFIER attributes against a C_STRING.pattern constraint (XYZ.*): a string the C_STRING pattern does not match is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_IDENTIFIER attributes
@@ -400,6 +403,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_identifier-validate_all_pattern-id_missing
+    x-veredictum-control: dv_identifier-validate_all_pattern-accepted
     summary: "DV_IDENTIFIER attributes against a C_STRING.pattern constraint (XYZ.*): a body with no id is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_IDENTIFIER attributes

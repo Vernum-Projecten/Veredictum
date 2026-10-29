@@ -24,6 +24,9 @@ sourceDescriptions:
   - name: setup
     url: ../_setup/templates.arazzo.yaml
     type: arazzo
+  - name: contribution_create
+    url: contribution_create.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: commit_contribution-unknown_ehr
     summary: A CONTRIBUTION commit to an EHR that does not exist is answered 404
@@ -139,6 +142,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: commit_contribution-empty_versions
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A CONTRIBUTION with no versions is refused with 422
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose versions list is
@@ -182,6 +186,7 @@ workflows:
               quote: "The request was well-formed but was unable to be followed due to semantic errors"
 
   - workflowId: commit_contribution-invalid_composition
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A CONTRIBUTION whose COMPOSITION the ITS-JSON schema refuses is answered 400
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose member COMPOSITION
@@ -212,6 +217,7 @@ workflows:
             condition: $statusCode == 400
 
   - workflowId: commit_contribution-unknown_template
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A CONTRIBUTION whose COMPOSITION names a template the server does not hold is answered 422
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose member COMPOSITION
@@ -263,6 +269,7 @@ workflows:
           - condition: $statusCode == 415
 
   - workflowId: commit_contribution-audit_change_type_missing
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A CONTRIBUTION whose audit has no change_type is refused with 400
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose envelope audit carries
@@ -293,6 +300,7 @@ workflows:
               quote: "change_type committer"
 
   - workflowId: commit_contribution-audit_change_type_out_of_group
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A CONTRIBUTION whose audit change_type is outside the audit change type group is refused with 422
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose envelope audit carries
@@ -321,6 +329,7 @@ workflows:
           - *semantic_error
 
   - workflowId: commit_contribution-lifecycle_state_missing
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A member with no lifecycle_state is refused with 400
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose member carries no
@@ -351,6 +360,7 @@ workflows:
               quote: "lifecycle_state data commit_audit"
 
   - workflowId: commit_contribution-lifecycle_state_out_of_group
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A member whose lifecycle_state is outside the version lifecycle state group is refused with 422
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose member carries the
@@ -379,6 +389,7 @@ workflows:
           - *semantic_error
 
   - workflowId: commit_contribution-first_version_modification
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-modification
     summary: A member that modifies a COMPOSITION no version precedes is refused with 400
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose one member carries the
@@ -408,6 +419,7 @@ workflows:
           - *bad_request
 
   - workflowId: commit_contribution-first_version_amendment
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-modification
     summary: A member that amends a COMPOSITION no version precedes is refused with 400
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose one member carries the
@@ -434,6 +446,7 @@ workflows:
           - *bad_request
 
   - workflowId: commit_contribution-first_version_modification_persistent
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-modification_persistent
     summary: A member that modifies a persistent COMPOSITION no version precedes is refused with 400
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose one member carries a
@@ -534,6 +547,7 @@ workflows:
           - *bad_request
 
   - workflowId: commit_contribution-folder_modification_without_directory
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-folder_modification
     summary: A member that modifies a directory the EHR does not have is refused with 400
     description: >-
       Creates an EHR with no directory, then commits a CONTRIBUTION whose
@@ -749,6 +763,7 @@ workflows:
           - condition: $statusCode == 409
 
   - workflowId: commit_contribution-demographic_kind
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A member whose data is a PERSON is refused with 400
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose member data is a
@@ -796,6 +811,7 @@ workflows:
               quote: "../ehr/UMComposition.yaml ../ehr/UMEhrStatus.yaml ../ehr/UMFolder.yaml"
 
   - workflowId: commit_contribution-committer_no_identity
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A committer PARTY_IDENTIFIED with no name, identifiers or external_ref is refused with 422
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose member commit_audit
@@ -834,6 +850,7 @@ workflows:
           - *semantic_error
 
   - workflowId: commit_contribution-committer_empty_name
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A committer PARTY_IDENTIFIED whose name is empty is refused with 422
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose member commit_audit
@@ -862,6 +879,7 @@ workflows:
           - *semantic_error
 
   - workflowId: commit_contribution-committer_related_out_of_group
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-committer_related
     summary: A committer PARTY_RELATED whose relationship is outside the subject relationship group is refused with 422
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose member commit_audit
@@ -906,6 +924,7 @@ workflows:
           - *semantic_error
 
   - workflowId: commit_contribution-cluster_no_items
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A CONTRIBUTION whose COMPOSITION carries a CLUSTER with no items is refused with 400
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose member COMPOSITION
@@ -1004,6 +1023,7 @@ workflows:
           - *bad_request
 
   - workflowId: commit_contribution-paragraph_no_items
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-composition
     summary: A CONTRIBUTION whose COMPOSITION carries a DV_PARAGRAPH with no items is refused with 400
     description: >-
       Creates an EHR, then commits a CONTRIBUTION whose member COMPOSITION
@@ -1108,6 +1128,7 @@ workflows:
             x-veredictum-cite: *invalid_content
 
   - workflowId: commit_contribution-valid_and_invalid
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-two_compositions
     summary: A CONTRIBUTION with one valid and one invalid COMPOSITION is refused with 400
     description: >-
       Creates an EHR, then commits a CONTRIBUTION of two creating members: the
@@ -1137,6 +1158,7 @@ workflows:
           - *bad_request
 
   - workflowId: commit_contribution-invalid_ehr_status
+    x-veredictum-control: $sourceDescriptions.contribution_create.commit_contribution-ehr_status
     summary: A CONTRIBUTION whose EHR_STATUS has no is_modifiable is refused with 400
     description: >-
       Creates an EHR, reads the version_uid of its EHR_STATUS, then commits a

@@ -576,6 +576,7 @@ workflows:
               quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
 
   - workflowId: update_group-missing_if_match
+    x-veredictum-control: update_group
     summary: A GROUP update sent without If-Match is refused with 400
     description: >-
       Creates a GROUP, then updates it with no If-Match header. The update is
@@ -745,6 +746,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: delete_group-versioned_object_uid
+    x-veredictum-control: delete_group
     summary: A GROUP delete addressed by a versioned_object_uid is refused with 400
     description: >-
       Creates a GROUP, then deletes it addressing the versioned_object_uid of

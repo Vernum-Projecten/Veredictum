@@ -33,6 +33,7 @@ use serde_json::Value;
 use crate::arazzo::capabilities::{
     CAPABILITIES_FILE, Capabilities, CapabilitiesError, SpecVersion,
 };
+use crate::arazzo::control;
 use crate::arazzo::document::{ArazzoDocument, DocumentError};
 use crate::arazzo::evaluate::{
     Evaluator, Plan, RunConfig, RunError, recorded_inputs, rejudge_config, replayed_whole,
@@ -834,6 +835,7 @@ pub fn run(
         rows.extend(results.rows);
         recording = evaluator.into_recording();
     }
+    control::apply(&mut rows, &run_controls(planned));
     let server = match recorded_identity(&recording) {
         Some(server) => server,
         None => read_identity(config, transport, &mut recording),
@@ -874,12 +876,22 @@ pub fn rejudge(
         replayed = evaluator.into_recording();
     }
     replayed_whole(&inputs, &transport)?;
+    control::apply(&mut rows, &run_controls(planned));
     let server = recorded_identity(recording).unwrap_or(ServerIdentity::NotRecorded);
     Ok(results(
         recording.log.veredictum.base_url.clone(),
         server,
         rows,
     ))
+}
+
+/// The control case of every refusal case of the planned documents, so a
+/// refusal row is judged against its control wherever in the run it ran.
+fn run_controls(planned: &[Planned]) -> BTreeMap<String, control::Control> {
+    planned
+        .iter()
+        .flat_map(|document| control::controls(&document.document, &document.name))
+        .collect()
 }
 
 #[cfg(test)]

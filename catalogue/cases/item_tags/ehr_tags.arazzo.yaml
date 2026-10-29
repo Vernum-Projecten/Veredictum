@@ -418,6 +418,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: ehr_tags_get-malformed_ehr_id
+    x-veredictum-control: ehr_tags_get-empty
     summary: A tag listing whose ehr_id segment is not a well-formed identifier is refused as a client error
     description: >-
       Retrieves the tag listing of an ehr_id path segment that is no

@@ -106,6 +106,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_duration-validate_fields-c_duration_years_allowed
+    x-veredictum-control: dv_duration-validate_fields-accepted
     summary: "DV_DURATION against C_DURATION allowed-field constraints: a years component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against
@@ -187,6 +188,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_duration-validate_fields-c_duration_months_allowed
+    x-veredictum-control: dv_duration-validate_fields-accepted
     summary: "DV_DURATION against C_DURATION allowed-field constraints: a months component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against
@@ -268,6 +270,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_duration-validate_fields-c_duration_days_allowed
+    x-veredictum-control: dv_duration-validate_fields-accepted
     summary: "DV_DURATION against C_DURATION allowed-field constraints: a days component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against
@@ -349,6 +352,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_duration-validate_fields-c_duration_weeks_allowed
+    x-veredictum-control: dv_duration-validate_fields-accepted
     summary: "DV_DURATION against C_DURATION allowed-field constraints: a weeks component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against
@@ -430,6 +434,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_duration-validate_fields-c_duration_hours_allowed
+    x-veredictum-control: dv_duration-validate_fields-accepted
     summary: "DV_DURATION against C_DURATION allowed-field constraints: a hours component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against
@@ -511,6 +516,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_duration-validate_fields-c_duration_minutes_allowed
+    x-veredictum-control: dv_duration-validate_fields-accepted
     summary: "DV_DURATION against C_DURATION allowed-field constraints: a minutes component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against
@@ -674,6 +680,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_duration-validate_fields_range-c_duration_range_lower
+    x-veredictum-control: dv_duration-validate_fields_range-accepted
     summary: "DV_DURATION against combined C_DURATION allowed-fields + range constraints: a duration below the C_DURATION range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against
@@ -757,6 +764,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_duration-validate_fields_range-c_duration_years_allowed
+    x-veredictum-control: dv_duration-validate_fields_range-accepted
     summary: "DV_DURATION against combined C_DURATION allowed-fields + range constraints: a years component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against
@@ -840,6 +848,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_duration-validate_fields_range-c_duration_months_allowed
+    x-veredictum-control: dv_duration-validate_fields_range-accepted
     summary: "DV_DURATION against combined C_DURATION allowed-fields + range constraints: a months component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against
@@ -923,6 +932,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_duration-validate_fields_range-c_duration_lower
+    x-veredictum-control: dv_duration-validate_fields_range-accepted
     summary: "DV_DURATION against combined C_DURATION allowed-fields + range constraints: a duration below the C_DURATION range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against
@@ -1061,6 +1071,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_duration-validate_open-iso8601
+    x-veredictum-control: dv_duration-validate_open-accepted
     summary: "DV_DURATION value against the openEHR ISO 8601 duration grammar: a value that is not a valid ISO 8601 literal is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION value
@@ -1118,6 +1129,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_duration-validate_open-value_missing
+    x-veredictum-control: dv_duration-validate_open-accepted
     summary: "DV_DURATION value against the openEHR ISO 8601 duration grammar: a body with no value is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_DURATION value
@@ -1248,6 +1260,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_duration-validate_range-c_duration_range_lower
+    x-veredictum-control: dv_duration-validate_range-accepted
     summary: "DV_DURATION against a C_DURATION range constraint: a duration below the C_DURATION range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against a
@@ -1323,6 +1336,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_duration-validate_range-c_duration_range_upper
+    x-veredictum-control: dv_duration-validate_range-accepted
     summary: "DV_DURATION against a C_DURATION range constraint: a duration above the C_DURATION range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DURATION against a

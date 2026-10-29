@@ -3057,6 +3057,7 @@ workflows:
           - condition: $statusCode == 409
 
   - workflowId: upload_template-empty_body
+    x-veredictum-control: upload_template-obs_inst
     summary: An upload with an empty body is refused with 400
     description: >-
       Uploads an empty body as application/xml. An empty body is not an XML
@@ -3079,6 +3080,7 @@ workflows:
           - condition: $statusCode == 400
 
   - workflowId: upload_template-malformed_xml
+    x-veredictum-control: upload_template-obs_inst
     summary: An upload whose body is not well-formed XML is refused with 400
     description: >-
       Uploads a body whose root element is never closed. It is not a

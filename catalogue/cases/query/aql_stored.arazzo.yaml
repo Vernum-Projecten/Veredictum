@@ -552,6 +552,7 @@ workflows:
           - condition: "$statusCode == 404"
 
   - workflowId: post-body_empty
+    x-veredictum-control: post-latest
     summary: A stored-query POST body without its required members is refused with 400
     description: >-
       Stores a query under a fresh name, then executes it with POST and the
@@ -867,6 +868,7 @@ workflows:
           - condition: "$statusCode == 404"
 
   - workflowId: get-fetch_not_integer
+    x-veredictum-control: get-latest
     summary: A stored query executed by name with a fetch that is not an integer is refused with 400
     description: >-
       Stores 1.0.0 of a query under a fresh name, then executes it by name
@@ -918,6 +920,7 @@ workflows:
           - condition: "$statusCode == 400"
 
   - workflowId: get-version_fetch_not_integer
+    x-veredictum-control: get-version_exact
     summary: A stored query executed at a version with a fetch that is not an integer is refused with 400
     description: >-
       Stores 1.0.0 of a query under a fresh name, then executes it at 1.0.0
@@ -949,6 +952,7 @@ workflows:
           - condition: "$statusCode == 400"
 
   - workflowId: post-version_body_empty
+    x-veredictum-control: post-version_exact
     summary: A stored-query POST at a version without its required body members is refused with 400
     description: >-
       Stores 1.0.0 of a query under a fresh name, then executes it at 1.0.0

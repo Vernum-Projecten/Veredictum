@@ -318,6 +318,7 @@ workflows:
             x-veredictum-cite: *update_list
 
   - workflowId: ehr_status_tags_update-non_array_body
+    x-veredictum-control: ehr_status_tags_update-stores_tags
     summary: An EHR_STATUS tag update whose body is not an array is answered 400
     description: >-
       Updates the tag list of an EHR_STATUS version with a JSON object where

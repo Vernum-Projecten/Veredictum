@@ -21,6 +21,9 @@ sourceDescriptions:
   - name: setup
     url: ../_setup/templates.arazzo.yaml
     type: arazzo
+  - name: composition_tags
+    url: composition_tags.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: composition_tags_get-xml_not_acceptable
     summary: A COMPOSITION tag list asked for as XML is answered 406
@@ -287,6 +290,7 @@ workflows:
       - *alpha_alone
 
   - workflowId: composition_tags_update-non_array_body
+    x-veredictum-control: $sourceDescriptions.composition_tags.composition_tags_update-stores_tags
     summary: A COMPOSITION tag update whose body is not an array is answered 400
     description: >-
       Tags a COMPOSITION version with alpha, then updates its tag list with a
@@ -317,6 +321,7 @@ workflows:
       - *alpha_alone
 
   - workflowId: composition_tags_update-non_string_value
+    x-veredictum-control: $sourceDescriptions.composition_tags.composition_tags_update-stores_tags
     summary: A COMPOSITION tag whose value is not a string is answered 400
     description: >-
       Tags a COMPOSITION version with alpha, then updates its tag list with a
@@ -345,6 +350,7 @@ workflows:
       - *alpha_alone
 
   - workflowId: composition_tags_update-non_string_target_path
+    x-veredictum-control: $sourceDescriptions.composition_tags.composition_tags_update-stores_tags
     summary: A COMPOSITION tag whose target_path is not a string is answered 400
     description: >-
       Tags a COMPOSITION version with alpha, then updates its tag list with a
@@ -374,6 +380,7 @@ workflows:
       - *alpha_alone
 
   - workflowId: composition_tags_update-undeclared_member
+    x-veredictum-control: $sourceDescriptions.composition_tags.composition_tags_update-stores_tags
     summary: A COMPOSITION tag carrying a member UPDATE_ITEM_TAG does not declare is answered 400
     description: >-
       Tags a COMPOSITION version with alpha, then updates its tag list with a
@@ -403,6 +410,7 @@ workflows:
       - *alpha_alone
 
   - workflowId: composition_tags_update-missing_key
+    x-veredictum-control: $sourceDescriptions.composition_tags.composition_tags_update-stores_tags
     summary: A COMPOSITION tag without a key is answered 400
     description: >-
       Tags a COMPOSITION version with alpha, then updates its tag list with a

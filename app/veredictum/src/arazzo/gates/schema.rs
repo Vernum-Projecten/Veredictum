@@ -48,7 +48,7 @@ struct Amendment {
 
 // NOTE: OAI/Arazzo-Specification#559: Arazzo 1.1.0 §Parameter Object types `value`
 // `Any | {expression} | Selector Object`, so a plain object is a valid value.
-const AMENDMENTS: &[Amendment] = &[Amendment {
+const PARAMETER_VALUE: Amendment = Amendment {
     pointer: "/$defs/parameter-object/properties/value",
     before: || {
         json!({
@@ -68,7 +68,33 @@ const AMENDMENTS: &[Amendment] = &[Amendment {
             ]
         })
     },
-}];
+};
+
+// NOTE: Arazzo 1.1.0 §Payload Replacement Object types `value` `Any | {expression} |
+// Selector Object`, "a constant, a Runtime Expression, or Selector Objects", so any literal is.
+const REPLACEMENT_VALUE: Amendment = Amendment {
+    pointer: "/$defs/payload-replacement-object/properties/value",
+    before: || {
+        json!({
+            "description": "The value to set at the location defined by the target. May be a literal, a runtime expression string, or a selector object.\n",
+            "oneOf": [
+                { "type": "string" },
+                { "$ref": "#/$defs/selector-object" }
+            ]
+        })
+    },
+    after: || {
+        json!({
+            "description": "The value to set at the location defined by the target. May be a literal, a runtime expression string, or a selector object.\n",
+            "anyOf": [
+                { "type": ["string", "boolean", "object", "array", "number", "null"] },
+                { "$ref": "#/$defs/selector-object" }
+            ]
+        })
+    },
+};
+
+const AMENDMENTS: &[Amendment] = &[PARAMETER_VALUE, REPLACEMENT_VALUE];
 // NOTE: OAI/Arazzo-Specification#558 needs no amendment: Arazzo 1.1.0 §Expression Type
 // Object, Fixed Fields, marks `version` REQUIRED, as the schema's `required` list does.
 
@@ -174,6 +200,47 @@ mod tests {
         );
     }
 
+    fn with_replacement(value: Option<Value>) -> Value {
+        let mut doc = document(&json!("x"));
+        let mut replacement = json!({ "target": "/a" });
+        if let Some(value) = value {
+            replacement["value"] = value;
+        }
+        doc["workflows"][0]["steps"][0]["requestBody"] = json!({
+            "contentType": "application/json",
+            "payload": { "a": 0 },
+            "replacements": [replacement]
+        });
+        doc
+    }
+
+    #[test]
+    fn the_replacement_amendment_admits_a_literal_of_every_json_type() {
+        let literals = [
+            json!("$inputs.x"),
+            json!("text"),
+            json!(true),
+            json!(10),
+            json!(1.5),
+            json!(null),
+            json!([1, "two"]),
+            json!({ "a": 1 }),
+            json!({ "context": "$response.body", "selector": "$.a", "type": "jsonpath" }),
+        ];
+        for literal in literals {
+            assert_eq!(
+                violations(&with_replacement(Some(literal.clone()))).unwrap(),
+                Vec::<String>::new(),
+                "{literal}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_replacement_without_a_value_is_still_refused() {
+        assert!(!violations(&with_replacement(None)).unwrap().is_empty());
+    }
+
     #[test]
     fn the_558_rule_stands_an_expression_type_needs_its_version() {
         let mut doc = document(&json!("x"));
@@ -203,13 +270,14 @@ mod tests {
 
     #[test]
     fn a_stale_amendment_refuses_to_apply() {
-        let amendment = AMENDMENTS.first().unwrap();
-        let mut schema: Value = serde_json::from_str(VENDORED).unwrap();
-        *schema.pointer_mut(amendment.pointer).unwrap() = json!({ "type": "string" });
-        assert_eq!(
-            amend(schema),
-            Err(SchemaError::StaleAmendment(amendment.pointer))
-        );
+        for amendment in AMENDMENTS {
+            let mut schema: Value = serde_json::from_str(VENDORED).unwrap();
+            *schema.pointer_mut(amendment.pointer).unwrap() = json!({ "type": "string" });
+            assert_eq!(
+                amend(schema),
+                Err(SchemaError::StaleAmendment(amendment.pointer))
+            );
+        }
         assert!(amended_schema().is_ok());
     }
 }

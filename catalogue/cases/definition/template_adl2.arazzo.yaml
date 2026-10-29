@@ -102,6 +102,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: upload_template_adl2-empty_body
+    x-veredictum-control: { pending: 835 }
     summary: An ADL 2 upload with an empty body is refused with 400
     description: >-
       Uploads an empty body as text/plain. An empty body holds no
@@ -123,6 +124,7 @@ workflows:
           - condition: $statusCode == 400
 
   - workflowId: upload_template_adl2-unparseable
+    x-veredictum-control: { pending: 835 }
     summary: An ADL 2 upload whose body does not parse is refused with 400
     description: >-
       Uploads a text/plain body that opens an operational template and

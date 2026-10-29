@@ -97,6 +97,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: event-state_ex_mand-c_attribute_existence
+    x-veredictum-control: event-state_ex_mand-accepted
     summary: "EVENT data (RM mandatory) with state archetype-mandated: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (EVENT data (RM
@@ -172,6 +173,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: event-state_ex_mand-event_data_missing
+    x-veredictum-control: event-state_ex_mand-accepted
     summary: "EVENT data (RM mandatory) with state archetype-mandated: a body with an EVENT without data is refused with 400"
     description: >-
       Commits the rows' content against the template (EVENT data (RM
@@ -320,6 +322,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: event-state_ex_opt-event_data_missing
+    x-veredictum-control: event-state_ex_opt-accepted
     summary: "EVENT data (RM mandatory) with state archetype-optional: a body with an EVENT without data is refused with 400"
     description: >-
       Commits the rows' content against the template (EVENT data (RM
@@ -541,6 +544,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: event-type_interval_event-c_object_rm_type_name
+    x-veredictum-control: event-type_interval_event-accepted
     summary: "HISTORY.events object type against an INTERVAL_EVENT-narrowed archetype slot: a member whose RM type the template does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events object
@@ -687,6 +691,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: event-type_point_event-c_object_rm_type_name
+    x-veredictum-control: event-type_point_event-accepted
     summary: "HISTORY.events object type against a POINT_EVENT-narrowed archetype slot: a member whose RM type the template does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events object

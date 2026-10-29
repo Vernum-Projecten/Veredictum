@@ -247,6 +247,7 @@ workflows:
             condition: '^(W/".+")?$'
 
   - workflowId: update-missing_if_match
+    x-veredictum-control: update-content_type
     summary: An update sent without If-Match is refused with 400 and not performed
     description: >-
       Creates an EHR, then updates its EHR_STATUS with is_queryable false and
@@ -659,6 +660,7 @@ workflows:
               quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist, or when the `version_uid` does not exist."
 
   - workflowId: update-invalid_status-missing_required
+    x-veredictum-control: update-content_type
     summary: An EHR_STATUS update whose body lacks a member the request schema requires is refused
     description: >-
       Creates an EHR, then updates its EHR_STATUS with the row's body, which
@@ -695,6 +697,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: update-status_without_archetype_details
+    x-veredictum-control: update-content_type
     summary: An EHR_STATUS update whose body carries no archetype_details is refused
     description: >-
       Creates an EHR, then updates its EHR_STATUS with a body that carries no
@@ -739,6 +742,7 @@ workflows:
               quote: "The request was well-formed but was unable to be followed due to semantic errors"
 
   - workflowId: update-rm_version_empty
+    x-veredictum-control: update-content_type
     summary: An EHR_STATUS update whose archetype_details carries an empty rm_version is refused
     description: >-
       Creates an EHR, then updates its EHR_STATUS with a body whose
@@ -779,6 +783,7 @@ workflows:
             x-veredictum-cite: *semantic_error
 
   - workflowId: update-root_archetype_id_mismatch
+    x-veredictum-control: update-content_type
     summary: An EHR_STATUS update whose archetype_node_id contradicts its archetype_id is refused
     description: >-
       Creates an EHR, then updates its EHR_STATUS with a body whose
@@ -819,6 +824,7 @@ workflows:
             x-veredictum-cite: *semantic_error
 
   - workflowId: update-paragraph_no_items
+    x-veredictum-control: update-other_details
     summary: An EHR_STATUS update carrying a DV_PARAGRAPH with no items is refused
     description: >-
       Creates an EHR, then updates its EHR_STATUS with other_details whose

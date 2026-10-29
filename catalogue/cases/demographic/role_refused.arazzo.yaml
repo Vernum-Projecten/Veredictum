@@ -20,8 +20,12 @@ sourceDescriptions:
   - name: demographic
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
     type: openapi
+  - name: role
+    url: role.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: create_role-wrong_type
+    x-veredictum-control: $sourceDescriptions.role.create_role
     summary: A PERSON body on the ROLE create is refused with 400
     description: >-
       Creates a ROLE with a body whose _type is PERSON. The operation's
@@ -102,6 +106,7 @@ workflows:
               quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
 
   - workflowId: create_role-identities_empty
+    x-veredictum-control: $sourceDescriptions.role.create_role
     summary: A ROLE whose identities list is empty is refused with 400
     description: >-
       Creates a ROLE whose identities list is present and empty. The published
@@ -139,6 +144,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_role-contact_addresses_empty
+    x-veredictum-control: $sourceDescriptions.role.create_role
     summary: A ROLE whose CONTACT has an empty addresses list is refused with 400
     description: >-
       Creates a ROLE with one CONTACT whose addresses list is present and
@@ -193,6 +199,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_role-archetype_details_missing
+    x-veredictum-control: $sourceDescriptions.role.create_role
     summary: A ROLE archetype root without archetype_details is refused with 422
     description: >-
       Creates a ROLE whose archetype_node_id is the archetype id
@@ -246,6 +253,7 @@ workflows:
               quote: "is_archetype_root xor archetype_details = Void"
 
   - workflowId: update_role-identities_empty
+    x-veredictum-control: $sourceDescriptions.role.update_role
     summary: A ROLE update whose identities list is empty is refused with 400
     description: >-
       Creates a ROLE, then updates it with content whose identities list is
@@ -340,6 +348,7 @@ workflows:
               quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
 
   - workflowId: update_role-contact_addresses_empty
+    x-veredictum-control: $sourceDescriptions.role.update_role
     summary: A ROLE update whose CONTACT has an empty addresses list is refused with 400
     description: >-
       Creates a ROLE, then updates it with content holding one CONTACT whose
@@ -371,6 +380,7 @@ workflows:
       - *still_created
 
   - workflowId: update_role-cluster_no_items
+    x-veredictum-control: $sourceDescriptions.role.update_role
     summary: A ROLE update holding a CLUSTER with no items is refused with 400
     description: >-
       Creates a ROLE, then updates it with content whose identity details hold
@@ -428,6 +438,7 @@ workflows:
       - *still_created
 
   - workflowId: update_role-archetype_details_missing
+    x-veredictum-control: $sourceDescriptions.role.update_role
     summary: A ROLE update whose archetype root has no archetype_details is refused with 422
     description: >-
       Creates a ROLE, then updates it with content whose archetype_node_id is
@@ -458,6 +469,7 @@ workflows:
       - *still_created
 
   - workflowId: create_role-archetype_node_id_mismatch
+    x-veredictum-control: $sourceDescriptions.role.create_role
     summary: A ROLE whose root archetype_node_id differs from its archetype_id is refused with 422
     description: >-
       Creates a ROLE whose archetype_details names
@@ -511,6 +523,7 @@ workflows:
               quote: "The request was well-formed but was unable to be followed due to semantic errors"
 
   - workflowId: create_role-capabilities_empty
+    x-veredictum-control: $sourceDescriptions.role.create_role
     summary: A ROLE whose capabilities list is empty is refused with 400
     description: >-
       Creates a ROLE whose capabilities list is present and empty, which the
@@ -562,6 +575,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_role-performer_missing
+    x-veredictum-control: $sourceDescriptions.role.create_role
     summary: A ROLE with no performer is refused with 400
     description: >-
       Creates a ROLE that carries no performer. The operation's request schema

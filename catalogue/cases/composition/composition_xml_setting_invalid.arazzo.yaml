@@ -19,8 +19,12 @@ sourceDescriptions:
   - name: setup
     url: ../_setup/templates.arazzo.yaml
     type: arazzo
+  - name: composition_xml
+    url: composition_xml.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: create_composition-xml-setting_invalid
+    x-veredictum-control: $sourceDescriptions.composition_xml.create_composition-xml
     summary: A COMPOSITION sent as canonical XML whose setting is no setting code is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION sent as canonical

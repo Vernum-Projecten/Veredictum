@@ -98,6 +98,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: comp-content_card_1plus-context_any-c_multiple_attribute_cardinality
+    x-veredictum-control: comp-content_card_1plus-context_any-accepted
     summary: "COMPOSITION.content count against a 1..* cardinality, context unconstrained: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -248,6 +249,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: comp-content_card_1plus-context_mand-c_multiple_attribute_cardinality
+    x-veredictum-control: comp-content_card_1plus-context_mand-accepted
     summary: "COMPOSITION.content count against a 1..* cardinality with an archetype-mandated context: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -324,6 +326,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: comp-content_card_1plus-context_mand-c_attribute_existence
+    x-veredictum-control: comp-content_card_1plus-context_mand-accepted
     summary: "COMPOSITION.content count against a 1..* cardinality with an archetype-mandated context: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -474,6 +477,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: comp-content_card_3plus-context_any-c_multiple_attribute_cardinality
+    x-veredictum-control: comp-content_card_3plus-context_any-accepted
     summary: "COMPOSITION.content count against a 3..* cardinality, context unconstrained: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -624,6 +628,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: comp-content_card_3plus-context_mand-c_multiple_attribute_cardinality
+    x-veredictum-control: comp-content_card_3plus-context_mand-accepted
     summary: "COMPOSITION.content count against a 3..* cardinality with an archetype-mandated context: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -700,6 +705,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: comp-content_card_3plus-context_mand-c_attribute_existence
+    x-veredictum-control: comp-content_card_3plus-context_mand-accepted
     summary: "COMPOSITION.content count against a 3..* cardinality with an archetype-mandated context: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -850,6 +856,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: comp-content_card_3to5-context_any-c_multiple_attribute_cardinality
+    x-veredictum-control: comp-content_card_3to5-context_any-accepted
     summary: "COMPOSITION.content count against a 3..5 cardinality, context unconstrained: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -1000,6 +1007,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: comp-content_card_3to5-context_mand-c_multiple_attribute_cardinality
+    x-veredictum-control: comp-content_card_3to5-context_mand-accepted
     summary: "COMPOSITION.content count against a 3..5 cardinality with an archetype-mandated context: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -1076,6 +1084,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: comp-content_card_3to5-context_mand-c_attribute_existence
+    x-veredictum-control: comp-content_card_3to5-context_mand-accepted
     summary: "COMPOSITION.content count against a 3..5 cardinality with an archetype-mandated context: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -1301,6 +1310,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: comp-content_card_any-context_mand-c_attribute_existence
+    x-veredictum-control: comp-content_card_any-context_mand-accepted
     summary: "COMPOSITION.context presence against an archetype-tightened 1..1 context, content unconstrained: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.context
@@ -1452,6 +1462,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: comp-content_card_mand-context_any-c_multiple_attribute_cardinality
+    x-veredictum-control: comp-content_card_mand-context_any-accepted
     summary: "COMPOSITION.content count against a 1..1 cardinality, context unconstrained: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -1602,6 +1613,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: comp-content_card_mand-context_mand-c_multiple_attribute_cardinality
+    x-veredictum-control: comp-content_card_mand-context_mand-accepted
     summary: "COMPOSITION.content count against a 1..1 cardinality with an archetype-mandated context: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -1678,6 +1690,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: comp-content_card_mand-context_mand-c_attribute_existence
+    x-veredictum-control: comp-content_card_mand-context_mand-accepted
     summary: "COMPOSITION.content count against a 1..1 cardinality with an archetype-mandated context: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -1828,6 +1841,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: comp-content_card_opt-context_any-c_multiple_attribute_cardinality
+    x-veredictum-control: comp-content_card_opt-context_any-accepted
     summary: "COMPOSITION.content count against a 0..1 cardinality, context unconstrained: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -1978,6 +1992,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: comp-content_card_opt-context_mand-c_attribute_existence
+    x-veredictum-control: comp-content_card_opt-context_mand-accepted
     summary: "COMPOSITION.content count against a 0..1 cardinality with an archetype-mandated context: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -2054,6 +2069,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: comp-content_card_opt-context_mand-c_multiple_attribute_cardinality
+    x-veredictum-control: comp-content_card_opt-context_mand-accepted
     summary: "COMPOSITION.content count against a 0..1 cardinality with an archetype-mandated context: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content
@@ -2203,6 +2219,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: composition-content_cardinality_count6-c_multiple_attribute_cardinality
+    x-veredictum-control: composition-content_cardinality_count6-accepted
     summary: "COMPOSITION.content count 6 against every official cardinality interval (upper-bound extension): a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (COMPOSITION.content

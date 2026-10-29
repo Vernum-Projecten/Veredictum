@@ -81,6 +81,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_scale-validate_constraint-c_dv_scale_list
+    x-veredictum-control: dv_scale-validate_constraint-accepted
     summary: "DV_SCALE against C_DV_SCALE.list = 1.5|[local::at0005], 2.0|[local::at0006]: a scale value outside the C_DV_SCALE list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_SCALE against
@@ -195,6 +196,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_scale-validate_open-value_symbol_missing
+    x-veredictum-control: dv_scale-validate_open-accepted
     summary: "DV_SCALE against an open C_DV_SCALE ({*}): symbol/value mandatory: a body with no value and no symbol is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_SCALE against an open
@@ -254,6 +256,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_scale-validate_open-symbol_missing
+    x-veredictum-control: dv_scale-validate_open-accepted
     summary: "DV_SCALE against an open C_DV_SCALE ({*}): symbol/value mandatory: a body with no symbol is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_SCALE against an open
@@ -312,6 +315,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_scale-validate_open-value_missing
+    x-veredictum-control: dv_scale-validate_open-accepted
     summary: "DV_SCALE against an open C_DV_SCALE ({*}): symbol/value mandatory: a body with no value is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_SCALE against an open

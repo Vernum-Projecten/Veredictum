@@ -80,6 +80,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_ehr_uri-validate_list-c_string_list
+    x-veredictum-control: dv_ehr_uri-validate_list-accepted
     summary: "DV_EHR_URI against a C_STRING.list of ehr URIs: a string outside the C_STRING list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_EHR_URI against a
@@ -192,6 +193,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_ehr_uri-validate_open-value_missing
+    x-veredictum-control: dv_ehr_uri-validate_open-accepted
     summary: "DV_EHR_URI open: the scheme='ehr' invariant: no value is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_EHR_URI open: the
@@ -250,6 +252,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_ehr_uri-validate_open-scheme_valid
+    x-veredictum-control: dv_ehr_uri-validate_open-accepted
     summary: "DV_EHR_URI open: the scheme='ehr' invariant: a breach of the Scheme_valid invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_EHR_URI open: the
@@ -362,6 +365,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_ehr_uri-validate_pattern-c_string_pattern
+    x-veredictum-control: dv_ehr_uri-validate_pattern-accepted
     summary: "DV_EHR_URI against a C_STRING.pattern (ehr://.*): a string the C_STRING pattern does not match is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_EHR_URI against a

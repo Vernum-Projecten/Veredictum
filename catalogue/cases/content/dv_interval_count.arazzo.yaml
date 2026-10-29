@@ -84,6 +84,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_count-validate_lower_upper-c_integer_range
+    x-veredictum-control: dv_interval_dv_count-validate_lower_upper-accepted
     summary: "DV_INTERVAL<DV_COUNT>: C_INTEGER.range = 0..100 on lower and upper: a value outside the C_INTEGER range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_COUNT>:
@@ -206,6 +207,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_count-validate_lower_upper_list-c_integer_list
+    x-veredictum-control: dv_interval_dv_count-validate_lower_upper_list-accepted
     summary: "DV_INTERVAL<DV_COUNT>: C_INTEGER.list = [0,5,10,100] on lower and upper: a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_COUNT>:
@@ -328,6 +330,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_count-validate_open-lower_included_valid
+    x-veredictum-control: dv_interval_dv_count-validate_open-accepted
     summary: "DV_INTERVAL<DV_COUNT> open ({*}): interval semantics: a breach of the Lower_included_valid invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_COUNT>
@@ -390,6 +393,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_count-validate_open-upper_included_valid
+    x-veredictum-control: dv_interval_dv_count-validate_open-accepted
     summary: "DV_INTERVAL<DV_COUNT> open ({*}): interval semantics: a breach of the Upper_included_valid invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_COUNT>
@@ -452,6 +456,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_count-validate_open-limits_consistent
+    x-veredictum-control: dv_interval_dv_count-validate_open-accepted
     summary: "DV_INTERVAL<DV_COUNT> open ({*}): interval semantics: a breach of the Limits_consistent invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_COUNT>

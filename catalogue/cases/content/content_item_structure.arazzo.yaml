@@ -169,6 +169,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: item_str-type_item_list-c_object_rm_type_name
+    x-veredictum-control: item_str-type_item_list-accepted
     summary: "EVALUATION.data object type against an ITEM_LIST-narrowed archetype slot: a member whose RM type the template does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (EVALUATION.data object
@@ -316,6 +317,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: item_str-type_item_single-c_object_rm_type_name
+    x-veredictum-control: item_str-type_item_single-accepted
     summary: "EVALUATION.data object type against an ITEM_SINGLE-narrowed archetype slot: a member whose RM type the template does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (EVALUATION.data object
@@ -462,6 +464,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: item_str-type_item_table-c_object_rm_type_name
+    x-veredictum-control: item_str-type_item_table-accepted
     summary: "EVALUATION.data object type against an ITEM_TABLE-narrowed archetype slot: a member whose RM type the template does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (EVALUATION.data object
@@ -608,6 +611,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: item_str-type_item_tree-c_object_rm_type_name
+    x-veredictum-control: item_str-type_item_tree-accepted
     summary: "EVALUATION.data object type against an ITEM_TREE-narrowed archetype slot: a member whose RM type the template does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (EVALUATION.data object

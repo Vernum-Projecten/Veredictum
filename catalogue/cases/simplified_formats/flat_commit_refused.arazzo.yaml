@@ -23,8 +23,18 @@ sourceDescriptions:
   - name: sf
     url: ../_setup/simplified_formats.arazzo.yaml
     type: arazzo
+  - name: flat_structure
+    url: flat_structure.arazzo.yaml
+    type: arazzo
+  - name: flat_context
+    url: flat_context.arazzo.yaml
+    type: arazzo
+  - name: flat_mapping
+    url: flat_mapping.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: create_composition-flat-territory_missing
+    x-veredictum-control: $sourceDescriptions.flat_structure.create_composition-flat-vitals
     summary: A flat document with no territory is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
@@ -76,6 +86,7 @@ workflows:
               quote: "The request was well-formed but was unable to be followed due to semantic errors"
 
   - workflowId: create_composition-flat-participation_function_missing
+    x-veredictum-control: $sourceDescriptions.flat_context.create_composition-flat-participations
     summary: A flat participation with no function is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
@@ -108,6 +119,7 @@ workflows:
           - *semantic_error
 
   - workflowId: create_composition-flat-path_malformed
+    x-veredictum-control: $sourceDescriptions.flat_structure.create_composition-flat-vitals
     summary: A flat key with an empty path segment and an empty suffix is refused with 400
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
@@ -144,6 +156,7 @@ workflows:
               quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
 
   - workflowId: create_composition-flat-template_id_missing
+    x-veredictum-control: $sourceDescriptions.flat_structure.create_composition-flat-vitals
     summary: A flat COMPOSITION create with no openehr-template-id header is refused with 400
     description: >-
       Creates an EHR, then creates a COMPOSITION from a valid flat document of
@@ -178,6 +191,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: create_composition-flat-other_with_code
+    x-veredictum-control: $sourceDescriptions.flat_structure.create_composition-flat-other_open_value_set
     summary: A flat |other given with |code and |value on the same leaf is refused with 400
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
@@ -211,6 +225,7 @@ workflows:
           - *bad_request
 
   - workflowId: create_composition-flat-raw_without_type
+    x-veredictum-control: $sourceDescriptions.flat_mapping.create_composition-flat-raw
     summary: A flat |raw object with no _type is refused with 400
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
@@ -240,6 +255,7 @@ workflows:
           - *bad_request
 
   - workflowId: create_composition-flat-other_closed_value_set
+    x-veredictum-control: $sourceDescriptions.flat_structure.create_composition-flat-closed_value_set
     summary: A flat |other on a closed value-set is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
@@ -275,6 +291,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: create_composition-flat-unknown_field
+    x-veredictum-control: $sourceDescriptions.flat_structure.create_composition-flat-vitals
     summary: A flat field identifier that names no Web Template node is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
@@ -309,6 +326,7 @@ workflows:
           - condition: $statusCode == 422
 
   - workflowId: create_composition-flat-data_type_mismatch
+    x-veredictum-control: $sourceDescriptions.flat_structure.create_composition-flat-vitals
     summary: A flat |magnitude that is not a number is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
@@ -341,6 +359,7 @@ workflows:
           - condition: $statusCode == 422
 
   - workflowId: create_composition-flat-cardinality
+    x-veredictum-control: $sourceDescriptions.flat_structure.create_composition-flat-vitals
     summary: A second flat instance of a node the template allows once is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
@@ -375,6 +394,7 @@ workflows:
           - condition: $statusCode == 422
 
   - workflowId: create_composition-flat-terminology_binding
+    x-veredictum-control: $sourceDescriptions.flat_structure.create_composition-flat-closed_value_set
     summary: A flat |code outside the closed value-set of its leaf is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION of the template cnf.vitals

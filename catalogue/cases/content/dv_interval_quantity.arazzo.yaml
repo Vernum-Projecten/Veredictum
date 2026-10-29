@@ -84,6 +84,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_quantity-validate_open-lower_included_valid
+    x-veredictum-control: dv_interval_dv_quantity-validate_open-accepted
     summary: "DV_INTERVAL<DV_QUANTITY> open ({*}): interval semantics: a breach of the Lower_included_valid invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_QUANTITY>
@@ -146,6 +147,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_quantity-validate_open-upper_included_valid
+    x-veredictum-control: dv_interval_dv_quantity-validate_open-accepted
     summary: "DV_INTERVAL<DV_QUANTITY> open ({*}): interval semantics: a breach of the Upper_included_valid invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_QUANTITY>
@@ -208,6 +210,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_quantity-validate_open-limits_consistent
+    x-veredictum-control: dv_interval_dv_quantity-validate_open-accepted
     summary: "DV_INTERVAL<DV_QUANTITY> open ({*}): interval semantics: a breach of the Limits_consistent invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_QUANTITY>
@@ -331,6 +334,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_quantity-validate_upper_lower-c_dv_quantity_list
+    x-veredictum-control: dv_interval_dv_quantity-validate_upper_lower-accepted
     summary: "DV_INTERVAL<DV_QUANTITY>: C_DV_QUANTITY.list = [Cel 0..100] on lower and upper (temperature): a quantity outside the C_DV_QUANTITY list is refused with 422"
     description: >-
       Commits the rows' content against the template

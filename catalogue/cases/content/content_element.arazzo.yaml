@@ -99,6 +99,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: element-value_null_flavour_existence-inv_null_flavour_indicated
+    x-veredictum-control: element-value_null_flavour_existence-accepted
     summary: "ELEMENT.value / ELEMENT.null_flavour against C_ATTRIBUTE.existence and the RM null-flavour invariant: a breach of the Inv_null_flavour_indicated invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (ELEMENT.value /
@@ -176,6 +177,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: element-value_null_flavour_existence-c_attribute_existence
+    x-veredictum-control: element-value_null_flavour_existence-accepted
     summary: "ELEMENT.value / ELEMENT.null_flavour against C_ATTRIBUTE.existence and the RM null-flavour invariant: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (ELEMENT.value /

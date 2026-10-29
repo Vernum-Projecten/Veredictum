@@ -232,6 +232,14 @@ jobs:
       - name: Report numbers — stub-tracker proof
         run: bash scripts/checks/report-refs.sh --self-test
 
+      - name: Every pending control names an open issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/checks/pending-refs.sh
+
+      - name: Pending numbers — stub-tracker proof
+        run: bash scripts/checks/pending-refs.sh --self-test
+
       # console.veredictum.eu is the official conformance instrument (#388), so
       # no reader-facing surface may call it a demo or a sandbox. The words are
       # refused as whole words, which leaves `demonstration` and the CSP

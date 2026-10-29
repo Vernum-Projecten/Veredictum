@@ -28,6 +28,11 @@ vendored value it replaces is still what it expects:
   Object `value`, while §Parameter Object types the field
   `Any | {expression} | Selector Object`. The engine restores the plain-object
   branch.
+- **Payload Replacement Object `value`.** The schema admits only a string or
+  a Selector Object, while §Payload Replacement Object types the field
+  `Any | {expression} | Selector Object` ("The value can be a constant, a
+  Runtime Expression, or Selector Objects") and gives `value: 10` as its
+  literal example. The engine admits a literal of every JSON type there.
 - **OAI/Arazzo-Specification#558** needs no amendment. The schema requires
   Expression Type Object `version` against its own description, and the
   specification text agrees with the `required` list: §Expression Type Object,

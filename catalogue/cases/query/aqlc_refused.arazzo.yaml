@@ -18,8 +18,12 @@ sourceDescriptions:
   - name: setup
     url: ../_setup/aql_conformance.arazzo.yaml
     type: arazzo
+  - name: aqlc_from
+    url: aqlc_from.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: contains_depth-alias_declared_twice_is_invalid
+    x-veredictum-control: $sourceDescriptions.aqlc_from.contains_depth-entry_rm_type_without_archetype_predicate
     summary: An alias declared twice makes the query invalid
     description: 'Carries aql-conformance case FROM.contains_depth.alias_declared_twice_is_invalid (level
       core, corpus/cases/FROM/refused_alias_declared_twice.yaml): over the set-up seed-vital_signs, the
@@ -57,6 +61,7 @@ workflows:
                 to invalid input, e.g. a required parameter is missing, or at least one of the parameters
                 has an invalid syntax.'
   - workflowId: identified_path-reference_to_an_undeclared_alias_is_invalid
+    x-veredictum-control: $sourceDescriptions.aqlc_from.contains_depth-composition_under_ehr
     summary: A reference to an undeclared alias is rejected as malformed
     description: 'Carries aql-conformance case SELECT.identified_path.reference_to_an_undeclared_alias_is_invalid
       (level core, corpus/cases/WHERE/invalid_undeclared_alias.yaml): over the set-up seed-vital_signs,
@@ -93,6 +98,7 @@ workflows:
                 to invalid input, e.g. a required parameter is missing, or at least one of the parameters
                 has an invalid syntax.'
   - workflowId: identified_path-select_star_mixed_with_a_column_refused
+    x-veredictum-control: $sourceDescriptions.aqlc_from.contains_depth-composition_under_ehr
     summary: SELECT * beside a column is not AQL, so the query is invalid
     description: 'Carries aql-conformance case SELECT.identified_path.select_star_mixed_with_a_column_refused
       (level core, corpus/cases/SELECT/refused_select_star_mixed_with_a_column.yaml): over the set-up
@@ -130,6 +136,7 @@ workflows:
                 to invalid input, e.g. a required parameter is missing, or at least one of the parameters
                 has an invalid syntax.'
   - workflowId: identified_path-select_star_refused
+    x-veredictum-control: $sourceDescriptions.aqlc_from.contains_depth-composition_under_ehr
     summary: SELECT * is not AQL, so the query is invalid
     description: 'Carries aql-conformance case SELECT.identified_path.select_star_refused (level core,
       corpus/cases/SELECT/refused_select_star.yaml): over the set-up seed-vital_signs, the query is refused
@@ -167,6 +174,7 @@ workflows:
                 to invalid input, e.g. a required parameter is missing, or at least one of the parameters
                 has an invalid syntax.'
   - workflowId: limit-parameterised_limit_refused
+    x-veredictum-control: $sourceDescriptions.aqlc_from.contains_depth-composition_under_ehr
     summary: A parameter in place of the LIMIT row count makes the query invalid
     description: 'Carries aql-conformance case paging.limit.parameterised_limit_refused (level sensible,
       corpus/cases/paging/refused_parameterised_limit.yaml): over the set-up seed-vital_signs, the query

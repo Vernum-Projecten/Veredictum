@@ -19,8 +19,12 @@ sourceDescriptions:
   - name: demographic
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
     type: openapi
+  - name: organisation
+    url: organisation.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: create_organisation-wrong_type
+    x-veredictum-control: $sourceDescriptions.organisation.create_organisation
     summary: A PERSON body on the ORGANISATION create is refused with 400
     description: >-
       Creates an ORGANISATION with a body whose _type is PERSON. The
@@ -65,6 +69,7 @@ workflows:
               quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
 
   - workflowId: create_organisation-identities_empty
+    x-veredictum-control: $sourceDescriptions.organisation.create_organisation
     summary: An ORGANISATION whose identities list is empty is refused with 400
     description: >-
       Creates an ORGANISATION whose identities list is present and empty. The
@@ -95,6 +100,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_organisation-contact_addresses_empty
+    x-veredictum-control: $sourceDescriptions.organisation.create_organisation
     summary: An ORGANISATION whose CONTACT has an empty addresses list is refused with 400
     description: >-
       Creates an ORGANISATION with one CONTACT whose addresses list is present
@@ -141,6 +147,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_organisation-archetype_details_missing
+    x-veredictum-control: $sourceDescriptions.organisation.create_organisation
     summary: An ORGANISATION archetype root without archetype_details is refused with 422
     description: >-
       Creates an ORGANISATION whose archetype_node_id is the archetype id
@@ -187,6 +194,7 @@ workflows:
               quote: "is_archetype_root xor archetype_details = Void"
 
   - workflowId: update_organisation-identities_empty
+    x-veredictum-control: $sourceDescriptions.organisation.update_organisation
     summary: An ORGANISATION update whose identities list is empty is refused with 400
     description: >-
       Creates an ORGANISATION, then updates it with content whose identities
@@ -272,6 +280,7 @@ workflows:
               quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
 
   - workflowId: update_organisation-contact_addresses_empty
+    x-veredictum-control: $sourceDescriptions.organisation.update_organisation
     summary: An ORGANISATION update whose CONTACT has an empty addresses list is refused with 400
     description: >-
       Creates an ORGANISATION, then updates it with content holding one CONTACT
@@ -300,6 +309,7 @@ workflows:
       - *still_created
 
   - workflowId: update_organisation-cluster_no_items
+    x-veredictum-control: $sourceDescriptions.organisation.update_organisation
     summary: An ORGANISATION update holding a CLUSTER with no items is refused with 400
     description: >-
       Creates an ORGANISATION, then updates it with content whose identity
@@ -350,6 +360,7 @@ workflows:
       - *still_created
 
   - workflowId: update_organisation-archetype_details_missing
+    x-veredictum-control: $sourceDescriptions.organisation.update_organisation
     summary: An ORGANISATION update whose archetype root has no archetype_details is refused with 422
     description: >-
       Creates an ORGANISATION, then updates it with content whose
@@ -377,6 +388,7 @@ workflows:
       - *still_created
 
   - workflowId: create_organisation-archetype_node_id_mismatch
+    x-veredictum-control: $sourceDescriptions.organisation.create_organisation
     summary: An ORGANISATION whose root archetype_node_id differs from its archetype_id is refused with 422
     description: >-
       Creates an ORGANISATION whose archetype_details names

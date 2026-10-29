@@ -185,6 +185,7 @@ struct Red {
     expected: String,
     received: String,
     entry: Option<usize>,
+    uncaptured: Option<String>,
 }
 
 impl Red {
@@ -199,7 +200,20 @@ impl Red {
             expected: expected.into(),
             received: format!("not judged: {reason}"),
             entry: None,
+            uncaptured: None,
         })
+    }
+
+    /// The errored red of an expression that has no value, naming the step
+    /// whose uncaptured output it reads, if that is why.
+    fn unevaluated(
+        why: Option<Citation>,
+        expected: impl Into<String>,
+        error: &EvalError,
+    ) -> Box<Self> {
+        let mut red = Self::errored(why, expected, error);
+        red.uncaptured = uncaptured_step(error);
+        red
     }
 
     fn at(mut self: Box<Self>, entry: usize) -> Box<Self> {
@@ -276,16 +290,24 @@ impl<'d> Evaluator<'d> {
         })
     }
 
-    /// Runs every workflow of the document in document order.
+    /// Runs every workflow of the document in document order, then records
+    /// errored every refusal row whose control was not accepted
+    /// ([`crate::arazzo::control::apply`]).
     ///
     /// # Errors
     /// [`RunError`] when the document cannot be run at all; everything else
     /// becomes a row's classification.
     pub fn run(&mut self, plan: &Plan, transport: &mut dyn Transport) -> Result<Results, RunError> {
-        self.run_where(plan, transport, |_| true)
+        let mut results = self.run_where(plan, transport, |_| true)?;
+        let controls = crate::arazzo::control::controls(self.document, &self.name);
+        crate::arazzo::control::apply(&mut results.rows, &controls);
+        Ok(results)
     }
 
-    /// Runs, in document order, only the workflows `select` keeps.
+    /// Runs, in document order, only the workflows `select` keeps. A
+    /// refusal row is left as judged: its control may run in another call,
+    /// so the caller applies [`crate::arazzo::control::apply`] over the
+    /// whole run.
     ///
     /// # Errors
     /// [`RunError`] when the document cannot be run at all; everything else
@@ -692,6 +714,7 @@ impl<'d> Evaluator<'d> {
         let mut outputs: WorkflowOutputs = BTreeMap::new();
         let mut red = None;
         let mut advisory = None;
+        let mut advisories: BTreeMap<String, Explanation> = BTreeMap::new();
         for step in &workflow.steps {
             let step_cite =
                 gated_citation(step.extensions.as_ref()).or_else(|| workflow_cite.clone());
@@ -705,15 +728,18 @@ impl<'d> Evaluator<'d> {
             };
             match self.drive_step(step, &context, transport) {
                 Ok((captured, should)) => {
-                    if advisory.is_none()
-                        && let Some(should) = should
-                    {
-                        advisory = Some(self.explain(step, *should));
+                    if let Some(should) = should {
+                        let explained = self.explain(step, *should);
+                        advisory.get_or_insert_with(|| explained.clone());
+                        advisories.insert(step.step_id.clone(), explained);
                     }
                     outputs.insert(step.step_id.clone(), captured);
                 }
                 Err(found) => {
-                    red = Some(self.explain(step, *found));
+                    red = Some(
+                        advised(&advisories, found.uncaptured.as_deref())
+                            .unwrap_or_else(|| self.explain(step, *found)),
+                    );
                     break;
                 }
             }
@@ -733,6 +759,12 @@ impl<'d> Evaluator<'d> {
                     }
                     Ok(None) => {}
                     Err(reason) => {
+                        if let Some(advised) =
+                            advised(&advisories, uncaptured_step(&reason).as_deref())
+                        {
+                            red = Some(advised);
+                            break;
+                        }
                         red = Some(Explanation {
                             step: "outputs".to_owned(),
                             what: format!("Capture the workflow output `{name}`."),
@@ -812,7 +844,12 @@ impl<'d> Evaluator<'d> {
             exchange: None,
         };
         let composed =
-            compose(context.document, step, &self.config, &scope).map_err(|r| errored(&r))?;
+            compose(context.document, step, &self.config, &scope).map_err(|r| match r {
+                Unsent::Eval(error) => {
+                    Red::unevaluated(cite.cloned(), "the step to be driven", &error)
+                }
+                Unsent::Other(reason) => errored(&reason),
+            })?;
         let body_text = composed
             .body
             .as_ref()
@@ -863,7 +900,10 @@ impl<'d> Evaluator<'d> {
             .map(|red| red.at(entry));
         let mut captured = BTreeMap::new();
         for (name, value) in &step.outputs {
-            if let Some(value) = output_value(value, &scope).map_err(|e| errored(&e).at(entry))? {
+            let value = output_value(value, &scope).map_err(|error| {
+                Red::unevaluated(cite.cloned(), "the step to be driven", &error).at(entry)
+            })?;
+            if let Some(value) = value {
                 captured.insert(name.clone(), value);
             }
         }
@@ -909,17 +949,43 @@ impl<'d> Evaluator<'d> {
                         expected,
                         received,
                         entry: None,
+                        uncaptured: None,
                     });
                     if !advisory {
                         return Err(red);
                     }
                     should.get_or_insert(red);
                 }
-                Err(error) => return Err(Red::errored(why, criterion.condition.clone(), error)),
+                Err(error) => {
+                    return Err(Red::unevaluated(why, criterion.condition.clone(), &error));
+                }
             }
         }
         Ok(should)
     }
+}
+
+/// The step whose uncaptured output `error` reports, when it reports one.
+fn uncaptured_step(error: &EvalError) -> Option<String> {
+    let EvalError::MissingOutput(text) = error else {
+        return None;
+    };
+    // NOTE: no openEHR spec governs this — our own design; text that is not a step output
+    // expression names no producing step, which is the absence this `Option` records.
+    match Expr::parse(text).ok()? {
+        Expr::StepOutput { step, .. } => Some(step),
+        _ => None,
+    }
+}
+
+/// The advisory outcome a row stopped by an uncaptured output of `step`
+/// takes when that step failed only `level: should` criteria: the first of
+/// them, so the row names the SHOULD the server did not follow.
+fn advised(advisories: &BTreeMap<String, Explanation>, step: Option<&str>) -> Option<Explanation> {
+    advisories.get(step?).map(|explanation| Explanation {
+        whose: Whose::Advisory,
+        ..explanation.clone()
+    })
 }
 
 /// Adds a step's `x-veredictum-derive` outputs to what it captured. A
@@ -1071,19 +1137,36 @@ struct Composed {
     body_is_json: bool,
 }
 
+/// Why a step's request could not be composed.
+#[derive(Debug, thiserror::Error)]
+enum Unsent {
+    /// An expression the request needs has no value.
+    #[error(transparent)]
+    Eval(#[from] EvalError),
+    /// Anything else the evaluator cannot send.
+    #[error("{0}")]
+    Other(String),
+}
+
+impl From<String> for Unsent {
+    fn from(reason: String) -> Self {
+        Self::Other(reason)
+    }
+}
+
 /// Composes a step's request from its operation, parameters and body.
 fn compose(
     document: &ArazzoDocument,
     step: &Step,
     config: &RunConfig,
     scope: &Scope<'_>,
-) -> Result<Composed, String> {
+) -> Result<Composed, Unsent> {
     let Some(operation) = step
         .operation_id
         .as_deref()
         .and_then(|qualified| document.operation(qualified))
     else {
-        return Err("its operationId does not resolve".to_owned());
+        return Err("its operationId does not resolve".to_owned().into());
     };
     let mut request = RequestView {
         method: format!("{:?}", operation.method).to_uppercase(),
@@ -1092,11 +1175,11 @@ fn compose(
     let mut query = Vec::new();
     for parameter in &step.parameters {
         let ReusableOr::Item(parameter) = parameter else {
-            return Err("a reusable parameter".to_owned());
+            return Err("a reusable parameter".to_owned().into());
         };
         if parameter.in_ == Some(ParameterLocation::Query) {
             let pairs = query_pairs(&parameter.name, &parameter.value, scope);
-            for (name, value) in pairs.map_err(|e| e.to_string())? {
+            for (name, value) in pairs? {
                 query.push(format!(
                     "{}={}",
                     urlencoding::encode(&name),
@@ -1113,7 +1196,7 @@ fn compose(
             }
             continue;
         }
-        let value = resolve_value(&parameter.value, scope).map_err(|e| e.to_string())?;
+        let value = resolve_value(&parameter.value, scope)?;
         match parameter.in_ {
             Some(ParameterLocation::Path) => {
                 request.path.insert(parameter.name.clone(), value);
@@ -1123,7 +1206,7 @@ fn compose(
                     .headers
                     .insert(parameter.name.to_ascii_lowercase(), value);
             }
-            other => return Err(format!("parameter location {other:?}")),
+            other => return Err(format!("parameter location {other:?}").into()),
         }
     }
     let base_url = match operation.base {
@@ -1143,13 +1226,14 @@ fn compose(
         for replacement in &request_body.replacements {
             let value = match &replacement.value {
                 ValueOrSelector::Literal(literal) => body_value(literal, scope)?,
-                ValueOrSelector::Selector(_) => return Err("a selector value".to_owned()),
+                ValueOrSelector::Selector(_) => return Err("a selector value".to_owned().into()),
             };
             let Some(slot) = payload.pointer_mut(&replacement.target) else {
                 return Err(format!(
                     "replacement target `{}` is not in the payload",
                     replacement.target
-                ));
+                )
+                .into());
             };
             *slot = value;
         }
@@ -1267,30 +1351,26 @@ fn without_query_expansions(template: &str) -> String {
 /// A payload or replacement value as sent: a string that is a runtime
 /// expression is its value, and anything else has the embedded `{$…}`
 /// expressions of every string it holds substituted, at any depth.
-fn body_value(value: &Value, scope: &Scope<'_>) -> Result<Value, String> {
+fn body_value(value: &Value, scope: &Scope<'_>) -> Result<Value, EvalError> {
     match value {
-        Value::String(text) if text.starts_with('$') => Expr::parse(text)
-            .map_err(EvalError::from)
-            .and_then(|expr| {
+        Value::String(text) if text.starts_with('$') => {
+            Expr::parse(text).map_err(EvalError::from).and_then(|expr| {
                 scope
                     .eval(&expr)?
                     .ok_or(EvalError::MissingOutput(text.clone()))
             })
-            .map_err(|e| e.to_string()),
+        }
         other => embedded(other, scope),
     }
 }
 
 /// `value` with the embedded `{$…}` expressions of each string it holds
 /// substituted; a string that merely starts with `$` stays data.
-fn embedded(value: &Value, scope: &Scope<'_>) -> Result<Value, String> {
+fn embedded(value: &Value, scope: &Scope<'_>) -> Result<Value, EvalError> {
     match value {
         // NOTE: Arazzo 1.1.0 §Runtime Expressions: expressions "can be embedded into string
         // values by surrounding the expression with {} curly braces", a nested string included.
-        Value::String(text) => scope
-            .substitute(text, str::to_owned)
-            .map(Value::String)
-            .map_err(|e| e.to_string()),
+        Value::String(text) => scope.substitute(text, str::to_owned).map(Value::String),
         Value::Array(items) => items
             .iter()
             .map(|item| embedded(item, scope))
@@ -1299,7 +1379,7 @@ fn embedded(value: &Value, scope: &Scope<'_>) -> Result<Value, String> {
         Value::Object(members) => members
             .iter()
             .map(|(key, member)| Ok((key.clone(), embedded(member, scope)?)))
-            .collect::<Result<_, String>>()
+            .collect::<Result<_, EvalError>>()
             .map(Value::Object),
         literal => Ok(literal.clone()),
     }
@@ -2922,5 +3002,280 @@ workflows:
         );
         assert_eq!(without_query_expansions("/a/{id}/b{&x}"), "/a/{id}/b");
         assert_eq!(without_query_expansions("/a/{id"), "/a/{id");
+    }
+
+    #[test]
+    fn a_literal_replacement_is_sent_with_its_json_type_intact() {
+        let doc = DOC.replace(
+            "          - { name: Authorization, in: header, value: Bearer step-token }\n",
+            "          - { name: Authorization, in: header, value: Bearer step-token }\n        requestBody:\n          contentType: application/json\n          payload: { a: x, b: x, c: x, d: x, e: x, f: x }\n          replacements:\n            - { target: /a, value: 10 }\n            - { target: /b, value: true }\n            - { target: /c, value: null }\n            - { target: /d, value: [1, two] }\n            - { target: /e, value: { k: 1.5 } }\n            - { target: /f, value: 'id-{$inputs.ehr_id}' }\n",
+        );
+        let (dir, document) = load(&doc);
+        let mut transport =
+            Scripted::new(&[(201, ""), (409, ""), (200, r#"{"ehr_id":{"value":"abc"}}"#)]);
+        let row = Row::from([("ehr_id".to_owned(), Value::from("abc"))]);
+        let plan = plan_with("twice", &[row], Iteration::ResetPerRow);
+        let (results, _) = run_document(
+            &document,
+            "ehr",
+            config(),
+            dir.path(),
+            &plan,
+            &mut transport,
+        )
+        .unwrap();
+        assert_eq!(only(&results).status, Status::Passed);
+        assert_eq!(
+            transport.bodies.first(),
+            Some(&Some(serde_json::json!({
+                "a": 10,
+                "b": true,
+                "c": null,
+                "d": [1, "two"],
+                "e": { "k": 1.5 },
+                "f": "id-abc"
+            })))
+        );
+    }
+
+    const ADVISED: &str = "arazzo: 1.1.0
+info: { title: t, version: '1' }
+sourceDescriptions:
+  - { name: ehr, url: ehr.yaml, type: openapi }
+workflows:
+  - workflowId: chain
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    steps:
+      - stepId: create
+        description: Create one.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        successCriteria:
+          - condition: $statusCode < 300
+          - condition: $statusCode == 201
+            x-veredictum-cite: { source: s, section: d, quote: It SHOULD be 201., level: should }
+        outputs: { ehr_id: $response.body#/ehr_id/value }
+      - stepId: get
+        description: Read it back.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters: [{ name: ehr_id, in: path, value: $steps.create.outputs.ehr_id }]
+        successCriteria: [{ condition: $statusCode == 200 }]
+";
+
+    fn drive_advised(answers: &[(u16, &'static str)]) -> ResultRow {
+        let (dir, document) = load(ADVISED);
+        let mut transport = Scripted::new(answers);
+        let (results, _) = run_document(
+            &document,
+            "ehr",
+            config(),
+            dir.path(),
+            &Plan::default(),
+            &mut transport,
+        )
+        .unwrap();
+        only(&results).clone()
+    }
+
+    #[test]
+    fn a_row_stopped_by_an_output_its_step_withheld_under_a_should_miss_is_advisory() {
+        let row = drive_advised(&[(204, "")]);
+        assert_eq!(row.status, Status::Failed);
+        let why = row.explanation.unwrap();
+        assert_eq!(why.whose, Whose::Advisory);
+        assert_eq!(why.step, "create");
+        assert_eq!(why.expected, "status 201");
+        assert_eq!(
+            why.why.map(|w| w.quote),
+            Some("It SHOULD be 201.".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_row_whose_producing_step_failed_a_must_stays_failed_against_the_server() {
+        let row = drive_advised(&[(500, "")]);
+        assert_eq!(row.status, Status::Failed);
+        let why = row.explanation.unwrap();
+        assert_eq!(why.whose, Whose::Server);
+        assert_eq!(why.step, "create");
+    }
+
+    #[test]
+    fn a_row_missing_an_output_no_failed_criterion_explains_stays_errored() {
+        let row = drive_advised(&[(201, "")]);
+        assert_eq!(row.status, Status::Errored);
+        let why = row.explanation.unwrap();
+        assert_eq!(why.whose, Whose::Instrument);
+        assert_eq!(why.step, "get");
+    }
+
+    const CONTROLLED: &str = "arazzo: 1.1.0
+info: { title: t, version: '1' }
+sourceDescriptions:
+  - { name: ehr, url: ehr.yaml, type: openapi }
+workflows:
+  - workflowId: twin
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    steps:
+      - stepId: create
+        operationId: $sourceDescriptions.ehr.ehr_create
+        successCriteria: [{ condition: $statusCode == 201 }]
+  - workflowId: refused
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    x-veredictum-control: twin
+    steps:
+      - stepId: create
+        operationId: $sourceDescriptions.ehr.ehr_create
+        successCriteria: [{ condition: $statusCode == 400 }]
+";
+
+    fn drive_controlled(plan: &Plan, answers: &[(u16, &'static str)]) -> Vec<ResultRow> {
+        let (dir, document) = load(CONTROLLED);
+        let mut transport = Scripted::new(answers);
+        run_document(&document, "ehr", config(), dir.path(), plan, &mut transport)
+            .unwrap()
+            .0
+            .rows
+    }
+
+    #[test]
+    fn a_refusal_whose_control_passed_is_judged() {
+        let rows = drive_controlled(&Plan::default(), &[(201, ""), (400, "")]);
+        let statuses: Vec<Status> = rows.iter().map(|row| row.status).collect();
+        assert_eq!(statuses, [Status::Passed, Status::Passed]);
+        let rows = drive_controlled(&Plan::default(), &[(201, ""), (201, "")]);
+        assert_eq!(rows.get(1).map(|row| row.status), Some(Status::Failed));
+    }
+
+    #[test]
+    fn a_refusal_whose_control_did_not_pass_is_errored_naming_the_control() {
+        let rows = drive_controlled(&Plan::default(), &[(400, ""), (400, "")]);
+        let refused = rows.get(1).unwrap();
+        assert_eq!(refused.status, Status::Errored);
+        let why = refused.explanation.as_ref().unwrap();
+        assert_eq!(why.whose, Whose::Instrument);
+        assert_eq!(why.expected, "the control `ehr/twin` accepted");
+        assert_eq!(
+            why.received,
+            "not judged: the control `ehr/twin` ended FAILED"
+        );
+
+        let rows = drive_controlled(&Plan::default(), &[(400, ""), (201, "")]);
+        assert_eq!(
+            rows.get(1).map(|row| row.status),
+            Some(Status::Errored),
+            "a refusal the server failed is not judged without its control either"
+        );
+
+        let skipped = Plan {
+            skips: BTreeMap::from([(
+                "twin".to_owned(),
+                Skip {
+                    reason: SkipReason::NotClaimed,
+                    why: Why {
+                        source: "s".to_owned(),
+                        section: "d".to_owned(),
+                        quote: "q".to_owned(),
+                        link: None,
+                        report: None,
+                    },
+                },
+            )]),
+            ..Plan::default()
+        };
+        let rows = drive_controlled(&skipped, &[(400, "")]);
+        let refused = rows.get(1).unwrap();
+        assert_eq!(refused.status, Status::Errored);
+        assert_eq!(
+            refused.explanation.as_ref().map(|e| e.received.as_str()),
+            Some("not judged: the control `ehr/twin` did not run")
+        );
+    }
+
+    fn skip(ids: &[&str]) -> Plan {
+        let why = Why {
+            source: "s".to_owned(),
+            section: "d".to_owned(),
+            quote: "q".to_owned(),
+            link: None,
+            report: None,
+        };
+        Plan {
+            skips: ids
+                .iter()
+                .map(|id| {
+                    (
+                        (*id).to_owned(),
+                        Skip {
+                            reason: SkipReason::OptionNotSelected,
+                            why: why.clone(),
+                        },
+                    )
+                })
+                .collect(),
+            ..Plan::default()
+        }
+    }
+
+    fn drive_listed(doc: &str, plan: &Plan, answers: &[(u16, &'static str)]) -> ResultRow {
+        let (dir, document) = load(doc);
+        let mut transport = Scripted::new(answers);
+        let (results, _) =
+            run_document(&document, "ehr", config(), dir.path(), plan, &mut transport).unwrap();
+        results
+            .rows
+            .into_iter()
+            .find(|row| row.case == "ehr/refused")
+            .unwrap()
+    }
+
+    #[test]
+    fn a_refusal_with_one_control_per_arm_is_judged_by_the_arm_that_ran() {
+        let doc = CONTROLLED
+            .replace("x-veredictum-control: twin", "x-veredictum-control: [twin, other]")
+            .replace(
+                "  - workflowId: refused\n",
+                "  - workflowId: other\n    x-veredictum-cite: { source: s, section: d, quote: q }\n    steps:\n      - stepId: create\n        operationId: $sourceDescriptions.ehr.ehr_create\n        successCriteria: [{ condition: $statusCode == 202 }]\n  - workflowId: refused\n",
+            );
+        let row = drive_listed(&doc, &skip(&["other"]), &[(201, ""), (400, "")]);
+        assert_eq!(row.status, Status::Passed);
+        let row = drive_listed(&doc, &skip(&["twin"]), &[(202, ""), (400, "")]);
+        assert_eq!(row.status, Status::Passed);
+        let row = drive_listed(&doc, &skip(&["twin"]), &[(400, ""), (400, "")]);
+        assert_eq!(
+            row.explanation.map(|e| e.received),
+            Some("not judged: the control `ehr/other` ended FAILED".to_owned())
+        );
+        let row = drive_listed(&doc, &skip(&["twin", "other"]), &[(400, "")]);
+        assert_eq!(row.status, Status::Errored);
+        assert_eq!(
+            row.explanation.map(|e| e.received),
+            Some("not judged: no control ran".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_control_that_missed_only_a_should_still_shows_the_request_accepted() {
+        let doc = CONTROLLED.replace(
+            "        successCriteria: [{ condition: $statusCode == 201 }]\n  - workflowId: refused",
+            "        successCriteria:\n          - condition: $statusCode == 201\n          - condition: $response.header.ETag != null\n            x-veredictum-cite: { source: s, section: d, quote: It SHOULD be sent., level: should }\n  - workflowId: refused",
+        );
+        let row = drive_listed(&doc, &Plan::default(), &[(201, ""), (400, "")]);
+        assert_eq!(row.status, Status::Passed);
+    }
+
+    #[test]
+    fn a_refusal_whose_control_is_pending_is_never_judged_and_names_the_issue() {
+        let doc = CONTROLLED.replace(
+            "x-veredictum-control: twin",
+            "x-veredictum-control: { pending: 835 }",
+        );
+        for answers in [[(201, ""), (400, "")], [(201, ""), (201, "")]] {
+            let row = drive_listed(&doc, &Plan::default(), &answers);
+            assert_eq!(row.status, Status::Errored);
+            let why = row.explanation.unwrap();
+            assert_eq!(why.whose, Whose::Instrument);
+            assert_eq!(why.step, "control");
+            assert_eq!(why.received, "not judged: no control yet: #835");
+        }
     }
 }

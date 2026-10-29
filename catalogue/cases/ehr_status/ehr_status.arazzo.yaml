@@ -213,6 +213,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: get_ehr_status-at_time_malformed
+    x-veredictum-control: get_ehr_status-at_time_future
     summary: A read whose version_at_time is not an ISO 8601 datetime is refused as a client error
     description: >-
       Creates an EHR, then retrieves its EHR_STATUS with a version_at_time

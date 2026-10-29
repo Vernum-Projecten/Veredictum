@@ -363,6 +363,7 @@ workflows:
             condition: "$[?@.key == 'beta']"
 
   - workflowId: organisation_tags_update-non_array_body
+    x-veredictum-control: organisation_tags_update-stores_tags
     summary: An ORGANISATION tag update whose body is not an array is answered 400
     description: >-
       Tags an ORGANISATION version with alpha and beta, then updates its tag

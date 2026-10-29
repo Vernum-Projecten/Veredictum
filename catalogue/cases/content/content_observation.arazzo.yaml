@@ -99,6 +99,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: obs-state_ex_mand-protocol_ex_mand-c_attribute_existence
+    x-veredictum-control: obs-state_ex_mand-protocol_ex_mand-accepted
     summary: "OBSERVATION data (RM mandatory) + archetype-mandated state and protocol: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (OBSERVATION data (RM
@@ -176,6 +177,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: obs-state_ex_mand-protocol_ex_mand-observation_data_missing
+    x-veredictum-control: obs-state_ex_mand-protocol_ex_mand-accepted
     summary: "OBSERVATION data (RM mandatory) + archetype-mandated state and protocol: a body with an OBSERVATION without data is refused with 400"
     description: >-
       Commits the rows' content against the template (OBSERVATION data (RM
@@ -330,6 +332,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: obs-state_ex_mand-protocol_ex_opt-c_attribute_existence
+    x-veredictum-control: obs-state_ex_mand-protocol_ex_opt-accepted
     summary: "OBSERVATION data (RM mandatory) + archetype-mandated state, protocol optional: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (OBSERVATION data (RM
@@ -407,6 +410,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: obs-state_ex_mand-protocol_ex_opt-observation_data_missing
+    x-veredictum-control: obs-state_ex_mand-protocol_ex_opt-accepted
     summary: "OBSERVATION data (RM mandatory) + archetype-mandated state, protocol optional: a body with an OBSERVATION without data is refused with 400"
     description: >-
       Commits the rows' content against the template (OBSERVATION data (RM
@@ -561,6 +565,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: obs-state_ex_opt-protocol_ex_mand-c_attribute_existence
+    x-veredictum-control: obs-state_ex_opt-protocol_ex_mand-accepted
     summary: "OBSERVATION data (RM mandatory) + archetype-mandated protocol, state optional: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (OBSERVATION data (RM
@@ -638,6 +643,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: obs-state_ex_opt-protocol_ex_mand-observation_data_missing
+    x-veredictum-control: obs-state_ex_opt-protocol_ex_mand-accepted
     summary: "OBSERVATION data (RM mandatory) + archetype-mandated protocol, state optional: a body with an OBSERVATION without data is refused with 400"
     description: >-
       Commits the rows' content against the template (OBSERVATION data (RM
@@ -792,6 +798,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: obs-state_ex_opt-protocol_ex_opt-observation_data_missing
+    x-veredictum-control: obs-state_ex_opt-protocol_ex_opt-accepted
     summary: "OBSERVATION data (RM mandatory) with state/protocol both archetype-optional: a body with an OBSERVATION without data is refused with 400"
     description: >-
       Commits the rows' content against the template (OBSERVATION data (RM

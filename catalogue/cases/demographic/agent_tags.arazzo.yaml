@@ -363,6 +363,7 @@ workflows:
             condition: "$[?@.key == 'beta']"
 
   - workflowId: agent_tags_update-non_array_body
+    x-veredictum-control: agent_tags_update-stores_tags
     summary: An AGENT tag update whose body is not an array is answered 400
     description: >-
       Tags an AGENT version with alpha and beta, then updates its tag list with
