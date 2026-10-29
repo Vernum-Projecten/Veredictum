@@ -235,8 +235,8 @@ pub struct Statement {
     /// Declared technology profiles (per ITS).
     #[serde(default)]
     pub tech_profiles: Vec<TechProfile>,
-    /// The ICS option declarations selecting `option_select` register
-    /// branches.
+    /// The ICS option arms: one arm of each option of the catalogue's
+    /// `capabilities.yaml`.
     #[serde(default)]
     pub options: Vec<OptionTag>,
     /// An optional performance claim.
@@ -914,7 +914,7 @@ mod tests {
 
         let cited = document(serde_json::json!([
             { "case": "A-x", "status": "not_applicable", "rows_driven": 0, "rows_total": 1,
-              "citation": "AMB-32" },
+              "citation": "ITS-REST overview §HTTP status codes" },
             { "case": "C-z", "status": "passed", "rows_driven": 1, "rows_total": 1 }
         ]));
         assert!(cited.check_invariants().is_ok());
@@ -1142,7 +1142,7 @@ mod tests {
                   "status": "passed", "rows_driven": 2, "rows_total": 2 },
                 { "case": "I_ADMIN_SERVICE.list_contributions-x",
                   "status": "not_applicable", "rows_driven": 0, "rows_total": 1,
-                  "citation": "AMB-33" }
+                  "citation": "ITS-REST admin.md §Admin API" }
             ]
         });
         let r: Results = serde_json::from_value(json).unwrap();

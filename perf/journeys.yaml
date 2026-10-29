@@ -24,7 +24,7 @@
 # COVERAGE: the simulation exercises every capability the party statement
 # claims except the eleven whose exercise is impossible inside a sustained
 # open-loop hold — the destructive admin pair (physical deletion / the
-# released two-operation ADMIN API) and the nine SM operations for which
+# released two-operation ADMIN API) and the nine operations for which
 # NEITHER a released ITS-REST wire NOR a served extension route exists, so
 # there is no request for the instrument to send. The certificate's
 # Workload Coverage table renders that reason instead of a bare gap.

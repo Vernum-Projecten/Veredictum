@@ -124,8 +124,8 @@ string_id!(
 );
 
 string_id!(
-    /// An option tag realizing one branch of an `option_select` ambiguity
-    /// (e.g. `adl14-duplicate-conflict`).
+    /// An option arm of the catalogue's `capabilities.yaml` a statement
+    /// selects (e.g. `ehr-xml-supported`).
     OptionTag,
     "option tag",
     "non-empty [a-z0-9_-]",

@@ -6,8 +6,8 @@
 #
 # No openEHR spec governs measured performance (CNF guide
 # master03-overview.adoc §Product Scope excludes it); this tree is our own
-# design. Each file is byte-identical to the corpus entry of the same key
-# while the case-core corpus exists, and a test holds the two together.
+# design. These files are the only copy: the case-core corpus they were
+# mirrored from was deleted at the cut-over (#604).
 #
 # A journey stage that commits names a template key here; the instrument
 # reads that key's OPT and its `.example` skeleton. The other keys are the

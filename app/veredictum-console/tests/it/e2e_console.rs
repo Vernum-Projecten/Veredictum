@@ -387,10 +387,10 @@ async fn e2e_landing_shows_the_catalogue_counts() {
         .await
         .text()
         .await
-        .expect("the case-core card");
+        .expect("the case-count card");
     assert!(
         !cases.starts_with('0'),
-        "the case-core count must come from the mounted catalogue (read `{cases}`)"
+        "the case count must come from the mounted catalogue (read `{cases}`)"
     );
     h.capture("landing-light").await;
     h.enable_dark().await;

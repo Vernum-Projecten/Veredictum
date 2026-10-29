@@ -23,8 +23,6 @@ libfuzzer-sys = "0.4.13"
 veredictum = { path = "../app/veredictum" }
 serde_json = { version = "1", features = ["preserve_order"] }
 base64 = "0.23"
-# Named only to hold the compiled case-core schema in a `LazyLock`.
-jsonschema = "0.59.0"
 
 # Release-optimized with debug assertions and overflow checks ON: libFuzzer
 # needs the optimized build to reach a useful execution rate, and an arithmetic

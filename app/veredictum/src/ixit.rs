@@ -240,8 +240,7 @@ impl TerminologyServer {
 /// set it cannot resolve.
 ///
 /// A deployment fact no released operation discloses (the IXIT law): released
-/// ITS-REST 1.1.0 surfaces no terminology resource at all (`wire_surface.yaml`
-/// records the nine `I_TERMINOLOGY_SERVICE` rows as off-wire), so a case that
+/// ITS-REST 1.1.0 surfaces no terminology resource at all, so a case that
 /// needs a live terminology server has no way to learn from the wire whether
 /// one exists. Absent => every terminology-dependent case is not-applicable
 /// with that citation.
