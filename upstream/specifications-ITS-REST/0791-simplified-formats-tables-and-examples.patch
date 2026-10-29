@@ -1,0 +1,74 @@
+diff --git a/docs/simplified_formats/master04-basic_concepts.adoc b/docs/simplified_formats/master04-basic_concepts.adoc
+--- a/docs/simplified_formats/master04-basic_concepts.adoc
++++ b/docs/simplified_formats/master04-basic_concepts.adoc
+@@ -634,8 +634,7 @@
+ {
+   "path/observation:0/_link:0|type": "problem",
+   "path/observation:0/_link:0|target": "ehr://problem-123",
+-  "path/observation:0/_link:0|meaning|code": "related_to",
+-  "path/observation:0/_link:0|meaning|value": "Related to"
++  "path/observation:0/_link:0|meaning": "Related to"
+ }
+ ----
+ [source,json]
+diff --git a/docs/simplified_formats/master05-rm_mapping.adoc b/docs/simplified_formats/master05-rm_mapping.adoc
+--- a/docs/simplified_formats/master05-rm_mapping.adoc
++++ b/docs/simplified_formats/master05-rm_mapping.adoc
+@@ -320,10 +320,10 @@
+ | yes
+ |
+ 
+-| `/_expiry_time`
++| `/expiry_time`
+ | <<DV_DATE_TIME,DV_DATE_TIME>>
+ | expiry_time
+-| Yes
++| no
+ |
+ 
+ | `/_wf_definition`
+@@ -1519,7 +1519,7 @@
+ | yes
+ |
+ 
+-| `\|scheme`
++| `\|id_scheme`
+ | String
+ | id.scheme
+ | yes
+@@ -1652,7 +1652,7 @@
+ |
+ 
+ | `\|id_scheme`
+-| Integer
++| String
+ | external_ref.id.scheme
+ | no
+ |
+@@ -1711,7 +1711,7 @@
+ |
+ 
+ | `\|id_scheme`
+-| Integer
++| String
+ | external_ref.id.scheme
+ | no
+ |
+@@ -1782,7 +1782,7 @@
+ |
+ 
+ | `\|id_scheme`
+-| Integer
++| String
+ | external_ref.id.scheme
+ | no
+ |
+@@ -1799,7 +1799,7 @@
+ | no
+ |
+ 
+-| `/_relationship`
++| `/relationship`
+ | <<DV_CODED_TEXT,DV_CODED_TEXT>>
+ | relationship
+ | (yes)

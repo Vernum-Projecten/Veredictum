@@ -1,0 +1,1084 @@
+# COMPOSITIONs created from the Simplified Flat JSON format whose `ctx/`
+# values set the defaults master06 defines and the documents of `flat_context`
+# leave unset, for a service that processes the format: part of the accepting
+# arm of the `composition-flat-write` option, as Arazzo 1.1.0 workflows over
+# the released ITS-REST `-validation` OAS. Each workflow commits a flat
+# document and reads the COMPOSITION back in canonical JSON. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: COMPOSITION context defaults from the Simplified Flat JSON format
+  version: 0.1.0
+  description: >-
+    The context values of the Simplified Formats specification
+    (master06-context_information.adoc) that set the composer reference, the
+    facility, the workflow id, the times, the provider, the ACTION state,
+    the INSTRUCTION narrative and ACTIVITY timing, the location, the setting
+    and the links, one value per workflow, judged on the canonical JSON of
+    the COMPOSITION a flat document created.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: sf
+    url: ../_setup/simplified_formats.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-flat-composer_id
+    summary: A flat ctx/composer_id sets the external reference of a PARTY_IDENTIFIED composer
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/composer_name Silvia Blake, ctx/composer_id 123 and the id
+      namespace and scheme HOSPITAL-NS, and reads the COMPOSITION back in
+      canonical JSON. Its composer is a PARTY_IDENTIFIED whose external_ref
+      carries the id 123 in the scheme HOSPITAL-NS and the namespace
+      HOSPITAL-NS.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: Composer
+      quote: '`composer_id`: sets composer `external_ref.id.value` and sets it to party identified unless composer_self is set to true'
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: '`201 Created` is returned when the EHR has been successfully created,'
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context names the composer by id and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/composer_id: '123'
+            ctx/id_namespace: 'HOSPITAL-NS'
+            ctx/id_scheme: 'HOSPITAL-NS'
+            minimal/minimal:0/ism_transition/current_state|code: '532'
+            minimal/minimal:0/ism_transition/current_state|value: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/composer/_type
+            type: regex
+            condition: '^PARTY_IDENTIFIED$'
+          - context: $response.body#/composer/external_ref/id/value
+            type: regex
+            condition: '^123$'
+          - context: $response.body#/composer/external_ref/namespace
+            type: regex
+            condition: '^HOSPITAL-NS$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+              section: ID Namespace and Scheme
+              quote: '`id_namespace`: default namespace for external references: `OBJECT_REF.namespace`'
+          - context: $response.body#/composer/external_ref/id/scheme
+            type: regex
+            condition: '^HOSPITAL-NS$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+              section: ID Namespace and Scheme
+              quote: '`id_scheme`: default scheme for external references: `OBJECT_REF.id.scheme`'
+
+  - workflowId: create_composition-flat-composer_id_self
+    summary: A flat ctx/composer_id beside ctx/composer_self sets the external reference of a PARTY_SELF composer
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/composer_self true and ctx/composer_id 123, and reads the
+      COMPOSITION back in canonical JSON. Its composer is a PARTY_SELF whose
+      external_ref carries the id 123.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: Composer
+      quote: '`composer_id`: sets composer `external_ref.id.value` and sets it to party identified unless composer_self is set to true'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets composer_self and a composer id and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_self: true
+            ctx/composer_id: '123'
+            ctx/id_namespace: 'HOSPITAL-NS'
+            ctx/id_scheme: 'HOSPITAL-NS'
+            minimal/minimal:0/ism_transition/current_state|code: '532'
+            minimal/minimal:0/ism_transition/current_state|value: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/composer/_type
+            type: regex
+            condition: '^PARTY_SELF$'
+          - context: $response.body#/composer/external_ref/id/value
+            type: regex
+            condition: '^123$'
+
+  - workflowId: create_composition-flat-health_care_facility
+    summary: A flat ctx/health_care_facility sets the health care facility of the EVENT_CONTEXT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/health_care_facility|name Hospital and ctx/health_care_facility|id
+      9091, and reads the COMPOSITION back in canonical JSON. Its
+      EVENT_CONTEXT carries a health_care_facility named Hospital whose
+      external_ref carries the id 9091.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: health_care_facility
+      quote: 'set the default for `COMPOSITION.context.health_care_facility`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context names the health care facility and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/id_namespace: 'HOSPITAL-NS'
+            ctx/id_scheme: 'HOSPITAL-NS'
+            ctx/health_care_facility|name: Hospital
+            ctx/health_care_facility|id: '9091'
+            minimal/minimal:0/ism_transition/current_state|code: '532'
+            minimal/minimal:0/ism_transition/current_state|value: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/context/health_care_facility/name
+            type: regex
+            condition: '^Hospital$'
+          - context: $response.body#/context/health_care_facility/external_ref/id/value
+            type: regex
+            condition: '^9091$'
+
+  - workflowId: create_composition-flat-work_flow_id
+    summary: A flat ctx/work_flow_id sets the workflow_id of the ENTRY
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/work_flow_id with the id 567, the id scheme and namespace
+      HOSPITAL-NS and the type ORGANISATION, and reads the COMPOSITION back
+      in canonical JSON. The ACTION carries a workflow_id with the id 567,
+      the namespace HOSPITAL-NS and the type ORGANISATION.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: Workflow ID
+      quote: 'set the default for `ENTRY.workflow_id`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets a workflow id and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/id_namespace: 'HOSPITAL-NS'
+            ctx/id_scheme: 'HOSPITAL-NS'
+            ctx/work_flow_id|id: '567'
+            ctx/work_flow_id|id_scheme: 'HOSPITAL-NS'
+            ctx/work_flow_id|namespace: 'HOSPITAL-NS'
+            ctx/work_flow_id|type: ORGANISATION
+            minimal/minimal:0/ism_transition/current_state|code: '532'
+            minimal/minimal:0/ism_transition/current_state|value: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-ACTION.minimal.v1' && @.workflow_id.id.value == '567']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-ACTION.minimal.v1' && @.workflow_id.namespace == 'HOSPITAL-NS']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-ACTION.minimal.v1' && @.workflow_id.type == 'ORGANISATION']"
+
+  - workflowId: create_composition-flat-end_time
+    summary: A flat ctx/end_time sets the end_time of the EVENT_CONTEXT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets ctx/time
+      2021-04-01T12:40:31.418954+02:00 and ctx/end_time
+      2021-05-01T12:40:31.418954+02:00, and reads the COMPOSITION back in
+      canonical JSON. Its EVENT_CONTEXT ends at that end_time.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: end_time
+      quote: 'set the default time `COMPOSITION.context.end_time`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets an end time and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/time: '2021-04-01T12:40:31.418954+02:00'
+            ctx/end_time: '2021-05-01T12:40:31.418954+02:00'
+            minimal/minimal:0/ism_transition/current_state|code: '532'
+            minimal/minimal:0/ism_transition/current_state|value: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/context/end_time/value
+            type: regex
+            condition: '^2021-05-01T12:40:31\.418954\+02:00$'
+
+  - workflowId: create_composition-flat-history_origin
+    summary: A flat ctx/history_origin sets the origin of the OBSERVATION history
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template cnf.vitals
+      from a flat document whose context sets ctx/history_origin
+      2021-05-01T12:40:31.418954+02:00 and whose body temperature sets no
+      event time, and reads the COMPOSITION back in canonical JSON. The
+      OBSERVATION history has that origin.
+    dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: history_origin
+      quote: 'set the default time for `OBSERVATION.history.origin`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets a history origin and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: cnf.vitals }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: NL
+            ctx/composer_self: true
+            ctx/history_origin: '2021-05-01T12:40:31.418954+02:00'
+            vitals/body_temperature:0/any_event:0/temperature|magnitude: 37.2
+            vitals/body_temperature:0/any_event:0/temperature|unit: Cel
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.body_temperature.v1' && @.data.origin.value == '2021-05-01T12:40:31.418954+02:00']"
+
+  - workflowId: create_composition-flat-action_time
+    summary: A flat ctx/action_time sets the time of an ACTION
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/action_time 2021-05-01T12:40:31.418954+02:00 and whose ACTION
+      gives no time, and reads the COMPOSITION back in canonical JSON. The
+      ACTION has that time.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: action_time
+      quote: 'set the default time for `ACTION.time`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets an action time and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/action_time: '2021-05-01T12:40:31.418954+02:00'
+            minimal/minimal:0/ism_transition/current_state|code: '532'
+            minimal/minimal:0/ism_transition/current_state|value: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-ACTION.minimal.v1' && @.time.value == '2021-05-01T12:40:31.418954+02:00']"
+
+  - workflowId: create_composition-flat-activity_timing
+    summary: A flat ctx/activity_timing sets the timing of an ACTIVITY
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose context sets
+      ctx/activity_timing R4/2022-01-31T10:00:00+01:00/P3M and whose
+      INSTRUCTION activity gives no timing, and reads the COMPOSITION back
+      in canonical JSON. The ACTIVITY has that timing.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: activity_timing
+      quote: 'set the default for `ACTIVITY.timing`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets an activity timing and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            ctx/activity_timing: 'R4/2022-01-31T10:00:00+01:00/P3M'
+            test_all_types/test_all_types_2:0/section_2/section_3/test_all_types:0/narrative: Human readable instruction narrative
+            test_all_types/test_all_types_2:0/section_2/section_3/test_all_types:0/current_activity/action_archetype_id: 'openEHR-EHR-ACTION.test_all_types.v1'
+            test_all_types/test_all_types_2:0/section_2/section_3/test_all_types:0/current_activity/partial_date: '2019-03'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$..items[?@._type == 'INSTRUCTION' && @.archetype_node_id == 'openEHR-EHR-INSTRUCTION.test_all_types.v1'].activities[?@.timing.value == 'R4/2022-01-31T10:00:00+01:00/P3M']"
+
+  - workflowId: create_composition-flat-provider
+    summary: The flat ctx/provider_name and ctx/provider_id set the provider of the ENTRY
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/provider_name Silvia Blake and ctx/provider_id 123, and reads the
+      COMPOSITION back in canonical JSON. The ACTION has a PARTY_IDENTIFIED
+      provider named Silvia Blake whose external_ref carries the id 123.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: provider
+      quote: 'set the default `PARTY_IDENTIFIED` for `ENTRY.provider`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context names the provider and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/id_namespace: 'HOSPITAL-NS'
+            ctx/id_scheme: 'HOSPITAL-NS'
+            ctx/provider_name: Silvia Blake
+            ctx/provider_id: '123'
+            minimal/minimal:0/ism_transition/current_state|code: '532'
+            minimal/minimal:0/ism_transition/current_state|value: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-ACTION.minimal.v1' && @.provider._type == 'PARTY_IDENTIFIED' && @.provider.name == 'Silvia Blake']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-ACTION.minimal.v1' && @.provider.external_ref.id.value == '123']"
+
+  - workflowId: create_composition-flat-action_current_state_value
+    summary: A flat ctx/action_ism_transition_current_state given as a value sets the current state of an ACTION
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/action_ism_transition_current_state to the value completed and
+      whose ACTION gives no current state, and reads the COMPOSITION back in
+      canonical JSON. The ACTION's current_state has the value completed.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: action_ism_transition_current_state
+      quote: 'either value or code is accepted'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets the ACTION state by its value and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/action_ism_transition_current_state: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-ACTION.minimal.v1' && @.ism_transition.current_state.value == 'completed']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+              section: action_ism_transition_current_state
+              quote: 'set the default for `ACTION.ism_transition.current_state`'
+
+  - workflowId: create_composition-flat-action_current_state_code
+    summary: A flat ctx/action_ism_transition_current_state given as a code sets the current state of an ACTION
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/action_ism_transition_current_state to the code 532 and whose
+      ACTION gives no current state, and reads the COMPOSITION back in
+      canonical JSON. The ACTION's current_state has the code 532.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: action_ism_transition_current_state
+      quote: 'either value or code is accepted'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets the ACTION state by its code and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/action_ism_transition_current_state: '532'
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-ACTION.minimal.v1' && @.ism_transition.current_state.defining_code.code_string == '532']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+              section: action_ism_transition_current_state
+              quote: 'set the default for `ACTION.ism_transition.current_state`'
+
+  - workflowId: create_composition-flat-instruction_narrative
+    summary: A flat ctx/instruction_narrative sets the narrative of an INSTRUCTION
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose context sets
+      ctx/instruction_narrative and whose INSTRUCTION gives a workflow
+      definition and no narrative, and reads the COMPOSITION back in
+      canonical JSON. The INSTRUCTION has that narrative.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: instruction_narrative
+      quote: 'set the default for `INSTRUCTION.narrative`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets an instruction narrative and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            ctx/instruction_narrative: Human readable instruction narrative
+            test_all_types/test_all_types_2:0/section_2/section_3/test_all_types:0/_wf_definition|value: wf_definition
+            test_all_types/test_all_types_2:0/section_2/section_3/test_all_types:0/_wf_definition|formalism: formalism
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$..items[?@._type == 'INSTRUCTION' && @.archetype_node_id == 'openEHR-EHR-INSTRUCTION.test_all_types.v1' && @.narrative.value == 'Human readable instruction narrative']"
+
+  - workflowId: create_composition-flat-location
+    summary: A flat ctx/location sets the location of the EVENT_CONTEXT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/location Lab B2, and reads the COMPOSITION back in canonical JSON.
+      Its EVENT_CONTEXT has the location Lab B2.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: location
+      quote: 'set the default for `COMPOSITION.context.location`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets a location and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/location: Lab B2
+            minimal/minimal:0/ism_transition/current_state|code: '532'
+            minimal/minimal:0/ism_transition/current_state|value: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/context/location
+            type: regex
+            condition: '^Lab B2$'
+
+  - workflowId: create_composition-flat-setting_value
+    summary: A flat ctx/setting given as a value sets the setting of the EVENT_CONTEXT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/setting to the value emergency care, and reads the COMPOSITION
+      back in canonical JSON. Its EVENT_CONTEXT setting has the value
+      emergency care.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: setting
+      quote: 'either value or code is accepted'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets the setting by its value and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/setting: emergency care
+            minimal/minimal:0/ism_transition/current_state|code: '532'
+            minimal/minimal:0/ism_transition/current_state|value: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/context/setting/value
+            type: regex
+            condition: '^emergency care$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+              section: setting
+              quote: 'set the default for `COMPOSITION.context.setting`'
+
+  - workflowId: create_composition-flat-setting_code
+    summary: A flat ctx/setting given as a code sets the setting of the EVENT_CONTEXT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/setting to the code 227, and reads the COMPOSITION back in
+      canonical JSON. Its EVENT_CONTEXT setting has the code 227.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: setting
+      quote: 'either value or code is accepted'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets the setting by its code and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/setting: '227'
+            minimal/minimal:0/ism_transition/current_state|code: '532'
+            minimal/minimal:0/ism_transition/current_state|value: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/context/setting/defining_code/code_string
+            type: regex
+            condition: '^227$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+              section: setting
+              quote: 'set the default for `COMPOSITION.context.setting`'
+
+  - workflowId: create_composition-flat-link
+    summary: A flat ctx/link sets a LINK on the COMPOSITION content
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      minimal_action.en.v1 from a flat document whose context sets
+      ctx/link:0 of the type problem, the meaning problem related note and a
+      target, and reads the COMPOSITION back in canonical JSON. A LOCATABLE
+      of the COMPOSITION carries a link to that target of that type.
+    dependsOn: [$sourceDescriptions.sf.upload_template-minimal_action]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master06-context_information.adoc
+      section: link
+      quote: 'set the default for `LOCATABLE.links`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context sets a link and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_action.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: Silvia Blake
+            ctx/link:0|type: problem
+            ctx/link:0|meaning: problem related note
+            ctx/link:0|target: 'ehr://ehr.network/347a5490-55ee-4da9-b91a-9bba710f730e'
+            minimal/minimal:0/ism_transition/current_state|code: '532'
+            minimal/minimal:0/ism_transition/current_state|value: completed
+            minimal/minimal:0/multimedia: 'http://med.tube.com/sample'
+            minimal/minimal:0/multimedia|mediatype: application/pdf
+            minimal/minimal:0/multimedia|size: 504903212
+            minimal/minimal:0/time: '2019-03-22T22:26:01.127+01:00'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$..links[?@.target.value == 'ehr://ehr.network/347a5490-55ee-4da9-b91a-9bba710f730e' && @.type.value == 'problem']"

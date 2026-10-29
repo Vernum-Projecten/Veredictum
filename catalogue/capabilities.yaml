@@ -157,7 +157,7 @@ options:
       answers 406.
     arms:
       composition-flat-supported:
-        documents: [composition_read_flat, composition_write_flat_accept]
+        documents: [composition_read_flat, composition_write_flat_accept, flat_read]
       composition-flat-unsupported:
         documents: [composition_read_flat_not_acceptable, composition_write_flat_not_acceptable]
     x-veredictum-cite:
@@ -248,7 +248,7 @@ options:
       this one answers 415.
     arms:
       composition-flat-write-accepted:
-        documents: [composition_write_flat, flat_context, flat_mapping, flat_structure, flat_commit_refused]
+        documents: [composition_write_flat, flat_context, flat_mapping, flat_structure, flat_commit_refused, flat_ranges, flat_context_values, flat_rm_attributes, flat_entries, flat_rm_refused, flat_read]
       composition-flat-write-refused:
         documents: [composition_write_flat_unsupported]
     x-veredictum-cite:
