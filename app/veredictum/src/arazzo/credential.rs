@@ -806,7 +806,7 @@ mod tests {
     /// The committed test issuer's RSA key, which is not secret.
     fn test_key() -> PathBuf {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../fixtures/smart-test-issuer/cnf-smart-test.key.pem")
+            .join("../../catalogue/keys/smart-test-issuer/cnf-smart-test.key.pem")
     }
 
     #[test]
