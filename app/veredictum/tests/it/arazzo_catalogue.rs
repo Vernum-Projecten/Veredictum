@@ -204,3 +204,29 @@ fn the_ehr_document_carries_the_worked_example() {
     let steps: Vec<&str> = workflow.steps.iter().map(|s| s.step_id.as_str()).collect();
     assert_eq!(steps, ["create", "create-again", "read-back"]);
 }
+
+/// The committed floors are the catalogue's own workflow counts, re-derived
+/// here: a change that adds workflows to a folder raises its floor in the
+/// same change, so the floor `validate` holds the folder to never lags it.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn every_committed_floor_is_the_workflow_count_of_its_folder()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = repo_root().join("catalogue");
+    let mut loaded = Vec::new();
+    for found in veredictum::arazzo::catalogue::document_paths(&root)? {
+        loaded.push(ArazzoDocument::load(&found.path)?);
+    }
+    let counts = veredictum::arazzo::gates::folders::workflow_counts(&loaded);
+    let capabilities = veredictum::arazzo::capabilities::Capabilities::load(
+        &root.join(veredictum::arazzo::capabilities::CAPABILITIES_FILE),
+    )?;
+    assert_eq!(
+        capabilities.floors, counts,
+        "re-derive the floors in capabilities.yaml from the catalogue"
+    );
+    Ok(())
+}

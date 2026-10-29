@@ -10,6 +10,7 @@
 //! is sorted, so two runs over one tree print the same bytes.
 
 pub mod aql;
+pub mod folders;
 pub mod profile;
 pub mod published;
 pub mod rows;
@@ -57,6 +58,12 @@ pub enum Gate {
     Identity,
     /// An AQL query that does not parse outside a step expecting `400`.
     Aql,
+    /// A capability folder without a workflow-count floor, below its floor,
+    /// or a floor naming no folder.
+    Floor,
+    /// A capability folder whose `extension-only` marking disagrees with the
+    /// sources its steps call.
+    Realization,
 }
 
 impl Gate {
@@ -75,6 +82,8 @@ impl Gate {
             Self::Surface => "arazzo-surface",
             Self::Identity => "arazzo-identity",
             Self::Aql => "arazzo-aql",
+            Self::Floor => "arazzo-floor",
+            Self::Realization => "arazzo-realization-scope",
         }
     }
 }
@@ -452,7 +461,24 @@ fn check_capabilities(
             ));
         }
     }
+    let loaded: BTreeMap<&str, &ArazzoDocument> = documents
+        .iter()
+        .map(|(id, located)| (id.as_str(), &located.document))
+        .collect();
+    findings.extend(folders::check_needs(&path, &capabilities, &loaded));
+    let counts = folders::workflow_counts(loaded.values().copied());
+    findings.extend(folders::check_floors(&path, &capabilities, &counts));
+    findings.extend(folders::check_realization(
+        &path,
+        &capabilities,
+        loaded.values().copied(),
+    ));
     let mut quotes = repo_root.map(QuoteChecker::new);
+    findings.extend(folders::check_range_cites(
+        &path,
+        &capabilities,
+        quotes.as_mut(),
+    ));
     for (name, option) in &capabilities.options {
         let at = format!("#/options/{name}");
         let cites = std::iter::once((at.clone(), &option.cite)).chain(

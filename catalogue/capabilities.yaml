@@ -698,3 +698,76 @@ options:
       source: specs/openehr/BASE/docs/architecture_overview/master12-terminology.adoc
       section: Binding Terminology Value-sets to Archetypes
       quote: "Currently there is no standard for such queries."
+# What a document needs from the statement before it runs, by document id.
+# `formats` lists the wire formats the server must serve or process for the
+# document, in the statement's `tech_profiles` vocabulary, and a statement
+# whose its-rest profile leaves one out skips the document with
+# `format-not-claimed`. Only the documents of an arm that serves or accepts a
+# format need it: the documents that pin its refusal (406, 415) run for every
+# party, and the option arm decides them. ITS-REST Resources.md §Data
+# representation: "Services MUST support at least one of the openEHR **XML**
+# or **JSON** canonical formats for resource representation."
+documents:
+  ehr_xml: { formats: [canonical-xml] }
+  ehr_status_xml: { formats: [canonical-xml] }
+  composition_read_xml: { formats: [canonical-xml] }
+  composition_versioned_read_xml: { formats: [canonical-xml] }
+  composition_write_xml_accept: { formats: [canonical-xml] }
+  composition_xml: { formats: [canonical-xml] }
+  composition_update_xml: { formats: [canonical-xml] }
+  contribution_read_xml: { formats: [canonical-xml] }
+  contribution_write_xml_accept: { formats: [canonical-xml] }
+  directory_read_xml: { formats: [canonical-xml] }
+  directory_write_xml_accept: { formats: [canonical-xml] }
+  party_read_xml: { formats: [canonical-xml] }
+  party_write_xml_accept: { formats: [canonical-xml] }
+  versioned_party_read_xml: { formats: [canonical-xml] }
+  demographic_contribution_read_xml: { formats: [canonical-xml] }
+  composition_read_flat: { formats: [wt-flat] }
+  composition_write_flat: { formats: [wt-flat] }
+  composition_write_flat_accept: { formats: [wt-flat] }
+  contribution_read_flat: { formats: [wt-flat] }
+  contribution_write_flat: { formats: [wt-flat] }
+  contribution_write_flat_accept: { formats: [wt-flat] }
+  flat_commit_refused: { formats: [wt-flat] }
+  flat_context: { formats: [wt-flat] }
+  flat_context_values: { formats: [wt-flat] }
+  flat_entries: { formats: [wt-flat] }
+  flat_mapping: { formats: [wt-flat] }
+  flat_ranges: { formats: [wt-flat] }
+  flat_read: { formats: [wt-flat] }
+  flat_rm_attributes: { formats: [wt-flat] }
+  flat_rm_refused: { formats: [wt-flat] }
+  flat_structure: { formats: [wt-flat] }
+  composition_read_structured: { formats: [wt-structured] }
+  composition_write_structured: { formats: [wt-structured] }
+  composition_write_structured_accept: { formats: [wt-structured] }
+  contribution_read_structured: { formats: [wt-structured] }
+  contribution_write_structured: { formats: [wt-structured] }
+  contribution_write_structured_accept: { formats: [wt-structured] }
+  structured_commit: { formats: [wt-structured] }
+  structured_read: { formats: [wt-structured] }
+  template_adl14_web_template: { formats: [wt] }
+# The workflow count each capability folder keeps. `validate` refuses a folder
+# below its floor, and a test re-derives every floor from the catalogue, so a
+# change that adds workflows raises the floor in the same change.
+floors:
+  admin: 17
+  composition: 203
+  content: 360
+  contribution: 69
+  definition: 32
+  demographic: 359
+  directory: 85
+  ehr: 48
+  ehr_status: 76
+  item_tags: 63
+  query: 191
+  security: 10
+  simplified_formats: 133
+  smart: 2
+  system: 3
+# The capability folders verified only over the routes of
+# `sources/veredictum-extensions.openapi.yaml`, which no openEHR OAS
+# describes. No folder is: every capability folder calls a released operation.
+extension-only: []

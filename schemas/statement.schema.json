@@ -70,10 +70,14 @@
     "claims": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "capabilities"
+      ],
       "properties": {
         "capabilities": {
-          "description": "The capabilities the party claims: each is a capability folder under `catalogue/cases/`, whose name is the folder's. Every workflow of an Arazzo document in a capability folder the statement does not claim is skipped not-claimed.",
+          "description": "The capabilities the party claims, at least one: each is a capability folder under `catalogue/cases/`, whose name is the folder's. Every workflow of an Arazzo document in a capability folder the statement does not claim is skipped not-claimed.",
           "type": "array",
+          "minItems": 1,
           "items": {
             "type": "string",
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
@@ -96,6 +100,7 @@
       }
     },
     "tech_profiles": {
+      "description": "The technology profiles the party claims, each an ITS with the wire formats the party serves on it. A statement without an its-rest profile claims every format. Every workflow of an Arazzo document that needs a wire format the statement's its-rest profile does not list is skipped format-not-claimed.",
       "type": "array",
       "items": {
         "type": "object",

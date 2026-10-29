@@ -151,16 +151,22 @@ pub fn statement_schema() -> Value {
             "claims": {
                 "type": "object",
                 "additionalProperties": false,
+                "required": ["capabilities"],
                 "properties": {
                     "capabilities": {
                         "description": crate::arazzo::catalogue::CLAIMS_DESCRIPTION,
                         "type": "array",
+                        "minItems": 1,
                         "items": { "type": "string", "pattern": IDENT_PATTERN }
                     },
                     "profiles": { "type": "array", "items": { "enum": tokens(Tier::ALL) } }
                 }
             },
-            "tech_profiles": { "type": "array", "items": tech_profile_def() },
+            "tech_profiles": {
+                "description": crate::arazzo::catalogue::FORMATS_DESCRIPTION,
+                "type": "array",
+                "items": tech_profile_def()
+            },
             "options": string_array(Some(OPTION_TAG_PATTERN)),
             "performance": {
                 "type": "object",

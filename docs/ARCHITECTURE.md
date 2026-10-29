@@ -1520,9 +1520,11 @@ today, beside `id-map.yaml` (every former case-core id mapped to its workflows,
   `demographic`, so every step uses the qualified
   `$sourceDescriptions.<name>.<operationId>` form.
 - **Extension routes.** Routes no openEHR OAS describes are declared in one
-  OAS document of our own, named as a non-openEHR source. A capability verified
-  only over those routes is to be marked as such in `capabilities.yaml`, and
-  the `realization-scope` gate that holds it there is not computed yet (#804).
+  OAS document of our own, `sources/veredictum-extensions.openapi.yaml`, named
+  as a non-openEHR source. A capability folder verified only over those routes
+  is listed under `extension-only` in `capabilities.yaml`, and the
+  `realization-scope` gate holds the list to the sources the folder's steps
+  call (§15.9). No folder is extension-only today.
 - **Capability by document.** A workflow belongs to the capability of the
   folder its document is in, and `capabilities.yaml` lists the documents per
   capability, together with the options a statement answers.
@@ -1856,10 +1858,33 @@ vendor reads why a row is red without opening `results.json`.
   `upstream-report` issue needs the tracker, so it runs in CI
   (`scripts/checks/report-refs.sh`, over the workflow documents and
   `capabilities.yaml`) rather than in the offline `validate`.
+- **Document needs**: an `applies` range or a `formats` entry in
+  `capabilities.yaml` names a document of the catalogue; a range does not
+  start after its end, and its citation passes the citation and level gates;
+  a document needing a format sends that format's media type in `Accept` or
+  `Content-Type` on some step.
+- **Floors** (`arazzo-floor`): every capability folder has a workflow-count
+  floor in `capabilities.yaml`, and a folder holding fewer workflows than its
+  floor is refused, as are a folder without one and a floor naming no folder.
+  The test suite re-derives every floor from the catalogue and fails when one
+  differs, so a floor rises in the change that adds workflows and coverage
+  only ratchets up.
+- **Realization scope** (`arazzo-realization-scope`): a folder every one of
+  whose steps calls an operation of `veredictum-extensions.openapi.yaml` is
+  listed under `extension-only`, and a listed folder has no step calling
+  another source. Either mismatch is refused, so a capability verified only
+  over Veredictum's own routes never reads as openEHR coverage.
 - **Claims**: `validate --statement` holds a statement to its published
-  schema, to the capability folders and to one arm per option. The
-  capability-depth floors, claim completeness and `realization-scope` are not
-  computed over this catalogue yet (#804).
+  schema, which requires at least one claimed capability folder (#503), to the
+  capability folders and to one arm per option. Claim completeness
+  (`claim-completeness`) then refuses a claimed folder in which no document
+  runs under the statement's own declarations: its option arms, its
+  `spec_versions` against the `applies` ranges, and its `tech_profiles`
+  against the `formats`. ISO/IEC 9646-7 makes the ICS the supplier's statement
+  of what it implements, and a claim no workflow can run for verifies nothing.
+
+No openEHR spec governs the floors, the realization scope or the claim gates;
+they are this instrument's own design.
 
 ### 15.10 Results, certificates and the hosted instrument (#592, #593)
 
@@ -2028,10 +2053,36 @@ embedded `{$…}` expression, which the parser check reads as a placeholder.
   count for. `capabilities.yaml` may list a document under further
   capabilities it exercises; those count for coverage, never for a verdict.
 - **Version ranges.** `capabilities.yaml` may give a document an `applies`
-  range of specification versions, and the document is skipped with
-  `version-out-of-range` when the statement declares a version outside it. A
-  rule that holds only for some versions is its own workflow in a document
-  with that range.
+  range under `documents.<id>.applies`, keyed by the specification component
+  a statement's `spec_versions` declares (`rm`, `base`, `am`, `aql`,
+  `its_rest`, `term`). Each range has an inclusive `min`, `max` or both, in
+  the `MAJOR.MINOR.PATCH` form the released components name their releases in
+  (ITS-REST `docs/overview/Amendment_record.md`: Release-1.1.0), and an
+  `x-veredictum-cite` quoting the released sentence that bounds it. When the
+  statement declares a version of the component outside the range, every
+  workflow of the document is skipped with `version-out-of-range`, and the
+  skip's Why is that citation. A statement that declares no version of the
+  component, and a run without a statement, run the document. A rule that
+  holds only for some versions is its own workflow in a document with that
+  range. No document carries a range today: the catalogue cites one release
+  of each component.
+- **Formats.** `documents.<id>.formats` lists the wire formats a server must
+  serve or process for the document, in the statement's `tech_profiles`
+  vocabulary (`canonical-json`, `canonical-xml`, `wt-flat`, `wt-structured`,
+  `wt`). ITS-REST `docs/overview/Resources.md` §Data representation makes the
+  choice the party's: "Services MUST support at least one of the openEHR
+  **XML** or **JSON** canonical formats for resource representation", and the
+  Simplified Formats SHOULD be supported. When the statement's its-rest
+  profile does not list a format the document needs, every workflow of it is
+  skipped with `format-not-claimed`, citing the statement schema's
+  `tech_profiles` clause; a statement without an its-rest profile claims every
+  format, as the results' `defaulted` profile records. The XML options
+  (`ehr-xml-read` and its siblings) answer a different question: which answer
+  the service gives when a client asks for XML. Only the documents of the arm
+  that serves or accepts a format list it, so a party that does not claim
+  `canonical-xml` selects the `-unsupported` or `-refused` arm, whose
+  documents pin the 406 or 415 the released text requires and need no
+  format. A document without `formats` is not gated by format.
 - **Deliberately wrong requests.** A request the released OpenAPI defines no
   operation for, such as an unsupported method on a resource, is declared in
   `catalogue/sources/veredictum-probes.openapi.yaml`, a source marked as

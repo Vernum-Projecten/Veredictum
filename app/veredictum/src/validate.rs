@@ -6,8 +6,9 @@
 //!
 //! Zero findings is the only passing result. The review holds a statement to
 //! the published statement schema and to the catalogue it is run against: a
-//! claimed capability must be a capability folder, and a selected option arm
-//! must be an arm of an option in `capabilities.yaml`, one per option. No
+//! claimed capability must be a capability folder, a selected option arm
+//! must be an arm of an option in `capabilities.yaml`, one per option, and a
+//! claimed capability folder must hold a workflow the statement lets run. No
 //! openEHR spec governs the gate itself — our own design.
 
 #![expect(
@@ -33,6 +34,9 @@ pub enum CheckId {
     /// The supplied statement does not hold against its schema or the
     /// catalogue.
     Statement,
+    /// The supplied statement claims a capability folder in which no
+    /// workflow can run under the statement's own declarations.
+    ClaimCompleteness,
     /// One of the Arazzo catalogue's gates.
     Arazzo(Gate),
 }
@@ -43,6 +47,7 @@ impl CheckId {
     pub fn token(self) -> &'static str {
         match self {
             Self::Statement => "statement",
+            Self::ClaimCompleteness => "claim-completeness",
             Self::Arazzo(gate) => gate.token(),
         }
     }
@@ -137,7 +142,8 @@ pub fn validate(
 }
 
 /// The static review of one supplied statement: its published schema, then
-/// the claims and the option arms against the catalogue under `root`.
+/// the claims and the option arms against the catalogue under `root`, then
+/// the completeness of every claim.
 #[must_use]
 pub fn review_statement(root: &Path, path: &Path) -> Vec<Finding> {
     let finding = |message: String| Finding {
@@ -168,9 +174,47 @@ pub fn review_statement(root: &Path, path: &Path) -> Vec<Finding> {
         return violations;
     }
     match Selection::read(root, Some(&value), &[]) {
-        Ok(_) => Vec::new(),
+        Ok(selection) => incomplete_claims(root, path, &selection),
         Err(e) => vec![finding(e.to_string())],
     }
+}
+
+/// The claim-completeness gate: every capability folder the statement
+/// claims holds a document that the statement's own declarations (its
+/// option arms, its versions and its formats) let run. A claim no workflow
+/// can be run for would verify nothing. No openEHR spec governs this — our
+/// own design.
+fn incomplete_claims(root: &Path, path: &Path, selection: &Selection) -> Vec<Finding> {
+    let repo_root = root.join("..");
+    let Some(claimed) = selection.claimed() else {
+        return Vec::new();
+    };
+    let mut findings = Vec::new();
+    for folder in claimed {
+        let mut reasons = std::collections::BTreeSet::new();
+        let mut runs = false;
+        for found in selection.paths().iter().filter(|f| &f.capability == folder) {
+            match selection.choice(found).skip(&found.id, &repo_root) {
+                None => runs = true,
+                Some(skip) => {
+                    reasons.insert(skip.reason.to_string());
+                }
+            }
+        }
+        if !runs {
+            let reasons: Vec<String> = reasons.into_iter().collect();
+            findings.push(Finding {
+                check: CheckId::ClaimCompleteness,
+                artifact: path.display().to_string(),
+                message: format!(
+                    "the statement claims `{folder}`, and no workflow in it can run under the \
+                     statement: every document is skipped ({})",
+                    reasons.join(", ")
+                ),
+            });
+        }
+    }
+    findings
 }
 
 /// The rows files under `dir`, counted recursively; a directory that does
@@ -259,6 +303,45 @@ mod tests {
         let finding = findings.first().ok_or("one finding")?;
         assert_eq!(finding.check, CheckId::Statement);
         assert!(finding.message.contains("NoSuchFolder"), "{finding}");
+        Ok(())
+    }
+
+    /// The published schema, `validate --statement` and `test` give one
+    /// answer to a statement that claims nothing: refused.
+    #[test]
+    fn a_statement_claiming_no_capability_is_refused_by_schema_validate_and_test_alike()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use crate::arazzo::catalogue::{CatalogueError, claimed_capabilities};
+        let validator = jsonschema::validator_for(&crate::schema::statement_schema())?;
+        let dir = assert_fs::TempDir::new()?;
+        let path = dir.path().join("statement.json");
+        let folders = ["ehr".to_owned()].into();
+        for claims in [
+            serde_json::json!({}),
+            serde_json::json!({ "capabilities": [] }),
+        ] {
+            let statement = serde_json::json!({
+                "product": { "name": "x", "version": "1", "vendor": "v", "identifier": "urn:x" },
+                "schedule_release": "cnf-2.0-w2",
+                "claims": claims
+            });
+            assert!(!validator.is_valid(&statement), "{claims}");
+            std::fs::write(&path, statement.to_string())?;
+            let findings = review_statement(&repo_root().join("catalogue"), &path);
+            assert!(
+                findings
+                    .iter()
+                    .any(|f| f.check == CheckId::Statement && f.message.contains("/claims")),
+                "{claims}: {findings:?}"
+            );
+            assert!(
+                matches!(
+                    claimed_capabilities(Some(&statement), &folders),
+                    Err(CatalogueError::ClaimsShape(_))
+                ),
+                "{claims}"
+            );
+        }
         Ok(())
     }
 

@@ -43,17 +43,41 @@ statement, every capability runs and no arm is selected.
 ```json
 {
   "claims": { "capabilities": ["ehr", "ehr_status", "composition", "query"] },
-  "options": ["ehr-xml-unsupported", "authentication-required"]
+  "options": ["ehr-xml-unsupported", "authentication-required"],
+  "spec_versions": { "its_rest": "1.1.0" },
+  "tech_profiles": [{ "its": "its-rest", "formats": ["canonical-json", "wt-flat"] }]
 }
 ```
+
+**Versions and formats.** `capabilities.yaml` states what a document needs
+from the statement under `documents:`. An `applies` range bounds the release
+versions of one component (`rm`, `base`, `am`, `aql`, `its_rest` or `term`,
+the keys of the statement's `spec_versions`) with an inclusive `min`, `max`
+or both, each `MAJOR.MINOR.PATCH`, and cites the released sentence that sets
+the bound. When the statement declares a version of that component outside
+the range, every workflow of the document is skipped as
+`version-out-of-range`, citing that sentence. A component the statement does
+not declare decides nothing, and a declared version that is not
+`MAJOR.MINOR.PATCH` for a ranged component stops the run. A `formats` list
+names the wire formats the server must serve or process for the document,
+in the `tech_profiles` vocabulary (`canonical-json`, `canonical-xml`,
+`wt-flat`, `wt-structured`, `wt`). When the statement's its-rest profile
+leaves one out, every workflow of the document is skipped as
+`format-not-claimed`, citing the statement schema's `tech_profiles` clause.
+A statement without an its-rest profile claims every format. Only the
+documents that need a server to serve or accept a format carry it: the
+documents that pin a refusal of XML (406 or 415) run for every party, and the
+option arm the statement selects decides them. A statement that selects
+`ehr-xml-supported` and does not claim `canonical-xml` therefore runs nothing
+of `ehr_xml`, and `validate --statement` refuses a claimed folder in which
+nothing is left to run.
 
 The IXIT answers the `declared` inputs a rows file reads. A workflow with an
 administrative step needs the administrative principal: without
 `--admin-auth`, it is skipped as `not-declared`. A workflow sent to the SMART
 Platform base URL needs `--platform-url`, and a row that presents a SMART
 scope set needs a token for it (see SMART on openEHR below); either is skipped
-as `not-declared` without. The `version-out-of-range`
-and `format-not-claimed` skips are not computed yet (#777, #778).
+as `not-declared` without.
 
 **Credentials.** `--auth` and `--admin-auth` say how the CDR wants each
 principal to log in: `none`, `basic` or `bearer`, with the variables

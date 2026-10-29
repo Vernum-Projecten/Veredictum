@@ -74,7 +74,21 @@ defects! {
         ("arazzo-stray-file.yaml", "cases/zz-notes.yaml", "arazzo-load"),
     arazzo_aql_unparsable =>
         ("arazzo-aql-unparsable.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-aql"),
+    // The claim gates: a capability folder below its committed floor, a
+    // folder verified only over extension routes and not marked so, and a
+    // statement claiming a folder in which nothing it declares can run.
+    arazzo_floor_below =>
+        ("arazzo-floor-below.arazzo.yaml", "cases/system/system_options.arazzo.yaml", "arazzo-floor"),
+    arazzo_extension_only_unmarked =>
+        ("arazzo-extension-only-unmarked.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-realization-scope"),
+    statement_claim_incomplete =>
+        ("statement-claim-incomplete.json", "--statement", "claim-completeness"),
 }
+
+/// The destination a statement fixture names: it is not overlaid on the
+/// catalogue, and the pristine catalogue is validated with it as the
+/// supplied statement.
+const STATEMENT: &str = "--statement";
 
 /// The repository root, two levels above this package (#55): the catalogue
 /// and the vendored specs live there, never inside the crate.
@@ -140,15 +154,24 @@ fn overlay_world(dest: &str, fixture: &str) -> assert_fs::TempDir {
     temp
 }
 
-/// Load the world holding `fixture` at `dest` and assert the `expected` gate
-/// rejected it.
+/// Load the world holding `fixture` at `dest`, or the pristine catalogue
+/// with `fixture` as the statement when `dest` is [`STATEMENT`], and assert
+/// the `expected` gate rejected it.
 fn assert_rejected(fixture: &str, dest: &str, expected: &str) {
-    let world = overlay_world(dest, fixture);
     let specs = spec_root();
-
-    let findings = validate(&world.path().join("catalogue"), Some(&specs), None)
-        .expect("the catalogue lists")
-        .findings;
+    let findings = if dest == STATEMENT {
+        let statement = fixture_dir().join(fixture);
+        validate(
+            &crate_dir().join("catalogue"),
+            Some(&specs),
+            Some(&statement),
+        )
+    } else {
+        let world = overlay_world(dest, fixture);
+        validate(&world.path().join("catalogue"), Some(&specs), None)
+    }
+    .expect("the catalogue lists")
+    .findings;
 
     // The clean catalogue produces zero findings (`validate.rs`'s own test),
     // so any finding at all is attributable to the seeded defect; the

@@ -643,3 +643,81 @@ fn run_is_not_a_subcommand() -> Fallible {
     );
     Ok(())
 }
+
+/// The document whose workflows read the EHR in canonical XML, which needs
+/// the `canonical-xml` format and the arm that serves it.
+const EHR_XML: &str = "ehr_xml";
+
+/// A document needing a format the statement's its-rest profile does not
+/// claim is skipped `format-not-claimed` and sends nothing; once the
+/// profile claims the format, the same document runs.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_document_needing_an_unclaimed_format_is_skipped_format_not_claimed() -> Fallible {
+    let dir = assert_fs::TempDir::new()?;
+    let drive =
+        |formats: &[&str], out: &str| -> Result<(FakeSut, Value), Box<dyn std::error::Error>> {
+            let path = dir.path().join(format!("{out}.json"));
+            let document = json!({
+                "claims": { "capabilities": ["ehr"] },
+                "options": ["ehr-xml-supported"],
+                "tech_profiles": [{ "its": "its-rest", "formats": formats }]
+            });
+            std::fs::write(&path, serde_json::to_string(&document)?)?;
+            let sut = answering(ResponseTemplate::new(500));
+            let out = dir.path().join(out);
+            test_command(
+                &[
+                    "--document",
+                    EHR_XML,
+                    "--statement",
+                    &path.to_string_lossy(),
+                    "--base-url",
+                    &sut.base_url(),
+                    "--out",
+                    &out.to_string_lossy(),
+                ],
+                &[],
+            )?;
+            let results = read_json(&out.join("results.json"))?;
+            Ok((sut, results))
+        };
+
+    let (sut, results) = drive(&["canonical-json"], "unclaimed")?;
+    let rows = rows_of(&results, EHR_XML);
+    assert!(!rows.is_empty());
+    for row in &rows {
+        assert_eq!(row.get("status"), Some(&json!("skipped")), "{row}");
+        assert_eq!(
+            row.pointer("/skip/reason"),
+            Some(&json!("format-not-claimed")),
+            "{row}"
+        );
+        assert_eq!(
+            row.pointer("/skip/why/section"),
+            Some(&json!("#/properties/tech_profiles")),
+            "{row}"
+        );
+    }
+    assert!(
+        sut.requests().is_empty(),
+        "a skipped document sent a request"
+    );
+
+    let (sut, results) = drive(&["canonical-json", "canonical-xml"], "claimed")?;
+    let rows = rows_of(&results, EHR_XML);
+    assert!(!rows.is_empty());
+    assert!(
+        rows.iter()
+            .all(|row| row.pointer("/skip/reason") != Some(&json!("format-not-claimed"))),
+        "a claimed format still skipped the document"
+    );
+    assert!(
+        !sut.requests().is_empty(),
+        "the claimed document sent nothing"
+    );
+    Ok(())
+}

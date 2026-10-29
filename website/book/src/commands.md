@@ -81,7 +81,7 @@ Options:
       --statement <STATEMENT>
           The party's statement (JSON), which decides what runs.
           
-          Its `claims.capabilities` names the capability folders under `cases/` it claims, at least one; every workflow of a document in another folder is skipped as `not-claimed`, while a setup a claimed document depends on still runs. Its `options` list selects one arm of each option in `capabilities.yaml`, and the documents of every other arm are skipped as `option-not-selected`. A name that is not a folder or an arm stops the run. Without a statement, every capability runs and no arm is selected.
+          Its `claims.capabilities` names the capability folders under `cases/` it claims, at least one; every workflow of a document in another folder is skipped as `not-claimed`, while a setup a claimed document depends on still runs. Its `options` list selects one arm of each option in `capabilities.yaml`, and the documents of every other arm are skipped as `option-not-selected`. A document whose `applies` range in `capabilities.yaml` excludes a version its `spec_versions` declares is skipped as `version-out-of-range`, and one needing a wire format its its-rest `tech_profiles` entry does not list as `format-not-claimed`. A name that is not a folder or an arm stops the run. Without a statement, every capability runs, in every version and format, and no arm is selected.
 
       --ixit <IXIT>
           The party's IXIT (JSON), which the `declared` inputs of a rows file read. A row whose declared value is missing is skipped as `not-declared`.
@@ -146,17 +146,41 @@ statement, every capability runs and no arm is selected.
 ```json
 {
   "claims": { "capabilities": ["ehr", "ehr_status", "composition", "query"] },
-  "options": ["ehr-xml-unsupported", "authentication-required"]
+  "options": ["ehr-xml-unsupported", "authentication-required"],
+  "spec_versions": { "its_rest": "1.1.0" },
+  "tech_profiles": [{ "its": "its-rest", "formats": ["canonical-json", "wt-flat"] }]
 }
 ```
+
+**Versions and formats.** `capabilities.yaml` states what a document needs
+from the statement under `documents:`. An `applies` range bounds the release
+versions of one component (`rm`, `base`, `am`, `aql`, `its_rest` or `term`,
+the keys of the statement's `spec_versions`) with an inclusive `min`, `max`
+or both, each `MAJOR.MINOR.PATCH`, and cites the released sentence that sets
+the bound. When the statement declares a version of that component outside
+the range, every workflow of the document is skipped as
+`version-out-of-range`, citing that sentence. A component the statement does
+not declare decides nothing, and a declared version that is not
+`MAJOR.MINOR.PATCH` for a ranged component stops the run. A `formats` list
+names the wire formats the server must serve or process for the document,
+in the `tech_profiles` vocabulary (`canonical-json`, `canonical-xml`,
+`wt-flat`, `wt-structured`, `wt`). When the statement's its-rest profile
+leaves one out, every workflow of the document is skipped as
+`format-not-claimed`, citing the statement schema's `tech_profiles` clause.
+A statement without an its-rest profile claims every format. Only the
+documents that need a server to serve or accept a format carry it: the
+documents that pin a refusal of XML (406 or 415) run for every party, and the
+option arm the statement selects decides them. A statement that selects
+`ehr-xml-supported` and does not claim `canonical-xml` therefore runs nothing
+of `ehr_xml`, and `validate --statement` refuses a claimed folder in which
+nothing is left to run.
 
 The IXIT answers the `declared` inputs a rows file reads. A workflow with an
 administrative step needs the administrative principal: without
 `--admin-auth`, it is skipped as `not-declared`. A workflow sent to the SMART
 Platform base URL needs `--platform-url`, and a row that presents a SMART
 scope set needs a token for it (see SMART on openEHR below); either is skipped
-as `not-declared` without. The `version-out-of-range`
-and `format-not-claimed` skips are not computed yet (#777, #778).
+as `not-declared` without.
 
 **Credentials.** `--auth` and `--admin-auth` say how the CDR wants each
 principal to log in: `none`, `basic` or `bearer`, with the variables
@@ -308,7 +332,7 @@ Options:
           The vendored openEHR spec tree; enables citation resolution and the surface gate
 
       --statement <STATEMENT>
-          A submitted declaration (`statement.json`) to hold to the static review: its published schema, the capability folders it claims and the option arms it selects.
+          A submitted declaration (`statement.json`) to hold to the static review: its published schema, the capability folders it claims, the option arms it selects, and that every claimed folder holds a workflow its declarations let run.
           
           ISO/IEC 9646-7 assigns an ICS proforma's support and supported-values columns to the supplier of the implementation, so no declaration is committed here and none is swept from the tree.
 
@@ -324,10 +348,29 @@ prints one line per finding and a summary line naming the documents,
 workflows, rows files and capability folders it read, and exits `1` if the
 finding count is not zero.
 
+`capabilities.yaml` also holds every capability folder to two marks. Its
+`floors` give each folder the workflow count it keeps: a folder without a
+floor, a floor naming no folder, and a folder holding fewer workflows than its
+floor are refused (`arazzo-floor`), and the test suite re-derives every floor
+from the catalogue, so a change that adds workflows raises the floor with
+them. Its `extension-only` list names the folders verified only over the
+routes of `catalogue/sources/veredictum-extensions.openapi.yaml`, which no
+openEHR OAS describes: a listed folder with a step calling another source,
+and an unlisted folder whose every step calls that one, are refused
+(`arazzo-realization-scope`). Under `documents`, an `applies` range or a
+`formats` entry naming no document is refused, as are a range starting after
+its end and a format the document never sends in `Accept` or `Content-Type`.
+
 Supplying `--statement` adds the static review of that one declaration: it is
-held to the published statement schema, every capability it claims must be a
-capability folder of the catalogue, and every option arm it selects must be an
-arm of an option in `capabilities.yaml`, one arm per option.
+held to the published statement schema, which requires at least one claimed
+capability folder, every capability it claims must be a capability folder of
+the catalogue, and every option arm it selects must be an arm of an option in
+`capabilities.yaml`, one arm per option. Each claimed folder must then hold a
+document the statement lets run: one whose arm it selects, whose `applies`
+ranges contain the versions it declares, and whose formats it claims. A claim
+nothing can run for is refused (`claim-completeness`), since it would verify
+nothing. No openEHR specification governs the floors, the realization scope
+or the claim gates; they are this instrument's own design.
 
 ## perf
 
