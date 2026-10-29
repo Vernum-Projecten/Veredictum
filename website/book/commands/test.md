@@ -18,6 +18,11 @@ in the order they ran. Nothing set up is carried from one workflow to the
 next: each workflow runs its own `dependsOn` setups, so no setup result
 outlives an exclusive workflow. A re-judgement follows the same order. No
 openEHR specification governs this order; it is this instrument's own design.
+A workflow that declares no inputs carries the marker in a rows file with no
+`rows`, and the workflow then runs once. A conformance-only IXIT declares
+`exclusive_server` alone: the other `environment` members describe the
+hardware a measured run was taken on, and only `perf`, `stress` and
+`aql-probe` read them.
 
 **What the party declares.** A statement names the capabilities it claims in
 `claims.capabilities`, the field the published statement schema defines. For

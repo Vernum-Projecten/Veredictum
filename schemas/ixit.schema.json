@@ -231,13 +231,6 @@
     "environment": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "hardware_class",
-        "cores",
-        "memory_gb",
-        "storage_class",
-        "topology"
-      ],
       "properties": {
         "exclusive_server": {
           "type": "boolean"
@@ -262,7 +255,8 @@
           "type": "string",
           "minLength": 1
         }
-      }
+      },
+      "description": "`exclusive_server` is all a conformance run reads. `perf`, `stress` and `aql-probe` need every other member, and refuse an IXIT lacking one, naming it."
     },
     "containers": {
       "type": "object",

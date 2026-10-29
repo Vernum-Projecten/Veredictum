@@ -464,13 +464,14 @@ pub fn drive_case(
 /// environment block.
 ///
 /// # Errors
-/// A message naming the missing piece (the environment block is mandatory
-/// for performance runs).
-pub fn measured_run_context(ixit: &Ixit) -> Result<(PerfPrincipals, &Environment), String> {
+/// A message naming the missing piece: an undeclared principal, the absent
+/// environment block, or the environment member the block lacks
+/// ([`Ixit::measured_environment`]).
+pub fn measured_run_context(ixit: &Ixit) -> Result<(PerfPrincipals, Environment), String> {
     let principals = PerfPrincipals::from_ixit(ixit)?;
-    let environment = ixit.environment.as_ref().ok_or_else(|| {
-        "ixit has no environment block (mandatory for performance runs)".to_owned()
-    })?;
+    let environment = ixit
+        .measured_environment()
+        .map_err(|error| error.to_string())?;
     Ok((principals, environment))
 }
 

@@ -63,7 +63,7 @@ fn topology(base_url: &str) -> Ixit {
 }
 
 fn environment(ixit: &Ixit) -> Environment {
-    ixit.environment.clone().unwrap()
+    ixit.measured_environment().unwrap()
 }
 
 /// A one-patient corpus index: enough for the probe's `ehr_id` parameter and

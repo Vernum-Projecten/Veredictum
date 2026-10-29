@@ -165,6 +165,11 @@ in the order they ran. Nothing set up is carried from one workflow to the
 next: each workflow runs its own `dependsOn` setups, so no setup result
 outlives an exclusive workflow. A re-judgement follows the same order. No
 openEHR specification governs this order; it is this instrument's own design.
+A workflow that declares no inputs carries the marker in a rows file with no
+`rows`, and the workflow then runs once. A conformance-only IXIT declares
+`exclusive_server` alone: the other `environment` members describe the
+hardware a measured run was taken on, and only `perf`, `stress` and
+`aql-probe` read them.
 
 **What the party declares.** A statement names the capabilities it claims in
 `claims.capabilities`, the field the published statement schema defines. For
@@ -333,7 +338,11 @@ cases, the journey catalogue and the payloads the journeys send. `stress`,
 
 The `environment` block is mandatory rather than optional because a latency
 number is a claim about a deployment, and a claim with no deployment described
-cannot be checked or reproduced.
+cannot be checked or reproduced. Every member of it is mandatory here
+(`hardware_class`, `cores`, `memory_gb`, `storage_class`, `topology`), and a
+run whose IXIT lacks one stops before it sends a request, naming the member.
+A conformance run reads only `exclusive_server`, so a conformance-only IXIT
+may leave the others out.
 
 ## stress
 
