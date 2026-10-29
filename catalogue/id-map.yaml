@@ -1040,12 +1040,9 @@ cases:
   I_ADMIN_SERVICE.physical_ehr_delete-delete_all_subset_repeated:
     new: [admin_ehr_delete_all/delete_all-subset_repeated]
   I_ADMIN_SERVICE.physical_ehr_delete-delete_all_unfiltered:
-    new: []
-    open: >-
-      Not carried: the unfiltered bulk delete deletes every EHR on the
-      server, and every Arazzo workflow runs on identifiers it generates
-      beside other workflows, so it needs an exclusively owned server
-      the catalogue cannot declare yet (#738).
+    new:
+      - admin_ehr_delete_all_unfiltered/delete_all-unfiltered
+      - admin_ehr_delete_all_unfiltered_async/delete_all-unfiltered_accepted
   I_ADMIN_SERVICE.physical_ehr_delete-delete_existing:
     new:
       - admin_ehr_delete/delete_ehr

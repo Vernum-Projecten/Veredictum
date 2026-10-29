@@ -590,26 +590,49 @@ options:
       not serve it selects neither arm.
     arms:
       admin-delete-synchronous:
-        documents: [admin_ehr_delete, admin_ehr_delete_all]
+        documents: [admin_ehr_delete, admin_ehr_delete_all, admin_ehr_delete_all_unfiltered]
       admin-delete-asynchronous:
-        documents: [admin_ehr_delete_async, admin_ehr_delete_all_async]
+        documents: [admin_ehr_delete_async, admin_ehr_delete_all_async, admin_ehr_delete_all_unfiltered_async]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete.yaml
       section: description
       quote: "The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`."
+    decides:
+      - api: admin
+        operation: admin_ehr_delete
+        statuses: ["202", "204"]
+        x-veredictum-cite:
+          source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete.yaml
+          section: description
+          quote: "The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`. If the deletion is processed synchronously and completes successfully, the server returns status `204 No Content`."
+      - api: admin
+        operation: admin_ehr_delete_all
+        statuses: ["202", "204"]
+        x-veredictum-cite:
+          source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
+          section: description
+          quote: "The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`. If the deletion is processed synchronously and completes successfully, the server returns status `204 No Content`."
   admin-ehr-delete-all:
     description: >-
       Whether the service serves the bulk EHR delete of the Admin API or has
       it disabled and answers 405.
     arms:
       admin-delete-all-enabled:
-        documents: [admin_ehr_delete_all, admin_ehr_delete_all_async, admin_ehr_delete_all_refused]
+        documents: [admin_ehr_delete_all, admin_ehr_delete_all_async, admin_ehr_delete_all_refused, admin_ehr_delete_all_unfiltered, admin_ehr_delete_all_unfiltered_async]
       admin-delete-all-disabled:
         documents: [admin_ehr_delete_all_disabled]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
       section: description
       quote: "This functionality is intended primarily for **development** or **testing** purposes and may be disabled in **production** environments, in which case server may respond with `405 Method Not Allowed`."
+    decides:
+      - api: admin
+        operation: admin_ehr_delete_all
+        statuses: ["202", "204", "405"]
+        x-veredictum-cite:
+          source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
+          section: description
+          quote: "This functionality is intended primarily for **development** or **testing** purposes and may be disabled in **production** environments, in which case server may respond with `405 Method Not Allowed`."
   aql-undefined-containment:
     description: >-
       Whether the service refuses a query whose CONTAINS names a pair of

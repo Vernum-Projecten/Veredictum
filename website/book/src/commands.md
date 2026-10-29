@@ -92,7 +92,7 @@ failed or errored.
 ```text
 Drive the Arazzo catalogue against a server under test, or re-judge the recording of an earlier run, and write `results.json` and the HAR recording.
 
-The whole catalogue is gated first, as `validate` gates it, and nothing runs while the gate has a finding. Every document under `cases/` runs, in path order, except the shared setups under `cases/_setup/`, which run only where a case names them in `dependsOn`. Every row is printed, and a failed or errored row with its four-part explanation.
+The whole catalogue is gated first, as `validate` gates it, and nothing runs while the gate has a finding. Every document under `cases/` runs, in path order, except the shared setups under `cases/_setup/`, which run only where a case names them in `dependsOn`. A workflow whose rows file says `server: exclusive` runs in a final phase, after every other workflow, and a re-judgement replays in the same order. Every row is printed, and a failed or errored row with its four-part explanation.
 
 A credential is read from the environment, never from an argument: from the variables `--auth` and `--admin-auth` name, or from the file named by the same variable with `_FILE` appended. Neither credential is recorded. The recording holds the server's response bodies verbatim, so it belongs where the operator keeps the run.
 
@@ -154,6 +154,17 @@ shared setups under `cases/_setup/` are not cases: a setup runs only where a
 case names it in `dependsOn`. `--document <ID>` narrows the run to named
 documents, which is how you re-drive one family while working on a fix; a
 narrowed `results.json` is a working tool, never the record you submit.
+
+**What runs last.** A workflow whose rows file says `server: exclusive` changes
+state it did not create, such as the bulk delete of every EHR, and runs only
+when the IXIT declares `environment.exclusive_server: true`. It runs in a final
+phase, after every other workflow of every document, so nothing it deletes is
+taken from a workflow still to come. Within each phase the documents keep path
+order and the workflows keep document order, and `results.json` lists the rows
+in the order they ran. Nothing set up is carried from one workflow to the
+next: each workflow runs its own `dependsOn` setups, so no setup result
+outlives an exclusive workflow. A re-judgement follows the same order. No
+openEHR specification governs this order; it is this instrument's own design.
 
 **What the party declares.** A statement names the capabilities it claims in
 `claims.capabilities`, the field the published statement schema defines. For

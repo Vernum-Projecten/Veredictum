@@ -52,7 +52,7 @@ use crate::arazzo::document::{ArazzoDocument, CriterionPlan};
 use crate::arazzo::expr::{
     EvalError, Expr, Judgement, RequestView, ResponseView, Scope, value_text,
 };
-use crate::arazzo::gates::rows::{Aggregate, Declaration, InputShape, RowsFile};
+use crate::arazzo::gates::rows::{Aggregate, Declaration, InputShape, RowsFile, ServerOwnership};
 use crate::arazzo::har::{self, Har, HarTransport, PageContext, Recorded, RunRole};
 use crate::arazzo::oas::{OasError, ResponseSchemas};
 use crate::arazzo::principal::{Principal, principal_of};
@@ -99,6 +99,17 @@ pub struct Plan {
     pub ixit: Option<Value>,
     /// The party's statement, which a rows file's `declared` inputs read.
     pub statement: Option<Value>,
+}
+
+impl Plan {
+    /// Whether the rows file of `workflow_id` says `server: exclusive`,
+    /// whether or not the party declares such a server.
+    #[must_use]
+    pub fn is_exclusive(&self, workflow_id: &str) -> bool {
+        self.rows
+            .get(workflow_id)
+            .is_some_and(|file| file.server == Some(ServerOwnership::Exclusive))
+    }
 }
 
 /// Why a document cannot be run at all.
@@ -227,9 +238,25 @@ impl<'d> Evaluator<'d> {
     /// [`RunError`] when the document cannot be run at all; everything else
     /// becomes a row's classification.
     pub fn run(&mut self, plan: &Plan, transport: &mut dyn Transport) -> Result<Results, RunError> {
+        self.run_where(plan, transport, |_| true)
+    }
+
+    /// Runs, in document order, only the workflows `select` keeps.
+    ///
+    /// # Errors
+    /// [`RunError`] when the document cannot be run at all; everything else
+    /// becomes a row's classification.
+    pub fn run_where(
+        &mut self,
+        plan: &Plan,
+        transport: &mut dyn Transport,
+        select: impl Fn(&Workflow) -> bool,
+    ) -> Result<Results, RunError> {
         let mut rows = Vec::new();
         for workflow in &self.document.description().workflows {
-            rows.extend(self.run_case(workflow, plan, transport)?);
+            if select(workflow) {
+                rows.extend(self.run_case(workflow, plan, transport)?);
+            }
         }
         Ok(Results {
             document: self.name.clone(),
@@ -366,7 +393,8 @@ impl<'d> Evaluator<'d> {
 
     /// The rows a workflow runs with, each completed by the values its rows
     /// file declares; `Err` carries every row skipped as `not-declared` when
-    /// the party declares one of those values not at all.
+    /// the party declares one of those values not at all, or does not
+    /// declare the server the file's `server` needs.
     fn declared_rows(
         &self,
         workflow: &Workflow,
@@ -375,10 +403,13 @@ impl<'d> Evaluator<'d> {
         case: &str,
     ) -> Result<Vec<Row>, Vec<ResultRow>> {
         let mut rows = file.map_or_else(|| vec![Row::new()], |f| f.rows.clone());
-        let Some(file) = file.filter(|f| !f.declared.is_empty()) else {
+        let server_declared = file
+            .and_then(|f| f.server)
+            .is_none_or(|server| server.declared_by(plan.ixit.as_ref()));
+        let Some(file) = file.filter(|f| !f.declared.is_empty() || !server_declared) else {
             return Ok(rows);
         };
-        if let Some(values) = declared_values(file, plan) {
+        if server_declared && let Some(values) = declared_values(file, plan) {
             for row in &mut rows {
                 row.extend(values.clone());
             }
@@ -1425,6 +1456,7 @@ workflows:
                     literals: Vec::new(),
                     recipe: None,
                     declared: BTreeMap::new(),
+                    server: None,
                     aggregate: Vec::new(),
                     rows: rows.to_vec(),
                 },
@@ -1613,6 +1645,32 @@ workflows:
             row.inputs.get("system_id"),
             Some(&Value::from("sys.example"))
         );
+    }
+
+    #[test]
+    fn an_exclusive_server_workflow_runs_only_on_a_server_declared_exclusive() {
+        let exclusive = "server: exclusive\n";
+        let ixit = |exclusive_server: bool| Plan {
+            ixit: Some(serde_json::json!({
+                "instances": {},
+                "environment": { "exclusive_server": exclusive_server }
+            })),
+            ..Plan::default()
+        };
+        for plan in [Plan::default(), ixit(false)] {
+            let skipped = drive_load(rows_file(&[1, 2], exclusive), plan, &[]);
+            assert_eq!(skipped.rows.len(), 2);
+            for row in &skipped.rows {
+                assert_eq!(row.status, Status::Skipped);
+                assert_eq!(row.skip.as_ref().unwrap().reason, SkipReason::NotDeclared);
+            }
+        }
+        let ran = drive_load(
+            rows_file(&[1], exclusive),
+            ixit(true),
+            &[(201, r#"{"ehr_id":{"value":"a"}}"#)],
+        );
+        assert_eq!(ran.rows.first().unwrap().status, Status::Passed);
     }
 
     const SHARED_SETUP: &str = "arazzo: 1.1.0

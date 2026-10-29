@@ -18,6 +18,7 @@ use serde::Deserialize;
 
 use crate::arazzo::cite::Citation;
 use crate::arazzo::gates::published::capabilities_schema;
+use crate::arazzo::gates::surface::Element;
 use crate::arazzo::results::{Skip, SkipReason, Why};
 
 /// The file name under a catalogue root.
@@ -43,6 +44,46 @@ pub struct OptionDecl {
     /// The released sentence that leaves the choice to the implementation.
     #[serde(rename = "x-veredictum-cite")]
     pub cite: Citation,
+    /// The response branches the arms are the mutually exclusive answers to.
+    #[serde(default)]
+    pub decides: Vec<Decides>,
+}
+
+/// The response statuses of one operation that the arms of an option divide
+/// between them, each arm asserting the answer it names.
+///
+/// No openEHR spec governs this, our own design: the surface gate credits a
+/// listed status when one arm asserts it and every arm calls the operation.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Decides {
+    /// The API document, as `cases/surface.yaml` names it.
+    pub api: String,
+    /// The `operationId`.
+    pub operation: String,
+    /// The response statuses, as the OAS spells them.
+    pub statuses: Vec<String>,
+    /// The released sentence that makes these statuses alternative answers
+    /// of the operation.
+    #[serde(rename = "x-veredictum-cite")]
+    pub cite: Citation,
+}
+
+impl OptionDecl {
+    /// The response elements the option decides.
+    #[must_use]
+    pub fn decided(&self) -> std::collections::BTreeSet<Element> {
+        self.decides
+            .iter()
+            .flat_map(|decides| {
+                decides.statuses.iter().map(|status| Element::Response {
+                    api: decides.api.clone(),
+                    operation: decides.operation.clone(),
+                    status: status.clone(),
+                })
+            })
+            .collect()
+    }
 }
 
 /// One arm of an option.

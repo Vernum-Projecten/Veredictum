@@ -1,0 +1,97 @@
+# Deleting every EHR through the Admin API's bulk delete with no ehr_id query
+# parameter, when the bulk delete is enabled and the service deletes
+# synchronously, as Arazzo 1.1.0 workflows over the released ITS-REST
+# `-validation` OAS. The Admin API is in the `DEVELOPMENT` state in
+# Release-1.1.0; the operation text it states is what these workflows assert.
+# The delete removes every EHR on the server, so the workflow runs only when
+# the party's IXIT declares the server exclusively the run's, and is skipped
+# as not declared otherwise. Every administrative step is sent as the
+# administrative principal the party supplies, and a party that supplies none
+# has these workflows skipped as not declared. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Admin bulk EHR delete of every EHR, synchronous
+  version: 0.1.0
+  description: >-
+    Deleting every EHR with DELETE /admin/ehr/all and no ehr_id query
+    parameter on a service that has the bulk delete enabled and processes it
+    synchronously.
+sourceDescriptions:
+  - name: admin
+    url: ../../../specs/rest-oas/admin-validation.openapi.yaml
+    type: openapi
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: delete_all-unfiltered
+    summary: A bulk delete naming no EHR deletes every EHR
+    description: >-
+      Creates two EHRs, then deletes through the bulk delete with no ehr_id
+      query parameter, and retrieves both EHRs. The request names no subset,
+      so it deletes all EHRs: the service processes the deletion
+      synchronously and answers 204 No Content, and each EHR created before
+      the call is answered 404 Not Found.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
+      section: description
+      quote: "Deletes all or multiple EHRs, or a specified subset of EHRs identified using the `ehr_id` query parameter."
+      report: 735
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+        second_ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create-ehr
+        description: Create the first EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - &ehr_created
+            condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: create-second
+        description: Create the second EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.second_ehr_id }
+        successCriteria:
+          - *ehr_created
+      - stepId: delete
+        description: Delete every EHR, naming none, as the administrative principal.
+        operationId: $sourceDescriptions.admin.admin_ehr_delete_all
+        x-veredictum-principal: administrative
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
+              section: description
+              quote: "If the deletion is processed synchronously and completes successfully, the server returns status `204 No Content`."
+      - stepId: get
+        description: Retrieve the first EHR.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - &ehr_gone
+            condition: $statusCode == 404
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id.yaml
+              section: description
+              quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist."
+      - stepId: get-second
+        description: Retrieve the second EHR.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.second_ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *ehr_gone
