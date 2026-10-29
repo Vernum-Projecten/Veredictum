@@ -129,9 +129,10 @@ gaps:
   - { api: query, operation: query_execute_stored_query_version_body, status: "408", issue: 711 }
 # An XML request body on a CONTRIBUTION or directory write: only the refusing
 # arms of `contribution-xml-write` and `directory-xml-write` have a document.
-# No published XSD declares a document element for the CONTRIBUTION commit
-# envelope, nor one named for FOLDER (only the generic `items` element of type
-# LOCATABLE in `documents/Structure.xsd`), upstream report #759.
+# No published XSD declares an element or a type for the CONTRIBUTION commit
+# envelope, and the global `items` element (LOCATABLE) of Structure.xsd gives
+# a FOLDER a conforming root that no released sentence requires a service to
+# accept (upstream report #759).
   - { api: ehr, operation: contribution_create, header: Content-Type, value: application/xml, issue: 759 }
   - { api: ehr, operation: directory_create, header: Content-Type, value: application/xml, issue: 759 }
   - { api: ehr, operation: directory_update, header: Content-Type, value: application/xml, issue: 759 }

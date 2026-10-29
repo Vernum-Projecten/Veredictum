@@ -9,8 +9,10 @@ info:
   description: >-
     Creating and updating the directory FOLDER with a body labelled
     Content-Type application/xml at a service that cannot process the payload
-    as XML. No published XSD declares a document element for FOLDER, so the
-    payload names its root element after the RM class.
+    as XML. The global `items` element (LOCATABLE) of documents/Structure.xsd
+    gives a FOLDER a conforming root, but no released sentence requires a
+    service to accept that root (upstream report #759). Only the media type
+    is judged, so the payload names its root element after the RM class.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml

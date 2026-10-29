@@ -320,7 +320,7 @@ options:
   contribution-xml-write:
     description: >-
       Whether the service processes a CONTRIBUTION sent as canonical XML on
-      the CONTRIBUTION create. No published XSD declares a document element
+      the CONTRIBUTION create. No published XSD declares an element
       or a type for the commit envelope (upstream report #759), so the
       accepting arm has no document yet.
     arms:
