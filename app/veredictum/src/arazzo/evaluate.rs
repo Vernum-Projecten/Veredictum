@@ -63,6 +63,7 @@ use crate::arazzo::rows::Row;
 use crate::arazzo::source::split_qualified;
 use crate::exec::signature::SigningMode;
 use crate::exec::transport::Transport;
+use crate::ixit::DeclaredEnvironment;
 use crate::vocab::{HttpMethod, Iteration};
 
 /// What the evaluator needs to reach a server under test.
@@ -97,6 +98,9 @@ pub struct Plan {
     pub skips: BTreeMap<String, Skip>,
     /// The party's IXIT, which a rows file's `declared` inputs read.
     pub ixit: Option<Value>,
+    /// The environment the party's IXIT declares, which a rows file's
+    /// `server` reads.
+    pub environment: Option<DeclaredEnvironment>,
     /// The party's statement, which a rows file's `declared` inputs read.
     pub statement: Option<Value>,
 }
@@ -408,7 +412,7 @@ impl<'d> Evaluator<'d> {
             .unwrap_or_else(|| vec![Row::new()]);
         let server_declared = file
             .and_then(|f| f.server)
-            .is_none_or(|server| server.declared_by(plan.ixit.as_ref()));
+            .is_none_or(|server| server.declared_by(plan.environment.as_ref()));
         let Some(file) = file.filter(|f| !f.declared.is_empty() || !server_declared) else {
             return Ok(rows);
         };
@@ -1654,10 +1658,10 @@ workflows:
     fn an_exclusive_server_workflow_runs_only_on_a_server_declared_exclusive() {
         let exclusive = "server: exclusive\n";
         let ixit = |exclusive_server: bool| Plan {
-            ixit: Some(serde_json::json!({
-                "instances": {},
-                "environment": { "exclusive_server": exclusive_server }
-            })),
+            environment: Some(DeclaredEnvironment {
+                exclusive_server,
+                ..DeclaredEnvironment::default()
+            }),
             ..Plan::default()
         };
         for plan in [Plan::default(), ixit(false)] {
@@ -1707,10 +1711,10 @@ workflows:
         let drive = |exclusive_server: bool, answers: &[(u16, &'static str)]| {
             let plan = Plan {
                 rows: BTreeMap::from([("wipe".to_owned(), file.clone())]),
-                ixit: Some(serde_json::json!({
-                    "instances": {},
-                    "environment": { "exclusive_server": exclusive_server }
-                })),
+                environment: Some(DeclaredEnvironment {
+                    exclusive_server,
+                    ..DeclaredEnvironment::default()
+                }),
                 ..Plan::default()
             };
             assert!(plan.is_exclusive("wipe"));

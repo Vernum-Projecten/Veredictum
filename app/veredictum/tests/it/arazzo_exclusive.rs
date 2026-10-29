@@ -264,3 +264,53 @@ fn an_exclusive_workflow_runs_after_every_other_and_its_rejudgement_writes_the_s
     );
     Ok(())
 }
+
+/// An IXIT the published IXIT schema refuses stops `test` with exit 2 before
+/// any request, naming the file and the violation; a misspelled member is
+/// never read as an undeclared one.
+#[test]
+#[cfg(unix)]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_schema_invalid_ixit_stops_the_run_naming_the_problem() -> Fallible {
+    let dir = assert_fs::TempDir::new()?;
+    let root = catalogue(dir.path())?;
+    let sut = FakeSut::start();
+    for (document, named) in [
+        (
+            r#"{ "environment": { "exclusive_servr": true } }"#,
+            "exclusive_servr",
+        ),
+        (
+            r#"{ "environment": { "exclusive_server": "yes" } }"#,
+            "/environment/exclusive_server",
+        ),
+        (r#"{ "instance": {} }"#, "instance"),
+    ] {
+        let ixit = dir.path().join("ixit.json");
+        std::fs::write(&ixit, document)?;
+        let out = dir.path().join("run");
+        let output = test_command(
+            &root,
+            &[
+                "--ixit",
+                &ixit.to_string_lossy(),
+                "--admin-auth",
+                "bearer",
+                "--base-url",
+                &sut.base_url(),
+                "--out",
+                &out.to_string_lossy(),
+            ],
+        )?;
+        assert_eq!(output.status.code(), Some(2), "{output:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("ixit.json: schema:"), "{stderr}");
+        assert!(stderr.contains(named), "{named}: {stderr}");
+        assert!(!out.join("results.json").exists());
+    }
+    assert!(sut.requests().is_empty());
+    Ok(())
+}

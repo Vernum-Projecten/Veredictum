@@ -343,7 +343,7 @@ pub struct Instance {
 /// optional here. A measured run needs them all and reads them through
 /// [`DeclaredEnvironment::measured`], which names the first one missing. No
 /// openEHR spec governs this — our own design.
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeclaredEnvironment {
     /// Whether the SUT instance is exclusively owned by this run — the
@@ -491,7 +491,12 @@ pub struct Containers {
 pub struct Ixit {
     /// Named instances; `sut` is the default the flow addresses when no
     /// `on:` selector is present.
-    #[serde(deserialize_with = "crate::model::de::ordered_map")]
+    ///
+    /// `veredictum test` takes its server from `--base-url` and reads no
+    /// instance, so a conformance-only IXIT may leave this out; every
+    /// instrument that addresses an instance refuses an IXIT without `sut`
+    /// ([`Ixit::default_instance`]).
+    #[serde(default, deserialize_with = "crate::model::de::ordered_map")]
     pub instances: Vec<(InstanceName, Instance)>,
     /// The deployment the SUT runs in; mandatory, with every member, for
     /// measured runs ([`Ixit::measured_environment`]).

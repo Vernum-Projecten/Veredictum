@@ -31,6 +31,7 @@ use serde_json::Value;
 
 use crate::arazzo::gates::published::rows_schema;
 use crate::arazzo::recipe::RowRecipe;
+use crate::ixit::DeclaredEnvironment;
 use crate::literal::{Literal, LiteralError};
 use crate::vocab::Iteration;
 
@@ -148,15 +149,12 @@ impl ServerOwnership {
         }
     }
 
-    /// Whether the party's IXIT declares what this value needs; an absent
-    /// IXIT, environment or member declares nothing.
+    /// Whether the environment the party's IXIT declares is what this value
+    /// needs; an absent environment declares nothing.
     #[must_use]
-    pub fn declared_by(self, ixit: Option<&Value>) -> bool {
+    pub fn declared_by(self, environment: Option<&DeclaredEnvironment>) -> bool {
         match self {
-            Self::Exclusive => ixit
-                .and_then(|ixit| ixit.pointer("/environment/exclusive_server"))
-                .and_then(Value::as_bool)
-                .is_some_and(|exclusive| exclusive),
+            Self::Exclusive => environment.is_some_and(|environment| environment.exclusive_server),
         }
     }
 }
@@ -561,11 +559,11 @@ mod tests {
         .unwrap();
         assert_eq!(rows.server, Some(ServerOwnership::Exclusive));
         let exclusive = ServerOwnership::Exclusive;
-        let ixit = |environment: Value| json!({ "instances": {}, "environment": environment });
-        assert!(exclusive.declared_by(Some(&ixit(json!({ "exclusive_server": true })))));
-        assert!(!exclusive.declared_by(Some(&ixit(json!({ "exclusive_server": false })))));
-        assert!(!exclusive.declared_by(Some(&ixit(json!({})))));
-        assert!(!exclusive.declared_by(Some(&json!({ "instances": {} }))));
+        let environment =
+            |declared: Value| -> DeclaredEnvironment { serde_json::from_value(declared).unwrap() };
+        assert!(exclusive.declared_by(Some(&environment(json!({ "exclusive_server": true })))));
+        assert!(!exclusive.declared_by(Some(&environment(json!({ "exclusive_server": false })))));
+        assert!(!exclusive.declared_by(Some(&environment(json!({})))));
         assert!(!exclusive.declared_by(None));
         for seeded in [json!("shared"), json!("Exclusive"), json!(true)] {
             let file = json!({ "workflow": "admin/w", "iteration": "single_pass",

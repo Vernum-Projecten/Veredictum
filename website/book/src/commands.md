@@ -169,7 +169,11 @@ A workflow that declares no inputs carries the marker in a rows file with no
 `rows`, and the workflow then runs once. A conformance-only IXIT declares
 `exclusive_server` alone: the other `environment` members describe the
 hardware a measured run was taken on, and only `perf`, `stress` and
-`aql-probe` read them.
+`aql-probe` read them. `test` reads no `instances` either, since `--base-url`
+names the server, so `{ "environment": { "exclusive_server": true } }` is a
+whole IXIT for it. The IXIT is checked against the published IXIT schema
+before anything runs, and one that fails it, such as a misspelled member,
+stops the run with exit status 2 naming the file and the violation.
 
 **What the party declares.** A statement names the capabilities it claims in
 `claims.capabilities`, the field the published statement schema defines. For
