@@ -120,19 +120,25 @@ enum Command {
         /// is skipped as `not-declared`.
         #[arg(long)]
         platform_url: Option<String>,
-        /// How the client presents itself: `none`, `basic` or `bearer`.
+        /// How the CDR wants the client to log in: `none`, `basic` or
+        /// `bearer`.
         ///
-        /// `basic` reads `VEREDICTUM_SUT_USER` and `VEREDICTUM_SUT_PASSWORD`,
-        /// and `bearer` reads `VEREDICTUM_SUT_TOKEN`.
+        /// `none`: the CDR needs no login.
+        ///
+        /// `basic`: a username and password, from `VEREDICTUM_CDR_USER` and
+        /// `VEREDICTUM_CDR_PASSWORD`.
+        ///
+        /// `bearer`: a token, from `VEREDICTUM_CDR_TOKEN`.
         #[arg(long, default_value = "none")]
         auth: String,
-        /// How the administrative principal presents itself: `none`, `basic`
-        /// or `bearer`. With `none`, every workflow with an administrative
-        /// step is skipped as `not-declared`.
+        /// How the CDR wants the administrative principal to log in: `none`,
+        /// `basic` or `bearer`. With `none`, every workflow with an
+        /// administrative step is skipped as `not-declared`.
         ///
-        /// `basic` reads `VEREDICTUM_ADMIN_USER` and
-        /// `VEREDICTUM_ADMIN_PASSWORD`, and `bearer` reads
-        /// `VEREDICTUM_ADMIN_TOKEN`.
+        /// `basic`: a username and password, from `VEREDICTUM_CDR_ADMIN_USER`
+        /// and `VEREDICTUM_CDR_ADMIN_PASSWORD`.
+        ///
+        /// `bearer`: a token, from `VEREDICTUM_CDR_ADMIN_TOKEN`.
         #[arg(long, default_value = "none")]
         admin_auth: String,
         /// The party's statement (JSON), which decides what runs.
@@ -190,11 +196,16 @@ enum Command {
         /// The server's base URL, up to and including the openEHR REST base.
         #[arg(long)]
         base_url: String,
-        /// How the client presents itself: `none`, `basic` or `bearer`.
+        /// How the CDR wants the client to log in: `none`, `basic` or
+        /// `bearer`. The secret never rides argv: each variable can instead
+        /// name a file through its `_FILE` form.
         ///
-        /// The secret never rides argv: `basic` reads `VEREDICTUM_SUT_USER`
-        /// and `VEREDICTUM_SUT_PASSWORD`, and `bearer` reads
-        /// `VEREDICTUM_SUT_TOKEN`.
+        /// `none`: the CDR needs no login.
+        ///
+        /// `basic`: a username and password, from `VEREDICTUM_CDR_USER` and
+        /// `VEREDICTUM_CDR_PASSWORD`.
+        ///
+        /// `bearer`: a token, from `VEREDICTUM_CDR_TOKEN`.
         #[arg(long, default_value = "none")]
         auth: String,
     },

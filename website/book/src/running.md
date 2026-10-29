@@ -63,10 +63,15 @@ one arm. A claim that fails here would otherwise stop the run.
 ## 4. Drive the catalogue
 
 ```bash
-export VEREDICTUM_SUT_USER=… VEREDICTUM_SUT_PASSWORD=…
+export VEREDICTUM_CDR_USER=… VEREDICTUM_CDR_PASSWORD=…
 veredictum test --base-url https://cdr.example/openehr/v1 --auth basic \
     --statement mine/statement.json --ixit mine/ixit.json --out out/
 ```
+
+This CDR wants a username and password. One that needs no login takes no
+`--auth` at all, and one that wants a bearer token takes `--auth bearer` with
+`VEREDICTUM_CDR_TOKEN`; [Logging in to the CDR](authentication.md) has the
+table, the administrator's variables and the `_FILE` forms.
 
 Every workflow of a document in a folder your statement does not claim is
 skipped as `not-claimed`, and the documents of every option arm you did not
@@ -118,7 +123,7 @@ directory the image's user (uid 65532) can write to, and name it as `--out`:
 
 ```bash
 docker run --rm -v "$PWD/out:/work/out" \
-    -e VEREDICTUM_SUT_USER -e VEREDICTUM_SUT_PASSWORD \
+    -e VEREDICTUM_CDR_USER -e VEREDICTUM_CDR_PASSWORD \
     ghcr.io/vernum-projecten/veredictum:<tag> \
     test --base-url https://cdr.example/openehr/v1 --auth basic --out /work/out
 ```

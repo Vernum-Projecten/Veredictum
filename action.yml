@@ -31,10 +31,11 @@
 # under the names the engine reads, so they reach the container by name and
 # never appear in a command line or in this action's inputs:
 #
-#   VEREDICTUM_SUT_USER, VEREDICTUM_SUT_PASSWORD    with auth: basic
-#   VEREDICTUM_SUT_TOKEN                            with auth: bearer
-#   VEREDICTUM_ADMIN_USER, VEREDICTUM_ADMIN_PASSWORD, VEREDICTUM_ADMIN_TOKEN
-#                                                   with admin-auth
+#   nothing                                                    with auth: none
+#   VEREDICTUM_CDR_USER, VEREDICTUM_CDR_PASSWORD               with auth: basic
+#   VEREDICTUM_CDR_TOKEN                                       with auth: bearer
+#   VEREDICTUM_CDR_ADMIN_USER, VEREDICTUM_CDR_ADMIN_PASSWORD   with admin-auth: basic
+#   VEREDICTUM_CDR_ADMIN_TOKEN                                 with admin-auth: bearer
 #
 # or each with `_FILE` appended, naming a file that holds the value. An empty
 # variable counts as unset, so a missing repository secret stops the run.
@@ -74,14 +75,18 @@ inputs:
     default: ""
   auth:
     description: >-
-      How the client presents itself: none, basic or bearer. The credentials
-      come from the step's env, never from an input.
+      How the CDR wants the client to log in: none (no login), basic
+      (VEREDICTUM_CDR_USER and VEREDICTUM_CDR_PASSWORD) or bearer
+      (VEREDICTUM_CDR_TOKEN). The credentials come from the step's env, never
+      from an input.
     required: false
     default: none
   admin-auth:
     description: >-
-      How the administrative principal presents itself: none, basic or bearer.
-      With none, every workflow with an administrative step is skipped.
+      How the CDR wants the administrative principal to log in: none, basic
+      (VEREDICTUM_CDR_ADMIN_USER and VEREDICTUM_CDR_ADMIN_PASSWORD) or bearer
+      (VEREDICTUM_CDR_ADMIN_TOKEN). With none, every workflow with an
+      administrative step is skipped.
     required: false
     default: none
   documents:

@@ -165,16 +165,16 @@ fn the_composed_ixit_pins_every_posture_the_console_supplies()
       "base_url": "http://cdr.example",
       "auth": {
         "mode": "basic",
-        "user_env": "VEREDICTUM_SUT_USER",
-        "password_env": "VEREDICTUM_SUT_PASSWORD"
+        "user_env": "VEREDICTUM_CDR_USER",
+        "password_env": "VEREDICTUM_CDR_PASSWORD"
       }
     },
     "sut": {
       "base_url": "http://cdr.example",
       "auth": {
         "mode": "basic",
-        "user_env": "VEREDICTUM_SUT_USER",
-        "password_env": "VEREDICTUM_SUT_PASSWORD"
+        "user_env": "VEREDICTUM_CDR_USER",
+        "password_env": "VEREDICTUM_CDR_PASSWORD"
       }
     },
     "unauthenticated": {

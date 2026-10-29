@@ -44,9 +44,11 @@ jobs:
 
       - id: veredictum
         uses: Vernum-Projecten/Veredictum@<commit-sha> # vX.Y.Z
+        # Only for a CDR that wants bearer tokens; see "Credentials" below for
+        # a CDR that wants a username and password, or no login.
         env:
-          VEREDICTUM_SUT_TOKEN: ${{ secrets.CDR_TOKEN }}
-          VEREDICTUM_ADMIN_TOKEN: ${{ secrets.CDR_ADMIN_TOKEN }}
+          VEREDICTUM_CDR_TOKEN: ${{ secrets.CDR_TOKEN }}
+          VEREDICTUM_CDR_ADMIN_TOKEN: ${{ secrets.CDR_ADMIN_TOKEN }}
         with:
           base-url: http://127.0.0.1:8080/openehr/v1
           statement: conformance/statement.json
@@ -126,15 +128,42 @@ used.
 
 ## Credentials
 
-A credential is never an input. Set it as `env:` on the step, under the name
-the engine reads:
+A credential is never an input. `auth` says how your CDR wants the client to
+log in, and the credential is set as `env:` on the step, under the name the
+engine reads:
 
-| Variable | Read when |
-|---|---|
-| `VEREDICTUM_SUT_USER`, `VEREDICTUM_SUT_PASSWORD` | `auth: basic` |
-| `VEREDICTUM_SUT_TOKEN` | `auth: bearer` |
-| `VEREDICTUM_ADMIN_USER`, `VEREDICTUM_ADMIN_PASSWORD` | `admin-auth: basic` |
-| `VEREDICTUM_ADMIN_TOKEN` | `admin-auth: bearer` |
+| Your CDR wants | Input | `env:` on the step |
+|---|---|---|
+| no login | `auth: none` (the default) | nothing |
+| a username and password | `auth: basic` | `VEREDICTUM_CDR_USER`, `VEREDICTUM_CDR_PASSWORD` |
+| a bearer token | `auth: bearer` | `VEREDICTUM_CDR_TOKEN` |
+
+`admin-auth` does the same for the administrative principal, with
+`VEREDICTUM_CDR_ADMIN_USER` and `VEREDICTUM_CDR_ADMIN_PASSWORD` for `basic` and
+`VEREDICTUM_CDR_ADMIN_TOKEN` for `bearer`. [Logging in to the
+CDR](authentication.md) covers the same table for the command line.
+
+A CDR that wants a username and password:
+
+```yaml
+      - uses: Vernum-Projecten/Veredictum@<commit-sha> # vX.Y.Z
+        env:
+          VEREDICTUM_CDR_USER: ${{ secrets.CDR_USER }}
+          VEREDICTUM_CDR_PASSWORD: ${{ secrets.CDR_PASSWORD }}
+        with:
+          base-url: http://127.0.0.1:8080/openehr/v1
+          statement: conformance/statement.json
+          auth: basic
+```
+
+A CDR that needs no login takes no `env:` and no `auth`:
+
+```yaml
+      - uses: Vernum-Projecten/Veredictum@<commit-sha> # vX.Y.Z
+        with:
+          base-url: http://127.0.0.1:8080/openehr/v1
+          statement: conformance/statement.json
+```
 
 Each may instead be given as a file: append `_FILE` to the name and set it to
 the file's path, and the action mounts that file into the container read-only.

@@ -6,6 +6,7 @@
 - [What the instrument touches](trust.md)
 - [The hosted instrument](hosted.md)
 - [Running the instrument](running.md)
+  - [Logging in to the CDR](authentication.md)
   - [Command reference](commands.md)
   - [The GitHub Action](github-action.md)
 - [The web console](console.md)

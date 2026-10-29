@@ -103,15 +103,17 @@ subcommand given as its first argument:
 
 ```bash
 mkdir -p out
-export VEREDICTUM_SUT_TOKEN=…   # read from the environment, never from argv
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/out:/work/out" -e VEREDICTUM_SUT_TOKEN \
+export VEREDICTUM_CDR_TOKEN=…   # read from the environment, never from argv
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/out:/work/out" -e VEREDICTUM_CDR_TOKEN \
   ghcr.io/vernum-projecten/veredictum:<tag> \
   test --base-url https://cdr.example/openehr/v1 --auth bearer --out /work/out
 ```
 
 The run writes `out/results.json` and `out/recording.har`, and exits `1` when
 a row failed or errored. Run with no arguments, the image serves the web
-console instead. [Running the instrument](https://veredictum.eu/docs/running.html)
+console instead. The example is for a CDR that wants a bearer token;
+[Logging in to the CDR](https://veredictum.eu/docs/authentication.html) covers
+Basic and no login. [Running the instrument](https://veredictum.eu/docs/running.html)
 covers the statement that selects what runs, and
 [Installation](https://veredictum.eu/docs/installation.html#with-docker-the-web-console)
 the console.
@@ -138,7 +140,7 @@ fails the job on a failed row:
 ```yaml
 - uses: Vernum-Projecten/Veredictum@<commit-sha> # vX.Y.Z
   env:
-    VEREDICTUM_SUT_TOKEN: ${{ secrets.CDR_TOKEN }}
+    VEREDICTUM_CDR_TOKEN: ${{ secrets.CDR_TOKEN }}
   with:
     base-url: http://127.0.0.1:8080/openehr/v1
     statement: conformance/statement.json
