@@ -598,6 +598,915 @@ version on.
   Removing OpenPGP signing (#593), or a `pgp` release on a fixed
   `crypto-bigint`, retires the entry.
 
+## [0.2.0-rc2] - 2026-10-29
+
+### Added
+
+- `veredictum export` renders the `results.json` the Arazzo evaluator writes
+  as the three views a vendor's CI shows (#602): JUnit XML (a workflow is a
+  `testsuite`, a row a `testcase`, with `<failure>`, `<error>` and
+  `<skipped>`), CTRF JSON at `specVersion` 0.2.0 (*errored* is `other`; the
+  case id, skip reason, citation and upstream report link are in `extra`),
+  and a Markdown summary appended to `$GITHUB_STEP_SUMMARY` when GitHub
+  Actions sets it. A red row's text in every view is its four-part
+  explanation, and every view is byte-deterministic. The CTRF 0.2.0 JSON
+  Schema is vendored by `scripts/vendor/ctrf-schema.sh`, and the export is
+  tested against it. The command reference carries a GitHub Actions example.
+- The ambiguity register's 191 entries have destinations (#617): each was
+  re-checked against the vendored text and sent to the workflow citation that
+  already carries it, an existing upstream report, a new one, a capability
+  option, or dropped with its reason, in a migration table on #617. Thirteen
+  new upstream reports, #750 to #762, cover the ITEM_TAG operations, the
+  CONTRIBUTION commit, versioned content reads and writes, the directory, the
+  Query API, template uploads, the HTTP overview, the Demographic and Admin
+  APIs, SMART on openEHR, the Simplified Formats and canonical XML, the RM,
+  AQL and BASE, each with its patch under `upstream/`. `capabilities.yaml`
+  gains four options: `aql-undefined-containment`, `aql-nonnumeric-aggregate`,
+  `xml-namespace` and `terminology-binding-unresolvable`. The CI report guard
+  now also checks the `report:` numbers in `capabilities.yaml`, and the id
+  map names upstream reports instead of register entries. The register itself
+  is frozen and is deleted with the old tree (#604).
+- The messaging, security, SMART and performance cases are mapped onto the
+  Arazzo catalogue (#603), the last old families, so every old case id is in
+  `catalogue/id-map.yaml`. 11 workflows carry the security behaviours the
+  release assigns: `catalogue/cases/security/` holds the 401 and
+  `WWW-Authenticate` challenge of a request without valid credentials, the
+  presence of a VERSION signature on a created, modified and deleted
+  COMPOSITION and on the EHR_STATUS, and an anonymous EHR used end to end;
+  `contribution_create` gains a client-sent `time_committed` the server does
+  not record. Two options join `catalogue/capabilities.yaml`:
+  `authentication` and `version-signing`. Not carried, each with its reason:
+  the 34 EHR Extract cases (the release defines no import or export route),
+  the 16 TDD import cases (TDD/TDS is a legacy format of the Ocean tooling,
+  out of scope by owner ruling), the signature verification and client-signature cases (the serialisation is
+  not yet defined by openEHR, and upstream report #744 with its patch records
+  that `UPDATE_VERSION.signature` has no stated meaning), the read-only 403
+  (the release defines no authorization model), the three SMART cases (#745)
+  and the four performance cases, which drive `veredictum perf` (#746).
+- The admin and system cases are converted to Arazzo (#603). Seven
+  documents under `catalogue/cases/admin/` drive the two operations the
+  Release-1.1.0 Admin API declares, `admin_ehr_delete` and
+  `admin_ehr_delete_all`: the 204 of a synchronous delete, the EHR, its
+  COMPOSITION and its CONTRIBUTION gone afterwards, the ehr_id free for a new
+  EHR, a subset of one and of two EHRs with the unnamed EHR kept, 404 for an
+  unknown EHR, 400 for a malformed ehr_id in a subset with nothing deleted,
+  202 for an asynchronous delete and 405 for a disabled bulk delete.
+  `catalogue/cases/system/system_options.arazzo.yaml` drives OPTIONS on the
+  API base path (advisory: the operation says a service SHOULD answer it).
+  Two new options, `admin-ehr-delete-processing` and `admin-ehr-delete-all`,
+  carry the choices the release leaves to the service. The admin and system
+  tags join `surface.yaml`, with their open branches tracked by #737 and
+  #738. `catalogue/id-map.yaml` maps all 57 cases: 9 carried, and 48 not
+  carried because the release has no route for them (archive, dump and
+  load, counts, contribution listing, party delete) or, for the unfiltered
+  bulk delete, because it needs an exclusively owned server (#738). Upstream
+  reports #735 (the bulk delete's subset parameter and path key) and #736
+  (the System API's tag name) carry patches under
+  `upstream/specifications-ITS-REST/`.
+- An Arazzo step may carry `x-veredictum-principal: administrative`: it is
+  sent with the administrative principal's credential instead of the run's
+  own, and a run whose party supplies none skips every workflow with such a
+  step as `not-declared`. `schemas/arazzo-extensions.schema.json` publishes
+  the extension. The evaluator also sends a list-valued query parameter as
+  one pair per item, and leaves an RFC 6570 query expansion (`{?name*}`) in
+  an OAS path key out of the request path.
+- The demographic cases are converted to Arazzo (#603). 353 workflows in 23
+  documents under `catalogue/cases/demographic/` cover the Demographic API of
+  ITS-REST Release-1.1.0 for each of the five PARTY kinds: the create, read,
+  update and delete lifecycle with the three `Prefer` answers, the version
+  conditions (412, 409 and the 400 of a delete by a container uid), the
+  refused bodies (400 for a body the published schemas refuse, 422 for an
+  archetype root without `archetype_details`, a root `archetype_node_id` that
+  differs from its archetype id, and a relationship sourced at another
+  PARTY), the ITEM_TAG lists of a party version and its container, the
+  VERSIONED_PARTY reads, the Demographic tag listing and the demographic
+  CONTRIBUTION. Three options join `catalogue/capabilities.yaml`:
+  `party-xml-read` for the five PARTY kinds, `versioned-party-xml-read` for
+  the VERSIONED_PARTY family, and `party-xml-write`. All 155 demographic case cores are
+  in `catalogue/id-map.yaml` (130 carried, 25 not carried with the reason),
+  and `pending` is empty. The eight Demographic tags join `surface.yaml`, with
+  the open branches tracked by #733, the 404 of the party creates by upstream
+  report #732 and its patch, and the body-less VERSIONED_PARTY Content-Type
+  by #687. Upstream report #741, with its ITS-JSON patch, records that the
+  ITS-JSON definitions of the PARTY kinds and CONTRIBUTION require a `uid`
+  that a create body cannot carry.
+- The Simplified Formats cases are converted to Arazzo (#603). 75 workflows
+  in 20 documents under `catalogue/cases/simplified_formats/` commit flat and
+  structured COMPOSITIONs and judge the context defaults, the RM mappings of
+  each data value type, path indexing and level removal, `|raw`, `|other` and
+  the refusals the release requires, each refusal beside its valid twin; they
+  also cover a CONTRIBUTION written and read in both formats and the
+  deprecated and legacy media types. Four templates are uploaded by the new
+  set-up `_setup/simplified_formats.arazzo.yaml`. Eight new options in
+  `catalogue/capabilities.yaml`: `contribution-flat-write`,
+  `contribution-structured-write`, `contribution-flat-read`,
+  `contribution-structured-read`, `simplified-deprecated-write`,
+  `simplified-deprecated-read`, `simplified-legacy-write` and
+  `simplified-legacy-read`. All 71 old case ids are in `catalogue/id-map.yaml`:
+  63 carried, in whole or in part, and 8 not carried with their reason. Four
+  CONTRIBUTION gaps of #698 close, and the mappings still open are tracked
+  by #722.
+- The content cases are converted to Arazzo (#603). The 134 `CONT-*`
+  decision tables become 360 workflows in 39 documents under
+  `catalogue/cases/content/`, one workflow per case and outcome: content the
+  template admits is created (201), a body the published ITS-JSON schema
+  refuses is answered 400, and a schema-valid body the template does not
+  validate or that breaks an RM invariant is answered 422.
+  `_setup/content_templates.arazzo.yaml` uploads the 52 templates whose
+  constraint every row shares. A new rows recipe, `content_synthesized`,
+  builds each row's operational template beside its composition for the
+  tables whose rows vary the constraint, and the workflow uploads it first;
+  the template id is a digest of the template, so a server never validates
+  against a stale one. The new option `content-unmatched-member` carries the
+  two postures on a container member that matches no constraint (#307).
+  `catalogue/id-map.yaml` maps every content case and names the rows left
+  open, each with its upstream report (#716, #717, #718, #719). Six rows
+  that lack a member the RM makes mandatory and the ITS-JSON schema does
+  not require expect 422 and cite #724.
+- The ADL 1.4 and ADL 2 template cases of the DEFINITION component are
+  converted to Arazzo (#603). 32 workflows in four documents under
+  `catalogue/cases/definition/` carry 22 of the 82 `I_DEFINITION_ADL14` and
+  `I_DEFINITION_ADL2` cases: `template_adl14` (six valid OPTs uploaded and
+  found in the listing, the three `Prefer` answers of an upload, Location,
+  the weak ETag, 409 for a second upload, 400 for a body that does not
+  parse, 415 for an OPT declared as JSON, the read in XML, 404, 406, and the
+  generated example at each type and detail level), `template_adl2` (the
+  listing, 404 for an unknown template, 400 and 415 on upload), and
+  `template_adl14_web_template` and `template_adl14_web_template_not_acceptable`
+  (the arms of the new `template-web-template` option). An upload names a
+  fresh `template_id` from a generated input, so no workflow needs an empty
+  server. `catalogue/id-map.yaml` gives the reason for every case not
+  carried: no released archetype, delete or count operation, an ADL 1.4
+  version the release leaves undefined (upstream report #715), and the
+  ADL 2 and invalid-OPT cases tracked by #714, which also tracks the
+  DEFINITION gaps in `surface.yaml`.
+- The Arazzo evaluator substitutes runtime expressions embedded in a text
+  request body (`{$inputs.run}` inside an OPT), as Arazzo 1.1.0 allows for
+  any string value.
+
+- The QUERY and DEFINITION query cases are converted to Arazzo (#603), and
+  the AQL conformance corpus (github.com/Cadasto/aql-conformance, MIT) is
+  brought in (#695). `catalogue/cases/query/` holds the ad-hoc and stored
+  query execution, the AQL semantics over a known dataset, the refused
+  requests, the stored-query definitions (`definition_query`) and, from the
+  corpus, 45 carried cases in `aqlc_*` documents over set-ups in
+  `_setup/aql_conformance.arazzo.yaml`. Every one of the corpus's 236 case ids
+  is in `catalogue/id-map.yaml` under `corpora`: carried, folded onto an
+  existing workflow, or not carried with its reason and upstream report.
+  Three new options in `catalogue/capabilities.yaml`: `query-ehr-scope`,
+  `aql-top` and `aql-terminology`. The Query tags of the query and definition
+  APIs join `surface.yaml`, with their open branches tracked by #711.
+- A `result_set` expected row may hold runtime expressions in its cells, such
+  as the version uid a set-up was answered with, and the AQL parser check
+  reads an embedded `{$…}` value in a GET query as a placeholder.
+- The CONTRIBUTION and DIRECTORY cases are converted to Arazzo (#603). 147
+  workflows in 14 documents under `catalogue/cases/contribution/` and
+  `catalogue/cases/directory/` carry 60 of the 115 `I_EHR_CONTRIBUTION`
+  cases and 76 of the 90 `I_EHR_DIRECTORY` cases: the commit of a
+  CONTRIBUTION with COMPOSITION, EHR_STATUS and FOLDER members, its
+  preferences and headers, and its refusals (400 for a body the commit DTO
+  or the published ITS-JSON schema refuses, 422 for an RM invariant or an
+  unknown template, 404, 409, 415, and any 4xx in an EHR that is not
+  modifiable); the CONTRIBUTION read; and the directory create, update,
+  delete and reads by time, version and path. Every FOLDER node whose
+  archetype_node_id is an archetype id carries archetype_details, and a root
+  without it is refused with 422. Four new options,
+  `contribution-xml-read`, `contribution-xml-write`, `directory-xml-read`
+  and `directory-xml-write`, carry the XML arms. `surface.yaml` takes the
+  CONTRIBUTION and DIRECTORY tags into scope with 24 negotiation branches as
+  gaps under #698, the six demographic CONTRIBUTION cases stay under
+  `pending`, and `catalogue/id-map.yaml` gives the reason for every case
+  not carried, among them attestation members (#690), deletion members and
+  imported versions (no released commit shape), lifecycle transitions (no
+  released wire treatment), and the list of CONTRIBUTIONs and the
+  VERSIONED_FOLDER (no released route).
+- The create and delete cases of the COMPOSITION component are converted to
+  Arazzo (#603). 59 workflows in five documents under
+  `catalogue/cases/composition/` carry 50 of the 66 create and delete
+  cases: `composition_create` (the event and persistent creates, the read
+  of the created version, the representation preferences, the ETag and
+  Last-Modified headers, and the content read back), `composition_create_refused`
+  (an unknown EHR or template, 400 for a body the published ITS-JSON schema
+  refuses, 422 for a schema-valid body that breaks an RM invariant, 415, and
+  an EHR that is not modifiable), `composition_delete`, and `composition_xml`
+  and `composition_xml_write_refused` (the arms of the new
+  `composition-xml-write` option). `_setup/templates.arazzo.yaml` uploads two
+  more templates. The 27 update cases and the version-metadata cases have no
+  workflow yet: the update and the VERSION reads address a COMPOSITION by
+  its `versioned_object_uid`, which becomes derivable with #680.
+  `catalogue/id-map.yaml` gives the reason for every case not carried, and
+  the remaining COMPOSITION gaps in `surface.yaml` are tracked under #675.
+- The COMPOSITION read cases are converted to Arazzo (#603). The 52
+  `I_EHR_COMPOSITION` read cases and the two COMPOSITION revision-history
+  cases become 31 workflows in eight documents under
+  `catalogue/cases/composition/`: `composition_read` (a COMPOSITION read by
+  its version_uid, its headers, and the 404 misses),
+  `composition_versioned_read` (the 404 and 400 refusals of the four
+  VERSIONED_COMPOSITION reads), and `composition_read_xml`,
+  `composition_read_xml_not_acceptable`, `composition_read_flat`,
+  `composition_read_flat_not_acceptable`, `composition_read_structured` and
+  `composition_read_structured_not_acceptable` (the arms of the new
+  `composition-xml-read`, `composition-flat-read` and
+  `composition-structured-read` options). Every
+  criterion quotes the released ITS-REST or RM sentence that assigns it.
+  The 23 cases addressed by the versioned_object_uid of a real container
+  stay under `pending` in `catalogue/id-map.yaml` until a step can derive
+  that uid from a version_uid (#680); `surface.yaml` takes the COMPOSITION
+  tag into scope with those branches as gaps under #678 and the write
+  branches under #675, and the id map says why for each other case without
+  a counterpart.
+- A third Arazzo specification extension, `x-veredictum-derive` (#680). On a
+  step it names new outputs, each `object_id`, `creating_system_id` or
+  `version_tree_id` of an OBJECT_VERSION_ID held in one of the step's own
+  outputs, as BASE `object_version_id.adoc` defines them, so a workflow that
+  created a COMPOSITION can address its container by `versioned_object_uid`.
+  `schemas/arazzo-extensions.schema.json` publishes its shape, `validate`
+  refuses an unknown function, an `of` the step does not declare and a
+  derived name that collides with a declared output, and a captured value
+  that is not of the lexical form makes the row errored.
+- The ITEM_TAG cases of the EHR API are converted to Arazzo (#603). The 30
+  `I_ITS_REST_ITEM_TAGS.*` cases on the COMPOSITION, EHR_STATUS and EHR tag
+  routes become 58 workflows in four documents under
+  `catalogue/cases/item_tags/`: `composition_tags` (reading, replacing and
+  deleting the tags of a COMPOSITION version, the key and target_path
+  identity, the representation preferences and the 404 misses),
+  `composition_tags_refused` (the XML, media-type and 400 refusals),
+  `ehr_status_tags` (the EHR_STATUS version and VERSIONED_EHR_STATUS tag
+  lists, kept apart and left in place by a new version) and `ehr_tags` (the
+  EHR-wide listing and its filters). Every criterion quotes the released
+  ITS-REST sentence that assigns it; the ITEM_TAG class is not in the
+  released RM, so the shape of a served tag is judged against the released
+  OAS ITEM_TAG schema. `surface.yaml` takes the ITEM_TAG tag into scope with
+  no gap. Three cases have no counterpart because no released sentence
+  assigns them, the container-addressed COMPOSITION forms are carried on
+  EHR_STATUS only (#667), and the two EHR_STATUS revision-history cases map
+  to the workflows that already carry them; `catalogue/id-map.yaml` says why
+  for each, and lists the old ids of families not yet converted under a new
+  `pending` key.
+- `Prefer: return=identifier` is judged as a recommendation across the
+  catalogue. The released text puts its only RFC 2119 keyword on the
+  identifier body ("SHOULD contain only the identifier"), so a 204 or an
+  empty body under that preference is an advisory row citing upstream report
+  #673, and a workflow that needs the identifier to go on is errored when the
+  server does not send it. This reclassifies the EHR create, the EHR_STATUS
+  update and the bulk-load commit. Their identifier workflows no longer judge
+  Content-Type; `ehr/create_ehr-content_type` and
+  `ehr_status_update/update-content_type` judge it on the JSON responses of
+  the create and the update under return=representation.
+- The EHR_STATUS component of the case-core catalogue is converted to Arazzo
+  (#603). The 55 `I_EHR_STATUS.*` cases become 67 workflows in seven
+  documents under `catalogue/cases/ehr_status/`: `ehr_status` (the latest,
+  at-time and by-version reads and their refusals), `ehr_status_versioned`
+  (the VERSIONED_EHR_STATUS, its versions and the revision history),
+  `ehr_status_update` (the If-Match precondition, the representation
+  preferences, the audit details, other_details and the refused bodies),
+  `ehr_status_flags`, and `ehr_status_xml`, `ehr_status_xml_not_acceptable`
+  and `ehr_status_xml_write_refused` (the canonical-XML choices of the new
+  `ehr-status-xml-read` and `ehr-status-xml-write` options). Every criterion
+  quotes the released ITS-REST or RM sentence that assigns it. Two cases
+  have no counterpart because no released sentence or operation carries
+  them, and
+  `catalogue/id-map.yaml` says why for each. `surface.yaml` takes the
+  EHR_STATUS tag into scope, with seventeen header branches tracked as gaps
+  under #659.
+- The server states its own identity through the ITS-REST System `OPTIONS`
+  operation (#614). The new `veredictum identify --base-url <URL>` sends
+  `OPTIONS <base>/` with `Accept: application/json` and prints one JSON
+  document whose `outcome` is `offered` (a 200 `Options` document),
+  `not_offered` (any status outside 2xx) or `not_options_document`; nothing
+  is judged. `run` performs the same read before it drives anything, and
+  records it in the transcript under `identity` when `--record-exchanges` is
+  on. In `results.json`, `run-transcript.json` and the evidence bundle, `sut`
+  now carries `name` and `version` as `{ value, source }` with `source`
+  `server` or `operator`, plus `vendor` and `restapi_specs_version` when the
+  server stated them. `--sut-name` and `--sut-version` lose their defaults and
+  supply only what the server did not state; a flag that disagrees with the
+  server is overridden with a notice naming both, and a run with neither
+  refuses to start. A results document with the earlier bare-string `sut` is
+  refused. The console's Connect step reads the identity through the engine
+  and shows what the server stated read-only, labelled as reported by the
+  server, with the vendor and REST specification version beside it; where the
+  server does not offer the document, the operator's inputs stay, labelled as
+  entered by the operator.
+- The EHR component of the case-core catalogue is converted to Arazzo (#603).
+  The 27 `I_EHR_SERVICE.*` cases become workflows in six documents under
+  `catalogue/cases/ehr/`: `ehr` (create and read, the default and supplied
+  EHR_STATUS, the identifier preference, the subject conflict and its
+  refusal twins), `ehr_xml`, `ehr_xml_not_acceptable` and
+  `ehr_xml_write_refused` (the canonical-XML choices a statement selects
+  between), `ehr_committal` and `ehr_bulk_load`. Every criterion quotes the
+  released ITS-REST or RM sentence that assigns it. Three cases have no
+  counterpart because no released sentence or operation carries them, and
+  `catalogue/id-map.yaml` maps every old case id to its new ids or says why
+  it has none. The `convert_catalogue` example is the one-off converter that
+  drafts a component's documents with placeholder citations for hand
+  completion.
+- The Arazzo condition profile and rows format gain the composition rules
+  the EHR conversion needs (#603). A `regex` criterion over a response header
+  reads an absent header as the empty string, so `^(W/".+")?$` states the
+  ETag weak-form MUST, which four workflows check, one per EHR operation.
+  `x-veredictum-cite` gains `level` (`must` by default, or `should`), and the
+  new `arazzo-level` gate refuses a level its quote's RFC 2119 keywords
+  disagree with and any quote that only permits. A row whose failing criteria
+  are all `should` is failed and advisory, and never counts against a
+  capability. Rows files gain `declared`, an input read from the party's IXIT
+  or statement (a party that declares none has the rows skipped as
+  `not-declared`, a new skip reason), and `aggregate: distinct`, a property of
+  a `single_pass` run judged after its last row. A document may name a
+  `type: arazzo` source and depend on its workflows, so the template upload
+  lives once in `catalogue/cases/_setup/`. `catalogue/capabilities.yaml`,
+  validated against the new published `arazzo-capabilities` schema, carries
+  the options a statement answers, with their arm documents; the
+  documents of an arm the statement does not select are skipped as
+  `option-not-selected`, the new `arazzo-identity` gate refuses an arm naming
+  a document that does not exist, and surface coverage counts an element only
+  when every arm covers it. `catalogue/sources/veredictum-probes.openapi.yaml`
+  declares the deliberately wrong requests, marked as Veredictum's own.
+  `create_ehr-clone_system_id`, `create_ehr-wrong_method` and the EHR
+  uniqueness checks are restored on these rules, and an ETag and
+  Last-Modified presence check is added as an advisory row. The
+  invalid-status row whose other_details has no `_type` is withdrawn: the
+  released key words apply only in capitals, and the lower-case "should be
+  used" assigns no refusal (upstream report #650).
+
+- `validate` parses every AQL query the Arazzo catalogue sends with
+  `openehr-query` 0.0.97, a Rust implementation of the released AQL grammar,
+  under a new `arazzo-aql` gate (#626). The gate reads the `q` of
+  `query_execute_adhoc_query` and `query_execute_adhoc_query_body` and the
+  text body of the stored-query `definition_query_store.yaml` operations,
+  from a literal or from each row of the workflow's rows file. A query that
+  does not parse is refused with the case, the row, the query and the
+  parser's token and byte position, unless its step expects
+  `$statusCode == 400`; such a step whose query parses must say in its
+  `description` what else makes the request invalid. The parser is tested
+  against all 18 worked queries of the QUERY Release-1.1.0 examples: the 11
+  the grammar derives parse and round-trip through the printer, and the 7 it
+  refuses are refused at the position the grammar fails. `openehr-query` is
+  BUSL-1.1, admitted by a `deny.toml` licence exception for that crate alone;
+  the README and `NOTICE` state its terms.
+
+- Every surface and every result states the instrument's approval status
+  (#627). Veredictum stays on 0.x until the openEHR SEC approves it, and 1.0.0
+  marks that approval. `results.json` and the Arazzo results document carry a
+  required top-level `instrument_status`, `pre-approval` for every 0.x version
+  and `sec-approved` from 1.0.0, derived at compile time from the crate's own
+  version; both published schemas require it, and a results document without
+  it no longer parses. `veredictum --version` prints the status after the
+  version, as in `veredictum 0.1.7 (pre-approval: not yet approved by the
+  openEHR SEC)`, and the console checks the pinned engine against that full
+  line. The console shows the status in a banner above every screen, read from
+  the engine. The README, the website, the book's introduction and the crate
+  description say the same.
+
+- Rows files carry decision-table literals (#638). The published rows schema
+  gains `literals`, the columns whose values are read through the
+  decision-table literal grammar, and `recipe`, which binds one more input per
+  row from those literals. `validate` refuses a literal that does not parse
+  under `arazzo-rows`, naming the row, the column and the character offset of
+  the failing production. The `content_instance` recipe builds the
+  composition a content decision-table row commits, with the same code the
+  decision tables use, so a row yields the same bytes on every run. The
+  evaluator sends a request body whose `payload` is a runtime expression as
+  that expression's value (Arazzo 1.1.0 §Request Body Object). The first
+  converted content case is `CONT-DV_COUNT-validate_range`, as
+  `catalogue/cases/content/dv_count.arazzo.yaml` with three rows files.
+- `validate` gates the Arazzo catalogue (#601). Every document under
+  `catalogue/cases/` validates against the official Arazzo 1.1 JSON
+  Schema (revision 2026-04-15, vendored by `scripts/vendor/arazzo-schema.sh`
+  and amended only where the Arazzo 1.1.0 text disagrees with it,
+  OAI/Arazzo-Specification#559). Findings carry eight new tokens:
+  `arazzo-load`, `arazzo-schema`, `arazzo-keys` (a key Arazzo does not define,
+  or an extension other than the two), `arazzo-source` (every `operationId`
+  and parameter resolves in its released OAS after `$ref`s, or is a request
+  header the ITS-REST overview names), `arazzo-citation` (every criterion
+  resolves to a citation whose quote occurs in its section),
+  `arazzo-profile` (no `simple` string comparison, no regex lookaround or
+  backreference, every runtime expression parses), `arazzo-rows` (a rows file
+  sits beside its document as `<workflowId>.rows.yaml`, names a workflow in
+  that folder, validates, and binds every required input) and `arazzo-surface` (inside the families
+  `catalogue/cases/surface.yaml` scopes, every released operation,
+  declared response and negotiation-header value is covered by a step or is
+  a gap with its tracking issue). `x-veredictum-cite` gains an optional
+  `report` naming an `upstream-report` issue. Four schemas are published:
+  `arazzo-extensions`, `arazzo-profile`, `arazzo-rows` and `arazzo-surface`.
+- The Arazzo evaluator (#600). It judges `jsonpath` criteria as RFC 9535
+  queries and `regex` criteria in the syntax ECMA-262 and the `regex` crate
+  share, refusing lookaround, backreferences and every construct only one
+  dialect has. It refuses `xpath` criteria with a typed error. The
+  `x-veredictum-check` judges `result_set`, `equivalent` and `signature`
+  reuse the engine's existing comparators. A fourth judge, `schema`, validates
+  a response against the schema its operation declares in the `-validation`
+  OAS, translated from OpenAPI 3.0.3 into JSON Schema 2020-12. It runs only
+  on a criterion that asks for it and cites the OAS element, so an OAS schema
+  never outranks the RM. The EHR document gains two cases from RM `ehr.adoc`:
+  a created EHR's `ehr_status` and `ehr_access` references name
+  `VERSIONED_EHR_STATUS` and `VERSIONED_EHR_ACCESS`. A workflow runs once per row of
+  its `<workflowId>.rows.yaml` beside the document, under `reset_per_row` or
+  `single_pass`, with its `dependsOn` workflows as setup. Every exchange is
+  recorded as HAR 1.2 without the `Authorization` value, and re-judging a
+  recording writes the same results bytes. Rows files are read against the
+  published `arazzo-rows` schema, and `arazzo-results.schema.json` is new. The
+  verification pack gains three Arazzo recordings with adjudicated passed,
+  failed and errored verdicts.
+- The COMPOSITION reads addressed by a `versioned_object_uid` are converted
+  to Arazzo (#678). A step derives the uid from the version_uid a create
+  answers with, and a second version comes from `composition_update`. 48
+  workflows carry 21 of the 23 cases that waited under `pending`:
+  `composition_versioned` (the VERSIONED_COMPOSITION, its VERSION latest,
+  at a time and by version_uid, a deleted VERSION, the revision history, and
+  their headers), `composition_read_container` (the latest version, the
+  version at a time, a superseded version by its version_uid, the agreement
+  of the two identifier forms, and the 204 of a deleted version), the latest
+  and at-time reads in the arms of the `composition-xml-read`,
+  `composition-flat-read` and `composition-structured-read` options, and
+  `composition_versioned_read_xml` and
+  `composition_versioned_read_xml_not_acceptable`, which join the arms of
+  `composition-xml-read`. The XML root element stays unjudged until the
+  evaluator reads XML bodies (#637), and the `Content-Type` the release
+  declares on the body-less VERSIONED_EHR_STATUS and VERSIONED_COMPOSITION
+  reads is a gap under upstream report #687. Two at-time cases have no
+  workflow: no released text says whether a version is extant at its own
+  commit instant, and no expression adds to a time.
+- The ITEM_TAG list of a VERSIONED_COMPOSITION is judged in
+  `catalogue/cases/item_tags/composition_tags` (#667), addressed by the
+  `versioned_object_uid` a step derives from the commit's version_uid. Five
+  workflows cover the target a container tag names, the version and
+  container lists kept apart on update and on delete, a new version from
+  `composition_update` that moves no tag, and the key and target_path
+  identity on the container. A demographic party's uid on the COMPOSITION
+  tag routes stays uncarried: the only route that creates a party is the
+  demographic API, which the release ships in the `DEVELOPMENT` state.
+- The COMPOSITION update cases are converted to Arazzo (#675). A create
+  step derives the `versioned_object_uid` from the version_uid it answers
+  with (`x-veredictum-derive`), and 65 new workflows address the
+  COMPOSITION and its VERSIONs by it. `composition_update` (the new version
+  an update commits, its change type, the If-Match precondition, the
+  representation preferences, the answer headers, the committal headers and
+  FEEDER_AUDITs) and `composition_update_refused` (400, 422 and a
+  not-modifiable EHR, each read back) carry 24 of the 27 update cases.
+  `composition_create` and `composition_delete` gain the VERSION halves:
+  change type, lifecycle_state, system_id, the audit headers, and the 409
+  and 412 of a delete addressed to a superseded version. The XML and
+  simplified-format `Accept` values of the create and update join the arms
+  of the `composition-xml-read`, `composition-flat-read` and
+  `composition-structured-read` options, the XML update body joins
+  `composition-xml-write`, and the new `composition-flat-write` and
+  `composition-structured-write` options carry the simplified request
+  bodies. `catalogue/id-map.yaml` says why for each case not carried, and
+  `surface.yaml` lists no gap under #675; the 400 of a second delete stays
+  a gap under #681. The create steps that only learn a version_uid for a
+  later step in `composition_create`, `composition_delete` and
+  `composition_xml` now ask for `return=representation` and read
+  `uid/value`, so a server that declines the advisory identifier
+  preference no longer leaves those rows errored.
+- The console runs in trial mode unless `VEREDICTUM_CERTIFICATES=issue` is set:
+  runs, results and verdicts work, every page's status banner says no
+  certificate is issued, and no signing key is read. With issuance on, it
+  refuses to start on a key its published JWK Set does not carry, and each
+  finished run gets `certificate.jws`, downloadable from its results page. The
+  console serves that set at `/.well-known/jwks.json`, byte for byte the
+  committed `deploy/hosted/jwks.json`. (#592)
+- Conformance certificates: a JWS in the compact serialization, signed with
+  Ed25519 (`EdDSA`), whose payload names the server with the source of each
+  identity field, the catalogue digest, the engine version and status, the
+  verdict summary and the SHA-256 digests of `results.json` and the HAR
+  recording. `veredictum verify <certificate> --jwks <file>` checks one offline
+  and refuses a changed payload, an unknown `kid`, another algorithm, a revoked
+  key and a key that expired before issuance, each as its own error. The
+  payload and the key set are published as `schemas/certificate.schema.json`
+  and `schemas/jwks.schema.json`. (#593)
+- An experimental Arazzo 1.1.0 catalogue slice (#599): the EHR create and
+  read cases in `catalogue/cases/ehr/ehr.arazzo.yaml`, with their 400,
+  404, 409 and 422 refusal twins, each criterion citing the released ITS-REST
+  or RM sentence that assigns it through `x-veredictum-cite`. The library gains an
+  `arazzo` module that parses the documents with `roas-arazzo` 0.3.0, gates
+  them (every criterion resolves to a citation whose quote occurs in the
+  vendored file, every operation resolves in its released OAS, every
+  condition is inside the profile), and drives a workflow into passed,
+  failed, errored or skipped with a four-part explanation. The CLI and the
+  existing catalogue are unchanged.
+- The Arazzo catalogue covers the EHR create header branches (#653, #659):
+  `Prefer: return=minimal` on both creates, `Prefer: return=identifier` on
+  the create with a client-supplied `ehr_id`, and `Accept: application/xml`
+  on both creates under the `ehr-xml-read` option. Four new options,
+  `ehr-status-flat-write`, `ehr-status-structured-write`,
+  `ehr-status-flat-read` and `ehr-status-structured-read`, hold a service
+  that declines a Simplified Format on the EHR and EHR_STATUS routes to
+  `415` and `406`. The release defines no EHR_STATUS form in either format
+  (upstream report #352), and no sentence requires a service to accept the
+  XML root an EHR_STATUS has (#759), so those branches stay surface gaps
+  that name the report.
+- The Arazzo catalogue covers the answer of a CONTRIBUTION create asked for in
+  canonical XML and in both Simplified Formats, and the answer of a directory
+  create and update asked for in canonical XML, each with a served and a
+  refusing arm under the existing `contribution-xml-read`,
+  `contribution-flat-read`, `contribution-structured-read` and
+  `directory-xml-read` options. The XML request bodies of those writes and the
+  Simplified Formats on the directory operations stay surface gaps, tracked by
+  the upstream reports #759 and #352. (#698)
+- The Arazzo catalogue covers more of the Query and stored-query surface:
+  the 400 of a refused stored-query execution and version store, the
+  listing by a name prefix and of every version, the dotted and unqualified
+  query names, the 406 and 415 of the stored-query definition operations,
+  the `openehr-ehr-id` request header on ad-hoc and stored executions, MIN
+  and MAX over a String, NOT over a parenthesised conjunction, fetch beside
+  a stored TOP query (on the `aql-top-supported` arm), and the AQL lexer's
+  whitespace and comment rules. The 408 of a query that times out is
+  recorded against upstream report #754, since the release gives a client
+  no way to provoke it. (#711)
+- The condition profile (`schemas/arazzo-profile.schema.json`) lets a step
+  send the `openehr-ehr-id` request header its operation does not declare. (#711)
+- A citation may quote a grammar rule under the AsciiDoc chapter that
+  includes the grammar file, and the AQL gate no longer reads a stored-query
+  body sent in another media type as AQL text. (#711)
+- The Simplified Flat JSON catalogue carries the mappings it left without a
+  workflow: the REFERENCE_RANGE rows and the DV_INTERVAL boundary flags, the
+  `ctx/` defaults master06 defines for the composer reference, the facility,
+  the workflow id, the times, the provider, the ACTION state, the INSTRUCTION
+  narrative, the ACTIVITY timing, the location, the setting and the links,
+  the EVENT_CONTEXT rows and archetyped `other_context` content, the `_link`,
+  `_feeder_audit` and `_uid` rows of the COMPOSITION, an ENTRY, an ELEMENT
+  and a CLUSTER, SECTION, ADMIN_ENTRY, INSTRUCTION and ACTIVITY content, a
+  PARTY_RELATED participation performer, and the keys of a COMPOSITION read
+  back in the Flat format. Four refusals pin a missing reference-range
+  meaning, two interval flags that break the BASE Interval invariant, and a
+  link with no target. (#722)
+- The Arazzo catalogue covers more of the Demographic API: the create and
+  update of each PARTY kind answered in canonical XML (both arms of
+  `party-xml-read`), the demographic CONTRIBUTION commit and read in canonical
+  XML (the new `demographic-contribution-xml-read` option), the refused XML
+  commit of a demographic CONTRIBUTION (the new
+  `demographic-contribution-xml-write` option), and a PERSON's uid presented
+  on an EHR's COMPOSITION tag route. The Simplified Formats on the party
+  operations, the XML request bodies and the 400 of the Demographic tag
+  listing stay gaps naming the upstream reports that put them off the wire. (#733)
+- An option in `capabilities.yaml` can carry `decides`, the response statuses
+  of an operation that its arms divide as alternative answers, each with the
+  released sentence that makes them alternatives. The surface gate counts a
+  listed status as covered when one arm asserts it and every arm calls the
+  operation. Every other element still needs every arm, and `validate`
+  refuses a listed status that no arm asserts or whose operation an arm does
+  not call. This covers the Admin API delete branches `202` and `204` and the
+  bulk delete's `405`. (#737)
+- A rows file can carry `server: exclusive`: its workflow runs only when the
+  party's IXIT declares `environment.exclusive_server: true`, and is skipped
+  as `not-declared` otherwise (#738). (#737)
+- The unfiltered Admin API bulk delete (`DELETE /admin/ehr/all` with no
+  `ehr_id`) has a synchronous and an asynchronous workflow under that
+  declaration (#738). The bulk delete's `404` stays a surface gap under
+  upstream report #735, because no released sentence names the request it
+  answers. (#737)
+- The Arazzo catalogue carries SMART on openEHR in a `smart` capability folder
+  a statement may leave unclaimed, since the specification is in the
+  DEVELOPMENT state (#745). `smart_discovery` reads the SMART configuration
+  document from the Platform base URL and checks its `application/json` media
+  type, the required `org.openehr.rest` service and that service's absolute
+  `baseUrl`; `smart_scopes` reads the ADL 1.4 template list with a
+  `system/template-*` read scope per row. The refusal of a scope that does not
+  grant an operation is not carried, because the released text assigns it no
+  status (upstream report #758).
+- `veredictum test --platform-url` names the SMART Platform base URL, which
+  can differ from `--base-url`; a source whose root says
+  `x-veredictum-base: platform` is sent there, and without the flag its
+  workflows are skipped as `not-declared` (#745).
+- A step's `x-veredictum-scope` names the scope set of the access token it
+  presents, so each row can carry its own (#745). The IXIT's `scoped_tokens`
+  member supplies a token per scope set from a `VEREDICTUM_SCOPED_TOKEN_<NAME>`
+  variable or its `_FILE`, or declares a test issuer whose RSA key in
+  `VEREDICTUM_SCOPED_TOKEN_KEY` mints one. Only the credential transport reads
+  the tokens; the results and the recording never hold one. A declared
+  variable that is not set stops the run with exit status 2, and a row whose
+  scope set is not covered is skipped as `not-declared`. The published
+  `arazzo-extensions` schema gains the `scope` definition, and the published
+  IXIT schema the `scoped_tokens` member.
+- `veredictum test` drives the Arazzo catalogue against a server and writes
+  `results.json` and the HAR recording, or re-judges a recording offline into
+  the same bytes (#768). It gates the whole catalogue first and runs every
+  document except the shared setups. A statement must claim at least one
+  capability folder in `claims.capabilities`, and every workflow of a
+  document in an unclaimed folder is skipped `not-claimed`, citing the
+  statement schema's claims clause, which now describes the rule; setups a
+  claimed document depends on still run. The statement's `options` select
+  option arms. An unknown folder or arm, or two arms of one option, stops the
+  run. Without a statement everything runs. The administrative workflows are
+  skipped when `--admin-auth` supplies no principal. Credentials come from
+  environment variables or from files named by the same variables with
+  `_FILE` appended, and none is recorded. The exit status is `0` when every
+  row passed or was skipped (advisory rows included), `1` when a row failed
+  or errored, and `2` when the run could not start. The `arazzo_spike`
+  example it replaces is deleted.
+- The container image runs engine subcommands through its entry point:
+  `docker run <image> test …` drives the catalogue the image ships, which
+  `VEREDICTUM_CATALOGUE` names, into a mounted output directory, and the
+  image smoke test and the CI image build both run it. A catalogue run's
+  results carry `document: catalogue`, which the Arazzo results schema now
+  describes, and the HAR recording records whether the administrative
+  principal was supplied. (#768)
+- The aql-conformance corpus import moves to commit `28749a4`. All 495 of its
+  case ids are in `catalogue/id-map.yaml`. Of the 259 new ones, 9 are carried,
+  36 folded onto existing workflows and 214 not carried, each with its upstream
+  report. The new `aqlc_order_by` and `aqlc_paging` documents and three more
+  LIKE cases are among the carried ones. Two corrected EHRbase templates join
+  the set-up. (#769)
+- A GitHub Action at the repository root runs the instrument in a vendor's CI
+  with one `uses:` step. It runs the release image of its own version, or an
+  image the caller names by digest, drives `test` against the server with the
+  caller's statement and IXIT, writes `results.json`, `junit.xml`, `ctrf.json`
+  and `summary.md` into its output directory, and appends the summary to the
+  job summary. The step exits with the run's status: `1` when a row that
+  counts against the server failed or errored, `2` when the run could not
+  start. Credentials are read from the step's environment under the names the
+  engine reads, or from files through their `_FILE` forms, and an empty
+  variable counts as unset. The book has a page for it with a complete
+  workflow, and the `export` page's example uses it. (#770)
+
+### Changed
+
+- The measured instruments read a tree of their own, `perf/` (#746):
+  `classes/` holds the four performance cases, `journeys.yaml` the journey
+  catalogue, `payloads.yaml` a manifest of every body and operational
+  template a journey or the seeder sends, and `payloads/` those files. `perf`,
+  `stress`, `aql-probe` and `perf-assets` take this tree as `--root` and read
+  nothing from `artifacts/`, so the cut-over can delete the case files,
+  bindings and corpus without taking the instruments with them. Loading the
+  tree checks what the instruments depend on: every workload expands inside
+  the read-heavy band, every stage template and auxiliary payload is in the
+  manifest, every manifest file exists, and the manifest carries nothing no
+  stage reads. The new manifest is published as
+  `schemas/perf-payloads.schema.json`. The files are copies, byte-identical
+  to the case-core tree's, which keeps its own until the cut-over, and a test
+  holds the two together. Pass `--root perf` where `--root artifacts` was
+  passed before.
+- `I_EHR_COMPOSITION.create_composition-terminology_binding_unresolvable_fail_open`
+  runs on its own deployment, the `sut_fail_open` instance, the way its
+  fail-closed twin runs on `sut_pgp` (#684). A party that wires one
+  terminology server to each deployment cannot hold a reachable server and an
+  unreachable one on the same instance, so the down branch of register
+  AMB-172 needs a deployment of its own. A party has the case driven by
+  declaring `sut_fail_open` with the `fail_open` posture and the `cnf-ts-down`
+  namespace on a server marked `reachable: false`; a party that declares no
+  such instance gets the cited undeclared-instance not-applicable. The
+  expectation is unchanged.
+
+- The Arazzo catalogue moves from `artifacts/workflows/` to `catalogue/cases/`
+  (#603, #624), and the case-core catalogue stays in `artifacts/` until the
+  cut-over. `validate --root catalogue` runs only the Arazzo gates over a root
+  that holds `cases/` and no `schedule/`, and CI runs it beside
+  `validate --root artifacts`.
+
+- The minimum supported Rust version rises from 1.96 to 1.98, and the pinned
+  toolchain and the image's builder move to Rust 1.98.1. `openehr-query`, the
+  AQL parser Veredictum adopts (#626), requires Rust 1.98.
+
+- quick-xml moves from 0.41 to 0.42 in the engine and the fuzz workspace,
+  superseding #548. The library now hands out element names, attribute values
+  and text as `&str`, so the canonical-XML comparison, the `xml_root`
+  assertion, the template-identity read and the jitter constraint read were
+  ported to that API. Text decoding, line-end normalization and entity
+  resolution are unchanged. The namespace resolver's own guard changed with
+  the library: it now refuses a document with more than 128 namespace bindings
+  in scope at once, where 0.41 refused only more than 256 declarations on a
+  single element.
+- `veredictum validate` reads the Arazzo catalogue only. Its summary line
+  counts what it read (documents, workflows, rows files and capability
+  folders) beside the findings, `--statement` holds a declaration to the
+  published statement schema and to the catalogue's capability folders and
+  option arms, and `--write-report` is gone with the coverage report it wrote. (#604)
+- `veredictum verdicts` reads the performance cases from the performance
+  schedule its `--root` names (`perf/`) and writes `verdicts.json` with the
+  re-derived class verdicts and the review of the performance claim. The
+  conformance documents and badges it rendered from the case-core judgement
+  are gone with it. (#604)
+- The container image carries `catalogue/` and `specs/` only, and its
+  `VEREDICTUM_ROOT` is `/work/catalogue`. (#604)
+- The web console runs the Arazzo catalogue. A run started from the console
+  drives `veredictum test` over the catalogue the console is configured with
+  (`VEREDICTUM_ROOT`, now `catalogue` by default and `/work/catalogue` in the
+  image), passing the base URL, the statement and the IXIT, with the
+  credentials in the spawned process's environment only. The catalogue
+  explorer lists capability folders, their Arazzo documents and each
+  workflow's citation and steps; the Scope screen composes a claim from
+  capability folders and filters by document id; and the results screen reads
+  `results.json` and `recording.har`, showing a red row's four-part
+  explanation beside the exchange it was judged on. The "record the wire
+  exchanges" choice is gone, because every run writes its recording. (#604)
+- The quickstart compose file moved from `docker/docker-compose.yml` to
+  `deploy/docker/docker-compose.yml`, so its raw download URL is now
+  `https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/deploy/docker/docker-compose.yml`.
+  The image's `Dockerfile` and the browser-journey compose files
+  (`e2e-ehrbase.yml`, `e2e-ferroehr.yml` and its `e2e-ferroehr.toml`) moved
+  with it, and a local image build names `deploy/docker/Dockerfile`. The
+  `docker-compose.yml` attached to each release keeps its name. (#624)
+- The OpenPGP version-signing test pair moved from `fixtures/keys/` to
+  `catalogue/keys/openpgp/`, and the SMART lane's test issuer from
+  `fixtures/smart-test-issuer/` to `catalogue/keys/smart-test-issuer/`. An
+  IXIT that names the issuer's key file by path names the new one. (#624)
+- The design and governance documents (`ARCHITECTURE.md`,
+  `ASSURANCE_CASE.md`, `GOVERNANCE.md`, `MAINTAINERS.md` and
+  `AI_STATEMENT.md`) moved to `docs/`. The Trivy configuration and its
+  ignore file moved to `security/trivy.yaml` and `security/trivyignore.yaml`,
+  the hadolint configuration to `deploy/docker/hadolint.yaml`, and the
+  mdbook-lint configuration to `website/book/mdbook-lint.toml`. (#624)
+- The YAML reader behind every catalogue artifact, workload file and supplied
+  declaration is `serde-saphyr` 2.0.0 (#729). A tag that selects a unit enum
+  variant now refuses a non-null payload instead of discarding it, and only an
+  empty value, `~`, `null`, `Null` and `NULL` read as null, so a spelling such
+  as `NulL` is a string. A document that relied on either leniency now fails
+  to load with a typed error.
+- Changelog entries are fragments: a pull request with a user-visible change
+  adds one file under `changelog.d/`, named `<issue>-<slug>.<section>.md`, and
+  no longer edits `CHANGELOG.md`, so open pull requests stop conflicting over
+  the Unreleased section. `scripts/release/changelog.sh` checks and previews
+  the fragments, and at the release cut `--assemble X.Y.Z YYYY-MM-DD` folds
+  them into the new section and deletes them. The pull-request guard requires
+  a fragment for a user-visible change and refuses a change that adds a line
+  under the Unreleased heading; the `no-changelog` label waives only the
+  first. The release `plan` job refuses a tag while a fragment is left. (#766)
+- An IXIT's `environment` block may declare `exclusive_server` alone
+  (`schemas/ixit.schema.json`). `hardware_class`, `cores`, `memory_gb`,
+  `storage_class` and `topology` are required only by `perf`, `stress` and
+  `aql-probe`, which refuse an IXIT that lacks one and name the member. (#795)
+- `instances` is optional in the published IXIT schema, because `test` reads
+  no instance; every instrument that addresses one still refuses an IXIT
+  without the `sut` instance. (#795)
+- `test` checks its IXIT against the published IXIT schema and the typed
+  model before anything runs, and stops with exit status 2 naming the file
+  and the violation; it used to read the IXIT unchecked, so a misspelled
+  member read as an undeclared one. (#795)
+- A release may be preceded by release candidates, `X.Y.Z-rcN` with N from 1,
+  and no other pre-release suffix. `scripts/release/changelog.sh --assemble
+  X.Y.Z-rcN YYYY-MM-DD` writes the candidate's section as a release cut would
+  and keeps the fragments, so the final release section still carries every
+  change, and `--covered <version>` checks that a section carries every
+  fragment. The release pipeline runs that check at a candidate tag and refuses
+  a tag with any other suffix. A candidate moves no `:latest` and deploys
+  nothing to the hosted console. (#810)
+- The container image runs on a newer build of
+  `gcr.io/distroless/cc-debian13:nonroot` (digest `sha256:3ee00291…`), and its
+  `org.opencontainers.image.base.digest` label names that digest. (#813)
+- Version signatures in `pgp` mode are verified with `pgp` 0.21.0. It refuses
+  a signature packet whose embedded-signature subpacket nests another embedded
+  signature, which 0.20.0 parsed, so a signature of that shape now fails
+  verification instead of verifying. The fuzz harnesses move to the same
+  version. (#816)
+- The credential variables of `veredictum test`, `veredictum identify` and the
+  GitHub Action name the CDR: `VEREDICTUM_SUT_USER`, `VEREDICTUM_SUT_PASSWORD`
+  and `VEREDICTUM_SUT_TOKEN` are now `VEREDICTUM_CDR_USER`,
+  `VEREDICTUM_CDR_PASSWORD` and `VEREDICTUM_CDR_TOKEN`, and the administrative
+  principal's `VEREDICTUM_ADMIN_USER`, `VEREDICTUM_ADMIN_PASSWORD` and
+  `VEREDICTUM_ADMIN_TOKEN` are now `VEREDICTUM_CDR_ADMIN_USER`,
+  `VEREDICTUM_CDR_ADMIN_PASSWORD` and `VEREDICTUM_CDR_ADMIN_TOKEN`. Each keeps
+  its `_FILE` form. No released version read the old names, so they have no
+  deprecated alias. A missing credential names the flag, the mode and the
+  variables it reads (`--auth basic needs VEREDICTUM_CDR_USER and
+  VEREDICTUM_CDR_PASSWORD (or their _FILE forms)`), the help of `test` and
+  `identify` states the three login modes, and the book has a page on logging
+  in to the CDR. (#819)
+- `veredictum identify` reads its credential exactly as `test` does, so the
+  `_FILE` forms and the empty-is-unset rule apply to it too. (#819)
+- `openehr-query`, the AQL parser `validate` checks every catalogue query with,
+  is now Apache-2.0 from 0.0.116, and the instrument moves to that version.
+  `deny.toml` no longer carries the BUSL-1.1 licence exception, `NOTICE` names
+  no non-permissive dependency, and every dependency of the binary and the
+  container image is under a licence the allow-list admits. The parser's new
+  depth refusal is reported with its position like any other parse failure. (#821)
+
+### Removed
+
+- The performance instruments no longer measure the Template Data Document
+  import (#748). The `tdd_import` journey-stage operation is gone from the
+  journey catalogue and its published JSON Schema, together with its payload
+  loading, its seeding preflight and its template upload. The
+  `simplified_formats_exchange` journey keeps its FLAT commit and FLAT read.
+  The `Tds` capability row now carries a workload exclusion stating that
+  owner ruling, so the measured workload no longer claims to exercise it.
+- The one-off `convert_catalogue` example that drafted each component's
+  Arazzo documents (#603). Every component of the case-core catalogue is
+  converted and every old case id is in `catalogue/id-map.yaml`, so the
+  converter has nothing left to convert.
+- The two TDS workflows of the Simplified Formats documents
+  (`create_composition-tds2_media_unsupported` and
+  `get_template_example-tds2_not_acceptable`) are removed by owner ruling
+  (2026-10-28): TDD/TDS is a legacy format of the Ocean tooling and out of
+  scope for the catalogue. The `simplified-legacy-write` and
+  `simplified-legacy-read` options now name the ECISFLAT media type only, and
+  the two old SF-LEGACY TDS ids and the 16 TDD import ids are mapped to no
+  workflow with that reason (#603).
+- The OpenPGP-signed run record: `verdicts --sign-key` and its passphrase
+  variable `VEREDICTUM_SIGN_PASSPHRASE`, the `verify-record` subcommand, and the
+  library's `record` module. A conformance certificate replaces it. OpenPGP
+  stays only where a server under test signs its versions with it, which the
+  instrument verifies. (#593)
+- The case-core catalogue and the engine that drove it are deleted: the case
+  cores under `artifacts/schedule/`, the operation bindings, the vocabularies,
+  the corpus, the ambiguity register (#617) and every AMB id, the old
+  `run` driver and its interpreter, the reference, selector and capture
+  grammars, `validate --root artifacts`, and the verification pack's old
+  transcript. The Arazzo catalogue under `catalogue/` is the one catalogue,
+  and `catalogue/id-map.yaml` still resolves every old case id to the
+  workflows that carry it. (#604)
+- The `replay`, `evidence` and `conformance-assets` subcommands are removed:
+  they read the old run's transcript and results. `veredictum test
+  --rejudge` re-judges a recording, and the HAR recording beside a run's
+  `results.json` is the triage input. (#604)
+- The published schemas of the deleted formats are removed:
+  `case-core`, `operation-binding`, `outcomes`, `selectors`,
+  `capability-matrix`, `corpus-manifest`, `ambiguity-register`,
+  `wire-surface`, `transcript`, `run-transcript` and `evidence-bundle`. The
+  results schema loses `ambiguity_dispositions`, and the statement schema
+  loses `served_extensions`. (#604)
+- The fuzz targets of the deleted readers (`reference_grammar`,
+  `artifact_yaml`, `citation`) are removed, with the vendor scripts of the
+  ADL corpora nothing reads any more and the corpus-OPT reproducibility guard. (#604)
+- The web console's verdicts screen, its export of a signed record and its
+  evidence download are removed with the case-core judgement they read, and
+  so are the `VEREDICTUM_SIGN_KEY` and `VEREDICTUM_VERIFY_KEY` settings. (#604)
+- **Breaking:** the `veredictum run` subcommand is removed, with no alias.
+  `veredictum test` drives the catalogue; a script that called `run` fails
+  with a usage error until it calls `test`. (#604)
+- The Service Model leaves the oracle set: `specs/openehr/SM/` and its row in
+  the spec vendor script are removed. SM was never released, and ITS-REST
+  binds every operation to the wire on its own; a citation that names the SM
+  tree is still refused. (#604)
+
+### Fixed
+
+- The Arazzo evaluator substitutes an embedded `{$…}` expression in every
+  string of a JSON payload or replacement value, at any depth (#740). It
+  substituted only in a payload that was itself a string, so an expression
+  nested in a JSON body reached the server as literal text.
+- Three content-recipe defects the content conversion (#603) found, each a
+  runner fault and none a server one. A row whose `context_committed` cell
+  is `absent` now commits no EVENT_CONTEXT; the authored token read as the
+  absent sentinel and fell back to a present context. A HISTORY with no
+  events omits `events` instead of sending an empty list, which the
+  ITS-JSON schema refuses. The synthesized HISTORY templates give their
+  EVENT node the events cardinality as its occurrences, so a 3..5 HISTORY
+  admits three events (ADL 1.4 VCOC); it was capped at one. An ordinal
+  symbol cell may name its rubric, `local::at0005 (mild)`, which the symbol
+  then carries as its value.
+- The `arazzo-citation` gate refuses a docs `section` that matches more than
+  one heading, instead of checking the quote against the first one (#633).
+  A repeated heading is named by a path of titles joined by ` > `, each
+  directly under the one before it, for example
+  `Context Model of Recording > Overview` in the RM composition package,
+  which has three `Overview` headings. The `arazzo-extensions` schema
+  describes the form.
+- A `single_pass` case whose shared provisioning is refused records every row
+  errored, and one whose shared ground does not apply on the technology
+  profile records every row not applicable; in both, none of its rows is
+  driven (#651). Rows after the first used to run on ground that was never
+  provisioned, and their outcomes counted against the server.
+- Every errored row is on the record (#651). An outcome in `results.json`
+  gains `errored_rows`, listing each errored row with its step and reason
+  whatever the rolled-up status, so an errored row no longer disappears when
+  another row of the same case failed. The results and evidence-bundle
+  schemas describe the new member.
+- Schema checks run on `jsonschema` 0.59.0 (#728). A pattern that hit the
+  regular-expression backtrack limit counted as a non-match before, so a
+  `not` or `patternProperties` keyword could accept an instance it should
+  refuse. A response judged against the released OpenAPI schemas, or an
+  artifact checked against the published schemas, now fails in that case.
+  The fuzz harnesses move to the same version.
+- The console closes every connection in stages (RFC 9112 §9.6): it
+  half-closes, then reads and discards what the caller still sends for up to
+  30 seconds. A body refused past the transport cap now reaches the caller as
+  the refusal instead of a connection reset. (#780)
+- `veredictum test` runs every workflow whose rows file says
+  `server: exclusive` in a final phase, after every other workflow of the run
+  (#794). The bulk delete of every EHR used to run in path order, so it could
+  take an EHR away from a workflow that ran after it and turn that row red for
+  a reason that was the instrument's. Within each phase the documents keep
+  path order, `results.json` lists the rows in the order they ran, and a
+  re-judgement replays the recording in the same order.
+- A rows file may say `server: exclusive` without `rows`, so a workflow that
+  declares no inputs can carry the marker; it then runs once. `validate`
+  still refuses a row for such a workflow, and refuses a row-less file whose
+  workflow requires an input no generated or declared value binds
+  (`schemas/arazzo-rows.schema.json`). (#797)
+- `veredictum test` refuses an empty credential variable the way it refuses
+  an unset one. A `VEREDICTUM_CDR_*` credential variable, or its `_FILE`
+  form, set to the empty string counts as unset, so a run whose CI
+  secret does not exist stops with exit status `2` naming the variable instead
+  of presenting an empty credential to the server. (#799)
+- The GitHub Action's description is 113 characters, inside the Marketplace's
+  124-character limit, so a release can be listed on GitHub Marketplace. A CI
+  guard holds `action.yml` to the listing requirements. (#802)
+
+### Security
+
+- Signing a run record refuses a secret key with any component outside RSA,
+  Ed25519, legacy EdDSA, X25519 and Curve25519 ECDH, naming the refused
+  algorithm. The check reads packet headers before the key is parsed, so an
+  ECDSA, NIST or Brainpool ECDH, X448 or Ed448 secret scalar is never decoded.
+  RUSTSEC-2026-0387 reports timing variability in `crypto-bigint` 0.5.5, which
+  `pgp` 0.20 pulls in through `elliptic-curve` 0.13 and `cx448`, and no `pgp`
+  release has moved off it. With the refusal in place, `crypto-bigint` sees
+  only public keys during signature verification, so `deny.toml` accepts the
+  advisory and the Rust-advisory OpenVEX document states it as not affected.
+  Removing OpenPGP signing (#593), or a `pgp` release on a fixed
+  `crypto-bigint`, retires the entry.
+
 ## [0.2.0-rc1] - 2026-10-29
 
 ### Added
@@ -3840,7 +4749,8 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
   attribution-stripping `commit-msg` hook with `scripts/install-hooks.sh`, and
   the Rust `.gitignore` set.
 
-[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.0-rc1...HEAD
+[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.0-rc2...HEAD
+[0.2.0-rc2]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.7...v0.2.0-rc2
 [0.2.0-rc1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.7...v0.2.0-rc1
 [0.1.7]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.5...v0.1.6
