@@ -28,45 +28,25 @@ that file, so the job's summary page shows it with no third-party action.
 printed to standard output and every other console line goes to standard
 error, so the summary can be piped.
 
-**A vendor's GitHub Actions job.** The workflow below drives the EHR workflows
-against the vendor's CDR with [`test`](#test), then exports the results. The
-run step fails the job when a row failed or errored; the export steps still run,
-so the Markdown summary lands on the job's summary page and the CTRF report is
-handed to `ctrf-io/github-test-reporter`, which can also comment on a pull
-request. In a real workflow, pin every `uses:` to a full commit SHA.
+**A vendor's GitHub Actions job.** [The GitHub Action](github-action.md) runs
+[`test`](#test) and then `export` in one step, with the image of the release it
+belongs to:
 
 ```yaml
-name: openEHR conformance
-on: [pull_request]
-
-jobs:
-  conformance:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: Vernum-Projecten/Veredictum
-          path: veredictum
-      - name: Drive the EHR workflows against the CDR
-        working-directory: veredictum
+      - uses: Vernum-Projecten/Veredictum@<commit-sha> # vX.Y.Z
         env:
-          CDR_BASE_URL: ${{ vars.CDR_BASE_URL }}
           VEREDICTUM_SUT_USER: ${{ secrets.CDR_USER }}
           VEREDICTUM_SUT_PASSWORD: ${{ secrets.CDR_PASSWORD }}
-        run: |
-          cargo run --locked -- test --base-url "$CDR_BASE_URL" --auth basic \
-            --document ehr --out ../conformance
-      - name: Export the results to the job summary, JUnit and CTRF
-        if: ${{ !cancelled() }}
-        working-directory: veredictum
-        run: |
-          cargo run --locked -- export --results ../conformance/results.json \
-            --junit ../conformance/junit.xml --ctrf ../conformance/ctrf.json
-      - uses: ctrf-io/github-test-reporter@v1
-        if: ${{ !cancelled() }}
         with:
-          report-path: conformance/ctrf.json
+          base-url: ${{ vars.CDR_BASE_URL }}
+          statement: conformance/statement.json
+          auth: basic
+          out-dir: conformance
 ```
+
+The step writes `junit.xml`, `ctrf.json` and `summary.md` into `conformance/`,
+appends the summary to the job summary, and fails the job when a row failed or
+errored. Its page has a complete workflow.
 
 The JUnit file is read by GitLab (`artifacts:reports:junit`), Jenkins (the
 JUnit plugin) and most other CI systems. `conformance/recording.har` holds the

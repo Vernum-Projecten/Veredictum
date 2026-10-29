@@ -38,10 +38,13 @@
 #   .dockerignore   its build can even see
 #   Cargo.toml      the package identity, the dependency set, and the lint tables
 #   Cargo.lock      that decide what compiles
+#   action.yml      the published GitHub Action a vendor's CI runs, and the one
+#   scripts/action/run.sh   script it executes
 #
 # Deliberately NOT in the set, because a changelog entry for them would be noise
 # rather than news: the crates' `tests/`, `specs/` (vendored, refreshed only by
-# its own script), `scripts/`, `.github/`, `.claude/`, and prose.
+# its own script), `scripts/` other than the action's script, `.github/`,
+# `.claude/`, and prose.
 #
 # Usage:  changelog-entry.sh [<base-ref> [<head-ref>]] [--no-changelog-label]
 #                                                 (default: origin/main HEAD)
@@ -67,6 +70,8 @@ readonly USER_VISIBLE_PATHS=(
   'Cargo\.toml$'
   'Cargo\.lock$'
   'app/[^/]+/Cargo\.toml$'
+  'action\.yml$'
+  'scripts/action/run\.sh$'
 )
 
 # guard <repo> <base> <head> <waived: 0|1>
