@@ -208,10 +208,8 @@ describes, never in a public issue.
 ## Licence
 
 Apache-2.0 ([LICENSE](https://github.com/Vernum-Projecten/Veredictum/blob/main/LICENSE)).
-The vendored specification text keeps its upstream terms, declared in
-`REUSE.toml`. One linked dependency,
-[`openehr-query`](https://crates.io/crates/openehr-query), is BUSL-1.1, so the
-binary and the image carry its terms too;
+The vendored specification text and clinical models keep their upstream
+terms, declared in `REUSE.toml`;
 [About the project](https://veredictum.eu/docs/about.html#licence) states them.
 
 openEHR® is the registered trademark of the openEHR Foundation. Veredictum is
