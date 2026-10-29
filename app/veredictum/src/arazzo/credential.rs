@@ -85,10 +85,11 @@ impl Role {
 /// Why a credential cannot be located or read.
 #[derive(Debug, thiserror::Error)]
 pub enum CredentialError {
-    /// Neither the variable nor its file variable is set.
+    /// Neither the variable nor its file variable is set to a non-empty
+    /// value.
     #[error(
         "the credential is read from {variable} or from the file {file_variable} names, and \
-         neither is set"
+         neither is set (an empty value counts as unset)"
     )]
     Missing {
         /// The variable.
@@ -194,12 +195,16 @@ impl CredentialSource {
     }
 }
 
+/// Locates one secret. A variable set to the empty string counts as unset:
+/// a CI system expands a secret it does not hold to an empty value, and an
+/// empty credential presented to a server is a missing one.
 fn locate_secret(
     variable: &str,
     lookup: &dyn Fn(&str) -> Option<OsString>,
 ) -> Result<SecretSource, CredentialError> {
     let file_variable = format!("{variable}{FILE_SUFFIX}");
-    match (lookup(variable).is_some(), lookup(&file_variable)) {
+    let set = |name: &str| lookup(name).filter(|value| !value.is_empty());
+    match (set(variable).is_some(), set(&file_variable)) {
         (true, None) => Ok(SecretSource::Variable(variable.to_owned())),
         (false, Some(path)) => {
             let path = PathBuf::from(path);
@@ -228,13 +233,20 @@ fn locate_secret(
 /// one an editor or an `echo` leaves; anything else in it is the secret.
 fn read(source: &SecretSource) -> Result<String, CredentialError> {
     match source {
-        SecretSource::Variable(variable) => std::env::var(variable).map_err(|error| match error {
-            std::env::VarError::NotPresent => CredentialError::Missing {
+        SecretSource::Variable(variable) => {
+            let missing = || CredentialError::Missing {
                 variable: variable.clone(),
                 file_variable: format!("{variable}{FILE_SUFFIX}"),
-            },
-            std::env::VarError::NotUnicode(_) => CredentialError::NotUnicode(variable.clone()),
-        }),
+            };
+            match std::env::var(variable) {
+                Ok(value) if value.is_empty() => Err(missing()),
+                Ok(value) => Ok(value),
+                Err(std::env::VarError::NotPresent) => Err(missing()),
+                Err(std::env::VarError::NotUnicode(_)) => {
+                    Err(CredentialError::NotUnicode(variable.clone()))
+                }
+            }
+        }
         SecretSource::File { variable, path } => {
             let text =
                 std::fs::read_to_string(path).map_err(|source| CredentialError::Unreadable {
@@ -373,6 +385,38 @@ mod tests {
         assert!(matches!(
             locate_secret("P", &lookup(&[("P_FILE", "/nonexistent/secret")])),
             Err(CredentialError::Unreadable { .. })
+        ));
+    }
+
+    #[test]
+    fn an_empty_variable_counts_as_unset() {
+        assert!(matches!(
+            locate_secret("P", &lookup(&[("P", "")])),
+            Err(CredentialError::Missing { variable, .. }) if variable == "P"
+        ));
+        let dir = assert_fs::TempDir::new().unwrap();
+        let file = dir.child("token");
+        file.write_str("t0ken\n").unwrap();
+        let path = file.path().to_str().unwrap();
+        assert!(matches!(
+            locate_secret("P", &lookup(&[("P", ""), ("P_FILE", path)])),
+            Ok(SecretSource::File { .. })
+        ));
+    }
+
+    #[test]
+    fn an_empty_file_variable_counts_as_unset() {
+        assert!(matches!(
+            locate_secret("P", &lookup(&[("P_FILE", "")])),
+            Err(CredentialError::Missing { file_variable, .. }) if file_variable == "P_FILE"
+        ));
+        assert!(matches!(
+            locate_secret("P", &lookup(&[("P", "plain"), ("P_FILE", "")])),
+            Ok(SecretSource::Variable(variable)) if variable == "P"
+        ));
+        assert!(matches!(
+            locate_secret("P", &lookup(&[("P", ""), ("P_FILE", "")])),
+            Err(CredentialError::Missing { .. })
         ));
     }
 

@@ -47,7 +47,9 @@ and `format-not-claimed` skips are not computed yet (#777, #778).
 **Credentials.** Each principal's secrets are read from the environment, from
 the variable itself or from a file named by the variable with `_FILE`
 appended, which is how container secrets are mounted. Setting both is
-refused. Neither credential is recorded: the HAR carries `[not recorded]` in
+refused. A variable set to the empty string counts as unset, because a CI
+system expands a secret it does not hold to an empty value, so the run stops
+on the missing credential instead of presenting an empty one. Neither credential is recorded: the HAR carries `[not recorded]` in
 place of every `Authorization` value, and records only whether the
 administrative principal was supplied, so a re-judgement skips the same
 workflows.

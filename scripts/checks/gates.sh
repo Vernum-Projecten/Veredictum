@@ -56,6 +56,7 @@ gate guard "hosted words self-test"   "bash scripts/checks/hosted-instrument-lan
 gate guard "hosted deploy script"     "bash scripts/checks/hosted-deploy-script.sh"
 gate guard "hosted deploy self-test"  "bash scripts/checks/hosted-deploy-script.sh --self-test"
 gate guard "issue fields self-test"   "bash scripts/gh/fields.sh --self-test" jq
+gate guard "action script self-test"  "bash scripts/action/run.sh --self-test"
 gate guard "CI jobs gate the merge"   "bash scripts/checks/ci-conclusion-complete.sh"
 gate guard "gates cover CI"           "bash scripts/checks/gates-cover-ci.sh"
 gate guard "the console's engine pin" "bash scripts/release/check-console-pin.sh"
@@ -67,7 +68,7 @@ gate guard "fuzz seeds"               "bash fuzz/seeds.sh"
 # The three workflow and licensing checks CI runs through actions rather than
 # through a `run:` line, so `gates-cover-ci.sh` cannot see them. Each names its
 # tool and skips by name when it is absent.
-gate guard "workflow security"        "zizmor --min-severity=low .github/workflows/ .github/actions/" zizmor
+gate guard "workflow security"        "zizmor --min-severity=low action.yml .github/workflows/ .github/actions/" zizmor
 # SHELLCHECK_OPTS mirrors the workflow's own exclusion, for the reason recorded
 # there: every SC2016 here is a `git log --format=` or a `jq` filter, where
 # single quotes are the idiom that makes the directive reach the tool unexpanded.
@@ -103,6 +104,9 @@ gate slow  "unused dependencies"      "cargo machete"
 # toolchain cargo-fuzz requires. Both are CI jobs of their own, so both are
 # here rather than remembered.
 gate slow  "console journeys"         "bash scripts/ui-e2e.sh" docker
+# The GitHub Action's CI job drives the action through the runner, which no
+# local command can; what runs here is the two images that job builds.
+gate slow  "action stand-in images"   "bash scripts/action/stand-in-image.sh" docker
 gate slow  "fuzz harnesses build"     "cargo +nightly fuzz build --target \$(rustc -vV | sed -n 's|^host: ||p')" cargo-fuzz
 
 WANT="guard rust"

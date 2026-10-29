@@ -91,6 +91,7 @@ jobs:
       code: ${{ steps.filter.outputs.code }}
       docker: ${{ steps.filter.outputs.docker }}
       image: ${{ steps.filter.outputs.image }}
+      action: ${{ steps.filter.outputs.action }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -132,6 +133,7 @@ jobs:
               echo "code=true"
               echo "docker=true"
               echo "image=true"
+              echo "action=true"
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -154,8 +156,9 @@ jobs:
           fi
           # The image tier: the one Dockerfile, the build-context ignore file
           # that decides what it can see, the hosted posture that runs it, the
-          # lint configuration, and this file.
-          if echo "$changed" | grep -qE '^(docker/|deploy/hosted/|\.dockerignore$|\.hadolint\.yaml$|\.github/workflows/ci\.yml$)'; then
+          # lint configuration, the GitHub Action's test Dockerfile, and this
+          # file.
+          if echo "$changed" | grep -qE '^(docker/|deploy/hosted/|\.dockerignore$|\.hadolint\.yaml$|scripts/action/test/engine\.Dockerfile$|\.github/workflows/ci\.yml$)'; then
             echo "docker=true" >> "$GITHUB_OUTPUT"
           else
             echo "docker=false" >> "$GITHUB_OUTPUT"
@@ -171,6 +174,14 @@ jobs:
             echo "image=true" >> "$GITHUB_OUTPUT"
           else
             echo "image=false" >> "$GITHUB_OUTPUT"
+          fi
+          # The GitHub Action tier (#770): the action, its script and its test
+          # material, the fake server, the engine's command line the action
+          # calls, and this file.
+          if echo "$changed" | grep -qE '^(action\.yml$|scripts/action/|app/veredictum/examples/stub_sut\.rs$|app/veredictum/src/bin/veredictum\.rs$|\.github/workflows/ci\.yml$)'; then
+            echo "action=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "action=false" >> "$GITHUB_OUTPUT"
           fi
 
   # ── The guard tier: prose, licensing, commit messages, changelog structure ──
@@ -249,6 +260,13 @@ jobs:
       # a workflow token gets, a refused create, and every usage error.
       - name: The issue-fields helper — stub-driven self-test
         run: bash scripts/gh/fields.sh --self-test
+
+      # The GitHub Action's script decides what reaches the container (#770):
+      # credentials by name and never by value, an empty one not at all, a
+      # `_FILE` one mounted, and the run's exit status passed through. The
+      # self-test drives it against a stub `docker`, so it needs no runtime.
+      - name: The GitHub Action's script — stub-driven self-test
+        run: bash scripts/action/run.sh --self-test
 
       # The console's engine pin is ONE value, the workspace engine version
       # (#179). The root manifest's `[patch.crates-io]` only redirects the
@@ -431,10 +449,11 @@ jobs:
         # with the first composite action (`release-kind`), because naming a path
         # that does not exist is an error rather than a no-op — so it could not
         # be listed before there was something in it, and an action added without
-        # extending this line would be audited by nothing.
+        # extending this line would be audited by nothing. The root `action.yml`
+        # is the published GitHub Action (#770), named for the same reason.
         env:
           GH_TOKEN: ${{ github.token }}
-        run: zizmor --min-severity=low .github/workflows/ .github/actions/
+        run: zizmor --min-severity=low action.yml .github/workflows/ .github/actions/
 
       - name: actionlint
         # The OFFICIAL image, digest-pinned. actionlint is a Go binary, so
@@ -489,7 +508,9 @@ jobs:
         run: bash scripts/checks/vex-advisories.sh
 
   # ── The image tier ──────────────────────────────────────────────────────────
-  # hadolint over the Dockerfile — the ONE image, the web console (#6).
+  # hadolint over the Dockerfile — the ONE image, the web console (#6) — and
+  # over the GitHub Action's test Dockerfile (#770), whose images the action's
+  # CI job runs.
   # Configuration lives in `.hadolint.yaml`, where a rule this repository
   # deliberately violates is named with its reason — never a blanket disable
   # (OWASP Docker Security Cheat Sheet rule 9).
@@ -514,6 +535,11 @@ jobs:
       - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
         with:
           dockerfile: docker/Dockerfile
+          config: .hadolint.yaml
+          failure-threshold: warning
+      - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: scripts/action/test/engine.Dockerfile
           config: .hadolint.yaml
           failure-threshold: warning
 
@@ -1068,6 +1094,134 @@ jobs:
           echo "::error::This pull request changes the console UI but does not refresh website/book/src/console/img/ (run UI_E2E_DOCS_SHOTS=1 scripts/ui-e2e.sh and commit the captures), and does not carry the 'no-ui-visual-change' label." >&2
           exit 1
 
+  # ── The GitHub Action drives a server ───────────────────────────────────────
+  # The action at the repository root (#770) runs against a fake server three
+  # times, and each outcome is asserted: a run whose rows all pass exits 0, a
+  # run with failed rows fails the step with exit status 1, and a run whose
+  # credential is an empty secret cannot start and fails it with 2. The image
+  # is a stand-in built from this tree, because a pull request has no release
+  # image: the engine, the catalogue and the specification trees at the release
+  # image's paths (scripts/action/test/engine.Dockerfile, which also builds the
+  # fake server). The release smoke run covers the release image's own entry
+  # point.
+  action:
+    name: the GitHub Action drives a server
+    needs: changes
+    if: needs.changes.outputs.action == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the stand-in for the release image and the fake server
+        run: bash scripts/action/stand-in-image.sh
+
+      # The fake server is the crate's `stub_sut` example: OPTIONS is answered
+      # 200 and every other request 404. Its container outlives this step and
+      # is removed with the job.
+      - name: Start the fake server under test
+        run: |
+          set -euo pipefail
+          docker run -d --rm --name stub-sut --network host veredictum-action-stub-sut:local 18089
+          for _ in $(seq 1 50); do
+            if curl -fsS -o /dev/null -X OPTIONS http://127.0.0.1:18089/openehr/v1; then exit 0; fi
+            sleep 0.2
+          done
+          docker logs stub-sut
+          echo "::error::the fake server did not start" >&2
+          exit 1
+
+      - name: Write the statements
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/statements"
+          printf '{"claims":{"capabilities":["system"]}}\n' > "$RUNNER_TEMP/statements/system.json"
+          printf '{"claims":{"capabilities":["ehr"]}}\n' > "$RUNNER_TEMP/statements/ehr.json"
+
+      - id: passing
+        name: The System API workflows pass
+        uses: ./
+        with:
+          base-url: http://127.0.0.1:18089/openehr/v1
+          statement: ${{ runner.temp }}/statements/system.json
+          out-dir: ${{ runner.temp }}/passing
+          image: veredictum-action-stand-in:local
+          pull: "false"
+
+      - name: The passing run exited 0 and wrote every view
+        env:
+          EXIT_CODE: ${{ steps.passing.outputs.exit-code }}
+          RESULTS: ${{ steps.passing.outputs.results }}
+          JUNIT: ${{ steps.passing.outputs.junit }}
+          CTRF: ${{ steps.passing.outputs.ctrf }}
+          SUMMARY: ${{ steps.passing.outputs.summary }}
+        run: |
+          set -euo pipefail
+          [[ "$EXIT_CODE" == "0" ]] || { echo "::error::exit-code is '${EXIT_CODE}', not 0" >&2; exit 1; }
+          jq -e '[.rows[] | select(.status == "passed")] | length > 0' "$RESULTS" >/dev/null \
+            || { echo "::error::no row passed" >&2; exit 1; }
+          jq -e '[.rows[] | select(.status == "failed" or .status == "errored")] | length == 0' "$RESULTS" >/dev/null \
+            || { echo "::error::a row failed or errored" >&2; exit 1; }
+          grep -q '<testsuites' "$JUNIT" || { echo "::error::no JUnit document" >&2; exit 1; }
+          jq -e '.results.summary' "$CTRF" >/dev/null || { echo "::error::no CTRF document" >&2; exit 1; }
+          grep -q '^# Veredictum results' "$SUMMARY" || { echo "::error::no Markdown summary" >&2; exit 1; }
+
+      - id: failing
+        name: The EHR workflows fail against a server that has no EHR
+        continue-on-error: true
+        uses: ./
+        with:
+          base-url: http://127.0.0.1:18089/openehr/v1
+          statement: ${{ runner.temp }}/statements/ehr.json
+          out-dir: ${{ runner.temp }}/failing
+          image: veredictum-action-stand-in:local
+          pull: "false"
+
+      - name: The failing run failed the step with exit status 1
+        env:
+          OUTCOME: ${{ steps.failing.outcome }}
+          EXIT_CODE: ${{ steps.failing.outputs.exit-code }}
+          RESULTS: ${{ steps.failing.outputs.results }}
+          JUNIT: ${{ steps.failing.outputs.junit }}
+        run: |
+          set -euo pipefail
+          [[ "$OUTCOME" == "failure" ]] || { echo "::error::the step's outcome is '${OUTCOME}', not failure" >&2; exit 1; }
+          [[ "$EXIT_CODE" == "1" ]] || { echo "::error::exit-code is '${EXIT_CODE}', not 1" >&2; exit 1; }
+          jq -e '[.rows[] | select(.status == "failed")] | length > 0' "$RESULTS" >/dev/null \
+            || { echo "::error::no row failed" >&2; exit 1; }
+          grep -q '<failure' "$JUNIT" || { echo "::error::the JUnit view carries no failure" >&2; exit 1; }
+
+      # An unset repository secret expands to an empty string. The action treats
+      # it as missing, so the engine stops on the missing credential.
+      - id: unstartable
+        name: A run whose token is an empty secret cannot start
+        continue-on-error: true
+        uses: ./
+        env:
+          VEREDICTUM_SUT_TOKEN: ""
+        with:
+          base-url: http://127.0.0.1:18089/openehr/v1
+          statement: ${{ runner.temp }}/statements/system.json
+          auth: bearer
+          out-dir: ${{ runner.temp }}/unstartable
+          image: veredictum-action-stand-in:local
+          pull: "false"
+
+      - name: The run that could not start failed the step with exit status 2
+        env:
+          OUTCOME: ${{ steps.unstartable.outcome }}
+          EXIT_CODE: ${{ steps.unstartable.outputs.exit-code }}
+          OUT_DIR: ${{ runner.temp }}/unstartable
+        run: |
+          set -euo pipefail
+          [[ "$OUTCOME" == "failure" ]] || { echo "::error::the step's outcome is '${OUTCOME}', not failure" >&2; exit 1; }
+          [[ "$EXIT_CODE" == "2" ]] || { echo "::error::exit-code is '${EXIT_CODE}', not 2" >&2; exit 1; }
+          [[ ! -e "${OUT_DIR}/results.json" ]] || { echo "::error::a run that could not start wrote results" >&2; exit 1; }
+
   # ── The single required check ───────────────────────────────────────────────
   # Branch protection points at `conclusion` alone, which is what lets jobs be
   # added, renamed or path-gated without editing repository settings. The cost
@@ -1093,6 +1247,7 @@ jobs:
       - unused-deps
       - ui-e2e
       - ui-screenshot-guard
+      - action
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}

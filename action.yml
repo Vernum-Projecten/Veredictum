@@ -1,0 +1,166 @@
+# SPDX-FileCopyrightText: Veredictum contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# The Veredictum GitHub Action (#770): one `uses:` step runs the conformance
+# instrument against a vendor's server in CI.
+#
+# It runs the instrument's container image: `test` drives the Arazzo catalogue
+# the image ships, `export` writes JUnit XML, CTRF and a Markdown summary into
+# the output directory, and the summary is appended to the job summary. The step
+# fails when a verdict-bearing row failed or errored (exit status 1) or when the
+# run could not start (2). The work is `scripts/action/run.sh`, whose header
+# lists every input it reads.
+#
+# A composite action rather than a Docker container action. A container action
+# fixes its image in this file, and this file at tag vX.Y.Z cannot name the
+# digest that tag's release builds afterwards; it also could not run an image
+# the caller chose or built. The composite step pulls the image, resolves it to
+# its image ID and runs both subcommands by that ID, so the two runs read the
+# same bytes.
+#
+# THE IMAGE. Left empty, the image is the release image of the version this
+# action's own tree carries, `ghcr.io/vernum-projecten/veredictum:<X.Y.Z>` for
+# the action at `vX.Y.Z`, and the step refuses an image whose engine reports any
+# other version. A tag can move, a digest cannot, so a caller who wants the
+# bytes fixed passes `image: ghcr.io/vernum-projecten/veredictum@sha256:…`.
+# The release run's summary names the digest of each release, and
+# `docker buildx imagetools inspect <image>:<X.Y.Z>` prints it. The step writes
+# the image ID it ran to its `image-id` output and to the job summary.
+#
+# CREDENTIALS are never inputs. The caller sets them as `env:` on the step,
+# under the names the engine reads, so they reach the container by name and
+# never appear in a command line or in this action's inputs:
+#
+#   VEREDICTUM_SUT_USER, VEREDICTUM_SUT_PASSWORD    with auth: basic
+#   VEREDICTUM_SUT_TOKEN                            with auth: bearer
+#   VEREDICTUM_ADMIN_USER, VEREDICTUM_ADMIN_PASSWORD, VEREDICTUM_ADMIN_TOKEN
+#                                                   with admin-auth
+#
+# or each with `_FILE` appended, naming a file that holds the value. An empty
+# variable counts as unset, so a missing repository secret stops the run.
+#
+# PERMISSIONS. The action calls no GitHub API and needs no token scope. A
+# caller's job needs `contents: read` for its own checkout, and nothing else.
+#
+# No openEHR specification governs this. It is our own design.
+name: Veredictum openEHR conformance
+description: >-
+  Run the Veredictum conformance instrument against an openEHR server and fail
+  the job when a verdict-bearing row fails or errors.
+author: Veredictum contributors
+branding:
+  icon: check-square
+  color: blue
+
+inputs:
+  base-url:
+    description: >-
+      The server's base URL, up to and including the openEHR REST base, for
+      example https://cdr.example/openehr/v1. The run joins the `network`
+      below, so with the default `host` a server on the runner is reachable at
+      http://127.0.0.1:<port>.
+    required: true
+  statement:
+    description: >-
+      Path to the party's statement (JSON), which names the capabilities it
+      claims and the option arms it selects. Empty runs every capability.
+    required: false
+    default: ""
+  ixit:
+    description: >-
+      Path to the party's IXIT (JSON), which answers the declared inputs a
+      rows file reads. Empty skips those rows as not-declared.
+    required: false
+    default: ""
+  auth:
+    description: >-
+      How the client presents itself: none, basic or bearer. The credentials
+      come from the step's env, never from an input.
+    required: false
+    default: none
+  admin-auth:
+    description: >-
+      How the administrative principal presents itself: none, basic or bearer.
+      With none, every workflow with an administrative step is skipped.
+    required: false
+    default: none
+  documents:
+    description: >-
+      Run only these documents, by id, separated by white space. A narrowed run
+      is a working tool, never the record a party submits. Empty runs every
+      document.
+    required: false
+    default: ""
+  out-dir:
+    description: >-
+      Where results.json, recording.har, junit.xml, ctrf.json and summary.md
+      are written. The recording holds the server's response bodies verbatim,
+      so it belongs where the operator keeps the run, never in a public
+      artifact.
+    required: false
+    default: veredictum-results
+  image:
+    description: >-
+      The image to run. Empty means the release image of this action's version.
+      A reference by digest (…@sha256:…) fixes the bytes.
+    required: false
+    default: ""
+  pull:
+    description: >-
+      true or false. With false the image must already be present on the
+      runner, which is how a locally built image is run.
+    required: false
+    default: "true"
+  network:
+    description: >-
+      The container network the run joins. host reaches a server on the runner
+      itself, including a job's service containers through their published
+      ports.
+    required: false
+    default: host
+
+outputs:
+  exit-code:
+    description: >-
+      The run's exit status: 0 when every row passed or was skipped, 1 when a
+      verdict-bearing row failed or errored, 2 when the run could not start or
+      finish.
+    value: ${{ steps.run.outputs.exit-code }}
+  results:
+    description: The path of results.json.
+    value: ${{ steps.run.outputs.results }}
+  junit:
+    description: The path of the JUnit XML view, set when the export succeeded.
+    value: ${{ steps.run.outputs.junit }}
+  ctrf:
+    description: The path of the CTRF JSON view, set when the export succeeded.
+    value: ${{ steps.run.outputs.ctrf }}
+  summary:
+    description: The path of the Markdown summary, set when the export succeeded.
+    value: ${{ steps.run.outputs.summary }}
+  image-id:
+    description: The ID of the image the run used.
+    value: ${{ steps.run.outputs.image-id }}
+  image-digests:
+    description: The repository digests of that image, separated by spaces.
+    value: ${{ steps.run.outputs.image-digests }}
+
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      # Every input reaches the shell through `env:`, never spliced into the
+      # script, so no input value is ever read as shell source.
+      env:
+        IN_BASE_URL: ${{ inputs.base-url }}
+        IN_STATEMENT: ${{ inputs.statement }}
+        IN_IXIT: ${{ inputs.ixit }}
+        IN_AUTH: ${{ inputs.auth }}
+        IN_ADMIN_AUTH: ${{ inputs.admin-auth }}
+        IN_DOCUMENTS: ${{ inputs.documents }}
+        IN_OUT_DIR: ${{ inputs.out-dir }}
+        IN_IMAGE: ${{ inputs.image }}
+        IN_PULL: ${{ inputs.pull }}
+        IN_NETWORK: ${{ inputs.network }}
+      run: bash "${GITHUB_ACTION_PATH}/scripts/action/run.sh"
