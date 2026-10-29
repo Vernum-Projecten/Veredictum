@@ -4367,8 +4367,8 @@ cases:
       A measured performance case, not a conformance case: no released
       openEHR text assigns its class, offered load or thresholds, and
       `veredictum perf` reads it. The Arazzo catalogue holds conformance
-      workflows, and the measured instruments run from the CLI; where the
-      case lives once the old catalogue is deleted is #746.
+      workflows, and the measured instruments run from the CLI; the case
+      lives in `perf/classes/` with the journeys and payloads it reads.
   PERF-hospital_sim-class_POC:
     new: []
     open: *perf_measured

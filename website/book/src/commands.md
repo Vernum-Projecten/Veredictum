@@ -171,7 +171,7 @@ Execute the performance schedule's open-loop measured run(s) against a live SUT 
 Usage: veredictum perf [OPTIONS] --root <ROOT> --ixit <IXIT> --results <RESULTS> --class <CLASS>
 
 Options:
-      --root <ROOT>                  The artifact root
+      --root <ROOT>                  The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
       --ixit <IXIT>                  The ixit topology file (JSON) — its environment block is mandatory for a measured run
       --results <RESULTS>            The results.json to merge the measurement records into (written by a prior `run`)
       --class <CLASS>                Select the performance case(s) of this class (POC | S | L | R)
@@ -186,6 +186,11 @@ disappearing into a slowed-down request rate. A longer `--hours` window is a
 stricter demonstration and persists like any measured run; nothing shorter than
 the case exists.
 
+`--root` is the performance schedule, `perf/` in this repository: the class
+cases, the journey catalogue and the payloads the journeys send. `stress`,
+`aql-probe` and `perf-assets` read the same tree, and none of them reads
+`artifacts/` or `catalogue/`.
+
 The `environment` block is mandatory rather than optional because a latency
 number is a claim about a deployment, and a claim with no deployment described
 cannot be checked or reproduced.
@@ -198,7 +203,7 @@ Run the step-load STRESS instrument: geometric load steps to the maximum sustain
 Usage: veredictum stress [OPTIONS] --root <ROOT> --ixit <IXIT> --out <OUT>
 
 Options:
-      --root <ROOT>                  The artifact root
+      --root <ROOT>                  The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
       --ixit <IXIT>                  The ixit topology file (JSON) — its environment block is mandatory (a throughput number without the deployment described is meaningless)
       --out <OUT>                    Where to write the stress report (stress.json)
       --corpus-class <CORPUS_CLASS>  The class-scale corpus the stress runs on (POC | S | L | R — the standardized corpus selector): data volume + workload mix only; no class floor enters the stress report or chart [default: POC]
@@ -524,7 +529,7 @@ Run the AQL optimization probe: fire the measurement machinery's AQL vocabulary 
 Usage: veredictum aql-probe [OPTIONS] --root <ROOT> --ixit <IXIT> --out <OUT>
 
 Options:
-      --root <ROOT>                  The artifact root
+      --root <ROOT>                  The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
       --ixit <IXIT>                  The ixit topology file (JSON) — the `containers` block enables DB-side attribution and maintenance settling
       --out <OUT>                    Where to write the probe report (aql-probe.json)
       --corpus-class <CORPUS_CLASS>  The class-scale corpus the probes run against (POC | S | L | R) [default: POC]
@@ -566,7 +571,7 @@ Render the published performance SVG assets FROM a committed results.json (deter
 Usage: veredictum perf-assets [OPTIONS] --root <ROOT> --results <RESULTS> --out <OUT>
 
 Options:
-      --root <ROOT>        The artifact root (for the class-ladder floors)
+      --root <ROOT>        The performance schedule root, `perf/` in this repository (for the class-ladder floors)
       --results <RESULTS>  The committed results.json carrying the measurement records
       --out <OUT>          Output directory for the SVG files
       --summary <SUMMARY>  Also write the generated Markdown summary (class ladder + measured detail) to this path — the book's build-time include
