@@ -157,7 +157,9 @@ the other kinds of evidence, and all three read the performance schedule under
   statement, and it is a speed record and never a conformance record.
 
 `perf` and `stress` both need the `environment` block in your IXIT file filled
-in, because a throughput number without the deployment described says nothing.
+in, every member of it, because a throughput number without the deployment
+described says nothing. A conformance run reads only `exclusive_server` from
+that block.
 All three want an idle machine and a deployment whose resource limits match the
 envelope you are claiming. A measured run on a laptop that is also running a
 browser measures the browser.

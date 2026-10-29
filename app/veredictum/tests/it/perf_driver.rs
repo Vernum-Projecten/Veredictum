@@ -434,7 +434,7 @@ fn client_and_env(base_url: &str) -> (PerfPrincipals, Environment) {
     }))
     .unwrap();
     let principals = PerfPrincipals::from_ixit(&ixit).unwrap();
-    let environment = ixit.environment.clone().unwrap();
+    let environment = ixit.measured_environment().unwrap();
     (principals, environment)
 }
 
@@ -911,6 +911,28 @@ fn the_measured_run_context_requires_a_declared_environment() {
     .unwrap();
     let error = measured_run_context(&bare).expect_err("a measured run needs its environment");
     assert!(error.contains("no environment block"), "{error}");
+}
+
+/// A conformance-only environment block, `exclusive_server` alone, is not
+/// enough for a measured run: the context names the first member it lacks.
+#[test]
+fn the_measured_run_context_names_the_environment_member_it_lacks() {
+    let ixit: Ixit = serde_json::from_value(serde_json::json!({
+        "instances": { "sut": { "base_url": "http://stub", "auth": { "mode": "none" } } },
+        "environment": { "exclusive_server": true }
+    }))
+    .unwrap();
+    let error = measured_run_context(&ixit).expect_err("a measured run needs hardware_class");
+    assert!(error.contains("declares no `hardware_class`"), "{error}");
+
+    let ixit: Ixit = serde_json::from_value(serde_json::json!({
+        "instances": { "sut": { "base_url": "http://stub", "auth": { "mode": "none" } } },
+        "environment": { "hardware_class": "test-stub", "cores": 1, "memory_gb": 1,
+                          "storage_class": "ram" }
+    }))
+    .unwrap();
+    let error = measured_run_context(&ixit).expect_err("a measured run needs topology");
+    assert!(error.contains("declares no `topology`"), "{error}");
 }
 
 /// The step-load ladder against a healthy stub: it climbs geometrically,

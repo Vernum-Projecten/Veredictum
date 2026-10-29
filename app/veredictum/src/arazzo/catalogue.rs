@@ -125,6 +125,9 @@ pub struct Declarations {
     pub statement: Option<Value>,
     /// The party's IXIT, which a rows file's `declared` inputs read.
     pub ixit: Option<Value>,
+    /// The environment the party's IXIT declares, which a rows file's
+    /// `server` reads.
+    pub environment: Option<crate::ixit::DeclaredEnvironment>,
     /// Whether the party supplies the administrative principal.
     pub administrative: bool,
 }
@@ -339,6 +342,7 @@ pub fn plan(
 ) -> Result<Plan, CatalogueError> {
     let mut plan = Plan {
         ixit: declarations.ixit.clone(),
+        environment: declarations.environment.clone(),
         statement: declarations.statement.clone(),
         ..Plan::default()
     };

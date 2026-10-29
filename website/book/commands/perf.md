@@ -11,4 +11,8 @@ cases, the journey catalogue and the payloads the journeys send. `stress`,
 
 The `environment` block is mandatory rather than optional because a latency
 number is a claim about a deployment, and a claim with no deployment described
-cannot be checked or reproduced.
+cannot be checked or reproduced. Every member of it is mandatory here
+(`hardware_class`, `cores`, `memory_gb`, `storage_class`, `topology`), and a
+run whose IXIT lacks one stops before it sends a request, naming the member.
+A conformance run reads only `exclusive_server`, so a conformance-only IXIT
+may leave the others out.

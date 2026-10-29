@@ -336,18 +336,125 @@ pub struct Instance {
     pub administrative: Option<bool>,
 }
 
-/// The environment block — mandatory for performance runs, informative
-/// otherwise.
+/// The IXIT's environment block, as the party declares it.
+///
+/// A conformance run reads only `exclusive_server`, so every other member is
+/// optional here. A measured run needs them all and reads them through
+/// [`DeclaredEnvironment::measured`], which names the first one missing. No
+/// openEHR spec governs this — our own design.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeclaredEnvironment {
+    /// Whether the SUT instance is exclusively owned by this run — the
+    /// precondition for `requires.server: exclusive` cases (global-state
+    /// grounds like an empty template list) and for the catalogue workflows
+    /// whose rows file says `server: exclusive`. Defaults to `false`: a
+    /// shared instance N/As those cases.
+    #[serde(default)]
+    pub exclusive_server: bool,
+    /// The host class the SUT ran on, as the party describes it.
+    #[serde(default)]
+    pub hardware_class: Option<String>,
+    /// CPU cores available to the deployment.
+    #[serde(default)]
+    pub cores: Option<u32>,
+    /// Memory available to the deployment, gibibytes.
+    #[serde(default)]
+    pub memory_gb: Option<u32>,
+    /// The storage the database ran on, as the party describes it.
+    #[serde(default)]
+    pub storage_class: Option<String>,
+    /// The deployment topology (single node, clustered, …).
+    #[serde(default)]
+    pub topology: Option<String>,
+}
+
+/// A member of the environment block a measured run needs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnvironmentField {
+    /// `hardware_class`.
+    HardwareClass,
+    /// `cores`.
+    Cores,
+    /// `memory_gb`.
+    MemoryGb,
+    /// `storage_class`.
+    StorageClass,
+    /// `topology`.
+    Topology,
+}
+
+impl EnvironmentField {
+    /// The member name the IXIT spells the field with.
+    #[must_use]
+    pub fn token(self) -> &'static str {
+        match self {
+            Self::HardwareClass => "hardware_class",
+            Self::Cores => "cores",
+            Self::MemoryGb => "memory_gb",
+            Self::StorageClass => "storage_class",
+            Self::Topology => "topology",
+        }
+    }
+}
+
+impl std::fmt::Display for EnvironmentField {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.token())
+    }
+}
+
+/// Why an IXIT does not describe the deployment a measured run needs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum MeasuredEnvironmentError {
+    /// The IXIT has no `environment` block at all.
+    #[error("ixit has no environment block (mandatory for performance runs)")]
+    NoEnvironment,
+    /// The block lacks a member a measured run reports its numbers with.
+    #[error(
+        "ixit environment declares no `{0}` (every environment member is mandatory for \
+         performance runs)"
+    )]
+    MissingField(EnvironmentField),
+}
+
+impl DeclaredEnvironment {
+    /// The environment a measured run reports its numbers with.
+    ///
+    /// # Errors
+    /// [`MeasuredEnvironmentError::MissingField`] naming the first member,
+    /// in declaration order, the party does not declare.
+    pub fn measured(&self) -> Result<Environment, MeasuredEnvironmentError> {
+        let missing = MeasuredEnvironmentError::MissingField;
+        Ok(Environment {
+            exclusive_server: self.exclusive_server,
+            hardware_class: self
+                .hardware_class
+                .clone()
+                .ok_or(missing(EnvironmentField::HardwareClass))?,
+            cores: self.cores.ok_or(missing(EnvironmentField::Cores))?,
+            memory_gb: self.memory_gb.ok_or(missing(EnvironmentField::MemoryGb))?,
+            storage_class: self
+                .storage_class
+                .clone()
+                .ok_or(missing(EnvironmentField::StorageClass))?,
+            topology: self
+                .topology
+                .clone()
+                .ok_or(missing(EnvironmentField::Topology))?,
+        })
+    }
+}
+
+/// The deployment a measured run was taken in, with every member present.
 ///
 /// `Serialize` because every measurement record embeds the environment it was
 /// taken in (an earned class is reported WITH its environment, never bare).
+/// An IXIT declares it as a [`DeclaredEnvironment`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Environment {
-    /// Whether the SUT instance is exclusively owned by this run — the
-    /// precondition for `requires.server: exclusive` cases (global-state
-    /// grounds like an empty template list). Defaults to `false`: a shared
-    /// instance N/As those cases.
+    /// Whether the SUT instance was exclusively owned by the run.
     #[serde(default)]
     pub exclusive_server: bool,
     /// The host class the SUT ran on, as the party describes it.
@@ -383,11 +490,17 @@ pub struct Containers {
 pub struct Ixit {
     /// Named instances; `sut` is the default the flow addresses when no
     /// `on:` selector is present.
-    #[serde(deserialize_with = "crate::model::de::ordered_map")]
+    ///
+    /// `veredictum test` takes its server from `--base-url` and reads no
+    /// instance, so a conformance-only IXIT may leave this out; every
+    /// instrument that addresses an instance refuses an IXIT without `sut`
+    /// ([`Ixit::default_instance`]).
+    #[serde(default, deserialize_with = "crate::model::de::ordered_map")]
     pub instances: Vec<(InstanceName, Instance)>,
-    /// The deployment the run was measured in; mandatory for measured runs.
+    /// The deployment the SUT runs in; mandatory, with every member, for
+    /// measured runs ([`Ixit::measured_environment`]).
     #[serde(default)]
-    pub environment: Option<Environment>,
+    pub environment: Option<DeclaredEnvironment>,
     /// The composed SUT's container identities (optional by capability —
     /// see [`Containers`]).
     #[serde(default)]
@@ -452,6 +565,19 @@ pub struct Ixit {
 }
 
 impl Ixit {
+    /// The environment a measured run reports its numbers with.
+    ///
+    /// # Errors
+    /// [`MeasuredEnvironmentError::NoEnvironment`] without an `environment`
+    /// block, and [`MeasuredEnvironmentError::MissingField`] naming a member
+    /// the block lacks.
+    pub fn measured_environment(&self) -> Result<Environment, MeasuredEnvironmentError> {
+        self.environment
+            .as_ref()
+            .ok_or(MeasuredEnvironmentError::NoEnvironment)?
+            .measured()
+    }
+
     /// Resolve relative file references in the document against `base` — the
     /// directory the ixit itself was read from.
     pub fn rebase_paths(&mut self, base: &Path) {
@@ -762,6 +888,65 @@ mod tests {
         assert_eq!(
             declared.terminology_of(closed).unwrap().posture,
             TerminologyPosture::FailClosed
+        );
+    }
+
+    #[test]
+    fn a_conformance_ixit_declares_only_an_exclusive_server() {
+        let document = serde_json::json!({
+            "instances": { "sut": { "base_url": "http://x", "auth": { "mode": "none" } } },
+            "environment": { "exclusive_server": true }
+        });
+        let schema = jsonschema::validator_for(&crate::schema::ixit_schema()).unwrap();
+        let violations: Vec<String> = schema
+            .iter_errors(&document)
+            .map(|e| e.to_string())
+            .collect();
+        assert_eq!(violations, Vec::<String>::new());
+        let ixit: Ixit = serde_json::from_value(document).unwrap();
+        assert!(ixit.environment.as_ref().unwrap().exclusive_server);
+        assert_eq!(
+            ixit.measured_environment().unwrap_err(),
+            MeasuredEnvironmentError::MissingField(EnvironmentField::HardwareClass)
+        );
+    }
+
+    #[test]
+    fn a_measured_run_names_the_environment_member_it_lacks() {
+        let full = serde_json::json!({
+            "hardware_class": "laptop", "cores": 8, "memory_gb": 16,
+            "storage_class": "nvme", "topology": "single node"
+        });
+        let parse = |environment: &serde_json::Value| -> Ixit {
+            serde_json::from_value(serde_json::json!({
+                "instances": { "sut": { "base_url": "http://x", "auth": { "mode": "none" } } },
+                "environment": environment
+            }))
+            .unwrap()
+        };
+        let measured = parse(&full).measured_environment().unwrap();
+        assert_eq!(measured.cores, 8);
+        assert!(!measured.exclusive_server);
+        for field in [
+            EnvironmentField::HardwareClass,
+            EnvironmentField::Cores,
+            EnvironmentField::MemoryGb,
+            EnvironmentField::StorageClass,
+            EnvironmentField::Topology,
+        ] {
+            let mut lacking = full.clone();
+            lacking.as_object_mut().unwrap().remove(field.token());
+            let error = parse(&lacking).measured_environment().unwrap_err();
+            assert_eq!(error, MeasuredEnvironmentError::MissingField(field));
+            assert!(error.to_string().contains(&format!("`{field}`")), "{error}");
+        }
+        let bare: Ixit = serde_json::from_value(serde_json::json!({
+            "instances": { "sut": { "base_url": "http://x", "auth": { "mode": "none" } } }
+        }))
+        .unwrap();
+        assert_eq!(
+            bare.measured_environment().unwrap_err(),
+            MeasuredEnvironmentError::NoEnvironment
         );
     }
 
