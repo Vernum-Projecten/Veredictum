@@ -717,7 +717,12 @@ which class to claim; the class case is the single fixed-offered-load
 sustained run that earns it. The measurement record in `results.json`
 carries, per case × operation: request count, error count, p50/p90/p99
 latencies, and the full HDR histogram (encoded) — so thresholds are
-re-checkable from the artifact. Performance `spec_refs` cite the proposal
+re-checkable from the artifact. `perf` creates that `results.json` when
+`--results` names no file: the new record carries the SUT identity (the
+server's System OPTIONS answer, the operator's `--sut-name`/`--sut-version`
+for what it does not state), the instrument's own facts, and no conformance
+outcome, and an existing record gains or replaces the measured case's
+record. Performance `spec_refs` cite the proposal
 lineage and are exempt from vendored-spec link-checking (the admitted scope
 extension, §6.3).
 

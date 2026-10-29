@@ -13,7 +13,9 @@
 # guards, and the two would drift with no signal — the deposit saying one thing
 # while the citation box says another, under a DOI nobody can correct. So this
 # file is GENERATED: CITATION.cff stays the single source for every fact both
-# carry, and `citation-guard` runs this script in --check mode.
+# carry. The CI guards job runs this script in --check mode on every pull
+# request, beside `scripts/checks/citation-version.sh`, which holds the
+# version both files carry to the workspace engine's.
 #
 # WHAT THIS FILE MUST NOT INHERIT. It was ported from FerroEHR, whose deposit
 # describes a clinical data repository: the ported version claimed this project
@@ -152,7 +154,8 @@ rendered="$(
     # isSupplementTo entry — so this entry must BE the stock tag-tree link,
     # never the repo root. The version here is the tag by construction: the
     # release cut bumps CITATION.cff in the PR the tag is cut from, and
-    # citation-guard pins it to the workspace version.
+    # scripts/checks/citation-version.sh pins it to the workspace version on
+    # every pull request.
     [ { identifier: $site,
         relation: "isDocumentedBy",
         resource_type: "publication-softwaredocumentation" },

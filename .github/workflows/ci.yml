@@ -278,6 +278,20 @@ jobs:
       - name: The console's engine pin names this tree's engine
         run: bash scripts/release/check-console-pin.sh
 
+      # CITATION.cff and the generated .zenodo.json carry the workspace engine
+      # version (#812). The release `plan` compares CITATION.cff with the tag,
+      # but a tag is never re-pointed, so the pull request that moves the
+      # version is where a drift is cheap to fix. jq ships on the GitHub
+      # Ubuntu runner images.
+      - name: CITATION.cff and .zenodo.json carry the engine version
+        run: bash scripts/checks/citation-version.sh
+
+      - name: CITATION.cff and .zenodo.json — seeded self-test
+        run: bash scripts/checks/citation-version.sh --self-test
+
+      - name: .zenodo.json is in sync with CITATION.cff
+        run: bash scripts/render/zenodo-json.sh --check
+
       # Keep a Changelog 1.1.0 structure: no duplicated `### <Type>` inside one
       # release section, no subsection header outside the canonical type set.
       # A duplicated header ships the same release notes twice.

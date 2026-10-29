@@ -27,6 +27,7 @@
 use std::path::{Path, PathBuf};
 
 use serde_json::json;
+use veredictum::identity::OperatorIdentity;
 use veredictum::ixit::{Environment, Ixit};
 use veredictum::perf::{ArrivalCurve, JourneyCatalogue, Percent};
 use veredictum::perf_run::client::{PerfClient, PerfPrincipals};
@@ -433,6 +434,13 @@ fn a_refusing_sut_breaches_the_error_tolerance() -> Fallible {
     Ok(())
 }
 
+/// The SUT identity the operator supplies for a new measured record, since
+/// the fake SUT does not answer System OPTIONS unless a test mounts it.
+const OPERATOR: OperatorIdentity<'static> = OperatorIdentity {
+    name: Some("fake-sut"),
+    version: Some("0.0.0-test"),
+};
+
 /// The committed performance schedule, addressed from this package rather
 /// than from whatever directory the runner was started in.
 fn schedule_root() -> &'static Path {
@@ -558,6 +566,7 @@ fn each_instrument_names_the_artifact_its_preamble_could_not_read() -> Fallible 
                 class: "POC",
                 seed_workers: 1,
                 window: SustainedWindow::default(),
+                sut: OPERATOR,
             },
             &|_| {},
         )
@@ -623,6 +632,7 @@ fn a_refused_seeding_stops_every_instrument_before_it_records_anything() -> Fall
             class: "POC",
             seed_workers: 1,
             window: SustainedWindow::default(),
+            sut: OPERATOR,
         },
         &|_| {},
     )
@@ -695,6 +705,7 @@ fn a_measured_run_states_that_it_sampled_no_resources() -> Fallible {
             class: "POC",
             seed_workers: 1,
             window: SustainedWindow::default(),
+            sut: OPERATOR,
         },
         &|event| seen.lock().unwrap().push(format!("{event:?}")),
     )
@@ -712,6 +723,133 @@ fn a_measured_run_states_that_it_sampled_no_resources() -> Fallible {
     assert!(
         observed.iter().any(|line| line.starts_with("CaseStarted")),
         "the selected case was never announced: {observed:?}"
+    );
+    Ok(())
+}
+
+/// A request for a new measured record with no operator identity.
+fn unidentified<'a>(ixit: &'a Path, results: &'a Path) -> MeasuredRequest<'a> {
+    MeasuredRequest {
+        root: schedule_root(),
+        ixit,
+        results,
+        class: "POC",
+        seed_workers: 1,
+        window: SustainedWindow::default(),
+        sut: OperatorIdentity::default(),
+    }
+}
+
+/// When `--results` names no file, the run reads the SUT identity before it
+/// seeds anything: a server that states none, with no operator values, stops
+/// the run at the identity, and the seeding's first write never goes out.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_new_record_without_an_identity_stops_before_the_seeding() -> Fallible {
+    let sut = FakeSut::start();
+    mount_refusing_seed(&sut);
+    let dir = assert_fs::TempDir::new()?;
+    let ixit = staged_topology(&dir, &sut.base_url());
+    let results = dir.path().join("results.json");
+
+    let error = run_measured(&unidentified(&ixit, &results), &|_| {})
+        .expect_err("a record with no SUT identity cannot be created");
+    assert!(
+        matches!(
+            &error,
+            Error::Identity(veredictum::identity::IdentityError::Missing { .. })
+        ),
+        "{error}"
+    );
+    assert!(
+        error.to_string().contains("--sut-name"),
+        "the refusal names the flag that supplies the identity: {error}"
+    );
+    assert!(
+        sut.requests().iter().all(|r| r.method.as_str() != "POST"),
+        "no seeding write went out before the identity was established"
+    );
+    assert!(!results.exists(), "nothing is written");
+    Ok(())
+}
+
+/// A server that states its name and version through System OPTIONS needs no
+/// operator values: the run passes the identity and reaches the seeding.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_server_stated_identity_lets_a_new_record_reach_the_seeding() -> Fallible {
+    let sut = FakeSut::start();
+    sut.mount(Mock::given(method("OPTIONS")).and(path("/")).respond_with(
+        ResponseTemplate::new(200).set_body_json(json!({
+            "solution": "fake-sut",
+            "solution_version": "1.0"
+        })),
+    ));
+    mount_refusing_seed(&sut);
+    let dir = assert_fs::TempDir::new()?;
+    let ixit = staged_topology(&dir, &sut.base_url());
+    let results = dir.path().join("results.json");
+
+    let seen = std::sync::Mutex::new(Vec::new());
+    let error = run_measured(&unidentified(&ixit, &results), &|event| {
+        seen.lock().unwrap().push(format!("{event:?}"));
+    })
+    .expect_err("a refused seeding is no measured window");
+    assert!(
+        matches!(&error, Error::Instrument(m) if m.contains("seeding failed")),
+        "{error}"
+    );
+    let observed = seen.lock().unwrap();
+    assert!(
+        observed
+            .iter()
+            .any(|line| line.contains("identity: the server states its identity")),
+        "the run never said where the identity came from: {observed:?}"
+    );
+    Ok(())
+}
+
+/// An existing results document keeps its own header, so the run reads no
+/// identity for it and asks the operator for none.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn an_existing_record_needs_no_identity() -> Fallible {
+    let sut = FakeSut::start();
+    mount_refusing_seed(&sut);
+    let dir = assert_fs::TempDir::new()?;
+    let ixit = staged_topology(&dir, &sut.base_url());
+    let results = dir.path().join("results.json");
+    let example = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/examples/results.example.json"
+    ))?;
+    std::fs::write(&results, &example)?;
+
+    let error = run_measured(&unidentified(&ixit, &results), &|_| {})
+        .expect_err("a refused seeding is no measured window");
+    assert!(
+        matches!(&error, Error::Instrument(m) if m.contains("seeding failed")),
+        "{error}"
+    );
+    assert!(
+        sut.requests()
+            .iter()
+            .all(|r| r.method.as_str() != "OPTIONS"),
+        "an existing record is not re-identified"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&results)?,
+        example,
+        "a run that measured nothing leaves the record as it was"
     );
     Ok(())
 }
@@ -761,6 +899,7 @@ fn the_instruments_need_nothing_from_the_case_core_catalogue() -> Fallible {
             class: "POC",
             seed_workers: 1,
             window: SustainedWindow::default(),
+            sut: OPERATOR,
         },
         &|_| {},
     )

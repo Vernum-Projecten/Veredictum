@@ -17,7 +17,13 @@
 
 use std::path::Path;
 
+use crate::identity::OperatorIdentity;
 use crate::ids::CaseId;
+use crate::ixit::Ixit;
+use crate::party::{
+    InstrumentStatus, RecordedTechProfile, Results, Runner, SCHEDULE_RELEASE, SelectionBasis, Sut,
+    TechProfileSource, VerificationPackStatus, ixit_digest,
+};
 use crate::perf::{JourneyCatalogue, Measurement, PerfClass, PerformanceCase};
 use crate::perf_run::client::PerfClient;
 use crate::perf_run::corpus::SeededCorpus;
@@ -27,6 +33,7 @@ use crate::pipeline::{Error, load_ixit, load_party_json, to_json_document};
 use crate::probe::AqlProbeReport;
 use crate::schema::results_schema;
 use crate::stress::StressReport;
+use crate::vocab::{FormatName, ItsName};
 
 /// The sustained-window ladder a measured run may hold its offered load for.
 ///
@@ -90,6 +97,9 @@ pub enum MeasuredEvent<'a> {
     PrunedOrphan(&'a CaseId),
     /// The record was merged into the results document at this path.
     Merged(&'a Path),
+    /// No results document existed at this path, so the record was written
+    /// into a new one.
+    Created(&'a Path),
 }
 
 /// One completed measured run.
@@ -110,8 +120,14 @@ pub struct MeasuredRequest<'a> {
     /// The ixit topology document; its environment block is mandatory for a
     /// measured run.
     pub ixit: &'a Path,
-    /// The results document the measurement records are merged into.
+    /// The results document the measurement records are merged into. When no
+    /// file exists at this path, the run creates a new measured record there
+    /// ([`new_measured_record`]).
     pub results: &'a Path,
+    /// The SUT name and version a new measured record carries where the
+    /// server's System OPTIONS answer states none. Unread when the results
+    /// document already exists.
+    pub sut: OperatorIdentity<'a>,
     /// The class token selecting the performance case(s) to measure.
     pub class: &'a str,
     /// Parallel seeding workers.
@@ -388,19 +404,88 @@ pub fn run_aql_probe(
     .map_err(|e| Error::Instrument(format!("probe run failed: {e}")))
 }
 
+/// Returns the results record a measured run creates when none exists yet:
+/// the SUT identity and the run's own facts, with no outcome and no
+/// measurement.
+///
+/// Every member is a fact of this run. No party statement selected it, so
+/// `selection_basis` is `statement_blind` with no statement digest, and the
+/// technology profile is the defaulted one a campaign nothing selected
+/// records. The verification pack is `not_run`, the schedule release is the
+/// instrument's own [`SCHEDULE_RELEASE`], and the server's
+/// `restapi_specs_version` is recorded only when it stated one.
+#[must_use]
+pub fn new_measured_record(sut: Sut, ixit_text: &str) -> Results {
+    Results {
+        restapi_specs_version: sut
+            .restapi_specs_version
+            .as_ref()
+            .map(|field| field.value.clone()),
+        sut,
+        runner: Runner {
+            name: env!("CARGO_PKG_NAME").to_owned(),
+            version: env!("CARGO_PKG_VERSION").to_owned(),
+            verification_pack_status: VerificationPackStatus::NotRun,
+        },
+        instrument_status: InstrumentStatus::CURRENT,
+        schedule_release: SCHEDULE_RELEASE.to_owned(),
+        tech_profile: RecordedTechProfile {
+            its: ItsName::ItsRest,
+            formats: FormatName::ALL.to_vec(),
+            source: Some(TechProfileSource::Defaulted),
+        },
+        ixit_digest: ixit_digest(ixit_text),
+        statement_digest: None,
+        selection_basis: Some(SelectionBasis::StatementBlind),
+        outcomes: Vec::new(),
+        measurements: Vec::new(),
+    }
+}
+
+/// Reads the SUT identity a new measured record carries: what the server
+/// states through System OPTIONS, and the operator's values for the rest.
+///
+/// # Errors
+/// [`Error::Instrument`] when the topology declares no `sut` instance, and
+/// [`Error::Identity`] when no credential resolves, the request is not
+/// answered, or neither side supplies the name or the version.
+pub fn measured_identity(
+    ixit: &Ixit,
+    operator: OperatorIdentity<'_>,
+    progress: &dyn Fn(String),
+) -> Result<Sut, Error> {
+    use crate::identity::{self, IdentityError};
+
+    let instance = ixit.default_instance().map_err(Error::Instrument)?;
+    let authorization = identity::authorization(ixit, &instance.auth)?;
+    let mut transport =
+        crate::exec::transport::HttpTransport::new().map_err(IdentityError::Transport)?;
+    let answered = identity::read(&mut transport, &instance.base_url, authorization.as_deref())?;
+    progress(format!("identity: {}", answered.read.summary()));
+    let (sut, overridden) = identity::merge(answered.read.options(), operator)?;
+    for notice in &overridden {
+        progress(format!("identity: {}", notice.notice()));
+    }
+    Ok(sut)
+}
+
 /// Runs the measured class window and merges its record into the results
-/// document.
+/// document, creating that document when none exists.
 ///
 /// The merge is part of the run rather than a rendering step: a record
 /// replaces any prior one for the same case, records for cases the
 /// performance schedule no longer carries are pruned, and the set is written
-/// back sorted.
+/// back sorted. When no file exists at the results path, the SUT identity is
+/// read before any seeding ([`measured_identity`]) and the record lands in a
+/// new document ([`new_measured_record`]).
 ///
 /// # Errors
 /// [`Error::Selector`] for an unknown class token, [`Error::Catalogue`] or
 /// [`Error::Artifacts`] when the performance schedule does not load,
-/// [`Error::Read`] or [`Error::Parse`] for the topology, [`Error::Party`] for the results
-/// document, and [`Error::Instrument`] for a seeding, window or write
+/// [`Error::Read`] or [`Error::Parse`] for the topology, [`Error::Read`] when
+/// the results path cannot be inspected, [`Error::Identity`] when a new
+/// record's SUT identity cannot be established, [`Error::Party`] for the
+/// results document, and [`Error::Instrument`] for a seeding, window or write
 /// failure — including a window the SUT rate-limited, which is not a
 /// measurement of that server and never reaches the results.
 #[expect(
@@ -415,7 +500,7 @@ pub fn run_measured(
 
     let class = PerfClass::parse(request.class).map_err(Error::Selector)?;
     let schedule = load_clean_schedule(request.root)?;
-    let (ixit, _) = load_ixit(request.ixit)?;
+    let (ixit, ixit_text) = load_ixit(request.ixit)?;
     let (principals, environment) =
         perf_run::window::measured_run_context(&ixit).map_err(Error::Instrument)?;
     let client = principals.primary().clone();
@@ -435,6 +520,14 @@ pub fn run_measured(
     if containers.is_none() {
         progress("resources: not sampled (ixit declares no `containers` block)".to_owned());
     }
+    // The identity is read before the seeding, so a record that cannot carry
+    // one fails before an hour of offered load rather than after it.
+    let new_record = if record_exists(request.results)? {
+        None
+    } else {
+        let sut = measured_identity(&ixit, request.sut, &progress)?;
+        Some(new_measured_record(sut, &ixit_text))
+    };
 
     let mut run = MeasuredRun {
         measurements: Vec::new(),
@@ -550,21 +643,53 @@ pub fn run_measured(
         // A limiter-shaped window is not a measurement of this server, so it
         // never reaches the results record.
         perf_run::refuse_rate_limited_record("perf").map_err(Error::Instrument)?;
-        merge_measurement(request, &schedule, measurement.clone(), observe)?;
+        merge_measurement(
+            request,
+            new_record.as_ref(),
+            &schedule,
+            measurement.clone(),
+            observe,
+        )?;
         run.measurements.push(measurement);
     }
     Ok(run)
 }
 
+/// Whether a file exists at `path`.
+///
+/// # Errors
+/// [`Error::Read`] when the path cannot be inspected at all.
+fn record_exists(path: &Path) -> Result<bool, Error> {
+    std::fs::exists(path).map_err(|source| Error::Read {
+        path: path.to_owned(),
+        source,
+    })
+}
+
+/// Merges one record into the results document at the request's path, or
+/// into `new_record` when no file exists there.
 fn merge_measurement(
     request: &MeasuredRequest<'_>,
+    new_record: Option<&Results>,
     schedule: &PerfSchedule,
     measurement: Measurement,
     observe: &(dyn Fn(MeasuredEvent<'_>) + Sync),
 ) -> Result<(), Error> {
-    // TODO(#800): no remaining command writes the measured record this merges into.
-    let mut results: crate::party::Results =
-        load_party_json(request.results, &results_schema(), "results.schema.json")?;
+    let (mut results, created) = if record_exists(request.results)? {
+        let results: Results =
+            load_party_json(request.results, &results_schema(), "results.schema.json")?;
+        (results, false)
+    } else {
+        // NOTE: no openEHR spec governs this — our own design; a record is
+        // created only at a path that held no file when the run began.
+        let fresh = new_record.cloned().ok_or_else(|| {
+            Error::Party(format!(
+                "{}: the results document disappeared during the measured run",
+                request.results.display()
+            ))
+        })?;
+        (fresh, true)
+    };
     results.measurements.retain(|m| m.case != measurement.case);
     // A measurement whose case is no longer in the performance schedule (a
     // renamed or retired case) is an orphan the verdict review would flag —
@@ -582,7 +707,11 @@ fn merge_measurement(
         .sort_by(|a, b| a.case.as_str().cmp(b.case.as_str()));
     let document = to_json_document(&results, "serialize")?;
     crate::pipeline::write_file(request.results, &document)?;
-    observe(MeasuredEvent::Merged(request.results));
+    observe(if created {
+        MeasuredEvent::Created(request.results)
+    } else {
+        MeasuredEvent::Merged(request.results)
+    });
     Ok(())
 }
 
@@ -594,7 +723,7 @@ mod tests {
 
     /// The committed example results document — the one real record in the
     /// tree, carrying one measurement of the POC class.
-    fn example_results() -> crate::party::Results {
+    fn example_results() -> Results {
         let text = std::fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/examples/results.example.json"
@@ -613,7 +742,7 @@ mod tests {
 
     /// Writes `results` into a temp directory and returns the path plus the
     /// directory guard, which must outlive the path.
-    fn staged(results: &crate::party::Results) -> (assert_fs::TempDir, std::path::PathBuf) {
+    fn staged(results: &Results) -> (assert_fs::TempDir, std::path::PathBuf) {
         let dir = assert_fs::TempDir::new().expect("temp dir");
         let path = dir.path().join("results.json");
         let text = to_json_document(results, "serialize").expect("the record serializes");
@@ -692,7 +821,7 @@ mod tests {
     /// guessing one would publish a measurement of an unnamed population.
     #[test]
     fn seeding_refuses_an_unknown_corpus_key_before_any_wire_call() {
-        let ixit: crate::ixit::Ixit = serde_json::from_value(serde_json::json!({
+        let ixit: Ixit = serde_json::from_value(serde_json::json!({
             "instances": { "sut": { "base_url": "http://127.0.0.1:1", "auth": { "mode": "none" } } }
         }))
         .expect("the single-instance topology parses");
@@ -736,6 +865,7 @@ mod tests {
                 class: "PLATINUM",
                 seed_workers: 1,
                 window: SustainedWindow::default(),
+                sut: OperatorIdentity::default(),
             },
             &|_| {},
         )
@@ -817,8 +947,9 @@ mod tests {
             class: "POC",
             seed_workers: 1,
             window: SustainedWindow::default(),
+            sut: OperatorIdentity::default(),
         };
-        merge_measurement(&request, &schedule, measurement.clone(), &|event| {
+        merge_measurement(&request, None, &schedule, measurement.clone(), &|event| {
             events
                 .lock()
                 .expect("the observer lock is uncontended")
@@ -826,7 +957,7 @@ mod tests {
         })
         .expect("the merge writes the document");
 
-        let merged: crate::party::Results = serde_json::from_str(
+        let merged: Results = serde_json::from_str(
             &std::fs::read_to_string(&path).expect("the merged document is readable"),
         )
         .expect("the merged document parses");
@@ -870,8 +1001,9 @@ mod tests {
             class: "POC",
             seed_workers: 1,
             window: SustainedWindow::default(),
+            sut: OperatorIdentity::default(),
         };
-        merge_measurement(&request, &schedule, measurement, &|event| {
+        merge_measurement(&request, None, &schedule, measurement, &|event| {
             if let MeasuredEvent::PrunedOrphan(case) = event {
                 pruned
                     .lock()
@@ -886,7 +1018,7 @@ mod tests {
             vec![orphan.case.to_string()],
             "the orphan is named as it is dropped"
         );
-        let merged: crate::party::Results = serde_json::from_str(
+        let merged: Results = serde_json::from_str(
             &std::fs::read_to_string(&path).expect("the merged document is readable"),
         )
         .expect("the merged document parses");
@@ -917,8 +1049,9 @@ mod tests {
             class: "POC",
             seed_workers: 1,
             window: SustainedWindow::default(),
+            sut: OperatorIdentity::default(),
         };
-        let error = merge_measurement(&request, &schedule, measurement, &|_| {})
+        let error = merge_measurement(&request, None, &schedule, measurement, &|_| {})
             .expect_err("an empty object is not a results record");
         assert!(matches!(error, Error::Party(_)), "{error}");
         assert_eq!(
@@ -926,5 +1059,171 @@ mod tests {
             "{}",
             "a refused merge writes nothing"
         );
+    }
+
+    /// The first measurement at a path that holds no file lands in a new
+    /// record: the document is created, reads back through the published
+    /// results schema, and carries exactly that measurement and no outcome.
+    #[test]
+    fn the_first_measurement_creates_the_record_it_lands_in() {
+        let schedule = committed_schedule();
+        let dir = assert_fs::TempDir::new().expect("temp dir");
+        let path = dir.path().join("results.json");
+        let measurement = example_results()
+            .measurements
+            .first()
+            .expect("the example is measured")
+            .clone();
+        let header = new_measured_record(Sut::operator("cdr", "1.0"), "{}");
+
+        let events = Mutex::new(Vec::new());
+        let request = MeasuredRequest {
+            root: Path::new("perf"),
+            ixit: Path::new("ixit.json"),
+            results: &path,
+            class: "POC",
+            seed_workers: 1,
+            window: SustainedWindow::default(),
+            sut: OperatorIdentity::default(),
+        };
+        merge_measurement(
+            &request,
+            Some(&header),
+            &schedule,
+            measurement.clone(),
+            &|event| {
+                events
+                    .lock()
+                    .expect("the observer lock is uncontended")
+                    .push(format!("{event:?}"));
+            },
+        )
+        .expect("the first measurement creates the record");
+
+        let created: Results = load_party_json(&path, &results_schema(), "results.schema.json")
+            .expect("the created record validates against the published results schema");
+        assert_eq!(created.measurements.len(), 1);
+        assert_eq!(created.measurements[0].case, measurement.case);
+        assert!(created.outcomes.is_empty(), "perf records no outcome");
+        assert_eq!(created.sut, Sut::operator("cdr", "1.0"));
+        assert_eq!(
+            created.selection_basis,
+            Some(SelectionBasis::StatementBlind)
+        );
+        assert_eq!(created.statement_digest, None);
+        assert_eq!(created.ixit_digest, ixit_digest("{}"));
+        let seen = events.lock().expect("the observer lock is uncontended");
+        assert_eq!(seen.len(), 1, "one event: the creation itself ({seen:?})");
+        assert!(seen[0].starts_with("Created("), "{seen:?}");
+    }
+
+    /// A second case of the same class merges into the record the first one
+    /// created rather than replacing it with a second new record.
+    #[test]
+    fn a_created_record_is_merged_into_by_the_next_case() {
+        let schedule = committed_schedule();
+        let dir = assert_fs::TempDir::new().expect("temp dir");
+        let path = dir.path().join("results.json");
+        let measurement = example_results()
+            .measurements
+            .first()
+            .expect("the example is measured")
+            .clone();
+        let first_header = new_measured_record(Sut::operator("first", "1"), "{}");
+        let later_header = new_measured_record(Sut::operator("later", "2"), "{}");
+        let request = MeasuredRequest {
+            root: Path::new("perf"),
+            ixit: Path::new("ixit.json"),
+            results: &path,
+            class: "POC",
+            seed_workers: 1,
+            window: SustainedWindow::default(),
+            sut: OperatorIdentity::default(),
+        };
+        merge_measurement(
+            &request,
+            Some(&first_header),
+            &schedule,
+            measurement.clone(),
+            &|_| {},
+        )
+        .expect("the first measurement creates the record");
+        merge_measurement(
+            &request,
+            Some(&later_header),
+            &schedule,
+            measurement,
+            &|_| {},
+        )
+        .expect("the next measurement merges");
+
+        let merged: Results = load_party_json(&path, &results_schema(), "results.schema.json")
+            .expect("the record still validates");
+        assert_eq!(
+            merged.sut,
+            Sut::operator("first", "1"),
+            "an existing record keeps its own header"
+        );
+        assert_eq!(merged.measurements.len(), 1);
+    }
+
+    /// A path that holds no file and no header to create a record from is
+    /// refused, and nothing is written there.
+    #[test]
+    fn a_missing_record_without_a_header_is_refused() {
+        let schedule = committed_schedule();
+        let dir = assert_fs::TempDir::new().expect("temp dir");
+        let path = dir.path().join("results.json");
+        let measurement = example_results()
+            .measurements
+            .first()
+            .expect("the example is measured")
+            .clone();
+        let request = MeasuredRequest {
+            root: Path::new("perf"),
+            ixit: Path::new("ixit.json"),
+            results: &path,
+            class: "POC",
+            seed_workers: 1,
+            window: SustainedWindow::default(),
+            sut: OperatorIdentity::default(),
+        };
+        let error = merge_measurement(&request, None, &schedule, measurement, &|_| {})
+            .expect_err("no file and no header is no record");
+        assert!(
+            matches!(&error, Error::Party(m) if m.contains("disappeared")),
+            "{error}"
+        );
+        assert!(!path.exists(), "a refused merge writes nothing");
+    }
+
+    /// The new record's header is the run's own facts: the instrument's
+    /// version and schedule release, the defaulted profile a campaign no
+    /// statement selected records, and the server's ITS-REST release only
+    /// when the server stated one.
+    #[test]
+    fn a_new_record_states_only_facts_of_its_run() {
+        let mut sut = Sut::operator("cdr", "1.0");
+        let blind = new_measured_record(sut.clone(), "{}");
+        assert_eq!(blind.runner.name, "veredictum");
+        assert_eq!(blind.runner.version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(
+            blind.runner.verification_pack_status,
+            VerificationPackStatus::NotRun
+        );
+        assert_eq!(blind.instrument_status, InstrumentStatus::CURRENT);
+        assert_eq!(blind.schedule_release, SCHEDULE_RELEASE);
+        assert_eq!(blind.tech_profile.its, ItsName::ItsRest);
+        assert_eq!(blind.tech_profile.formats, FormatName::ALL.to_vec());
+        assert_eq!(
+            blind.tech_profile.source,
+            Some(TechProfileSource::Defaulted)
+        );
+        assert_eq!(blind.restapi_specs_version, None);
+        assert_eq!(blind.provenance_contradiction(), None);
+
+        sut.restapi_specs_version = Some(crate::party::IdentityField::server("1.0.3"));
+        let stated = new_measured_record(sut, "{}");
+        assert_eq!(stated.restapi_specs_version.as_deref(), Some("1.0.3"));
     }
 }

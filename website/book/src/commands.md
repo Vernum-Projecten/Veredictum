@@ -332,18 +332,43 @@ arm of an option in `capabilities.yaml`, one arm per option.
 ## perf
 
 ```text
-Execute the performance schedule's open-loop measured run(s) against a live SUT and merge the §8.10 measurement records into an existing results.json (conformance-by-measurement)
+Execute the performance schedule's open-loop measured run(s) against a live SUT and merge the §8.10 measurement records into a results.json (conformance-by-measurement), creating it when `--results` names no file.
+
+A new record carries the SUT identity the server states through System OPTIONS, read before any seeding, with `--sut-name` and `--sut-version` filling what it does not state. It records no conformance outcome: nothing selected a statement, so it is `statement_blind`, and the verification pack is `not_run`. An existing file keeps its header and gains or replaces the measured case's record.
 
 Usage: veredictum perf [OPTIONS] --root <ROOT> --ixit <IXIT> --results <RESULTS> --class <CLASS>
 
 Options:
-      --root <ROOT>                  The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
-      --ixit <IXIT>                  The ixit topology file (JSON) — its environment block is mandatory for a measured run
-      --results <RESULTS>            The measured results record (`results.schema.json`) to merge the measurement records into
-      --class <CLASS>                Select the performance case(s) of this class (POC | S | L | R)
-      --seed-workers <SEED_WORKERS>  Parallel seeding workers [default: 16]
-      --hours <HOURS>                The sustained-window ladder: hours to hold the offered load — 1 (default, the case's normative window) | 2 | 4 | 6 | 8 | 12. A longer window is a STRICTER demonstration and persists like any measured run; nothing shorter than the case exists [default: 1]
-  -h, --help                         Print help
+      --root <ROOT>
+          The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
+
+      --ixit <IXIT>
+          The ixit topology file (JSON) — its environment block is mandatory for a measured run
+
+      --results <RESULTS>
+          The measured results record (`results.schema.json`) to merge the measurement records into; created when no file exists at the path
+
+      --sut-name <SUT_NAME>
+          The SUT name a new record carries when the server does not state one through System OPTIONS. Unread when `--results` exists
+
+      --sut-version <SUT_VERSION>
+          The SUT version a new record carries when the server does not state one through System OPTIONS. Unread when `--results` exists
+
+      --class <CLASS>
+          Select the performance case(s) of this class (POC | S | L | R)
+
+      --seed-workers <SEED_WORKERS>
+          Parallel seeding workers
+          
+          [default: 16]
+
+      --hours <HOURS>
+          The sustained-window ladder: hours to hold the offered load — 1 (default, the case's normative window) | 2 | 4 | 6 | 8 | 12. A longer window is a STRICTER demonstration and persists like any measured run; nothing shorter than the case exists
+          
+          [default: 1]
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 Conformance by measurement. Latency is measured from the planned arrival instant
@@ -356,6 +381,16 @@ the case exists.
 cases, the journey catalogue and the payloads the journeys send. `stress`,
 `aql-probe` and `perf-assets` read the same tree, and none of them reads
 `catalogue/`.
+
+`--results` names the measured record. When no file exists there, `perf`
+creates it: before it seeds anything, it reads the server's identity through
+System OPTIONS, and `--sut-name` and `--sut-version` supply the name and
+version the server does not state. The new record holds the measurements and
+no conformance outcome. No party statement selected the run, so it is
+`statement_blind` with the defaulted technology profile, and its verification
+pack is `not_run`. When the file exists, `perf` keeps its header, replaces any
+earlier record for the same case and adds the new one. `verdicts` and
+`perf-assets` read either kind of record.
 
 The `environment` block is mandatory rather than optional because a latency
 number is a claim about a deployment, and a claim with no deployment described

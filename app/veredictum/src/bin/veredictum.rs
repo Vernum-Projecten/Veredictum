@@ -35,6 +35,7 @@ use clap::{Parser, Subcommand};
 use veredictum::arazzo::credential::{CredentialSource, Role};
 use veredictum::bench::client::AuthKind;
 use veredictum::certificate::{HONESTY_LINE, Jwks, Outcome, verify};
+use veredictum::identity::OperatorIdentity;
 use veredictum::party::version_line;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
 use veredictum::pipeline::assets::{performance_assets, schema_files, stress_overlay};
@@ -227,8 +228,16 @@ enum Command {
         statement: Option<PathBuf>,
     },
     /// Execute the performance schedule's open-loop measured run(s) against
-    /// a live SUT and merge the §8.10 measurement records into an existing
-    /// results.json (conformance-by-measurement).
+    /// a live SUT and merge the §8.10 measurement records into a results.json
+    /// (conformance-by-measurement), creating it when `--results` names no
+    /// file.
+    ///
+    /// A new record carries the SUT identity the server states through System
+    /// OPTIONS, read before any seeding, with `--sut-name` and `--sut-version`
+    /// filling what it does not state. It records no conformance outcome:
+    /// nothing selected a statement, so it is `statement_blind`, and the
+    /// verification pack is `not_run`. An existing file keeps its header and
+    /// gains or replaces the measured case's record.
     Perf {
         /// The performance schedule root, `perf/` in this repository
         /// (classes/, journeys.yaml, payloads.yaml, payloads/)
@@ -239,9 +248,17 @@ enum Command {
         #[arg(long)]
         ixit: PathBuf,
         /// The measured results record (`results.schema.json`) to merge the
-        /// measurement records into.
+        /// measurement records into; created when no file exists at the path.
         #[arg(long)]
         results: PathBuf,
+        /// The SUT name a new record carries when the server does not state
+        /// one through System OPTIONS. Unread when `--results` exists.
+        #[arg(long)]
+        sut_name: Option<String>,
+        /// The SUT version a new record carries when the server does not
+        /// state one through System OPTIONS. Unread when `--results` exists.
+        #[arg(long)]
+        sut_version: Option<String>,
         /// Select the performance case(s) of this class (POC | S | L | R).
         #[arg(long)]
         class: String,
@@ -601,10 +618,23 @@ fn main() -> ExitCode {
             root,
             ixit,
             results,
+            sut_name,
+            sut_version,
             class,
             seed_workers,
             hours,
-        } => perf_command(&root, &ixit, &results, &class, seed_workers, hours),
+        } => perf_command(
+            &root,
+            &ixit,
+            &results,
+            OperatorIdentity {
+                name: sut_name.as_deref(),
+                version: sut_version.as_deref(),
+            },
+            &class,
+            seed_workers,
+            hours,
+        ),
         Command::Stress {
             root,
             ixit,
@@ -1138,6 +1168,7 @@ fn perf_command(
     root: &Path,
     ixit: &Path,
     results: &Path,
+    sut: OperatorIdentity<'_>,
     class_token: &str,
     seed_workers: usize,
     hours: u64,
@@ -1150,6 +1181,7 @@ fn perf_command(
         root,
         ixit,
         results,
+        sut,
         class: class_token,
         seed_workers,
         window,
@@ -1180,6 +1212,12 @@ fn perf_command(
         }
         MeasuredEvent::Merged(path) => {
             println!("  measurement merged into {}", path.display());
+        }
+        MeasuredEvent::Created(path) => {
+            println!(
+                "  measurement written into the new record {}",
+                path.display()
+            );
         }
     };
     match run_measured(&request, &observe) {
