@@ -55,6 +55,9 @@ lcov.info
 !.env.example
 *.pem
 *.key
+# The certificate tests' Ed25519 key, published as a test key in
+# fixtures/certificates/jwks.json and never a production one.
+!fixtures/certificates/test-signing.key.pem
 ixit.local.json
 **/ixit.local.json
 
