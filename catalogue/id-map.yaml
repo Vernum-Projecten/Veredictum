@@ -1413,10 +1413,7 @@ cases:
     open: >-
       Realised as a read of the stored definition.
   I_DEFINITION_QUERY.list_matching_queries-id_pattern:
-    new: [definition_query/store-no_version]
-    open: >-
-      The listing by an exact name; a pattern matching several names is not
-      judged. Not converted yet, tracked by #711.
+    new: [definition_query/store-no_version, definition_query/list-prefix_several_names]
   I_DEFINITION_QUERY.list_queries-empty:
     new: []
     open: >-
@@ -1424,14 +1421,16 @@ cases:
   I_DEFINITION_QUERY.list_queries-no_match_empty_list:
     new: []
     open: >-
-      Not converted yet, tracked by #711.
+      The answer to a pattern that matches no stored query is unassigned:
+      definition_query_list.yaml declares one 200 and says nothing of an empty
+      match, upstream report #754.
   I_DEFINITION_QUERY.list_queries-non_empty:
     new: [definition_query/store-no_version]
   I_DEFINITION_QUERY.list_queries-prefix_all_versions:
-    new: []
+    new: [definition_query/list-every_version, definition_query/list-prefix_several_names]
     open: >-
-      Every version under a name prefix, in order. Not converted yet, tracked by
-      #711.
+      Every version under a name, and every name under a prefix; the order of
+      the list is unassigned, upstream report #754.
   I_DEFINITION_QUERY.list_queries-select_items:
     new: []
     open: >-
@@ -1446,15 +1445,9 @@ cases:
   I_DEFINITION_QUERY.list_queries-version_get_unknown:
     new: [definition_query/get-version_unknown]
   I_DEFINITION_QUERY.list_queries-version_get_xml_not_acceptable:
-    new: []
-    open: >-
-      Accept application/xml on a read that declares only application/json. Not
-      converted yet, tracked by #711.
+    new: [definition_query/get-version_xml_not_acceptable]
   I_DEFINITION_QUERY.list_queries-xml_not_acceptable:
-    new: []
-    open: >-
-      Accept application/xml on a listing that declares only application/json.
-      Not converted yet, tracked by #711.
+    new: [definition_query/list-xml_not_acceptable]
   I_DEFINITION_QUERY.queries_count-count:
     new: []
     open: >-
@@ -1463,56 +1456,56 @@ cases:
   I_DEFINITION_QUERY.store_query-default_slot_with_higher_version:
     new: []
     open: >-
-      Which version a version-less store writes beside a higher one. Not
-      converted yet, tracked by #711.
+      Which version a store without a version writes is unassigned, upstream
+      report #754.
   I_DEFINITION_QUERY.store_query-default_version_slot:
     new: [definition_query/store-no_version]
     open: >-
-      The store and its listing; the version it writes and its Location are not
-      judged. Not converted yet, tracked by #711.
+      The store and its listing; which version a store without a version writes,
+      and so its Location, is unassigned, upstream report #754.
   I_DEFINITION_QUERY.store_query-dotted_name:
-    new: []
-    open: >-
-      Not converted yet, tracked by #711.
+    new: [definition_query/store_version-dotted_name]
   I_DEFINITION_QUERY.store_query-reserved_name:
     new: [definition_query/store-reserved_name]
     open: >-
       The lower-case name; the case-insensitive variants are not repeated.
   I_DEFINITION_QUERY.store_query-unqualified_name:
-    new: []
+    new: [definition_query/store_version-unqualified_name]
     open: >-
-      Not converted yet, tracked by #711.
+      The store and the read by the unqualified name; the name the definition
+      carries is not judged.
   I_DEFINITION_QUERY.store_query-update_in_place:
     new: []
     open: >-
-      Not converted yet, tracked by #711.
+      Whether a store without a version overwrites a stored text is unassigned:
+      definition_query_store.yaml "updates an existing query" while stored
+      queries are "immutable", upstream report #754.
   I_DEFINITION_QUERY.store_query-version_duplicate_case_variant_name:
     new: []
     open: >-
-      Not converted yet, tracked by #711.
+      Whether two qualified_query_name values that differ only in case name one
+      query is unassigned; the release names case only for the reserved aql,
+      upstream report #754.
   I_DEFINITION_QUERY.store_query-version_duplicate_conflict:
     new: [definition_query/store_version-conflict]
   I_DEFINITION_QUERY.store_query-version_malformed_rejected:
-    new: []
-    open: >-
-      The 400 of a version store is a surface gap. Not converted yet, tracked by
-      #711.
+    new: [definition_query/store_version-malformed_version]
   I_DEFINITION_QUERY.store_query-version_prefix_rejected:
     new: []
     open: >-
-      The 400 of a version store is a surface gap. Not converted yet, tracked by
-      #711.
+      Whether a store takes a major or major.minor prefix as its version is
+      unassigned: version.yaml describes {version} in read terms for the store
+      as well, upstream report #754.
   I_DEFINITION_QUERY.store_query-version_prerelease_rejected:
     new: []
     open: >-
-      The 400 of a version store is a surface gap. Not converted yet, tracked by
-      #711.
+      A SEMVER pre-release is a SEMVER version, and Qualified_query_name.md
+      names major.minor.patch; whether a store takes one is unassigned, upstream
+      report #754.
   I_DEFINITION_QUERY.store_query-version_stored:
     new: [definition_query/store_version-read_back]
   I_DEFINITION_QUERY.store_query-wrong_media:
-    new: []
-    open: >-
-      Not converted yet, tracked by #711.
+    new: [definition_query/store-wrong_media]
   I_DEFINITION_QUERY.store_query_set-register:
     new: []
     open: >-
@@ -1521,13 +1514,11 @@ cases:
   I_DEFINITION_QUERY.valid_query-bad_formalism:
     new: []
     open: >-
-      A store under a query_type the service does not support. Not converted
-      yet, tracked by #711.
+      The answer to a store under a query_type the service does not support is
+      unassigned: query_type.yaml names the parameter and its default only,
+      upstream report #754.
   I_DEFINITION_QUERY.valid_query-invalid:
-    new: []
-    open: >-
-      The 400 of a store whose text does not parse is a surface gap. Not
-      converted yet, tracked by #711.
+    new: [definition_query/store_version-query_not_parsed]
   I_DEFINITION_QUERY.valid_query-valid:
     new: [definition_query/store_version-read_back]
   I_DEMOGRAPHIC_SERVICE.create_party-aaaa:
@@ -3631,22 +3622,21 @@ cases:
   I_QUERY_SERVICE.execute_ad_hoc_query-aggregates_empty_set:
     new: [aql_semantics/aggregate-count_empty, aql_semantics/aggregate-min_empty, aql_semantics/aggregate-max_empty, aql_semantics/aggregate-sum_empty, aql_semantics/aggregate-avg_empty]
   I_QUERY_SERVICE.execute_ad_hoc_query-aggregates_non_numeric:
-    new: []
+    new: [aql_semantics/aggregate-min_string, aql_semantics/aggregate-max_string]
     open: >-
-      MIN and MAX over a String or a date/time: master03 §MIN and §MAX say only
-      that the input type "should be" one of those. Not converted yet, tracked
-      by #711.
+      MIN and MAX over a String; over a date/time the comparison of the whole
+      value is unassigned, upstream report #771.
   I_QUERY_SERVICE.execute_ad_hoc_query-aggregates_non_numeric_executed:
     new: []
     open: >-
       An aggregate over an input type outside its declared set: the declared
       types are a should (master03 §SUM, §AVG) and no outcome is assigned for
-      another type. Not converted yet, tracked by #711.
+      another type, upstream report #229.
   I_QUERY_SERVICE.execute_ad_hoc_query-aggregates_non_numeric_refused:
     new: []
     open: >-
       The refusing twin of aggregates_non_numeric_executed; no outcome is
-      assigned. Not converted yet, tracked by #711.
+      assigned, upstream report #229.
   I_QUERY_SERVICE.execute_ad_hoc_query-all_versions:
     new: []
     open: >-
@@ -3654,14 +3644,16 @@ cases:
   I_QUERY_SERVICE.execute_ad_hoc_query-archetype_subsumption:
     new: []
     open: >-
-      Matching an archetype predicate by specialisation lineage. Not converted
-      yet, tracked by #711.
+      Matching an archetype predicate by specialisation lineage: QUERY reads the
+      predicate as string equality and BASE as subsumption, upstream report
+      #761.
   I_QUERY_SERVICE.execute_ad_hoc_query-bare_ehr_projection:
     new: [aql_semantics/standard_predicate-ehr_id]
   I_QUERY_SERVICE.execute_ad_hoc_query-bare_ehr_scope_header:
-    new: []
+    new: [aql_ehr_scope/get-ehr_id_header]
     open: >-
-      The openehr-ehr-id request header. Not converted yet, tracked by #711.
+      Folded: the scope sent in the openehr-ehr-id header alone is judged over a
+      COMPOSITION projection.
   I_QUERY_SERVICE.execute_ad_hoc_query-bare_ehr_scope_param:
     new: [aql_ehr_scope/get-ehr_id_parameter]
     open: >-
@@ -3679,27 +3671,22 @@ cases:
   I_QUERY_SERVICE.execute_ad_hoc_query-distinct_limit_order:
     new: [aql_semantics/distinct-limit_offset]
   I_QUERY_SERVICE.execute_ad_hoc_query-ehr_id_header_deprecated_get:
-    new: []
+    new: [aql_ehr_scope/get-ehr_id_header]
     open: >-
-      The deprecated openEHR-EHR-id header. Not converted yet, tracked by #711.
+      Folded: field names are case-insensitive (RFC 9110 §5.1), so
+      openEHR-EHR-id is the field openehr-ehr-id and the same request on the
+      wire.
   I_QUERY_SERVICE.execute_ad_hoc_query-ehr_id_header_get:
-    new: []
-    open: >-
-      The openehr-ehr-id request header. Not converted yet, tracked by #711.
+    new: [aql_ehr_scope/get-ehr_id_header]
   I_QUERY_SERVICE.execute_ad_hoc_query-ehr_id_header_post:
-    new: []
-    open: >-
-      The openehr-ehr-id request header. Not converted yet, tracked by #711.
+    new: [aql_ehr_scope/post-ehr_id_header]
   I_QUERY_SERVICE.execute_ad_hoc_query-ehr_id_param_and_header_agree:
-    new: []
-    open: >-
-      The openehr-ehr-id request header beside the ehr_id parameter. Not
-      converted yet, tracked by #711.
+    new: [aql_ehr_scope/get-ehr_id_parameter_and_header]
   I_QUERY_SERVICE.execute_ad_hoc_query-ehr_id_param_and_header_conflict:
     new: []
     open: >-
-      A conflicting ehr_id parameter and header. Not converted yet, tracked by
-      #711.
+      A request whose ehr_id parameter and openehr-ehr-id header name different
+      EHRs has no assigned answer, upstream report #754.
   I_QUERY_SERVICE.execute_ad_hoc_query-empty_db:
     new: [aql_execute/get-empty_ehr]
     open: >-
@@ -3715,7 +3702,8 @@ cases:
   I_QUERY_SERVICE.execute_ad_hoc_query-fetch_over_limit:
     new: []
     open: >-
-      fetch applied over an AQL LIMIT. Not converted yet, tracked by #711.
+      How fetch and offset relate to an AQL LIMIT is unassigned, upstream report
+      #754.
   I_QUERY_SERVICE.execute_ad_hoc_query-fetch_with_top:
     new: [aql_refused/get-fetch_with_top]
   I_QUERY_SERVICE.execute_ad_hoc_query-folder_composition_pairs:
@@ -3858,8 +3846,9 @@ cases:
   I_QUERY_SERVICE.execute_ad_hoc_query-uncoercible_parameter:
     new: []
     open: >-
-      A parameter value its predicate cannot compare. Not converted yet, tracked
-      by #711.
+      A parameter value that is not an ISO 8601 date-time, compared with a
+      date-time path: master03 §Dates and Times leaves the type to the processor
+      and assigns no outcome, upstream report #771.
   I_QUERY_SERVICE.execute_ad_hoc_query-undefined_containment_empty:
     new: []
     open: >-
@@ -3882,31 +3871,23 @@ cases:
   I_QUERY_SERVICE.execute_ad_hoc_query-where_magnitude:
     new: [aql_semantics/where-greater_or_equal]
   I_QUERY_SERVICE.execute_stored_query-ehr_id_header:
-    new: []
-    open: >-
-      The openehr-ehr-id request header on a stored query. Not converted yet,
-      tracked by #711.
+    new: [aql_ehr_scope/get-stored_ehr_id_header]
   I_QUERY_SERVICE.execute_stored_query-empty_db:
     new: [aql_stored/post-latest]
     open: >-
       A stored query over a known dataset stands for the empty server, which a
       shared server cannot be.
   I_QUERY_SERVICE.execute_stored_query-fetch_with_top:
-    new: []
-    open: >-
-      fetch with a stored query whose text uses TOP. Not converted yet, tracked
-      by #711.
+    new: [aql_stored_top/get-fetch_with_top]
   I_QUERY_SERVICE.execute_stored_query-post_empty_body:
     new: [aql_stored/post-body_empty]
   I_QUERY_SERVICE.execute_stored_query-protocol_fetch_reserved:
     new: []
     open: >-
-      A URL fetch beside an AQL $fetch parameter. Not converted yet, tracked by
-      #711.
+      Whether a query parameter named fetch binds the query or pages it is
+      unassigned, upstream report #754.
   I_QUERY_SERVICE.execute_stored_query-reserved_name:
-    new: []
-    open: >-
-      Executing the reserved name aql. Not converted yet, tracked by #711.
+    new: [aql_stored/get-reserved_name]
   I_QUERY_SERVICE.execute_stored_query-version_exact:
     new: [aql_stored/post-version_exact, aql_stored/get-version_exact]
   I_QUERY_SERVICE.execute_stored_query-version_major_prefix:
@@ -3914,8 +3895,8 @@ cases:
   I_QUERY_SERVICE.execute_stored_query-version_malformed_selector:
     new: []
     open: >-
-      A malformed version selector on execution. Not converted yet, tracked by
-      #711.
+      A version selector that is not a version reaches both 400_Query.yaml and
+      404_Query_version.yaml, upstream report #754.
   I_QUERY_SERVICE.execute_stored_query-version_minor_prefix:
     new: [aql_stored/post-version_minor]
   I_QUERY_SERVICE.execute_stored_query-version_unknown_major:
@@ -5809,11 +5790,7 @@ corpora:
           multi-valued attribute, an empty collection or no variable yields are
           not assigned, upstream report #701.
       SELECT.identified_path.trivia_inside_node_predicates_is_not_part_of_the_predicate:
-        new: []
-        open: >-
-          Not carried (level core). Its answer rests on the WS and COMMENT rules
-          of AqlLexer.g4 alone, which no prose sentence states and the citation
-          gate cannot quote yet; tracked by #711.
+        new: [aqlc_select/identified_path-trivia_inside_node_predicates_is_not_part_of_the_predicate]
       SELECT.identified_path.unresolvable_root_alias_path_names_the_root_class:
         new: []
         open: >-
@@ -5892,11 +5869,11 @@ corpora:
       WHERE.boolean.not_negates_a_comparison:
         new: [aql_semantics/where-not]
       WHERE.boolean.not_negates_a_parenthesised_conjunction:
-        new: []
+        new: [aql_semantics/where-not_parenthesised_and]
         open: >-
-          Not carried (level core). The answer needs CONTAINS to reach below a
-          direct child; AQL never says whether containment is direct or at any
-          depth, upstream report #160.
+          Folded: the case's own query reaches below a direct child, which is
+          not carried (upstream report #160); the workflow named tests the same
+          construct over a direct child.
       WHERE.boolean.or_keeps_a_row_either_comparison_matches:
         new: [aql_semantics/where-or]
       WHERE.comparison.a_basic_format_date_compares_as_a_date:

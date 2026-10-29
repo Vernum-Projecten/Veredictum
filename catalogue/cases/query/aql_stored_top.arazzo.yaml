@@ -1,0 +1,76 @@
+# fetch beside a stored query that uses the deprecated TOP, on the arm of the
+# aql-top option whose service executes TOP: a service that declines TOP
+# refuses to store the query, so the case is judged only where TOP is
+# declared. The query is stored under a fresh qualified_query_name through the
+# DEFINITION API. Every quote is copied verbatim from the named vendored file.
+arazzo: "1.1.0"
+info:
+  title: Stored AQL execution with TOP
+  version: "0.1.0"
+  description: >-
+    The fetch parameter beside a stored query whose text uses TOP, judged
+    where the service declares that it executes TOP.
+sourceDescriptions:
+  - name: query
+    url: "../../../specs/rest-oas/query-validation.openapi.yaml"
+    type: openapi
+  - name: definition
+    url: "../../../specs/rest-oas/definition-validation.openapi.yaml"
+    type: openapi
+  - name: setup
+    url: "../_setup/templates.arazzo.yaml"
+    type: arazzo
+workflows:
+  - workflowId: get-fetch_with_top
+    summary: fetch combined with a stored query that uses TOP is refused with 400
+    description: >-
+      Stores 1.0.0 of a query that selects TOP 2 under a fresh name, then
+      executes it by name with GET and the fetch parameter 1. fetch cannot be
+      combined with TOP, so the request is invalid input.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/query/Request.md
+      section: Common Headers and Query Parameters
+      quote: "`fetch` - used for paging: the number of rows to fetch (i.e. limit); default depends on the implementation, but cannot be combined with [AQL-top](https://specifications.openehr.org/releases/QUERY/latest/AQL.html#_top)"
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: >-
+          Store the TOP 2 query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT TOP 2 c/name/value AS name FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored TOP 2 query with fetch 1: the fetch parameter
+          cannot be combined with TOP, which makes the request invalid.
+        operationId: $sourceDescriptions.query.query_execute_stored_query
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: fetch, in: query, value: 1 }
+          - name: query_parameters
+            in: query
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 400"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the server was unable to execute the query due to invalid input, e.g. a required parameter is missing, or at least one of the parameters has an invalid syntax."

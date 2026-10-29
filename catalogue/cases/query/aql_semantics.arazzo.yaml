@@ -3330,3 +3330,145 @@ workflows:
           - context: $response.body
             type: jsonpath
             condition: "$.rows[?@[0] == '{$workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id}']"
+
+  - workflowId: aggregate-min_string
+    summary: MIN over a String path returns the lexically least value
+    description: >-
+      Queries MIN(c/name/value) over the dataset COMPOSITION names alpha
+      visit, beta visit, gamma visit, delta ?visit and epsilon note. String
+      is one of the input types MIN takes, and String orders lexically, so
+      the result is alpha visit.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: MIN
+      quote: "Input values type should be either String, Date, Time, Integer or Real, and it will also determine the return type."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query over the dataset EHR, its ehr_id passed as the
+          query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT MIN(c/name/value) AS v FROM EHR e[ehr_id/value=$ehr_id]
+              CONTAINS COMPOSITION c
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-cite: &lexical
+              source: specs/openehr/BASE/docs/UML/classes/string.adoc
+              section: String Class
+              quote: "Lexical comparison of string content based on ordering in relevant character set."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[alpha visit]]
+
+  - workflowId: aggregate-max_string
+    summary: MAX over a String path returns the lexically greatest value
+    description: >-
+      Queries MAX(c/name/value) over the dataset COMPOSITION names alpha
+      visit, beta visit, gamma visit, delta ?visit and epsilon note. String
+      is one of the input types MAX takes, and String orders lexically, so
+      the result is gamma visit.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: MAX
+      quote: "Input values type should be either String, Date, Time, Integer or Real, and it will also determine the return type."
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query over the dataset EHR, its ehr_id passed as the
+          query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT MAX(c/name/value) AS v FROM EHR e[ehr_id/value=$ehr_id]
+              CONTAINS COMPOSITION c
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-cite: *lexical
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[gamma visit]]
+
+  - workflowId: where-not_parenthesised_and
+    summary: A WHERE NOT over a parenthesised AND keeps the rows the conjunction does not hold for
+    description: >-
+      Queries the magnitudes for which NOT (magnitude > 12 AND magnitude <
+      18) holds. Of 12, 15, 15 and 18 the conjunction holds for 15 and 15,
+      so the result is the bag [12, 18].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: NOT
+      quote: "The above example is equivalent to the two expressions shown in the following `WHERE` clause:"
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query over the dataset EHR, its ehr_id passed as the
+          query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS
+              COMPOSITION c CONTAINS OBSERVATION
+              o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE NOT
+              (o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              > 12 AND
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude
+              < 18)
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[12], [18]]

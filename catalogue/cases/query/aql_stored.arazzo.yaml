@@ -1,8 +1,9 @@
 # The stored-query execution operations: the latest version, an exact version
-# and the version prefixes, the misses answered 404, and a POST body the
-# released schema refuses. Each workflow stores its query under a fresh
-# qualified_query_name through the DEFINITION API and executes it over the
-# dataset `_setup/templates.arazzo.yaml` seeds. Every quote is copied
+# and the version prefixes, the misses answered 404 and the reserved name, a
+# POST body the released schema refuses, and a fetch that is not an integer.
+# Each workflow that executes a stored query stores it under
+# a fresh qualified_query_name through the DEFINITION API and executes it over
+# the dataset `_setup/templates.arazzo.yaml` seeds. Every quote is copied
 # verbatim from the named vendored file.
 arazzo: "1.1.0"
 info:
@@ -864,3 +865,137 @@ workflows:
           - { name: Accept, in: header, value: application/json }
         successCriteria:
           - condition: "$statusCode == 404"
+
+  - workflowId: get-fetch_not_integer
+    summary: A stored query executed by name with a fetch that is not an integer is refused with 400
+    description: >-
+      Stores 1.0.0 of a query under a fresh name, then executes it by name
+      with GET and the fetch parameter abc. fetch is an integer, so the
+      parameter has an invalid syntax.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite: &invalid_input
+      source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+      section: description
+      quote: "`400 Bad Request` is returned when the server was unable to execute the query due to invalid input, e.g. a required parameter is missing, or at least one of the parameters has an invalid syntax."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - &store_12
+        stepId: store-1_0_0
+        description: >-
+          Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query by name with fetch abc: the fetch
+          parameter is not an integer, an invalid syntax.
+        operationId: $sourceDescriptions.query.query_execute_stored_query
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: fetch, in: query, value: abc }
+          - name: query_parameters
+            in: query
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 400"
+
+  - workflowId: get-version_fetch_not_integer
+    summary: A stored query executed at a version with a fetch that is not an integer is refused with 400
+    description: >-
+      Stores 1.0.0 of a query under a fresh name, then executes it at 1.0.0
+      with GET and the fetch parameter abc. fetch is an integer, so the
+      parameter has an invalid syntax.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite: *invalid_input
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - *store_12
+      - stepId: execute
+        description: >-
+          Execute the stored query at 1.0.0 with fetch abc: the fetch
+          parameter is not an integer, an invalid syntax.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_version
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: fetch, in: query, value: abc }
+          - name: query_parameters
+            in: query
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 400"
+
+  - workflowId: post-version_body_empty
+    summary: A stored-query POST at a version without its required body members is refused with 400
+    description: >-
+      Stores 1.0.0 of a query under a fresh name, then executes it at 1.0.0
+      with POST and the body {}. The Query body requires offset, fetch and
+      query_parameters, so a required parameter is missing.
+    x-veredictum-cite: *invalid_input
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - *store_12
+      - stepId: execute
+        description: >-
+          Execute the stored query at 1.0.0 with the body {}.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_version_body
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: {}
+        successCriteria:
+          - condition: "$statusCode == 400"
+
+  - workflowId: get-reserved_name
+    summary: A stored query under the reserved query-name aql is not found
+    description: >-
+      Executes, with GET, the qualified_query_name org.veredictum::aql. Its
+      query-name is the reserved aql, which no stored query may carry, so no
+      stored query with that name exists and it is answered 404.
+    x-veredictum-cite:
+      source: specs/rest-oas/query-validation.openapi.yaml
+      section: tags
+      quote: "The `query-name` value must not be `aql` (case-insensitive), as that is a reserved name."
+    steps:
+      - stepId: execute
+        description: >-
+          Execute the stored query org.veredictum::aql.
+        operationId: $sourceDescriptions.query.query_execute_stored_query
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 404"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/404_Query.yaml
+              section: description
+              quote: "`404 Not Found` is returned when a stored query with `qualified_query_name` does not exist."
