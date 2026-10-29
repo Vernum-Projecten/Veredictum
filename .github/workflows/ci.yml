@@ -499,6 +499,14 @@ jobs:
       - name: Every accepted advisory has a published VEX justification
         run: bash scripts/checks/vex-advisories.sh
 
+      # The root action.yml meets the Marketplace's listing requirements, read
+      # from the tagged commit at publication, so a defect costs a release.
+      # `yq` ships on the GitHub Ubuntu runner images.
+      - name: The action's metadata can be listed on the Marketplace
+        run: bash scripts/checks/action-metadata.sh
+      - name: The action metadata check refuses seeded defects
+        run: bash scripts/checks/action-metadata.sh --self-test
+
   # ── The image tier ──────────────────────────────────────────────────────────
   # hadolint over the Dockerfile — the ONE image, the web console (#6) — and
   # over the GitHub Action's test Dockerfile (#770), whose images the action's
