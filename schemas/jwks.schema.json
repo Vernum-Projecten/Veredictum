@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:jwks:0.1.0",
+  "title": "Certificate verifying keys",
+  "description": "The JWK Set (RFC 7517 §5) a conformance certificate is verified against: Ed25519 public keys as octet key pairs (RFC 8037 §2). `expires_at` and `revoked_at` are this instrument's own members, which a generic JOSE library ignores (RFC 7517 §4); `veredictum verify` honours both. Any other member is refused, and so is the private member `d`, so a misspelled revocation stops the read rather than leaving a revoked key trusted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "keys"
+  ],
+  "properties": {
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kty",
+          "crv",
+          "x",
+          "kid"
+        ],
+        "properties": {
+          "kty": {
+            "const": "OKP"
+          },
+          "crv": {
+            "const": "Ed25519"
+          },
+          "x": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "description": "The 32-byte public key, base64url without padding."
+          },
+          "kid": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]{1,64}$",
+            "description": "The key id a certificate's header names."
+          },
+          "alg": {
+            "const": "EdDSA"
+          },
+          "use": {
+            "const": "sig"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The last instant the key may sign (RFC 3339). A certificate whose `issued_at` is later is refused."
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the key was revoked (RFC 3339). Every certificate the key signed is refused."
+          }
+        }
+      }
+    }
+  }
+}

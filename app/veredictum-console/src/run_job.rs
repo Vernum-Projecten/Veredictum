@@ -291,6 +291,8 @@ pub struct FinishedView {
     pub skipped: u64,
     /// Where `results.json` landed, for the record surfaces (#67).
     pub results_path: String,
+    /// What happened about the run's certificate.
+    pub certificate: crate::certificates::CertificateStatus,
 }
 
 /// What the live screen polls.
@@ -364,7 +366,8 @@ struct JobState {
     submitter: Submitter,
     seq: u64,
     status: JobStatus,
-    sut_name: String,
+    sut: veredictum::party::Sut,
+    issuance: crate::certificates::ssr::Issuance,
     completed: u64,
     total: u64,
     current_case: Option<String>,
@@ -499,6 +502,7 @@ pub fn sweep_artifacts(
 pub struct JobSlot {
     state: Arc<Mutex<Jobs>>,
     limits: Limits,
+    issuance: crate::certificates::ssr::Issuance,
 }
 
 #[cfg(feature = "ssr")]
@@ -507,6 +511,7 @@ impl Default for JobSlot {
         Self {
             state: Arc::new(Mutex::new(Jobs::new())),
             limits: Limits::default(),
+            issuance: crate::certificates::ssr::Issuance::Trial,
         }
     }
 }
@@ -588,6 +593,7 @@ fn finish_status(
                     errored: counts.2,
                     skipped: counts.3,
                     results_path: finished.results_path.display().to_string(),
+                    certificate: crate::certificates::CertificateStatus::Trial,
                 }),
             )
         }
@@ -629,7 +635,7 @@ fn snapshot(jobs: &Jobs, job: &JobState) -> JobView {
     JobView {
         id: job.id,
         status: job.status.clone(),
-        sut_name: job.sut_name.clone(),
+        sut_name: job.sut.name.value.clone(),
         completed: job.completed,
         total: job.total,
         current_case: job.current_case.clone(),
@@ -772,13 +778,28 @@ fn supervise(
         record_line(job, line);
     };
     let outcome = running.stream(on_line);
+    // Issuing reads the catalogue tree and signs, so it runs with the lock
+    // released; trial mode reads and writes nothing.
+    let certificate = match &outcome {
+        Ok(_) => {
+            let issuer = state.lock().ok().and_then(|jobs| {
+                jobs.get(&id)
+                    .map(|job| (job.issuance.clone(), job.sut.clone()))
+            });
+            issuer.map(|(issuance, sut)| issuance.certify(out_dir, &sut))
+        }
+        Err(_) => None,
+    };
     let mut expired = false;
     if let Ok(mut jobs) = state.lock() {
         if let Some(job) = jobs.get_mut(&id) {
             job.canceller = None;
             let (status, finished) = finish_status(outcome, job.cancel);
             expired = status == JobStatus::Expired;
-            if let Some(view) = finished {
+            if let Some(mut view) = finished {
+                if let Some(certificate) = certificate {
+                    view.certificate = certificate;
+                }
                 job.finished = Some(view);
             }
             job.status = status;
@@ -850,7 +871,23 @@ impl JobSlot {
         Self {
             state: Arc::new(Mutex::new(Jobs::new())),
             limits,
+            issuance: crate::certificates::ssr::Issuance::Trial,
         }
+    }
+
+    /// The same map, certifying every finished run as `issuance` says.
+    ///
+    /// Every map is built in trial mode, and this is the one way out of it.
+    #[must_use]
+    pub fn with_issuance(mut self, issuance: crate::certificates::ssr::Issuance) -> Self {
+        self.issuance = issuance;
+        self
+    }
+
+    /// Whether this map issues certificates.
+    #[must_use]
+    pub fn issuance_mode(&self) -> crate::certificates::IssuanceMode {
+        self.issuance.mode()
     }
 
     /// The caps this map enforces.
@@ -896,7 +933,7 @@ impl JobSlot {
         submitter: Submitter,
         engine: &Engine,
         spec: RunSpec,
-        sut_name: String,
+        sut: veredictum::party::Sut,
     ) -> Result<RunId, JobError> {
         let mut jobs = self.lock()?;
         if let Some(existing) = in_flight_of(&jobs, submitter, &self.limits) {
@@ -911,7 +948,8 @@ impl JobSlot {
                 submitter,
                 seq: NEXT_SEQ.fetch_add(1, Ordering::Relaxed),
                 status: JobStatus::Queued { position: 0 },
-                sut_name,
+                sut,
+                issuance: self.issuance.clone(),
                 completed: 0,
                 total: 0,
                 current_case: None,
@@ -1226,7 +1264,8 @@ mod map_tests {
                 submitter,
                 seq,
                 status,
-                sut_name: String::from("parked"),
+                sut: veredictum::party::Sut::operator("parked", "1"),
+                issuance: crate::certificates::ssr::Issuance::Trial,
                 completed: 0,
                 total: 0,
                 current_case: None,
@@ -1473,6 +1512,7 @@ mod map_tests {
                 errored: 0,
                 skipped: 0,
                 results_path: dir.join("results.json").display().to_string(),
+                certificate: crate::certificates::CertificateStatus::Trial,
             });
             job.out_dir = dir.clone();
         }

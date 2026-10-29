@@ -81,7 +81,8 @@ older one that still carries the label.
 | `cloud-init.yaml` | A fresh box to serving state on first boot: the `deploy` user, key-only SSH, both firewalls, unattended upgrades, Docker, capped logs, and the one command the CI key may run | the server's user data at creation, once |
 | `docker-compose.yml` | What runs on the box: the console with its healthcheck and memory limit, behind Caddy | baked into the image at `/app/posture/`, and `deploy.sh` installs it from the image it pulled |
 | `Caddyfile` | Automatic TLS, and the raised timeouts a run's streaming needs | the same way, and a change to it restarts Caddy |
-| `env.example` | A copy-to-`.env` template: the machine-sized caps and the image reference | never. `.env` is the operator's file, written by hand on the box |
+| `env.example` | A copy-to-`.env` template: the machine-sized caps, the image reference and the certificate setting | never. `.env` is the operator's file, written by hand on the box |
+| `jwks.json` | The JWK Set certificates verify against, compiled into the console and served at `/.well-known/jwks.json` | in the image: the console carries the bytes it serves |
 
 The box holds **no checkout of this repository**, and it fetches nothing from
 here over the network. Everything the instrument needs is baked into the image,
@@ -127,18 +128,159 @@ that will not start on a posture nobody has run before.
 
 ## What the instance keeps, and what it never holds
 
-Nothing durable. A run's artifacts live long enough to be judged and shown.
-Because the box does not restart,
+In trial mode, which is how it runs today, nothing durable. A run's artifacts
+live long enough to be judged and shown. Because the box does not restart,
 the console sweeps expired run directories itself on a stated policy —
 `ARTIFACTS_KEPT`, currently a day — and a swept run answers through #386's
 honest "this console knows nothing about that run" rather than a stack trace.
 
-**No credential lives on this host.** `.env` carries the image reference and the
-concurrency cap, and nothing that signs or opens anything.
+**No credential lives on this host while it is in trial mode.** `.env` carries
+the image reference, the concurrency cap and the issuance setting, and nothing
+that signs or opens anything. The console reads no signing key in trial mode,
+so the box runs without one.
 
-**No backups**, deliberately. There is nothing here worth backing up: the
-container is rebuilt from a published image, and a run's artifacts are
-transient by design.
+**No backups yet**, because in trial mode there is nothing here worth backing
+up: the container is rebuilt from a published image, and a run's artifacts are
+transient. That stops being true the moment certificates are issued, which is
+why issuance waits for the durable store and its backups (#824).
+
+## Certificates
+
+The hosted instrument is where a vendor certifies a CDR (#592). A run that
+finishes here can receive a certificate, signed on this machine, which anyone
+verifies offline with `veredictum verify` and the published public key. The
+console does not verify certificates and no certificate is ever committed to
+the repository.
+
+### The format
+
+A certificate is a JWS (RFC 7515) in the compact serialization, signed with
+Ed25519 (`EdDSA`, RFC 8037). Its header names the key by `kid`. Its payload
+names the server with who supplied each identity field, the base URL, the
+catalogue digest, the engine version and approval status, the verdict summary,
+and the SHA-256 digests of the run's `results.json` and `recording.har`. The
+payload's schema is `schemas/certificate.schema.json`.
+
+The verifying keys are a JWK Set (RFC 7517), `deploy/hosted/jwks.json` in this
+directory. The console compiles that file in and serves it at
+`https://console.veredictum.eu/.well-known/jwks.json`, and a console test holds
+the served bytes to the committed ones. Two members of a key are this
+instrument's own: `expires_at`, the last instant the key may sign, and
+`revoked_at`, which withdraws everything the key signed. `veredictum verify`
+honours both; a generic JOSE library ignores them, so a third party verifying
+with one must check `revoked_at` itself. The set holds no key yet.
+
+### Trial mode, and switching issuance on
+
+One `.env` setting decides it: `VEREDICTUM_CERTIFICATES`. Only the exact value
+`issue` turns issuance on. Unset, `trial`, or anything else is trial mode, and
+the console logs an unrecognised value at startup, so a typo never starts
+signing. In trial mode runs, results and verdicts work as ever, no certificate
+is created, every page's status banner says so, and no signing key is read.
+
+With issuance on, the console also reads `VEREDICTUM_SIGNING_KEY_FILE` and
+`VEREDICTUM_SIGNING_KID`. It refuses to start when either is unset, when the
+key does not parse or sign, or when the published set does not carry the key
+under that `kid`, carries a different key there, revokes it or has let it
+expire. Every finished run then gets `certificate.jws` beside its results, and
+its results page offers the download.
+
+Issuance stays off until the durable store and its backups exist (#824);
+switching it on is #825. The order of the switch matters, because the served
+set travels in the image:
+
+1. Generate the key on the box (below) and append its public JWK to
+   `deploy/hosted/jwks.json` in a pull request.
+2. Cut a release that carries it, and let it deploy. The served set now
+   publishes the key, and the console still issues nothing.
+3. Add the three variables to `.env` and redeploy. That step is an `.env` edit
+   and a redeploy, never a release.
+
+### Where the private key lives
+
+A file on this machine: `/opt/veredictum-console/signing/<kid>.pem`, mode
+`0400`, owned by the console's user (uid `65532` in the distroless image), in a
+directory mounted read-only into the container at `/run/veredictum/signing`.
+It is generated on the box and never leaves it: no copy in CI, in the
+repository, in a password manager or in a backup.
+
+A hardware-backed key and a separate signing service were the alternatives.
+Both are stronger against a compromise of this machine, and both add a second
+system to run on a project with one box and one operator. The file is the
+honest choice for that size, and the foundation hand-over below is the moment
+to revisit it.
+
+### Generating a key
+
+```bash
+kid="veredictum-$(date -u +%Y)"
+install -d -m 0750 -o 65532 -g 65532 /opt/veredictum-console/signing
+openssl genpkey -algorithm ed25519 -out "/opt/veredictum-console/signing/$kid.pem"
+chown 65532:65532 "/opt/veredictum-console/signing/$kid.pem"
+chmod 0400 "/opt/veredictum-console/signing/$kid.pem"
+# The public half, as the JWK's `x`: the last 32 bytes of the DER public key.
+openssl pkey -in "/opt/veredictum-console/signing/$kid.pem" -pubout -outform DER \
+  | tail -c 32 | basenc --base64url | tr -d '=\n'
+```
+
+The JWK appended to the set is
+`{ "kty": "OKP", "crv": "Ed25519", "x": "<the line above>", "kid": "<kid>", "alg": "EdDSA", "use": "sig" }`.
+`schemas/jwks.schema.json` describes the members, and the set's reader refuses
+any member it does not know and any private member `d`.
+
+### Rotation
+
+A rotation is a JWKS append. Generate the new key under a new `kid`, append its
+JWK, and set the old key's `expires_at` to the instant the switch will happen.
+Ship the set in a release, then point `VEREDICTUM_SIGNING_KEY_FILE` and
+`VEREDICTUM_SIGNING_KID` at the new key and redeploy. The old key stays in the
+set, so every certificate it signed before `expires_at` keeps verifying, and a
+certificate it claims to have signed after that instant is refused. Delete the
+old private key file once the new one is serving.
+
+### Revocation
+
+Set `revoked_at` on the key in the set and ship the set in a release. Every
+certificate that key signed is then refused by `veredictum verify`, whatever
+its `issued_at`, because a stolen key can sign any date. Issue a new key as in
+a rotation, and re-issue the legitimate certificates under it from the stored
+runs (#824 keeps them for exactly this).
+
+### What a stolen key allows
+
+Whoever holds the private key can sign a certificate for any server with any
+verdict, and it verifies until the key is revoked. It cannot change a
+certificate already issued, a run already recorded, or the catalogue, and it
+cannot sign under another `kid`. Revocation ends it for every verifier holding
+the updated set, which is the reason the set is served from this host and
+committed in the repository rather than copied once.
+
+### What the vendor receives, and what this machine keeps
+
+The vendor receives the certificate and, with #824, the `results.json` and
+`recording.har` whose digests it names, so `sha256sum` confirms the copy and
+`veredictum test --rejudge` re-judges it. This machine keeps the same three
+files per certified run: the recording is what a re-judgement and a re-issue
+read. A recording carries the server's response bodies verbatim, which is why a
+vendor certifies a test system, never one with real patient data.
+
+### Backups
+
+With issuance on, this machine holds durable state for the first time: every
+certified run. It is backed up off the machine on a stated schedule, with a
+restore rehearsed and written down here, before the first certificate is
+issued (#824). The private key is excluded from every backup; losing it costs a
+rotation, while a copy of it in a backup is a second place to steal it from.
+
+### The foundation hand-over
+
+Certification is expected to pass to the openEHR Foundation, which will use
+this instrument to do it. What it takes over: the issuing machine (or its own,
+built from `cloud-init.yaml`), the catalogue's governance in this repository,
+and the signing. The signing moves by a rotation, never by copying a key: the
+foundation generates its own key on its own machine, its JWK is appended, and
+this project's key gets `expires_at` at the hand-over, so every certificate
+issued before it keeps verifying and no private key ever changes hands.
 
 ## How a deploy happens
 

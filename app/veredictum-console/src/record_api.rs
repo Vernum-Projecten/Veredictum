@@ -31,6 +31,19 @@ pub struct ResultsScreen {
     pub tallies: (u64, u64, u64, u64),
     /// Every row, failures and errors first.
     pub rows: Vec<ResultRow>,
+    /// What happened about the run's certificate.
+    pub certificate: CertificateNotice,
+}
+
+/// What the results screen says about the run's certificate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CertificateNotice {
+    /// Trial mode: no certificate was created.
+    Trial,
+    /// Issued; the field is its download path.
+    Issued(String),
+    /// Issuance is on and this run got none; the reason, verbatim.
+    NotIssued(String),
 }
 
 /// One recorded exchange, rendered as the two panes the drawer shows.
@@ -98,7 +111,10 @@ pub struct ResultDetail {
 pub mod read {
     //! The ssr readers over the finished job's results and recording.
 
-    use super::{ExchangeView, RecordingView, ResultDetail, ResultRow, ResultsScreen};
+    use super::{
+        CertificateNotice, ExchangeView, RecordingView, ResultDetail, ResultRow, ResultsScreen,
+    };
+    use crate::certificates::CertificateStatus;
     use crate::engine::token;
     use crate::state::ConsoleState;
     use veredictum::arazzo::har::{Entry, Har, NameValue};
@@ -113,7 +129,7 @@ pub mod read {
     fn finished_results(
         state: &ConsoleState,
         submitter: crate::submitter::Submitter,
-    ) -> Result<Option<(Results, std::path::PathBuf)>, String> {
+    ) -> Result<Option<(Results, std::path::PathBuf, CertificateNotice)>, String> {
         let latest = state
             .jobs
             .latest_of(submitter, crate::run_job::Latest::Finished)
@@ -131,7 +147,14 @@ pub mod read {
             std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
         let results: Results =
             serde_json::from_str(&body).map_err(|e| format!("{}: {e}", path.display()))?;
-        Ok(Some((results, path)))
+        let certificate = match finished.certificate {
+            CertificateStatus::Trial => CertificateNotice::Trial,
+            CertificateStatus::Issued => {
+                CertificateNotice::Issued(crate::certificates::download_href(&id.to_string()))
+            }
+            CertificateStatus::NotIssued(reason) => CertificateNotice::NotIssued(reason),
+        };
+        Ok(Some((results, path, certificate)))
     }
 
     /// A row index as the wire's fixed-size integer.
@@ -184,7 +207,7 @@ pub mod read {
         state: &ConsoleState,
         submitter: crate::submitter::Submitter,
     ) -> Result<Option<ResultsScreen>, String> {
-        let Some((results, _)) = finished_results(state, submitter)? else {
+        let Some((results, _, certificate)) = finished_results(state, submitter)? else {
             return Ok(None);
         };
         let mut rows: Vec<ResultRow> = results
@@ -198,6 +221,7 @@ pub mod read {
             base_url: results.base_url.clone(),
             tallies: crate::run_job::tally(&results),
             rows,
+            certificate,
         }))
     }
 
@@ -271,7 +295,7 @@ pub mod read {
         case: &str,
         row: u32,
     ) -> Result<Option<ResultDetail>, String> {
-        let Some((results, results_path)) = finished_results(state, submitter)? else {
+        let Some((results, results_path, _)) = finished_results(state, submitter)? else {
             return Ok(None);
         };
         let Some(found) = results

@@ -96,6 +96,22 @@ pub fn router(
         // bundle or the app shell is broken: it claims only "the server
         // accepts connections".
         .route("/healthz", axum::routing::get(|| async { "ok" }))
+        // The verifying keys, outside the Leptos route tree for the same
+        // reason: a verifier needs them whatever state the app shell is in.
+        .route(
+            crate::certificates::JWKS_ROUTE,
+            axum::routing::get(crate::certificates::ssr::jwks),
+        )
+        .route(
+            &format!("{}/{{run}}", crate::certificates::CERTIFICATE_ROUTE),
+            axum::routing::get({
+                let out = state.out.clone();
+                move |axum::extract::Path(run): axum::extract::Path<String>| {
+                    let out = out.clone();
+                    async move { crate::certificates::ssr::download(&out, &run) }
+                }
+            }),
+        )
         .leptos_routes_with_context(
             &leptos_options,
             routes,
@@ -108,7 +124,15 @@ pub fn router(
                 move || shell(leptos_options.clone())
             },
         )
-        .fallback(leptos_axum::file_and_error_handler(shell))
+        // The 404 page renders the shell too, and the shell's status line
+        // reads the state, so the fallback provides it like the routes do.
+        .fallback(leptos_axum::file_and_error_handler_with_context(
+            {
+                let state = state.clone();
+                move || leptos::prelude::provide_context(state.clone())
+            },
+            shell,
+        ))
         // AFTER the server functions and the fallback, which is the whole
         // point: "the middleware is only applied to existing routes"
         // (<https://docs.rs/axum/latest/axum/routing/struct.Router.html#method.layer>),

@@ -51,10 +51,10 @@ pub const CLIENT_IP_HEADER_ENV: &str = "VEREDICTUM_CLIENT_IP_HEADER";
 
 /// Why the console refused to start.
 ///
-/// Two values, and only two, that this console will not guess at. Everything
-/// else missing is a first-class state a screen explains; these two are safety
-/// properties, and a wrong guess about either lets the instrument do something
-/// it should not.
+/// Three values that this console will not guess at. Everything else missing
+/// is a first-class state a screen explains; these are safety properties, and
+/// a wrong guess about any of them lets the instrument do something it should
+/// not.
 #[derive(Debug, thiserror::Error)]
 pub enum StartupError {
     /// The posture is a value that names no posture.
@@ -70,6 +70,10 @@ pub enum StartupError {
         /// The value, verbatim.
         value: String,
     },
+    /// Issuance is on and the signing key cannot issue: unset, unreadable,
+    /// or not published, revoked or expired in the published set.
+    #[error(transparent)]
+    Certificates(#[from] crate::certificates::ssr::IssuanceError),
 }
 
 /// The loaded catalogue, or the explanation of why there is none.
@@ -117,12 +121,25 @@ impl ConsoleState {
     /// through the published lib — the same gates `validate` runs.
     ///
     /// # Errors
-    /// [`StartupError`]: a posture that names no posture, or a concurrency cap
-    /// that is not a positive integer. Those are the two startup values this
-    /// console refuses to guess at — a missing mount is a first-class state the
-    /// screens explain, while a wrong guess about either of these lets the
-    /// instrument drive an address it should not or admit work it cannot hold.
+    /// [`StartupError`]: a posture that names no posture, a concurrency cap
+    /// that is not a positive integer, or certificate issuance switched on
+    /// with a key that cannot issue. Those are the startup values this console
+    /// refuses to guess at — a missing mount is a first-class state the
+    /// screens explain, while a wrong guess about one of these lets the
+    /// instrument drive an address it should not, admit work it cannot hold,
+    /// or sign with a key nobody can verify.
+    ///
+    /// In trial mode, the default, no signing key is read.
     pub fn load() -> Result<Self, StartupError> {
+        Ok(Self::load_with_setting()?.0)
+    }
+
+    /// [`Self::load`], with the issuance setting as read, so startup can say
+    /// when a value was not understood and trial mode was kept.
+    ///
+    /// # Errors
+    /// [`Self::load`]'s.
+    pub fn load_with_setting() -> Result<(Self, crate::certificates::ssr::Setting), StartupError> {
         let posture = crate::posture::from_env()?;
         // What this host can actually drive at once. #388 reasoned two, and
         // called it a starting value to re-derive by measuring on the chosen
@@ -145,9 +162,10 @@ impl ConsoleState {
             std::env::var(SPECS_ENV).unwrap_or_else(|_| String::from("specs/openehr")),
         );
         let out = PathBuf::from(std::env::var(OUT_ENV).unwrap_or_else(|_| String::from("out")));
+        let (issuance, setting) = crate::certificates::ssr::Issuance::from_env(&root)?;
         let catalogue =
             veredictum::pipeline::listing::read(&root, Some(&specs)).map_err(|e| e.to_string());
-        Ok(Self {
+        let state = Self {
             root,
             specs,
             out,
@@ -156,14 +174,16 @@ impl ConsoleState {
             jobs: crate::run_job::JobSlot::with_limits(crate::run_job::Limits {
                 max_concurrent,
                 ..crate::run_job::Limits::default()
-            }),
+            })
+            .with_issuance(issuance),
             client_ip_header: std::env::var(CLIENT_IP_HEADER_ENV)
                 .ok()
                 .filter(|name| !name.trim().is_empty()),
             posture,
             rates: crate::rate_limit::RateLimiter::default(),
             capture: crate::capture::enabled(),
-        })
+        };
+        Ok((state, setting))
     }
 }
 

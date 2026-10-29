@@ -25,10 +25,11 @@ pinned `pgp` crate implements.
   signature over the agreed canonical form: RFC 8785 JCS of the version minus
   `signature`).
 
-Both halves are also the fixtures for this repository's own signing tests:
-`app/veredictum/src/exec/signature.rs` round-trips a VERSION signature through
-them, and `app/veredictum/src/record.rs` seals and verifies a run record with
-them.
+The public half is also the fixture for this repository's own verifier
+tests: `app/veredictum/src/exec/signature.rs` verifies the two detached
+signatures under `fixtures/openpgp/`, which were made once with the secret
+half, one by the signing subkey and one by the primary key. Nothing in this
+repository signs with OpenPGP.
 
 **Provenance.** A 3072-bit RSA primary key certifying a dedicated 3072-bit RSA
 signing subkey (the in-OpenPGP certification chain — the OpenPGP analogue of a

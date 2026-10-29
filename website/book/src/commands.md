@@ -12,8 +12,8 @@ Two commands make the conformance record: `validate` checks the catalogue,
 and `test` drives it or re-judges its recording. `export`
 renders a results document as JUnit XML, CTRF and a Markdown summary for a CI
 system. Three commands measure (`perf`, `stress`, `bench`), `verdicts`
-re-derives the measured class verdicts, `verify-record` checks a sealed
-bundle, and the rest render or explore.
+re-derives the measured class verdicts, `verify` checks a conformance
+certificate offline, and the rest render or explore.
 
 ## emit-schemas
 
@@ -754,23 +754,14 @@ Options:
 ```text
 Re-derive the measured performance-class verdicts from a statement and a results record against the performance schedule (the pure pipeline), and write them as `verdicts.json`
 
-Usage: veredictum verdicts [OPTIONS] --statement <STATEMENT> --results <RESULTS> --root <ROOT> --out <OUT>
+Usage: veredictum verdicts --statement <STATEMENT> --results <RESULTS> --root <ROOT> --out <OUT>
 
 Options:
-      --statement <STATEMENT>
-          The party statement (`statement.json`)
-      --results <RESULTS>
-          The party results (`results.json`)
-      --root <ROOT>
-          The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
-      --out <OUT>
-          Output directory for verdicts.json
-      --sign-key <SIGN_KEY>
-          An armored OpenPGP secret key — when supplied, verdicts.json is sealed with `record-manifest.json` and its detached signature, which `verify-record` and `gpg --verify` both check
-      --sign-passphrase <SIGN_PASSPHRASE>
-          The passphrase unlocking `--sign-key`. Supply it through the environment: a passphrase on the command line is visible to every process on the host [env: VEREDICTUM_SIGN_PASSPHRASE]
-  -h, --help
-          Print help
+      --statement <STATEMENT>  The party statement (`statement.json`)
+      --results <RESULTS>      The party results (`results.json`)
+      --root <ROOT>            The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
+      --out <OUT>              Output directory for verdicts.json
+  -h, --help                   Print help
 ```
 
 The pure step for a measured campaign. It reaches no network and reads nothing
@@ -858,30 +849,43 @@ JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
 server's response bodies verbatim, so it belongs where the operator keeps the
 run, never in a public artifact.
 
-## verify-record
+## verify
 
 ```text
-Verify a sealed bundle: recompute every digest its record manifest names, and check the detached signature over that manifest
+Verify a conformance certificate offline against a JWK Set, and print what it states.
 
-Usage: veredictum verify-record --record <RECORD> --key <KEY>
+A certificate is a JWS in the compact serialization, signed with Ed25519 (`EdDSA`), whose header names its key by `kid`. It is refused when the header or the payload changed after signing, when the set holds no key under its `kid`, when its algorithm or type is another, when the set marks the key revoked, and when the key expired before the certificate's `issued_at`. Nothing is fetched: the set is the file you name.
+
+The payload carries the SHA-256 digests of the run's `results.json` and HAR recording, so `sha256sum` over the two files checks that they are the exchanges the certificate covers.
+
+Exit status: `0` when the certificate verifies; `1` when it is refused; `2` when a file cannot be read or the JWK Set itself is refused.
+
+Usage: veredictum verify --jwks <JWKS> <CERTIFICATE>
+
+Arguments:
+  <CERTIFICATE>
+          The certificate (`certificate.jws`)
 
 Options:
-      --record <RECORD>  The bundle directory holding the emitted documents, the record manifest and its detached signature
-      --key <KEY>        The armored OpenPGP public key the signature is checked against
-  -h, --help             Print help
+      --jwks <JWKS>
+          The JWK Set holding the verifying keys: the published `jwks.json`, or a copy of it
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
-Prints the signer fingerprint, the signing time, and one line per file with its
-digest verdict. Zero findings is the only passing result: a digest mismatch, a
-file the manifest names but the bundle does not carry, or a signature no
-component of the supplied key verifies, each exits `1` naming what failed.
+The offline check of a conformance certificate. It reads the two files you
+name and reaches no network, so a certificate verifies with the published JWK
+Set alone: the copy at `https://console.veredictum.eu/.well-known/jwks.json`,
+or the one committed in this repository as `deploy/hosted/jwks.json`. Any JOSE
+library verifies the same signature; what this command adds is the refusal of
+a key the set marks `revoked_at`, and of a certificate issued after its key's
+`expires_at`, which a generic library ignores.
 
-The bundle is ordinary files, so the check does not depend on this tool.
-`gpg --verify record-manifest.json.asc record-manifest.json` establishes the
-same signature, and `sha256sum` re-derives the same digests.
-
-A verified bundle is one link in the chain and not the whole of it. A valid
-signature proves integrity and origin since signing, and says nothing about the
-conditions the run executed under. The published instrument, the verification
-pack and the citation-carrying record are the rest, which is why that sentence
-prints on every verification.
+A verified certificate prints what it states: the server with who supplied
+each identity field, the base URL, the catalogue digest, the engine version and
+its approval status, the verdict summary, and the SHA-256 digests of the run's
+`results.json` and HAR recording. Run `sha256sum` over the two files a vendor
+received to check they are the exchanges the certificate covers. The payload's
+JSON Schema is `schemas/certificate.schema.json`, and the key set's is
+`schemas/jwks.schema.json`.

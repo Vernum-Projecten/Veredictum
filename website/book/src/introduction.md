@@ -53,11 +53,20 @@ and reproducible, which is the stability that matters for a verdict.
 | **How fast is it?** | `bench` runs an embedded benchmark pack against any reachable CDR from a base URL and credentials; `bench-compare` aligns committed results into one table; `bench-packs` writes the byte-deterministic description of what every pack runs. Comparative speed only, never a conformance verdict. |
 
 More subcommands serve the records themselves: `verdicts` re-derives the
-measured class verdicts, `verify-record` checks a sealed bundle,
+measured class verdicts, `verify` checks a conformance certificate,
 `emit-schemas` writes the published JSON Schemas, `perf-assets` renders the
 published charts from committed artifacts, and `identify` asks a server who it
 is. `veredictum --help` is the authoritative list, and the
 [command reference](commands.md) is generated from it.
+
+A certificate is a JWS (RFC 7515) signed with Ed25519, and its payload names
+the server, the catalogue revision, the engine version, the verdict summary
+and the SHA-256 digests of the run's `results.json` and HAR recording.
+`veredictum verify <certificate> --jwks <file>` checks it offline against the
+published JWK Set, so anyone holding the set can check a certificate without
+the console, and any JOSE library can do the same. The hosted instrument
+issues none yet: it runs in trial mode, where runs, results and verdicts work
+and no certificate is created ([checking a certificate](trust.md#verifying-a-certificate)).
 
 ## Who this is for
 

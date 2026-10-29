@@ -17,17 +17,21 @@ pub struct StatusLine {
     pub token: String,
     /// The status as a plain sentence fragment.
     pub summary: String,
+    /// Whether this console issues certificates, which every page states.
+    pub issuance: crate::certificates::IssuanceMode,
 }
 
 #[cfg(feature = "ssr")]
 impl StatusLine {
-    /// The status of the engine this console is built against.
+    /// The status of the engine this console is built against, and this
+    /// console's issuance mode.
     #[must_use]
-    pub fn of_engine() -> Self {
+    pub fn of_engine(issuance: crate::certificates::IssuanceMode) -> Self {
         let status = veredictum::party::InstrumentStatus::CURRENT;
         Self {
             token: status.token().to_owned(),
             summary: status.summary().to_owned(),
+            issuance,
         }
     }
 }
@@ -51,13 +55,15 @@ pub mod fns {
     use super::StatusLine;
     use leptos::prelude::{ServerFnError, server};
 
-    /// The linked engine's approval status.
+    /// The linked engine's approval status, and this console's issuance
+    /// mode.
     ///
     /// # Errors
-    /// The server-fn transport only; the status is a compile-time fact.
+    /// The server-fn transport only; both are startup facts.
     #[server]
     pub async fn fetch_status_line() -> Result<StatusLine, ServerFnError> {
-        Ok(StatusLine::of_engine())
+        let state: crate::state::ConsoleState = leptos::prelude::expect_context();
+        Ok(StatusLine::of_engine(state.jobs.issuance_mode()))
     }
 }
 
@@ -68,8 +74,26 @@ mod tests {
     #[test]
     fn the_line_is_the_engine_status() {
         let status = veredictum::party::InstrumentStatus::CURRENT;
-        let line = StatusLine::of_engine();
+        let line = StatusLine::of_engine(crate::certificates::IssuanceMode::Trial);
         assert_eq!(line.token, status.token());
         assert_eq!(line.summary, status.summary());
+    }
+
+    #[test]
+    fn the_line_says_trial_mode_on_a_console_that_issues_nothing() {
+        let trial = StatusLine::of_engine(crate::certificates::IssuanceMode::Trial);
+        assert_eq!(trial.issuance, crate::certificates::IssuanceMode::Trial);
+        assert!(
+            trial
+                .issuance
+                .notice()
+                .is_some_and(|notice| notice.contains("no certificate is issued"))
+        );
+        assert_eq!(crate::certificates::IssuanceMode::Issuing.notice(), None);
+        assert_eq!(
+            crate::run_job::JobSlot::default().issuance_mode(),
+            crate::certificates::IssuanceMode::Trial,
+            "a console is in trial mode unless startup switched issuance on"
+        );
     }
 }

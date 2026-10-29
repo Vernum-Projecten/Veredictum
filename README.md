@@ -171,7 +171,8 @@ complete workflow, every input, and what to keep out of an uploaded artifact.
 ### Results and CI exports
 
 - [`export`](https://veredictum.eu/docs/commands.html#export): JUnit XML, CTRF and a Markdown summary of a results document
-- [`verdicts` and `verify-record`](https://veredictum.eu/docs/trust.html#the-record-does-not-depend-on-trusting-the-operator): re-derived class verdicts, sealed with a digest manifest and an OpenPGP signature
+- [`verify`](https://veredictum.eu/docs/trust.html#verifying-a-certificate): checks a conformance certificate, a JWS, offline against the published JWK Set
+- [`verdicts`](https://veredictum.eu/docs/trust.html#the-record-does-not-depend-on-trusting-the-operator): re-derives the measured class verdicts from the committed record
 - [Published JSON Schemas](https://veredictum.eu/docs/commands.html#emit-schemas) for every artifact family, drift-tested
 - [Signed releases](https://veredictum.eu/docs/installation.html#from-a-release-binary) for `x86_64` and `aarch64` Linux, with SLSA provenance and a CycloneDX SBOM
 

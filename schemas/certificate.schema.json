@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:certificate:0.1.0",
+  "title": "Conformance certificate payload",
+  "description": "The payload of a conformance certificate: a JWS (RFC 7515) in the compact serialization, signed with Ed25519 (alg EdDSA, RFC 8037), whose protected header carries `alg`, `typ` (`veredictum-certificate`) and the `kid` of the signing key. The verifying keys are a JWK Set (RFC 7517) published beside the instrument (`jwks.schema.json`). The payload names what was measured and by which instrument, and the SHA-256 digests of the run's results document and HAR recording, so the recorded exchanges a certificate covers are checkable byte for byte.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "issued_at",
+    "instrument",
+    "sut",
+    "base_url",
+    "document",
+    "catalogue",
+    "verdict",
+    "exchanges"
+  ],
+  "properties": {
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the certificate was issued (RFC 3339). A key's `expires_at` is compared against it."
+    },
+    "instrument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "status"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The engine version, which both judged the run and issued the certificate."
+        },
+        "status": {
+          "enum": [
+            "pre-approval",
+            "sec-approved"
+          ],
+          "description": "The approval status of the instrument that wrote this document, derived from its own version: pre-approval for every 0.x version, which the openEHR SEC has not approved, and sec-approved from 1.0.0, which marks that approval."
+        }
+      }
+    },
+    "sut": {
+      "description": "The SUT identity. A field the server stated in its ITS-REST System OPTIONS document (specifications/operations/options.yaml, schemas/others/Options.yaml) carries the server's value with source `server`; the operator supplies only the name or version the server did not state (source `operator`). `vendor` and `restapi_specs_version` are present only when the server stated them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server",
+                "operator"
+              ]
+            }
+          }
+        },
+        "version": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server",
+                "operator"
+              ]
+            }
+          }
+        },
+        "vendor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server"
+              ]
+            }
+          }
+        },
+        "restapi_specs_version": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "source"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "server"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "base_url": {
+      "type": "string",
+      "description": "The base URL the run drove."
+    },
+    "document": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The results document's own name: `catalogue` for a run over every document, or the one document a narrower run drove."
+    },
+    "catalogue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest"
+      ],
+      "properties": {
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "The catalogue revision: the SHA-256 of the `sha256sum` lines of every regular file under the catalogue root, each named by its `/`-separated relative path, sorted by the bytes of that path."
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "passed",
+        "failed",
+        "advisory",
+        "errored",
+        "skipped"
+      ],
+      "description": "The verdict summary. The five counts partition the rows of the results document.",
+      "properties": {
+        "outcome": {
+          "enum": [
+            "green",
+            "red"
+          ],
+          "description": "`green` when no row failed outside the advisory ones and no row errored, `red` otherwise."
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Passed rows."
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Failed rows that bear on the verdict."
+        },
+        "advisory": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Failed rows whose criterion is a SHOULD, which never count against a capability."
+        },
+        "errored": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rows the instrument could not judge."
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Skipped rows, each with its reason in the results document."
+        }
+      }
+    },
+    "exchanges": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "results",
+        "recording"
+      ],
+      "properties": {
+        "results": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "The SHA-256 of the run's `results.json`, byte for byte."
+        },
+        "recording": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "The SHA-256 of the run's HAR recording, byte for byte."
+        }
+      }
+    }
+  }
+}

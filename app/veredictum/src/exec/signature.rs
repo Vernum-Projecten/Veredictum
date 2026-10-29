@@ -180,7 +180,12 @@ mod tests {
     }
 
     /// A signature made by the certificate's signing subkey verifies, since the
-    /// corpus certificate carries one and a server signs with it by capability.
+    /// corpus certificate carries one and a server signs with it by capability,
+    /// and so does one made by the primary key.
+    ///
+    /// Both are committed detached signatures over the same bytes, made once
+    /// with the committed secret key: the subkey one by the component whose key
+    /// flags mark it for signing, the primary one by the primary key.
     #[test]
     #[expect(
         clippy::panic_in_result_fn,
@@ -188,59 +193,31 @@ mod tests {
     )]
     fn subkey_signature_verifies_against_the_certificate() -> Result<(), Box<dyn std::error::Error>>
     {
-        use pgp::composed::{
-            ArmorOptions, Deserializable as _, DetachedSignature, SignedSecretKey,
-        };
-        use pgp::crypto::hash::HashAlgorithm;
-        use pgp::types::Password;
-        use rand::rngs::OsRng;
-
-        let keys = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-            .join("catalogue/keys/openpgp");
-        let (secret, _) = SignedSecretKey::from_string(&std::fs::read_to_string(
-            keys.join("cnf-signing.sec.asc"),
-        )?)?;
-        let public_armored = std::fs::read_to_string(keys.join("cnf-signing.pub.asc"))?;
-
-        // Pick the subkey by CAPABILITY, the way the server does: an
-        // encryption subkey signing would be a key-usage violation.
-        let subkey = secret
-            .secret_subkeys
-            .iter()
-            .find(|sub| sub.signatures.iter().any(|sig| sig.key_flags().sign()))
-            .ok_or("the corpus certificate carries no signing subkey")?;
-
+        let root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
+        let public_armored =
+            std::fs::read_to_string(root.join("catalogue/keys/openpgp/cnf-signing.pub.asc"))?;
+        let vectors = root.join("fixtures/openpgp");
+        let subkey = std::fs::read_to_string(vectors.join("subkey.sig.asc"))?;
+        let primary = std::fs::read_to_string(vectors.join("primary.sig.asc"))?;
         let data = b"ferroehr-cnf subkey verification";
-        let sig = DetachedSignature::sign_binary_data(
-            OsRng,
-            &subkey.key,
-            &Password::empty(),
-            HashAlgorithm::Sha256,
-            &data[..],
-        )?
-        .to_armored_string(ArmorOptions::default())?;
 
         assert!(
-            verify_pgp(data, &sig, &public_armored)?,
+            verify_pgp(data, &subkey, &public_armored)?,
             "a signature by the certificate's signing subkey must verify"
         );
         // A different payload still fails, so the subkey fallback cannot pass
         // by accepting everything.
-        assert!(!verify_pgp(b"tampered", &sig, &public_armored)?);
+        assert!(!verify_pgp(b"tampered", &subkey, &public_armored)?);
 
-        let primary = DetachedSignature::sign_binary_data(
-            OsRng,
-            &secret.primary_key,
-            &Password::empty(),
-            HashAlgorithm::Sha256,
-            &data[..],
-        )?
-        .to_armored_string(ArmorOptions::default())?;
         assert!(
             verify_pgp(data, &primary, &public_armored)?,
             "a signature by the certificate's primary key must verify"
         );
         assert!(!verify_pgp(b"tampered", &primary, &public_armored)?);
+        assert_ne!(
+            subkey, primary,
+            "the two vectors are made by two different key components"
+        );
         Ok(())
     }
 

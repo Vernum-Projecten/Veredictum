@@ -1822,6 +1822,146 @@ pub fn arazzo_results_schema() -> Value {
     })
 }
 
+/// The `sha256:<64 lowercase hex>` digest spelling.
+fn sha256_def(description: &str) -> Value {
+    json!({
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": description
+    })
+}
+
+/// A count of result rows.
+fn row_count_def(description: &str) -> Value {
+    json!({ "type": "integer", "minimum": 0, "description": description })
+}
+
+/// `certificate.schema.json` — the payload of a conformance certificate.
+#[must_use]
+pub fn certificate_schema() -> Value {
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("certificate"),
+        "title": "Conformance certificate payload",
+        "description": "The payload of a conformance certificate: a JWS (RFC 7515) in the compact serialization, signed with Ed25519 (alg EdDSA, RFC 8037), whose protected header carries `alg`, `typ` (`veredictum-certificate`) and the `kid` of the signing key. The verifying keys are a JWK Set (RFC 7517) published beside the instrument (`jwks.schema.json`). The payload names what was measured and by which instrument, and the SHA-256 digests of the run's results document and HAR recording, so the recorded exchanges a certificate covers are checkable byte for byte.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["issued_at", "instrument", "sut", "base_url", "document", "catalogue", "verdict", "exchanges"],
+        "properties": {
+            "issued_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When the certificate was issued (RFC 3339). A key's `expires_at` is compared against it."
+            },
+            "instrument": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "version", "status"],
+                "properties": {
+                    "name": { "type": "string", "minLength": 1 },
+                    "version": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The engine version, which both judged the run and issued the certificate."
+                    },
+                    "status": instrument_status_def()
+                }
+            },
+            "sut": sut_def(),
+            "base_url": { "type": "string", "description": "The base URL the run drove." },
+            "document": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The results document's own name: `catalogue` for a run over every document, or the one document a narrower run drove."
+            },
+            "catalogue": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["digest"],
+                "properties": {
+                    "digest": sha256_def("The catalogue revision: the SHA-256 of the `sha256sum` lines of every regular file under the catalogue root, each named by its `/`-separated relative path, sorted by the bytes of that path.")
+                }
+            },
+            "verdict": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["outcome", "passed", "failed", "advisory", "errored", "skipped"],
+                "description": "The verdict summary. The five counts partition the rows of the results document.",
+                "properties": {
+                    "outcome": {
+                        "enum": tokens(crate::certificate::Outcome::ALL),
+                        "description": "`green` when no row failed outside the advisory ones and no row errored, `red` otherwise."
+                    },
+                    "passed": row_count_def("Passed rows."),
+                    "failed": row_count_def("Failed rows that bear on the verdict."),
+                    "advisory": row_count_def("Failed rows whose criterion is a SHOULD, which never count against a capability."),
+                    "errored": row_count_def("Rows the instrument could not judge."),
+                    "skipped": row_count_def("Skipped rows, each with its reason in the results document.")
+                }
+            },
+            "exchanges": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["results", "recording"],
+                "properties": {
+                    "results": sha256_def("The SHA-256 of the run's `results.json`, byte for byte."),
+                    "recording": sha256_def("The SHA-256 of the run's HAR recording, byte for byte.")
+                }
+            }
+        }
+    })
+}
+
+/// `jwks.schema.json` — the JWK Set certificates are verified against.
+#[must_use]
+pub fn jwks_schema() -> Value {
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("jwks"),
+        "title": "Certificate verifying keys",
+        "description": "The JWK Set (RFC 7517 §5) a conformance certificate is verified against: Ed25519 public keys as octet key pairs (RFC 8037 §2). `expires_at` and `revoked_at` are this instrument's own members, which a generic JOSE library ignores (RFC 7517 §4); `veredictum verify` honours both. Any other member is refused, and so is the private member `d`, so a misspelled revocation stops the read rather than leaving a revoked key trusted.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["keys"],
+        "properties": {
+            "keys": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kty", "crv", "x", "kid"],
+                    "properties": {
+                        "kty": { "const": "OKP" },
+                        "crv": { "const": "Ed25519" },
+                        "x": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{43}$",
+                            "description": "The 32-byte public key, base64url without padding."
+                        },
+                        "kid": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9._-]{1,64}$",
+                            "description": "The key id a certificate's header names."
+                        },
+                        "alg": { "const": "EdDSA" },
+                        "use": { "const": "sig" },
+                        "expires_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "The last instant the key may sign (RFC 3339). A certificate whose `issued_at` is later is refused."
+                        },
+                        "revoked_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "When the key was revoked (RFC 3339). Every certificate the key signed is refused."
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
 /// The full published set: (file name, schema document).
 #[must_use]
 pub fn emit_all() -> Vec<(&'static str, Value)> {
@@ -1857,6 +1997,8 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
             crate::arazzo::gates::published::capabilities_schema(),
         ),
         ("arazzo-results.schema.json", arazzo_results_schema()),
+        ("certificate.schema.json", certificate_schema()),
+        ("jwks.schema.json", jwks_schema()),
     ]
 }
 

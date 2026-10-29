@@ -34,6 +34,7 @@ use clap::{Parser, Subcommand};
 
 use veredictum::arazzo::credential::{CredentialSource, Role};
 use veredictum::bench::client::AuthKind;
+use veredictum::certificate::{HONESTY_LINE, Jwks, Outcome, verify};
 use veredictum::party::version_line;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
 use veredictum::pipeline::assets::{performance_assets, schema_files, stress_overlay};
@@ -45,10 +46,6 @@ use veredictum::pipeline::measured::{
     run_measured, run_stress,
 };
 use veredictum::pipeline::{RenderedFile, ensure_parent_dir, to_json_document, write_file};
-use veredictum::record::{
-    DigestOutcome, HONESTY_LINE, MANIFEST_FILE, RecordedFile, SIGNATURE_FILE, SignatureOutcome,
-    seal, verify_bundle,
-};
 
 /// What `--version` prints after the name: the version and the instrument's
 /// approval status, `0.1.7 (pre-approval: not yet approved by the openEHR SEC)`
@@ -459,16 +456,6 @@ enum Command {
         /// Output directory for verdicts.json.
         #[arg(long)]
         out: PathBuf,
-        /// An armored OpenPGP secret key — when supplied, verdicts.json is
-        /// sealed with `record-manifest.json` and its detached signature,
-        /// which `verify-record` and `gpg --verify` both check.
-        #[arg(long)]
-        sign_key: Option<PathBuf>,
-        /// The passphrase unlocking `--sign-key`. Supply it through the
-        /// environment: a passphrase on the command line is visible to every
-        /// process on the host.
-        #[arg(long, env = "VEREDICTUM_SIGN_PASSPHRASE", hide_env_values = true)]
-        sign_passphrase: Option<String>,
     },
     /// Write the views of an Arazzo results document a vendor's CI shows:
     /// JUnit XML, CTRF 0.2.0 JSON and a Markdown summary, each a
@@ -492,27 +479,31 @@ enum Command {
         #[arg(long, env = "GITHUB_STEP_SUMMARY", hide_env_values = true)]
         step_summary: Option<PathBuf>,
     },
-    /// Verify a sealed bundle: recompute every digest its record manifest
-    /// names, and check the detached signature over that manifest.
-    VerifyRecord {
-        /// The bundle directory holding the emitted documents, the record
-        /// manifest and its detached signature.
+    /// Verify a conformance certificate offline against a JWK Set, and print
+    /// what it states.
+    ///
+    /// A certificate is a JWS in the compact serialization, signed with
+    /// Ed25519 (`EdDSA`), whose header names its key by `kid`. It is refused
+    /// when the header or the payload changed after signing, when the set
+    /// holds no key under its `kid`, when its algorithm or type is another,
+    /// when the set marks the key revoked, and when the key expired before
+    /// the certificate's `issued_at`. Nothing is fetched: the set is the file
+    /// you name.
+    ///
+    /// The payload carries the SHA-256 digests of the run's `results.json`
+    /// and HAR recording, so `sha256sum` over the two files checks that they
+    /// are the exchanges the certificate covers.
+    ///
+    /// Exit status: `0` when the certificate verifies; `1` when it is refused;
+    /// `2` when a file cannot be read or the JWK Set itself is refused.
+    Verify {
+        /// The certificate (`certificate.jws`).
+        certificate: PathBuf,
+        /// The JWK Set holding the verifying keys: the published
+        /// `jwks.json`, or a copy of it.
         #[arg(long)]
-        record: PathBuf,
-        /// The armored OpenPGP public key the signature is checked against.
-        #[arg(long)]
-        key: PathBuf,
+        jwks: PathBuf,
     },
-}
-
-/// The optional signing posture a document-emitting command was invoked with.
-///
-/// The passphrase never leaves this struct: no `Debug`, and nothing prints it.
-struct Signing {
-    /// The armored secret key file, when one was supplied.
-    key: Option<PathBuf>,
-    /// The passphrase unlocking that key, when it needs one.
-    passphrase: Option<String>,
 }
 
 /// Report a seam's failure and stop with the runner-error code.
@@ -695,13 +686,12 @@ fn main() -> ExitCode {
             summary,
             stress,
         } => perf_assets_command(&root, &results, &out, summary.as_deref(), stress.as_deref()),
+        Command::Verify { certificate, jwks } => verify_command(&certificate, &jwks),
         Command::Verdicts {
             statement,
             results,
             root,
             out,
-            sign_key,
-            sign_passphrase,
         } => verdicts_command(
             &JudgementRequest {
                 statement: &statement,
@@ -709,12 +699,7 @@ fn main() -> ExitCode {
                 root: &root,
             },
             &out,
-            &Signing {
-                key: sign_key,
-                passphrase: sign_passphrase,
-            },
         ),
-        Command::VerifyRecord { record, key } => verify_record_command(&record, &key),
     }
 }
 
@@ -741,93 +726,77 @@ fn validate_command(root: &Path, specs: Option<&Path>, declaration: Option<&Path
     }
 }
 
-/// Seal the documents a command just emitted, when a signing key was supplied.
-///
-/// The manifest and its detached signature are written beside the documents
-/// they cover, so the bundle stays ordinary files.
-fn seal_emitted(out: &Path, files: &[RecordedFile<'_>], signing: &Signing) -> Result<(), ExitCode> {
-    let Some(key_path) = signing.key.as_deref() else {
-        return Ok(());
+fn verify_command(certificate: &Path, jwks: &Path) -> ExitCode {
+    let read = |path: &Path| {
+        std::fs::read_to_string(path).map_err(|e| {
+            eprintln!("cannot read {}: {e}", path.display());
+            ExitCode::from(2)
+        })
     };
-    let sealed = match seal(files, key_path, signing.passphrase.as_deref()) {
-        Ok(sealed) => sealed,
-        Err(e) => return Err(fail(&e)),
+    let (certificate_text, jwks_text) = match (read(certificate), read(jwks)) {
+        (Ok(certificate), Ok(jwks)) => (certificate, jwks),
+        (Err(code), _) | (_, Err(code)) => return code,
     };
-    emit(
-        out,
-        &[
-            RenderedFile {
-                name: MANIFEST_FILE.to_owned(),
-                body: sealed.manifest,
-            },
-            RenderedFile {
-                name: SIGNATURE_FILE.to_owned(),
-                body: sealed.signature,
-            },
-        ],
-    )
-}
-
-fn verify_record_command(record: &Path, key: &Path) -> ExitCode {
-    let verification = match verify_bundle(record, key) {
-        Ok(verification) => verification,
-        Err(e) => return fail(&e),
-    };
-    match &verification.signature {
-        SignatureOutcome::Accepted(signed) => {
-            println!("signer fingerprint {}", signed.signer_fingerprint);
-            println!("signed at          {}", signed.signed_at);
+    let keys = match Jwks::parse(&jwks_text) {
+        Ok(keys) => keys,
+        Err(e) => {
+            eprintln!("{}: {e}", jwks.display());
+            return ExitCode::from(2);
         }
-        SignatureOutcome::Rejected => println!(
-            "signature          REJECTED — no component of {} verified {MANIFEST_FILE}",
-            key.display()
-        ),
-    }
+    };
+    let verified = match verify(&certificate_text, &keys) {
+        Ok(verified) => verified,
+        Err(e) => {
+            eprintln!("certificate REFUSED: {e}");
+            return ExitCode::from(1);
+        }
+    };
+    let payload = &verified.payload;
+    let source = |field: &veredictum::party::IdentityField| {
+        format!("{} ({})", field.value, field.source.token())
+    };
+    let verdict = &payload.verdict;
+    println!("certificate  verified with key {}", verified.kid);
+    println!("issued at    {}", payload.issued_at);
     println!(
-        "instrument         {} {}",
-        verification.instrument.name, verification.instrument.version
+        "instrument   {} {} ({})",
+        payload.instrument.name, payload.instrument.version, payload.instrument.status
     );
-    for file in &verification.files {
-        match &file.outcome {
-            DigestOutcome::Matches => println!("  ok         {} {}", file.digest, file.name),
-            DigestOutcome::Mismatch { recomputed } => println!(
-                "  MISMATCH   {} {} (recomputed {recomputed})",
-                file.digest, file.name
-            ),
-            DigestOutcome::Missing => println!("  MISSING    {} {}", file.digest, file.name),
-            DigestOutcome::Unreadable { message } => {
-                println!("  UNREADABLE {} {} ({message})", file.digest, file.name);
-            }
-        }
+    println!("server       {}", source(&payload.sut.name));
+    println!("version      {}", source(&payload.sut.version));
+    if let Some(vendor) = &payload.sut.vendor {
+        println!("vendor       {}", source(vendor));
     }
+    if let Some(release) = &payload.sut.restapi_specs_version {
+        println!("REST release {}", source(release));
+    }
+    println!("base URL     {}", payload.base_url);
+    println!("document     {}", payload.document);
+    println!("catalogue    {}", payload.catalogue.digest);
+    println!(
+        "verdict      {}: {} passed, {} failed, {} advisory, {} errored, {} skipped",
+        match verdict.outcome {
+            Outcome::Green => "green",
+            Outcome::Red => "red",
+        },
+        verdict.passed,
+        verdict.failed,
+        verdict.advisory,
+        verdict.errored,
+        verdict.skipped
+    );
+    println!("results      {}", payload.exchanges.results);
+    println!("recording    {}", payload.exchanges.recording);
     println!("{HONESTY_LINE}");
-    if verification.is_clean() {
-        ExitCode::SUCCESS
-    } else {
-        for finding in verification.findings() {
-            eprintln!("record: {finding}");
-        }
-        ExitCode::from(1)
-    }
+    ExitCode::SUCCESS
 }
 
-fn verdicts_command(request: &JudgementRequest<'_>, out: &Path, signing: &Signing) -> ExitCode {
+fn verdicts_command(request: &JudgementRequest<'_>, out: &Path) -> ExitCode {
     let judgement = match judge(request) {
         Ok(judgement) => judgement,
         Err(e) => return fail(&e),
     };
     if let Err(code) = emit(out, &judgement.documents) {
-        return code;
-    }
-    let sealed: Vec<RecordedFile<'_>> = judgement
-        .documents
-        .iter()
-        .map(|file| RecordedFile {
-            name: &file.name,
-            body: file.body.as_bytes(),
-        })
-        .collect();
-    if let Err(code) = seal_emitted(out, &sealed, signing) {
         return code;
     }
     for finding in &judgement.report.review {

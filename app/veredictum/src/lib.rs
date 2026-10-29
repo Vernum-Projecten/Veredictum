@@ -29,6 +29,7 @@
 )]
 pub mod arazzo;
 pub mod bench;
+pub mod certificate;
 pub mod exec;
 pub mod identity;
 pub mod ids;
@@ -43,7 +44,6 @@ pub mod perf_run;
 pub mod perf_schedule;
 pub mod pipeline;
 pub mod probe;
-pub mod record;
 pub mod schema;
 pub mod stress;
 pub mod transcript;

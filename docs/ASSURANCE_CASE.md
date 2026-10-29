@@ -40,14 +40,14 @@ message, or a log line is a vulnerability in this instrument
 | **The system under test** | untrusted by definition | A SUT's responses are evidence in a comparison, never instructions. The attribution law makes this structural: an expectation is refuted by a better reading of the released specification and by nothing else, so a server cannot move the reference it is measured against (`.claude/rules/cnf-triage.md`). |
 | **The operator's IXIT and credentials** | trusted input, kept out of records and logs | `AuthMode` in `app/veredictum/src/ixit.rs` holds credential *references* only: environment-variable names for Basic and Bearer, a declared key file for the SMART lane. The IXIT file is committed and shared, so the model makes an inline secret unrepresentable. |
 | **The console's HTTP surface** (`app/veredictum-console`) | every endpoint is public | Mandate 3 of `app/veredictum-console/CLAUDE.md`: "Every `#[server]` fn is a publicly reachable HTTP endpoint, and the console has no login by design: it binds `127.0.0.1` by default, wider exposure is the operator's decision with their own gate in front. So every server fn treats input as untrusted and stays under the mounted roots, and SUT credentials … live in memory and the spawned run's environment only — never in client-readable signals, props, or serialized resource data, never in a file, never in a log line." The default bind is `site-addr = "127.0.0.1:3000"` in that crate's `Cargo.toml`; the container image sets `LEPTOS_SITE_ADDR=0.0.0.0:3000` inside its own network namespace (`deploy/docker/Dockerfile`). |
-| **The published record** | tamper-evident, verifiable without this tool | `app/veredictum/src/record.rs` seals a bundle with a byte-deterministic SHA-256 digest manifest (`record-manifest.json`) and an armored RFC 9580 detached signature over its exact bytes (`record-manifest.json.asc`). `veredictum verify-record --record DIR --key FILE` recomputes both; `gpg --verify record-manifest.json.asc record-manifest.json` accepts the same bundle with no Veredictum binary present. `RecordError::UnsafeFileName` and `RecordError::DuplicateFile` refuse a manifest entry that would read outside the bundle or silently replace another digest. |
+| **The certificate** | tamper-evident, verifiable without the console | `app/veredictum/src/certificate.rs` issues a JWS (RFC 7515) in the compact serialization, signed with Ed25519 (`EdDSA`, RFC 8037), whose payload names the server, the catalogue digest, the engine version and status, the verdict summary and the SHA-256 digests of `results.json` and the HAR recording. `veredictum verify CERT --jwks FILE` checks it offline against a JWK Set (RFC 7517), and every refusal is its own `VerifyError` variant: a changed header or payload, a `kid` the set does not hold, an algorithm other than `EdDSA`, a key revoked in the set, and a key that expired before the certificate was issued. The JWK reader refuses a member it does not know, so a misspelled `revoked_at` stops the read instead of leaving a revoked key trusted, and it refuses private key material outright. |
 
-Two properties of the record boundary are worth stating outright. The manifest
-is byte-deterministic (file names in a `BTreeMap`, JSON key order fixed by field
-order), so one signature stays checkable against a regenerated bundle. And
-`record::HONESTY_LINE` ships in every verification output: a valid signature
-proves integrity and origin since signing, and says nothing about the conditions
-the run executed under.
+Two properties of the certificate boundary are worth stating outright. The
+console loads no signing key at all while issuance is off (trial mode, the
+default), so a host that holds no key cannot leak one. And
+`certificate::HONESTY_LINE` ships in every verification output: a valid
+signature proves the payload is the one the key's holder signed, and says
+nothing beyond what the payload names.
 
 ## 3. Requirement, and the check that enforces it
 
@@ -115,8 +115,9 @@ hides its wishes is worth less than one that names them
   system to point it at and owns the handling of the resulting record, which is
   why `SECURITY.md` says never to run it against a live clinical deployment you
   do not own.
-- **A verified signature is not a claim about the run.** `record::HONESTY_LINE`
-  states the limit in the verification output itself.
+- **A verified certificate is not a claim beyond its payload.**
+  `certificate::HONESTY_LINE` states the limit in the verification output
+  itself.
 
 Findings against any statement on this page go through the private reporting
 route in [SECURITY.md](../SECURITY.md#reporting-a-vulnerability). A claim here that
