@@ -12,7 +12,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-/// The environment variable naming the artifact root (default `artifacts`;
+/// The environment variable naming the catalogue root (default `catalogue`;
 /// the image sets it to the documented `/work` mount).
 pub const ROOT_ENV: &str = "VEREDICTUM_ROOT";
 
@@ -24,20 +24,6 @@ pub const SPECS_ENV: &str = "VEREDICTUM_SPECS";
 /// image sets it to the documented `/work` mount). Runs write here exactly
 /// as a terminal run would.
 pub const OUT_ENV: &str = "VEREDICTUM_OUT";
-
-/// The environment variable naming the armored OpenPGP secret key the export
-/// seals with.
-///
-/// Unset is a first-class state: the export section then renders the
-/// instruction to mount a key, and offers no button.
-pub const SIGN_KEY_ENV: &str = "VEREDICTUM_SIGN_KEY";
-
-/// The environment variable naming the armored OpenPGP public key the export
-/// checks its own seal against.
-///
-/// Unset is a first-class state: the export section then names the variable
-/// to configure, and offers no button.
-pub const VERIFY_KEY_ENV: &str = "VEREDICTUM_VERIFY_KEY";
 
 /// The environment variable stating how many runs this host can drive at once.
 ///
@@ -62,15 +48,6 @@ pub const MAX_CONCURRENT_RUNS_ENV: &str = "VEREDICTUM_MAX_CONCURRENT_RUNS";
 /// since an unconditionally trusted `X-Forwarded-For` would let any visitor
 /// claim any identity and defeat every per-submitter cap.
 pub const CLIENT_IP_HEADER_ENV: &str = "VEREDICTUM_CLIENT_IP_HEADER";
-
-/// The environment variable carrying the passphrase that unlocks
-/// [`SIGN_KEY_ENV`].
-///
-/// The console never reads this into its own state: it is read at spawn time
-/// and placed in the child process's environment, which is the same variable
-/// the pinned CLI already documents. It reaches no signal, no file and no log
-/// line.
-pub const SIGN_PASSPHRASE_ENV: &str = "VEREDICTUM_SIGN_PASSPHRASE";
 
 /// Why the console refused to start.
 ///
@@ -98,20 +75,16 @@ pub enum StartupError {
 /// The loaded catalogue, or the explanation of why there is none.
 #[derive(Debug, Clone)]
 pub struct ConsoleState {
-    /// The artifact root the console reads.
+    /// The catalogue root the console reads and runs.
     pub root: PathBuf,
     /// The vendored spec tree citations resolve against.
     pub specs: PathBuf,
     /// The run-output tree job artifacts land under.
     pub out: PathBuf,
-    /// The armored secret key the export seals with, when one is mounted.
-    pub sign_key: Option<PathBuf>,
-    /// The armored public key the export checks its own seal against, when one is
-    /// mounted.
-    pub verify_key: Option<PathBuf>,
-    /// The one startup validation pass, shared by every request; `Err` is
-    /// the verbatim reason the catalogue could not be opened.
-    pub catalogue: Arc<Result<veredictum::pipeline::catalogue::Validation, String>>,
+    /// The one startup read of the catalogue, its gate findings beside its
+    /// listing, shared by every request; `Err` is the verbatim reason the
+    /// catalogue could not be opened.
+    pub catalogue: Arc<Result<veredictum::pipeline::listing::Listing, String>>,
     /// The in-flight run drafts (the wizard's server-side memory), one per
     /// submitter (#389): two visitors composing a connection at once do not
     /// overwrite each other. A restart legitimately forgets every draft — no
@@ -140,8 +113,8 @@ pub struct ConsoleState {
 }
 
 impl ConsoleState {
-    /// Reads the mounts from the environment and loads the catalogue once,
-    /// through the published lib — the same call `validate` runs.
+    /// Reads the mounts from the environment and reads the catalogue once,
+    /// through the published lib — the same gates `validate` runs.
     ///
     /// # Errors
     /// [`StartupError`]: a posture that names no posture, or a concurrency cap
@@ -167,21 +140,17 @@ impl ConsoleState {
             },
         };
         let root =
-            PathBuf::from(std::env::var(ROOT_ENV).unwrap_or_else(|_| String::from("artifacts")));
+            PathBuf::from(std::env::var(ROOT_ENV).unwrap_or_else(|_| String::from("catalogue")));
         let specs = PathBuf::from(
             std::env::var(SPECS_ENV).unwrap_or_else(|_| String::from("specs/openehr")),
         );
         let out = PathBuf::from(std::env::var(OUT_ENV).unwrap_or_else(|_| String::from("out")));
-        let sign_key = std::env::var(SIGN_KEY_ENV).ok().map(PathBuf::from);
-        let verify_key = std::env::var(VERIFY_KEY_ENV).ok().map(PathBuf::from);
-        let catalogue = veredictum::pipeline::catalogue::validate_tree(&root, Some(&specs))
-            .map_err(|e| e.to_string());
+        let catalogue =
+            veredictum::pipeline::listing::read(&root, Some(&specs)).map_err(|e| e.to_string());
         Ok(Self {
             root,
             specs,
             out,
-            sign_key,
-            verify_key,
             catalogue: Arc::new(catalogue),
             draft: Arc::new(std::sync::Mutex::new(crate::run_api::Drafts::new())),
             jobs: crate::run_job::JobSlot::with_limits(crate::run_job::Limits {

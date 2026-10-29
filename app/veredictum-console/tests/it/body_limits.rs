@@ -25,11 +25,9 @@ struct Bound {
 async fn bind() -> Result<Bound, Box<dyn std::error::Error>> {
     let scratch = assert_fs::TempDir::new()?;
     let state = veredictum_console::state::ConsoleState {
-        root: crate::engine_gate::repo_root().join("artifacts"),
+        root: crate::engine_gate::repo_root().join("catalogue"),
         specs: crate::engine_gate::repo_root().join("specs/openehr"),
         out: scratch.path().to_path_buf(),
-        sign_key: None,
-        verify_key: None,
         // The body caps are read before any screen reads the catalogue, so a
         // stated absence keeps this gate off the validation pass entirely.
         catalogue: Arc::new(Err(String::from(

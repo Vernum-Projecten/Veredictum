@@ -3,8 +3,8 @@
 
 //! S2 — the catalogue explorer (#61, #64).
 //!
-//! Chapters → cases → one case in full, read through the published lib's
-//! typed model. Filter, search and page state live in the URL, so a view is
+//! Capability folders → workflows → one workflow in full, read through the
+//! published lib's catalogue listing. Filter, search and page state live in the URL, so a view is
 //! shareable, refresh-safe and works without WASM loaded
 //! (<https://book.leptos.dev/router/20_form.html>).
 
@@ -41,13 +41,6 @@ fn query_q() -> Memo<String> {
     Memo::new(move |_| query.with(|q| q.get("q").unwrap_or_default()))
 }
 
-/// The `?tier=` profile filter from the URL (CORE / STANDARD / OPTIONS /
-/// SEC-BASIC; empty = every tier).
-fn query_tier() -> Memo<String> {
-    let query = use_query_map();
-    Memo::new(move |_| query.with(|q| q.get("tier").unwrap_or_default()))
-}
-
 /// One labeled fact list on the case card; an empty list says so instead of
 /// vanishing.
 fn fact_list(label: &'static str, values: Vec<String>) -> impl IntoView + use<> {
@@ -70,22 +63,7 @@ fn fact_list(label: &'static str, values: Vec<String>) -> impl IntoView + use<> 
     }
 }
 
-/// The tier badge row for a case.
-fn tier_badges(tiers: &[String]) -> impl IntoView + use<> {
-    tiers
-        .iter()
-        .map(|tier| {
-            let class = match tier.as_str() {
-                "CORE" => "rounded-control bg-accent-subtle px-1.5 py-0.5 text-xs font-medium text-accent-ink",
-                "SEC-BASIC" => "rounded-control bg-warn-subtle px-1.5 py-0.5 text-xs font-medium text-ink",
-                _ => "rounded-control bg-sunken px-1.5 py-0.5 text-xs text-ink-muted",
-            };
-            view! { <span class=class>{tier.clone()}</span> }
-        })
-        .collect_view()
-}
-
-/// The chapter list.
+/// The capability folder list.
 #[expect(
     clippy::must_use_candidate,
     reason = "a Leptos component is mounted by the framework, never consumed as a value"
@@ -98,7 +76,7 @@ pub fn Catalogue() -> impl IntoView {
         <Title text="Catalogue · Veredictum console" />
         <PageHeader
             title="Catalogue"
-            subtitle="Every chapter, every case, and the citations each expectation stands on."
+            subtitle="Every capability folder, every workflow, and the citations each expectation stands on."
         />
         <Suspense fallback=|| {
             view! { <p class="text-sm text-ink-muted">"Reading the catalogue…"</p> }
@@ -138,60 +116,32 @@ pub fn Catalogue() -> impl IntoView {
     }
 }
 
-/// One chapter's case listing: band sections over URL-state search, tier
-/// filter and paging — the same two-level taxonomy the published SVG renders.
+/// One capability folder's case listing: one section per Arazzo document,
+/// over URL-state search and paging.
 #[expect(
     clippy::must_use_candidate,
     reason = "a Leptos component is mounted by the framework, never consumed as a value"
 )]
 #[expect(
     clippy::too_many_lines,
-    reason = "the filter form and the band sections — one cohesive screen, its sections erased per the hydration rules"
+    reason = "the filter form and the document sections — one cohesive screen, its sections erased per the hydration rules"
 )]
 #[component]
 pub fn Chapter() -> impl IntoView {
     let chapter = param("chapter");
     let q = query_q();
-    let tier = query_tier();
     let page = page_from_url();
     // Reactive inputs in the SOURCE; the fetcher is untracked by design.
     let rows = Resource::new(
-        move || (chapter.get(), q.get(), tier.get()),
-        |(chapter, q, tier)| fetch_chapter_bands(chapter, q, tier),
+        move || (chapter.get(), q.get()),
+        |(chapter, q)| fetch_chapter_bands(chapter, q),
     );
-
-    let tier_links = move || {
-        let chapter_key = chapter.get();
-        let active = tier.get();
-        let q_now = q.get();
-        ["", "CORE", "STANDARD", "OPTIONS", "SEC-BASIC"]
-            .into_iter()
-            .map(|token| {
-                let label = if token.is_empty() { "all" } else { token };
-                let mut href = format!("/catalogue/{chapter_key}?tier={token}");
-                if !q_now.is_empty() {
-                    // Infallible on String; the idiomatic append the lint wants.
-                    let _ = std::fmt::Write::write_fmt(&mut href, format_args!("&q={q_now}"));
-                }
-                let class = if active == token {
-                    "rounded-control bg-accent px-2 py-1 text-xs font-medium text-on-accent"
-                } else {
-                    "rounded-control border border-edge-strong px-2 py-1 text-xs text-ink hover:bg-sunken"
-                };
-                view! {
-                    <A href=href attr:class=class>
-                        {label}
-                    </A>
-                }
-            })
-            .collect_view()
-    };
 
     view! {
         <Title text=move || format!("{} · Catalogue · Veredictum console", chapter.get()) />
         <PageHeader
             title=chapter
-            subtitle="One small isolated case per behaviour, grouped by the same bands the published conformance visuals render."
+            subtitle="One small isolated workflow per behaviour, grouped by the Arazzo document it is in."
             crumbs=vec![Crumb::new("Catalogue", "/catalogue")]
         />
         <div class="mb-4 flex flex-wrap items-center gap-3">
@@ -204,13 +154,11 @@ pub fn Chapter() -> impl IntoView {
                         placeholder="Filter by case id…"
                         class=INPUT
                     />
-                    <input type="hidden" name="tier" value=move || tier.get() />
                     <button type="submit" class="text-sm text-accent hover:underline">
                         "filter"
                     </button>
                 </div>
             </Form>
-            <div class="flex items-center gap-1.5">{tier_links}</div>
         </div>
         // Transition keeps the old rows visible while a filter reloads —
         // no fallback flash on every submit.
@@ -228,7 +176,7 @@ pub fn Chapter() -> impl IntoView {
                                 <EmptyState
                                     icon=icondata_lu::LuSearchX
                                     message="No case matches"
-                                    hint="Loosen the filter or the tier, or check the chapter key in the URL."
+                                    hint="Loosen the filter, or check the capability folder in the URL."
                                 />
                             }
                                 .into_any();
@@ -254,8 +202,7 @@ pub fn Chapter() -> impl IntoView {
                                     .cloned()
                                     .map(|row| {
                                         let href = format!("/catalogue/{chapter_key}/{}", row.id);
-                                        let badges = tier_badges(&row.tiers);
-                                        // Paging windows over the FLAT case sequence; band
+                                        // Paging windows over the FLAT case sequence; document
                                         // headers render wherever their first visible case
                                         // lands, so the two-level reading survives paging.
                                         view! {
@@ -269,11 +216,7 @@ pub fn Chapter() -> impl IntoView {
                                                     </A>
                                                 </td>
                                                 <td class=TD>
-                                                    <span class="flex flex-wrap gap-1">{badges}</span>
-                                                </td>
-                                                <td class=TD>{row.kind}</td>
-                                                <td class=TD>
-                                                    <span class="line-clamp-2 text-sm">{row.purpose}</span>
+                                                    <span class="line-clamp-2 text-sm">{row.summary}</span>
                                                 </td>
                                             </tr>
                                         }
@@ -284,7 +227,7 @@ pub fn Chapter() -> impl IntoView {
                                         <tbody>
                                             <tr>
                                                 <th
-                                                    colspan="4"
+                                                    colspan="2"
                                                     class="bg-sunken px-3 py-1.5 text-left text-xs font-semibold text-ink-heading"
                                                 >
                                                     {format!("{} · {band_len} case(s)", band.band)}
@@ -302,9 +245,7 @@ pub fn Chapter() -> impl IntoView {
                                     <thead>
                                         <tr>
                                             <th class=TH>"Case id"</th>
-                                            <th class=TH>"Tiers"</th>
-                                            <th class=TH>"Kind"</th>
-                                            <th class=TH>"Test purpose"</th>
+                                            <th class=TH>"Summary"</th>
                                         </tr>
                                     </thead>
                                     {sections}
@@ -325,14 +266,16 @@ pub fn Chapter() -> impl IntoView {
     }
 }
 
-/// One case in full: purpose, citations, bindings, corpus references.
+/// One case in full: summary, description, citation and steps.
 ///
 /// No `must_use_candidate` expect here: the URL-reading helpers keep that
 /// lint from firing on this fn (the rules §2 toolchain trap, inverted).
 #[component]
 pub fn Case() -> impl IntoView {
     let chapter = param("chapter");
-    let id = param("case");
+    let document = param("document");
+    let workflow = param("workflow");
+    let id = Memo::new(move |_| format!("{}/{}", document.get(), workflow.get()));
     let detail = Resource::new(move || id.get(), fetch_case_detail);
 
     view! {
@@ -349,7 +292,7 @@ pub fn Case() -> impl IntoView {
                             <EmptyState
                                 icon=icondata_lu::LuFileX
                                 message="No case carries this id"
-                                hint="The catalogue never reuses an id, even after retirement — check the URL."
+                                hint="A case id is the document and the workflow it names — check the URL."
                             />
                         }
                             .into_any()
@@ -363,74 +306,41 @@ pub fn Case() -> impl IntoView {
 
 /// The loaded case's sections — plain assembly, erased per section
 /// (rules §1).
-#[expect(
-    clippy::too_many_lines,
-    reason = "the case card's five sections — one cohesive assembly, each section already erased"
-)]
 fn case_view(chapter_key: &str, case: CaseDetail) -> impl IntoView + use<> {
-    let refs = case
-        .spec_refs
+    let citation = case.citation.map_or_else(
+        || {
+            view! {
+                <p class="text-sm text-ink-muted">
+                    "No workflow-level citation: each criterion carries its own."
+                </p>
+            }
+            .into_any()
+        },
+        |citation| view! { <p class="font-mono text-xs text-ink">{citation}</p> }.into_any(),
+    );
+    let steps = case
+        .steps
         .into_iter()
-        .map(|citation| {
-            view! { <li class="font-mono text-xs text-ink">{citation}</li> }
+        .map(|step| {
+            view! {
+                <tr>
+                    <td class=TD>
+                        <span class="font-mono text-xs">{step.id}</span>
+                    </td>
+                    <td class=TD>
+                        <span class="font-mono text-xs">{step.operation}</span>
+                    </td>
+                    <td class=TD>
+                        <span class="text-sm">{step.description}</span>
+                    </td>
+                </tr>
+            }
         })
         .collect_view();
-    let bindings = if case.bindings.is_empty() {
-        view! {
-            <p class="text-sm text-ink-muted">
-                "No operation binding: a content case reaches the wire through its committing flow."
-            </p>
-        }
-        .into_any()
-    } else {
-        case.bindings
-            .into_iter()
-            .map(|binding| {
-                let badge = if binding.realized {
-                    view! {
-                        <span class="rounded-control bg-ok-subtle px-1.5 py-0.5 text-xs text-ink">
-                            "realized"
-                        </span>
-                    }
-                    .into_any()
-                } else {
-                    view! {
-                        <span class="rounded-control bg-warn-subtle px-1.5 py-0.5 text-xs text-ink">
-                            "unrealized"
-                        </span>
-                    }
-                    .into_any()
-                };
-                view! {
-                    <li class="flex items-center gap-2">
-                        <span class="font-mono text-xs text-ink">{binding.file}</span>
-                        {badge}
-                    </li>
-                }
-            })
-            .collect_view()
-            .into_any()
-    };
-    let corpus = if case.corpus_keys.is_empty() {
-        view! { <p class="text-sm text-ink-muted">"No corpus references."</p> }.into_any()
-    } else {
-        case.corpus_keys
-            .into_iter()
-            .map(|key| view! { <li class="font-mono text-xs text-ink">{key}</li> })
-            .collect_view()
-            .into_any()
-    };
-    let anchor = case.sm_operation.map(|op| {
-        view! {
-            <p class="text-sm text-ink-muted">
-                "SM anchor: " <span class="font-mono text-xs text-ink">{op}</span>
-            </p>
-        }
-    });
     view! {
         <PageHeader
             title=case.id
-            subtitle=case.test_purpose
+            subtitle=case.summary
             crumbs=vec![
                 Crumb::new("Catalogue", "/catalogue"),
                 Crumb::new(chapter_key.to_owned(), format!("/catalogue/{chapter_key}")),
@@ -441,38 +351,39 @@ fn case_view(chapter_key: &str, case: CaseDetail) -> impl IntoView + use<> {
                 <h2 class=CARD_TITLE>"Description"</h2>
                 <p class="whitespace-pre-wrap text-sm text-ink">{case.description}</p>
                 <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-ink-muted">
-                    <span>{format!("kind: {}", case.kind)}</span>
-                    <span>{format!("component: {}", case.component)}</span>
-                    <span>{case.size}</span>
-                    <span class="flex flex-wrap gap-1">{tier_badges(&case.tiers)}</span>
+                    <span>{format!("document: {}", case.document)}</span>
                 </div>
-                {anchor}
             </section>
             <section class=CARD_PAD>
-                <h2 class=CARD_TITLE>"Spec citations"</h2>
-                <ul class=format!("{WELL} space-y-1")>{refs}</ul>
+                <h2 class=CARD_TITLE>"Spec citation"</h2>
+                <div class=WELL>{citation}</div>
                 <p class="mt-2 text-sm text-ink-muted">
                     "An expectation is refuted by a better reading of the cited text, and by nothing else."
                 </p>
             </section>
             <section class=CARD_PAD>
-                <h2 class=CARD_TITLE>"Wire realization"</h2>
-                <ul class="space-y-1.5">{bindings}</ul>
-                <h2 class=format!("{CARD_TITLE} mt-4")>"Corpus references"</h2>
-                <ul class="space-y-1">{corpus}</ul>
-            </section>
-            <section class=format!("{CARD_PAD} lg:col-span-2")>
                 <h2 class=CARD_TITLE>"Selection facts"</h2>
-                <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                    {fact_list("Verdict-bearing capabilities", case.capabilities)}
-                    {fact_list("Exercises (informative coverage)", case.exercises)}
-                    {fact_list("Applies (spec-version windows)", case.applies)}
-                    {fact_list("Guards (cited prose, not selection)", case.guards)}
-                    {fact_list("Formats", case.formats)}
+                <div class="grid grid-cols-1 gap-3 text-sm">
+                    {fact_list("Capability folder", vec![case.chapter])}
                     {fact_list(
-                        "Register option",
+                        "Option arm",
                         case.option.map(|option| vec![option]).unwrap_or_default(),
                     )}
+                </div>
+            </section>
+            <section class=format!("{CARD_PAD} lg:col-span-2")>
+                <h2 class=CARD_TITLE>"Steps"</h2>
+                <div class=TABLE_WRAP>
+                    <table class=TABLE>
+                        <thead>
+                            <tr>
+                                <th class=TH>"Step"</th>
+                                <th class=TH>"Operation"</th>
+                                <th class=TH>"Description"</th>
+                            </tr>
+                        </thead>
+                        <tbody>{steps}</tbody>
+                    </table>
                 </div>
             </section>
         </div>

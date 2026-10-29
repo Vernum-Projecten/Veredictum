@@ -155,6 +155,7 @@ WORKDIR /app
 # VEREDICTUM_ENGINE names the in-image engine by absolute path rather than
 # leaning on PATH resolution, so an overlay can repoint or disable it with one
 # variable and the console never resolves a different binary by accident.
+# VEREDICTUM_ROOT is the catalogue the console lists and runs, and
 # VEREDICTUM_CATALOGUE is the `--root` default of the engine's `test`
 # subcommand, so a run reads the Arazzo catalogue the image ships.
 #
@@ -171,7 +172,7 @@ ENV LEPTOS_OUTPUT_NAME=veredictum-console \
     LEPTOS_HASH_FILE_NAME=/app/site/hash.txt \
     LEPTOS_SITE_ADDR=0.0.0.0:3000 \
     VEREDICTUM_ENGINE=/usr/local/bin/veredictum \
-    VEREDICTUM_ROOT=/work/artifacts \
+    VEREDICTUM_ROOT=/work/catalogue \
     VEREDICTUM_CATALOGUE=/work/catalogue \
     VEREDICTUM_SPECS=/work/specs/openehr \
     VEREDICTUM_OUT=/work/out

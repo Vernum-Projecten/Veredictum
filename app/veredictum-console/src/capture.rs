@@ -4,17 +4,16 @@
 //! Documentation capture mode: the stand-ins the surfaces show for the facts
 //! one run stamps.
 //!
-//! The book's screenshots photograph a live run's clock, its record digest,
-//! its signing time, the run's own identity, the address the fixture server
-//! bound and the latency the connect probe measured. Every one of those
+//! The book's screenshots photograph a live run's clock, the run's own
+//! identity, the address the fixture server bound and the latency the connect
+//! probe measured. Every one of those
 //! changes on every pass, so the `ui-screenshot-guard` job cannot tell a
 //! re-run from a real visual change.
 //!
 //! In capture mode the server functions answer with the fixed stand-ins
 //! below, so an unchanged console photographs identically. Nothing else
-//! moves: the record, the manifest, the signature and the presentation files
-//! carry real values, because the pinning happens where a value is SENT TO A
-//! BROWSER and nowhere else.
+//! moves: the results and the recording carry real values, because the
+//! pinning happens where a value is SENT TO A BROWSER and nowhere else.
 //!
 //! What a pass measures is pinned; what a pass RECORDED is not. The case
 //! counter, the case now driving, the engine's own output and the finished
@@ -29,7 +28,6 @@
 //! so a screenshot photographs a settled frame instead of whatever phase of
 //! the progress bar's width transition it happened to catch.
 
-use crate::export_api::{ExportScreen, ExportSummary};
 use crate::run_api::{DraftView, ProbeAnswer, RecordedResults, RecordedRun, RunScreen};
 use crate::run_job::{FinishedView, JobView, RunId};
 
@@ -63,16 +61,6 @@ pub fn root_class(capture: bool) -> &'static str {
     if capture { CAPTURE_CLASS } else { "" }
 }
 
-/// The digest every captured surface shows in place of a real one.
-///
-/// All zeros: it has a digest's exact shape, so the layout is the layout a
-/// reader will see, and it is unmistakably not the output of a hash.
-pub const PINNED_DIGEST: &str = "0000000000000000000000000000000000000000000000000000000000000000";
-
-/// The instant every captured surface shows in place of a real signing time:
-/// the Unix epoch, which no run can have been signed at.
-pub const PINNED_TIME: &str = "1970-01-01T00:00:00Z";
-
 /// Every duration a captured surface measured, in milliseconds: the run
 /// clock, the estimate beside it, and the connect probe's round trip.
 ///
@@ -94,29 +82,6 @@ pub const PINNED_RUN_ID: RunId = RunId::NIL;
 /// moves on every pass; port zero is a port no server ever answers on, which
 /// makes the stand-in unmistakable.
 pub const PINNED_ENDPOINT: &str = "http://127.0.0.1:0";
-
-/// The export section as this console answers it: pinned under capture mode,
-/// verbatim otherwise.
-#[cfg(feature = "ssr")]
-#[must_use]
-pub fn export_screen(state: &crate::state::ConsoleState, screen: ExportScreen) -> ExportScreen {
-    if state.capture {
-        pin_export(screen)
-    } else {
-        screen
-    }
-}
-
-/// One sealed record's summary as this console answers it.
-#[cfg(feature = "ssr")]
-#[must_use]
-pub fn export_summary(state: &crate::state::ConsoleState, summary: ExportSummary) -> ExportSummary {
-    if state.capture {
-        pin_summary(summary)
-    } else {
-        summary
-    }
-}
 
 /// The live screen as this console answers it.
 #[cfg(feature = "ssr")]
@@ -178,26 +143,6 @@ pub fn pin_probe(answer: ProbeAnswer) -> ProbeAnswer {
             ok,
         },
         other @ ProbeAnswer::Unreachable { .. } => other,
-    }
-}
-
-/// The export section as a capture shows it.
-#[must_use]
-pub fn pin_export(screen: ExportScreen) -> ExportScreen {
-    match screen {
-        ExportScreen::Prepared(summary) => ExportScreen::Prepared(Box::new(pin_summary(*summary))),
-        other => other,
-    }
-}
-
-/// One sealed record's facts as a capture shows them.
-#[must_use]
-pub fn pin_summary(summary: ExportSummary) -> ExportSummary {
-    ExportSummary {
-        digest: String::from(PINNED_DIGEST),
-        digest_prefix: crate::export::prefix_of(PINNED_DIGEST),
-        signed_at: String::from(PINNED_TIME),
-        ..summary
     }
 }
 
@@ -267,67 +212,9 @@ fn pin_run_paths(line: &str, minted: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        PINNED_DIGEST, PINNED_ELAPSED_MS, PINNED_RUN_ID, PINNED_TIME, pin_export, pin_job,
-        pin_run_screen, pin_summary,
-    };
-    use crate::export_api::{ExportScreen, ExportSummary};
+    use super::{PINNED_ELAPSED_MS, PINNED_RUN_ID, pin_job, pin_run_screen};
     use crate::run_api::{DraftView, ProbeAnswer, RecordedResults, RecordedRun, RunScreen};
     use crate::run_job::{FinishedView, JobStatus, JobView, RunId};
-
-    /// One sealed record's summary as the export seam builds it.
-    fn summary() -> ExportSummary {
-        ExportSummary {
-            digest: String::from(
-                "9f2c1e5a7b3d0f4e6a8c2b1d3e5f70819a2b3c4d5e6f708192a3b4c5d6e7f809",
-            ),
-            digest_prefix: String::from("9f2c1e5a7b3d"),
-            fingerprint: String::from("ABCD1234"),
-            signed_at: String::from("2026-08-30T09:41:07Z"),
-            sut: String::from("example-cdr 1.0"),
-            profile_summary: String::from("CORE pass"),
-            sealed_files: vec![String::from("record-manifest.json")],
-            presentation_files: vec![String::from("seal-card.svg")],
-            badge_markdown: String::from("[![badge](record-badge.svg)](record-report.html)"),
-            badge_html: String::from("<a href=\"record-report.html\"></a>"),
-        }
-    }
-
-    /// The volatile three are pinned and everything else survives untouched:
-    /// a capture that redacted the verdicts would document a different
-    /// console.
-    #[test]
-    fn a_pinned_summary_keeps_every_stable_fact() {
-        let pinned = pin_summary(summary());
-        assert_eq!(pinned.digest, PINNED_DIGEST);
-        assert_eq!(pinned.digest_prefix, "000000000000");
-        assert_eq!(pinned.signed_at, PINNED_TIME);
-        assert_eq!(pinned.fingerprint, summary().fingerprint);
-        assert_eq!(pinned.sut, summary().sut);
-        assert_eq!(pinned.profile_summary, summary().profile_summary);
-        assert_eq!(pinned.sealed_files, summary().sealed_files);
-    }
-
-    /// Pinning is idempotent, which is the whole property a capture pass
-    /// needs: the second pass photographs what the first one did.
-    #[test]
-    fn pinning_twice_is_pinning_once() {
-        let once = pin_summary(summary());
-        assert_eq!(pin_summary(once.clone()), once);
-    }
-
-    /// A screen with nothing sealed carries nothing to pin.
-    #[test]
-    fn an_unprepared_export_is_left_alone() {
-        assert_eq!(pin_export(ExportScreen::Ready), ExportScreen::Ready);
-        assert_eq!(pin_export(ExportScreen::NoRun), ExportScreen::NoRun);
-        let ExportScreen::Prepared(pinned) =
-            pin_export(ExportScreen::Prepared(Box::new(summary())))
-        else {
-            panic!("a prepared export stays prepared");
-        };
-        assert_eq!(pinned.digest, PINNED_DIGEST);
-    }
 
     /// The stylesheet's still-frame rule keys on this exact class, and an
     /// ordinary serve carries none of it: a console that photographed with
@@ -397,14 +284,14 @@ mod tests {
         let pinned = pin_job(JobView {
             id: minted,
             tail: vec![
-                String::from("1 case-records: 0 passed / 0 failed / 1 errored / 0 n-a"),
-                format!("wrote target/out/console-job-{MINTED}/transcript.json"),
+                String::from("1 row(s): 0 passed, 0 failed, 1 errored, 0 skipped"),
+                format!("wrote target/out/console-job-{MINTED}/recording.har"),
             ],
             finished: Some(FinishedView {
                 passed: 0,
                 failed: 0,
                 errored: 1,
-                not_applicable: 0,
+                skipped: 0,
                 results_path: format!("target/out/console-job-{MINTED}/results.json"),
             }),
             ..driving()
@@ -412,8 +299,8 @@ mod tests {
         assert_eq!(
             pinned.tail,
             vec![
-                String::from("1 case-records: 0 passed / 0 failed / 1 errored / 0 n-a"),
-                format!("wrote target/out/console-job-{PINNED_RUN_ID}/transcript.json"),
+                String::from("1 row(s): 0 passed, 0 failed, 1 errored, 0 skipped"),
+                format!("wrote target/out/console-job-{PINNED_RUN_ID}/recording.har"),
             ]
         );
         let Some(summary) = pinned.finished else {
@@ -441,11 +328,11 @@ mod tests {
                 id: minted,
                 dir: format!("target/out/console-job-{MINTED}"),
                 results: Some(RecordedResults {
-                    sut_name: String::from("my-cdr"),
+                    base_url: String::from("http://cdr.test/openehr/v1"),
                     passed: 0,
                     failed: 0,
                     errored: 1,
-                    not_applicable: 0,
+                    skipped: 0,
                     results_path: format!("target/out/console-job-{MINTED}/results.json"),
                 }),
             })))
@@ -464,7 +351,7 @@ mod tests {
             results.results_path,
             format!("target/out/console-job-{PINNED_RUN_ID}/results.json")
         );
-        assert_eq!(results.sut_name, "my-cdr");
+        assert_eq!(results.base_url, "http://cdr.test/openehr/v1");
         Ok(())
     }
 
@@ -480,18 +367,13 @@ mod tests {
             auth: String::from("none"),
             probed_ok: false,
             statement: Some(String::from("my-cdr unknown")),
-            filter: Some(String::from("I_EHR_SERVICE.create_ehr-main")),
-            record_exchanges: true,
+            filter: Some(String::from("ehr_status")),
             postures: vec![String::from("system id: cdr.example.org")],
         });
         assert_eq!(pinned.base_url, super::PINNED_ENDPOINT);
         assert_eq!(pinned.sut_name, "my-cdr");
         assert_eq!(pinned.statement.as_deref(), Some("my-cdr unknown"));
-        assert_eq!(
-            pinned.filter.as_deref(),
-            Some("I_EHR_SERVICE.create_ehr-main")
-        );
-        assert!(pinned.record_exchanges);
+        assert_eq!(pinned.filter.as_deref(), Some("ehr_status"));
         assert!(!pinned.probed_ok);
         assert_eq!(
             pinned.postures,

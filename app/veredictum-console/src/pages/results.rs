@@ -3,13 +3,14 @@
 
 //! S6 — the results surface (#61, #67).
 //!
-//! The finished run's record, red rows first, with the detail joined to the
-//! catalogue. The selected row lives in the URL (`?case=`, `?format=`), so a
-//! finding is shareable.
+//! The finished run's results document, red rows first, with a selected
+//! row's four-part explanation and the exchange it was judged on. The
+//! selected row lives in the URL (`?case=`, `?row=`), so a finding is
+//! shareable.
 
 use leptos::prelude::{
-    AddAnyAttr, AnyView, ClassAttribute, CollectView, ElementChild, Get, IntoAny, IntoView, Memo,
-    Resource, Suspend, Suspense, With, component, view,
+    AddAnyAttr, ClassAttribute, CollectView, ElementChild, Get, IntoAny, IntoView, Memo, Resource,
+    Suspend, Suspense, With, component, view,
 };
 use leptos_meta::Title;
 use leptos_router::components::A;
@@ -21,12 +22,10 @@ use crate::components::field::BTN_SECONDARY;
 use crate::components::format_view::{Pane, inline_error};
 use crate::components::page_header::{Crumb, PageHeader};
 use crate::components::stat_card::StatCard;
-use crate::components::surface::{CARD_PAD, CARD_TITLE, WELL};
-use crate::evidence_api::EvidenceOffer;
-use crate::evidence_api::fns::fetch_evidence_offer;
+use crate::components::surface::{CARD_PAD, CARD_TITLE};
 use crate::pages::run::steps;
 use crate::record_api::fns::{fetch_result_detail, fetch_results};
-use crate::record_api::{ExchangeView, ResultDetail, ResultsScreen, TranscriptView};
+use crate::record_api::{ExchangeView, RecordingView, ResultDetail, ResultsScreen};
 
 /// The `?case=` selection from the URL.
 fn query_case() -> Memo<String> {
@@ -34,10 +33,16 @@ fn query_case() -> Memo<String> {
     Memo::new(move |_| query.with(|q| q.get("case").unwrap_or_default()))
 }
 
-/// The `?format=` selection from the URL.
-fn query_format() -> Memo<Option<String>> {
+/// The `?row=` selection from the URL; `0` when absent or not a number.
+fn query_row() -> Memo<u32> {
     let query = use_query_map();
-    Memo::new(move |_| query.with(|q| q.get("format").filter(|f| !f.is_empty())))
+    Memo::new(move |_| {
+        query.with(|q| {
+            q.get("row")
+                .and_then(|row| row.parse().ok())
+                .unwrap_or_default()
+        })
+    })
 }
 
 /// The status chip classes, verdict semantics only.
@@ -58,16 +63,15 @@ fn status_chip(status: &str) -> &'static str {
 #[component]
 pub fn Results() -> impl IntoView {
     let case = query_case();
-    let format = query_format();
+    let row = query_row();
     let screen = Resource::new(|| (), |()| fetch_results());
-    let offer = Resource::new(|| (), |()| fetch_evidence_offer());
     let detail = Resource::new(
-        move || (case.get(), format.get()),
-        |(case, format)| async move {
+        move || (case.get(), row.get()),
+        |(case, row)| async move {
             if case.is_empty() {
                 Ok(None)
             } else {
-                fetch_result_detail(case, format).await
+                fetch_result_detail(case, row).await
             }
         },
     );
@@ -76,13 +80,13 @@ pub fn Results() -> impl IntoView {
         <Title text="Results · Run · Veredictum console" />
         <PageHeader
             title="Results"
-            subtitle="The record, red rows first — a red row names a defect in exactly one of three suspects."
+            subtitle="The results, red rows first — a red row names a defect in exactly one of three suspects."
             crumbs=vec![Crumb::new("Run", "/run/connect")]
         >
             <div class="flex items-center gap-1">{steps("results")}</div>
         </PageHeader>
         <Suspense fallback=|| {
-            view! { <p class="text-sm text-ink-muted">"Reading the record…"</p> }
+            view! { <p class="text-sm text-ink-muted">"Reading the results…"</p> }
         }>
             {move || Suspend::new(async move {
                 match screen.await {
@@ -107,14 +111,6 @@ pub fn Results() -> impl IntoView {
         </Suspense>
         <Suspense fallback=|| ()>
             {move || Suspend::new(async move {
-                match offer.await {
-                    Ok(offer) => evidence_view(offer).into_any(),
-                    Err(e) => inline_error(&e.to_string()).into_any(),
-                }
-            })}
-        </Suspense>
-        <Suspense fallback=|| ()>
-            {move || Suspend::new(async move {
                 match detail.await {
                     Ok(Some(found)) => detail_view(&found).into_any(),
                     Ok(None) => ().into_any(),
@@ -127,16 +123,13 @@ pub fn Results() -> impl IntoView {
 
 /// The tallies and the red-first table.
 fn results_view(results: &ResultsScreen) -> impl IntoView + use<> {
-    let (passed, failed, errored, excused) = results.tallies;
+    let (passed, failed, errored, skipped) = results.tallies;
     let rows = results
         .rows
         .iter()
         .cloned()
         .map(|row| {
-            let href = match &row.format {
-                Some(format) => format!("/run/results?case={}&format={format}", row.case),
-                None => format!("/run/results?case={}", row.case),
-            };
+            let href = format!("/run/results?case={}&row={}", row.case, row.row);
             let chip = status_chip(&row.status);
             view! {
                 <tr class="hover:bg-sunken">
@@ -146,11 +139,10 @@ fn results_view(results: &ResultsScreen) -> impl IntoView + use<> {
                         </A>
                     </td>
                     <td class=TD>
-                        <span class=chip>{row.status}</span>
+                        <span class="tabular-nums">{row.row}</span>
                     </td>
-                    <td class=TD>{row.format.unwrap_or_default()}</td>
                     <td class=TD>
-                        <span class="tabular-nums">{row.rows}</span>
+                        <span class=chip>{row.status}</span>
                     </td>
                     <td class=TD>
                         <span class="line-clamp-2 font-mono text-xs">
@@ -171,21 +163,20 @@ fn results_view(results: &ResultsScreen) -> impl IntoView + use<> {
                 icon=icondata_lu::LuCircleHelp
             />
             <StatCard
-                label="Excused with citation"
-                value=excused.to_string()
+                label="Skipped with citation"
+                value=skipped.to_string()
                 icon=icondata_lu::LuFileText
             />
         </div>
-        <p class="mb-2 text-sm text-ink-muted">{format!("System under test: {}", results.sut)}</p>
+        <p class="mb-2 text-sm text-ink-muted">{format!("Base URL: {}", results.base_url)}</p>
         <div class=TABLE_WRAP>
             <table class=TABLE>
                 <thead>
                     <tr>
                         <th class=TH>"Case"</th>
+                        <th class=TH>"Row"</th>
                         <th class=TH>"Status"</th>
-                        <th class=TH>"Format"</th>
-                        <th class=TH>"Rows"</th>
-                        <th class=TH>"Reason"</th>
+                        <th class=TH>"Received or skip reason"</th>
                     </tr>
                 </thead>
                 <tbody>{rows}</tbody>
@@ -194,65 +185,9 @@ fn results_view(results: &ResultsScreen) -> impl IntoView + use<> {
     }
 }
 
-/// The evidence offer: what a red run hands a triage, or why it cannot.
-///
-/// Every branch renders a view, so the server and the browser agree on the
-/// structure (rules §8).
-fn evidence_view(offer: EvidenceOffer) -> AnyView {
-    // Before a finished run the results surface renders its own empty state,
-    // so the section says nothing rather than framing an empty well.
-    if offer == EvidenceOffer::NoRun {
-        return ().into_any();
-    }
-    let body = match offer {
-        // A server-owned axum route, so the anchor is external: after
-        // hydration the client router would otherwise intercept it and 404 a
-        // route it does not own (rules §4).
-        EvidenceOffer::Available => {
-            view! {
-                <a
-                    href=crate::evidence_api::DOWNLOAD_PATH
-                    rel="external"
-                    class=format!("{BTN_SECONDARY} mt-2")
-                >
-                    "Download the red rows' exchanges"
-                </a>
-                <p class="mt-2 text-sm text-ink-muted">
-                    "One JSON document: every failed and errored case, its outcome row, and the requests and responses behind it. The "
-                    <span class="font-mono text-xs">"authorization"</span>
-                    " header's value is withheld; response bodies are the wire's own, so treat the file as clinical data."
-                </p>
-            }
-                .into_any()
-        }
-        EvidenceOffer::NoRedRows => {
-            view! { <p class="text-sm text-ink-muted">"No row went red, so there is nothing to attribute."</p> }
-                .into_any()
-        }
-        EvidenceOffer::NotRecorded => {
-            view! {
-                <p class="text-sm text-ink-muted">
-                    "This run was driven without recording its wire, so the exchanges are gone. Tick "
-                    <span class="font-mono text-xs">"record exchanges"</span>
-                    " at the Run step and grade again."
-                </p>
-            }
-                .into_any()
-        }
-        EvidenceOffer::NoRun => ().into_any(),
-    };
-    view! {
-        <div class=format!("{WELL} mt-4")>
-            <h3 class=CARD_TITLE>"Evidence for a triage"</h3>
-            {body}
-        </div>
-    }
-    .into_any()
-}
-
 /// One exchange as its request and response panes.
 fn exchange_view(exchange: &ExchangeView) -> impl IntoView + use<> {
-    let seq = exchange.seq;
+    let entry = exchange.entry;
     let request = format!("{}\n{}", exchange.request_line, exchange.request_headers);
     let response = format!("{}\n{}", exchange.status_line, exchange.response_headers);
     let request_body = exchange
@@ -266,7 +201,7 @@ fn exchange_view(exchange: &ExchangeView) -> impl IntoView + use<> {
     view! {
         <div class="space-y-2 border-t border-line pt-3">
             <p class="text-xs font-medium uppercase tracking-wide text-ink-muted">
-                {format!("exchange {seq}")}
+                {format!("recording entry {entry}")}
             </p>
             <Pane label="request" body=request />
             {request_body}
@@ -276,104 +211,55 @@ fn exchange_view(exchange: &ExchangeView) -> impl IntoView + use<> {
     }
 }
 
-/// The wire section: the recorded exchanges, or the honest line saying why
-/// there are none.
-fn transcript_view(transcript: &TranscriptView) -> impl IntoView + use<> {
-    match transcript {
-        TranscriptView::NotRecorded => {
+/// The wire section: the judged exchange, or the honest line saying why
+/// there is none.
+fn recording_view(recording: &RecordingView) -> impl IntoView + use<> {
+    match recording {
+        RecordingView::NoExchange => {
             view! {
                 <p class="text-sm text-ink-muted">
-                    "This run was driven without --record-exchanges, so the record carries no wire transcript. Re-run with the box ticked on Scope to keep the exchanges."
+                    "This row names no judged exchange: it passed, was skipped, or went red before a request went out."
                 </p>
             }
                 .into_any()
         }
-        TranscriptView::Unreadable(diagnostic) => inline_error(diagnostic).into_any(),
-        TranscriptView::Recorded(exchanges) if exchanges.is_empty() => {
-            view! {
-                <p class="text-sm text-ink-muted">
-                    "The run recorded its wire, and this case drove no exchange: it was excused or refused before any request went out."
-                </p>
-            }
-                .into_any()
-        }
-        TranscriptView::Recorded(exchanges) => {
-            let panes = exchanges.iter().map(exchange_view).collect_view();
-            view! { <div class="space-y-3">{panes}</div> }.into_any()
-        }
+        RecordingView::Unreadable(diagnostic) => inline_error(diagnostic).into_any(),
+        RecordingView::Exchange(exchange) => exchange_view(exchange).into_any(),
     }
 }
 
-/// The selected outcome's detail: the record's evidence beside the case's
-/// citations, and the attribution law stated where a red row is read.
+/// One labelled part of the explanation, absent when the row has none.
+fn part(label: &'static str, value: Option<String>) -> impl IntoView + use<> {
+    value.map(|body| view! { <Pane label=label body=body /> })
+}
+
+/// The selected row's detail: the engine's four-part explanation beside the
+/// exchange it was judged on, and the attribution law stated where a red row
+/// is read.
 fn detail_view(detail: &ResultDetail) -> impl IntoView + use<> {
-    let refs = detail
-        .spec_refs
-        .iter()
-        .cloned()
-        .map(|citation| view! { <li class="font-mono text-xs text-ink">{citation}</li> })
-        .collect_view();
-    let failed_rows = (!detail.failed_rows.is_empty()).then(|| {
-        let rows = detail
-            .failed_rows
-            .iter()
-            .map(|failed| {
-                view! {
-                    <li class="font-mono text-xs text-ink">
-                        {format!("{} — {}", failed.row, failed.evidence)}
-                    </li>
-                }
-            })
-            .collect_view();
-        view! {
-            <h3 class=CARD_TITLE>"Failing rows"</h3>
-            <ul class=format!("{WELL} space-y-1")>{rows}</ul>
-        }
-    });
-    let reason = detail.row.reason.clone().map(|reason| {
-        view! { <Pane label="recorded reason" body=reason /> }
-    });
-    let wire = transcript_view(&detail.transcript);
-    let citation = detail.citation.clone().map(|citation| {
+    let report = detail.report.map(|report| {
         view! {
             <p class="text-sm text-ink">
-                "Excusing citation: " <span class="font-mono text-xs">{citation}</span>
+                {format!("The cited text has a known spec gap: upstream report #{report}.")}
             </p>
         }
     });
+    let wire = recording_view(&detail.recording);
     view! {
         <section class=format!("{CARD_PAD} mt-4")>
-            <h2 class=CARD_TITLE>
-                {format!(
-                    "{}{}",
-                    detail.row.case,
-                    detail
-                        .row
-                        .format
-                        .as_ref()
-                        .map(|format| format!(" · {format}"))
-                        .unwrap_or_default(),
-                )}
-            </h2>
+            <h2 class=CARD_TITLE>{format!("{} · row {}", detail.row.case, detail.row.row)}</h2>
             {detail
-                .test_purpose
+                .summary
                 .clone()
-                .map(|purpose| {
-                    view! { <p class="mb-3 text-sm text-ink-muted">{purpose}</p> }
+                .map(|summary| {
+                    view! { <p class="mb-3 text-sm text-ink-muted">{summary}</p> }
                 })}
             <div class="space-y-3">
-                {reason} {citation}
-                {detail
-                    .failing_step
-                    .map(|step| {
-                        view! {
-                            <p class="text-sm text-ink-muted">
-                                {format!("first failing step: {step}")}
-                            </p>
-                        }
-                    })} {failed_rows} <h3 class=CARD_TITLE>"Spec citations"</h3>
-                <ul class=format!("{WELL} space-y-1")>{refs}</ul>
-                <h3 class=CARD_TITLE>"The wire"</h3> {wire}
+                {part("skipped", detail.skip.clone())} {part("step", detail.step.clone())}
+                {part("what", detail.what.clone())} {part("why", detail.why.clone())}
+                {part("expected", detail.expected.clone())}
+                {part("received", detail.received.clone())} {part("whose", detail.whose.clone())}
+                {report} <h3 class=CARD_TITLE>"The wire"</h3> {wire}
                 <p class="text-sm text-ink-muted">
                     "A red row names a defect in exactly one of three suspects — the server, the runner, or the catalogue — and the cited text is the reference, never any side's confidence."
                 </p>

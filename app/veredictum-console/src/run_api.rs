@@ -409,11 +409,8 @@ pub struct RunDraft {
     pub statement_json: Option<String>,
     /// The claim's product identity, parsed once at save time.
     pub statement_product: Option<String>,
-    /// The case-id filter, when any.
+    /// The document-id filter, when any.
     pub filter: Option<String>,
-    /// Whether the run persists its wire exchanges as `transcript.json`
-    /// beside the results (#96). Off unless the operator asks for it.
-    pub record_exchanges: bool,
     /// The deployment postures the operator declared, each absent until they
     /// declare it (#456).
     pub postures: DeclaredPostures,
@@ -504,85 +501,32 @@ pub struct DraftView {
     pub probed_ok: bool,
     /// The saved claim's product identity, when a statement was pasted.
     pub statement: Option<String>,
-    /// The case-id filter, when any.
+    /// The document-id filter, when any.
     pub filter: Option<String>,
-    /// Whether the run will record its wire exchanges.
-    pub record_exchanges: bool,
     /// The deployment postures the draft declares, one line each — empty when
     /// the operator declared none.
     pub postures: Vec<String>,
 }
 
 /// The accepted claim, summarized for the overview the operator reads
-/// before starting: who claims, which tiers, how many capabilities.
+/// before starting: who claims, and how many capability folders.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimSummary {
     /// The product identity the statement declares.
     pub product: String,
-    /// The claimed profile tiers, the statement's own tokens.
-    pub profiles: Vec<String>,
-    /// The number of claimed verdict-bearing capabilities.
+    /// The number of claimed capability folders.
     pub capabilities: u64,
 }
 
-/// A profile tier the Scope screen can build a claim from.
-///
-/// The four the verdict machinery computes a profile answer for; the
-/// Enterprise rungs have no verdict rule, so they are not offerable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ScopeTier {
-    /// Platform CORE.
-    Core,
-    /// Platform STANDARD, which requires CORE.
-    Standard,
-    /// Platform OPTIONS: the optional Platform capabilities, rated when
-    /// present.
-    Options,
-    /// The Security family's basic rung.
-    SecBasic,
-}
-
-impl ScopeTier {
-    /// Every offerable tier, in the order the row renders.
-    pub const ALL: [ScopeTier; 4] = [
-        ScopeTier::Core,
-        ScopeTier::Standard,
-        ScopeTier::Options,
-        ScopeTier::SecBasic,
-    ];
-
-    /// The tier token, the statement's own vocabulary.
-    #[must_use]
-    pub fn token(self) -> &'static str {
-        match self {
-            Self::Core => "CORE",
-            Self::Standard => "STANDARD",
-            Self::Options => "OPTIONS",
-            Self::SecBasic => "SEC-BASIC",
-        }
-    }
-
-    /// The id of the tier's checkbox control.
-    #[must_use]
-    pub fn control_id(self) -> &'static str {
-        match self {
-            Self::Core => "tier-core",
-            Self::Standard => "tier-standard",
-            Self::Options => "tier-options",
-            Self::SecBasic => "tier-sec-basic",
-        }
-    }
-}
-
-/// One tier row: what checking the tier claims, and how much of the catalogue
-/// that claim reaches.
+/// One capability folder the Scope screen can build a claim from, and how
+/// much of the catalogue claiming it reaches.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TierRow {
-    /// The tier.
-    pub tier: ScopeTier,
-    /// The capabilities the matrix puts in the tier's member set.
-    pub capabilities: u64,
-    /// The distinct catalogue cases those capabilities gate.
+pub struct CapabilityRow {
+    /// The folder name, the token `claims.capabilities` names it by.
+    pub name: String,
+    /// The Arazzo documents in the folder.
+    pub documents: u64,
+    /// The workflows those documents carry.
     pub cases: u64,
 }
 
@@ -617,13 +561,13 @@ pub struct ConnectAnswer {
 
 /// The honest scope preview: what a run over this scope will PROCESS.
 ///
-/// Every case in filter scope lands as an outcome or a recorded exception,
-/// and the statement decides how many end excused at drive time.
+/// Every workflow of a document in filter scope lands as a row, and the
+/// statement decides how many are skipped at drive time.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScopePreview {
-    /// Cases in scope (the count a run processes).
+    /// Workflows in scope (the count a run processes).
     pub total: u64,
-    /// The per-chapter breakdown, chapter-sorted.
+    /// The per-capability breakdown, folder-sorted.
     pub chapters: Vec<(String, u64)>,
 }
 
@@ -676,16 +620,16 @@ pub struct RecordedRun {
 /// The tally a recorded run's results document carries.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordedResults {
-    /// The SUT display name the record itself names.
-    pub sut_name: String,
-    /// Passed case records.
+    /// The base URL the results document says the run drove.
+    pub base_url: String,
+    /// Passed rows.
     pub passed: u64,
-    /// Failed case records.
+    /// Failed rows.
     pub failed: u64,
-    /// Errored case records.
+    /// Errored rows.
     pub errored: u64,
-    /// Not-applicable case records.
-    pub not_applicable: u64,
+    /// Skipped rows.
+    pub skipped: u64,
     /// Where the results document sits.
     pub results_path: String,
 }
@@ -695,8 +639,8 @@ pub mod read {
     //! The component-free ssr readers and writers behind the endpoints.
 
     use super::{
-        ClaimSummary, DraftView, RecordedResults, RecordedRun, RunDraft, RunScreen, ScopePreview,
-        ScopeTier, StartOutcome, TierRow,
+        CapabilityRow, ClaimSummary, DraftView, RecordedResults, RecordedRun, RunDraft, RunScreen,
+        ScopePreview, StartOutcome,
     };
     use crate::run_job::{Latest, RunId};
     use crate::state::ConsoleState;
@@ -731,7 +675,6 @@ pub mod read {
                 probed_ok: draft.probed_ok,
                 statement: draft.statement_product.clone(),
                 filter: draft.filter.clone(),
-                record_exchanges: draft.record_exchanges,
                 postures: draft.postures.summary(),
             }
         })
@@ -773,7 +716,6 @@ pub mod read {
         submitter: Submitter,
         statement_json: Option<String>,
         filter: Option<String>,
-        record_exchanges: bool,
         postures: &super::PostureForm,
     ) -> Result<Option<ClaimSummary>, String> {
         let summary = statement_json
@@ -801,13 +743,6 @@ pub mod read {
                     .map_err(|e| format!("the statement does not parse: {e}"))?;
                 Ok(ClaimSummary {
                     product: format!("{} {}", statement.product.name, statement.product.version),
-                    profiles: statement
-                        .claims
-                        .profiles
-                        .iter()
-                        .map(crate::engine::token)
-                        .collect::<Result<Vec<String>, serde_json::Error>>()
-                        .map_err(|e| format!("a claimed profile tier did not render: {e}"))?,
                     capabilities: count(statement.claims.capabilities.len()),
                 })
             })
@@ -822,30 +757,61 @@ pub mod read {
         draft.statement_product = summary.as_ref().map(|claim| claim.product.clone());
         draft.statement_json = statement_json;
         draft.filter = filter;
-        draft.record_exchanges = record_exchanges;
         draft.postures = declared;
         Ok(summary)
     }
 
+    /// The documents a document-id filter selects, in catalogue order; every
+    /// document when the filter is empty.
+    fn filtered<'l>(
+        listing: &'l veredictum::pipeline::listing::Listing,
+        filter: &str,
+    ) -> impl Iterator<Item = &'l veredictum::pipeline::listing::ListedDocument> {
+        listing
+            .documents
+            .iter()
+            .filter(move |document| filter.is_empty() || document.id.contains(filter))
+    }
+
+    /// The document ids a run over this filter names with `--document`;
+    /// empty, which runs every document, when the filter is empty.
+    ///
+    /// # Errors
+    /// The verbatim load failure when the catalogue is absent, and a filter
+    /// no document id contains, which would otherwise run nothing.
+    pub fn filtered_documents(state: &ConsoleState, filter: &str) -> Result<Vec<String>, String> {
+        if filter.is_empty() {
+            return Ok(Vec::new());
+        }
+        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+        let documents: Vec<String> = filtered(listing, filter)
+            .map(|document| document.id.clone())
+            .collect();
+        if documents.is_empty() {
+            return Err(format!(
+                "no document id contains `{filter}`, so the run would drive nothing"
+            ));
+        }
+        Ok(documents)
+    }
+
     /// The scope preview over the loaded catalogue.
     ///
-    /// The filter-scoped case set IS what a run processes, so the count is
-    /// honest without re-implementing the drive-time selection.
+    /// The filter selects whole documents, exactly the set a run is handed
+    /// with `--document`, so the count is honest without re-implementing the
+    /// drive-time selection.
     ///
     /// # Errors
     /// The verbatim load failure when the catalogue is absent.
     pub fn scope_preview(state: &ConsoleState, filter: &str) -> Result<ScopePreview, String> {
-        let validation = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
         let mut chapters: std::collections::BTreeMap<String, u64> =
             std::collections::BTreeMap::new();
         let mut total = 0_usize;
-        for (path, case) in &validation.loaded.set.cases {
-            if !filter.is_empty() && !case.id.to_string().contains(filter) {
-                continue;
-            }
-            total += 1;
-            let chapter = crate::catalogue_api::read::chapter_of(path);
-            *chapters.entry(chapter).or_insert(0) += 1;
+        for document in filtered(listing, filter) {
+            total += document.workflows.len();
+            *chapters.entry(document.capability.clone()).or_insert(0) +=
+                count(document.workflows.len());
         }
         Ok(ScopePreview {
             total: count(total),
@@ -853,137 +819,21 @@ pub mod read {
         })
     }
 
-    /// The lib's tier for one offerable tier.
-    fn lib_tier(tier: ScopeTier) -> veredictum::vocab::Tier {
-        match tier {
-            ScopeTier::Core => veredictum::vocab::Tier::Core,
-            ScopeTier::Standard => veredictum::vocab::Tier::Standard,
-            ScopeTier::Options => veredictum::vocab::Tier::Options,
-            ScopeTier::SecBasic => veredictum::vocab::Tier::SecBasic,
-        }
-    }
-
-    /// The loaded capability matrix.
-    fn capability_matrix(
-        validation: &veredictum::pipeline::catalogue::Validation,
-    ) -> Result<&veredictum::model::capability::CapabilityMatrix, String> {
-        validation
-            .loaded
-            .set
-            .matrix
-            .as_ref()
-            .map(|(_, matrix)| matrix)
-            .ok_or_else(|| {
-                String::from(
-                    "the mounted catalogue carries no capability matrix, so no tier resolves to capabilities",
-                )
+    /// The capability rows: each folder with its documents and workflows.
+    ///
+    /// # Errors
+    /// The catalogue's verbatim load failure.
+    pub fn capability_rows(state: &ConsoleState) -> Result<Vec<CapabilityRow>, String> {
+        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+        Ok(listing
+            .capabilities()
+            .into_iter()
+            .map(|(name, documents)| CapabilityRow {
+                name: name.to_owned(),
+                documents: count(documents.len()),
+                cases: count(documents.iter().map(|d| d.workflows.len()).sum()),
             })
-    }
-
-    /// The tier row: each tier's member capabilities and the distinct cases
-    /// they gate.
-    ///
-    /// The member set is the published lib's own `tier_members` walk, the one
-    /// the judgement computes each profile verdict from, so the count cannot
-    /// drift from the verdict's own answer.
-    ///
-    /// # Errors
-    /// The catalogue's verbatim load failure, or the absent capability matrix.
-    pub fn tier_rows(state: &ConsoleState) -> Result<Vec<TierRow>, String> {
-        let validation = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
-        let matrix = capability_matrix(validation)?;
-        let mut rows = Vec::with_capacity(ScopeTier::ALL.len());
-        for tier in ScopeTier::ALL {
-            let members = veredictum::verdict::tier_members(lib_tier(tier), matrix);
-            let mut cases: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
-            for (_, case) in &validation.loaded.set.cases {
-                if case.capabilities.iter().any(|cap| members.contains(cap)) {
-                    cases.insert(case.id.as_str());
-                }
-            }
-            rows.push(TierRow {
-                tier,
-                capabilities: count(members.len()),
-                cases: count(cases.len()),
-            });
-        }
-        Ok(rows)
-    }
-
-    /// The spec-component versions a composed claim declares.
-    ///
-    /// An undeclared version fails the `applies` filter by design, putting
-    /// every case gated on that component out of scope. The declaration is
-    /// therefore derived from the catalogue: the highest floor its own case
-    /// and operation ranges name, which is the release at which all of them
-    /// are in scope. The operator may edit it down before saving.
-    ///
-    /// # Errors
-    /// When the derived declaration does not satisfy some range after all
-    /// (an upper-bounded range), naming the artifact — a silent narrowing is
-    /// never an acceptable answer.
-    fn catalogue_spec_versions(
-        validation: &veredictum::pipeline::catalogue::Validation,
-    ) -> Result<veredictum::party::SpecVersions, String> {
-        use veredictum::vocab::SpecComponent;
-
-        let set = &validation.loaded.set;
-        let mut floors: std::collections::BTreeMap<SpecComponent, (u64, u64, u64)> =
-            std::collections::BTreeMap::new();
-        let mut raise = |applies: &veredictum::model::case::Applies| {
-            for (component, range) in applies.entries() {
-                for comparator in &range.req().comparators {
-                    let candidate = (
-                        comparator.major,
-                        comparator.minor.unwrap_or(0),
-                        comparator.patch.unwrap_or(0),
-                    );
-                    let floor = floors.entry(component).or_insert((0, 0, 0));
-                    if candidate > *floor {
-                        *floor = candidate;
-                    }
-                }
-            }
-        };
-        for (_, case) in &set.cases {
-            raise(&case.applies);
-        }
-        for (_, binding) in &set.bindings {
-            if let Some(applies) = &binding.applies {
-                raise(applies);
-            }
-        }
-
-        let mut versions = veredictum::party::SpecVersions::default();
-        for (component, (major, minor, patch)) in &floors {
-            let text = format!("{major}.{minor}.{patch}");
-            match component {
-                SpecComponent::Rm => versions.rm = Some(text),
-                SpecComponent::Base => versions.base = Some(text),
-                SpecComponent::Am => versions.am = Some(text),
-                SpecComponent::Aql => versions.aql = Some(text),
-                SpecComponent::ItsRest => versions.its_rest = Some(text),
-                SpecComponent::Term => versions.term = Some(text),
-            }
-        }
-
-        let unsatisfied = set
-            .cases
-            .iter()
-            .map(|(path, case)| (path, Some(&case.applies)))
-            .chain(
-                set.bindings
-                    .iter()
-                    .map(|(path, binding)| (path, binding.applies.as_ref())),
-            )
-            .find(|(_, applies)| applies.is_some_and(|a| !a.satisfied_by(&versions)));
-        if let Some((path, _)) = unsatisfied {
-            return Err(format!(
-                "{}: no single spec-version declaration satisfies every range this catalogue names, so a composed claim cannot be derived from it",
-                path.display()
-            ));
-        }
-        Ok(versions)
+            .collect())
     }
 
     /// The composed claim's product identifier, derived from the identity the
@@ -1003,35 +853,37 @@ pub mod read {
         format!("urn:veredictum:console:{}:{}", slug(name), slug(version))
     }
 
-    /// Composes the ad-hoc claim for a tier selection.
+    /// Composes the ad-hoc claim for a capability selection.
     ///
     /// The product identity is the connection draft's own SUT name and
-    /// version; the claimed capabilities are the published lib's member set
-    /// for the checked tiers, in capability-matrix order. Nothing is stored:
-    /// the answer is a document the operator saves like a pasted one.
+    /// version; the claimed capabilities are the checked folders, in
+    /// catalogue order. Nothing is stored: the answer is a document the
+    /// operator saves like a pasted one.
     ///
     /// # Errors
-    /// An empty selection, a missing connection draft or product identity,
-    /// the catalogue's load failure, and the schedule-release and
-    /// spec-version derivations above, each verbatim.
+    /// An empty selection, a name that is not a capability folder of the
+    /// catalogue, a missing connection draft or product identity, and the
+    /// catalogue's load failure, each verbatim.
     pub fn compose_claim(
         state: &ConsoleState,
         submitter: Submitter,
-        tiers: &[ScopeTier],
+        selected: &[String],
     ) -> Result<String, String> {
-        // Normalized against the vocabulary itself, so a repeated or reordered
-        // list from a public endpoint composes the same claim.
-        let selected: Vec<ScopeTier> = ScopeTier::ALL
-            .into_iter()
-            .filter(|tier| tiers.contains(tier))
-            .collect();
         if selected.is_empty() {
             return Err(String::from(
-                "check at least one tier: a claim with no profile certifies nothing",
+                "check at least one capability: a claim with no capability claims nothing",
             ));
         }
-        let validation = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
-        let matrix = capability_matrix(validation)?;
+        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+        let folders = listing.capabilities();
+        if let Some(unknown) = selected
+            .iter()
+            .find(|name| !folders.contains_key(name.as_str()))
+        {
+            return Err(format!(
+                "`{unknown}` is not a capability folder of the catalogue"
+            ));
+        }
         let (resolved, vendor) = {
             let guard = state.draft.lock().map_err(|e| e.to_string())?;
             let draft = guard.get(submitter).ok_or_else(|| String::from(NO_DRAFT))?;
@@ -1047,19 +899,14 @@ pub mod read {
                 "the composed claim's product identity is the server's stated name and version, or the Connect step's entries where it stated none: fill both in first",
             ));
         };
-        let members: std::collections::BTreeSet<String> = selected
-            .iter()
-            .flat_map(|tier| veredictum::verdict::tier_members(lib_tier(*tier), matrix))
-            .map(|name| name.to_string())
-            .collect();
-        let capabilities: Vec<veredictum::ids::CapabilityName> = matrix
-            .entries()
-            .iter()
-            .filter(|(name, _)| members.contains(name.as_str()))
-            .map(|(name, _)| name.clone())
-            .collect();
-        let profiles: Vec<veredictum::vocab::Tier> =
-            selected.iter().copied().map(lib_tier).collect();
+        // Normalized against the catalogue itself, so a repeated or reordered
+        // list from a public endpoint composes the same claim.
+        let capabilities: Vec<veredictum::ids::CapabilityName> = folders
+            .keys()
+            .filter(|name| selected.iter().any(|held| held == *name))
+            .map(|name| veredictum::ids::CapabilityName::parse(name))
+            .collect::<Result<_, _>>()
+            .map_err(|e| format!("a capability folder is not a claimable name: {e}"))?;
         let statement = veredictum::party::Statement {
             product: veredictum::party::Product {
                 identifier: identifier_of(&name, &version),
@@ -1068,10 +915,10 @@ pub mod read {
                 vendor: vendor.unwrap_or_else(|| String::from("unknown")),
             },
             schedule_release: String::from(veredictum::party::SCHEDULE_RELEASE),
-            spec_versions: catalogue_spec_versions(validation)?,
+            spec_versions: veredictum::party::SpecVersions::default(),
             claims: veredictum::party::Claims {
                 capabilities,
-                profiles,
+                profiles: Vec::new(),
             },
             tech_profiles: Vec::new(),
             options: Vec::new(),
@@ -1182,11 +1029,11 @@ pub mod read {
         let auth = match draft.auth {
             super::AuthChoice::None => IxitAuth::None,
             super::AuthChoice::Basic => IxitAuth::Basic {
-                user_env: "CONSOLE_SUT_USER",
-                password_env: "CONSOLE_SUT_PASS",
+                user_env: veredictum::identity::USER_ENV,
+                password_env: veredictum::identity::PASSWORD_ENV,
             },
             super::AuthChoice::Bearer => IxitAuth::Bearer {
-                token_env: "CONSOLE_SUT_TOKEN",
+                token_env: veredictum::identity::TOKEN_ENV,
             },
         };
         let instance = |auth: IxitAuth| IxitInstance {
@@ -1281,20 +1128,20 @@ pub mod read {
 
     /// Starts the drafted run through an already-located engine.
     ///
-    /// Writes the ixit under the job's own output directory, invalidates any
-    /// export sealed over that directory, and hands the spec to the job slot.
+    /// Writes the ixit under the job's own output directory and hands the
+    /// spec to the job slot.
     /// The credentials MOVE out of the draft into the spawned run's
     /// environment: they reach the child process and nothing else — no file,
     /// no log line, no client-visible state.
     ///
-    /// The split exists for the gate, exactly as the export seam's does:
-    /// [`start_run`] finds the pinned binary the way the server does, and a
+    /// The split exists for the gate: [`start_run`] finds the pinned binary the way the server does, and a
     /// test injects the one it verified itself rather than reaching for
     /// `PATH`.
     ///
     /// # Errors
-    /// "no connection draft" before S3, the engine's own spawn refusals, and
-    /// the filesystem's verbatim failures. A submitter who already has a run
+    /// "no connection draft" before S3, a document filter that selects
+    /// nothing, the engine's own spawn refusals, and the filesystem's verbatim
+    /// failures. A submitter who already has a run
     /// in flight gets [`StartOutcome::AlreadyInFlight`], which is an answer
     /// naming that run rather than an error.
     pub fn start_run_with(
@@ -1317,27 +1164,15 @@ pub mod read {
         let draft = guard
             .get_mut(submitter)
             .ok_or_else(|| String::from(NO_DRAFT))?;
+        let documents = filtered_documents(state, draft.filter.as_deref().unwrap_or_default())?;
         let id = state.jobs.allocate_id();
         let out_dir = crate::run_job::job_dir(&state.out, id);
         std::fs::create_dir_all(&out_dir).map_err(|e| format!("{}: {e}", out_dir.display()))?;
-        // A run into this directory invalidates any export of it (#68). The
-        // seal lives INSIDE the job directory, so the seam that creates a
-        // run's directory is what guarantees no bundle is in it.
-        crate::export_api::prepare::invalidate(&out_dir)?;
-        let resolved = draft.resolved();
-        let missing = resolved.missing();
-        if !missing.is_empty() {
-            return Err(format!(
-                "the server did not state its {} and the Connect step has none: enter it there and probe again",
-                missing.join(" or ")
-            ));
-        }
         let ixit_path = out_dir.join("ixit.json");
         std::fs::write(&ixit_path, ixit_document(draft)?)
             .map_err(|e| format!("{}: {e}", ixit_path.display()))?;
         // The claim travels WITH the run: the job directory carries the exact
-        // bytes the engine graded, and the verdicts read them back from there,
-        // never from the mutable draft.
+        // bytes the engine selected by, never the mutable draft.
         let statement_path = draft
             .statement_json
             .as_deref()
@@ -1349,17 +1184,15 @@ pub mod read {
             .transpose()?;
         let spec = crate::engine::RunSpec {
             root: state.root.clone(),
-            ixit: ixit_path,
-            out_dir,
-            sut_name: resolved.operator_name.clone(),
-            sut_version: resolved.operator_version.clone(),
+            base_url: draft.base_url.clone(),
+            auth: draft.auth.token(),
             statement: statement_path,
-            filter: draft.filter.clone(),
+            ixit: Some(ixit_path),
+            documents,
+            out_dir,
             credentials: std::mem::take(&mut draft.credentials),
-            progress: true,
-            record_exchanges: draft.record_exchanges,
         };
-        let sut_name = resolved.name.unwrap_or_default();
+        let sut_name = draft.resolved().name.unwrap_or_default();
         drop(guard);
         match state.jobs.start(id, submitter, engine, spec, sut_name) {
             Ok(accepted) => Ok(StartOutcome::Accepted(accepted)),
@@ -1420,7 +1253,7 @@ pub mod read {
         if !dir.is_dir() {
             return Ok(RunScreen::Unknown(id));
         }
-        let results_path = dir.join("results.json");
+        let results_path = dir.join(veredictum::pipeline::arazzo_run::RESULTS_FILE);
         if !results_path.is_file() {
             return Ok(RunScreen::Recorded(Box::new(RecordedRun {
                 id,
@@ -1430,18 +1263,18 @@ pub mod read {
         }
         let body = std::fs::read_to_string(&results_path)
             .map_err(|e| format!("{}: {e}", results_path.display()))?;
-        let results: veredictum::party::Results =
+        let results: veredictum::arazzo::results::Results =
             serde_json::from_str(&body).map_err(|e| format!("{}: {e}", results_path.display()))?;
-        let (passed, failed, errored, not_applicable) = crate::run_job::tally(&results);
+        let (passed, failed, errored, skipped) = crate::run_job::tally(&results);
         Ok(RunScreen::Recorded(Box::new(RecordedRun {
             id,
             dir: dir.display().to_string(),
             results: Some(RecordedResults {
-                sut_name: results.sut.name.value.clone(),
+                base_url: results.base_url.clone(),
                 passed,
                 failed,
                 errored,
-                not_applicable,
+                skipped,
                 results_path: results_path.display().to_string(),
             }),
         })))
@@ -1570,8 +1403,8 @@ pub mod fns {
     use leptos::prelude::{ServerFnError, server};
 
     use super::{
-        AuthChoice, ClaimSummary, ConnectAnswer, DraftView, PostureForm, RunScreen, ScopePreview,
-        ScopeTier, StartOutcome, TierRow,
+        AuthChoice, CapabilityRow, ClaimSummary, ConnectAnswer, DraftView, PostureForm, RunScreen,
+        ScopePreview, StartOutcome,
     };
     use crate::run_job::RunId;
 
@@ -1624,17 +1457,17 @@ pub mod fns {
             AuthChoice::None => {}
             AuthChoice::Basic => {
                 credentials.push(crate::engine::Credential {
-                    name: String::from("CONSOLE_SUT_USER"),
+                    name: String::from(veredictum::identity::USER_ENV),
                     value: crate::engine::Secret::new(user),
                 });
                 credentials.push(crate::engine::Credential {
-                    name: String::from("CONSOLE_SUT_PASS"),
+                    name: String::from(veredictum::identity::PASSWORD_ENV),
                     value: crate::engine::Secret::new(password),
                 });
             }
             AuthChoice::Bearer => {
                 credentials.push(crate::engine::Credential {
-                    name: String::from("CONSOLE_SUT_TOKEN"),
+                    name: String::from(veredictum::identity::TOKEN_ENV),
                     value: crate::engine::Secret::new(token),
                 });
             }
@@ -1653,7 +1486,6 @@ pub mod fns {
                 statement_json: None,
                 statement_product: None,
                 filter: None,
-                record_exchanges: false,
                 postures: super::DeclaredPostures::default(),
             },
         )
@@ -1743,7 +1575,6 @@ pub mod fns {
     pub async fn save_scope(
         statement_json: Option<String>,
         filter: Option<String>,
-        record_exchanges: bool,
         postures: PostureForm,
     ) -> Result<Option<ClaimSummary>, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
@@ -1753,30 +1584,27 @@ pub mod fns {
             who,
             statement_json.filter(|s| !s.trim().is_empty()),
             filter.filter(|f| !f.is_empty()),
-            record_exchanges,
             &postures,
         )
         .map_err(ServerFnError::new)
     }
 
-    /// The four tiers with the capabilities they claim and the cases those
-    /// gate.
+    /// The capability folders with the documents and workflows each holds.
     ///
     /// # Errors
-    /// The catalogue's verbatim load failure, or the absent capability
-    /// matrix.
+    /// The catalogue's verbatim load failure.
     #[server]
-    pub async fn fetch_tier_counts() -> Result<Vec<TierRow>, ServerFnError> {
+    pub async fn fetch_capability_rows() -> Result<Vec<CapabilityRow>, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        super::read::tier_rows(&state).map_err(ServerFnError::new)
+        super::read::capability_rows(&state).map_err(ServerFnError::new)
     }
 
-    /// Composes the ad-hoc claim for a tier selection, answering with the
-    /// statement document itself.
+    /// Composes the ad-hoc claim for a capability selection, answering with
+    /// the statement document itself.
     ///
-    /// The tier list is a closed vocabulary, so an unknown token from a public
-    /// endpoint never decodes. Nothing is stored: the operator saves the
-    /// document through the same schema-validated path a pasted one takes.
+    /// Nothing is stored: the operator saves the document through the same
+    /// schema-validated path a pasted one takes, and a name that is not a
+    /// capability folder is refused by the composer.
     ///
     /// The argument is optional because the default URL-encoded server-fn
     /// encoding carries an empty sequence as an ABSENT field
@@ -1785,13 +1613,13 @@ pub mod fns {
     /// deserialization error.
     ///
     /// # Errors
-    /// An empty selection, a missing connection draft, and the composer's
-    /// catalogue failures, each verbatim.
+    /// An empty selection, an unknown folder, a missing connection draft, and
+    /// the catalogue's load failure, each verbatim.
     #[server]
-    pub async fn compose_claim(tiers: Option<Vec<ScopeTier>>) -> Result<String, ServerFnError> {
+    pub async fn compose_claim(capabilities: Option<Vec<String>>) -> Result<String, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
-        super::read::compose_claim(&state, who, &tiers.unwrap_or_default())
+        super::read::compose_claim(&state, who, &capabilities.unwrap_or_default())
             .map_err(ServerFnError::new)
     }
 }

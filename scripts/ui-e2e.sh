@@ -243,12 +243,10 @@ LEPTOS_SITE_ADDR="$CONSOLE_ADDR" \
 LEPTOS_OUTPUT_NAME="veredictum-console" \
 LEPTOS_HASH_FILES="true" \
 LEPTOS_HASH_FILE_NAME="$ROOT/target/debug/hash.txt" \
-VEREDICTUM_ROOT="artifacts" \
+VEREDICTUM_ROOT="catalogue" \
 VEREDICTUM_SPECS="specs/openehr" \
 VEREDICTUM_OUT="target/ui-e2e/out" \
 VEREDICTUM_ENGINE="$ENGINE_BIN" \
-VEREDICTUM_SIGN_KEY="fixtures/keys/cnf-signing.sec.asc" \
-VEREDICTUM_VERIFY_KEY="fixtures/keys/cnf-signing.pub.asc" \
 VEREDICTUM_CAPTURE_MODE="${UI_E2E_DOCS_SHOTS:-}" \
 VEREDICTUM_CLIENT_IP_HEADER="$CLIENT_IP_HEADER" \
   "$CONSOLE_BIN" &

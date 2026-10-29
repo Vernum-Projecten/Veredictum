@@ -278,17 +278,17 @@ impl JobStatus {
     }
 }
 
-/// The finished job's summary, from the typed record.
+/// The finished job's summary, from the typed results document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FinishedView {
-    /// Passed / failed / errored / not-applicable, the engine's own tally.
+    /// Passed rows, the engine's own status.
     pub passed: u64,
-    /// Failed case records.
+    /// Failed rows.
     pub failed: u64,
-    /// Errored case records.
+    /// Errored rows.
     pub errored: u64,
-    /// Not-applicable case records.
-    pub not_applicable: u64,
+    /// Skipped rows.
+    pub skipped: u64,
     /// Where `results.json` landed, for the record surfaces (#67).
     pub results_path: String,
 }
@@ -586,7 +586,7 @@ fn finish_status(
                     passed: counts.0,
                     failed: counts.1,
                     errored: counts.2,
-                    not_applicable: counts.3,
+                    skipped: counts.3,
                     results_path: finished.results_path.display().to_string(),
                 }),
             )
@@ -1042,22 +1042,22 @@ impl JobSlot {
     }
 }
 
-/// The engine's own tally over the typed record: passed / failed / errored /
-/// excused, counted on the lib's status enum itself.
+/// The engine's own tally over the typed results: passed / failed / errored
+/// / skipped rows, counted on the lib's status enum itself.
 ///
 /// The match is exhaustive on purpose: a status the engine adds later breaks
-/// this build instead of being counted as excused by a catch-all.
+/// this build instead of being counted by a catch-all.
 #[cfg(feature = "ssr")]
-pub(crate) fn tally(results: &veredictum::party::Results) -> (u64, u64, u64, u64) {
-    use veredictum::party::OutcomeStatus;
+pub(crate) fn tally(results: &veredictum::arazzo::results::Results) -> (u64, u64, u64, u64) {
+    use veredictum::arazzo::results::Status;
 
     let mut counts = (0_u64, 0_u64, 0_u64, 0_u64);
-    for outcome in &results.outcomes {
-        match outcome.status {
-            OutcomeStatus::Passed => counts.0 += 1,
-            OutcomeStatus::Failed => counts.1 += 1,
-            OutcomeStatus::Errored => counts.2 += 1,
-            OutcomeStatus::Skipped | OutcomeStatus::NotApplicable => counts.3 += 1,
+    for row in &results.rows {
+        match row.status {
+            Status::Passed => counts.0 += 1,
+            Status::Failed => counts.1 += 1,
+            Status::Errored => counts.2 += 1,
+            Status::Skipped => counts.3 += 1,
         }
     }
     counts
@@ -1144,39 +1144,21 @@ mod tests {
         // Authored as bytes, the way the engine writes the document the
         // console reads back, so a codec change fails here.
         const RECORD: &str = r#"{
-            "sut": { "name": { "value": "sut", "source": "operator" }, "version": { "value": "1", "source": "operator" } },
-            "runner": {
-                "name": "veredictum",
-                "version": "0",
-                "verification_pack_status": "passed"
-            },
+            "document": "catalogue",
+            "engine": { "name": "veredictum", "version": "0" },
             "instrument_status": "pre-approval",
-            "schedule_release": "0",
-            "tech_profile": { "its": "its-rest", "formats": [] },
-            "ixit_digest": "0",
-            "outcomes": [
-                { "case": "A-a", "status": "passed", "rows_driven": 1, "rows_total": 1 },
-                { "case": "A-b", "status": "passed", "rows_driven": 1, "rows_total": 1 },
-                { "case": "A-c", "status": "failed", "rows_driven": 1, "rows_total": 1 },
-                { "case": "A-d", "status": "errored", "rows_driven": 1, "rows_total": 1 },
-                {
-                    "case": "A-e",
-                    "status": "skipped",
-                    "rows_driven": 0,
-                    "rows_total": 1,
-                    "citation": "ITS-REST"
-                },
-                {
-                    "case": "A-f",
-                    "status": "not_applicable",
-                    "rows_driven": 0,
-                    "rows_total": 1,
-                    "citation": "ITS-REST"
-                }
+            "base_url": "http://cdr.test/openehr/v1",
+            "rows": [
+                { "case": "a/a", "row": 0, "status": "passed", "inputs": {}, "generated": [] },
+                { "case": "a/b", "row": 0, "status": "passed", "inputs": {}, "generated": [] },
+                { "case": "a/c", "row": 0, "status": "failed", "inputs": {}, "generated": [] },
+                { "case": "a/d", "row": 0, "status": "errored", "inputs": {}, "generated": [] },
+                { "case": "a/e", "row": 0, "status": "skipped", "inputs": {}, "generated": [] },
+                { "case": "a/f", "row": 1, "status": "skipped", "inputs": {}, "generated": [] }
             ]
         }"#;
 
-        let results: veredictum::party::Results = serde_json::from_str(RECORD)?;
+        let results: veredictum::arazzo::results::Results = serde_json::from_str(RECORD)?;
         assert_eq!(super::tally(&results), (2, 1, 1, 2));
         Ok(())
     }
@@ -1489,7 +1471,7 @@ mod map_tests {
                 passed: 1,
                 failed: 0,
                 errored: 0,
-                not_applicable: 0,
+                skipped: 0,
                 results_path: dir.join("results.json").display().to_string(),
             });
             job.out_dir = dir.clone();

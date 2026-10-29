@@ -431,17 +431,18 @@ async fn e2e_sidebar_reaches_a_case_detail() {
         .click()
         .await
         .expect("open the case");
-    h.wait_xpath("//h2[normalize-space()='Spec citations']")
+    h.wait_xpath("//h2[normalize-space()='Spec citation']")
         .await;
-    let citations = h
-        .wait_css("h2 + ul li")
+    h.wait_xpath("//h2[normalize-space()='Steps']").await;
+    let step = h
+        .wait_css("table tbody tr td span")
         .await
         .text()
         .await
-        .expect("the first citation");
+        .expect("the first step");
     assert!(
-        !citations.trim().is_empty(),
-        "a case detail lists the citations its expectation stands on"
+        !step.trim().is_empty(),
+        "a case detail lists the steps its workflow drives"
     );
     h.capture("case-light").await;
 
@@ -572,24 +573,24 @@ async fn e2e_run_wizard_reaches_connect_and_scope() {
     h.wait_xpath("//h1[contains(., 'Scope')]").await;
     h.wait_css("textarea#statement-json").await;
     h.wait_css("input#filter").await;
-    h.wait_css("input#record-exchanges").await;
     h.wait_xpath("//button[contains(., 'Preview selection')]")
         .await;
     h.wait_xpath("//button[contains(., 'Save scope')]").await;
-    // #100: the tier row and its counts, and the refusal an empty selection
-    // earns. Both are draft-independent: the composer refuses a claim with no
-    // profile before it ever reads the draft, so this journey stays order-free.
-    for tier in ["core", "standard", "options", "sec-basic"] {
-        h.wait_css(&format!("input#tier-{tier}")).await;
+    // #100: the capability row and its counts, and the refusal an empty
+    // selection earns. Both are draft-independent: the composer refuses a
+    // claim with no capability before it ever reads the draft, so this
+    // journey stays order-free.
+    for capability in ["ehr", "system", "query"] {
+        h.wait_css(&format!("input#capability-{capability}")).await;
     }
-    h.wait_xpath("//label[contains(., 'CORE') and contains(., 'cases')]")
+    h.wait_xpath("//label[contains(., 'ehr') and contains(., 'cases')]")
         .await;
     h.wait_xpath("//button[contains(., 'Compose the claim')]")
         .await
         .click()
         .await
         .expect("compose with nothing checked");
-    h.wait_xpath("//body[contains(., 'check at least one tier')]")
+    h.wait_xpath("//body[contains(., 'check at least one capability')]")
         .await;
     // The connection pane resolves either way — a draft summary labelled
     // `connection`, or the honest "No connection draft" answer — so what is
@@ -631,10 +632,10 @@ struct DrivenSut<'a> {
     identity: (&'a str, &'a str),
     /// Basic credentials, when the SUT wants them.
     basic: Option<(&'a str, &'a str)>,
-    /// The case-id filter for the run.
+    /// The document-id filter for the run.
     filter: &'a str,
-    /// Whether the journey ticks "Record the wire exchanges" on Scope (#96).
-    record_exchanges: bool,
+    /// The capability folder the composed claim checks.
+    capability: &'a str,
     /// The probe outcome the connect screen must show before continuing.
     probe_answer: &'a str,
     /// The continue control's label ("Continue" on a 2xx probe).
@@ -643,24 +644,24 @@ struct DrivenSut<'a> {
     finish_budget: Duration,
 }
 
-/// Checks CORE and composes the tier claim into the paste box (#100).
+/// Checks one capability and composes the claim into the paste box (#100).
 ///
 /// This IS the claim the journey grades. Since #465 the console offers no
 /// committed declaration to load over it: the support columns of an ICS
 /// proforma belong to the supplier of the implementation (ISO/IEC 9646-7), so
 /// pasting or composing are the only ways one enters.
-async fn compose_tier_claim(h: &Harness) {
-    h.wait_css("input#tier-core")
+async fn compose_claim(h: &Harness, capability: &str) {
+    h.wait_css(&format!("input#capability-{capability}"))
         .await
         .click()
         .await
-        .expect("check the CORE tier");
+        .expect("check the capability");
     h.wait_xpath("//button[contains(., 'Compose the claim')]")
         .await
         .click()
         .await
-        .expect("compose the tier claim");
-    h.wait_xpath("//p[contains(., 'Composed from the checked tiers')]")
+        .expect("compose the claim");
+    h.wait_xpath("//p[contains(., 'Composed from the checked capabilities')]")
         .await;
     // The box is driven by `prop:value`, so its DOM text never changes: the
     // live value is the property, which is what the operator reads.
@@ -727,19 +728,12 @@ async fn drive_wizard(h: &Harness, sut: &DrivenSut<'_>, scope_shot: Option<&str>
         .expect("continue");
 
     h.wait_xpath("//h1[contains(., 'Scope')]").await;
-    compose_tier_claim(h).await;
+    compose_claim(h, sut.capability).await;
     h.wait_css("input#filter")
         .await
         .send_keys(sut.filter)
         .await
         .expect("type the filter");
-    if sut.record_exchanges {
-        h.wait_css("input#record-exchanges")
-            .await
-            .click()
-            .await
-            .expect("tick the wire-recording box");
-    }
     if let Some(slug) = scope_shot {
         h.capture(slug).await;
     }
@@ -799,16 +793,10 @@ async fn follow_the_run(h: &Harness) -> String {
     address
 }
 
-/// Walks the finished run's record: results with one URL-addressed detail,
-/// then verdicts, capturing each under the given slugs. `wire` asserts the
-/// drawer shows the recorded exchanges (#96) rather than the absence line.
-async fn read_record(
-    h: &Harness,
-    case_needle: &str,
-    wire: bool,
-    results_shot: &str,
-    verdicts_shot: &str,
-) {
+/// Walks the finished run's results with one URL-addressed detail, capturing
+/// it under the given slug. `wire` asserts the drawer shows the judged
+/// exchange rather than the absence line.
+async fn read_record(h: &Harness, case_needle: &str, wire: bool, results_shot: &str) {
     h.goto("/run/results").await;
     h.wait_xpath("//h1[contains(., 'Results')]").await;
     h.wait_xpath(&format!("//td//a[contains(., '{case_needle}')]"))
@@ -816,18 +804,12 @@ async fn read_record(
         .click()
         .await
         .expect("open the detail");
-    h.wait_xpath("//body[contains(., 'Spec citations')]").await;
+    h.wait_xpath("//body[contains(., 'The wire')]").await;
     if wire {
-        h.wait_xpath("//body[contains(., 'exchange 1')]").await;
+        h.wait_xpath("//body[contains(., 'recording entry')]").await;
         h.wait_xpath("//span[contains(., 'response body')]").await;
     }
     h.capture(results_shot).await;
-
-    h.goto("/run/verdicts").await;
-    h.wait_xpath("//h1[contains(., 'Verdicts')]").await;
-    h.wait_xpath("//body[contains(., 'CONFORMANCE_REPORT.md')]")
-        .await;
-    h.capture(verdicts_shot).await;
 }
 
 /// A fixture SUT that states its identity: `OPTIONS /` answers a 200
@@ -900,11 +882,11 @@ async fn e2e_connect_shows_the_identity_the_server_states() {
 }
 
 /// The whole pipeline through the real UI: connect → probe → scope with a
-/// statement → start → live to finished → results with a detail → verdicts —
-/// capturing every record surface, light and dark, against the hermetic
-/// in-process fixture (every request answered 500).
+/// statement → start → live to finished → results with a detail — capturing
+/// every record surface, light and dark, against the hermetic in-process
+/// fixture (every request answered 500).
 #[tokio::test(flavor = "multi_thread")]
-async fn e2e_wizard_drives_a_run_to_its_verdicts() {
+async fn e2e_wizard_drives_a_run_to_its_results() {
     let Some(h) = Harness::start("driven-run").await else {
         return;
     };
@@ -916,22 +898,15 @@ async fn e2e_wizard_drives_a_run_to_its_verdicts() {
         base_url: &base_url,
         identity: ("my-cdr", "unknown"),
         basic: None,
-        filter: "I_EHR_SERVICE.create_ehr-main",
-        record_exchanges: true,
+        filter: "system_options",
+        capability: "system",
         probe_answer: "HTTP 500",
         continue_label: "Continue anyway",
         finish_budget: Duration::from_mins(1),
     };
     let address = drive_wizard(&h, &sut, Some("scope-light")).await;
     h.capture("live-light").await;
-    read_record(
-        &h,
-        "I_EHR_SERVICE.create_ehr-main",
-        true,
-        "results-light",
-        "verdicts-light",
-    )
-    .await;
+    read_record(&h, "system_options/", true, "results-light").await;
 
     // A link to the finished run's own id shows that run, after the reader
     // walked away to the record surfaces (#386). The permalink is asserted by
@@ -941,18 +916,9 @@ async fn e2e_wizard_drives_a_run_to_its_verdicts() {
     h.wait_xpath("//span[contains(., 'finished')]").await;
     h.wait_xpath("//a[starts-with(@href, '/run/live/')]").await;
 
-    // S8 rides this journey rather than a second driven one. The console holds
-    // a draft and a run per SUBMITTER (#389), and every journey drives the
-    // same browser, which is one submitter: it has one draft, and the
-    // per-submitter cap gives it one run in flight at a time.
-    prepare_export(&h).await;
-    h.capture("verdicts-export-light").await;
-
     // The dark pass re-walks the finished run's surfaces: the job state
     // persists, so each page renders the same record in the other theme.
     h.enable_dark().await;
-    h.goto("/run/verdicts").await;
-    h.capture("verdicts-dark").await;
     h.goto("/run/scope").await;
     h.wait_xpath("//h1[contains(., 'Scope')]").await;
     h.capture("scope-dark").await;
@@ -997,25 +963,6 @@ async fn e2e_an_unknown_run_id_says_so_in_its_own_words() {
     h.finish().await;
 }
 
-/// Prepares the export on the verdicts screen and returns once the sealed
-/// bundle's facts are on the page.
-async fn prepare_export(h: &Harness) {
-    h.goto("/run/verdicts").await;
-    h.wait_xpath("//h2[contains(., 'Export the signed record')]")
-        .await;
-    h.wait_xpath("//button[contains(., 'Prepare the export')]")
-        .await
-        .click()
-        .await
-        .expect("prepare the export");
-    // The sealed facts, not the button's own label: the seal is what the
-    // journey is asserting happened.
-    h.wait_xpath_for("//dt[contains(., 'Record digest')]", Duration::from_mins(2))
-        .await;
-    h.wait_xpath("//a[contains(., 'Download the bundle')]")
-        .await;
-}
-
 /// The side-by-side grading (#99): the same wizard against two REAL CDRs —
 /// FerroEHR's quickstart and EHRbase's official pairing, both latest — so the
 /// captures show two records over one catalogue. Skips unless the harness
@@ -1038,8 +985,8 @@ async fn e2e_wizard_grades_the_real_cdrs() {
             base_url: &ferroehr,
             identity: ("FerroEHR", "latest"),
             basic: Some(("ferroehr", "ferroehr")),
-            filter: "I_EHR_SERVICE.",
-            record_exchanges: false,
+            filter: "ehr",
+            capability: "ehr",
             probe_answer: "The server answered",
             continue_label: "Continue",
             finish_budget: Duration::from_mins(5),
@@ -1048,8 +995,8 @@ async fn e2e_wizard_grades_the_real_cdrs() {
             base_url: &ehrbase,
             identity: ("EHRbase", "latest"),
             basic: Some(("ehrbase-user", "SuperSecretPassword")),
-            filter: "I_EHR_SERVICE.",
-            record_exchanges: false,
+            filter: "ehr",
+            capability: "ehr",
             probe_answer: "The server answered",
             continue_label: "Continue",
             finish_budget: Duration::from_mins(5),
@@ -1059,14 +1006,7 @@ async fn e2e_wizard_grades_the_real_cdrs() {
         let slug = sut.identity.0.to_lowercase();
         drive_wizard(&h, sut, None).await;
         h.capture(&format!("live-{slug}-light")).await;
-        read_record(
-            &h,
-            "I_EHR_SERVICE.",
-            false,
-            &format!("results-{slug}-light"),
-            &format!("verdicts-{slug}-light"),
-        )
-        .await;
+        read_record(&h, "ehr/", false, &format!("results-{slug}-light")).await;
     }
 
     h.assert_console_clean(&[]).await;
@@ -1205,7 +1145,7 @@ impl ApiVisitor {
         self.call(
             <SaveScope as ServerFn>::PATH,
             &format!(
-                "filter={}&record_exchanges=false\
+                "filter={}\
                  &postures[system_id]=&postures[dump_location]=\
                  &postures[signing]=Undeclared&postures[digest_encoding]=Base64\
                  &postures[digest_prefix]=&postures[pgp_public_key]=\
@@ -1280,7 +1220,7 @@ async fn page_text(h: &Harness) -> String {
 /// Several cases against a two-second SUT: both runs of the concurrency
 /// journey stay in flight for its whole length, and both are cancelled before
 /// it ends.
-const TWO_VISITOR_FILTER: &str = "I_EHR_SERVICE.create_ehr";
+const TWO_VISITOR_FILTER: &str = "ehr";
 
 /// The #389 journey: two runs drive at once on ONE console, each followed by
 /// its own URL, neither screen showing the other's progress or outcome, and a
@@ -1318,10 +1258,7 @@ async fn e2e_two_visitors_drive_two_runs_at_once() {
     // answers with 500 and its own serializer's phrasing unless something
     // rewrites it.
     let (status, body) = second
-        .call_expecting_a_refusal(
-            <SaveScope as ServerFn>::PATH,
-            "filter=&record_exchanges=false",
-        )
+        .call_expecting_a_refusal(<SaveScope as ServerFn>::PATH, "filter=")
         .await;
     assert_eq!(
         status,

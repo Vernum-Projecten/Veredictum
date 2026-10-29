@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The read seam for S1 and S2 (#64): typed rows the screens render, served
-//! by thin `#[server]` fns over the startup catalogue state.
+//! by thin `#[server]` fns over the startup catalogue listing.
 //!
 //! Every number and every text here comes from the published lib's typed
 //! model — the console re-parses nothing. Serialized types carry fixed-size
@@ -12,18 +12,18 @@
 
 use serde::{Deserialize, Serialize};
 
-/// What the instrument landing shows: the validate summary's own numbers.
+/// What the instrument landing shows: the catalogue listing's own numbers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstrumentSummary {
-    /// The loaded case-core count.
+    /// The listed workflow count: one case each.
     pub cases: u64,
-    /// The loaded operation-binding count.
-    pub bindings: u64,
-    /// The capability-matrix row count: the ICS proforma's own rows.
+    /// The listed Arazzo document count.
+    pub documents: u64,
+    /// The capability folder count.
     pub capabilities: u64,
-    /// The validation finding count; zero is the only passing result.
+    /// The gate finding count; zero is the only passing result.
     pub findings: u64,
-    /// The artifact root, for display.
+    /// The catalogue root, for display.
     pub root: String,
     /// The vendored spec tree, for display.
     pub specs: String,
@@ -33,7 +33,7 @@ pub struct InstrumentSummary {
 /// verbatim reason the load refused.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CatalogueMissing {
-    /// The artifact root the console looked at.
+    /// The catalogue root the console looked at.
     pub root: String,
     /// The spec tree the console looked at.
     pub specs: String,
@@ -50,49 +50,44 @@ pub enum InstrumentView {
     Missing(CatalogueMissing),
 }
 
-/// One schedule chapter and its case count.
+/// One capability folder and its case count.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChapterRow {
-    /// The chapter key: the directory under `schedule/`.
+    /// The capability folder under `cases/`.
     pub key: String,
-    /// How many case cores the chapter carries.
+    /// How many workflows the folder's documents carry.
     pub cases: u64,
 }
 
-/// One case row in a chapter listing.
+/// One case row in a capability listing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CaseRow {
-    /// The case id.
+    /// The case id, `<document>/<workflowId>`.
     pub id: String,
-    /// The executor kind (`functional` / `content`).
-    pub kind: String,
-    /// The ISO/IEC 9646 test purpose.
-    pub purpose: String,
-    /// The profile tiers the case carries (CORE / STANDARD / OPTIONS /
-    /// SEC-BASIC), the CNF profile model's own vocabulary.
-    pub tiers: Vec<String>,
-    /// The presentation band within the chapter — the SAME two-level
-    /// taxonomy the published chapter-bars SVG renders (`conf_assets`).
+    /// The workflow's summary.
+    pub summary: String,
+    /// The document the workflow is in.
     pub band: String,
 }
 
-/// One band section of a chapter listing: the published SVG's second level.
+/// One document section of a capability listing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BandRows {
-    /// The band label from the instrument's own taxonomy.
+    /// The document id.
     pub band: String,
-    /// The band's cases, id-sorted.
+    /// The document's workflows, in document order.
     pub cases: Vec<CaseRow>,
 }
 
-/// One realizing binding in a case detail.
+/// One step of a case, as the detail screen lists it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BindingRef {
-    /// The binding's source file name.
-    pub file: String,
-    /// Whether the binding realizes the operation on this ITS or declares it
-    /// unrealized.
-    pub realized: bool,
+pub struct StepRow {
+    /// The step id.
+    pub id: String,
+    /// The operation the step calls.
+    pub operation: String,
+    /// The step's description.
+    pub description: String,
 }
 
 /// Everything the case-detail screen shows.
@@ -100,66 +95,33 @@ pub struct BindingRef {
 pub struct CaseDetail {
     /// The case id.
     pub id: String,
-    /// The chapter directory the case lives under.
+    /// The capability folder the case lives under.
     pub chapter: String,
-    /// The executor kind.
-    pub kind: String,
-    /// The schedule component.
-    pub component: String,
-    /// The SM operation anchor, when the case has one.
-    pub sm_operation: Option<String>,
-    /// The ISO/IEC 9646 test purpose.
-    pub test_purpose: String,
-    /// The schedule's Description row.
+    /// The document the case is a workflow of.
+    pub document: String,
+    /// The workflow's summary.
+    pub summary: String,
+    /// The workflow's description.
     pub description: String,
-    /// Every citation, verbatim.
-    pub spec_refs: Vec<String>,
-    /// The bindings realizing the case's SM operation.
-    pub bindings: Vec<BindingRef>,
-    /// The corpus keys the case's preconditions and commits reference.
-    pub corpus_keys: Vec<String>,
-    /// The profile tiers the case carries.
-    pub tiers: Vec<String>,
-    /// The verdict-bearing capability names (kept minimal by design).
-    pub capabilities: Vec<String>,
-    /// The informative coverage tags.
-    pub exercises: Vec<String>,
-    /// The spec-version windows, component and range, verbatim.
-    pub applies: Vec<String>,
-    /// The cited prose about the case, which participates in no selection.
-    pub guards: Vec<String>,
-    /// The case-level format axis.
-    pub formats: Vec<String>,
-    /// The register option tag realizing an implementation choice, if any.
+    /// The workflow's own citation, as `source, section: "quote"`.
+    pub citation: Option<String>,
+    /// The steps, in document order.
+    pub steps: Vec<StepRow>,
+    /// The option arm the document tests, as `option: arm`, when an option
+    /// names it.
     pub option: Option<String>,
-    /// The flow step count (functional) or decision-table row count
-    /// (content).
-    pub size: String,
 }
 
 #[cfg(feature = "ssr")]
 pub mod read {
     //! The ssr-side readers over the startup state — component-free, so the
-    //! mapping from the typed model to the rows is plain testable code.
+    //! mapping from the listing to the rows is plain testable code.
 
     use super::{
-        BandRows, BindingRef, CaseDetail, CaseRow, CatalogueMissing, ChapterRow, InstrumentSummary,
-        InstrumentView,
+        BandRows, CaseDetail, CaseRow, CatalogueMissing, ChapterRow, InstrumentSummary,
+        InstrumentView, StepRow,
     };
     use crate::state::ConsoleState;
-
-    /// The chapter directory a loaded case file sits under.
-    pub fn chapter_of(path: &std::path::Path) -> String {
-        let mut components = path.components();
-        for component in components.by_ref() {
-            if component.as_os_str() == "schedule" {
-                break;
-            }
-        }
-        components.next().map_or_else(String::new, |c| {
-            c.as_os_str().to_string_lossy().into_owned()
-        })
-    }
 
     /// A collection length as the wire's fixed-size integer.
     ///
@@ -171,22 +133,14 @@ pub mod read {
     }
 
     /// Maps the startup state to the landing view.
-    ///
-    /// The counts are the SAME expressions the CLI's validate summary prints
-    /// (`app/veredictum/src/bin/veredictum.rs`), so the two cannot disagree.
     #[must_use]
     pub fn instrument_view(state: &ConsoleState) -> InstrumentView {
         match state.catalogue.as_ref() {
-            Ok(validation) => InstrumentView::Loaded(InstrumentSummary {
-                cases: count(validation.loaded.set.cases.len()),
-                bindings: count(validation.loaded.set.bindings.len()),
-                capabilities: validation
-                    .loaded
-                    .set
-                    .matrix
-                    .as_ref()
-                    .map_or(0, |(_, matrix)| count(matrix.entries().len())),
-                findings: count(validation.findings.len()),
+            Ok(listing) => InstrumentView::Loaded(InstrumentSummary {
+                cases: count(listing.workflows().count()),
+                documents: count(listing.documents.len()),
+                capabilities: count(listing.capabilities().len()),
+                findings: count(listing.findings.len()),
                 root: state.root.display().to_string(),
                 specs: state.specs.display().to_string(),
             }),
@@ -198,77 +152,51 @@ pub mod read {
         }
     }
 
-    /// The chapters, sorted by key, each with its case count.
+    /// The capability folders, sorted by name, each with its case count.
     ///
     /// # Errors
     /// The verbatim load failure when the catalogue is absent.
     pub fn chapter_rows(state: &ConsoleState) -> Result<Vec<ChapterRow>, String> {
-        let validation = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
-        let mut counts: std::collections::BTreeMap<String, u64> = std::collections::BTreeMap::new();
-        for (path, _case) in &validation.loaded.set.cases {
-            *counts.entry(chapter_of(path)).or_insert(0) += 1;
-        }
-        Ok(counts
+        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+        Ok(listing
+            .capabilities()
             .into_iter()
-            .map(|(key, cases)| ChapterRow { key, cases })
+            .map(|(key, documents)| ChapterRow {
+                key: key.to_owned(),
+                cases: count(documents.iter().map(|d| d.workflows.len()).sum()),
+            })
             .collect())
     }
 
-    /// The tier tokens a case carries, in vocabulary order: the lib's own
-    /// serde names, never a mirrored vocabulary.
-    fn tier_tokens(case: &veredictum::model::case::CaseCore) -> Vec<String> {
-        case.profiles
-            .iter()
-            .filter_map(|tier| serde_json::to_string(tier).ok())
-            .map(|token| token.trim_matches('"').to_owned())
-            .collect()
-    }
-
-    /// The chapter's cases grouped by the published SVG's own bands.
-    ///
-    /// The taxonomy is `conf_assets::band_of` — never a console-side
-    /// re-taxonomy. Id-sorted within a band, filtered by the id substring
-    /// `q` and the tier token `tier` (empty = every tier).
+    /// One capability folder's cases, grouped by document and filtered by the
+    /// case id substring `q`.
     ///
     /// # Errors
-    /// The verbatim load failure when the catalogue is absent, or the
-    /// taxonomy's own refusal for an unmapped id.
+    /// The verbatim load failure when the catalogue is absent.
     pub fn band_rows(
         state: &ConsoleState,
         chapter: &str,
         q: &str,
-        tier: &str,
     ) -> Result<Vec<BandRows>, String> {
-        let validation = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
-        let mut bands: std::collections::BTreeMap<String, Vec<CaseRow>> =
-            std::collections::BTreeMap::new();
-        for (path, case) in &validation.loaded.set.cases {
-            if chapter_of(path) != chapter {
-                continue;
-            }
-            let id = case.id.to_string();
-            if !q.is_empty() && !id.contains(q) {
-                continue;
-            }
-            let tiers = tier_tokens(case);
-            if !tier.is_empty() && !tiers.iter().any(|t| t == tier) {
-                continue;
-            }
-            let (_, band) = veredictum::conf_assets::band_of(&id).map_err(|e| e.to_string())?;
-            bands.entry(band.to_owned()).or_default().push(CaseRow {
-                id,
-                kind: format!("{:?}", case.kind).to_lowercase(),
-                purpose: case.test_purpose.clone(),
-                tiers,
-                band: band.to_owned(),
-            });
-        }
-        Ok(bands
-            .into_iter()
-            .map(|(band, mut cases)| {
-                cases.sort_by(|a, b| a.id.cmp(&b.id));
-                BandRows { band, cases }
+        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+        Ok(listing
+            .documents
+            .iter()
+            .filter(|document| document.capability == chapter)
+            .map(|document| BandRows {
+                band: document.id.clone(),
+                cases: document
+                    .workflows
+                    .iter()
+                    .filter(|workflow| q.is_empty() || workflow.case.contains(q))
+                    .map(|workflow| CaseRow {
+                        id: workflow.case.clone(),
+                        summary: workflow.summary.clone().unwrap_or_default(),
+                        band: document.id.clone(),
+                    })
+                    .collect(),
             })
+            .filter(|band| !band.cases.is_empty())
             .collect())
     }
 
@@ -278,78 +206,38 @@ pub mod read {
     /// # Errors
     /// The verbatim load failure when the catalogue is absent.
     pub fn case_detail(state: &ConsoleState, id: &str) -> Result<Option<CaseDetail>, String> {
-        let validation = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
-        let Some((path, case)) = validation
-            .loaded
-            .set
-            .cases
-            .iter()
-            .find(|(_, case)| case.id.to_string() == id)
-        else {
+        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+        let Some((document, workflow)) = listing.workflows().find(|(_, w)| w.case == id) else {
             return Ok(None);
         };
-        let sm_operation = case.sm_operation.as_ref().map(ToString::to_string);
-        let bindings = sm_operation.as_ref().map_or_else(Vec::new, |anchor| {
-            validation
-                .loaded
-                .set
-                .bindings
-                .iter()
-                .filter(|(_, binding)| binding.sm_operation.to_string() == *anchor)
-                .map(|(binding_path, binding)| BindingRef {
-                    file: binding_path
-                        .file_name()
-                        .map_or_else(String::new, |n| n.to_string_lossy().into_owned()),
-                    realized: binding.unrealized.is_none(),
-                })
-                .collect()
-        });
-        let mut corpus_keys: Vec<String> = case
-            .requires
-            .templates
-            .iter()
-            .chain(case.requires.commit.iter())
-            .map(ToString::to_string)
-            .collect();
-        corpus_keys.sort();
-        corpus_keys.dedup();
-        let applies = case
-            .applies
-            .entries()
-            .into_iter()
-            .map(|(component, range)| format!("{} {}", component.token(), range.raw()))
-            .collect();
-        let size = case.decision_table.as_ref().map_or_else(
-            || format!("{} flow step(s)", case.flow.len()),
-            |table| format!("{} decision-table row(s)", table.rows.len()),
-        );
         Ok(Some(CaseDetail {
-            id: case.id.to_string(),
-            chapter: chapter_of(path),
-            kind: format!("{:?}", case.kind).to_lowercase(),
-            component: format!("{:?}", case.component),
-            sm_operation,
-            test_purpose: case.test_purpose.clone(),
-            description: case.description.clone(),
-            spec_refs: case.spec_refs.clone(),
-            bindings,
-            corpus_keys,
-            tiers: tier_tokens(case),
-            capabilities: case.capabilities.iter().map(ToString::to_string).collect(),
-            exercises: case.exercises.iter().map(ToString::to_string).collect(),
-            applies,
-            guards: case.guards.clone(),
-            formats: case
-                .formats
+            id: workflow.case.clone(),
+            chapter: document.capability.clone(),
+            document: document.id.clone(),
+            summary: workflow.summary.clone().unwrap_or_default(),
+            description: workflow.description.clone().unwrap_or_default(),
+            citation: workflow.citation.as_ref().map(|citation| {
+                format!(
+                    "{}, {}: \"{}\"",
+                    citation.source, citation.section, citation.quote
+                )
+            }),
+            steps: workflow
+                .steps
                 .iter()
-                .map(|f| format!("{f:?}").to_lowercase())
+                .map(|step| StepRow {
+                    id: step.step_id.clone(),
+                    operation: step.operation.clone().unwrap_or_default(),
+                    description: step.description.clone().unwrap_or_default(),
+                })
                 .collect(),
-            option: case.option.as_ref().map(ToString::to_string),
-            size,
+            option: document
+                .option_arm
+                .as_ref()
+                .map(|(option, arm)| format!("{option}: {arm}")),
         }))
     }
 }
-
 pub mod fns {
     //! The `#[server]` endpoints, one module for one inner suppression.
     //!
@@ -383,7 +271,7 @@ pub mod fns {
         Ok(read::instrument_view(&state))
     }
 
-    /// The chapter list.
+    /// The capability folder list.
     ///
     /// # Errors
     /// The verbatim load failure when the catalogue is absent.
@@ -393,20 +281,18 @@ pub mod fns {
         read::chapter_rows(&state).map_err(ServerFnError::new)
     }
 
-    /// One chapter's cases, grouped by band, filtered by the id substring
-    /// `q` and the tier token `tier`.
+    /// One capability folder's cases, grouped by document, filtered by the
+    /// case id substring `q`.
     ///
     /// # Errors
-    /// The verbatim load failure when the catalogue is absent, or the
-    /// taxonomy's refusal for an unmapped id.
+    /// The verbatim load failure when the catalogue is absent.
     #[server]
     pub async fn fetch_chapter_bands(
         chapter: String,
         q: String,
-        tier: String,
     ) -> Result<Vec<BandRows>, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        read::band_rows(&state, &chapter, &q, &tier).map_err(ServerFnError::new)
+        read::band_rows(&state, &chapter, &q).map_err(ServerFnError::new)
     }
 
     /// One case in full; `None` for an id the catalogue does not carry.
