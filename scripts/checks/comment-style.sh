@@ -30,7 +30,7 @@
 #                          document, in ANY path form: a tree-rooted path
 #                          (`catalogue/`, `perf/`, `fixtures/`, `scripts/`,
 #                          `website/`, `schemas/`, `fuzz/`, `app/`, `verification-pack/`)
-#                          ending in `.md`, the root documents by name
+#                          ending in `.md`, the project documents by name
 #                          (README, CLAUDE, ARCHITECTURE, CONTRIBUTING,
 #                          CHANGELOG), and any RELATIVE citation whose path
 #                          matches a committed markdown file at a segment

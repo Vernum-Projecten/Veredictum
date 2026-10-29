@@ -5,7 +5,7 @@ is handed credentials for a system under test, it writes data into that system,
 and the records it produces are used as evidence about that system. Reports
 against it are taken seriously and handled with priority.
 
-[`ASSURANCE_CASE.md`](ASSURANCE_CASE.md) carries the security argument behind
+[`docs/ASSURANCE_CASE.md`](docs/ASSURANCE_CASE.md) carries the security argument behind
 this policy: the trust boundaries, and the machine check that enforces each
 security-relevant requirement.
 
@@ -161,7 +161,7 @@ first-hand rather than chased as a number, and the standing dispositions are:
   class.** Each requires a second human: with one maintainer, requiring an
   approver deadlocks every pull request, because an author cannot approve
   their own. These flip the day the project has a second maintainer
-  ([GOVERNANCE.md § Becoming a maintainer](GOVERNANCE.md#becoming-a-maintainer)
+  ([GOVERNANCE.md § Becoming a maintainer](docs/GOVERNANCE.md#becoming-a-maintainer)
   carries the re-open note), and not before. No fake reviewer accounts, ever.
 - **`'apply to administrators' disabled` — deliberately kept, with the trade
   named.** The repository-admin bypass is the recovery valve, and its

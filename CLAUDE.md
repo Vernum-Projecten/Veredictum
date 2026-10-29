@@ -34,14 +34,15 @@ and the container image through the pipeline the Releasing section describes.
 | `app/veredictum/src/bin/veredictum.rs` | the instrument binary; every instrument is a subcommand of it |
 | `app/veredictum/tests/**` | the integration suite: catalogue gates, seeded-defect rejection, schema drift, the verification pack, the perf driver |
 | `app/veredictum-console/**` | the web console: the Leptos frontend the container image serves (#6, design #52); its rules are `.claude/rules/leptos-ui.md` |
-| `catalogue/**` | the conformance catalogue: Arazzo workflows per capability folder under `cases/`, `capabilities.yaml` options, rows files, `id-map.yaml` (ARCHITECTURE.md §15) |
-| `perf/**` | the performance schedule: its cases, journeys and payloads (ARCHITECTURE.md §8.14) |
+| `catalogue/**` | the conformance catalogue: Arazzo workflows per capability folder under `cases/`, `capabilities.yaml` options, rows files, `id-map.yaml` (docs/ARCHITECTURE.md §15) |
+| `perf/**` | the performance schedule: its cases, journeys and payloads (docs/ARCHITECTURE.md §8.14) |
 | `fixtures/**` | test material: the named ICS fixture, the signing keys and the SMART lane's committed test issuer |
 | `schemas/**` | the published JSON Schemas for every artifact family (emitted, drift-guarded) |
 | `verification-pack/**` | the recorded HAR exchanges proving the evaluator re-judges them into their adjudicated results |
 | `specs/openehr/**` | the vendored released openEHR spec text: the oracle |
 | `specs/its-xml-schemas/**`, `specs/its-json-schemas/**`, `specs/rest-oas/**` | the released machine-readable bundles, the second root a citation resolves against where the docs tree carries only prose |
 | `upstream/<openEHR repository>/**` | proposed fixes to a released specification, one patch per `upstream-report` issue, written against the vendored commit and never applied to `specs/` |
+| `docs/**` | the design and governance record: `ARCHITECTURE.md`, `ASSURANCE_CASE.md`, `GOVERNANCE.md`, `MAINTAINERS.md`, `AI_STATEMENT.md` |
 | `scripts/vendor/**` | one script per vendored tree — the only way any of them is refreshed |
 | `scripts/checks/**` | the repository guard scripts |
 | `.claude/**` | rules, hooks, agents, memory |
@@ -379,7 +380,7 @@ before any SUT is composed:
 cargo run -- validate --root catalogue --specs specs/openehr
 ```
 
-It is every machine check over the catalogue (ARCHITECTURE.md §15.9): the
+It is every machine check over the catalogue (docs/ARCHITECTURE.md §15.9): the
 Arazzo document shape, citation resolution against the vendored specs, the
 condition profile, coverage of the released operations, per-capability
 floors — and **zero findings is the only passing result.** `--statement <file>` adds the static conformance
@@ -507,7 +508,7 @@ subagents.
 
 ## References
 
-- `ARCHITECTURE.md` — **the architecture record**, and the design authority for
+- `docs/ARCHITECTURE.md` — **the architecture record**, and the design authority for
   the machinery: the party documents and the verdict computation (§8), the
   Arazzo catalogue with its extensions, condition profile and gates (§15), and
   §8.14's

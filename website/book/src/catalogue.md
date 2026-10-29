@@ -15,7 +15,7 @@ The formats this instrument adds are published as JSON Schema in
 files are emitted by `veredictum emit-schemas` and drift-tested against it, so
 the published format and the code that reads it are one thing. The design
 record is
-[`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md)
+[`docs/ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md)
 §15; this page will not repeat every field.
 
 ## The layout

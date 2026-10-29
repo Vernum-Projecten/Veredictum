@@ -8,7 +8,7 @@ Practices `assurance_case` criterion asks for. Every row below names a file in
 this repository, so each claim can be opened and checked.
 
 Reporting routes, supported versions, and the repository's GitHub security
-posture live in [SECURITY.md](SECURITY.md), which this page does not repeat.
+posture live in [SECURITY.md](../SECURITY.md), which this page does not repeat.
 
 ## 1. The product, and what an attacker gains
 
@@ -30,7 +30,7 @@ or a container image are the same attack at three layers.
 the system under test, and the exchanges it records come from a server the
 operator does not own. Leaking either into a published artifact, an error
 message, or a log line is a vulnerability in this instrument
-([SECURITY.md § Scope notes](SECURITY.md#scope-notes)).
+([SECURITY.md § Scope notes](../SECURITY.md#scope-notes)).
 
 ## 2. Trust boundaries
 
@@ -70,9 +70,9 @@ the run executed under.
 | The published image carries no known HIGH or CRITICAL vulnerability | Trivy per published platform, with the severity floor and `ignore-unfixed` in one shared config | `trivy.yaml`; `.github/workflows/image-scan.yml` |
 | Secrets, shell, and workflow YAML get a second independent sweep | SonarQube Cloud over the whole tree minus the vendored bytes, including secret detection. Advisory by standing rule: it gates no merge and never outranks the specification text or the local gates | `sonar-project.properties`; `.github/workflows/sonar.yml`; `.claude/rules/ai-code-review.md` |
 | No CI job runs without gating the merge | `scripts/checks/ci-conclusion-complete.sh` refuses a job missing from the single required `conclusion` check's `needs` list | the `workflow-audit` job, `.github/workflows/ci.yml` |
-| Every commit reaching `main` is signed and reviewed through a pull request | the `main` ruleset (signed commits, no force-push, pull request required, strict required checks); the GitHub contents API is banned because it writes unsigned commits | `CLAUDE.md` hard rules 8 and 9; [SECURITY.md § Repository security settings](SECURITY.md#repository-security-settings--the-posture-of-record) |
+| Every commit reaching `main` is signed and reviewed through a pull request | the `main` ruleset (signed commits, no force-push, pull request required, strict required checks); the GitHub contents API is banned because it writes unsigned commits | `CLAUDE.md` hard rules 8 and 9; [SECURITY.md § Repository security settings](../SECURITY.md#repository-security-settings--the-posture-of-record) |
 | No release artifact can be substituted undetected | binaries and images build inside reusable workflows per GitHub's documented SLSA Build L3 construction, each carrying a signed provenance attestation on its digest plus an attested CycloneDX SBOM; `cargo-auditable` embeds the dependency list in the binary; the image publishes by digest before any tag applies; `finalize` refuses to publish until every expected asset is attached | `.github/workflows/release-build.yml`, `build-image.yml`, `release.yml`; the badge rationale in `README.md` |
-| A bad release cut cannot be papered over | the `refs/tags/v*` ruleset forbids tag deletion and non-fast-forward updates and requires a signature, so the recovery is the next version | [SECURITY.md § Repository security settings](SECURITY.md#repository-security-settings--the-posture-of-record) |
+| A bad release cut cannot be papered over | the `refs/tags/v*` ruleset forbids tag deletion and non-fast-forward updates and requires a signature, so the recovery is the next version | [SECURITY.md § Repository security settings](../SECURITY.md#repository-security-settings--the-posture-of-record) |
 
 ## 4. Requirements with no machine check
 
@@ -119,6 +119,6 @@ hides its wishes is worth less than one that names them
   states the limit in the verification output itself.
 
 Findings against any statement on this page go through the private reporting
-route in [SECURITY.md](SECURITY.md#reporting-a-vulnerability). A claim here that
+route in [SECURITY.md](../SECURITY.md#reporting-a-vulnerability). A claim here that
 turns out to be stale is a defect in the assurance case, and it is fixed the
 same way any other defect is.

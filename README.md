@@ -401,7 +401,7 @@ verdicts, and the verification pack exists to check exactly that. A
 certificate row a human typed is a defect.
 
 Two verdict machineries share that discipline
-([`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md) §8):
+([`docs/ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md) §8):
 
 - **Conformance by assertion:** the statement selects the applicable
   documents, the criteria judge each recorded exchange, and each row ends
@@ -422,7 +422,7 @@ slowed-down client.
 
 The performance classes anchor to population served rather than to a
 concurrent-user guess, with the full derivation from OECD, Eurostat and NHS
-activity statistics in [`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md) §8.14:
+activity statistics in [`docs/ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md) §8.14:
 
 | Class | Population served | Corpus | Sustained arrival floor | p99 budget | Error rate |
 |---|---|---|---|---|---|
@@ -468,7 +468,7 @@ about what it observed. The seal above is the mark of that verdict.
 
 ## Design record
 
-[`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md) carries the reasoning rather than a
+[`docs/ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md) carries the reasoning rather than a
 summary of it: the Arazzo catalogue with its extensions, condition profile
 and gates, the party documents, the verdict computation, and the
 population-anchored performance-class model with its hospital-simulation

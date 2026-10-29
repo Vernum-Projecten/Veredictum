@@ -62,9 +62,9 @@ false authority.
 |---|---|
 | What to work on next | a [GitHub issue](https://github.com/Vernum-Projecten/Veredictum/issues); the open list is the worklist |
 | Why a change looks the way it does | the pull-request description that landed it, and the issue's closing comment |
-| What a release contains | [`CHANGELOG.md`](CHANGELOG.md) and the `vX.Y.Z` milestone |
+| What a release contains | [`CHANGELOG.md`](../CHANGELOG.md) and the `vX.Y.Z` milestone |
 | A specification silence and how it was disposed of | the `upstream-report` issue, and the citations whose `report:` names it |
-| Standing working rules | [`CLAUDE.md`](CLAUDE.md) and [`.claude/rules/`](.claude/rules/) |
+| Standing working rules | [`CLAUDE.md`](../CLAUDE.md) and [`.claude/rules/`](../.claude/rules/) |
 
 A decision that exists only in a conversation is not a decision this project
 made.
@@ -76,11 +76,11 @@ made.
 2. **A pull request implements it** on a conventional-type branch, declaring
    `Closes #N`, with signed commits.
 3. **The gates run.** They are not advisory and there is no override. The
-   battery is listed in [CONTRIBUTING.md](CONTRIBUTING.md): the guard tier, the
+   battery is listed in [CONTRIBUTING.md](../CONTRIBUTING.md): the guard tier, the
    Rust tier, and `validate` over the catalogue at zero findings.
 4. **The maintainer merges.** A pull request from an account without write access
    additionally needs a code-owner approval
-   ([`.github/CODEOWNERS`](.github/CODEOWNERS)).
+   ([`.github/CODEOWNERS`](../.github/CODEOWNERS)).
 
 **On required review, stated plainly.** The maintainer's own changes are not
 independently reviewed by a second human, because there is no second human.
@@ -105,7 +105,7 @@ The route is open and it is the ordinary one:
 The maintainer says yes or no with a reason on the tracker rather than by
 silence. A new maintainer receives write access, a row in
 [MAINTAINERS.md](MAINTAINERS.md), and their handle in
-[`.github/CODEOWNERS`](.github/CODEOWNERS) for the areas they own. Publishing
+[`.github/CODEOWNERS`](../.github/CODEOWNERS) for the areas they own. Publishing
 identities move separately and only where the identity permits a second holder;
 that table is in MAINTAINERS.md and is kept truthful.
 
@@ -128,7 +128,7 @@ request:
 - **No copyright assignment, and one Licensor.** You keep your copyright; the
   licence stays Apache-2.0 for everyone including the maintainer. A contribution
   grants the Licensor the relicensing right in
-  [CONTRIBUTING.md § Licensing of contributions](CONTRIBUTING.md#licensing-of-contributions),
+  [CONTRIBUTING.md § Licensing of contributions](../CONTRIBUTING.md#licensing-of-contributions),
   accepted by opening a pull request.
 - **No expectation without a specification citation**, and no expectation
   adjusted to match what a server did.
@@ -142,7 +142,7 @@ request:
 
 ## Code of conduct
 
-[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) applies to every space this project
+[`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) applies to every space this project
 occupies. Enforcement is the maintainer's, at the contact given there.
 
 ## Changing this document
