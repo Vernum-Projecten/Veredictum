@@ -197,9 +197,22 @@ impl BenchClient {
         user: Option<&str>,
         secret: Option<&str>,
     ) -> Result<Self, BenchError> {
+        Self::with_environment(base_url, auth, user, secret, &read_variable)
+    }
+
+    /// Builds the client, reading every credential variable through
+    /// `environment`, which [`Self::with_credential`] points at the process
+    /// environment.
+    fn with_environment(
+        base_url: &str,
+        auth: AuthKind,
+        user: Option<&str>,
+        secret: Option<&str>,
+        environment: &dyn Fn(&str) -> Result<String, CredentialError>,
+    ) -> Result<Self, BenchError> {
         let from_env = |name: &'static str| match secret {
             Some(secret) => Ok(secret.to_owned()),
-            None => read_variable(name).map_err(|source| BenchError::Credential { source }),
+            None => environment(name).map_err(|source| BenchError::Credential { source }),
         };
         let authorization = match auth {
             AuthKind::None => None,
@@ -207,7 +220,7 @@ impl BenchClient {
                 let user = match (user, secret) {
                     (Some(user), _) => user.to_owned(),
                     (None, Some(_)) => return Err(BenchError::MissingUser),
-                    (None, None) => read_variable(USER_ENV).map_err(|source| match source {
+                    (None, None) => environment(USER_ENV).map_err(|source| match source {
                         CredentialError::Missing { .. } => BenchError::MissingUser,
                         other => BenchError::Credential { source: other },
                     })?,
@@ -543,10 +556,35 @@ mod tests {
         assert!(!query_value("2026-08-29T10:11:12+02:00").contains('+'));
     }
 
-    /// `--auth basic` without `--user` is refused before any request.
+    /// `--auth basic` without `--user` is refused before any request when the
+    /// environment holds no user, and takes the user from it when it does.
+    /// The environment is passed explicitly, so an exported
+    /// `VEREDICTUM_CDR_USER` cannot change the answer.
     #[test]
     fn basic_without_a_user_is_refused() {
-        let error = BenchClient::new("http://stub", AuthKind::Basic, None).unwrap_err();
+        let empty = |variable: &str| {
+            Err(CredentialError::Missing {
+                variable: variable.to_owned(),
+                file_variable: format!("{variable}_FILE"),
+            })
+        };
+        let error =
+            BenchClient::with_environment("http://stub", AuthKind::Basic, None, None, &empty)
+                .unwrap_err();
         assert!(matches!(error, BenchError::MissingUser), "{error}");
+
+        let exported = |variable: &str| match variable {
+            USER_ENV => Ok("bench-user".to_owned()),
+            PASSWORD_ENV => Ok("bench-pass".to_owned()),
+            other => empty(other),
+        };
+        let client =
+            BenchClient::with_environment("http://stub", AuthKind::Basic, None, None, &exported)
+                .unwrap();
+        let expected = base64::engine::general_purpose::STANDARD.encode("bench-user:bench-pass");
+        assert_eq!(
+            client.authorization.as_deref(),
+            Some(format!("Basic {expected}").as_str())
+        );
     }
 }

@@ -126,8 +126,8 @@ pub(crate) fn fixture_sut() -> Result<u16, std::io::Error> {
 /// the ordinary principal's env-var NAMES, whose VALUES only the spawned
 /// run's environment holds, the `unauthenticated` instance, and no `admin`
 /// instance, which the console composes only from an administrative
-/// credential with variable names of its own. Raw bytes
-/// on purpose: an independently authored wire input catches codec bugs a
+/// credential with variable names of its own. Raw bytes on purpose: an
+/// independently authored wire input catches codec bugs a
 /// typed-then-serialized value cannot, and the lib's `Ixit` is
 /// deserialize-only, so raw is also the only honest way to author one.
 pub(crate) fn write_ixit(dir: &Path, port: u16) -> Result<PathBuf, std::io::Error> {
