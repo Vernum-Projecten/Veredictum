@@ -71,7 +71,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "json", "gzip", "brotli"] }
 # YAML authoring front-end for the schedule artifacts: pure Rust, no RUSTSEC
 # advisories, alias-expansion Budget against untrusted case files.
-serde-saphyr = "1.0.0-rc.1"
+serde-saphyr = "2.0.0"
 # The published artifact schemas are the norm; every loaded artifact validates
 # against them before typed parsing.
 jsonschema = "0.58.6"
