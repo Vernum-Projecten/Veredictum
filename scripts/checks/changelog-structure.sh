@@ -18,10 +18,11 @@
 # A duplicated header is not cosmetic: the release lane publishes the section
 # verbatim, so the same release notes ship twice.
 #
-# Wired into the CI `guards` job, unconditionally. The other half — requiring an
-# entry when a user-visible surface changes — is issue #10: it decides
-# "user-visible" by matching changed paths, and those paths exist now that the
-# code is here.
+# Wired into the CI `guards` job, unconditionally, and run again over the next
+# release section with every `changelog.d/` fragment folded in by
+# `scripts/release/changelog.sh --check-preview` (#766). The other half,
+# requiring a fragment when a user-visible surface changes, is
+# `changelog-entry.sh` (#10).
 set -euo pipefail
 
 file="${1:-CHANGELOG.md}"

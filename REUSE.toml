@@ -70,6 +70,16 @@ precedence = "override"
 SPDX-FileCopyrightText = ["openEHR Foundation", "the respective archetype authors"]
 SPDX-License-Identifier = "CC-BY-SA-3.0 AND CC-BY-SA-4.0"
 
+# ── The performance schedule's payloads ─────────────────────────────────────
+# The request bodies and operational templates the measured instruments send,
+# copied byte-identically from the corpus entries of the same keys, so they
+# carry the declaration the corpus tree gives them.
+[[annotations]]
+path = "perf/payloads/**"
+precedence = "override"
+SPDX-FileCopyrightText = ["openEHR Foundation", "the respective archetype authors"]
+SPDX-License-Identifier = "CC-BY-SA-3.0 AND CC-BY-SA-4.0"
+
 # ── The embedded bench fixtures: third-party bytes inside our own tree ──────
 # A bench pack is compiled into the binary, so the bytes it offers a system
 # live under `app/` where the catch-all above would claim them for Veredictum.
@@ -139,6 +149,18 @@ precedence = "override"
 SPDX-FileCopyrightText = ["Veredictum contributors", "openEHR Foundation"]
 SPDX-License-Identifier = "Apache-2.0 AND CC-BY-SA-3.0"
 
+# ── Changelog fragments ─────────────────────────────────────────────────────
+# A fragment under `changelog.d/` is the literal text the release cut moves
+# into `CHANGELOG.md`, so it carries no header of its own. It is first-party
+# prose and the catch-all already covers it; this table names the directory so
+# the declaration sits where the convention is (#766). `closest` lets the
+# README beside the fragments keep its own header.
+[[annotations]]
+path = "changelog.d/*.md"
+precedence = "closest"
+SPDX-FileCopyrightText = "Veredictum contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
 # ── Our own provenance records inside the vendored trees ────────────────────
 # The PROVENANCE.md files are FIRST-PARTY prose about the upstream material:
 # what was fetched, from which commit, under which terms, and what exercises it.
@@ -162,10 +184,11 @@ SPDX-License-Identifier = "Apache-2.0"
 # ── The AQL conformance corpus (github.com/Cadasto/aql-conformance) ─────────
 # The set-up document carries the corpus's fixtures inline: compositions and
 # EHR_STATUS bodies under the corpus's MIT licence, the EHRbase-derived
-# template and compositions under Apache-2.0, and two operational templates
+# templates and compositions under Apache-2.0, and two operational templates
 # built from CKM archetypes, whose own licence metadata is empty, declared
 # here with the CKM archetype licences. The query documents carry the
-# corpus's queries and expectations beside our own text.
+# corpus's queries and expectations beside our own text: MIT for its own
+# cases, Apache-2.0 for the cases it generated from the EHRbase AQL suites.
 # `catalogue/aql-conformance.PROVENANCE.md` is the per-file record.
 [[annotations]]
 path = "catalogue/cases/_setup/aql_conformance.arazzo.yaml"
@@ -183,6 +206,8 @@ SPDX-License-Identifier = "Apache-2.0 AND MIT AND CC-BY-SA-3.0 AND CC-BY-SA-4.0"
 path = [
   "catalogue/cases/query/aqlc_aggregation.arazzo.yaml",
   "catalogue/cases/query/aqlc_from.arazzo.yaml",
+  "catalogue/cases/query/aqlc_order_by.arazzo.yaml",
+  "catalogue/cases/query/aqlc_paging.arazzo.yaml",
   "catalogue/cases/query/aqlc_refused.arazzo.yaml",
   "catalogue/cases/query/aqlc_select.arazzo.yaml",
   "catalogue/cases/query/aqlc_terminology.arazzo.yaml",
@@ -190,7 +215,11 @@ path = [
   "catalogue/cases/query/aqlc_where.arazzo.yaml",
 ]
 precedence = "override"
-SPDX-FileCopyrightText = ["Veredictum contributors", "2026 Cadasto B.V."]
+SPDX-FileCopyrightText = [
+  "Veredictum contributors",
+  "2026 Cadasto B.V.",
+  "2019 Vitasystems GmbH and Hannover Medical School",
+]
 SPDX-License-Identifier = "Apache-2.0 AND MIT"
 
 # ── The Simplified Formats templates and flat documents ─────────────────────

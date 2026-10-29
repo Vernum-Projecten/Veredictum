@@ -1,0 +1,110 @@
+# The ORDER BY cases of the aql-conformance corpus whose answer the released AQL text assigns. Each workflow carries one case of the AQL conformance corpus
+# (github.com/Cadasto/aql-conformance at 28749a482a23), named in its
+# description; catalogue/id-map.yaml maps every case of the corpus. The case's
+# own data is committed by the set-up it names in
+# _setup/aql_conformance.arazzo.yaml, and its runtime identifiers reach the
+# query as query parameters. Every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: 'AQL conformance: ORDER BY'
+  version: 0.1.0
+  description: The ORDER BY cases of the aql-conformance corpus whose answer the released AQL text assigns.
+sourceDescriptions:
+  - name: query
+    url: ../../../specs/rest-oas/query-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/aql_conformance.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: direction_keywords-asc_sorts_composition_names_ascending
+    summary: ORDER BY … ASC sorts two composition names ascending
+    description: 'Carries aql-conformance case ORDER_BY.direction_keywords.asc_sorts_composition_names_ascending
+      (level core, corpus/cases/ORDER_BY/ehrbase/composition_name_asc.yaml): over the set-up seed-aql_conformance_contains-repeated_types_single,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-aql_conformance_contains-repeated_types_single
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: ORDER BY > Syntax
+      quote: A sorting expression consists of an identified path, optionally followed by one of the `DESC`,
+        `DESCENDING`, `ASC`, or `ASCENDING` keyword, indicating the sorting type (descending or ascending),
+        e.g.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/name/value FROM EHR e CONTAINS COMPOSITION c WHERE e/ehr_id/value = $ehr_id ORDER
+              BY c/name/value ASC
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-aql_conformance_contains-repeated_types_single.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: ordered
+              rows:
+                - - aql-conformance-ehrbase.org.v0
+                - - type_repetition_conformance_ehrbase.org
+  - workflowId: direction_keywords-ascending_spelled_out_sorts_composition_names_ascending
+    summary: ORDER BY … ASCENDING sorts two composition names ascending
+    description: 'Carries aql-conformance case ORDER_BY.direction_keywords.ascending_spelled_out_sorts_composition_names_ascending
+      (level core, corpus/cases/ORDER_BY/ehrbase/composition_name_ascending.yaml): over the set-up seed-aql_conformance_contains-repeated_types_single,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-aql_conformance_contains-repeated_types_single
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: ORDER BY > Syntax
+      quote: A sorting expression consists of an identified path, optionally followed by one of the `DESC`,
+        `DESCENDING`, `ASC`, or `ASCENDING` keyword, indicating the sorting type (descending or ascending),
+        e.g.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT c/name/value FROM EHR e CONTAINS COMPOSITION c WHERE e/ehr_id/value = $ehr_id ORDER
+              BY c/name/value ASCENDING
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-aql_conformance_contains-repeated_types_single.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: ordered
+              rows:
+                - - aql-conformance-ehrbase.org.v0
+                - - type_repetition_conformance_ehrbase.org

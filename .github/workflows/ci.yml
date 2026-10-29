@@ -145,7 +145,7 @@ jobs:
           # (#55); no code lives at the root any more. The legend generator is
           # named individually (#189) because the test job runs its --check and
           # the rest of scripts/render/ has nothing to do with that job.
-          if echo "$changed" | grep -qE '^(app/|artifacts/|catalogue/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|scripts/render/bench-legend\.sh$|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
+          if echo "$changed" | grep -qE '^(app/|artifacts/|catalogue/|perf/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|scripts/render/bench-legend\.sh$|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
@@ -257,6 +257,23 @@ jobs:
       - name: Changelog structure
         run: bash scripts/checks/changelog-structure.sh
 
+      # Entries are fragments under `changelog.d/` (#766), folded into
+      # CHANGELOG.md only at the release cut. Like the structure check these
+      # are unconditional: the label waives the requirement to add a fragment,
+      # never the fragments' form, and the preview is the next release section
+      # as the cut will write it.
+      - name: Every changelog fragment is well formed
+        run: bash scripts/release/changelog.sh --check
+
+      - name: The next release section, fragments folded in, keeps its structure
+        run: bash scripts/release/changelog.sh --check-preview
+
+      - name: Changelog fragments — seeded self-test
+        run: bash scripts/release/changelog.sh --self-test
+
+      - name: The changelog guard — seeded self-test
+        run: bash scripts/checks/changelog-entry.sh --self-test
+
       # The corpus OPT generator declares itself the SOURCE of every cnf.tpl.*
       # template beside it, and both halves of that contract were unenforced: a
       # hand-patched OPT drifted silently, and a manifest key with no builder
@@ -265,11 +282,13 @@ jobs:
       - name: Corpus OPTs regenerate byte-identically
         run: bash scripts/checks/corpus-opt-reproducible.sh
 
-      # The entry half: a change to a user-visible surface must carry a changelog
-      # entry. The path set that decides "user-visible" is declared inside
-      # `scripts/checks/changelog-entry.sh`, beside the reasoning for each path,
-      # rather than as a regular expression in this file — the list is meant to
-      # be read against `CHANGELOG.md`'s own definition of the term.
+      # The fragment half: a change to a user-visible surface must add a
+      # fragment under `changelog.d/`, and no change may add a line under the
+      # Unreleased heading of CHANGELOG.md (#766). The path set that decides
+      # "user-visible" is declared inside `scripts/checks/changelog-entry.sh`,
+      # beside the reasoning for each path, rather than as a regular expression
+      # in this file — the list is meant to be read against `CHANGELOG.md`'s own
+      # definition of the term.
       #
       # PULL-REQUEST ONLY, deliberately: both halves of the decision — the
       # base..head diff and the label — are pull-request payload, and a
@@ -278,7 +297,7 @@ jobs:
       # this workflow are what make applying the label raise a fresh run whose
       # payload carries it; re-running the failed job re-uses the stale payload
       # and would still fail.
-      - name: Require a changelog entry for user-visible changes
+      - name: Require a changelog fragment for user-visible changes
         if: github.event_name == 'pull_request'
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -286,14 +305,15 @@ jobs:
           HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
         run: |
           set -euo pipefail
-          # The suppression is REPORTED, not silent: a guard that can be waived
-          # invisibly is a guard nobody can audit after the fact.
+          # The label waives the fragment requirement and nothing else, so the
+          # script still runs: the Unreleased refusal holds either way. The
+          # waiver is REPORTED by the script as a notice, never silent: a guard
+          # that can be waived invisibly is a guard nobody can audit afterwards.
+          args=("$BASE" "$HEAD")
           if [ "$HAS_LABEL" = "true" ]; then
-            echo "::notice::the 'no-changelog' label is applied — the changelog-entry requirement is waived for this pull request"
-            echo "changelog-entry: waived by the no-changelog label."
-            exit 0
+            args+=(--no-changelog-label)
           fi
-          bash scripts/checks/changelog-entry.sh "$BASE" "$HEAD"
+          bash scripts/checks/changelog-entry.sh "${args[@]}"
 
       # The no-attribution hard rule, enforced on what was actually committed.
       # The local `.githooks/commit-msg` hook strips attribution before a commit
@@ -331,7 +351,14 @@ jobs:
           # First push to a branch, or a shallow clone: fall back to the tip.
           git rev-parse "${base:-HEAD~1}" >/dev/null 2>&1 || range="HEAD"
           echo "Scanning range: $range"
-          if git log --format='%B' "$range" 2>/dev/null | grep -iEn \
+          # GitHub writes `Co-authored-by: dependabot[bot]` into the squash of
+          # a Dependabot pull request a maintainer has committed to. That line
+          # names the dependency bot, not an AI author, so its exact form (the
+          # bot's fixed noreply address) is dropped before the scan; every
+          # other `[bot]` co-author is still refused.
+          if git log --format='%B' "$range" 2>/dev/null \
+             | grep -viE '^co-authored-by:[[:space:]]*dependabot\[bot\][[:space:]]+<49699333\+dependabot\[bot\]@users\.noreply\.github\.com>[[:space:]]*$' \
+             | grep -iEn \
              'co-authored-by:.*(claude|anthropic|\[bot\])|generated[[:space:]]+(with|by)[[:space:]]+.*claude|claude[[:space:]]+code|assisted-by:.*claude|🤖'; then
             echo "::error::A commit message carries AI or tool attribution. Remove it (CLAUDE.md hard rule 8)."
             exit 1
