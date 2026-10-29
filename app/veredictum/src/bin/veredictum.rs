@@ -34,6 +34,7 @@ use clap::{Parser, Subcommand};
 
 use veredictum::arazzo::credential::{CredentialSource, Role};
 use veredictum::bench::client::AuthKind;
+use veredictum::certificate::{HONESTY_LINE, Jwks, Outcome, verify};
 use veredictum::party::version_line;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
 use veredictum::pipeline::assets::{performance_assets, schema_files, stress_overlay};
@@ -467,6 +468,31 @@ enum Command {
         #[arg(long, env = "GITHUB_STEP_SUMMARY", hide_env_values = true)]
         step_summary: Option<PathBuf>,
     },
+    /// Verify a conformance certificate offline against a JWK Set, and print
+    /// what it states.
+    ///
+    /// A certificate is a JWS in the compact serialization, signed with
+    /// Ed25519 (`EdDSA`), whose header names its key by `kid`. It is refused
+    /// when the header or the payload changed after signing, when the set
+    /// holds no key under its `kid`, when its algorithm or type is another,
+    /// when the set marks the key revoked, and when the key expired before
+    /// the certificate's `issued_at`. Nothing is fetched: the set is the file
+    /// you name.
+    ///
+    /// The payload carries the SHA-256 digests of the run's `results.json`
+    /// and HAR recording, so `sha256sum` over the two files checks that they
+    /// are the exchanges the certificate covers.
+    ///
+    /// Exit status: `0` when the certificate verifies; `1` when it is refused;
+    /// `2` when a file cannot be read or the JWK Set itself is refused.
+    Verify {
+        /// The certificate (`certificate.jws`).
+        certificate: PathBuf,
+        /// The JWK Set holding the verifying keys: the published
+        /// `jwks.json`, or a copy of it.
+        #[arg(long)]
+        jwks: PathBuf,
+    },
 }
 
 /// Report a seam's failure and stop with the runner-error code.
@@ -649,6 +675,7 @@ fn main() -> ExitCode {
             summary,
             stress,
         } => perf_assets_command(&root, &results, &out, summary.as_deref(), stress.as_deref()),
+        Command::Verify { certificate, jwks } => verify_command(&certificate, &jwks),
         Command::Verdicts {
             statement,
             results,
@@ -686,6 +713,71 @@ fn validate_command(root: &Path, specs: Option<&Path>, declaration: Option<&Path
     } else {
         ExitCode::from(1)
     }
+}
+
+fn verify_command(certificate: &Path, jwks: &Path) -> ExitCode {
+    let read = |path: &Path| {
+        std::fs::read_to_string(path).map_err(|e| {
+            eprintln!("cannot read {}: {e}", path.display());
+            ExitCode::from(2)
+        })
+    };
+    let (certificate_text, jwks_text) = match (read(certificate), read(jwks)) {
+        (Ok(certificate), Ok(jwks)) => (certificate, jwks),
+        (Err(code), _) | (_, Err(code)) => return code,
+    };
+    let keys = match Jwks::parse(&jwks_text) {
+        Ok(keys) => keys,
+        Err(e) => {
+            eprintln!("{}: {e}", jwks.display());
+            return ExitCode::from(2);
+        }
+    };
+    let verified = match verify(&certificate_text, &keys) {
+        Ok(verified) => verified,
+        Err(e) => {
+            eprintln!("certificate REFUSED: {e}");
+            return ExitCode::from(1);
+        }
+    };
+    let payload = &verified.payload;
+    let source = |field: &veredictum::party::IdentityField| {
+        format!("{} ({})", field.value, field.source.token())
+    };
+    let verdict = &payload.verdict;
+    println!("certificate  verified with key {}", verified.kid);
+    println!("issued at    {}", payload.issued_at);
+    println!(
+        "instrument   {} {} ({})",
+        payload.instrument.name, payload.instrument.version, payload.instrument.status
+    );
+    println!("server       {}", source(&payload.sut.name));
+    println!("version      {}", source(&payload.sut.version));
+    if let Some(vendor) = &payload.sut.vendor {
+        println!("vendor       {}", source(vendor));
+    }
+    if let Some(release) = &payload.sut.restapi_specs_version {
+        println!("REST release {}", source(release));
+    }
+    println!("base URL     {}", payload.base_url);
+    println!("document     {}", payload.document);
+    println!("catalogue    {}", payload.catalogue.digest);
+    println!(
+        "verdict      {}: {} passed, {} failed, {} advisory, {} errored, {} skipped",
+        match verdict.outcome {
+            Outcome::Green => "green",
+            Outcome::Red => "red",
+        },
+        verdict.passed,
+        verdict.failed,
+        verdict.advisory,
+        verdict.errored,
+        verdict.skipped
+    );
+    println!("results      {}", payload.exchanges.results);
+    println!("recording    {}", payload.exchanges.recording);
+    println!("{HONESTY_LINE}");
+    ExitCode::SUCCESS
 }
 
 fn verdicts_command(request: &JudgementRequest<'_>, out: &Path) -> ExitCode {

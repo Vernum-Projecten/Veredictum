@@ -1,0 +1,12 @@
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "QtjMNDbWhebpipQfQRa_jxiUDLPK4krAsqyY_qQgECs",
+      "kid": "veredictum-test",
+      "alg": "EdDSA",
+      "use": "sig"
+    }
+  ]
+}

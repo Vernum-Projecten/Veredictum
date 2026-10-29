@@ -835,3 +835,44 @@ The JUnit file is read by GitLab (`artifacts:reports:junit`), Jenkins (the
 JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
 server's response bodies verbatim, so it belongs where the operator keeps the
 run, never in a public artifact.
+
+## verify
+
+```text
+Verify a conformance certificate offline against a JWK Set, and print what it states.
+
+A certificate is a JWS in the compact serialization, signed with Ed25519 (`EdDSA`), whose header names its key by `kid`. It is refused when the header or the payload changed after signing, when the set holds no key under its `kid`, when its algorithm or type is another, when the set marks the key revoked, and when the key expired before the certificate's `issued_at`. Nothing is fetched: the set is the file you name.
+
+The payload carries the SHA-256 digests of the run's `results.json` and HAR recording, so `sha256sum` over the two files checks that they are the exchanges the certificate covers.
+
+Exit status: `0` when the certificate verifies; `1` when it is refused; `2` when a file cannot be read or the JWK Set itself is refused.
+
+Usage: veredictum verify --jwks <JWKS> <CERTIFICATE>
+
+Arguments:
+  <CERTIFICATE>
+          The certificate (`certificate.jws`)
+
+Options:
+      --jwks <JWKS>
+          The JWK Set holding the verifying keys: the published `jwks.json`, or a copy of it
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+The offline check of a conformance certificate. It reads the two files you
+name and reaches no network, so a certificate verifies with the published JWK
+Set alone: the copy at `https://console.veredictum.eu/.well-known/jwks.json`,
+or the one committed in this repository as `deploy/hosted/jwks.json`. Any JOSE
+library verifies the same signature; what this command adds is the refusal of
+a key the set marks `revoked_at`, and of a certificate issued after its key's
+`expires_at`, which a generic library ignores.
+
+A verified certificate prints what it states: the server with who supplied
+each identity field, the base URL, the catalogue digest, the engine version and
+its approval status, the verdict summary, and the SHA-256 digests of the run's
+`results.json` and HAR recording. Run `sha256sum` over the two files a vendor
+received to check they are the exchanges the certificate covers. The payload's
+JSON Schema is `schemas/certificate.schema.json`, and the key set's is
+`schemas/jwks.schema.json`.

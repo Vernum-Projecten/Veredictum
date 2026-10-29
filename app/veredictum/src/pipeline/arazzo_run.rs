@@ -137,7 +137,7 @@ impl ArazzoRunOutcome {
 
 /// Whether `row` bears on the verdict and is not green. An advisory row,
 /// a SHOULD the server did not follow, never counts against a capability.
-fn is_red(row: &ResultRow) -> bool {
+pub(crate) fn is_red(row: &ResultRow) -> bool {
     match row.status {
         Status::Passed | Status::Skipped => false,
         Status::Errored => true,

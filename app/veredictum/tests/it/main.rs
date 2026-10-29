@@ -28,6 +28,7 @@ mod arazzo_smart;
 mod bench_engine;
 mod bench_manifest;
 mod bench_posture;
+mod certificate_cli;
 mod defect_rejection;
 mod env_coupled;
 mod fake_sut;
