@@ -28,11 +28,15 @@ workflows:
     description: >-
       Lists the ADL 1.4 templates with a token whose scope set is the row's
       `system/template-*` scope, which grants read access to every
-      template in the system compartment. The list answers 200.
+      template in the system compartment. The list answers 200. That the
+      template list is a Read of the `template-` resource is the
+      instrument's reading: no released text maps a scope to an operation,
+      pending upstream report #758.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/docs/smart_app_launch/master08-scopes.adoc
       section: Resource Scopes
       quote: "`system`: For server-to-server integrations or backend services, typically using client credentials, based on pre-configured client-specific policy. Grants access across all data."
+      report: 758
     inputs:
       type: object
       required: [scope]
@@ -51,3 +55,4 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/200_TemplateList_adl1_4.yaml
               section: description
               quote: "`200 OK` is returned when the template list is successfully retrieved."
+              report: 758
