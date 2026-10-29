@@ -69,6 +69,31 @@ first, and the fragments follow them, section by section in Keep a Changelog
 order and by issue number within a section. It updates the `[unreleased]` link
 reference and adds one for `X.Y.Z`, then deletes the fragments. The cut's own
 lines land under the new version heading, so the guard accepts it. The release
-`plan` job refuses a tag while any fragment is still here.
+`plan` job refuses a release tag while any fragment is still here.
+
+## A release candidate
+
+A release may be preceded by release candidates, `X.Y.Z-rcN` with N starting
+at 1. No other pre-release suffix is accepted: the script refuses `beta1`,
+`alpha.1`, `rc0` and every other one. The candidate's cut pull request runs:
+
+```bash
+scripts/release/changelog.sh --assemble X.Y.Z-rcN YYYY-MM-DD
+```
+
+This writes the `## [X.Y.Z-rcN] - YYYY-MM-DD` section exactly as the release
+cut would write `X.Y.Z`, and it keeps the fragments and any entry under the
+Unreleased heading where they are. Each candidate's section and the final
+release section therefore carry every change since the last release, and the
+candidate's link reference compares from that release. Pull requests merged
+after a candidate keep adding fragments here, and the next candidate or the
+final cut folds them in.
+
+At a candidate tag, the `plan` job runs
+`scripts/release/changelog.sh --covered X.Y.Z-rcN`, which fails unless that
+section carries every fragment still here and every entry under the Unreleased
+heading. A fragment merged after the candidate's cut and before its tag
+therefore fails the tag, and since a tag is never re-pointed, the recovery is
+the next candidate.
 
 This README is the only file here that is not a fragment.

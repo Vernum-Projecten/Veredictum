@@ -198,9 +198,11 @@ depends on. Releases are cut from the changelog:
 `scripts/release/changelog.sh --assemble X.Y.Z YYYY-MM-DD` renames the
 Unreleased heading to the version with its date, folds the fragments in,
 re-adds an empty Unreleased heading, updates the link references and deletes
-the fragments; then tag. The script rewrites the HEADING, never the first
-textual match — the v0.0.1-alpha.1 cut rewrote a mention inside a paragraph
-and left the release with no section. Milestones are releases, and a release
+the fragments; then tag. A release candidate's cut,
+`--assemble X.Y.Z-rcN YYYY-MM-DD`, writes the same section and keeps the
+fragments, so the final release section carries every change too. The script
+rewrites the HEADING, never the first textual match — the v0.0.1-alpha.1 cut
+rewrote a mention inside a paragraph and left the release with no section. Milestones are releases, and a release
 is cut when its milestone reaches zero open issues.
 `scripts/checks/changelog-structure.sh` and `changelog.sh --check`,
 `--check-preview` run in CI on every change, and
@@ -298,7 +300,12 @@ release is cut when its milestone reaches zero open issues; the next milestone
 always exists, so triage always has a target. **Veredictum stays on 0.x until
 the openEHR SEC approves it, and 1.0.0 marks that approval** (owner ruling
 2026-10-23); 0.x already means not yet stable, so no release carries a
-pre-release suffix. `v0.2.0` is the rewrite onto Arazzo (#590); `v0.2.1` holds
+pre-release suffix. **A release may be preceded by release candidates,
+`X.Y.Z-rcN` with N from 1** (owner ruling 2026-10-29), so the image, the GitHub
+Action and the pipeline run for real before the release; the first is
+`0.2.0-rc1`. No other suffix exists: no alpha, no beta. A candidate belongs to
+its release's milestone and is cut whenever the owner wants one, before that
+milestone reaches zero. `v0.2.0` is the rewrite onto Arazzo (#590); `v0.2.1` holds
 what comes up from it and must ship right after; `v0.3.0` holds the follow-ups
 outside the rewrite.
 
@@ -440,6 +447,22 @@ pipeline is a `needs` edge, so no leg guesses whether an earlier one finished.
    `release tags` ruleset requires a signature and refuses deletion, so a tag is
    never re-pointed: the recovery for a bad cut is the next version.
 
+**A release candidate is cut the same way**, on a `release/vX.Y.Z-rcN` branch,
+with `X.Y.Z-rcN` wherever the steps above say `X.Y.Z`: in the manifests and the
+console pin, the compose tag, `CITATION.cff`, and the tag `vX.Y.Z-rcN`. N starts
+at 1, and no other pre-release suffix is accepted anywhere: `changelog.sh`
+refuses one and `plan` refuses its tag. Step 1 differs in one way.
+`scripts/release/changelog.sh --assemble X.Y.Z-rcN YYYY-MM-DD` writes the
+`## [X.Y.Z-rcN] - YYYY-MM-DD` section exactly as the release cut would and
+KEEPS the fragments and any entry under the Unreleased heading, so each
+candidate's section and the final `X.Y.Z` section carry every change since the
+last release, and its link reference compares from that release. A merge after
+a candidate adds its fragment as usual, and the next candidate or the final
+cut folds it in. At a candidate tag, `plan` runs `changelog.sh --covered
+X.Y.Z-rcN` in place of the no-fragment check. A candidate moves no release
+pointer: no `:latest`, no hosted deploy, and the GitHub release is marked as a
+pre-release. It still publishes its crate, its image tag and its binaries.
+
 **The console's engine pin is ONE value: the workspace engine version** (#179).
 The console names the engine by an exact crates.io version in its own manifest,
 which is what keeps a console release reproducible from published artifacts,
@@ -483,7 +506,7 @@ exact recovery per leg.
 
 **Two facts that are easy to get wrong.** A pre-release is a `v*` tag with a `-`
 suffix and moves no release pointer; the rule has one definition,
-`.github/actions/release-kind`. And crates.io Trusted Publishing matches the
+`.github/actions/release-kind`, and the only such suffix is `-rcN`. And crates.io Trusted Publishing matches the
 OIDC `workflow_ref` claim, which names the CALLING workflow for a job inside a
 reusable workflow — so the publisher configuration must name `release.yml`
 itself, beside the entry for the out-of-band `publish-crates.yml` lane, and the
