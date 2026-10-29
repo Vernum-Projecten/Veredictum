@@ -32,9 +32,9 @@ Everything lives under `catalogue/` in the repository.
 | `keys/` | The test signing material a run can be given: the OpenPGP pair a server signs VERSIONs with, and the SMART test issuer the runner mints tokens with. Public by design and never for real use |
 | `id-map.yaml` | Every case id of the former case-core catalogue, mapped to the workflows that carry it |
 
-There are 14 capability folders: `ehr`, `ehr_status`, `composition`,
+There are 15 capability folders: `ehr`, `ehr_status`, `composition`,
 `content`, `contribution`, `directory`, `item_tags`, `query`, `definition`,
-`demographic`, `admin`, `security`, `simplified_formats` and `system`.
+`demographic`, `admin`, `security`, `simplified_formats`, `smart` and `system`.
 
 ## A workflow
 
