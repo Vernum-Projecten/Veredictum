@@ -32,6 +32,7 @@ static conformance review can be seen to fire. That is what
 |---|---|
 | `declaration/statement.json` | A filled-in ICS for a product that does not exist, claiming every row of the capability matrix. The static conformance review (`veredictum validate --statement`) runs over it. |
 | `declaration/ixit.json` | The ixit beside it, exercising every deployment posture the runner reads. Every address in it is fictional. |
+| `openpgp/subkey.sig.asc`, `openpgp/primary.sig.asc` | Two armored RFC 9580 detached signatures over the 32 bytes `ferroehr-cnf subkey verification`, made once with the committed version-signing secret key: one by its signing subkey, one by its primary key. The version-signature verifier is tested against them, so its tests sign nothing. |
 
 The key material the ixit names, the OpenPGP version-signing pair and the
 SMART lane's test issuer, is catalogue material and lives under

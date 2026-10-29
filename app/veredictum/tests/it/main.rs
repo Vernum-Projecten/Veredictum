@@ -31,7 +31,6 @@ mod bench_posture;
 mod defect_rejection;
 mod env_coupled;
 mod fake_sut;
-mod gpg_interop;
 mod identity_wire;
 mod measured_wire;
 mod perf_driver;

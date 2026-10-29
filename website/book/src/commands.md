@@ -12,8 +12,8 @@ Two commands make the conformance record: `validate` checks the catalogue,
 and `test` drives it or re-judges its recording. `export`
 renders a results document as JUnit XML, CTRF and a Markdown summary for a CI
 system. Three commands measure (`perf`, `stress`, `bench`), `verdicts`
-re-derives the measured class verdicts, `verify-record` checks a sealed
-bundle, and the rest render or explore.
+re-derives the measured class verdicts, `verify` checks a conformance
+certificate offline, and the rest render or explore.
 
 ## emit-schemas
 
@@ -741,23 +741,14 @@ Options:
 ```text
 Re-derive the measured performance-class verdicts from a statement and a results record against the performance schedule (the pure pipeline), and write them as `verdicts.json`
 
-Usage: veredictum verdicts [OPTIONS] --statement <STATEMENT> --results <RESULTS> --root <ROOT> --out <OUT>
+Usage: veredictum verdicts --statement <STATEMENT> --results <RESULTS> --root <ROOT> --out <OUT>
 
 Options:
-      --statement <STATEMENT>
-          The party statement (`statement.json`)
-      --results <RESULTS>
-          The party results (`results.json`)
-      --root <ROOT>
-          The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
-      --out <OUT>
-          Output directory for verdicts.json
-      --sign-key <SIGN_KEY>
-          An armored OpenPGP secret key — when supplied, verdicts.json is sealed with `record-manifest.json` and its detached signature, which `verify-record` and `gpg --verify` both check
-      --sign-passphrase <SIGN_PASSPHRASE>
-          The passphrase unlocking `--sign-key`. Supply it through the environment: a passphrase on the command line is visible to every process on the host [env: VEREDICTUM_SIGN_PASSPHRASE]
-  -h, --help
-          Print help
+      --statement <STATEMENT>  The party statement (`statement.json`)
+      --results <RESULTS>      The party results (`results.json`)
+      --root <ROOT>            The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
+      --out <OUT>              Output directory for verdicts.json
+  -h, --help                   Print help
 ```
 
 The pure step for a measured campaign. It reaches no network and reads nothing
@@ -844,31 +835,3 @@ The JUnit file is read by GitLab (`artifacts:reports:junit`), Jenkins (the
 JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
 server's response bodies verbatim, so it belongs where the operator keeps the
 run, never in a public artifact.
-
-## verify-record
-
-```text
-Verify a sealed bundle: recompute every digest its record manifest names, and check the detached signature over that manifest
-
-Usage: veredictum verify-record --record <RECORD> --key <KEY>
-
-Options:
-      --record <RECORD>  The bundle directory holding the emitted documents, the record manifest and its detached signature
-      --key <KEY>        The armored OpenPGP public key the signature is checked against
-  -h, --help             Print help
-```
-
-Prints the signer fingerprint, the signing time, and one line per file with its
-digest verdict. Zero findings is the only passing result: a digest mismatch, a
-file the manifest names but the bundle does not carry, or a signature no
-component of the supplied key verifies, each exits `1` naming what failed.
-
-The bundle is ordinary files, so the check does not depend on this tool.
-`gpg --verify record-manifest.json.asc record-manifest.json` establishes the
-same signature, and `sha256sum` re-derives the same digests.
-
-A verified bundle is one link in the chain and not the whole of it. A valid
-signature proves integrity and origin since signing, and says nothing about the
-conditions the run executed under. The published instrument, the verification
-pack and the citation-carrying record are the rest, which is why that sentence
-prints on every verification.
