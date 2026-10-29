@@ -1,0 +1,126 @@
+# The directory create and update answered in canonical XML, for a service
+# that serves the directory FOLDER in XML: the served arm of the
+# `directory-xml-read` option, whose other arm is
+# `directory_write_xml_not_acceptable.arazzo.yaml`, as Arazzo 1.1.0 workflows
+# over the released ITS-REST `-validation` OAS. Every criterion resolves to an
+# `x-veredictum-cite` (its own, else its step's, else its workflow's), and
+# every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Directory writes answered in canonical XML
+  version: 0.1.0
+  description: >-
+    A directory create and a directory update sent as canonical JSON that ask
+    with Accept application/xml for the full representation, from a service
+    that serves the directory FOLDER in canonical XML.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_directory-accept_xml
+    summary: A directory create that asks for canonical XML is answered in it
+    description: >-
+      Creates an EHR, then creates its directory FOLDER sent as canonical JSON
+      with Prefer return=representation and Accept application/xml. The create
+      is answered 201 with Content-Type application/xml.
+    x-veredictum-cite: &negotiation
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "Proper header `Content-Type: application/xml` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: create
+        description: Create the directory FOLDER named root and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload: &folder
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: root }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &directory_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_directory.yaml
+              section: description
+              quote: "`201 Created` is returned when the FOLDER is successfully created."
+          - &negotiated
+            context: $response.header.Content-Type
+            type: regex
+            condition: '^application/xml'
+
+  - workflowId: update_directory-accept_xml
+    summary: A directory update that asks for canonical XML is answered in it
+    description: >-
+      Creates an EHR and its directory FOLDER in canonical JSON, then updates
+      the directory to a FOLDER named archive sent as canonical JSON with
+      Prefer return=representation and Accept application/xml. The update is
+      answered 200 with Content-Type application/xml.
+    x-veredictum-cite: *negotiation
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the directory FOLDER named root in canonical JSON and keep the version_uid of the representation.
+        operationId: $sourceDescriptions.ehr.directory_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: *folder
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *directory_created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: update
+        description: Update the directory to the FOLDER named archive and ask for its full representation in canonical XML.
+        operationId: $sourceDescriptions.ehr.directory_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            _type: FOLDER
+            name: { _type: DV_TEXT, value: archive }
+            archetype_node_id: openEHR-EHR-FOLDER.generic.v1
+            archetype_details:
+              _type: ARCHETYPED
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-FOLDER.generic.v1 }
+              rm_version: 1.1.0
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_directory_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when directory was successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+          - *negotiated

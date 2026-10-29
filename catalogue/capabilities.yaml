@@ -231,12 +231,13 @@ options:
   contribution-xml-read:
     description: >-
       Whether the service serves a CONTRIBUTION in canonical XML when a client
-      asks for it with Accept application/xml.
+      asks for it with Accept application/xml, on a read and in the answer of
+      a create.
     arms:
       contribution-xml-supported:
-        documents: [contribution_read_xml]
+        documents: [contribution_read_xml, contribution_write_xml_accept]
       contribution-xml-unsupported:
-        documents: [contribution_read_xml_not_acceptable]
+        documents: [contribution_read_xml_not_acceptable, contribution_write_xml_not_acceptable]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -257,14 +258,14 @@ options:
       quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
   directory-xml-read:
     description: >-
-      Whether the service serves the directory FOLDER, latest and by
-      version_uid, in canonical XML when a client asks for it with Accept
-      application/xml.
+      Whether the service serves the directory FOLDER in canonical XML when a
+      client asks for it with Accept application/xml: on a read, latest and by
+      version_uid, and in the answer of a create and of an update.
     arms:
       directory-xml-supported:
-        documents: [directory_read_xml]
+        documents: [directory_read_xml, directory_write_xml_accept]
       directory-xml-unsupported:
-        documents: [directory_read_xml_not_acceptable]
+        documents: [directory_read_xml_not_acceptable, directory_write_xml_not_acceptable]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -358,14 +359,14 @@ options:
   contribution-flat-read:
     description: >-
       Whether the service serves a CONTRIBUTION when a client asks for it with
-      Accept application/openehr.wt.flat+json. The release recommends the
-      Simplified Formats, so a service that does not serve this one answers
-      406.
+      Accept application/openehr.wt.flat+json, on a read and in the answer of
+      a create. The release recommends the Simplified Formats, so a service
+      that does not serve this one answers 406.
     arms:
       contribution-flat-supported:
-        documents: [contribution_read_flat]
+        documents: [contribution_read_flat, contribution_write_flat_accept]
       contribution-flat-unsupported:
-        documents: [contribution_read_flat_not_acceptable]
+        documents: [contribution_read_flat_not_acceptable, contribution_write_flat_not_acceptable]
     x-veredictum-cite: &simplified_should
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -374,14 +375,14 @@ options:
   contribution-structured-read:
     description: >-
       Whether the service serves a CONTRIBUTION when a client asks for it with
-      Accept application/openehr.wt.structured+json. The release recommends
-      the Simplified Formats, so a service that does not serve this one
-      answers 406.
+      Accept application/openehr.wt.structured+json, on a read and in the
+      answer of a create. The release recommends the Simplified Formats, so a
+      service that does not serve this one answers 406.
     arms:
       contribution-structured-supported:
-        documents: [contribution_read_structured]
+        documents: [contribution_read_structured, contribution_write_structured_accept]
       contribution-structured-unsupported:
-        documents: [contribution_read_structured_not_acceptable]
+        documents: [contribution_read_structured_not_acceptable, contribution_write_structured_not_acceptable]
     x-veredictum-cite: *simplified_should
   simplified-deprecated-write:
     description: >-
