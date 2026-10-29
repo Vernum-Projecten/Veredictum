@@ -4020,6 +4020,8 @@ cases:
       - flat_context/create_composition-flat-ctx_time_default
       - flat_context/create_composition-flat-ctx_setting_default
       - flat_context/create_composition-flat-ism_transition
+      - flat_read/get_composition-flat-leaf_keys
+      - flat_read/get_composition-flat-other_open_value_set
     open: &sf_equality >-
       The equality of the flat and structured read-backs with the committed
       document is not asserted: master04 §Conversion Between Formats gives a
@@ -4086,6 +4088,24 @@ cases:
       - flat_context/create_composition-flat-ctx_setting_default
       - flat_context/create_composition-flat-participations
       - flat_context/create_composition-flat-ism_transition
+      - flat_context_values/create_composition-flat-health_care_facility
+      - flat_context_values/create_composition-flat-work_flow_id
+      - flat_context_values/create_composition-flat-end_time
+      - flat_context_values/create_composition-flat-history_origin
+      - flat_context_values/create_composition-flat-action_time
+      - flat_context_values/create_composition-flat-activity_timing
+      - flat_context_values/create_composition-flat-action_current_state_value
+      - flat_context_values/create_composition-flat-action_current_state_code
+      - flat_context_values/create_composition-flat-instruction_narrative
+      - flat_context_values/create_composition-flat-location
+      - flat_context_values/create_composition-flat-setting_value
+      - flat_context_values/create_composition-flat-setting_code
+      - flat_context_values/create_composition-flat-link
+      - flat_rm_attributes/create_composition-flat-context_end_time
+      - flat_rm_attributes/create_composition-flat-context_location
+      - flat_rm_attributes/create_composition-flat-context_health_care_facility
+      - flat_rm_attributes/create_composition-flat-context_participation
+      - flat_rm_attributes/create_composition-flat-other_context
     open: *sf_setting_value
   SF-MAP-dv_ordinal_proportion_count:
     new:
@@ -4106,17 +4126,57 @@ cases:
     new:
       - flat_mapping/create_composition-flat-entries
       - flat_context/create_composition-flat-language_territory
+      - flat_entries/create_composition-flat-sections
+      - flat_entries/create_composition-flat-admin_entry
+      - flat_entries/create_composition-flat-admin_entry_subject
+      - flat_entries/create_composition-flat-instruction_narrative_path
+      - flat_entries/create_composition-flat-instruction_subject
+      - flat_entries/create_composition-flat-wf_definition
+      - flat_entries/create_composition-flat-activity_timing_path
+      - flat_entries/create_composition-flat-activity_action_archetype_id
+      - flat_rm_attributes/create_composition-flat-link_composition
+      - flat_rm_attributes/create_composition-flat-link_entry
+      - flat_rm_attributes/create_composition-flat-feeder_audit_composition
+      - flat_rm_attributes/create_composition-flat-feeder_audit_entry
+      - flat_rm_attributes/create_composition-flat-uid_entry
+    open: >-
+      Not carried: the COMPOSITION /_uid row, because no released text says
+      whether a create keeps a client-supplied COMPOSITION uid (upstream report
+      #221); the INSTRUCTION expiry_time row and the OBJECT_REF rows behind
+      _work_flow_id and _guideline_id, whose tables disagree with their examples
+      (upstream report #791); and the ACTIVITY action_archetype_id default /.*/,
+      because the only template with an ACTIVITY constrains the value to a
+      pattern that /.*/ does not match.
   SF-MAP-events_audit:
-    new: [flat_structure/create_composition-flat-feeder_audit]
+    new:
+      - flat_structure/create_composition-flat-feeder_audit
+      - flat_rm_attributes/create_composition-flat-feeder_audit_composition
+      - flat_rm_attributes/create_composition-flat-feeder_audit_entry
+      - flat_rm_attributes/create_composition-flat-feeder_audit_element
+      - flat_rm_attributes/create_composition-flat-feeder_audit_cluster
   SF-MAP-instruction_details:
     new: [flat_context/create_composition-flat-instruction_details]
   SF-MAP-interval_event:
     new: [flat_structure/create_composition-flat-interval_event]
   SF-MAP-interval_reference_range:
-    new: [flat_mapping/create_composition-flat-dv_interval]
+    new:
+      - flat_mapping/create_composition-flat-dv_interval
+      - flat_ranges/create_composition-flat-reference_range
+      - flat_ranges/create_composition-flat-reference_range_flag_defaults
+      - flat_ranges/create_composition-flat-reference_range_upper_unbounded
+      - flat_ranges/create_composition-flat-reference_range_lower_unbounded
+      - flat_ranges/create_composition-flat-dv_interval_flag_defaults
+      - flat_ranges/create_composition-flat-dv_interval_upper_unbounded
+      - flat_ranges/create_composition-flat-dv_interval_lower_unbounded
+      - flat_rm_refused/create_composition-flat-reference_range_meaning_missing
+      - flat_rm_refused/create_composition-flat-reference_range_upper_included_unbounded
+      - flat_rm_refused/create_composition-flat-dv_interval_upper_included_unbounded
+      - flat_read/get_composition-flat-interval_default_flags
+      - flat_read/get_composition-flat-interval_set_flags
     open: >-
-      The DV_INTERVAL boundary flags and the REFERENCE_RANGE rows of master05
-      have no workflow yet, #722.
+      The REFERENCE_RANGE meaning row and the DV_INTERVAL lower_unbounded row
+      of master05 are mistyped (upstream report #721); the criteria that rest
+      on them name the report.
   SF-MAP-multimedia_parsable:
     new:
       - flat_mapping/create_composition-flat-dv_multimedia
@@ -4125,6 +4185,15 @@ cases:
     new:
       - flat_context/create_composition-flat-composer_name
       - flat_context/create_composition-flat-participations
+      - flat_context_values/create_composition-flat-composer_id
+      - flat_context_values/create_composition-flat-composer_id_self
+      - flat_context_values/create_composition-flat-provider
+      - flat_rm_attributes/create_composition-flat-participation_party_related
+    open: >-
+      A composer that is a PARTY_RELATED is not carried: the master05
+      §PARTY_RELATED table gives the path /_relationship and both of its
+      examples write /relationship (upstream report #791). The performer of a
+      participation is carried, where the table and the examples agree.
   SF-MAP-simple_values:
     new:
       - flat_mapping/create_composition-flat-dv_boolean
@@ -4134,6 +4203,12 @@ cases:
     new:
       - flat_mapping/create_composition-flat-element_value
       - flat_mapping/create_composition-flat-nested_clusters
+      - flat_rm_attributes/create_composition-flat-link_element
+      - flat_rm_attributes/create_composition-flat-link_cluster
+      - flat_rm_attributes/create_composition-flat-uid_element
+      - flat_rm_attributes/create_composition-flat-uid_cluster
+      - flat_rm_attributes/create_composition-flat-feeder_audit_element
+      - flat_rm_attributes/create_composition-flat-feeder_audit_cluster
   SF-MAP-temporal:
     new:
       - flat_mapping/create_composition-flat-dv_date
@@ -4164,7 +4239,16 @@ cases:
   SF-RMATTR-normal_range_commit:
     new: [flat_mapping/create_composition-flat-normal_range]
   SF-RMATTR-underscore_mapping:
-    new: [flat_mapping/create_composition-flat-normal_range]
+    new:
+      - flat_mapping/create_composition-flat-normal_range
+      - flat_rm_attributes/create_composition-flat-link_composition
+      - flat_rm_attributes/create_composition-flat-link_entry
+      - flat_rm_attributes/create_composition-flat-link_element
+      - flat_rm_attributes/create_composition-flat-link_cluster
+      - flat_rm_attributes/create_composition-flat-uid_entry
+      - flat_rm_attributes/create_composition-flat-uid_element
+      - flat_rm_attributes/create_composition-flat-uid_cluster
+      - flat_rm_refused/create_composition-flat-link_target_missing
   SF-SCOPE-demographic_no_simplified:
     new: []
     open: &sf_scope >-
