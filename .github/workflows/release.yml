@@ -51,7 +51,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing vX.Y.Z tag to (re)publish — dispatch this workflow AT that tag"
+        description: "Existing vX.Y.Z or vX.Y.Z-rcN tag to (re)publish — dispatch this workflow AT that tag"
         required: true
         type: string
 
@@ -82,7 +82,8 @@ jobs:
         name: Resolve the release tag
         # The dispatch input reaches the shell through env, never `${{ }}`
         # inline, and must match a full semver tag shape before anything uses it
-        # as a ref: `case v*` would accept any string starting with "v".
+        # as a ref: `case v*` would accept any string starting with "v". The
+        # only pre-release suffix is `-rcN`, the shape `changelog.sh` cuts.
         env:
           INPUT_TAG: ${{ inputs.tag }}
         run: |
@@ -96,8 +97,8 @@ jobs:
           else
             tag="${GITHUB_REF_NAME}"
           fi
-          if ! printf '%s\n' "$tag" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-            echo "::error::'$tag' is not a vX.Y.Z tag" >&2
+          if ! printf '%s\n' "$tag" | grep -qE '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc[1-9][0-9]*)?$'; then
+            echo "::error::'$tag' is not a vX.Y.Z or vX.Y.Z-rcN tag; a release candidate is the only pre-release" >&2
             exit 1
           fi
           {
@@ -140,11 +141,19 @@ jobs:
 
       # Entries are fragments under `changelog.d/` until the cut folds them in
       # with `scripts/release/changelog.sh --assemble` (#766). A fragment still
-      # there at tag time is a change the release notes would silently omit.
-      # Versions here carry no pre-release suffix, so every tag is a full cut.
-      - name: No changelog fragment is left behind
+      # there at a release tag is a change the release notes would silently
+      # omit. A release candidate's cut keeps the fragments for the final cut,
+      # so at a candidate tag its section must carry every one of them instead.
+      - name: Every changelog fragment is in this tag's section
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+          IS_PRERELEASE: ${{ steps.kind.outputs.is-prerelease }}
         run: |
           set -euo pipefail
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            bash scripts/release/changelog.sh --covered "$VERSION"
+            exit 0
+          fi
           left="$(find changelog.d -mindepth 1 -maxdepth 1 ! -name README.md -print | LC_ALL=C sort)"
           if [ -n "$left" ]; then
             echo "::error::changelog.d/ still holds fragments the cut did not fold in. Run 'scripts/release/changelog.sh --assemble X.Y.Z YYYY-MM-DD' in the cut pull request:" >&2
