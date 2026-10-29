@@ -10,11 +10,13 @@ against `gh stack --help` before leaning on it.
 
 ## Why this repository cares
 
-The serial-PR workflow here has one recurring cost: every PR adds a bullet
-under the changelog's Unreleased heading, so independent PRs go `DIRTY`
-against each other and each merge forces a rebase-resolve-rerun cycle on
+The serial-PR workflow here had one recurring cost: every PR added a bullet
+under the changelog's Unreleased heading, so independent PRs went `DIRTY`
+against each other and each merge forced a rebase-resolve-rerun cycle on
 everything still open (the 2026-08-30 v0.1.2 merge train resolved the same
-CHANGELOG conflict five times). A stack records the dependency once, rebases
+CHANGELOG conflict five times). Changelog fragments under `changelog.d/` (#766)
+removed that conflict, since each PR now adds its own file. A stack still
+records a real dependency between PRs once, rebases
 in one cascade, and CI plus branch protection still gate every layer as if it
 targeted `main`, so nothing about the required `conclusion` check weakens.
 
@@ -24,8 +26,8 @@ Use a stack when:
   in-hand-envelope fix built on #263's `uid_pattern` branch);
 - a large change decomposes into reviewable layers with real dependencies
   (schema first, machinery second, catalogue third);
-- a batch of small fixes all touch the changelog and would otherwise conflict
-  serially.
+- a batch of small fixes all touch one shared file and would otherwise conflict
+  serially (the changelog was that file until #766 made entries fragments).
 
 Do NOT use a stack to bundle unrelated changes: one issue per PR stays the
 law, each layer still declares its own `Closes #<n>`, and each layer is still
@@ -56,8 +58,8 @@ The daily loop:
 | Navigate | `gh stack up/down [n]`, `top`, `bottom`, `trunk`, `switch`, `checkout <pr>` |
 | Stop tracking / unstack on GitHub | `gh stack unstack` (`--local` keeps the GitHub stack) |
 
-`gh stack init` enables `git rerere`, so a conflict resolved once (the
-changelog case) replays across the cascade. Exit code 9 means stacked PRs are
+`gh stack init` enables `git rerere`, so a conflict resolved once replays
+across the cascade. Exit code 9 means stacked PRs are
 not enabled for the repository — the preview may need enabling before any of
 this works here; check that BEFORE building a workflow on it.
 
@@ -76,9 +78,8 @@ this works here; check that BEFORE building a workflow on it.
 - **Signed commits still apply** (hard rule 9): `gh stack` drives local git,
   so `commit.gpgsign=true` covers every layer's commits. Never let a rebase
   strip identity.
-- **The changelog entry rides its own layer.** With `git rerere` on, the
-  recurring Unreleased-section conflict is resolved once per stack instead of
-  once per merge.
+- **The changelog fragment rides its own layer.** Each layer adds its own
+  file under `changelog.d/`, so layers do not conflict over `CHANGELOG.md`.
 - **Same-repository only.** Cross-fork stacks are unsupported, so an outside
   contributor's PR can never be a stack layer here.
 - **Hand-stacked PRs are not stacks.** A PR whose base is another PR's head
