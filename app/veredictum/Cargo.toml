@@ -74,7 +74,7 @@ reqwest = { version = "0.13.4", default-features = false, features = ["rustls", 
 serde-saphyr = "2.0.0"
 # The published artifact schemas are the norm; every loaded artifact validates
 # against them before typed parsing.
-jsonschema = "0.59.0"
+jsonschema = "0.60.0"
 # `applies` spec-version ranges use the Cargo/semver requirement grammar.
 regex = "1"
 # Wall-clock time (token `iat`/`exp`, run stamps) comes from the pinned time

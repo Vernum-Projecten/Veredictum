@@ -4,6 +4,7 @@
 
 - [Installation](installation.md)
 - [What the instrument touches](trust.md)
+- [The hosted instrument](hosted.md)
 - [Running the instrument](running.md)
   - [Command reference](commands.md)
   - [The GitHub Action](github-action.md)
@@ -11,3 +12,4 @@
 - [The conformance method](methodology.md)
 - [Authoring the catalogue](catalogue.md)
 - [Glossary](glossary.md)
+- [About the project](about.md)
