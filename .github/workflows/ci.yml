@@ -351,7 +351,14 @@ jobs:
           # First push to a branch, or a shallow clone: fall back to the tip.
           git rev-parse "${base:-HEAD~1}" >/dev/null 2>&1 || range="HEAD"
           echo "Scanning range: $range"
-          if git log --format='%B' "$range" 2>/dev/null | grep -iEn \
+          # GitHub writes `Co-authored-by: dependabot[bot]` into the squash of
+          # a Dependabot pull request a maintainer has committed to. That line
+          # names the dependency bot, not an AI author, so its exact form (the
+          # bot's fixed noreply address) is dropped before the scan; every
+          # other `[bot]` co-author is still refused.
+          if git log --format='%B' "$range" 2>/dev/null \
+             | grep -viE '^co-authored-by:[[:space:]]*dependabot\[bot\][[:space:]]+<49699333\+dependabot\[bot\]@users\.noreply\.github\.com>[[:space:]]*$' \
+             | grep -iEn \
              'co-authored-by:.*(claude|anthropic|\[bot\])|generated[[:space:]]+(with|by)[[:space:]]+.*claude|claude[[:space:]]+code|assisted-by:.*claude|🤖'; then
             echo "::error::A commit message carries AI or tool attribution. Remove it (CLAUDE.md hard rule 8)."
             exit 1
