@@ -57,6 +57,8 @@ gate guard "hosted deploy script"     "bash scripts/checks/hosted-deploy-script.
 gate guard "hosted deploy self-test"  "bash scripts/checks/hosted-deploy-script.sh --self-test"
 gate guard "issue fields self-test"   "bash scripts/gh/fields.sh --self-test" jq
 gate guard "action script self-test"  "bash scripts/action/run.sh --self-test"
+gate guard "action metadata"          "bash scripts/checks/action-metadata.sh" yq
+gate guard "action metadata self-test" "bash scripts/checks/action-metadata.sh --self-test" yq
 gate guard "CI jobs gate the merge"   "bash scripts/checks/ci-conclusion-complete.sh"
 gate guard "gates cover CI"           "bash scripts/checks/gates-cover-ci.sh"
 gate guard "the console's engine pin" "bash scripts/release/check-console-pin.sh"

@@ -46,8 +46,8 @@
 # No openEHR specification governs this. It is our own design.
 name: Veredictum openEHR conformance
 description: >-
-  Run the Veredictum conformance instrument against an openEHR server and fail
-  the job when a verdict-bearing row fails or errors.
+  Run Veredictum against an openEHR server and fail the job when a
+  verdict-bearing conformance row fails or errors.
 author: Veredictum contributors
 branding:
   icon: check-square
