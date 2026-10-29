@@ -96,21 +96,6 @@ pub fn router(
         // bundle or the app shell is broken: it claims only "the server
         // accepts connections".
         .route("/healthz", axum::routing::get(|| async { "ok" }))
-        // Server-owned because it answers with bytes rather than a view: the
-        // sealed record, streamed as an archive.
-        .route(
-            crate::export_api::DOWNLOAD_PATH,
-            axum::routing::get(crate::export_api::route::record_zip),
-        )
-        // The red rows' exchanges, carved by the engine on request: the
-        // triage input, downloaded rather than rendered.
-        .route(
-            crate::evidence_api::DOWNLOAD_PATH,
-            axum::routing::get(crate::evidence_api::route::evidence_json),
-        )
-        // These handlers are outside the reactive route tree, so they
-        // take the state as an extension rather than through `expect_context`.
-        .layer(axum::Extension(state.clone()))
         .leptos_routes_with_context(
             &leptos_options,
             routes,

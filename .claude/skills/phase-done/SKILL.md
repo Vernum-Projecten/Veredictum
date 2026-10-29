@@ -97,7 +97,7 @@ have been run and genuinely passed.
 
 The Rust tier (`cargo fmt --all --check`, `cargo clippy --all-targets -- -D
 warnings`, `cargo nextest run`, `cargo deny check`) and
-`cargo run -- validate --root artifacts --specs specs/openehr` at zero findings.
+`cargo run -- validate --root catalogue --specs specs/openehr` at zero findings.
 Report what you actually saw; never claim a green you did not run.
 
 ## Gates that are not steps here, because the machinery does not exist yet

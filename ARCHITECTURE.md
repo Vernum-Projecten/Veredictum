@@ -22,7 +22,8 @@ WHAT THE SPLIT CHANGED, and nothing else: `cnf-runner` is `veredictum`; the
 paths that were under `tools/cnf-runner/` map to this repository's trees —
 after the #55 restructure the code is `app/veredictum/` (a virtual workspace
 root; the console is `app/veredictum-console/`) and the data trees stay
-root-mapped (`artifacts/`, `schemas/`, `verification-pack/`); the party tree
+root-mapped (`catalogue/`, `schemas/`, `verification-pack/`, with the
+case-core `artifacts/` tree retired at the cut-over, #604); the party tree
 that used to sit beside them is gone (#465), because a declaration's support
 columns belong to the supplier of the implementation and the one filled-in
 example that remains is a named test fixture under `fixtures/`;
@@ -44,8 +45,8 @@ and the checkable claims were re-verified 2026-08-27 against this repository
 and its tracker. The reference runner is shipped: `veredictum`, published on
 crates.io (0.1.0-alpha.4 at the re-verification), with signed releases, the
 container image (carrying the web console, #6), the docs site, and a
-catalogue of 1146 case cores and 249 operation bindings that passes every
-validate gate. A party's measured artifacts are emitted to the output
+catalogue of Arazzo workflows over the released ITS-REST operations (§15)
+that passes every validate gate. A party's measured artifacts are emitted to the output
 directory a run is given.*
 
 ---
@@ -96,9 +97,9 @@ the 2021–2022 community's work. The deltas are five: one-file-per-case data
 with generated prose; CI enforcement of the derivation chain; computable
 Statement/results schemas with mechanically computed verdicts; the
 governance/resourcing charter; and the ISO/EHDS grounding. The working
-implementation is this repository's published instrument (1146 case cores,
-249 operation bindings, both wire formats, machine-computed verdicts on the
-CNF profiles model; grown from FerroEHR's ECC draft of 394 cases) — and it
+implementation is this repository's published instrument (an Arazzo
+catalogue over the released ITS-REST operations, both wire formats,
+machine-computed verdicts; grown from FerroEHR's ECC draft of 394 cases) — and it
 is explicitly not "the standard": the standard is community-owned,
 vendor-neutral, and multi-harness by construction.
 
@@ -432,12 +433,12 @@ Honest implications:
    pages are rendered from it. A test case that isn't in the catalogue doesn't
    exist; a catalogue entry without spec citations doesn't build — and the
    citation must be to a **RELEASED** spec component (RM / BASE / AM / QUERY /
-   TERM / ITS-XML / SM / ITS-REST docs text). The frozen CNF schedule, the OAS, and
+   TERM / ITS-XML / ITS-REST docs text). The frozen CNF schedule, the OAS, and
    the Robot suites are STALLED structural guides (which behaviours to cover),
    never the correctness oracle — this framework earns its authority from the
    released components, which is precisely why it is the first *enforceable* CNF.
    **The honest state of the vendored oracle (audited 2026-08-27, #78):** only
-   QUERY and ITS-REST are pinned to release tags today; RM, BASE, AM, TERM, SM,
+   QUERY and ITS-REST are pinned to release tags today; RM, BASE, AM, TERM,
    ITS-XML, ITS-JSON and LANG are pinned to their `master` development heads
    (each tree's `PROVENANCE.md` records its ref). That gap between the claim
    and the pins is release-blocking for v0.1.0. Issue #78 makes the oracle
@@ -446,11 +447,10 @@ Honest implications:
    record naming which generation a verdict was spoken against. An instrument
    whose authority claim and whose oracle bytes disagree is the defect class
    it exists to catch in others, so the record states the gap plainly.
-2. **SM anchors semantics; ITS bindings execute — structurally.** Every case
-   is a protocol-neutral core (SM operation / content constraint, spec
-   citations, pre/postconditions, logical outcomes); wire specifics live in
-   separate per-ITS binding artifacts (§8.4). New protocols add binding files,
-   never new suites.
+2. **ITS-REST binds the operation to the wire.** Every workflow names the
+   released ITS-REST operation it drives, cites the section that assigns each
+   expected value, and judges the response with the criteria of §15.6. The
+   unreleased SM is no part of the oracle (#604).
 3. **Harness independence by construction.** Catalogue + data sets + schemas +
    verdict rules are the contract; every runner is a downstream implementation
    verified against a shared reference pack (§8.12). No harness is normative.
@@ -459,10 +459,10 @@ Honest implications:
    defect.
 5. **Honesty is structural.** Coverage is a mandate, not a pass rate — every
    wire behaviour the spec defines is its own case, and the bounds + honest
-   boundaries are printed, never silent (§8.5, §11). N/A adjudications are
-   cited; spec silences/defects are adjudicated in the ambiguity register
-   rather than silently edited, and **every carried divergence is reported back
-   upstream** (`upstream_issue` → §13), never absorbed. Both directions are
+   boundaries are printed, never silent (§15.9, §11). N/A adjudications are
+   cited; a spec silence or defect becomes an `upstream-report` issue or a
+   declared option (§15.6), never a silent edit, and **every carried
+   divergence is reported back upstream** (§13), never absorbed. Both directions are
    published when comparing products; registry rows are labelled by attestation
    level so self-declaration is never mistaken for certification.
 6. **Vendor neutrality is testable.** No vendor image names, endpoints, auth
@@ -489,1448 +489,122 @@ Honest implications:
 9. **Adopt international vocabulary** (§6.1) — ATS/ICS/IXIT/attestation
    levels/scheme-owner — instead of coining terms.
 
-## 8. The CNF 2.0 normative artifact set — the production design
-
-This section is the full design, not a sketch. It is derived from three
-extractions performed against the vendored specs on 2026-07-21: (a) the
-fleshed chapters of the official Test Schedule
-(`platform_test_schedule/master03/04/06/07/17.3`, with master08/09 mined in
-the v4 validation pass — the real case format, the
-16-row create-EHR matrix, the per-row iteration law, the versioning cases,
-the DV_QUANTITY decision tables); (b) the ITS-REST 1.1.0 wire contract, which
-in Release-1.1.0 is a *decomposed OpenAPI* (`specifications/operations/*.yaml`
-+ `responses/*.yaml` + `parameters/header/*.yaml`) — there are no per-API
-prose status tables, so the binding layer below is driven from the OAS
-fragments; and (c) the STABLE Simplified Formats specification
-(`ITS-REST/docs/simplified_formats/master02–06`). Every rule below carries
-its source.
-
-**The architecture in one view.** Two **verdict machineries** over one
-artifact discipline: **conformance-by-assertion** (functional + content
-cases: typed assertions roll up case → capability → profile) and
-**conformance-by-measurement** (performance cases: measured metrics against
-class thresholds). Capabilities group into **families** — Platform
-(CORE/STANDARD/OPTIONS), Enterprise (D/M/X — a proposed extension, §11.11), Security (SEC-BASIC, §8.15) — all
-assessed by the assertion machinery; the certificate is the matrix
-*machinery × family*: functional profile ratings per tech profile, plus an
-earned performance class per environment. Below the machineries: one
-schedule (case cores, three kinds), one binding layer (per SM operation per
-ITS), one governed corpus (fixtures, recipes, views, scale classes,
-workloads), one vocabulary layer (outcomes, the machine-readable
-capability matrix, selectors), one party-artifact layer
-(statement/results/ixit — ixit models **named SUT instances + an
-environment**, so single-instance platform cases, dual-instance Enterprise
-cases, and environment-bound performance runs all drive from the same file),
-and one verdict layer (both machineries as pure functions). Content cases
-are not a third machinery: a content case is a template-parameterized
-functional execution (generate row instance → commit → expect verdict) —
-one executor serves both.
-
-**Design law**: everything the official schedule's fleshed chapters express
-today MUST be representable losslessly in the case model, and nothing
-wire-level may appear in a case core. The schedule itself never states an
-HTTP status code (verified across master04/06/07 — error expectations are
-prose exemplars like ``"EHR with <ehr_id> does not exist"``); the codes live
-only in the runners today, which is precisely the layer the operation
-bindings make normative.
-
-### 8.1 The testable surface — what the case model must carry
-
-Requirements extracted from the real material (each drove a schema feature
-below):
-
-1. **A "test" = one case × one data set** (`master03-overview.adoc`: "A
-   'test' is therefore the execution of a particular test case with a
-   particular data set") → parameter matrices are first-class (§8.3
-   `parameters`).
-2. **Pre/postconditions are re-established around every data-set row**
-   (`master04` §iteration semantics: "the pre-conditions and post-conditions
-   apply to the run for X") → `iteration: reset_per_row` (§8.3).
-3. **State flows between steps and between cases**: the server-assigned
-   `ehr_id` "should be read from the response" and replayed
-   (`master06` create_ehr-same_ehr_twice); `preceding_version_uid` "should be
-   the version uid from the COMPOSITION created in step 1" (`master07`
-   update_composition-event); a create row's expected `is_queryable` values
-   are verified in a *different* case
-   (`master06` get_ehr_status-get_by_ehr_id) → captures, variable references,
-   and `verified_by` links (§8.3).
-4. **Error expectations are kinds, not codes**: the schedule distinguishes
-   duplicate-EHR vs non-existent-EHR vs non-existent-OPT vs
-   data-validation-failure vs template-mismatch for the *same* operations,
-   always as prose → the outcome-kind taxonomy (§8.5), mapped to wire only in
-   bindings (§8.4).
-5. **Prerequisites are typed server state**: "The server should be empty (no
-   EHRs, no commits, no OPTs)", "An EHR with known ehr_id should exist",
-   "The EHR should have no commits", "The OPT … should exist on the server"
-   (master06/07) → the `requires` block (§8.3).
-6. **Fixtures carry adjudicated verdicts**: the Robot corpus encodes the
-   defect in the filename (`007_ehr_status_is_modifiable_missing.json`,
-   `…__invalid_wrong_structure.json`) and uses runtime placeholders
-   (`__AUTO-GENRATED-BY-TEST__`) → the corpus manifest (§8.8).
-7. **Versioning is asserted in RM terms**: `VERSION.commit_audit.change_type`
-   CREATE/MODIFY, `lifecycle_state = openehr::523|deleted|`, version counts,
-   at-time/at-version selection (master07) → the `version` assertion family
-   (§8.6); ETag/If-Match are the REST realization only (§8.4).
-8. **Content decision tables carry structured constraint literals** —
-   ranges `5.0..10.0`, lists `[cm 5.0..10.0, m]`, term codes `openehr::122
-   (length)` / `local::at0005`, and violation categories that name RM/schema
-   rules, **named RM invariants** (`limits_consistent (invariant)`), ISO 8601
-   rules, and constraint clauses (`C_DV_QUANTITY.list: …`) (master17.3) →
-   the literal grammar + violation categories (§8.8).
-9. **Applicability is per case** (DV_SCALE only at RM ≥ 1.1.0) → `applies`
-   and the typed `requires`/`capabilities`/`option` declarations (§8.3); the
-   master17.3 NOTE assumptions a case rests on (list constraints
-   tool-dependent) are recorded as `guards` prose, which selects nothing.
-10. **The same logical case runs across multiple representations**
-    (XML/JSON/FLAT/STRUCTURED/TDD "content check" language in master07) →
-    format axes (§8.7).
-11. **The wire layer needs specific primitives** (from the OAS extraction):
-    exact-status assertion; header presence + value patterns (weak ETag
-    `W/"…::…::N"`, `Location` on 201 only, `Content-Type` unless 204,
-    `Preference-Applied`); `Prefer`-conditional body selection
-    (full | `{uid}` | empty); ETag capture → `If-Match` replay; the
-    media-type matrix incl. 406/415 negatives; and a deliberately **loose
-    error-body assertion** (§8.5 ambiguity register).
-12. **One commit may carry many versions, judged atomically** — a master08
-    CONTRIBUTION bundles multiple VERSIONs (possibly of mixed RM types), each
-    with its own change_type/lifecycle metadata, and the whole commit
-    succeeds or fails as a transaction → bundled payloads + list captures +
-    `for_each` assertions (§8.3, §8.6, pilot 8). DIRECTORY adds provisioned
-    folder trees, at-time selection between captured commit instants, and
-    scalar service returns → `requires.directory`, temporal references, and
-    the `returns` assertion.
-
-### 8.2 The artifact set
-
-Seven normative, versioned-together artifact families in specifications-CNF
-(each with a published schema or normative specification; where a JSON Schema exists it is the norm):
-
-| # | Artifact | Path (proposed) | Content |
-|---|---|---|---|
-| 1 | **Case cores** | `schedule/<component>/<CASE_ID>.yaml` | Protocol-neutral test cases, all three kinds (§8.3, §8.14) — the Abstract Test Suite |
-| 2 | **Operation bindings** | `bindings/<its>/<SM_OPERATION>.yaml` | Per-ITS wire realization of each SM operation's outcomes/captures (§8.4) |
-| 3 | **Vocabularies & matrices** | `vocab/{outcomes,selectors}.yaml` + `vocab/capability_matrix.yaml` | The closed outcome taxonomy (§8.5), body/header selectors + ignore-sets (§8.4, §8.6), and the **machine-readable capability→family→tier matrix** — the Profiles book's capability×tier tables as data, the input the verdict machinery computes from; the Profiles book regenerates from the artifact set as a whole (capability tables from this matrix, the verdict-combination rules from family 7, the External Data Format attribute from the §8.7 format axis), with the same semantic-equivalence honesty as the schedule prose |
-| 4 | **Governed corpus + manifest** | `corpus/**` + `corpus/MANIFEST.yaml` | Fixtures, templates, generated-set recipes, named views, **scale-class corpora** (shared by Enterprise + performance), **workload definitions**, adjudicated verdicts (§8.8) |
-| 5 | **Ambiguity register** | `registers/ambiguities.yaml` | Known spec silences/divergences with normative handling (§8.5) |
-| 6 | **Party artifacts** | `schemas/{statement,results,ixit}.schema.json` | The ICS/SDoC, test-report (incl. measurements), and SUT-topology contracts (§8.10) |
-| 7 | **Verdict rules** | `schemas/verdicts.md` (normative prose) + reference impl | Both machineries as pure functions: assertion rollup + measured-class computation (§8.11, §8.14) |
-
-The published spec pages (the human-readable schedule) are **generated** from
-1–5; the derivation-square CI (§8.13) keeps every artifact internally linked.
-
-**Encoding selection (pre-answering the bikeshed).** The normative artifact
-is the data model (the published JSON Schema); file syntax is a serialization
-choice, and each candidate gets exactly the job it is best at:
-
-- **JSON** is the canonical interchange encoding — `statement.json`,
-  `results.json`, `ixit.json` are hash-linked machine artifacts, and JSON
-  parsers + JSON Schema validation exist natively in every runner ecosystem
-  (Java, Python/Robot, JS, Groovy, Rust).
-- **YAML** is the permitted authoring surface for case/binding files
-  (comments, readable matrices); it parses to the same tree and is validated
-  against the same schema in CI. If YAML's implicit-typing footguns worry
-  the SEC, the fallback is JSON, not TOML.
-- **TOML** was considered and rejected for case files on three hard grounds:
-  it has **no null** (the official DV_QUANTITY table has `null` cells as
-  first-class values), arrays-of-arrays/deep nesting (matrices, flows) are
-  painful past two levels, and parser reach outside the Rust/Python config
-  world is thin. TOML remains ideal for flat config-shaped *registers* and
-  is used exactly there in the reference implementation.
-- **TSV** serves two roles only: **generated indexes** (the catalogue
-  listing — line-diff-friendly, never hand-edited) and the optional
-  `rows_from:` bulk-row tables for large *generated* matrices (§8.3), which
-  keeps a spreadsheet-authoring door open for content-chapter contributors
-  without making runners implement a TSV join: inline typed rows remain the
-  default, because TSV cells are untyped and cannot distinguish
-  null/empty/absent.
-
-### 8.3 The case core — full field definitions
-
-One file per case. Normative fields (∎ = required):
-
-| Field | Type | Semantics |
-|---|---|---|
-| `id` ∎ | string | Global CNF id. Families: `<SERVICE_COMPONENT>.<operation>-<variant>` (functional) and `CONT-<TYPE>-<variant>` (content) — both kept unchanged from the 2022 scheme; new chapters register their family with the maintainer group (this proposal registers `SF-<FORM>-<variant>` for the Simplified-Formats chapter). Ids are never reused; retired cases keep the id with `status: retired`. |
-| `kind` ∎ | `functional \| content \| performance` | Selects which optional blocks are meaningful (performance cases: §8.14). |
-| `status` | `active \| retired \| draft` | Default `active`. |
-| `component` ∎ | enum | EHR, EHR_COMPOSITION, EHR_CONTRIBUTION, EHR_DIRECTORY, DEFINITION_ADL14, DEFINITION_ADL2, DEFINITION_QUERY, QUERY, DEMOGRAPHIC, ADMIN, MESSAGING, CONTENT, SIMPLIFIED_FORMATS, PERFORMANCE |
-| `sm_operation` | string | Functional cases: the SM anchor (`I_EHR_SERVICE.create_ehr`). CI resolves it against the SM component list. |
-| `rm_class` | string | Content cases: the RM/AM class under test (`DV_QUANTITY`). |
-| `test_purpose` ∎ | string | The ISO/IEC 9646 test purpose — one narrow conformance requirement, prose. |
-| `description` ∎ | string | The schedule's Description row. |
-| `spec_refs` ∎ | string[] | Citations (component + document + section). CI link-checks them. |
-| `applies` | map | Spec-version applicability ranges (`rm: ">=1.0.2"`, `aql: ">=1.1"` …) — range grammar = Cargo/semver requirement syntax. |
-| `guards` | string[] | Spec-cited **prose** about the case — where the expectation was authored from, what the row does not claim, the adjudication it rests on, the assumptions it makes (e.g. "modeling tool supports C_DV_QUANTITY list constraints — master17.3 NOTE"). Citation mandatory. It participates in **no selection**: applicability is decided by the typed fields alone (`status`, `applies`, `capabilities`, `option`, `requires`, the flow's own `on:` addressing and its `${ixit:…}` reads). Two validate gates hold the boundary: `guard-scope` refuses a guard restating one of those typed rules, `guard-condition` refuses a guard phrased as an applicability condition ("applies only", "not-applicable", "guarded until", "skip where", "out of scope"), whose promised hold happens nowhere. |
-| `capabilities` ∎ (assertion-machinery cases) | string[] | The **verdict-bearing** capability names (§8.2 family 3 matrix) — keep MINIMAL: a case failure marks every listed capability `Failed` (§8.11 step 4). Performance cases carry `class` instead (their selection key, §8.11 step 2c) and omit this field. |
-| `exercises` | string[] | Informative coverage tags: capabilities the case touches without bearing their verdict. |
-| `profiles` | string[] | The profile **tier(s)** (CORE/STANDARD/OPTIONS) the capabilities belong to — derivable from the Profiles matrix, carried for readability; CI checks tier-vs-capability consistency. |
-| `option` | string | For sibling cases realizing an ambiguity-register implementation choice (e.g. AMB-4): the option tag the ICS `options` declaration selects (§8.11 step 2b). |
-| `formats` | string[] | Optional case-level format axis for cases **parameterized over** format: the case runs once per declared format ∩ the run's tech profile. Distinct from per-step `format:` (below) for cases whose formats are **intrinsic fixed roles** (round-trips). |
-| `requires` | block | Typed prerequisites (below). |
-| `parameters` | block | The data-set dimension (below). |
-| `flow` ∎ (functional) | Step[] | Ordered steps (below). |
-| `decision_table` ∎ (content) | block | Columns + rows (below). |
-| `postconditions` | Assertion[] | Typed assertions (§8.6). Default evaluation is per parameter row; assertions marked `aggregate: true` (e.g. `unique`) evaluate once after all rows. |
-| `verified_by` | string[] | Ids of cases that verify this case's deeper postconditions through separate reads (the master06 create→get pattern). CI checks the links resolve. |
-| `ambiguities` | string[] | Ids into the ambiguity register that this case is subject to. |
-| `data_sets` | string[] | Corpus manifest keys used (in addition to `parameters`). |
-
-**`requires` block** — the schedule's precondition vocabulary, typed. Every
-provisioned object mints a **named handle** usable as a variable in the flow:
-
-```yaml
-requires:
-  server: empty            # empty | any        ("no EHRs, no commits, no OPTs")
-  templates: []            # corpus keys provisioned before the flow
-  ehr: none                # none | { commits: none | any }  — when present, mints ${ehr_id}
-  directory: none          # none | <corpus key>  — a FOLDER tree provisioned in the EHR (master09)
-  commit: []               # corpus set keys pre-committed into the EHR by the runner
-                           #   (bulk setup is precondition state, never an un-anchored flow call)
-```
-
-`server: empty` is realized by runners through isolation (fresh SUT or
-tenant), never by destructive cleanup of a shared system — a runner-layer
-note, not a case concern. In multi-instance cases (§11.11), `requires` is
-stated per instance (`instances: { source: {...}, target: { server: empty } }`).
-
-**`parameters` block** — the data-set dimension. One mechanism serves the
-functional matrices (master06) and the fixture sets (master04):
-
-```yaml
-parameters:
-  iteration: reset_per_row   # reset_per_row (the master04 law) | single_pass
-                             #   single_pass: rows execute against one shared server state —
-                             #   required when an aggregate postcondition spans rows
-  matrix:                    # inline value matrix (master06-style)
-    columns: [ehr_status, is_queryable, is_modifiable, subject, other_details, ehr_id]
-    rows: [ ... ]            # each row binds ${row.<column>}
-    # rows_from: <path.tsv>  # optional bulk-row external table for large GENERATED matrices
-    #                        #   (produced by a corpus recipe, never hand-edited)
-  fixture_set:               # external-fixture iteration (master04-style)
-    - { data_set: <corpus key>, expected: <outcome kind>, defect: "<why>", spec_ref: "<citation>" }
-    # each entry binds ${fixture.data_set}, ${fixture.expected}, ${fixture.defect};
-    # the current fixture's payload is referenced as ${ds:fixture}
-```
-
-Reserved matrix cell sentinels (normative, so a runner never confuses them
-with literals): `absent` (omit the field entirely), `provided` (synthesize a
-valid value via the case's recipe), `null` (JSON null). Reserved columns:
-`expected` (per-row outcome override) and `violates` (content: the
-violated-constraint list, §8.8 categories). Rows without `expected` inherit
-the flow's expectations.
-
-**Row-to-input synthesis**: where a step input is built *from* a row (not a
-verbatim fixture), the case names a **recipe** declared in the corpus
-manifest (§8.8) — `with: { ehr_status: ${recipe:ehr_status(row)} }`. The
-recipe is committed, seeded, deterministic code; sentinels above govern
-field presence.
-
-**`flow` steps**:
-
-```yaml
-flow:
-  - step: 1
-    call: create_ehr                     # SM operation (short form resolves against sm_operation's interface)
-    on: sut                              # OPTIONAL instance selector (default `sut`); Enterprise
-                                         #   dual-instance cases address ixit-declared instances
-                                         #   (e.g. `on: source` / `on: target` for dump/load, sync)
-    format: wt-flat                      # OPTIONAL per-step format role (intrinsic-format cases only)
-    with: { ehr_status: ${recipe:ehr_status(row)} }
-    expect: created                      # outcome kind (§8.5); per-row override via the `expected` column
-    capture: { ehr_id: created.ehr_id }  # logical captures; bindings map them to wire locations
-    assert: []                           # optional post-step typed assertions (§8.6)
-```
-
-Variable reference grammar (closed): `${row.<column>}`, `${fixture.<field>}`,
-`${<capture>}`, `${ds:<corpus key>}`, `${ds:<corpus key>#<view>}` (a named
-projection declared in the manifest, §8.8), `${recipe:<name>(row)}`. Binding
-path parameters (`{ehr_id}`, `{versioned_object_uid}`) resolve from the
-case's variables — captures and `requires` handles. **There is no `${stepN}`
-form**: a later step that needs an earlier response captures it explicitly
-(`capture: { readback: ok.body }`).
-
-Capture sources (closed): `<outcome>.<logical field>` as mapped by the
-binding (e.g. `created.ehr_id`, `created.version_uid`), `<outcome>.body`
-(the full response representation), `<outcome>.commit_time` (the committed
-audit time — the anchor for temporal at-time cases). **List captures**: an
-operation returning multiple values captures a list —
-`capture: { version_uids: created.version_uids[] }` — asserted per-element
-with `for_each` (§8.6).
-
-**Bundled payloads (version sets)** — the master08 CONTRIBUTION construct: a
-single call whose payload carries multiple members, each with its own
-metadata, and ONE aggregate outcome (the commit is transactional):
-
-```yaml
-    with:
-      versions:
-        - { data: ${ds:<key>}, change_type: creation }
-        - { data: ${ds:<key>}, change_type: modification, preceding_version_uid: ${v1} }
-    expect: created            # or validation_failed — the AGGREGATE verdict; atomicity
-    capture: { version_uids: created.version_uids[] }
-```
-
-**Temporal references** — for at-time/at-version selection (master07
-`get_composition_at_times`, master09 `get_directory_at_time`): commit times
-are captured (`t1: created.commit_time`) and at-time inputs use the closed
-expressions `${time:before(<t>)}`, `${time:between(<t1>,<t2>)}`,
-`${time:after(<t>)}` — resolved by the runner against the captured instants.
-
-Rules: captures are case-scoped names; a step may reference any earlier
-step's captures; `expect` names exactly one outcome kind — a case that needs
-"either A or B" is two sibling cases carrying `option:` tags tied to an
-ambiguity-register entry (§8.5, §8.11 step 2b). Substeps (the schedule's
-`1.1`, `3.2`) are encoded as separate steps with a `variant:` tag when they
-iterate different sources (see pilot 2).
-
-**Content `decision_table`** (master15–17 shape, §8.8 literal grammar):
-
-```yaml
-constraint_context:
-  template: <corpus key>      # the OPT carrying the constraint under test
-  path: "<path to the constrained node>"
-decision_table:
-  columns: [<input attrs...>, <constraint attrs...>, expected, violates]
-  rows: [ ... ]
-```
-
-Each row is one committed instance (generated from the row's input attrs
-into the context template) + `expected: accepted | rejected` +
-`violates: [...]` naming the violated rules per the §8.8 categories.
-
-### 8.4 Operation bindings — the wire layer, per SM operation
-
-**One binding file per SM operation per ITS** — not per case. Every case that
-touches `I_EHR_COMPOSITION.update_composition` reuses the same binding;
-per-case overrides exist but are a review smell. A binding maps: request
-construction, each outcome kind → wire expectation, and each logical capture
-→ wire source. The binding is where `Prefer`, `If-Match`, ETags, media types,
-and status codes live — and each mapping cites its OAS source.
-
-Real bindings for ITS-REST 1.1.0 (from `specifications/operations/*.yaml` +
-`responses/*.yaml`):
-
-```yaml
-# bindings/its-rest/I_EHR_SERVICE.create_ehr.yaml
-sm_operation: I_EHR_SERVICE.create_ehr
-its: its-rest
-applies: { its_rest: ">=1.0.0" }
-request:
-  method: POST
-  path: /ehr
-  body: ehr_status?                       # optional EHR_STATUS (ehr_create.yaml)
-  headers:
-    Prefer: "return=representation"       # default is return=minimal (Prefer.yaml); we ask for the body
-formats: [canonical-json, canonical-xml]  # EHR resource is canonical-only (Accept_canonical)
-outcomes:
-  created:            { status: 201, headers: { ETag: present, Location: present },
-                        body: prefer_conditional }   # oneOf [Ehr | {uid} | empty] per Prefer (201_EHR.yaml)
-  already_exists:     { status: 409 }     # subject-id/namespace conflict when EHR_STATUS supplied (409_EHR.yaml)
-  validation_failed:  { status: 400 }     # NOTE ambiguity AMB-2: no 422 enumerated on EHR create
-captures:
-  ehr_id:      { from: body "ehr_id.value", fallback: header Location last-segment }
-  version_uid: { from: header ETag, strip: weak-quotes }
-```
-
-```yaml
-# bindings/its-rest/I_EHR_COMPOSITION.create_composition.yaml
-sm_operation: I_EHR_COMPOSITION.create_composition
-its: its-rest
-request:
-  method: POST
-  path: /ehr/{ehr_id}/composition
-  body: composition
-  headers: { Prefer: "return=representation" }
-formats: [canonical-json, canonical-xml, wt-flat, wt-structured]   # Accept_LOCATABLE / ContentType_LOCATABLE
-format_headers:
-  wt-flat:       { Content-Type: application/openehr.wt.flat+json,       openehr-template-id: required }
-  wt-structured: { Content-Type: application/openehr.wt.structured+json, openehr-template-id: required }
-outcomes:
-  created:            { status: 201,
-                        headers: { ETag: 'pattern:W/"<versioned_object_uid>::<system_id>::1"',
-                                   Location: present, Content-Type: negotiated },
-                        body: prefer_conditional }                  # 201_COMPOSITION.yaml
-  not_found:          { status: 404 }                               # unknown ehr_id (404_unknown_ehr_id.yaml)
-  validation_failed:  { status: 422, body: error_loose }            # 422.yaml; AMB-1 error body
-  template_not_found: { status: 422, body: error_loose }            # same wire code; kind distinguished by fixture
-  missing_template_id:{ status: 422 }                               # simplified commit without openehr-template-id
-  unsupported_media:  { status: 415 }     # layered from the overview negotiation rules — not in the operation's enumerated set (AMB-39)
-captures:
-  version_uid: { from: header ETag, strip: weak-quotes }            # OBJECT_VERSION_ID …::…::1
-  versioned_object_uid: { from: capture version_uid, transform: root-uid }
-```
-
-```yaml
-# bindings/its-rest/I_EHR_COMPOSITION.update_composition.yaml
-sm_operation: I_EHR_COMPOSITION.update_composition
-its: its-rest
-request:
-  method: PUT
-  path: /ehr/{ehr_id}/composition/{versioned_object_uid}
-  body: composition
-  headers:
-    If-Match: '"${preceding_version_uid}"'   # REQUIRED (If-Match.yaml); realizes SM preceding_version_uid
-    Prefer: "return=representation"
-formats: [canonical-json, canonical-xml, wt-flat, wt-structured]
-outcomes:
-  updated:              { status: 200,        # 204 when Prefer minimal (200_COMPOSITION_updated / 204_version_updated)
-                          headers: { ETag: 'pattern:W/"…::…::<n+1>"' }, body: prefer_conditional }
-  precondition_failed:  { status: 412, headers: { ETag: latest-version-uid } }  # 412_COMPOSITION.yaml, MUST
-  precondition_missing: { status: 400 }       # If-Match absent → SHOULD 400 (Requests_and_responses.md §If-Match)
-  not_found:            { status: 404 }       # unknown ehr_id or uid (404_unknown_ehr_id_or_uid_based_id.yaml)
-  version_not_found:    { status: 404 }       # unknown preceding version — same 404 response family
-  validation_failed:    { status: 422, body: error_loose }
-  template_mismatch:    { status: 422, body: error_loose }          # wrong-template update (master07)
-captures:
-  version_uid: { from: header ETag, strip: weak-quotes }
-```
-
-```yaml
-# bindings/its-rest/I_EHR_COMPOSITION.delete_composition.yaml
-sm_operation: I_EHR_COMPOSITION.delete_composition
-its: its-rest
-request: { method: DELETE, path: /ehr/{ehr_id}/composition/{preceding_version_uid} }
-outcomes:
-  deleted:         { status: 204 }            # 204_version_deleted.yaml — delete is 204, never 200
-  already_deleted: { status: 400 }            # 400_already_deleted.yaml
-  not_found:       { status: 404 }
-  conflict:        { status: 409 }            # 409_COMPOSITION_with_uid_based_id.yaml
-```
-
-```yaml
-# bindings/its-rest/I_DEFINITION_ADL14.upload_opt.yaml
-sm_operation: I_DEFINITION_ADL14.upload_opt
-its: its-rest
-request:
-  method: POST
-  path: /definition/template/adl1.4
-  body: opt_xml
-  headers: { Content-Type: application/xml }  # the ONLY accepted upload type (operation enum)
-outcomes:
-  created:            { status: 201 }
-  already_exists:     { status: 409 }         # duplicate template_id (409_template_already_exists.yaml) — AMB-4
-  validation_failed:  { status: 400, body: error_loose }
-captures:
-  template_id: { from: body-or-location }     # implementation latitude; AMB register
-```
-
-```yaml
-# bindings/its-rest/I_QUERY_SERVICE.execute_adhoc_query.yaml
-sm_operation: I_QUERY_SERVICE.execute_adhoc_query
-its: its-rest
-request:
-  method: POST                                # spec-recommended over GET for parameterized queries
-  path: /query/aql
-  body: { q: ${q}, query_parameters: ${query_parameters}, offset: ${offset?}, fetch: ${fetch?} }
-  headers: { Content-Type: application/json, Accept: application/json }
-outcomes:
-  ok:            { status: 200, headers: { ETag: present? }, body: result_set_body }  # 200_Query.yaml
-  invalid_query: { status: 400 }              # 400_Query.yaml
-  timeout:       { status: 408 }              # 408_Query.yaml
-```
-
-Binding-level normative rules (all cited from
-`docs/overview/Requests_and_responses.md` + `Resources.md`):
-
-- **ETag discipline**: value = version identifier, format-independent ⇒
-  weak — `W/"…"` MUST in 1.1.0; the bare pre-1.1.0 form MAY be tolerated on
-  read (a per-edition toggle, §8.7). Source attributes:
-  `VERSIONED_OBJECT.uid` / `VERSION.uid` / `EHR.ehr_id`.
-- **Prefer discipline**: default `return=minimal`; `return=identifier` ⇒
-  `{ "uid": … }` body, never 204; `Preference-Applied` MAY be echoed (assert
-  only when the schedule says so).
-- **`Location`** appears on 201 only; its use on GET/DELETE responses is
-  deprecated — bindings assert absence where the spec deprecates.
-- **`Content-Type`** MUST be present on every non-204 response and equal the
-  negotiated type.
-- **Commit metadata**: servers MUST accept `openehr-version` +
-  `openehr-audit-details` on change-controlled commits;
-  `AUDIT_DETAILS.time_committed` is always server-set (client value ignored)
-  — a testable assertion.
-- **Negotiation negatives**: unfulfillable `Accept` ⇒ 406; unsupported
-  `Content-Type` ⇒ 415. The deprecated/legacy simplified media types follow
-  §8.7: correct 406/415 **where unsupported**, never mandatory rejection.
-- **error_loose** body selector: see AMB-1 (§8.5) — assert at most that a
-  `message` string is present, and only under `Prefer: return=representation`.
-
-**Binding file — field contract** (∎ = required): `sm_operation` ∎,
-`its` ∎, `applies`, `request` ∎ (`method` ∎, `path` ∎ with `{param}`
-placeholders resolved from case variables, `body`, `headers`),
-`formats`, `format_headers`, `outcomes` ∎ (map: outcome kind → wire
-expectation `{status ∎, headers, body}`), `captures` (map: logical name →
-source), `server_assigned` (the operation's ignore-set membership, below).
-
-**Capture-source grammar** (closed): `header <Name>` ·
-`header <Name> last-segment` · `body "<path>"` · `capture <name>` (derive
-from another capture) — with optional modifiers `strip: weak-quotes`,
-`transform: root-uid`, `fallback: <source>`. Nothing else.
-
-**Header-matcher vocabulary** (closed): `present` · `present?` (optional —
-assert only if the schedule row says so) · `absent` · `negotiated` ·
-`latest-version-uid` · `pattern:<regex>` · a literal string.
-
-**Body/header selector vocabulary** (closed, CI-checked like the outcome
-kinds): `prefer_conditional` (full resource | `{uid}` | empty, per `Prefer`),
-`error_loose` (AMB-1), `result_set_body` (the RESULT_SET schema — named
-distinctly from the §8.6 `result_set` assertion), `negotiated` (equals the
-negotiated media type), `present`, `absent`, and `pattern:<regex>` for header
-values.
-
-**Ignore-set membership is owned here**: each binding enumerates its
-operation's `server_assigned` paths (e.g. create/update_composition:
-`uid`, `context/_uid`, audit times, `system_id`-bearing ids); the
-`ctx_defaults` set is enumerated once in the simplified-formats format
-overlay (`context/start_time`, `context/setting`, composer defaults per
-master06). The §8.6 `equivalent` assertion resolves named ignore-sets from
-these lists — never from runner judgment.
-
-### 8.5 The outcome-kind taxonomy and the ambiguity register
-
-**Outcome kinds** (`vocab/outcomes.yaml`, closed enum, extensible only by
-schedule release):
-
-| Kind | Class | Meaning (schedule language) |
-|---|---|---|
-| `created` | success | New resource exists ("positive response associated to the successful creation") |
-| `ok` | success | Read/query succeeded with content |
-| `ok_empty` | success | Fulfilled with no content (e.g. composition logically deleted at requested time) |
-| `updated` | success | New version of existing resource created |
-| `deleted` | success | Logical delete performed (a new version, `lifecycle_state = openehr::523\|deleted\|`) |
-| `stored` | success | Definition stored (stored query PUT — wire 200, not 201) |
-| `already_exists` | error | Duplicate identity ("an EHR with the provided ehr_id … should be unique"; duplicate template_id) |
-| `not_found` | error | Target does not exist ("EHR with <ehr_id> does not exist") |
-| `version_not_found` | error | preceding_version_uid does not exist |
-| `precondition_failed` | error | Version precondition evaluated false (stale preceding_version_uid) |
-| `precondition_missing` | error | Required version precondition absent |
-| `validation_failed` | error | Semantically invalid content ("information about the errors in the provided COMPOSITION") |
-| `template_not_found` | error | Referenced OPT not on server ("information about the non-existent OPT") |
-| `template_mismatch` | error | Content commits against a different template_id than the versioned object |
-| `missing_template_id` | error | Simplified-format commit without template identification |
-| `already_deleted` | error | Delete of an already-deleted version |
-| `conflict` | error | Other uniqueness/state conflict |
-| `not_acceptable` | error | No representation satisfies `Accept` |
-| `unsupported_media` | error | Payload media type unsupported |
-| `invalid_query` | error | Malformed/unprocessable AQL |
-| `timeout` | error | Server aborted at max execution time |
-
-(`ok_empty` and `stored` are forward-provisioned for the COMPOSITION
-at-time-deleted and stored-query chapters; the closed-enum CI error bites
-only *used* kinds.) Cases speak ONLY these kinds. Bindings map each kind to wire per operation
-(the same kind may map to different codes on different operations — e.g.
-`validation_failed` is 422 on composition ops but 400 on EHR create, per the
-OAS). A kind a binding cannot map is a CI error.
-
-**The ambiguity register** (`registers/ambiguities.yaml`) — every entry is a
-real divergence or silence **CONFIRMED first-hand against the vendored spec
-before it may exist** (the register is a suspect like any artifact we wrote; a
-claimed ambiguity the spec actually DEFINES is a catalogue defect — the entry
-is removed and the case made gating, never excused), with the normative
-handling a runner must apply AND the outbound openEHR report it was raised as. Each entry carries
-`ambiguity`, `source` (the first-hand spec citation), `handling`, a
-machine-readable `disposition`, and an **`upstream_issue`** — the GitHub
-issue number of the `upstream-report`-labeled tracker issue that pushes the
-fix back upstream (owner ruling 2026-08-01; the former markdown ledger is
-deleted — the issue IS the report). The
-register is a living artifact; **the file is authoritative** — it has grown
-well beyond the seed extraction. Entry categories (the authoritative, current
-set — with citations, dispositions, and `upstream_issue`s — is the file itself,
-so no per-id table is reproduced here to rot):
-
-- **Released-spec silence** — a released component leaves a behaviour undefined
-  (persistent-COMPOSITION uniqueness per EHR; reduced-precision temporal
-  comparability; physical VERSIONED_OBJECT deletion). The case is `report_only`
-  (reported, never gating) and the silence is reported upstream.
-- **Released-spec contradiction / schedule defect** — a CNF-schedule row or data
-  set contradicts a released component (e.g. a HISTORY row versus the RM
-  `Events_valid` invariant; a range row versus the BASE `Interval` invariant
-  set). The catalogue encodes the released-derivable reading (`editorial`) and
-  proposes the upstream fix.
-- **SM↔ITS realization gap** — the SM (an oracle) defines an operation the
-  released ITS-REST does not yet realize (OPT delete, contribution-collection
-  GET, versioned-directory, demographic relationships, admin/message ops). The
-  case verdicts N/A-with-citation and an SM/ITS alignment report is filed.
-- **Realization / naming note** (`fixed_handling`) — the released ITS-REST
-  realizes an SM operation under a different shape or name (a whole-resource PUT
-  for field-setters; a list GET for an existence probe; an SM name the schedule
-  spells differently). Internal; no upstream report.
-
-Every `report_only` and `editorial` entry carries an `upstream_issue` (§13);
-the authoritative set is `registers/ambiguities.yaml` and each outbound
-report is the GitHub issue it points at (label `upstream-report`).
-
-Each entry carries a machine-readable **`disposition`** the pipeline
-branches on (closed enum): `loose_assert` (assert only what the spec pins) ·
-`fixed_handling` (handling encoded directly in bindings/cases) ·
-`option_select` (sibling cases grouped into named option FAMILIES, one per
-independent choice, each answered by exactly one arm of the ICS `options`
-declaration) · `report_only` (verdicts
-reported, never gating — reserved for genuinely open-upstream behaviour) ·
-`statement_declared` · `editorial` (the schedule/spec text is itself defective;
-the catalogue encodes the spec-derivable reading with a citation).
-
-**Transparency is enforced, not optional.** The register never *absorbs* a
-divergence — it documents it and reports it back. Every `report_only` and
-`editorial` entry MUST carry an `upstream_issue` (enforced by the schema and by
-`AmbiguityEntry::check_invariants`), so a gating suspension or a corrected spec
-defect always has an outbound openEHR report attached (§13). This is
-deliberate: a behaviour the spec leaves unassertable is more valuable
-shown-and-reported than hidden — it is precisely where the spec needs fixing.
-`report_only` is not a way to make red rows disappear; it is a cited,
-upstream-linked suspension that reverts to gating when the upstream item
-resolves.
-
-The register is normative: a runner that "resolves" an ambiguity privately is
-non-conformant to the schedule. It is **NOT an exclusion list** — every case
-still runs; the register only governs how a spec-silent expectation is derived
-and whether a genuinely-open-upstream behaviour gates the certificate. (Deleting
-it in favour of "just let it fail" would be the opposite of honest: where the
-spec assigns no value, an invented expectation fails every conformant server
-and reports nothing useful; and an SM operation with no ITS-REST wire cannot be
-"failed" at all. The register turns each such gap into a cited, actionable
-upstream report instead.)
-
-### 8.6 The assertion vocabulary
-
-Typed assertions usable in `flow[].assert` and `postconditions` (all
-evaluated per data-set row):
-
-| Assertion | Fields | Semantics |
-|---|---|---|
-| `instance_of` | `rm_type`, `format?` | Body parses as the named RM type and validates against the ITS schema for the active format (canonical JSON ⇒ ITS-JSON; XML ⇒ XSD). |
-| `field` | `path`, `equals \| exists \| absent \| matches \| absent_or_matches` | RM-path-addressed field check; values may reference `${row.*}`/captures — e.g. `path: ehr_status/is_queryable, equals: ${row.is_queryable}`. `absent_or_matches` is the OPTIONAL-member predicate: it passes when the path resolves to nothing and judges the serialized value when it does, for a member a released schema gives a shape to while leaving its presence to the service (the ITS-REST `RESULT_SET` metadata). |
-| `equivalent` | `to: committed \| ${ds:…} \| ${capture}`, `ignoring:` named ignore-sets (`server_assigned`, `ctx_defaults`) and/or explicit `[paths]` | The master07 "content check": retrieved content equals committed content, modulo the declared server-assigned set (`uid`, `system_id`, audit times, …) — the ignore set is normative per operation, not runner-chosen. |
-| `signature` | `of: ${<version-uid capture>}` or `for_each: ${<list capture>}`, `present \| verifiable \| equals \| distinct_from` | `ORIGINAL_VERSION.signature` facts (RM common §Digital Signature): the version carries a non-empty signature, the signature verifies over the canonical version form against the statement-declared key material, the stored signature equals a known value (client-verbatim storage), or differs from a known value (distinct per version, since the canonical form includes `uid`). |
-| `version` | `of: ${<version-uid capture>}` (the target version), `for_each: ${<list capture>}` (per-element over a list capture), `change_type \| lifecycle_state \| count \| uid_pattern` | RM versioning facts: `of: ${v2_uid}, change_type: MODIFY`, `lifecycle_state: "openehr::523\|deleted\|"` (AMB-11), `count: 2`, `uid_pattern: "<uuid>::<system>::<n>"`. `count` needs no `of:`. |
-| `result_set` | `match: ordered \| set \| count \| contains`, `rows`, `columns?` | AQL results, compared under the normative equivalence rules below. |
-| `unique` | `over: ${capture}`, `aggregate: true` | Values captured across rows are pairwise distinct (create_ehr-main's ehr_id uniqueness sub-constraint). Aggregate: evaluated once after all rows; requires `iteration: single_pass`. |
-| `returns` | `equals \| matches \| omits` | Scalar service returns (master09 `has_path`/`has_directory` booleans) — asserted directly, no RM body. `omits` is the negative containment predicate (a listing that must EXCLUDE a superseded row); it composes with `matches`, both checked. |
-| `xml_root` | `name`, `namespace?`, `xsi_type?` | The served canonical-XML document's ROOT element judged against the published ITS-XML schemas: its local name, the namespace it is qualified with, and — only where the published element's declared type is abstract — the concrete class named with `xsi:type`. |
-| `message_exemplar` | `text` | Informative only — the schedule's ``"EHR with <ehr_id> does not exist"`` prose; never a pass/fail criterion (AMB-1). |
-| `state` | `text`, `verified_by?` | A prose postcondition whose machine verification lives in a linked case (the master06 create→get pattern). CI requires either a `verified_by` resolution or an in-case verification step. |
-
-**RESULT_SET equivalence rules** (normative; each rule is either **[spec]**
-— stated by the vendored specs, cited — or **[legislated]** — a proposed
-default the specs are silent on, for SEC ratification with U5):
-
-1. **Comparison scope** — equivalence is over `rows` only; every `meta`
-   field is excluded (**[spec]**: all `ResultSetMetadata` fields optional and
-   "implementation dependent … useful for debugging" —
-   `ITS-REST schemas/query/ResultSetMetadata.yaml`, `docs/query/Response.md`);
-   `columns` are compared only when the case asserts them, since the array
-   itself is optional (**[spec]**: `ResultSet.yaml` `required: [rows]`).
-   Column identity: the `AS` alias, else `#<0-based index>` (**[spec]**:
-   `ResultSetColumn.yaml`).
-2. **Order** — `match: ordered` is legal only when the query carries an
-   ORDER BY that totally orders the expected rows (**[spec]**: absent
-   ORDER BY, "default ordering in results is undefined" — QUERY
-   `master03-syntax.adoc` §ORDER BY; LIMIT determinism requires unique
-   ordering — §LIMIT). Otherwise `match: set`, which despite its name is
-   **bag (multiset)** equality — duplicate rows are significant, because AQL
-   is bag-semantics unless `DISTINCT` is present (**[spec]**: §DISTINCT).
-   `match: count` compares row count only; `match: contains` requires every
-   expected row to appear (bag-wise) with extra rows permitted. ORDER BY
-   semantics: ASC default, left→right lexicographic tie-break (**[spec]**:
-   §ORDER BY).
-3. **Cell equality** — an RM-object cell (carries `_type`) compares by
-   canonical-JSON structural equality (**[spec]**: cells may be full RM
-   objects — QUERY `master04-result_structure.adoc`,
-   `ResultSetRow.yaml`); a scalar numeric cell compares by **numeric
-   value**, not lexeme — `140` = `140.0` (**[legislated]**: no spec rule on
-   projected-scalar number typing); a void cell is encoded as JSON `null`
-   and equals only `null` (**[legislated]**: AQL names the value NULL, the
-   wire encoding is unpinned).
-4. **NULL ordering** — under ORDER BY, null cells sort **last** ascending,
-   **first** descending (**[legislated]**: QUERY is silent on NULL sort
-   position).
-5. **Under-specified orderings are avoided, not legislated** — RM
-   `DV_ORDERED` comparison is itself incompletely specified for partial
-   dates/timezones/durations, so schedule cases MUST NOT order or
-   discriminate on values whose comparison the RM leaves open
-   (**[legislated]** avoidance rule).
-6. **Counts are always determined** — cases pass `fetch`/`LIMIT` explicitly
-   (AMB-6: the default fetch is implementation-defined) and never truncate
-   without a total ordering (**[spec]**: §LIMIT + §ORDER BY).
-
-### 8.7 Format axes — canonical and simplified, first-class
-
-**The media-type matrix** (from `Accept_*`/`ContentType_*` parameter files —
-which formats are legal where):
-
-| Endpoint family | canonical-json | canonical-xml | wt-flat | wt-structured | wt (template) |
-|---|---|---|---|---|---|
-| EHR / EHR_STATUS / DIRECTORY / CONTRIBUTION envelope | ✔ | ✔ | ✘ (415/406) | ✘ (415/406) | ✘ |
-| COMPOSITION (create/update/get) | ✔ | ✔ | ✔ | ✔ | ✘ |
-| Template get | — | ✔ (OPT XML) | ✘ | ✘ | ✔ `application/openehr.wt+json` |
-| Template example | ✔ | ✔ | ✔ | ✔ | ✘ (406) |
-| Query | ✔ (RESULT_SET) | — | ✘ | ✘ | ✘ |
-
-Media types (normative): `application/json`, `application/xml`,
-`application/openehr.wt.flat+json`, `application/openehr.wt.structured+json`,
-`application/openehr.wt+json`. The deprecated aliases
-(`…wt.flat.schema+json`, `…wt.structured.schema+json`) and legacy types
-(`application/openehr.nc.flat+json`, `application/openehr.tds2+xml`) are
-listed in the ITS-REST overview (`Resources.md`) as deprecated/MAY-supported:
-a server MAY still accept them, so cases assert only **correct negotiation
-behaviour** — a type the server does not support yields 406 (Accept) / 415
-(Content-Type) — never mandatory rejection, which would both exceed the spec
-and contradict AMB-39.
-
-Two distinct format models (both defined in §8.3): a case **parameterized
-over** format declares a case-level `formats:` axis and runs once per
-declared format ∩ the run's tech profile; a case whose formats are
-**intrinsic fixed roles** (round-trips like pilot 6) pins `format:` per step
-and is selected only when its required formats ⊆ the tech profile —
-otherwise `not-applicable` with the tech profile as citation. Verdicts are
-per tech profile either way. The ✘ cells are themselves conformance cases
-(the 406/415 negatives).
-
-**The Simplified-Formats chapter blueprint.** The current schedule has NO
-simplified-formats chapter — every existing test anywhere is
-implementation-original. CNF 2.0 adds one, derived case-by-case from the
-STABLE spec (`ITS-REST/docs/simplified_formats/`), in fifteen categories:
-
-1. Round-trip fidelity canonical↔FLAT↔STRUCTURED (commit each form, read all
-   three, leaf equality + `_type` on canonical read; FLAT↔STRUCTURED
-   value-equality per the master04 conversion algorithms).
-2. Node-ID generation (the master04 7-step algorithm: normalisation,
-   lowercase, digit-prefix `a`, sibling-uniqueness `_1` — the worked examples
-   table becomes a decision table).
-3. Level removal (container-attribute elision list; always-collapsed
-   ITEM_STRUCTURE/HISTORY; the conditional EVENT collapse both ways).
-4. Per-RM-type suffix mapping (the 43 master05 tables — DV_QUANTITY
-   `|magnitude`/`|unit` through DV_INTERVAL; each spec-example JSON block is
-   a vector).
-5. `_`-prefixed RM attributes (`_uid`, `_link:i`, `_feeder_audit`,
-   `_normal_range`, `_participation:i`, `_mapping:i`).
-6. `|raw` canonical embedding (must carry `_type`; decomposes correctly).
-7. `ctx/` semantics (mandatory language/territory; `ctx/time` → `now()`
-   default; `ctx/setting` → `openehr::238`; `composer_self` vs
-   `composer_name`; participations compact + expanded forms; the master06
-   default-mapping table).
-8. Instance-index/counter semantics (`:N` zero-based; multi-event,
-   multi-observation; STRUCTURED arrays even at 1..1).
-9. STRUCTURED style rules (nested objects, `|`-props, `ctx` object,
-   empty-object omission).
-10. Reject rules (unknown field → `validation_failed`; `|other`+`|code`
-    mutually exclusive; `|other` on closed list; missing
-    `openehr-template-id`; missing mandatory ctx; datatype/cardinality/
-    binding violations).
-11. Negotiation strictness (q-values; Content-Type presence/match;
-    deprecated + legacy media types → correct 406/415 where unsupported).
-12. Web-Template retrieval shape (`templateId` + `tree` + node-id rules +
-    aqlPath present; the Better-dialect extras are NOT normative).
-13. Template example generation (four `Accept_LOCATABLE` forms; `wt+json` on
-    the example endpoint → 406).
-14. CONTRIBUTION with simplified inner data (canonical envelope, simplified
-    `versions[i].data`).
-15. Scope negatives (EHR_STATUS/DIRECTORY/demographic have no simplified
-    mapping — 406/415).
-
-Simplified Formats is a **SHOULD** in ITS-REST ⇒ the whole chapter sits in
-the OPTIONS profile (capability `SimplifiedFormats`) and never gates
-CORE/STANDARD.
-
-### 8.8 Data-set governance — the corpus manifest
-
-Every fixture and generated set is a manifest entry:
-
-```yaml
-# corpus/MANIFEST.yaml (one entry)
-cnf.ehr_status.is_modifiable_missing:
-  source: fixtures/ehr/invalid/007_ehr_status_is_modifiable_missing.json
-  format: canonical-json
-  rm_versions: [">=1.0.2"]
-  validity:
-    verdict: invalid
-    defect: "RM/Schema: is_modifiable is mandatory"
-    spec_ref: "RM ehr §EHR_STATUS"
-  placeholders: { subject_id: runtime-random }    # the __AUTO-GENERATED__ convention, formalized
-  provenance: "openEHR CNF Robot corpus @33251d2a; vendor markers stripped; re-adjudicated <date>"
-  views: {}          # named projections referenced as ${ds:<key>#<view>}:
-                     #   each view = { select: <path expression over the set>,
-                     #   where: <predicate>, order_by: <path> } — declarative,
-                     #   evaluated over the corpus data, runner-independent
-  recipes: {}        # named row-to-instance synthesis functions referenced as
-                     #   ${recipe:<name>(row)}: name-resolved against the
-                     #   runner's registered recipe set (committed, seeded,
-                     #   deterministic `row → RM-fragment` functions); the
-                     #   manifest entry records name + content digest so any
-                     #   runner can verify it executes the same recipe version
-```
-
-Rules (each answering an observed defect in the current corpus):
-
-- **Verdict + defect live in the manifest, never only in a filename.**
-- **Adjudication register, not silent edits**: a fixture found wrong gets a
-  register entry (defect, citation, disposition: skip-with-citation or
-  spec-derived expectation); history is never rewritten.
-- **Generated sets are recipes**: content decision-table rows and AQL
-  result fixtures are generated from the row values + a context template by
-  committed, seeded, deterministic code — the Alkmaar "randomisable data
-  sets" answered reproducibly. The recipe is part of the corpus.
-- **Per-RM-version variants** are additive overlays (the RM-1.0.x → 1.2.0
-  `_type` discriminator injection pattern), declared in the manifest.
-- **The decision-table literal grammar is normative** (small PEG published
-  with the schemas): ranges `a..b`, lists `[x, y]`, unit-scoped ranges
-  `[cm 5.0..10.0, m]`, terminology codes `openehr::122 (length)` /
-  `local::at0005`, ordinal tuples `1|[local::at0005]`, quantity literals
-  `100 mg`. Violation categories: `rm_schema` (mandatory/typing),
-  `rm_invariant(<name>)` (e.g. `limits_consistent`), `iso8601(<rule>)`,
-  `constraint(<clause>)` (e.g. `C_DV_QUANTITY.list`), each row may list
-  several.
-
-### 8.9 The encoded pilot — official cases, fully encoded
-
-These are the *official* schedule cases (plus two new-chapter candidates),
-encoded losslessly — the proof artifacts the upstream proposal ships with.
-
-**Pilot 1 — `I_EHR_SERVICE.create_ehr-main`** (master06 — both VALID
-data-set classes: class 1.a *omitted* EHR_STATUS with server defaults, and
-the official 16-row *provided*-status matrix; the schedule's own table
-caption mislabels the provided-status table "1.a" against its own class
-list — registered as AMB-12):
-
-```yaml
-id: I_EHR_SERVICE.create_ehr-main
-kind: functional
-component: EHR
-sm_operation: I_EHR_SERVICE.create_ehr
-capabilities: [EhrOperations]
-profiles: [CORE]
-test_purpose: >
-  Creating an EHR succeeds for every valid EHR_STATUS variant, and for an
-  omitted EHR_STATUS the server creates the defaults (is_queryable=true,
-  is_modifiable=true, subject=PARTY_SELF).
-description: "Create new EHR"
-spec_refs:
-  - "SM openehr_platform §I_EHR_SERVICE.create_ehr"
-  - "CNF platform_test_schedule master06 §create_ehr data sets"
-applies: { rm: ">=1.0.2" }
-requires: { server: empty }
-parameters:
-  iteration: single_pass     # all EHRs coexist — the cross-row uniqueness
-                             # postcondition is only meaningful on shared state
-  matrix:
-    columns: [ehr_status, is_queryable, is_modifiable, subject, other_details, ehr_id]
-    rows:
-      # class 1.a — EHR_STATUS omitted (server defaults); with and without client ehr_id
-      - [absent, -,     -,     -,        -,        absent]
-      - [absent, -,     -,     -,        -,        provided]
-      # class 1.b — the official 16-row provided-status matrix, verbatim
-      - [provided, true,  true,  provided, absent,   absent]
-      - [provided, true,  false, provided, absent,   absent]
-      - [provided, false, true,  provided, absent,   absent]
-      - [provided, false, false, provided, absent,   absent]
-      - [provided, true,  true,  provided, provided, absent]
-      - [provided, true,  false, provided, provided, absent]
-      - [provided, false, true,  provided, provided, absent]
-      - [provided, false, false, provided, provided, absent]
-      - [provided, true,  true,  provided, absent,   provided]
-      - [provided, true,  false, provided, absent,   provided]
-      - [provided, false, true,  provided, absent,   provided]
-      - [provided, false, false, provided, absent,   provided]
-      - [provided, true,  true,  provided, provided, provided]
-      - [provided, true,  false, provided, provided, provided]
-      - [provided, false, true,  provided, provided, provided]
-      - [provided, false, false, provided, provided, provided]
-flow:
-  - step: 1
-    call: create_ehr
-    with: { ehr_status: ${recipe:ehr_status(row)}, ehr_id: ${row.ehr_id} }
-    expect: created
-    capture: { new_ehr_id: created.ehr_id }
-postconditions:
-  - { assert: unique, over: ${new_ehr_id}, aggregate: true }   # "ehr_id … should be unique"
-  - { assert: state, text: "EHR exists and is consistent with the data set used
-      (class 1.a rows: server defaults applied)",
-      verified_by: I_EHR_STATUS.get_ehr_status-get_by_ehr_id }
-verified_by: [I_EHR_STATUS.get_ehr_status-get_by_ehr_id]
-ambiguities: [AMB-12]
-```
-
-**Pilot 2 — `I_EHR_SERVICE.create_ehr-same_ehr_twice`** (master06 — the
-state-carrying failure case; the two ehr_id sources the schedule
-distinguishes — "read from the response" vs "read from the test data sets" —
-are the two matrix rows; the exactly-one-EHR postcondition is verified
-in-case):
-
-```yaml
-id: I_EHR_SERVICE.create_ehr-same_ehr_twice
-kind: functional
-component: EHR
-sm_operation: I_EHR_SERVICE.create_ehr
-capabilities: [EhrOperations]
-profiles: [CORE]
-test_purpose: "ehr_id values are unique: re-creating an existing EHR is rejected."
-description: "Attempt to create same EHR twice"
-spec_refs:
-  - "SM openehr_platform §I_EHR_SERVICE.create_ehr"
-  - "CNF platform_test_schedule master06 §create_ehr-same_ehr_twice"
-applies: { rm: ">=1.0.2" }
-requires: { server: empty }
-parameters: { iteration: reset_per_row,
-              matrix: { columns: [ehr_id], rows: [[absent], [provided]] } }
-flow:
-  - step: 1
-    call: create_ehr
-    with: { ehr_id: ${row.ehr_id} }
-    expect: created
-    capture: { first_ehr_id: created.ehr_id }   # server-assigned OR data-set value — both rows covered
-  - step: 2
-    call: create_ehr
-    with: { ehr_id: ${first_ehr_id} }           # "should be read from the response" / "from the test data sets"
-    expect: already_exists
-  - step: 3                                     # in-case verification of the postcondition
-    call: get_ehr
-    with: { ehr_id: ${first_ehr_id} }
-    expect: ok
-    assert:
-      - { assert: instance_of, rm_type: EHR }
-postconditions:
-  - { assert: state, text: "Exactly one EHR exists — the one created in step 1
-      (verified by step 3 retrieving it unchanged)" }
-```
-
-**Pilot 3 — `I_DEFINITION_ADL14.upload_opt-invalid_opt`** (master04 — the
-fixture-set iteration with per-fixture defects; postcondition = unchanged
-server):
-
-```yaml
-id: I_DEFINITION_ADL14.upload_opt-invalid_opt
-kind: functional
-component: DEFINITION_ADL14
-sm_operation: I_DEFINITION_ADL14.upload_opt
-capabilities: [Adl14OptProvisioning]
-exercises: [ArchetypeValidation]
-profiles: [CORE]
-test_purpose: "Invalid OPTs are rejected and leave the server state unchanged."
-description: "upload invalid OPTs"
-spec_refs:
-  - "SM openehr_platform §I_DEFINITION_ADL14.upload_opt"
-  - "CNF platform_test_schedule master04 §upload_opt data sets"
-applies: { rm: ">=1.0.2" }
-requires: { server: empty }
-parameters:
-  iteration: reset_per_row
-  fixture_set:                 # the official invalid-OPT data-set rows, one per defect
-    - { data_set: cnf.opt.invalid.empty_file,          expected: validation_failed, defect: "empty file" }
-    - { data_set: cnf.opt.invalid.empty_template_id,   expected: validation_failed, defect: "empty template_id" }
-    - { data_set: cnf.opt.invalid.removed_mandatory,   expected: validation_failed, defect: "removed mandatory elements" }
-    - { data_set: cnf.opt.invalid.multiple_elements,   expected: validation_failed, defect: "multiple elements where upper bound is 1" }
-flow:
-  - step: 1
-    call: upload_opt
-    with: { opt: ${ds:fixture} }
-    expect: ${fixture.expected}
-postconditions:
-  - { assert: state, text: "No OPTs are loaded on the system",
-      verified_by: I_DEFINITION_ADL14.get_opts-retrieve_all_no_opts }
-verified_by: [I_DEFINITION_ADL14.get_opts-retrieve_all_no_opts]
-ambiguities: [AMB-4]
-```
-
-**Pilot 4 — `I_EHR_COMPOSITION.update_composition-event`** (master07 — the
-versioning case: prerequisites, capture → preceding_version_uid replay,
-RM-level version assertions; the REST binding realizes `preceding_version_uid`
-as `If-Match` per AMB-3):
-
-```yaml
-id: I_EHR_COMPOSITION.update_composition-event
-kind: functional
-component: EHR_COMPOSITION
-sm_operation: I_EHR_COMPOSITION.update_composition
-capabilities: [Versioning]
-exercises: [CompositionOps, ChangeSets]
-profiles: [CORE]
-test_purpose: >
-  Updating an existing event COMPOSITION with the correct
-  preceding_version_uid creates a second VERSION with change_type MODIFY.
-description: "Update an existing event COMPOSITION"
-spec_refs:
-  - "SM openehr_platform §I_EHR_COMPOSITION.update_composition"
-  - "CNF platform_test_schedule master07 §update_composition-event"
-  - "RM common §change_control (VERSION.commit_audit.change_type)"
-applies: { rm: ">=1.0.2" }
-requires:
-  server: any
-  templates: [cnf.opt.minimal_event]
-  ehr: { commits: none }                 # mints ${ehr_id}
-data_sets: [cnf.composition.minimal_event.v1, cnf.composition.minimal_event.v2]
-flow:
-  - step: 1
-    call: create_composition
-    with: { ehr_id: ${ehr_id}, composition: ${ds:cnf.composition.minimal_event.v1} }
-    expect: created
-    capture: { preceding_version_uid: created.version_uid,
-               versioned_object_uid: created.versioned_object_uid }
-  - step: 2
-    call: update_composition
-    with: { ehr_id: ${ehr_id},
-            composition: ${ds:cnf.composition.minimal_event.v2},
-            versioned_object_uid: ${versioned_object_uid},
-            preceding_version_uid: ${preceding_version_uid} }   # ITS-REST: If-Match (AMB-3)
-    expect: updated
-    capture: { v2_uid: updated.version_uid }
-    assert:
-      - { assert: version, of: ${v2_uid}, uid_pattern: "${versioned_object_uid}::<system>::2" }
-postconditions:
-  - { assert: version, count: 2 }
-  - { assert: version, of: ${preceding_version_uid}, change_type: CREATE }
-  - { assert: version, of: ${v2_uid},                change_type: MODIFY }
-  # NOTE: a strengthening addition — master07 places the "content check" in the
-  # get_composition cases, not in update_composition; kept here as extra rigor.
-  - { assert: equivalent, to: committed, ignoring: server_assigned }
-ambiguities: [AMB-3]
-```
-
-(The negative siblings: the official `update_composition-non_existent` —
-step 2 `with: preceding_version_uid: random`, `expect: version_not_found` —
-and the REST-specific stale-latest variant, `expect: precondition_failed`
-→ 412 with the latest ETag. Both outcome kinds are mapped by the
-update_composition binding, §8.4.)
-
-**Pilot 5 — `CONT-DV_QUANTITY-validate_property_units_mag`** (master17.3,
-the richest official decision table, verbatim rows — structured constraint
-literals; this table carries one violation per row, and the `violates` list
-form also covers the multi-violation rows used elsewhere in master17):
-
-```yaml
-id: CONT-DV_QUANTITY-validate_property_units_mag
-kind: content
-component: CONTENT
-rm_class: DV_QUANTITY
-capabilities: [ArchetypeValidation]
-profiles: [CORE]
-test_purpose: >
-  A committed DV_QUANTITY is accepted iff it satisfies the C_DV_QUANTITY
-  property + units-list + per-unit magnitude-range constraints.
-description: "DV_QUANTITY against C_DV_QUANTITY with property, units and magnitude range"
-spec_refs:
-  - "CNF platform_test_schedule master17.3 §CONT-DV_QUANTITY-validate_property_units_mag"
-  - "AM aom14 §C_DV_QUANTITY"
-  - "RM data_types §DV_QUANTITY"
-applies: { rm: ">=1.0.2" }
-constraint_context:
-  template: cnf.tpl.quantity_property_units_mag    # C_DV_QUANTITY: property=openehr::122, list=[cm 5.0..10.0, m]
-  path: "/content[...]/value"
-decision_table:
-  columns: [magnitude, units, expected, violates]
-  rows:
-    - [null, null, rejected, ["rm_schema: magnitude and units are mandatory"]]
-    - [null, "cm", rejected, ["rm_schema: magnitude is mandatory"]]
-    - [1.0,  null, rejected, ["rm_schema: units is mandatory"]]
-    - [0.0,  "mg", rejected, ["constraint(C_DV_QUANTITY.property): mg is not a length unit"]]
-    - [0.0,  "cm", rejected, ["constraint(C_DV_QUANTITY.list): magnitude not in range for unit"]]
-    - [0.0,  "km", rejected, ["constraint(C_DV_QUANTITY.list): km is not allowed"]]
-    - [1.0,  "cm", rejected, ["constraint(C_DV_QUANTITY.list): magnitude not in range for unit"]]
-    - [5.7,  "cm", accepted, []]
-    - [10.0, "cm", accepted, []]
-```
-
-(Execution semantics: each row generates a composition from the context
-template with the row's DV_QUANTITY, commits it via
-`I_EHR_COMPOSITION.create_composition`, and expects
-`created`/`validation_failed` per the verdict — the generation recipe lives
-in the corpus, §8.8.)
-
-**Pilot 6 — `SF-FLAT-commit_roundtrip_ctx_defaults`** (new-chapter candidate,
-categories 1+7 — every rule cited to the STABLE Simplified Formats spec; an
-*intrinsic-format* case: the formats are fixed roles per step, and the case
-is selected only when its required formats ⊆ the run's tech profile, §8.7):
-
-```yaml
-id: SF-FLAT-commit_roundtrip_ctx_defaults
-kind: functional
-component: SIMPLIFIED_FORMATS
-sm_operation: I_EHR_COMPOSITION.create_composition
-capabilities: [SimplifiedFormats]
-profiles: [OPTIONS]           # SHOULD-level per ITS-REST — never gates CORE/STANDARD
-test_purpose: >
-  A FLAT composition committed with minimal ctx round-trips to canonical
-  JSON and STRUCTURED with equal clinical leaves, and the ctx defaults
-  (time→start_time now(), setting→openehr::238) are applied.
-description: "FLAT commit, three-format read-back, ctx defaulting"
-spec_refs:
-  - "ITS-REST simplified_formats master02 §MIME Types"
-  - "ITS-REST simplified_formats master04 §Field Identifiers, §Validation"
-  - "ITS-REST simplified_formats master06 §ctx defaults"
-  - "ITS-REST overview Requests_and_responses §openehr-template-id"
-applies: { rm: ">=1.0.2", its_rest: ">=1.1.0" }
-requires:
-  server: any
-  templates: [cnf.opt.vitals]
-  ehr: { commits: none }                 # mints ${ehr_id}
-data_sets: [cnf.flat.vitals.minimal_ctx]
-flow:
-  - step: 1
-    call: create_composition
-    format: wt-flat                      # intrinsic role; binding adds openehr-template-id
-    with: { ehr_id: ${ehr_id}, composition: ${ds:cnf.flat.vitals.minimal_ctx} }
-    expect: created
-    capture: { version_uid: created.version_uid }
-  - step: 2
-    call: get_composition
-    format: canonical-json
-    with: { ehr_id: ${ehr_id}, version_uid: ${version_uid} }
-    expect: ok
-    assert:
-      - { assert: instance_of, rm_type: COMPOSITION }
-      - { assert: field, path: "context/setting", equals: "openehr::238|other care|" }   # master06 default
-      - { assert: field, path: "context/start_time", exists: true }                      # ctx/time → now()
-      - { assert: field, path: "content[0]/data/events[0]/data/items[0]/value/magnitude",
-          equals: ${ds:cnf.flat.vitals.minimal_ctx#temperature_magnitude} }              # named view (§8.8)
-  - step: 3
-    call: get_composition
-    format: wt-flat
-    with: { ehr_id: ${ehr_id}, version_uid: ${version_uid} }
-    expect: ok
-    capture: { flat_readback: ok.body }
-    assert:
-      - { assert: equivalent, to: committed, ignoring: [ctx_defaults, server_assigned] }
-  - step: 4
-    call: get_composition
-    format: wt-structured
-    with: { ehr_id: ${ehr_id}, version_uid: ${version_uid} }
-    expect: ok
-    assert:
-      - { assert: equivalent, to: ${flat_readback}, ignoring: [] }   # FLAT↔STRUCTURED value-equality (master04)
-```
-
-**Pilot 7 — `I_QUERY_SERVICE.execute_adhoc-where_magnitude`** (new-chapter
-candidate for the empty master11 — deterministic, RESULT_SET-shape-aware;
-bulk data load is precondition state via `requires.commit`, not a flow call):
-
-```yaml
-id: I_QUERY_SERVICE.execute_adhoc-where_magnitude
-kind: functional
-component: QUERY
-sm_operation: I_QUERY_SERVICE.execute_adhoc_query
-capabilities: [AqlBasic]
-profiles: [STANDARD]
-test_purpose: >
-  An ad-hoc AQL query with a WHERE predicate on DV_QUANTITY.magnitude
-  returns exactly the matching compositions, as a spec-shaped RESULT_SET.
-description: "Ad-hoc AQL, WHERE on magnitude, ordered result"
-spec_refs:
-  - "QUERY AQL 1.1 §WHERE, §ORDER BY"
-  - "ITS-REST query §Response (RESULT_SET: rows required; columns, meta optional)"
-applies: { rm: ">=1.0.2", aql: ">=1.1" }
-requires:
-  server: any
-  templates: [cnf.opt.blood_pressure]
-  ehr: { commits: none }                 # mints ${ehr_id}
-  commit: [cnf.set.bp-10]                # generated: 10 BP compositions, magnitudes 100..190 (recipe in corpus)
-flow:
-  - step: 1
-    call: execute_adhoc_query
-    with:
-      q: >
-        SELECT c/uid/value AS uid FROM EHR e CONTAINS COMPOSITION c
-        CONTAINS OBSERVATION o [openEHR-EHR-OBSERVATION.blood_pressure.v2]
-        WHERE o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude >= $mag
-        ORDER BY c/uid/value ASC
-      query_parameters: { mag: 140 }
-      fetch: 100               # AMB-6: fetch always explicit
-    expect: ok
-    assert:
-      - { assert: result_set, match: ordered,
-          rows: { from: "${ds:cnf.set.bp-10#magnitude_ge_140_by_uid}" },   # named view (§8.8)
-          columns: [{ name: uid }] }
-```
-
-**Pilot 8 — `I_EHR_CONTRIBUTION.commit_contribution-valid_invalid_compositions`**
-(master08 — the construct v3 could not express: one CONTRIBUTION carrying
-multiple VERSIONs, judged as a single atomic transaction; master08's note:
-"the whole commit should behave like a transaction and fail"):
-
-```yaml
-id: I_EHR_CONTRIBUTION.commit_contribution-valid_invalid_compositions
-kind: functional
-component: EHR_CONTRIBUTION
-sm_operation: I_EHR_CONTRIBUTION.commit_contribution
-capabilities: [ChangeSets]
-profiles: [CORE]
-test_purpose: >
-  A CONTRIBUTION containing one valid and one invalid COMPOSITION is
-  rejected atomically — no VERSION of either is created.
-description: "One commit, multiple versions, one invalid — transactional rejection"
-spec_refs:
-  - "SM openehr_platform §I_EHR_CONTRIBUTION.commit_contribution"
-  - "CNF platform_test_schedule master08 §commit_contribution-valid_invalid_compositions (+ transaction note)"
-applies: { rm: ">=1.0.2" }
-requires:
-  server: any
-  templates: [cnf.opt.minimal_event]
-  ehr: { commits: none }                 # mints ${ehr_id}
-flow:
-  - step: 1
-    call: commit_contribution
-    with:
-      ehr_id: ${ehr_id}
-      versions:                          # the bundled-payload construct (§8.3)
-        - { data: ${ds:cnf.composition.minimal_event.v1},               change_type: creation }
-        - { data: ${ds:cnf.composition.minimal_event.invalid_structure}, change_type: creation }
-    expect: validation_failed            # ONE aggregate outcome — the commit is a transaction
-postconditions:
-  - { assert: version, count: 0 }        # atomicity: nothing was committed
-```
-
-(The positive sibling, `commit_contribution-valid_compositions`, commits two
-valid versions in one CONTRIBUTION, `expect: created`, captures
-`version_uids: created.version_uids[]`, and asserts
-`{ assert: version, for_each: ${version_uids}, change_type: CREATE }` +
-`{ assert: version, count: 2 }` — exercising the list-capture and
-per-element assertion machinery. Mixed-RM-type sets — COMPOSITION +
-EHR_STATUS + FOLDER in one CONTRIBUTION — use the same `versions[]`
-construct with per-member `data`.)
-
-### 8.10 The ICS (statement), results, and IXIT schemas
-
-Field-level contracts (JSON Schemas published with the schedule):
-
-**`statement.json` — the ICS + SDoC** — one artifact deliberately carrying
-two distinct standard roles: the **ISO/IEC 9646 ICS** (the capability
-proforma that drives test selection) *and* the **ISO/IEC 17050-1**
-supplier's-declaration content that makes it a legal SDoC (distinct
-artifacts in the source standards, combined here as one computable file):
+## 8. The party documents, the verdicts and the measured instruments
+
+The conformance catalogue is Arazzo 1.1.0 workflows over the released ITS-REST
+operations, and its design is §15: the layout, the three extensions, the
+condition profile, the gates, the results and their exports. This section
+holds what sits around it: the documents a party supplies and receives
+(§8.10), how a statement selects what runs and how verdicts are computed
+(§8.11), how the instrument proves its own judgement (§8.12), the
+performance and volumetrics schedule (§8.14), the Security & Privacy
+schedule (§8.15) and the universal benchmark (§8.16).
+
+Two verdict machineries share one discipline. **Conformance by assertion** is
+the catalogue: each workflow row ends passed, failed, errored or skipped,
+every red row carries its four-part explanation, and a capability folder's
+rows count for that capability (§15.8, §15.12). **Conformance by
+measurement** is the performance schedule under `perf/`: measured metrics
+against class thresholds, bound to a declared environment (§8.14). Both are
+pure functions of recorded data.
+
+The case-core catalogue that §8 used to describe (case cores, operation
+bindings per SM operation, the outcome-kind taxonomy, the ambiguity register,
+the corpus manifest and the machine gates over them) was retired at the
+cut-over (#604). Every old case id resolves to the workflows that carry it
+through `catalogue/id-map.yaml`. References elsewhere in this record to
+§8.1–§8.9 and §8.13 name sections of that retired design, whose text stays in
+the history before #604; the RESULT_SET equivalence rules moved to §15.11 and
+the decision-table literal grammar to §15.7.
+
+### 8.10 The statement, results and IXIT documents
+
+Field-level contracts, each published as a JSON Schema under `schemas/`:
+
+**`statement.json` — the ICS + SDoC** — one artifact carrying two standard
+roles: the **ISO/IEC 9646 ICS** (the capability proforma that drives test
+selection) *and* the **ISO/IEC 17050-1** supplier's-declaration content that
+makes it a legal SDoC:
 
 | Field | Semantics |
 |---|---|
 | `product` ∎ | name, **exact version/build**, vendor, unique product identifier |
-| `schedule_release` ∎ | the CNF schedule release the claims are made against |
-| `spec_versions` ∎ | declared RM/AQL/ITS-REST/TERM versions (drives `applies` filtering) |
-| `claims` ∎ | claimed capabilities + profiles, validated against the machine-readable capability matrix (§8.2 family 3) |
-| `tech_profiles` ∎ | which format/protocol matrices are claimed (e.g. `[its-rest: [canonical-json, canonical-xml, wt-flat]]`) |
-| `options` | declared behaviour for register-listed implementation choices (e.g. AMB-4: conflict vs version-param) |
-| `performance` | the claimed **volumetric class per declared environment** (`POC`/`S`/`L`/`R`, §8.14) — a verdict input for the performance dimension: the claim selects the performance cases to run, and the earned class is computed from measured `results.json` thresholds exactly like functional verdicts |
-| `non_functional` | remaining declaration-only slots (security/privacy *posture* beyond the §8.15 SEC-BASIC behaviours: encryption configuration, pseudonymisation-on-export) — never verdict inputs |
-| `evidence` ∎ | hash links to the `results.json` files backing the claims |
-| `attestation` | rung ≥ 1: signatory name/role/date + the §6.4 responsibility sentence |
+| `schedule_release` ∎ | the release the claims are made against |
+| `spec_versions` | declared RM/AQL/ITS-REST/TERM versions (the `applies` ranges of §15.12 read them) |
+| `claims` ∎ | `capabilities`: the capability folders under `catalogue/cases/` the party claims; every workflow of a document in another folder is skipped `not-claimed` |
+| `tech_profiles` | which formats are claimed (e.g. `[its-rest: [canonical-json, canonical-xml, wt-flat]]`) |
+| `options` | one arm per option of `catalogue/capabilities.yaml`; the documents of every other arm are skipped `option-not-selected` |
+| `performance` | the claimed **volumetric class per declared environment** (`POC`/`S`/`L`/`R`, §8.14) |
+| `non_functional` | declaration-only slots (security posture beyond what the catalogue tests: encryption configuration, pseudonymisation on export) — never verdict inputs |
+| `evidence` | hash links to the results backing the claims |
+| `attestation` | signatory name/role/date + the §6.4 responsibility sentence |
 
 Version-binding rule: a statement pins the exact product version; a new
 version needs a new statement or a signed "conformance-relevant surface
 unchanged" attestation referencing the prior evidence.
 
-**`results.json` — the conformance test report** (9646 PCTR analogue):
+**`results.json` of a catalogue run — the conformance test report** (9646
+PCTR analogue), published as `schemas/arazzo-results.schema.json`: one row per
+workflow row, each passed, failed, errored or skipped; a skipped row carries
+its reason from the closed list of §15.8 and its citation, and a red row its
+four-part explanation and the HAR entry it was judged on. Mapping to the
+ISO/IEC 9646 verdicts: passed→pass, failed→fail, errored→**inconclusive**;
+skipped is not a 9646 verdict, it records ICS-driven selection. The
+recording (`recording.har`) beside it holds every exchange, so a re-judgement
+reproduces the document byte for byte.
 
-| Field | Semantics |
-|---|---|
-| `sut` ∎ | product identity + deployment description |
-| `runner` ∎ | harness name, version, **verification-pack status** (§8.12) |
-| `schedule_release` ∎, `tech_profile` ∎ | what was run, under which format matrix |
-| `ixit_digest` ∎ | hash of the ixit.json used (reproducibility) |
-| `outcomes[]` ∎ | per case × format × row: `passed \| failed \| errored \| skipped \| not-applicable`, with **rows_driven/rows_total**, the failing step + assertion on failure, and a mandatory citation on every N/A, skip, and guard exclusion |
-| `measurements` | performance runs: per-case metric values + per-class `earned \| not-earned` verdicts, with the mandatory environment block (§8.14) |
-| `ambiguity_dispositions` | which register options the run exercised |
+**`results.json` of a measured campaign** (`schemas/results.schema.json`):
+the SUT identity, the runner, the `ixit_digest`, and `measurements`: per
+performance case the metric values, the encoded HDR histograms and the
+`earned | not-earned` class verdict, with the mandatory environment block
+(§8.14).
 
-`errored` (transport/SUT fault) is never a conformance finding. Mapping to
-the ISO/IEC 9646 verdicts: `passed`→pass, `failed`→fail,
-`errored`→**inconclusive**; `not-applicable` and `skipped` are **not** 9646
-verdicts — they record ICS-driven selection and guard exclusions, each with
-a mandatory citation. Coverage is computable: cases driven / cases selected
-by the ICS, per profile.
-
-**`ixit.json`** (9646 IXIT): the SUT **topology** — one or more **named
-instances** (each: base URL, auth mode + credentials reference, admin mount,
-template-id policy, system-id expectations, per-endpoint overrides) plus the
-**environment block** (hardware class, cores, memory, storage class,
-deployment topology — mandatory for performance runs, §8.14).
-Single-instance platform cases use the default instance `sut`; Enterprise
-dual-instance cases (§11.11) address `source`/`target` via the flow `on:`
-selector (§8.3); performance verdicts bind to the environment. One file
-drives any runner against any SUT topology. (The ECC's `SutDescriptor` was
-the donated draft; the shipped contract is `schemas/ixit.schema.json`.)
+**`ixit.json`** (9646 IXIT): the SUT **topology**, one or more **named
+instances** (each: base URL, auth mode and the names of the variables its
+credentials are read from) plus the **environment block** (hardware class,
+cores, memory, storage class, deployment topology — mandatory for
+performance runs, §8.14). A rows file's `declared` inputs read their values
+from it (§15.7). The shipped contract is `schemas/ixit.schema.json`.
 
 ### 8.11 ICS-driven selection and verdict computation
 
-Mechanical pipeline, normative — a pure function of (statement, results,
-catalogue, **capability matrix**):
+A pure function of (statement, IXIT, catalogue, recording):
 
-1. **Static conformance review** of the statement: claim-set legality
-   against the capability matrix (STANDARD ⇒ all CORE capabilities claimed),
-   spec-version consistency, option declarations present for every register
-   entry the claims touch, an environment block present when a performance
-   class is claimed.
-2. **Selection**: cases whose `capabilities` ∩ claimed capabilities ≠ ∅,
-   filtered by `applies` × declared spec versions. `guards` is prose and
-   filters nothing.
-   **2b — option deselection**: a case carrying an `option:` tag is selected
-   only when the ICS `options` declaration matches it; the sibling
-   realizing the undeclared behaviour is recorded `not-applicable` with the
-   ICS declaration as citation (AMB-167).
-   **2c — performance selection**: the claimed class per environment selects
-   that class's performance cases; unclaimed classes are not run (a product
-   claims S, it is measured for S — running R unasked is a runner choice,
-   reported but not demanded).
-3. **Execution**: per case × tech-profile format × parameter row, under the
-   interpreter laws: **(a)** `reset_per_row` re-establishes the whole
-   `requires` block around every row — for `server: empty` that means a
-   fresh tenant/scope per row (cases where that cost is disproportionate use
-   `single_pass`, which exists for exactly this reason); **(b)** a step whose
-   observed outcome differs from `expect` fails the row and **aborts its
-   remaining steps and row postconditions**; **(c)** transport/connection
-   faults, timeouts, and responses no binding outcome maps → `errored`
-   (inconclusive) — a *mapped but unexpected* outcome → `failed`;
-   **(d)** `${time:before(t)}` = t − 1 ms, `${time:after(t)}` = t + 1 ms,
-   `${time:between(t1,t2)}` = the midpoint — fixed rules so two runners
-   query identical instants; **(e)** aggregate assertions collect their
-   `over:` capture across all rows and evaluate once after the last row.
-4. **Verdicts — computed per tech profile**: case passes iff every selected
-   row passes in that tech profile. A failed case marks **every**
-   verdict-bearing capability it lists `Failed` (which is why `capabilities`
-   stays minimal and coverage moves to `exercises`, §8.3). Capability
-   evidence: `Passed` (≥1 case ran, none failed) / `Failed` /
-   `Inconclusive` / `NotEvidenced` / `NotClaimed` (the printed coverage
-   bounds; the former `Unrealized`/`NoCases` states are unrepresentable
-   since the FerroEHR#626 ratchet). Profile verdicts
-   per the capability matrix: CORE/STANDARD = all required capabilities
-   `Passed`; OPTIONS = any. `report_only`-disposition cases (AMB-5, AMB-29)
-   report but never gate.
-5. **Measured verdicts** (the second machinery): per claimed class, every
-   §8.14 threshold holds in one measured run ⇒ class `earned`, else
-   `not-earned`; bound to the ixit environment.
-6. Everything above is a pure function of (statement, results, catalogue,
-   capability matrix) — a reference implementation ships with the schemas;
-   any two conformant implementations MUST compute identical verdicts.
+1. **Static review** of the statement (`validate --statement`): the published
+   schema, every claimed capability a capability folder, every selected arm
+   an arm of an option in `capabilities.yaml`, one arm per option.
+2. **Selection** (§15.8, §15.12): a document outside the claim is skipped
+   `not-claimed`, one under an unselected arm `option-not-selected`, one
+   outside its `applies` range `version-out-of-range`, and a row whose
+   declared value is missing `not-declared`. Shared setups run where a claimed
+   document depends on them.
+3. **Execution** under the condition profile (§15.6): every exchange recorded
+   as HAR 1.2, every criterion judged, and an evaluation error makes the row
+   errored, never failed.
+4. **Verdicts**: a row passes iff every criterion holds. Only failed counts
+   against the server, and a row whose failing criteria are all `should` is
+   advisory and never counts against a capability. `veredictum test` exits
+   `1` when a row failed (not advisory) or errored.
+5. **Measured verdicts** (the second machinery, `veredictum verdicts`): per
+   measurement, every §8.14 threshold of its performance case is re-derived
+   from the embedded histograms; a stored verdict that does not re-derive, a
+   claimed class with no measurement, and a claim with no environment
+   reference are review findings.
 
-### 8.12 Runner verification — the two-part pack
+Any two conformant implementations of this pipeline MUST compute identical
+verdicts from the same inputs.
 
-A runner claims schedule compliance through:
+### 8.12 Runner verification
 
-1. **Verdict conformance** — replay a fixed transcript and reproduce the
-   adjudicated verdicts + emit schema-valid `results.json`. The transcript
-   is itself a specified artifact (`transcript.schema.json`): an ordered
-   sequence per case × format × row of `{ step, request: {method, path,
-   headers, body_digest}, response: {status, headers, body},
-   expected_verdict, adjudication_ref }` — replayed by sequence (the fixture
-   server answers the Nth matching request with the Nth response; matching =
-   method + path + negotiated media type), including deliberate
-   fail/N-A/skip/guard outcomes and the AMB-1 error-body variants. A fixture
-   server suffices. The replay JUDGES OR REFUSES, on both seams: a step's
-   assertions are evaluated from the recorded exchange or the entry is
-   refused naming the families the replay cannot judge, judged
-   postconditions are refused the same way (a transcript records the flow's
-   own exchanges and nothing else — no versioned read, no corpus resolution,
-   no instance posture), and a case that reads a provisioned `requires`
-   handle is refused, because the transcript records no provisioned handles
-   for a replayed value to be faithful to. A pack entry never claims a
-   verdict over an assertion the replay did not evaluate.
-2. **Live-SUT conformance** — drive ≥ 2 independent live SUTs (different
-   vendors) from their `ixit.json` and produce results consistent with those
-   SUTs' published baselines. Two SUTs, not one recording, so no single
-   implementation's wire quirks become the de-facto reference. Transcript
-   expectations are adjudicated against spec text via the register, never
-   against whichever SUT emitted them.
-
-### 8.13 CI on specifications-CNF — the machine gates
-
-Every PR: schema validation of all seven artifact families; id uniqueness +
-no-reuse; `sm_operation` resolution against the SM; `spec_refs` link check;
-binding completeness (every outcome kind a case uses is mapped by every
-declared ITS binding of its operation; every capture a case uses has a wire
-source); `verified_by` resolution; corpus-manifest integrity (every
-referenced key exists; every fixture has a verdict + provenance); ambiguity
-links resolve; `option:` tags resolve to register entries;
-capability-vs-tier consistency against the Profiles matrix; reference and
-sentinel grammar checks (`${…}` forms, `absent`/`provided`/`null`);
-decision-table literals parse against the published grammar;
-prose regeneration succeeds. This is the mechanism that lets the repo accept
-community PRs without a bottleneck maintainer — the ECC coverage-guard
-discipline, generalized; it runs here as `validate`'s gates plus the
-integration suite (`app/veredictum/tests/`).
-
-The **`surface-coverage` gate** (issue FerroEHR#271) closes the loop on breadth: it
-enumerates the spec-defined wire surface from the RELEASED sources only — the
-SM platform interfaces (`specs/openehr/SM/`) × their ITS-REST-docs-text
-wire branches, never the OAS — and fails on any behaviour (an SM operation,
-a realized binding's outcome/format branch, or a cross-cutting header/
-negotiation/error-family element) with neither a covering case nor an
-adjudicated `vocab/wire_surface.yaml` exception. Silence is not coverage;
-coverage only ratchets up. `veredictum validate --specs … --write-report`
-refreshes the deterministic per-interface/per-binding coverage report at
-`<root>/coverage-report.md`, beside the artifact families it measures, so the
-report follows the tree it describes rather than wherever the specs happen to
-be mounted. This repository does not commit its own copy: nothing re-runs the
-flag on a catalogue change, and a stale coverage record is worse than a
-regenerated one.
-
-The **claim-completeness gates** (issue FerroEHR#622) close the same loop on the CLAIM
-side, so a certification claim can never be hollow. Half of them read the
-capability matrix alone, and half are relations between a claim and the
-catalogue — the static conformance review of ISO/IEC 9646-1 and -7. Nothing is
-swept from beside the artifact root: ISO/IEC 9646-7 assigns an ICS proforma's
-support and supported-values columns to the supplier of the implementation, so
-a declaration is SUPPLIED, by `veredictum validate --statement <file>` or by
-the run and judgement commands that already take one (#465).
-
-- **`claim-completeness`** — a capability a SUPPLIED declaration claims must have at
-  least one verdict-bearing catalogue case (an active case naming it whose
-  gating is not suspended by a `report_only` register entry). Declaring a
-  capability IS the obligation to run the framework against it, so a hollow
-  claim fails before any SUT is composed. A capability whose cases ALL resolve
-  excused (an unrealized wire) or deselected (an undeclared option branch)
-  must additionally name the register entry that adjudicated that in its
-  matrix row's `evidence_exception`; the reverse also bites — an
-  `evidence_exception` on a capability that can carry executed evidence is
-  stale and must go, so an excuse can never outlive the wire it excused.
-  ISO/IEC 9646 test selection legitimizes "not applicable" only for a
-  capability a party does NOT claim.
-- **`capability-depth`** — one token case never certifies a capability. Each
-  matrix row records `min_cases`, the verdict-bearing case count its battery
-  must keep; falling below it names the capability and the shortfall. Floors
-  ratchet UP only: raising one to the current depth is always safe, so the
-  committed floors are derived from the catalogue and re-derived by a test.
-- **`workload-coverage`** — a MATRIX ROW the measured
-  hospital-simulation workload does not exercise must carry a register-linked
-  `workload_exclusion` on its matrix row, which the certificate's Workload
-  Coverage table renders in place of the bare `NO — catalogue gap` cell; an
-  exclusion on a capability the simulation has since started exercising is
-  stale and must go. No released openEHR component governs a measured
-  workload at all (CNF guide `master03-overview.adoc` §Product Scope assesses
-  API conformance and data-validation conformance only), so the whole
-  instrument — and every exclusion from it — is our own design/extension,
-  declared once in the register and enumerated per capability in the matrix.
-
-The matrix row also carries **`realization: released-wire | extension`**,
-rendered as its own certificate column: an `extension` row is verified over
-routes no openEHR specification governs, so it may never be `required` and no
-openEHR profile tier ever rests on it.
-
-**Extension realizations (issue FerroEHR#623).** Where a capability the CNF Profiles
-book names has NO released wire, the honest question is not "can we excuse
-it?" but "does the product serve it at all?", and the answer decides the row:
-
-- **The product serves it on a declared route** → the operation's binding
-  carries an `extension:` block (`family` + `reason` + `source` + the register
-  `ambiguity`) alongside its full request/outcomes form, and its battery is
-  EXECUTED. `extension` and `unrealized` are mutually exclusive by
-  construction.
-- **Nothing serves it** → the STATEMENT stops claiming the capability. A claim
-  with no testable surface is the dishonest row; ISO/IEC 9646 test selection
-  legitimizes "not applicable" precisely for a capability a party does NOT
-  claim. The matrix row stays (the matrix is the Profiles book as data, not a
-  claim list) and keeps its `evidence_exception` as a statement of catalogue
-  fact.
-
-The fence around an extension realization is the **`realization-scope`** gate,
-not a convention: the binding's `family` and request-path SHAPE must resolve in
-the `served_extensions` axis (so a binding can only drive a route the SUT
-declares outwardly), its adjudication must resolve in the register, a
-capability whose verdict-bearing cases ALL drive extension bindings must carry
-`realization: extension`, and the mirror bites too — an `extension` marker on a
-capability whose cases drive released operations is stale and understates the
-conformance the product earned. Extension bindings are also excluded from the
-released-path set the Axis-4 claim check compares against, since their paths
-are by construction the declared extension routes.
-
-Extension realizations are also **party-scoped at SELECTION** (`run.rs`,
-beside the option-branch and version-floor arms): a case driving an extension
-binding is not-applicable — with the family + register id as its citation —
-for a party whose statement claims none of the case's capabilities. A route
-openEHR does not specify is an offer only the party that CLAIMS it answers
-for; driving it at another vendor's system under test would publish failures
-for routes that vendor never offered to serve, and the published comparison
-has to be honest in both directions.
+The instrument proves its own judgement with the verification pack under
+`verification-pack/arazzo/`: recorded HAR exchanges for a passing, a failing,
+an errored and an ETag-variant row, and the adjudicated results each must
+re-judge into (`expected.json`). The integration suite re-judges every
+recording and requires the adjudicated rows; a tampered adjudication must
+fail the comparison, which is the pack's own falsifiability requirement.
+Live-SUT conformance stays a second leg: the catalogue is driven against at
+least two independent live SUTs, and every disagreement is attributed under
+`.claude/rules/cnf-triage.md` before anything changes.
 
 ### 8.14 The performance & volumetrics schedule
 
@@ -1953,8 +627,8 @@ test_purpose: >
   journeys over the whole claimed platform surface, the platform sustains
   the class-S latency and throughput thresholds on every operation.
 spec_refs: ["CNF 2.0 performance schedule §classes (this proposal; 2017 schedule lineage)"]
-class: S                        # POC | S | L | R — the selection key (§8.11 step 2c);
-                                # performance cases carry no `capabilities` (§8.3)
+class: S                        # POC | S | L | R — the selection key (§8.11 step 5);
+                                # performance cases carry no `capabilities`
 corpus: cnf.scale.100k          # synthesized corpus recipe (§11.11 scale classes)
 workload:                       # OPEN-LOOP offered load:
   arrival_rate: 15/s            #   the class-S floor (table below), in aggregate
@@ -2034,7 +708,7 @@ already sustains 4× it — and the class-R floor (1,500/s) is a
 server/scaled-deployment target bracketed by NHS Spine's published peak,
 consistent with its "Region" intent.
 
-Performance case fields (∎ beyond the §8.3 commons — `id`, `kind`,
+Performance case fields (∎ beyond the common fields — `id`, `kind`,
 `component`, `description`, `test_purpose`, `spec_refs`): `class` ∎,
 `corpus` ∎, `workload` ∎ (`arrival_rate` ∎, `warmup` ∎, `duration` ∎,
 `mix` ∎), `thresholds` ∎. The **knee-finding ladder is not a case** — it is
@@ -2134,21 +808,19 @@ realized as an **assertion-machinery capability family** (§8's architecture:
 these are testable functional behaviours — this is explicitly NOT a security
 evaluation scheme in the Common Criteria sense, §11.9). The family's first
 level is **SEC-BASIC** (the 2017 schedule's "BASIC" rung); higher levels are
-future SEC work. SEC-BASIC's conformance points, each an ordinary §8.3 case
-family:
+future SEC work. SEC-BASIC's conformance points, each a family of ordinary workflows:
 
 | Point | Conformance behaviour | Anchor |
 |---|---|---|
 | **EHR/demographic separation** | No demographic identifying content is reachable through EHR-side endpoints: `EHR_STATUS.subject` carries only opaque external refs / PARTY_SELF; EHR queries cannot join demographic records without demographic-service authorization. | 2017 schedule Security BASIC (lineage); RM ehr §EHR_STATUS.subject |
 | **Authenticated access enforced** | Every platform route rejects unauthenticated requests (`401`) — a negative sweep over the route table. | ITS-REST overview §HTTP status codes |
-| **Authorization separation** | Admin-family operations reject non-administrative principals (`403`); read-only principals cannot commit. The premise is DECLARED, never presumed: SM delegates access control (master02 §Functional Style), so which roles a principal holds is the IXIT's `administrative` posture, and the refusal cases select only where the party declares the split (register AMB-228). | ITS-REST overview §HTTP status codes (the code of a refusal); SM openehr_platform master02 §Functional Style (the delegation) |
-| **Audit accountability** | Every change-controlled commit carries `commit_audit` with committer identity and **server-set** `time_committed` (client value ignored — the §8.4 commit-metadata rule as a security assertion); audit-event emission on writes where an audit log is supported (IHE ATNA-shaped). | RM common §change_control; ITS-REST overview §openehr-audit-details |
+| **Authorization separation** | Admin-family operations reject non-administrative principals (`403`); read-only principals cannot commit. The premise is DECLARED, never presumed: no released operation discloses which roles a principal holds (upstream report #757), so the run's administrative principal is the one `--admin-auth` presents. | ITS-REST overview §HTTP status codes (the code of a refusal) |
+| **Audit accountability** | Every change-controlled commit carries `commit_audit` with committer identity and **server-set** `time_committed` (client value ignored); audit-event emission on writes where an audit log is supported (IHE ATNA-shaped). | RM common §change_control; ITS-REST overview §openehr-audit-details |
 | **Anonymous EHRs** | An EHR is creatable and fully operable with no demographic identity attached. | Profiles book §Non-Functional (existing CORE capability) |
 | **Version-signature integrity** *(applies when the Signing capability is claimed — Profiles: STANDARD, not SEC-BASIC-required)* | Committed VERSIONs carry a verifiable `signature`: produced over the canonical form of the version data, verifiable against the declared key material, with the version lineage (`preceding_version_uid` chain) intact — the digital signing chain. Verification behaviour is conformance; algorithm strength and key management are not (§6.3). | RM common §change_control (`ORIGINAL_VERSION.signature`); Profiles book §Non-Functional (Signing) |
 
-Signing thereby gets its concrete conformance point (the committed SIG case
-family, 13 cases under `artifacts/schedule/security/`, with the PGP
-verification machinery in the runner). The
+Signing thereby gets its concrete conformance point (the signature workflows
+under `catalogue/cases/security/`, judged by the `signature` judge of §15.4). The
 **statement-declared posture** (never wire verdicts): transport/at-rest
 encryption configuration and id-pseudonymisation-on-export — the 2017
 D-row's "encryption? id pseudonymisation?" aspects — declared in the
@@ -2159,14 +831,8 @@ Enterprise-D chapter (§11.11) makes export regression testable.
 capability case passes (assertion machinery, per tech profile) — computed
 like every other cell, never declared.
 
-**Capability-matrix entries** (§8.2 family 3 — entry shape, stated here once
-for the whole matrix): `capability → { family: Platform | Enterprise |
-Security, tier: <family-scoped>, required: bool }`, where tiers are scoped
-per family — Platform: CORE/STANDARD/OPTIONS; Security: SEC-BASIC (…);
-Enterprise: D/M/X. The SEC-BASIC points above enter as
-`family: Security, tier: SEC-BASIC, required: true` — except
-version-signature integrity, which enters under the existing Signing
-capability (`family: Platform, tier: STANDARD`) per its own row.
+The catalogue's `security` capability folder holds these behaviours; a
+party claims it like any other folder (§8.10).
 
 ### 8.16 The universal benchmark instrument
 
@@ -2466,7 +1132,7 @@ once §8.3 makes cases enumerable files:
    on carried as [legislated] proposed defaults) — U5's gate is SEC
    ratification of the [legislated] points, not de-novo design. Seed
    material: the ECC-era 25 QRY + 8 SQR + 4 AQT case designs, grown into
-   this repository's query chapter (`artifacts/schedule/query/`, each case
+   this repository's query chapter (`catalogue/cases/query/`, each workflow
    carrying AQL 1.1 citations), and EHRbase's AQL conformance corpus ([ehrbase/conformance-testing-documentation](https://github.com/ehrbase/conformance-testing-documentation),
    SELECT/WHERE/ORDER BY/LIMIT/FROM/parameter suites).
 2. **The maximal-coverage template round-trip** (the 2017 "template
@@ -2524,7 +1190,7 @@ once §8.3 makes cases enumerable files:
    specifications-CNF issue #1 is the 2017 seed). Architecturally supported
    already: ixit declares named instances and flow steps carry `on:`
    selectors (§8.3, §8.10), so dual-instance cases are ordinary cases. Its
-   own capability family in the matrix + an SM grounding decision; dump/load
+   own capability folder + a grounding decision; dump/load
    overlaps §11.7's off-wire boundary.
 12. **The openEHR→EEHRxF seam (EHDS alignment, later)** — cases verifying that
    priority-category content in a conformant CDR renders faithfully to the
@@ -2587,10 +1253,10 @@ the difference between "nice idea, same risk" and "resourced program".
    §6.5 (track the Art 36/15 implementing acts; revisit the EEHRxF-seam
    profile when they land in 2027).
 
-**Outbound spec-defect reports (the ambiguity register → openEHR).** Building
+**Outbound spec-defect reports (→ openEHR).** Building
 and running the catalogue against the real spec surfaces where the spec itself
-is silent, self-contradictory, or misaligned across SM / ITS / CNF. Every such
-finding is a register entry with an `upstream_issue` (§8.5), each written as
+is silent, self-contradictory, or misaligned across RM / ITS / CNF. Every such
+finding is written as
 a concrete openEHR report on its `upstream-report`-labeled GitHub issue (a
 plain summary, what the released spec says, what this implementation does,
 the resolution sought) for a maintainer to file, recording the returned
@@ -2766,9 +1432,10 @@ proposing a format and demonstrating one.
 
 ---
 
-## 15. The v0.2.0 design
+## 15. The catalogue design
 
-**Status: proposed, not implemented (#590, #592).**
+The catalogue is Arazzo workflows over the released ITS-REST operations
+(#590), and it is the one catalogue since the cut-over (#604).
 
 ### 15.1 The properties every part of this design holds
 
@@ -2837,6 +1504,11 @@ A case's files sit together: a capability's folder holds its Arazzo documents
 and their rows files. "Payloads" is Arazzo's own word for a request body
 (`requestBody.payload`).
 
+Of that layout, `capabilities.yaml`, `cases/` and `sources/` exist today,
+beside `id-map.yaml` (every former case-core id mapped to its workflows, #603).
+Request bodies are inline in the workflows, and `datasets/`, `payloads/`,
+`recipes/` and `keys/` arrive with the first case that needs one.
+
 - **Sources.** Every document lists the released
   `specs/rest-oas/<group>-validation.openapi.yaml` bundles it calls, each with
   an explicit `type: openapi`. The
@@ -2846,8 +1518,8 @@ and their rows files. "Payloads" is Arazzo's own word for a request body
   `$sourceDescriptions.<name>.<operationId>` form.
 - **Extension routes.** Routes no openEHR OAS describes are declared in one
   OAS document of our own, named as a non-openEHR source. A capability verified
-  only over those routes carries `realization: extension` in the capability
-  matrix, and the `realization-scope` gate holds it there (§15.9).
+  only over those routes is to be marked as such in `capabilities.yaml`, and
+  the `realization-scope` gate that holds it there is not computed yet (#804).
 - **Capability by document.** A workflow belongs to the capability of the
   folder its document is in, and `capabilities.yaml` lists the documents per
   capability, together with the options a statement answers.
@@ -2896,13 +1568,14 @@ when both the condition and the judge hold:
 
 | Judge | What it decides |
 |---|---|
-| `result_set` | AQL result equality under the RESULT_SET bag, order, cell and NULL rules (§8.6); a row cell may be a runtime expression (§15.11) |
+| `result_set` | AQL result equality under the RESULT_SET bag, order, cell and NULL rules (§15.11); a row cell may be a runtime expression (§15.11) |
 | `equivalent` | Two RM documents are equal, ignoring a named set of server-assigned fields |
 | `signature` | `ORIGINAL_VERSION.signature` facts (RM common §Digital Signature) |
 | `schema` | The response conforms to the schema its operation declares in the `-validation` OAS for that status |
 
 Every other check is a standard Arazzo criterion. Field values use `jsonpath`
-or `regex`; XML documents use `xpath`; status codes and counts use `simple`.
+or `regex`; status codes and counts use `simple`. An XML document's `xpath`
+criteria are refused until #637 (§15.6 rule 4).
 Response-schema validation runs only where a case asks for it, through the
 `schema` judge on a criterion that carries its own citation, like every other
 expectation. It never runs on every response by default: an OAS schema can
@@ -3016,8 +1689,8 @@ enforced by `validate` and the evaluator. Every rule stays inside what Arazzo
    backreferences, which `validate` refuses. A value substituted into a
    pattern through `{$…}` is a literal: its metacharacters are escaped.
 3. **`jsonpath`** is RFC 9535.
-4. **`xpath`** is XPath 3.1, with the openEHR namespaces bound to fixed prefixes
-   the profile lists.
+4. **`xpath`** criteria are refused until a vetted XPath 3.1 engine judges them
+   (#637); a document that needs one is a gate finding, never a skipped check.
 5. **Headers.** A step may send any header, including `Accept`, `Content-Type`
    and `Authorization`, whether or not the operation declares it. OAS 3.0.3
    tells a tool to ignore those three as declared parameters, and content
@@ -3075,7 +1748,12 @@ rows:
   share an outcome share a workflow, and a variant with another outcome, or
   one that calls a different operation, is its own workflow (§15.5).
 - **Literals and recipes.** Columns named in `literals` use the decision-table
-  literal grammar and violation categories of §8.8, and `recipe` builds the
+  literal grammar: ranges `a..b`, lists `[x, y]`, unit-scoped ranges
+  `[cm 5.0..10.0, m]`, terminology codes `openehr::122 (length)` /
+  `local::at0005`, ordinal tuples `1|[local::at0005]`, quantity literals
+  `100 mg`, with the violation categories `rm_schema`,
+  `rm_invariant(<name>)`, `iso8601(<rule>)` and `constraint(<clause>)`
+  (no openEHR spec governs this grammar — our own design). `recipe` builds the
   input or request body a row sends from them, deterministically.
 - **Declared values.** `declared` binds an input to a value the party's IXIT
   or statement provides, such as the system id a server stamps. A row whose
@@ -3175,8 +1853,10 @@ vendor reads why a row is red without opening `results.json`.
   `upstream-report` issue needs the tracker, so it runs in CI
   (`scripts/checks/report-refs.sh`, over the workflow documents and
   `capabilities.yaml`) rather than in the offline `validate`.
-- **Claims**: capability-depth floors, claim completeness and
-  `realization-scope`, as §8.13 defines them.
+- **Claims**: `validate --statement` holds a statement to its published
+  schema, to the capability folders and to one arm per option. The
+  capability-depth floors, claim completeness and `realization-scope` are not
+  computed over this catalogue yet (#804).
 
 ### 15.10 Results, certificates and the hosted instrument (#592, #593)
 
@@ -3219,10 +1899,53 @@ the `result_set` judge (§15.4). Its rows file lists the cases: the query text,
 its parameters, the expected rows, and the match mode (`ordered`, `set`,
 `count`, `contains`), under the RESULT_SET equivalence rules: bag semantics,
 total ordering under ORDER BY, explicit LIMIT, cell equality and NULL
-ordering (§8.6). Each row cites the QUERY section it exercises, and its
+ordering (below). Each row cites the QUERY section it exercises, and its
 expected rows are derived from the dataset manifest and that section, never
 from a server's answer. Stored queries, query parameters and paging use the
 same shape.
+
+**RESULT_SET equivalence rules** (normative; each rule is either **[spec]**
+— stated by the vendored specs, cited — or **[legislated]** — a proposed
+default the specs are silent on, for SEC ratification):
+
+1. **Comparison scope** — equivalence is over `rows` only; every `meta`
+   field is excluded (**[spec]**: all `ResultSetMetadata` fields optional and
+   "implementation dependent … useful for debugging" —
+   `ITS-REST schemas/query/ResultSetMetadata.yaml`, `docs/query/Response.md`);
+   `columns` are compared only when the case asserts them, since the array
+   itself is optional (**[spec]**: `ResultSet.yaml` `required: [rows]`).
+   Column identity: the `AS` alias, else `#<0-based index>` (**[spec]**:
+   `ResultSetColumn.yaml`).
+2. **Order** — `match: ordered` is legal only when the query carries an
+   ORDER BY that totally orders the expected rows (**[spec]**: absent
+   ORDER BY, "default ordering in results is undefined" — QUERY
+   `master03-syntax.adoc` §ORDER BY; LIMIT determinism requires unique
+   ordering — §LIMIT). Otherwise `match: set`, which despite its name is
+   **bag (multiset)** equality — duplicate rows are significant, because AQL
+   is bag-semantics unless `DISTINCT` is present (**[spec]**: §DISTINCT).
+   `match: count` compares row count only; `match: contains` requires every
+   expected row to appear (bag-wise) with extra rows permitted. ORDER BY
+   semantics: ASC default, left→right lexicographic tie-break (**[spec]**:
+   §ORDER BY).
+3. **Cell equality** — an RM-object cell (carries `_type`) compares by
+   canonical-JSON structural equality (**[spec]**: cells may be full RM
+   objects — QUERY `master04-result_structure.adoc`,
+   `ResultSetRow.yaml`); a scalar numeric cell compares by **numeric
+   value**, not lexeme — `140` = `140.0` (**[legislated]**: no spec rule on
+   projected-scalar number typing); a void cell is encoded as JSON `null`
+   and equals only `null` (**[legislated]**: AQL names the value NULL, the
+   wire encoding is unpinned).
+4. **NULL ordering** — under ORDER BY, null cells sort **last** ascending,
+   **first** descending (**[legislated]**: QUERY is silent on NULL sort
+   position).
+5. **Under-specified orderings are avoided, not legislated** — RM
+   `DV_ORDERED` comparison is itself incompletely specified for partial
+   dates/timezones/durations, so schedule cases MUST NOT order or
+   discriminate on values whose comparison the RM leaves open
+   (**[legislated]** avoidance rule).
+6. **Counts are always determined** — cases pass `fetch`/`LIMIT` explicitly
+   (the default fetch is implementation-defined) and never truncate
+   without a total ordering (**[spec]**: §LIMIT + §ORDER BY).
 
 **The parser check.** Every query in the catalogue is checked by `validate`
 against the released grammar, `specs/openehr/QUERY/docs/AQL/grammar/AqlParser.g4`
@@ -3288,9 +2011,8 @@ embedded `{$…}` expression, which the parser check reads as a placeholder.
   the ITS-REST rule that a recognized but not allowed method "SHOULD be `405
   Method Not Allowed`". A rule only another standard states (an HTTP RFC) is
   asserted only where the openEHR text adopts it.
-- **Two roots.** `veredictum validate --root catalogue` checks the Arazzo
-  catalogue, and `--root artifacts` the former format until the cut-over
-  (#604).
+- **One root.** `veredictum validate --root catalogue` checks the catalogue;
+  the former case-core format was retired at the cut-over (#604).
 
 ## Appendix — source register
 
@@ -3426,8 +2148,9 @@ embedded `{$…}` expression, which the parser check reads as a placeholder.
   `docs/query/{Request,Response}.md` (all vendored).
 - Our instrument: this repository (`app/veredictum/`), published as
   `veredictum` on crates.io (0.1.0-alpha.4 at the 2026-08-27
-  re-verification); the catalogue holds 1146 case cores and 249 operation
-  bindings and passes every validate gate. Its predecessor, the ECC
+  re-verification, when the catalogue held 1146 case cores and 249 operation
+  bindings); since the cut-over (#604) the catalogue is Arazzo workflows and
+  passes every validate gate. Its predecessor, the ECC
   (FerroEHR's `tools/conformance/`, 394 active catalogue cases; final
   committed baseline `docs/conformance/ferroehr/CONFORMANCE_REPORT.md`, 402
   case×format executions · 384 passed · 0 failed · 18 N/A; CORE PASS /

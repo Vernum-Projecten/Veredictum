@@ -12,9 +12,9 @@ suspect. Every expectation in the catalogue cites the section it comes from, and
 the only thing that can refute an expectation is a better reading of that text.
 Not a maintainer's confidence, and not what every other CDR happens to do.
 
-Two components are both oracles for a functional case. The Service Model anchors
-the operation and the naming the cases use; the ITS-REST specification binds
-that operation to the wire. Where the ITS-REST prose is silent, the released
+For a functional case the ITS-REST specification binds each operation to the
+wire, and the Reference Model, AQL and the other released components define
+what the operation carries. Where the ITS-REST prose is silent, the released
 OpenAPI bundle shipped with the same release grounds the expectation, cited as
 the OpenAPI document and never passed off as prose. It loses on any conflict
 with the prose.
@@ -28,17 +28,12 @@ disagrees with a released component, the released component wins.
 
 ## The catalogue's shape: one behaviour, one case
 
-A case core describes one narrow conformance requirement, in the Service Model's
-vocabulary, with no status code, header or media type in it. A separate operation
-binding says how that operation reaches the wire on a given interface
-specification. That split is what lets the same case be graded against a future
-wire specification without rewriting the behaviour it tests.
-
-Errors in a case are expressed as *kinds*, never as codes. The catalogue
-distinguishes a duplicate EHR from a non-existent EHR from a missing template
-from a validation failure, because those are different behaviours; the mapping
-from a kind to a status code lives in the binding, since the same kind maps to
-different codes on different operations.
+A case is an Arazzo workflow: its steps call the operations of the released
+openEHR REST API OpenAPI documents, and every check it makes carries the
+released sentence that assigns the expected value, quoted verbatim and
+resolved against the vendored text by `validate`. The workflow names the
+operation; the sentence it quotes is the authority, never the operation's
+OpenAPI fragment alone.
 
 Cases stay small on purpose. One behaviour per case means a red row names one
 defect, which is the difference between a report a vendor can act on and a report
@@ -49,9 +44,9 @@ they have to reverse-engineer.
 A server that accepts everything passes every positive test. That is why the
 catalogue treats a refusal as a first-class behaviour with its own cases.
 
-Every invalid shape in the corpus is kept as its own entry, marked invalid, with
-the defect it carries and the specification reference that makes it invalid.
-Each one has a valid twin. The valid twin proves the server accepts what it must
+Every invalid shape is kept as its own refusal workflow, with the defect it
+carries and the specification reference that makes it invalid. Each one has a
+valid twin. The valid twin proves the server accepts what it must
 accept; the invalid twin pins the refusal, so a lenient server fails it. Deleting
 an invalid shape would silently narrow the claim, so it never happens.
 
@@ -96,12 +91,12 @@ Each red row is attributed to exactly one of three suspects:
 
 | Suspect | What it means | What happens |
 |---|---|---|
-| **The server under test** | The server violates the released specification | A defect report to its maintainers, carrying the reproduced wire exchange and the citation. Nothing changes in the catalogue |
+| **The server under test** | The server violates the released specification | The attribution, carrying the reproduced wire exchange and the citation. Nothing changes in the catalogue |
 | **The instrument** | The server behaved correctly and the runner misdrove the case or misjudged the response | The runner is fixed. Those rows were inconclusive, never server failures |
 | **The catalogue** | The expectation is wrong against the specification | The artifact is fixed, with a new cited source for the corrected expectation |
 
 The derivation per row is the same every time: read what was actually sent and
-received, read what the case and its binding claim to expect and why, then read
+received, read what the workflow claims to expect and why, then read
 the governing released specification text first-hand and derive independently
 what a conformant server must return for the exchange that actually happened.
 The three-way comparison names the defect.
@@ -125,39 +120,28 @@ Sometimes the released text leaves a behaviour undefined, or two released
 documents disagree. Inventing an expectation there would fail every conformant
 server and teach nobody anything. Hiding it would be worse.
 
-Instead, each such case is recorded in the **ambiguity register** with four
-things: the ambiguity, the first-hand citation that establishes it, the handling
-a runner must apply, and a typed disposition the pipeline branches on.
+Instead, no workflow asserts it, and it takes one of two forms:
 
-The dispositions are a closed set:
+- **An upstream report.** The silence or contradiction is an
+  `upstream-report` issue in this repository, with what the released text
+  says, a proposed patch to it, and the resolution sought. A citation that
+  rests on the defective text names that issue in its `report:` field.
+- **An option.** Where the release leaves a behaviour to the implementation,
+  for example whether a server serves canonical XML, both answers are
+  conformant. `capabilities.yaml` names the option and its arms with the
+  sentence that leaves the choice open, the party's statement picks one arm,
+  and only the workflows of that arm run.
 
-| Disposition | Effect |
-|---|---|
-| `loose_assert` | Assert only what the specification actually pins, and nothing more |
-| `fixed_handling` | The handling is encoded directly in the case or the binding |
-| `option_select` | The entry names one family per independent choice; sibling cases realize a family’s arms, and the declaration answers every family its claim reaches with exactly one arm |
-| `report_only` | The result is reported and never gates a certificate. Reserved for genuinely open upstream questions |
-| `statement_declared` | The party declares the behaviour in its statement |
-| `editorial` | The specification text is itself defective; the catalogue encodes the reading derivable from the released text, with a citation |
+Three properties make this a transparency mechanism rather than an excuse list:
 
-Four properties make this a transparency mechanism rather than an excuse list:
-
-- **An entry has to be proven.** A claimed ambiguity that the specification
-  actually defines is a catalogue defect. The entry is removed and the case
-  becomes gating.
-- **Nothing is absorbed.** A `report_only` or `editorial` entry must carry a
-  link to an upstream report, and that requirement is enforced by the schema
-  rather than by review. A carried divergence always has an outbound report
-  attached.
-- **Every case still runs.** The register is not an exclusion list. It governs
-  how a spec-silent expectation is derived and whether a genuinely open question
-  gates a certificate.
-- **A private resolution is non-conformant.** A harness that quietly decides an
-  ambiguity for itself is not implementing this schedule.
-
-`report_only` is a cited, upstream-linked suspension, and it reverts to gating
-the moment the upstream question resolves. It is not a way to make red rows
-disappear.
+- **A silence has to be proven.** A claimed silence that the specification
+  actually defines is a catalogue defect: the workflow asserting it becomes
+  gating.
+- **Nothing is absorbed.** A carried divergence always has an outbound report
+  attached, and CI refuses a `report:` that does not name an
+  `upstream-report` issue.
+- **A private resolution is non-conformant.** A harness that quietly decides a
+  silence for itself is not implementing this catalogue.
 
 ## Verdicts are computed, never asserted
 
@@ -175,12 +159,11 @@ hiding a stall.
 ## Coverage is a mandate
 
 A green run over a thin catalogue proves nothing, so coverage is machine-checked
-rather than asserted. A gate enumerates the wire surface from the released
-sources alone, the Service Model's platform interfaces crossed with their
-ITS-REST branches, and fails on any operation, status-code branch, header rule,
-negotiation variant or error family that has neither a covering case nor a cited
-exception.
+rather than asserted. A gate enumerates the released operations, their
+response branches and the negotiation headers from the released ITS-REST
+OpenAPI documents alone, and fails on any that has neither a covering step nor
+a recorded gap naming its tracker issue.
 
-A behaviour the specification defines and the catalogue misses is a gap to close
-or an honest boundary recorded in the register. Cases are added; they are never
+A behaviour the specification defines and the catalogue misses is a gap to
+close. Cases are added; they are never
 removed to make a run go green.

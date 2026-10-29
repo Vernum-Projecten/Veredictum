@@ -113,11 +113,11 @@ credit costs you nothing and changes nothing about how the report is handled.
   anything else that lets a consumer be handed bytes this project did not build.
   A verification path that appears to pass on a substituted artifact is a report
   this project wants urgently.
-- **The corpora are test data, and they are supposed to contain hostile
-  shapes.** A malformed archetype or an invalid composition in
-  `artifacts/corpus` is an asserted negative test, not a defect. What would be a
+- **The catalogue's payloads are test data, and they are supposed to contain
+  hostile shapes.** A malformed archetype or an invalid composition under
+  `catalogue/` or `perf/payloads/` is an asserted negative test, not a defect. What would be a
   defect is such an input escaping the instrument's own parsing safely.
-- **No patient data exists anywhere in this project.** The corpora are
+- **No patient data exists anywhere in this project.** The payloads are
   modelling artifacts and synthetic instances. A report that something in the
   tree looks like real clinical data is a report this project wants.
 

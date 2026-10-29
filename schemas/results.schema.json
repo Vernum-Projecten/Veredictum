@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:openehr:cnf:schema:results:0.1.0",
   "title": "CNF 2.0 party results",
-  "description": "The campaign outcomes for one technology profile: per-case×format outcome records (with mandatory citations on skipped/not_applicable), the ambiguity dispositions applied, and provenance (SUT/runner/ixit digest).",
+  "description": "The campaign outcomes for one technology profile: per-case×format outcome records (with mandatory citations on skipped/not_applicable), the performance measurements, and provenance (SUT/runner/ixit digest).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -587,27 +587,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "ambiguity_dispositions": {
-      "description": "The ambiguity dispositions the campaign applied: one record per option_select register arm the party's ICS declared, in the register's authored order. The arms of one option family are mutually exclusive, so which arm a deployment serves is the ICS's answer and the record says which answer it drove under. Empty for a campaign no statement selected, which declares no arm at all.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "ambiguity"
-        ],
-        "properties": {
-          "ambiguity": {
-            "type": "string",
-            "pattern": "^AMB-[0-9]+$"
-          },
-          "option": {
-            "type": "string",
-            "pattern": "^[a-z0-9_-]+$"
           }
         }
       }

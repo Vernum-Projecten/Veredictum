@@ -1,10 +1,9 @@
-# The old-to-new case id map (#603): each case id of the case-core
+# The old-to-new case id map (#603): each case id of the former case-core
 # catalogue, and the Arazzo case ids (`<document>/<workflowId>`) that carry
 # it. An entry with no new id says why in `open`, and an entry that carries
-# only part of its case names the part it leaves in `open`. Upstream reports
-# and pull requests that name an old id resolve through this file. `pending`
-# lists the old ids of a component whose own family is not converted yet
-# (#603): each moves into `cases` when its family is converted.
+# only part of its case names the part it leaves in `open`. Upstream reports,
+# pull requests and earlier records that name an old id resolve through this
+# file; the case-core tree itself was deleted at the cut-over (#604).
 # `corpora` does the same for a query collection maintained elsewhere, keyed
 # by that collection's own case ids.
 cases:

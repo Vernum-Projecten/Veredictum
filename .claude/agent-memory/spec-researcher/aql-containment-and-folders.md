@@ -29,11 +29,6 @@ Routing for AQL containment / FOLDER / directory questions.
   ITS-REST docs text lives under `specifications/docs/<group>/*.md`, NOT under
   the top-level `docs/` dir (which only holds smart_app_launch,
   simplified_data_template, simplified_formats).
-- SM query service: `specs/openehr/SM/docs/openehr_platform/master08-query_service.adoc`,
-  class tables in `SM/docs/UML/classes/i_query_service.adoc`,
-  `result_set.adoc`. Directory ops: `SM/docs/UML/classes/i_ehr_directory.adoc`
-  (ten operations), anchored by `master05-ehr_service.adoc`.
 - Catalogue citation strings in use: `"ITS-REST query §200_Query (RESULT_SET)"`,
   `"ITS-REST query Response.md §RESULT_SET response"`,
-  `"QUERY AQL master03-syntax §Containment, §NOT"`,
-  `"SM openehr_platform §I_QUERY_SERVICE.execute_ad_hoc_query"`.
+  `"QUERY AQL master03-syntax §Containment, §NOT"`.

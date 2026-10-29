@@ -5,7 +5,7 @@
 //! artifacts.
 //!
 //! Every asset here is a pure function of files already in a repository —
-//! the catalogue, a results record, a verdict record, a stress report — so
+//! the performance schedule, a results record, a stress report — so
 //! regenerating one and diffing it is a build gate, and a hand-drawn number
 //! is a build failure.
 
@@ -16,55 +16,6 @@ use crate::perf::{Measurement, PerformanceCase};
 use crate::pipeline::{Error, RenderedFile, load_party_json, read_json};
 use crate::schema::results_schema;
 use crate::stress::StressReport;
-
-/// The slice of a committed `verdicts.json` the conformance visuals read.
-#[derive(Debug, serde::Deserialize)]
-pub struct VerdictEvidence {
-    /// The per-capability evidence, in the record's own order.
-    pub capabilities: Vec<(String, crate::verdict::Evidence)>,
-}
-
-/// Renders the conformance visuals: the capability heat grid and the
-/// per-chapter outcome bars.
-///
-/// `suffix` is appended to each file stem, which is how a comparison SUT's
-/// copies sit beside the primary ones in the same directory.
-///
-/// # Errors
-/// [`Error::Catalogue`] when the root cannot be opened, [`Error::Missing`]
-/// when it carries no capability matrix, [`Error::Party`], [`Error::Read`]
-/// or [`Error::Parse`] for the committed records, and
-/// [`Error::Instrument`] when a case id maps to no chapter.
-pub fn conformance_assets(
-    root: &Path,
-    results_path: &Path,
-    verdicts_path: &Path,
-    suffix: &str,
-) -> Result<Vec<RenderedFile>, Error> {
-    let loaded = crate::artifacts::load_root(root).map_err(Error::Catalogue)?;
-    let Some((_, matrix)) = &loaded.set.matrix else {
-        return Err(Error::Missing(
-            "artifact set has no capability matrix".to_owned(),
-        ));
-    };
-    let results: Results = load_party_json(results_path, &results_schema(), "results.schema.json")?;
-    let verdicts: VerdictEvidence = read_json(verdicts_path, "verdicts")?;
-    let sut_label = results.sut.label();
-    // An unmapped case id is a taxonomy gap, not a chart to publish: the
-    // renderer fails loudly and names the id.
-    let chapters = crate::conf_assets::chapter_counts(&results)
-        .map_err(|e| Error::Instrument(e.to_string()))?;
-    Ok(vec![
-        RenderedFile {
-            name: format!("conformance-heat-grid{suffix}.svg"),
-            body: crate::conf_assets::heat_grid_svg(&sut_label, matrix, &verdicts.capabilities),
-        },
-        RenderedFile {
-            name: format!("conformance-chapter-bars{suffix}.svg"),
-            body: crate::conf_assets::chapter_bars_svg(&sut_label, &chapters),
-        },
-    ])
-}
 
 /// The performance visuals, with the inputs the Markdown summary is derived
 /// from.
@@ -97,8 +48,8 @@ impl PerformanceAssets {
 /// is fabricated.
 ///
 /// # Errors
-/// [`Error::Catalogue`] or [`Error::Artifacts`] when the performance
-/// schedule under `root` does not load, [`Error::Party`], [`Error::Read`] or
+/// The schedule loader's own errors when the performance schedule under
+/// `root` does not load, [`Error::Party`], [`Error::Read`] or
 /// [`Error::Parse`] for the committed records, and [`Error::Instrument`] when
 /// a chart's own input is unrenderable.
 pub fn performance_assets(

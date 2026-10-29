@@ -22,7 +22,7 @@ formats for resource representation" — and the binding
 `I_DEFINITION_ADL2.get_artefact.yaml` pins `Accept: text/plain`.
 
 **How to apply:** check the corpus form of BOTH sides before blaming anything —
-`artifacts/corpus/MANIFEST.yaml` types these fixtures `opt-xml` and `adl2-text`,
+the retired case-core corpus manifest typed these fixtures `opt-xml` and `adl2-text`,
 i.e. the SAME non-JSON form the server served, so the comparison is well posed
 and only the comparator is missing. This is the LIVE path and is distinct from
 the replay-seam XML collapse in #346. Related: [[version-envelope-in-hand]].

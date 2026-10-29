@@ -15,9 +15,9 @@ Test discipline is non-negotiable (a standing hard rule, root `CLAUDE.md`).
 - **Never** edit a test to route around a runtime bug it exposes. If a test
   fails and the fix is unclear, leave it failing and record a
   `// TODO(#NNNN):` naming its issue. Do not touch the test to make it green.
-- Catalogue and corpus tests assert the **openEHR specifications**: cite the
+- Catalogue and payload tests assert the **openEHR specifications**: cite the
   spec clause a test encodes, and never adjust an expectation to match an
-  implementation's behaviour. A corpus or fixture defect is ADJUDICATED with a
+  implementation's behaviour. A payload or fixture defect is ADJUDICATED with a
   first-hand spec or schema citation, either as an expected-rejection entry in
   the owning gate or, for genuine spec silence, as an `upstream-report` issue
   with its patch and no case asserting the silent behaviour (`.claude/rules/cnf-triage.md`). It is never routed
@@ -45,7 +45,7 @@ Test discipline is non-negotiable (a standing hard rule, root `CLAUDE.md`).
   catalogue's coverage derives from, never the correctness authority. Where the
   schedule and a released component conflict, the released component wins.
 - The upstream Robot suites are stalled reference material. Their official data
-  fixtures enter the corpus only as provenance-stamped re-adjudications, never
+  fixtures enter the catalogue only as provenance-stamped re-adjudications, never
   as blind imports and never as an oracle.
 - Prefer an existing golden vector over a hand-written fixture. A test that
   encodes a spec rule cites the section it asserts.
@@ -96,7 +96,7 @@ import the lib.
 ## Catalogue coverage (breadth is a mandate, not just pass rate)
 
 A green pipeline over a thin catalogue proves almost nothing. The catalogue
-must exercise EVERYTHING the spec defines on the wire: every SM operation,
+must exercise EVERYTHING the spec defines on the wire: every ITS-REST operation,
 every status-code branch (200 / 201 / 204 / 400 / 404 / 409 / 412 / 422 and
 the rest), every required or conditional header (`ETag`, `Location`,
 `Last-Modified`, `Prefer`, `If-Match`), the content-negotiation variants (JSON
@@ -118,11 +118,11 @@ to one behaviour.
 - **An adjudicated spec-correct refusal always yields BOTH twins.** When
   triage attributes a red row to a defective fixture the SUT was spec-right to
   refuse, fixing the fixture is half the job: the invalid shape is preserved
-  as its own corpus entry (`validity: invalid`, with the defect and its
-  `spec_ref`) plus a refusal case, so the catalogue carries the valid twin
+  as its own request body (with the defect named and cited) driven by a
+  refusal workflow, so the catalogue carries the valid twin
   (acceptance proven) and the invalid twin (the refusal pinned, so a lenient
   server fails it). Deleting the invalid shape silently narrows coverage.
-- Vendored corpora carry the same completeness discipline: 100% exercised,
+- Vendored payload packs carry the same completeness discipline: 100% exercised,
   coverage-gated, with adjudicated skips only. Never partial coverage that
   silently narrows the claim.
 

@@ -24,8 +24,7 @@ use veredictum::record::{RecordedFile, seal};
 /// flags and the subkey binding signature.
 fn key_dir() -> PathBuf {
     Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-        .join("artifacts")
-        .join("corpus")
+        .join("fixtures")
         .join("keys")
 }
 

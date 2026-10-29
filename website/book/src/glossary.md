@@ -13,21 +13,20 @@ the console put in front of you.
   conformance claim. The two documents below are theirs to write and travel
   with the submission they describe; this repository commits neither.
 - **ICS (Implementation Conformance Statement):** the party's claim document,
-  `statement.json`. It declares which profile tiers and which capabilities
-  the product claims. A verdict certifies this claim against the recorded
-  evidence, so a run without a statement produces results but no verdict.
-- **ICS proforma:** the blank form an ICS fills in,
-  `artifacts/vocab/capability_matrix.yaml`. ISO/IEC 9646-7 assigns every cell
-  of it to the test specification's author except the support and
-  supported-values columns, which belong to the supplier of the
-  implementation. So the proforma is published here, one row per capability
-  with its specification citation, and the answers never are.
-  The term comes from the ISO/IEC 9646 conformance-testing methodology.
+  `statement.json`. It declares which capability folders the product claims
+  and which arm of each option it sits on, and it decides what a run
+  selects.
+- **ICS proforma:** the blank form an ICS fills in: the capability folders
+  under `catalogue/cases/` and the options of `catalogue/capabilities.yaml`.
+  ISO/IEC 9646-7 assigns every cell of it to the test specification's author
+  except the support and supported-values columns, which belong to the
+  supplier of the implementation. So the proforma is published here and the
+  answers never are. The term comes from the ISO/IEC 9646 conformance-testing
+  methodology.
 - **IXIT (Implementation eXtra Information for Testing):** the deployment
-  facts needed to drive the claim, `ixit.json`: the endpoint URLs, the
-  authentication mode, the names of the credential environment variables.
-  Same ISO/IEC 9646 origin. The console writes one for you from the Connect
-  form.
+  facts needed to drive the claim, `ixit.json`: the values a rows file's
+  `declared` inputs read, and for a measured run the environment the numbers
+  were produced on. Same ISO/IEC 9646 origin.
 - **SDoC (Supplier's Declaration of Conformity):** the self-declaration half
   of the statement, in the sense of ISO/IEC 17050: the supplier declares,
   the instrument checks, and nobody grades their own homework.
@@ -38,56 +37,42 @@ the console put in front of you.
 
 ## The catalogue and the run
 
-- **Catalogue:** the machine-readable test schedule under `artifacts/`:
-  case cores, operation bindings, vocabulary, corpora, and the ambiguity
-  register. `validate` holds it to zero findings before any server is
-  composed.
-- **Case:** one spec-cited behaviour, one file, one row in the record. One
-  behaviour per case is a design rule: a red row then names exactly one
-  defect.
-- **Case id:** the stable identifier of a case, interface first, such as
-  `I_EHR_SERVICE.create_ehr-main`.
-- **Case-id filter:** a plain substring match over case ids, the engine's
-  `--filter` flag. Every case whose id contains the typed text is in scope;
-  an empty filter means the whole catalogue. `I_EHR_SERVICE.` selects the
-  EHR-service family, `create_ehr-main` selects one case. The filter narrows
-  the run, never the claim: a claimed capability whose cases were filtered
-  out is reported `not_evidenced`, so a narrow run cannot pose as full
-  coverage.
-- **Corpus:** the committed wire payloads the cases post, valid and invalid.
-  An invalid entry is deliberate: it pins a refusal the spec requires, so a
-  lenient server fails it.
-- **Excused:** a case the run did not hold against the server, with the
-  citation that permits the excuse: an out-of-claim capability, or an instance
-  the party does not declare. Excuses are printed, never silent.
-- **Ambiguity register:** the record of behaviours where the released
-  specifications are genuinely silent or contradictory, each with a typed
-  disposition and, where one exists, its upstream report. Silence goes here;
-  it is never resolved privately.
+- **Catalogue:** the machine-readable test schedule under `catalogue/`:
+  Arazzo workflows over the released openEHR REST API OpenAPI documents,
+  grouped in capability folders, with `capabilities.yaml` naming the options.
+  `validate` holds it to zero findings before any server is composed.
+- **Case:** one spec-cited behaviour, one Arazzo workflow. One behaviour per
+  case is a design rule: a red row then names exactly one defect.
+- **Case id:** the stable identifier of a case, `<document>/<workflowId>`,
+  such as `ehr/create_ehr-same_ehr_twice-with_id`.
+- **Rows file:** the data a data-driven workflow runs once per row of, beside
+  its document.
+- **Option:** a behaviour the released text leaves to the implementation,
+  with its arms. A statement picks one arm of each option, and the documents
+  of every other arm are skipped.
+- **Recording:** `recording.har`, every exchange a run made as HAR 1.2. A
+  re-judgement answers every request from it and writes the same results.
+- **Upstream report:** an `upstream-report` issue in this repository that
+  records a silence or a defect in the released text, with a proposed patch.
+  No case asserts the silent behaviour.
 
 ## The verdict
 
-- **Verdict:** the computed answer to the claim, produced by a pure function
-  over the statement, the record, the catalogue and the capability matrix.
-  It is computed, never asserted, and re-running it over the same record
-  produces the same bytes.
-- **Profile tier:** one of the CNF profile levels a party can claim: **CORE**,
-  **STANDARD**, **OPTIONS**, and the **SEC-BASIC** security family. A tier
-  passes only when every capability it requires is `passed`.
-- **Capability:** one named unit of claimable behaviour, such as
-  `EhrOperations` or `QueryProvisioning`. The capability matrix maps each
-  tier to the capabilities it requires, and each capability to the cases
-  that evidence it.
-- **Evidence tokens:** the per-capability answer in the matrix. `passed`
-  (every selected gating case passed), `failed` (one failed),
-  `inconclusive` (one errored and none failed; never counted against the
-  server, but blocking green), `not_evidenced` (claimed, and no case
-  produced a gating pass or fail), `not_claimed` (absent from the party's
-  ICS).
-- **Errored (inconclusive):** a row whose exchange could not be judged: a
-  status mapping to no declared outcome, a transport fault. By the
-  attribution law this is never a server failure; it is a defect in the
-  runner or the catalogue until adjudicated.
+- **Row status:** every workflow row ends `passed`, `failed`, `errored` or
+  `skipped`. A row passes when every criterion holds.
+- **Errored:** a row whose exchange could not be judged, such as a transport
+  fault or a criterion that could not be evaluated. By the attribution law
+  this is never a server failure; it is a defect in the runner or the
+  catalogue until adjudicated.
+- **Skipped:** a row the selection did not run, with its reason:
+  `not-claimed` (a folder the statement does not claim),
+  `option-not-selected` (an arm the statement did not pick) or `not-declared`
+  (a value or principal the party did not supply). Skips are printed, never
+  silent.
+- **Advisory:** a failed row whose failing criteria all quote a SHOULD. It is
+  reported and never counts against a capability.
+- **Capability:** a folder under `catalogue/cases/`, the unit a statement
+  claims.
 
 ## The authorities
 
@@ -100,7 +85,7 @@ the console put in front of you.
 - **Spec components:** **RM** (the Reference Model: the data structures),
   **AQL** (the Archetype Query Language), **AM** (the Archetype Model),
   **BASE** (foundation types and identifiers), **TERM** (terminology),
-  **SM** (the Service Model: the abstract operations), **ITS** (the
+  **ITS** (the
   Implementation Technology Specifications for REST, JSON and XML: how the
   operations land on a wire).
 - **Attribution law:** the discipline applied to every red row before

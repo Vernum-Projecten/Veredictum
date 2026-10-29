@@ -1,5 +1,5 @@
 ---
-paths: ["app/veredictum/src/**", "artifacts/**", "fixtures/**", "schemas/**"]
+paths: ["app/veredictum/src/**", "catalogue/**", "fixtures/**", "schemas/**"]
 ---
 
 # Red-run triage (the attribution law)
@@ -40,52 +40,39 @@ a test suite that presumes its own correctness and questions the server.
 | Bin | What it means | Fix path |
 |---|---|---|
 | **SUT** | the server under test violates the spec | the attribution recorded on the pull request or issue that found it, carrying the reproduced wire exchange and the spec citation. NEVER a change in this repository, never a catalogue edit that hides it, and never a report filed outside it (below) |
-| **Runner machinery** | the SUT behaved correctly but `app/veredictum/src/**` misdrove the case or misjudged the response (driver, provisioning, resolver, outcome classification, comparator, verdicts) | fix the runner module; the affected rows were inconclusive, not SUT failures |
-| **Catalogue artifact** | the hand-authored schedule is wrong versus the spec (case core, operation binding, corpus, vocabulary) | edit the artifact WITH a new spec-cited source for the corrected expectation |
+| **Runner machinery** | the SUT behaved correctly but `app/veredictum/src/**` misdrove the case or misjudged the response (the Arazzo reader, runtime expressions, the evaluator and its judges, selection, verdicts) | fix the runner module; the affected rows were inconclusive, not SUT failures |
+| **Catalogue artifact** | the hand-authored catalogue is wrong versus the spec (a workflow, its criteria or citations, a rows file, a payload, `capabilities.yaml`) | edit the artifact WITH a new spec-cited source for the corrected expectation |
 
 ## Getting the evidence out of a run (do this first)
 
-A triage with no exchanges cannot attribute anything, and hand-carving them
-out of a 74 MB transcript is how the first live triage ended up reading
-130,761 empty objects (#463). One command turns a finished run's red rows into
-the triage input:
+A triage with no exchanges cannot attribute anything. `veredictum test --out
+<RUN>` writes both halves of the triage input: `<RUN>/results.json`, where
+every failed and errored row carries its four-part explanation (what was
+checked, why, expected, received) and names the HAR entry it was judged on,
+and `<RUN>/recording.har`, which holds every request and response the run
+exchanged. Read the row first, then the entry it names.
 
-```bash
-veredictum evidence --transcript <RUN>/transcript.json \
-    --results <RUN>/results.json --failing --out <RUN>/evidence.json
-```
+`veredictum test --rejudge <RUN>/recording.har` re-judges the recording without
+a server, given the root, statement, IXIT and `--document` list the run was
+given. Use it to check that a runner fix changes the verdict on the recorded
+exchange, and nothing else: a replay that does not line up with the recording
+is refused rather than judged.
 
-Every `failed` and every `errored` case, each with the outcome row the run
-recorded and the requests and responses behind it, in one document. `--only
-<CASE>` (repeatable) and `--filter <SUBSTRING>` name a set directly when the
-question is narrower. No statement is read: a claim is what a party publishes,
-and the exchanges a run recorded are readable without one.
-
-The export **refuses** rather than write a bundle that would carry nothing, so
-a document of the right shape with no content in it cannot reach a triage. A
-selection that half-matched still exports and names every case it could not
-carry in `without_exchanges` — read that field before concluding anything about
-a case that is missing from `cases`.
-
-Two preconditions. The run must have been driven with `run
---record-exchanges`; without it the exchanges were classified and dropped, and
-the honest answer is that the rows are inconclusive with no evidence. And the
-bundle carries response bodies verbatim, so it is operator-controlled output
-and belongs where the run's own record is stored, never in a shared log.
-
-In the console, a red run's results screen offers the same document under
-**Evidence for a triage**.
+The recording carries response bodies verbatim, so it is operator-controlled
+output and belongs where the run's own record is stored, never in a shared
+log. Credentials are never recorded (`[not recorded]` stands in for every
+`Authorization` value).
 
 ## The protocol (per red row)
 
-1. Read the observed wire exchange (the `evidence` bundle above, or
-   `results.json` and the transcript directly): what was actually sent, what
-   came back, how it was classified.
-2. Read the case core and the operation binding it realized through (what the
-   catalogue expects, and its cited spec source). Note exactly what it claims
-   to expect and why.
+1. Read the observed wire exchange (the red row in `results.json` and the HAR
+   entry it names): what was actually sent, what came back, how it was
+   judged.
+2. Read the workflow and its rows file (what the catalogue expects, and the
+   `x-veredictum-cite` behind each criterion). Note exactly what it claims to
+   expect and why.
 3. Read the governing RELEASED spec text FIRST-HAND: the ITS-REST docs text
-   plus the overview `Requests_and_responses`, the SM interface, and the
+   plus the overview `Requests_and_responses`, and the
    RM / QUERY / BASE / AM / TERM / ITS-XML sections that apply. The CNF
    schedule is only a GUIDE to WHICH behaviour to check. Re-derive the correct
    answer from the released component, never from the schedule's own
@@ -100,8 +87,7 @@ In the console, a red run's results screen offers the same document under
 6. Spec silence or genuine ambiguity becomes an `upstream-report` issue with
    its patch (below), and no case asserts the silent behaviour. Behaviour the
    release leaves to the implementation is an option in
-   `catalogue/capabilities.yaml`. Never a private resolution. The old
-   ambiguity register is frozen and goes with the old tree (#604).
+   `catalogue/capabilities.yaml`. Never a private resolution.
 
 ## Hard rules
 
@@ -109,7 +95,7 @@ In the console, a red run's results screen offers the same document under
   expectation to match observed SUT behaviour.** Expectations trace to spec
   text only.
 - **Only the RELEASED spec components are the oracle.** Adjudicate against
-  RM / BASE / AM / QUERY / TERM / ITS-XML / **SM** / ITS-REST **docs text**,
+  RM / BASE / AM / QUERY / TERM / ITS-XML / ITS-REST **docs text**,
   with one ordered supplement: **the vendored released OAS** is part of the
   release's own specification artifacts (the ITS-REST overview
   `Specifications.md` presents them as its computable artifacts) and grounds
@@ -123,11 +109,9 @@ In the console, a red run's results screen offers the same document under
   "ambiguity" that exists ONLY because a guide source is stale, incomplete,
   or self-contradictory, with no released-component ground, is not a spec gap:
   re-ground it on a released component, or drop it and make the case gating.
-  **SM and the ITS-REST docs text are BOTH oracles** — SM anchors the
-  operation and the naming the case cores use, ITS-REST binds it to the wire;
-  an SM operation the released ITS-REST does not yet realize is a genuine
-  SM-to-ITS realization gap (verdict N/A with citation on this ITS, plus an
-  upstream alignment candidate), not a refutation of the server.
+  The SM was never released and is no part of the oracle (#604): an operation
+  the released ITS-REST does not define has no wire form to test, and no case
+  asserts one.
 - **A red run is not presumptive evidence of a SUT bug, nor of a runner bug.**
   Every row gets the full derivation. No attribution without a citation.
 - Transport faults and step-resolution failures classify as inconclusive

@@ -4,9 +4,8 @@
 //! The start-the-run seam: the console's most security-relevant server-side
 //! write.
 //!
-//! `run_api::read::start_run` writes the ixit into the job's own directory,
-//! invalidates any export sealed over that directory (#68), and MOVES the
-//! drafted credentials into the spawned run's environment. The last one is the
+//! `run_api::read::start_run` writes the ixit into the job's own directory
+//! and MOVES the drafted credentials into the spawned run's environment. The last one is the
 //! property the whole credential posture rests on, so it is proved end to end:
 //! the fixture SUT records the `Authorization` header the engine sent, and the
 //! header must carry the values the draft held. Nothing else may: not the
@@ -27,8 +26,17 @@ use veredictum_console::state::ConsoleState;
 
 use crate::engine_gate;
 
-/// The case the gate drives: one small isolated case, so the run is seconds.
-const FILTER: &str = "I_EHR_SERVICE.create_ehr-main";
+/// The document filter the gate drives: one small document, so the run is
+/// seconds.
+const FILTER: &str = engine_gate::GATE_DOCUMENT;
+
+/// The claim the gate's run carries: the capability folder of [`FILTER`].
+const CLAIM: &str = r#"{
+  "product": { "name": "start-gate", "version": "0.0.0-gate", "vendor": "gate", "identifier": "urn:veredictum:gate" },
+  "schedule_release": "cnf-2.0-w2",
+  "claims": { "capabilities": ["system"] }
+}
+"#;
 
 /// The drafted Basic credentials. Distinctive enough that a grep over the job
 /// directory proves absence rather than coincidence.
@@ -134,10 +142,10 @@ fn files_under(dir: &std::path::Path) -> Result<Vec<std::path::PathBuf>, std::io
 )]
 #[expect(
     clippy::too_many_lines,
-    reason = "one gate walks the whole write — ixit, invalidation, credential move, the driven exchange — and splitting it would hide the chain it exists to assert"
+    reason = "one gate walks the whole write — ixit, claim, credential move, the driven exchange — and splitting it would hide the chain it exists to assert"
 )]
 #[test]
-fn starting_a_run_writes_the_ixit_invalidates_the_export_and_moves_the_credentials()
+fn starting_a_run_writes_the_ixit_and_moves_the_credentials()
 -> Result<(), Box<dyn std::error::Error>> {
     let binary = engine_gate::gate_binary();
     if !binary.exists() {
@@ -154,16 +162,17 @@ fn starting_a_run_writes_the_ixit_invalidates_the_export_and_moves_the_credentia
     std::fs::create_dir_all(&out)?;
     let (port, seen) = recording_sut()?;
 
-    let claim = std::fs::read_to_string(engine_gate::declaration_fixture())?;
+    let claim = String::from(CLAIM);
     let state = ConsoleState {
-        root: engine_gate::repo_root().join("artifacts"),
+        root: engine_gate::repo_root().join("catalogue"),
         specs: engine_gate::repo_root().join("specs/openehr"),
         out: out.clone(),
-        sign_key: None,
-        verify_key: None,
-        // The start seam reads no catalogue: the engine reads the mounted root
-        // itself, which is what the engine boundary exists to keep true.
-        catalogue: Arc::new(Err(String::from("unused by the start seam"))),
+        // The start seam reads the listing only to turn the filter into the
+        // documents it names; the engine reads the mounted root itself.
+        catalogue: Arc::new(
+            veredictum::pipeline::listing::read(&engine_gate::repo_root().join("catalogue"), None)
+                .map_err(|e| e.to_string()),
+        ),
         draft: Arc::new(Mutex::new(engine_gate::drafts_of(RunDraft {
             base_url: format!("http://127.0.0.1:{port}"),
             sut_name: String::from("start-gate"),
@@ -172,19 +181,18 @@ fn starting_a_run_writes_the_ixit_invalidates_the_export_and_moves_the_credentia
             auth: AuthChoice::Basic,
             credentials: vec![
                 Credential {
-                    name: String::from("CONSOLE_SUT_USER"),
+                    name: String::from(veredictum::identity::USER_ENV),
                     value: Secret::new(String::from(SUT_USER)),
                 },
                 Credential {
-                    name: String::from("CONSOLE_SUT_PASS"),
+                    name: String::from(veredictum::identity::PASSWORD_ENV),
                     value: Secret::new(String::from(SUT_PASS)),
                 },
             ],
             probed_ok: true,
             statement_json: Some(claim.clone()),
-            statement_product: Some(String::from("Fixture CDR 0.0.0-fixture")),
+            statement_product: Some(String::from("start-gate 0.0.0-gate")),
             filter: Some(String::from(FILTER)),
-            record_exchanges: false,
             postures: DeclaredPostures::default(),
         }))),
         jobs: JobSlot::default(),
@@ -218,17 +226,10 @@ fn starting_a_run_writes_the_ixit_invalidates_the_export_and_moves_the_credentia
         job_dir.display()
     );
 
-    // The seal lives inside the job directory, so the seam that creates it
-    // guarantees no bundle is in it before the engine writes a single row.
-    assert!(
-        !job_dir.join("export").exists(),
-        "a run started into a directory holding a sealed record"
-    );
-
     // The ixit names the environment variables and carries no value.
     let ixit = std::fs::read_to_string(job_dir.join("ixit.json"))?;
-    assert!(ixit.contains("CONSOLE_SUT_USER"), "{ixit}");
-    assert!(ixit.contains("CONSOLE_SUT_PASS"), "{ixit}");
+    assert!(ixit.contains(veredictum::identity::USER_ENV), "{ixit}");
+    assert!(ixit.contains(veredictum::identity::PASSWORD_ENV), "{ixit}");
     assert!(
         !ixit.contains(SUT_PASS),
         "a credential VALUE reached the ixit"
@@ -288,8 +289,8 @@ fn starting_a_run_writes_the_ixit_invalidates_the_export_and_moves_the_credentia
         "the engine never sent the drafted credentials; saw {headers:?}"
     );
 
-    // And nothing wrote them down: not the ixit, not the record, not the
-    // exception document.
+    // And nothing wrote them down: not the ixit, not the results, not the
+    // recording.
     for file in files_under(&job_dir)? {
         let body = std::fs::read(&file)?;
         assert!(
@@ -312,11 +313,9 @@ fn starting_a_run_writes_the_ixit_invalidates_the_export_and_moves_the_credentia
 async fn starting_without_a_draft_is_refused_by_name() -> Result<(), Box<dyn std::error::Error>> {
     let scratch = assert_fs::TempDir::new()?;
     let state = ConsoleState {
-        root: engine_gate::repo_root().join("artifacts"),
+        root: engine_gate::repo_root().join("catalogue"),
         specs: engine_gate::repo_root().join("specs/openehr"),
         out: scratch.path().to_path_buf(),
-        sign_key: None,
-        verify_key: None,
         catalogue: Arc::new(Err(String::from("unused by the start seam"))),
         draft: Arc::new(Mutex::new(veredictum_console::run_api::Drafts::new())),
         jobs: JobSlot::default(),
@@ -354,11 +353,9 @@ async fn a_hosted_instance_refuses_a_private_target_at_the_start_seam()
 -> Result<(), Box<dyn std::error::Error>> {
     let scratch = assert_fs::TempDir::new()?;
     let state = ConsoleState {
-        root: engine_gate::repo_root().join("artifacts"),
+        root: engine_gate::repo_root().join("catalogue"),
         specs: engine_gate::repo_root().join("specs/openehr"),
         out: scratch.path().to_path_buf(),
-        sign_key: None,
-        verify_key: None,
         catalogue: Arc::new(Err(String::from("unused by the start seam"))),
         draft: Arc::new(Mutex::new(engine_gate::drafts_of(RunDraft {
             base_url: String::from("http://127.0.0.1:8080/ehrbase/rest/openehr/v1"),
@@ -371,7 +368,6 @@ async fn a_hosted_instance_refuses_a_private_target_at_the_start_seam()
             statement_json: None,
             statement_product: None,
             filter: Some(String::from(FILTER)),
-            record_exchanges: false,
             postures: DeclaredPostures::default(),
         }))),
         jobs: JobSlot::default(),

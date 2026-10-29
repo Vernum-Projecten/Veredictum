@@ -411,7 +411,7 @@ fn build_simple(rm_class: &str, row: &RowView<'_>) -> Value {
 /// included, which must fire the sole value invariant (RM `dv_text.adoc`
 /// §Invariants, `Valid_value: not value.is_empty`). No RM invariant requires
 /// `value` to equal the coded rubric — the "value must be the rubric" text is
-/// `dv_coded_text.adoc` Description prose (register AMB-55) — so an arbitrary
+/// `dv_coded_text.adoc` Description prose (upstream report #718) — so an arbitrary
 /// non-empty value is accepted. Absent the column, the value defaults to a
 /// placeholder so the dimension stays unexercised.
 fn build_coded_text(row: &RowView<'_>) -> Value {

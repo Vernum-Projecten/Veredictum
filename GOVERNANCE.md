@@ -36,9 +36,9 @@ specifications, and this is the property the whole product rests on.
   ([FerroEHR](https://github.com/rubentalstra/FerroEHR)). A response is evidence
   in a comparison; the specification is the reference.
 - Where the specification text and the released OpenAPI documents are both
-  silent, the behaviour goes to the ambiguity register with a typed disposition
-  and, where warranted, an outbound `upstream-report` issue. A private
-  resolution is not acceptable.
+  silent, no case asserts the behaviour: it becomes an `upstream-report` issue,
+  or an option in the catalogue's `capabilities.yaml` where the release leaves
+  it to the implementation. A private resolution is not acceptable.
 
 **On the conflict of interest, stated plainly.** The maintainer of this
 instrument also maintains a CDR that this instrument grades. That is a real
@@ -63,7 +63,7 @@ false authority.
 | What to work on next | a [GitHub issue](https://github.com/Vernum-Projecten/Veredictum/issues); the open list is the worklist |
 | Why a change looks the way it does | the pull-request description that landed it, and the issue's closing comment |
 | What a release contains | [`CHANGELOG.md`](CHANGELOG.md) and the `vX.Y.Z` milestone |
-| A specification silence and how it was disposed of | the ambiguity register, and the `upstream-report` issue it points at |
+| A specification silence and how it was disposed of | the `upstream-report` issue, and the citations whose `report:` names it |
 | Standing working rules | [`CLAUDE.md`](CLAUDE.md) and [`.claude/rules/`](.claude/rules/) |
 
 A decision that exists only in a conversation is not a decision this project

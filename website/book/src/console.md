@@ -14,43 +14,45 @@ Every screenshot below is captured by the console's own browser journeys
 window, light and dark. They are refreshed in the pull request that changes the
 interface, so what you see here is the interface that shipped.
 
-A capture pass serves the console in capture mode, where the three facts one
-run stamps show fixed stand-ins: the run clock reads `00:00`, a record digest
-reads as all zeros, and a signing time reads `1970-01-01T00:00:00Z`. Your own
-runs show the real values, and a sealed record always carries them: the mode
-changes what the screen displays, never what is written, sealed or signed. It
-exists so a capture pass over an unchanged interface produces identical
-images, which is what makes a screenshot diff mean something.
+A capture pass serves the console in capture mode, where the facts one run
+stamps show fixed stand-ins: the run clock reads `00:00`, and the run's own id
+and the address the fixture server bound are fixed too. Your own runs show the
+real values, and what a run writes always carries them: the mode changes what
+the screen displays, never what is written. It exists so a capture pass over
+an unchanged interface produces identical images, which is what makes a
+screenshot diff mean something.
 
 ## The landing
 
-The four counts are the catalogue's own: case cores, operation bindings,
-capability-matrix rows, and validate findings. A findings count above zero means the
-catalogue itself needs attention before any server is graded.
+The four counts are the catalogue's own: cases (one per Arazzo workflow), Arazzo
+documents, capability folders, and gate findings. A findings count above zero
+means the catalogue itself needs attention before any server is graded.
 
 ![The console landing in light mode](console/img/landing-light.png)
 ![The console landing in dark mode](console/img/landing-dark.png)
 
 ## The catalogue explorer
 
-Chapters first, each with the number of cases it carries. The search and page
-state live in the URL, so a view is shareable and survives a refresh.
+Capability folders first, each with the number of cases it carries. The search
+and page state live in the URL, so a view is shareable and survives a refresh.
 
-![The chapter list in light mode](console/img/catalogue-light.png)
-![The chapter list in dark mode](console/img/catalogue-dark.png)
+![The capability list in light mode](console/img/catalogue-light.png)
+![The capability list in dark mode](console/img/catalogue-dark.png)
 
-One chapter lists its cases: the identifier, the kind, and the test purpose.
-One behaviour per case, so a red row names one defect.
+One capability lists its cases, one section per Arazzo document: the case id
+and the workflow's summary. One behaviour per case, so a red row names one
+defect.
 
-![A chapter's case listing in light mode](console/img/chapter-light.png)
-![A chapter's case listing in dark mode](console/img/chapter-dark.png)
+![A capability's case listing in light mode](console/img/chapter-light.png)
+![A capability's case listing in dark mode](console/img/chapter-dark.png)
 
 ## One case in full
 
-The case detail carries the description, the specification citations the
-expectation stands on, the operation bindings that realize it on the wire, and
-the corpus fixtures it uses. The citation list is the point: an expectation is
-refuted by a better reading of the cited text, and by nothing else.
+The case detail carries the workflow's description, the specification citation
+the workflow stands on, the option arm its document tests when an option names
+it, and every step with the operation it calls. The citation is the point: an
+expectation is refuted by a better reading of the cited text, and by nothing
+else.
 
 ![A case detail in light mode](console/img/case-light.png)
 ![A case detail in dark mode](console/img/case-dark.png)
@@ -65,111 +67,50 @@ answer renders verbatim before anything continues.
 ![The connect step in dark mode](console/img/connect-dark.png)
 
 Scope takes the claim the run grades: the vendor's own statement.json (the
-ICS, the document that says which profiles and capabilities are claimed),
-pasted into the box. The console offers no declaration of its own to load,
-because the claim belongs to whoever makes it: ISO/IEC 9646-7 assigns an ICS
-proforma's support and supported-values columns to the supplier of the
-implementation, and the proforma itself is the capability matrix this
-instrument publishes.
+ICS, the document that says which capabilities are claimed and which option
+arms are selected), pasted into the box. The console offers no declaration of
+its own to load, because the claim belongs to whoever makes it: ISO/IEC 9646-7
+assigns an ICS proforma's support and supported-values columns to the supplier
+of the implementation.
 
-The claim can also be built on the screen. The tier row offers CORE, STANDARD,
-OPTIONS and SEC-BASIC with the capabilities the capability matrix puts in each
-tier and the number of catalogue cases those capabilities gate, counted through
-the same matrix walk the judgement computes each profile verdict from.
-Composing writes that claim into the same box, product identity taken from the
-Connect step, so the operator reads the exact document the run will be graded
-against. Option branches stay undeclared there: only the party running the
-server knows which branch it realizes.
+The claim can also be built on the screen. The capability row offers every
+capability folder of the catalogue with the documents and cases it holds.
+Composing writes the claim into the same box, product identity taken from the
+Connect step, so the operator reads the exact document the run selects by.
+Options stay undeclared there: only the party running the server knows which
+arm it realizes.
 
 The document is held to the published statement schema before anything is
-stored, and saving answers with the claim overview (product, claimed tiers,
-capability count) beside the selection preview, so the screen says what will run
-before anything starts. An empty box is an honest no-claim run. The verdict
-later certifies exactly the pasted claim against the recorded evidence.
-
-Scope also decides whether the run keeps its wire. "Record the wire exchanges"
-is off by default; ticked, the run writes `transcript.json` beside its
-`results.json`, carrying every request and response it drove. The artifact
-records a server's response bodies verbatim, so it can hold real patient data
-from the deployment being graded: it lands in the operator's own output
-directory, the sealed record covers it, and the `authorization` request
-header's value is withheld.
+stored, and saving answers with the claim overview (product and capability
+count) beside the selection preview, so the screen says what will run before
+anything starts. An empty box is an honest no-claim run: every capability runs
+and no option arm is selected. The document-id filter narrows the run to the
+documents whose id contains it.
 
 ![The scope step in light mode](console/img/scope-light.png)
 
-The live screen renders the engine's own progress stream: the case counter,
-the elapsed clock, a moving-median estimate labelled as such, and the tail of
-the engine's output. When the run finishes the outcome links straight to the
-record.
+The run is the engine's own `veredictum test`, with the credentials in the
+spawned process's environment only. The live screen shows the elapsed clock
+and the tail of the engine's output, and when the run finishes the outcome
+links straight to the results.
 
 ![A finished run on the live screen](console/img/live-light.png)
 
-## The record: results and verdicts
+## The results
 
-Results reads the finished run's own record, red rows first. A row links to
-its detail: the recorded reason beside the case's specification citations,
-which is what [the attribution](methodology.md#when-a-run-goes-red) of that row
-turns on.
+Results reads the finished run's own `results.json`, red rows first. A row
+links to its detail: the four-part explanation the engine wrote (what was
+checked, why it is required with the cited sentence, what was expected and
+what was received, and whose problem the row is), which is what
+[the attribution](methodology.md#when-a-run-goes-red) of that row turns on.
 
-The detail ends with the wire. A run driven with the recording box ticked
-shows each exchange as its request and response panes, verbatim, which is
-where a triage starts. A run driven without it says so in the same place.
+The detail ends with the wire: the exchange the row was judged on, read from
+the run's `recording.har`, as its request and response panes, verbatim. The
+recording holds a server's response bodies, so it can carry real patient data
+from the deployment being graded, and it lands in the operator's own output
+directory.
 
 ![The results surface with a detail open](console/img/results-light.png)
-
-Verdicts is the same pure function the command line runs, over the same
-record: the profile matrix with its coverage bounds printed, and the rendered
-documents byte-for-byte.
-
-![The verdicts surface in light mode](console/img/verdicts-light.png)
-![The verdicts surface in dark mode](console/img/verdicts-dark.png)
-
-## The export: one signed record
-
-A verdict nobody can check is an opinion. The export step on the verdicts
-screen hands the run to the pinned instrument's own `verdicts --sign-key`,
-which writes the rendered documents, a digest manifest over them, and a
-detached OpenPGP signature over that manifest. The console adds no sealing of
-its own; it supplies the key path and reads the result back.
-
-![Preparing the export on the verdicts screen](console/img/verdicts-export-light.png)
-
-Beside the sealed set the console renders three files a party publishes. Each
-carries the record digest prefix, so the artwork names the bytes it certifies
-rather than being a logo anyone could copy:
-
-- **The seal card** is the brand's certificate master with its three slots
-  filled: the product under test, the profile verdict, and the moment the
-  verdict was spoken, read back from the signature's own creation time because
-  the record carries no wall clock.
-- **The badge** is a compact SVG for a README, with the digest prefix in its
-  title and the check command in its source. The copy-paste snippets link it
-  to the report beside it.
-- **The report** is one self-contained HTML file of everything the results and
-  verdicts screens show, with the full digest, the signer fingerprint and the
-  signing time in its footer.
-
-All three are pure functions of the record: the same bundle in produces the
-same bytes out, which is what lets anyone re-render them and compare.
-
-The seal card, the badge and the report sit deliberately outside the manifest.
-The manifest covers what the instrument judged; these are renderings about
-that judgement, and signing a rendering of a rendering would say nothing extra.
-
-A sealed bundle is ordinary files, so anyone checks it without this console:
-
-```text
-veredictum verify-record --record <dir> --key <public-key>
-```
-
-`gpg --verify` accepts the manifest's detached signature too, and `sha256sum`
-re-derives every digest it names.
-
-Two keys are configuration. `VEREDICTUM_SIGN_KEY` names the armored secret key
-the bundle is sealed with, and `VEREDICTUM_VERIFY_KEY` names the public half.
-The console asks for both because it will not print a signing time it has not
-checked: after sealing, it verifies its own bundle before stating who signed
-it and when. With neither mounted the section says so and offers no button.
 
 ## Running it in public
 
@@ -209,13 +150,13 @@ nothing was judged, which is what the page says.
 
 The same catalogue, the same wizard and the same judgement, driven against two
 live CDRs pulled at their latest published images: FerroEHR's quickstart and
-EHRbase's official pairing. The run behind each column is the EHR-service case
-family, and every difference below traces to a case id and its citation.
+EHRbase's official pairing. The run behind each column is the EHR documents of
+the catalogue, and every difference below traces to a case id and its
+citation.
 
 | FerroEHR (latest) | EHRbase (latest) |
 |---|---|
 | ![FerroEHR results](console/img/results-ferroehr-light.png) | ![EHRbase results](console/img/results-ehrbase-light.png) |
-| ![FerroEHR verdicts](console/img/verdicts-ferroehr-light.png) | ![EHRbase verdicts](console/img/verdicts-ehrbase-light.png) |
 
 These captures come from the same E2E harness that gates the console
 (`UI_E2E_REAL_SUTS=1 scripts/ui-e2e.sh`): the browser drives the real wizard

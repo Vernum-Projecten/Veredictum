@@ -2,174 +2,118 @@
 
 <!-- toc -->
 
-A conformance campaign is four steps. Each writes a file the next one reads, so
-you can stop after any of them, inspect what was produced, and resume.
+A conformance campaign is four steps. Each one either checks a file or writes
+one the next step reads, so you can stop after any of them, inspect what was
+produced, and resume.
 
 ## 1. Check the catalogue
 
 Before a server is involved, check the catalogue you are about to grade with:
 
 ```bash
-veredictum validate --root artifacts --specs specs/openehr
+veredictum validate --root catalogue --specs specs/openehr
 ```
 
 Zero findings is the only passing result, and the command exits `1` when there
 is even one. [The command reference](commands.md#validate) lists the gates it
-runs.
-
-Pass `--specs` every time. Without it the citation and Service-Model
-resolution gates do not run, and the case count still prints, which looks like
-a pass over a catalogue that was never fully checked.
+runs. `veredictum test` runs the same gate before it drives anything, and
+refuses to start while it has a finding.
 
 ## 2. Declare your deployment
-
-The instrument needs to know where your server is and how to authenticate to
-it. That declaration is the IXIT file, and it is yours to write, against
-`schemas/ixit.schema.json`. Put it in a directory of your own beside the
-clone — `mine/ixit.json` in the commands below — with your claim next to it.
-`fixtures/declaration/` carries both shapes filled in for a product that does
-not exist, which is a template to read and never a claim to copy.
 
 This repository commits no declaration about anybody's product. ISO/IEC 9646-7
 splits an ICS proforma in one place: every cell belongs to the proforma
 specifier except the support and supported-values columns, which belong to the
-supplier of the implementation. The proforma is
-`artifacts/vocab/capability_matrix.yaml`, published here with a specification
-citation per row. The answers are yours.
+supplier of the implementation. The proforma is the catalogue itself: the
+capability folders under `catalogue/cases/` and the options in
+`catalogue/capabilities.yaml`. The answers are yours.
 
-The two files, and the split between them matters:
+Put your answers in a directory of your own beside the clone, `mine/` in the
+commands below. `fixtures/declaration/` carries both files filled in for a
+product that does not exist, which is a template to read and never a claim to
+copy.
 
-- **`ixit.json`** describes the deployment. Endpoints per instance, the
-  authentication mode, and for a measured run an `environment` block naming the
-  hardware and topology the numbers were produced on. **Credentials are named,
-  never carried:** the file holds the *names* of the environment variables the
-  instrument reads the user and password from, so no secret ever enters an
-  artifact you might publish.
-- **`statement.json`** is your declaration of claims. It names the product and
-  version, the specification versions it targets, and the capabilities it claims
-  to implement. The verdict machinery reads it as the thing being tested against
-  the record.
+- **`statement.json`** is your declaration of claims, against
+  `schemas/statement.schema.json`. It names the product and version, the
+  capability folders it claims in `claims.capabilities`, and in `options` one
+  arm of each option in `capabilities.yaml`.
+- **`ixit.json`** describes the deployment, against
+  `schemas/ixit.schema.json`. A rows file's `declared` inputs read their
+  values from it, such as the system id your server stamps, and a measured run
+  reads its `environment` block, naming the hardware and topology the numbers
+  were produced on.
 
-A typical `ixit.json` declares three instances, because a full run needs to
-speak to the server as three different callers: an ordinary clinical user, an
-administrator, and no one at all. The unauthenticated instance is what lets the
-security cases check that a route refuses an anonymous request.
+**Credentials are never in either file.** `veredictum test` reads them from the
+environment variables its `--auth` and `--admin-auth` modes name, or from the
+file a `_FILE` variable points at, so no secret ever enters an artifact you
+might publish.
 
 ## 3. Review your claim
 
 ```bash
-veredictum validate --root artifacts --specs specs/openehr \
+veredictum validate --root catalogue --specs specs/openehr \
     --statement mine/statement.json
 ```
 
-`--statement` adds the static conformance review of ISO/IEC 9646-1 and -7 to
-the same command that checks the catalogue. It reports a capability you claim
-that the catalogue holds no verdict-bearing case for, a `Signing` claim your
-ixit declares no posture for, and a served-extension family the catalogue's
-wire surface does not carry. Each of those would otherwise become a row that
-can never carry evidence, discovered mid-run.
+`--statement` adds the static review to the same command that checks the
+catalogue: the statement must validate against its published schema, every
+claimed capability must be a capability folder, and every option needs exactly
+one arm. A claim that fails here would otherwise stop the run.
 
 ## 4. Drive the catalogue
 
 ```bash
-veredictum run --root artifacts --ixit mine/ixit.json --out out/ \
-    --sut-name my-cdr --sut-version 1.2.3 --statement mine/statement.json
-```
-
-The command drives every applicable case against your endpoints and writes
-`out/results.json`, a record of what was sent, what came back, and how it was
-classified. It also writes `out/run-exceptions.json`, which lists the cases the
-interpreter could not drive at all.
-
-Before it drives anything, the run asks the server who it is: it sends
-`OPTIONS` to the base URL of the ixit's `sut` instance, the ITS-REST System
-operation whose `Options` document carries `solution`, `solution_version`,
-`vendor` and `restapi_specs_version`. Every field the server states is recorded
-with source `server`. `--sut-name` and `--sut-version` fill in only what the
-server left out, and are recorded with source `operator`. When a flag disagrees
-with the server, the server's value is recorded and the run prints a notice
-naming both. When neither side supplies a name or a version, the run refuses to
-start. A server that does not offer the document is within the specification,
-which says only that services SHOULD answer; the read is never judged. Run
-`veredictum identify --base-url <URL>` to see what a server states before you
-drive it.
-
-`results.json` is a record, not a judgement. That separation is the point: the
-recorded exchange stays available for anyone to re-read, and the judgement is
-computed from it in a separate step that touches no network.
-
-Passing `--statement` here changes what runs. A case gated on an option your
-statement does not declare is recorded as not-applicable at drive time rather
-than driven, which is the test-selection discipline ISO/IEC 9646 describes. Omit
-the flag and everything is driven, which is what you want when you are
-exploring an unfamiliar server rather than grading a declared one.
-
-`--filter` takes a substring matched against case identifiers, which is how you
-re-drive one chapter while working on a fix. The resulting `results.json` holds
-only the cases that ran, so a filtered run is a working tool and never the
-record you submit.
-
-The command exits `1` if any case failed or errored, so a shell script can gate
-on it.
-
-> [!NOTE]
-> A functional run never re-measures. If a `results.json` already exists at the
-> `--out` path, its measurement records are carried forward, so running the
-> functional catalogue again after a measured run does not discard the
-> performance evidence. A file that is present but unreadable stops the run
-> instead, because carrying zero measurements past it would drop that evidence
-> silently.
-
-## 5. Compute the verdicts
-
-```bash
-veredictum verdicts --root artifacts --statement mine/statement.json \
-    --results out/results.json --out out/
-```
-
-This step is a pure function of the statement, the recorded results, the
-catalogue and the catalogue's capability matrix. Run it twice on the same files,
-on any machine, and you get the same bytes out. It writes:
-
-| File | What it is |
-|---|---|
-| `verdicts.json` | The machine-readable verdict set, per capability and per profile tier |
-| `CONFORMANCE_REPORT.md` | The full record: every case, its outcome, and the citation behind the expectation |
-| `CONFORMANCE_STATEMENT.md` | The rendered declaration of claims, with each claim marked against the evidence |
-| `CONFORMANCE_CERTIFICATE.md` | The summary document, functional tiers plus any measured performance class |
-| `badge.json` and siblings | Shields endpoint files, so a repository badge and the certificate beside it come from one rule |
-
-Nothing in these documents is asserted by hand. A number that appears in them
-was computed from the record in the same run that printed it.
-
-## The Arazzo catalogue
-
-The catalogue under `catalogue/` is the one the case-core catalogue above is
-moving to: every case is a workflow in an [Arazzo 1.1.0] document over the
-released openEHR REST API OpenAPI documents. `veredictum test` drives it:
-
-```bash
 export VEREDICTUM_SUT_USER=… VEREDICTUM_SUT_PASSWORD=…
 veredictum test --base-url https://cdr.example/openehr/v1 --auth basic \
-    --statement mine/statement.json --out out/
+    --statement mine/statement.json --ixit mine/ixit.json --out out/
 ```
 
-The run gates the whole catalogue first and runs nothing while the gate has a
-finding. The statement's `claims.capabilities` names the capability folders
-under `catalogue/cases/` you claim, and every workflow of a document in
-another folder is skipped as `not-claimed`; its `options` pick the arm of each
-option in `catalogue/capabilities.yaml`. Without a statement, everything runs. It writes `out/results.json`, one row per workflow row, and
-`out/recording.har`, every exchange as HAR 1.2. The recording holds the
+Every workflow of a document in a folder your statement does not claim is
+skipped as `not-claimed`, and the documents of every option arm you did not
+pick are skipped as `option-not-selected`. Without a statement, every
+capability runs and no arm is selected, which is what you want when you are
+exploring an unfamiliar server rather than grading a declared one. A workflow
+with an administrative step needs `--admin-auth`; without it, it is skipped as
+`not-declared`.
+
+The run writes `out/results.json`, one row per workflow row, each passed,
+failed, errored or skipped, and `out/recording.har`, every exchange as HAR 1.2.
+A failed or errored row carries four parts: what was checked, why (the quoted
+sentence), what was expected and what came back. The recording holds the
 server's response bodies verbatim, so it stays where you keep the run.
-`--rejudge out/recording.har` judges the recording again with no server, and
-writes the same `results.json` bytes. The exit status is `0` when every row
-passed or was skipped, `1` when a row failed or errored, and `2` when the run
-could not start, so a CI job goes red on a failed row. An advisory row, a
-SHOULD the server did not follow, is reported and leaves the status at `0`. [`export`](commands.md#export) turns
+
+The exit status is `0` when every row passed or was skipped, `1` when a row
+failed or errored, and `2` when the run could not start, so a CI job goes red
+on a failed row. An advisory row, a SHOULD the server did not follow, is
+reported and leaves the status at `0`. [`export`](commands.md#export) turns
 `results.json` into JUnit XML, CTRF and a Markdown summary for that job.
 
-The container image carries this catalogue and runs the same subcommand. Mount
-a directory the image's user (uid 65532) can write to, and name it as `--out`:
+`--document <ID>` narrows the run to named documents, which is how you re-drive
+one family while working on a fix. A narrowed `results.json` is a working tool
+and never the record you submit.
+
+`veredictum identify --base-url <URL>` asks a server who it is before you drive
+it: the ITS-REST System operation's `Options` document carries `solution`,
+`solution_version`, `vendor` and `restapi_specs_version`.
+
+## Re-judging a recording
+
+```bash
+veredictum test --rejudge out/recording.har \
+    --statement mine/statement.json --ixit mine/ixit.json --out rejudged/
+```
+
+Every request is answered from the recording and every recorded input is
+reused, so `rejudged/results.json` comes out byte-identical to the run's own.
+That is what lets anyone holding the recording check the judgement without a
+server. Pass the statement, IXIT and `--document` list the recorded run was
+given; a replay that does not line up with the recording is refused rather
+than judged.
+
+## The container image
+
+The image carries the catalogue and runs the same subcommand. Mount a
+directory the image's user (uid 65532) can write to, and name it as `--out`:
 
 ```bash
 docker run --rm -v "$PWD/out:/work/out" \
@@ -178,33 +122,36 @@ docker run --rm -v "$PWD/out:/work/out" \
     test --base-url https://cdr.example/openehr/v1 --auth basic --out /work/out
 ```
 
-**What any Arazzo tool can do with it, and what only Veredictum does.** The
-documents are plain Arazzo 1.1.0. Any Arazzo tool can read them, and one that
-runs workflows can smoke-run them against a server: the steps, parameters,
-request bodies and success criteria are standard. A conformance verdict comes
-only from `veredictum`. The citation behind each criterion, the judges a plain
-condition cannot express, the selection of documents by the party's statement,
-and the attribution of each red row to the server or to the instrument live in
-the `x-veredictum-*` extensions and in this pipeline, and a generic runner
-ignores both. Its pass or fail is a second opinion, never a verdict.
+**What any Arazzo tool can do with the catalogue, and what only Veredictum
+does.** The documents are plain [Arazzo 1.1.0]. Any Arazzo tool can read them,
+and one that runs workflows can smoke-run them against a server: the steps,
+parameters, request bodies and success criteria are standard. A conformance
+verdict comes only from `veredictum`. The citation behind each criterion, the
+judges a plain condition cannot express, the selection of documents by the
+party's statement, and the attribution of each red row to the server or to the
+instrument live in the `x-veredictum-*` extensions and in this pipeline, and a
+generic runner ignores both. Its pass or fail is a second opinion, never a
+verdict.
 
 [Arazzo 1.1.0]: https://spec.openapis.org/arazzo/v1.1.0.html
 
 ## Measured performance, stress and speed
 
 Those four steps cover functional conformance. Three more instruments produce
-the other kinds of evidence.
+the other kinds of evidence, and all three read the performance schedule under
+`perf/`, never the conformance catalogue.
 
 - `veredictum perf` earns a volumetric class (POC, S, L or R) with an open-loop
-  measured run and merges the measurement record into an existing
+  measured run and merges the measurement record into an existing measured
   `results.json`. The normative window is one hour; `--hours` extends it to 2,
   4, 6, 8 or 12, which is a stricter demonstration. Nothing shorter than the
-  case exists.
+  case exists. `veredictum verdicts` then re-derives each class verdict from
+  the histograms in that record.
 - `veredictum stress` climbs geometric load steps to find where the deployment
   breaks and writes `stress.json`. It is exploration only and is never a
   conformance record, which is why it is class-free by design.
 - `veredictum bench` measures comparative speed against any reachable CDR and
-  writes a `bench-result` document. It needs no artifact root, no IXIT and no
+  writes a `bench-result` document. It needs no catalogue, no IXIT and no
   statement, and it is a speed record and never a conformance record.
 
 `perf` and `stress` both need the `environment` block in your IXIT file filled

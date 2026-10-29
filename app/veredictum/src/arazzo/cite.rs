@@ -24,8 +24,9 @@ pub const CITE_KEY: &str = "x-veredictum-cite";
 /// released OpenAPI bundles.
 pub const ORACLE_ROOTS: [&str; 2] = ["specs/openehr/", "specs/rest-oas/"];
 
-/// The vendored tree no citation may name (owner ruling on #590: the SM has
-/// no role in the Arazzo catalogue).
+/// The tree no citation may name: the SM was never released and is not part
+/// of the oracle (owner ruling on #590), so a citation to it is refused even
+/// if the tree is vendored again.
 pub const EXCLUDED_ROOT: &str = "specs/openehr/SM/";
 
 /// One `x-veredictum-cite` value.
@@ -726,7 +727,7 @@ mod tests {
         let mut checker = QuoteChecker::new(dir.path());
         for source in [
             "specs/openehr/SM/docs/x.adoc",
-            "artifacts/registers/ambiguities.yaml",
+            "catalogue/id-map.yaml",
             "specs/openehr/../../README.md",
         ] {
             assert!(

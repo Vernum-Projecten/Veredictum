@@ -15,5 +15,5 @@ driven is a false claim about coverage, which is the exact failure class this
 instrument exists to prevent.
 
 **How to apply:** before naming which assertion failed, count the exchanges in
-`transcript.json` for the case and confirm the later steps produced none. Report
+`recording.har` for the row and confirm the later steps produced none. Report
 them as UNDRIVEN and list them in the not-fully-adjudicated section.

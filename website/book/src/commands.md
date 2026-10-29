@@ -8,13 +8,12 @@ output, so a flag cannot land in the binary and go missing here. The sections
 follow the order `veredictum --help` lists them in, and the prose under each
 one is written by hand and lives in `website/book/commands/`.
 
-Three commands make the conformance record (`validate`, `run`, `verdicts`),
-three measure (`perf`, `stress`, `bench`), `replay` re-judges a recorded run
-out of its own transcript, `evidence` carves the exchanges behind a red run's
-rows out of that transcript, `test` drives the Arazzo catalogue or re-judges
-its recording, `export` renders an Arazzo results document as
-JUnit XML, CTRF and a Markdown summary for a CI system, `verify-record` checks
-a sealed bundle, and the rest render or explore.
+Two commands make the conformance record: `validate` checks the catalogue,
+and `test` drives it or re-judges its recording. `export`
+renders a results document as JUnit XML, CTRF and a Markdown summary for a CI
+system. Three commands measure (`perf`, `stress`, `bench`), `verdicts`
+re-derives the measured class verdicts, `verify-record` checks a sealed
+bundle, and the rest render or explore.
 
 ## emit-schemas
 
@@ -32,60 +31,6 @@ Byte-deterministic. The schemas in the repository's `schemas/` directory are
 this command's output, drift-tested against it, which is how the published
 format and the code that reads it stay one thing. Author against these if you
 are writing your own catalogue or your own harness.
-
-## run
-
-```text
-Execute the catalogue against a live SUT (from its ixit topology) and emit results.json + the run report
-
-Usage: veredictum run [OPTIONS] --root <ROOT> --ixit <IXIT> --out <OUT>
-
-Options:
-      --root <ROOT>
-          The artifact root
-
-      --ixit <IXIT>
-          The ixit topology file (JSON)
-
-      --out <OUT>
-          Output directory for results.json + the run summary
-
-      --sut-name <SUT_NAME>
-          SUT display name, recorded only when the server does not state its own `solution` through System OPTIONS.
-          
-          The run reads `OPTIONS <base>/` on the ixit's `sut` instance before it drives anything. A value the server states wins over this flag, and a differing flag is named in a notice. With neither, the run refuses to start.
-
-      --sut-version <SUT_VERSION>
-          SUT version label, recorded only when the server does not state its own `solution_version` through System OPTIONS
-
-      --filter <FILTER>
-          Only run cases whose id contains this substring
-
-      --statement <STATEMENT>
-          The party statement (ICS) — the list ISO/IEC 9646 test selection selects from. Supplied, an option-gated case whose arm the ICS does not declare is recorded N/A at drive time; absent, NO arm of a mutually exclusive branch is selected, so every such case and every extension route is recorded N/A with its citation and the run says so once
-
-      --sign-key <SIGN_KEY>
-          An armored OpenPGP secret key — when supplied, the emitted documents are sealed with `record-manifest.json` and its detached signature, which `verify-record` and `gpg --verify` both check
-
-      --sign-passphrase <SIGN_PASSPHRASE>
-          The passphrase unlocking `--sign-key`. Supply it through the environment: a passphrase on the command line is visible to every process on the host
-          
-          [env: VEREDICTUM_SIGN_PASSPHRASE]
-
-      --record-exchanges
-          Persist the wire exchanges beside results.json as transcript.json.
-          
-          OFF by default. The artifact can carry real patient data — a SUT's response body is recorded verbatim — so it is operator-controlled output, never a log: store it where the record itself is stored. The `authorization` request header's value is withheld; everything else lands exactly as it went out and came back.
-
-      --progress
-          Print one machine-parseable line per processed case: `progress: <k>/<n> <case-id>` after `progress: 0/<n>` — a stable grammar a driver may parse. Off by default, so existing output is byte-identical without it
-
-  -h, --help
-          Print help (see a summary with '-h')
-```
-
-Drives every applicable case and records the exchange. Exits `1` if any case
-failed or errored.
 
 ## test
 
@@ -145,9 +90,8 @@ Options:
           Print help (see a summary with '-h')
 ```
 
-`test` drives the Arazzo catalogue under `catalogue/`, where `run` drives the
-case-core catalogue under `artifacts/`. The two live side by side until the
-cut-over to the Arazzo catalogue removes the case-core one.
+`test` drives the Arazzo catalogue under `catalogue/`. It replaces the removed
+`run` subcommand, which no longer exists under any name.
 
 **What runs.** Every document under `cases/<capability>/`, in path order. The
 shared setups under `cases/_setup/` are not cases: a setup runs only where a
@@ -265,30 +209,25 @@ does not offer the document is within the specification, which says services
 SHOULD answer. It exits `2` only when no answer arrived at all, or when the
 credential variable `--auth` names is unset.
 
-`run` performs the same read before it drives anything, so the identity this
-command prints is the identity a run against the same base URL records.
+Run it before `test` to see which product and version a run against the same
+base URL is about to grade.
 
 ## validate
 
 ```text
-Validate one artifact tree through every machine gate
+Validate the Arazzo catalogue through every gate, and review one supplied statement against it
 
 Usage: veredictum validate [OPTIONS] --root <ROOT>
 
 Options:
       --root <ROOT>
-          The artifact root (schedule/, bindings/, vocab/, corpus/, registers/)
+          The catalogue root, holding `capabilities.yaml` and `cases/`
 
       --specs <SPECS>
-          The vendored openEHR spec tree; enables SM-operation and spec-ref resolution
-
-      --write-report
-          Also refresh `<ROOT>/coverage-report.md` from `--specs`.
-          
-          OFF by default: `validate` is a check verb, and a check that mutates the working tree is a trap for read-only and fenced invocations. The pipeline scripts that publish the report pass this explicitly.
+          The vendored openEHR spec tree; enables citation resolution and the surface gate
 
       --statement <STATEMENT>
-          A submitted declaration (`statement.json`) to hold to the static conformance review, with the `ixit.json` beside it.
+          A submitted declaration (`statement.json`) to hold to the static review: its published schema, the capability folders it claims and the option arms it selects.
           
           ISO/IEC 9646-7 assigns an ICS proforma's support and supported-values columns to the supplier of the implementation, so no declaration is committed here and none is swept from the tree.
 
@@ -296,21 +235,18 @@ Options:
           Print help (see a summary with '-h')
 ```
 
-Every machine check over the catalogue: identifier uniqueness, citation
-resolution, binding completeness, coverage of the enumerated wire surface, and
-the per-capability case-count floors. It prints one line per finding and a
-summary line, and exits `1` if the finding count is not zero.
+Every gate over the Arazzo catalogue: the official Arazzo 1.1 schema, source
+and parameter resolution, citation resolution against the vendored
+specifications, the condition profile, requirement levels, unknown keys, the
+rows files, surface coverage, identity and links, and the AQL parser check. It
+prints one line per finding and a summary line naming the documents,
+workflows, rows files and capability folders it read, and exits `1` if the
+finding count is not zero.
 
-Supplying `--statement` adds the static conformance review of ISO/IEC 9646-1
-and -7 over that one declaration: a claimed capability the catalogue holds no
-verdict-bearing case for, a `Signing` claim the ixit beside it declares no
-posture for, and a served-extension family the catalogue's wire surface does
-not carry.
-
-`--write-report` is off by default on purpose. A check verb that rewrites a file
-on every run is a trap for read-only invocations, so the pipelines that publish
-the coverage report ask for it explicitly. The report lands at
-`<ROOT>/coverage-report.md`, beside the artifact families it measures.
+Supplying `--statement` adds the static review of that one declaration: it is
+held to the published statement schema, every capability it claims must be a
+capability folder of the catalogue, and every option arm it selects must be an
+arm of an option in `capabilities.yaml`, one arm per option.
 
 ## perf
 
@@ -322,7 +258,7 @@ Usage: veredictum perf [OPTIONS] --root <ROOT> --ixit <IXIT> --results <RESULTS>
 Options:
       --root <ROOT>                  The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
       --ixit <IXIT>                  The ixit topology file (JSON) — its environment block is mandatory for a measured run
-      --results <RESULTS>            The results.json to merge the measurement records into (written by a prior `run`)
+      --results <RESULTS>            The measured results record (`results.schema.json`) to merge the measurement records into
       --class <CLASS>                Select the performance case(s) of this class (POC | S | L | R)
       --seed-workers <SEED_WORKERS>  Parallel seeding workers [default: 16]
       --hours <HOURS>                The sustained-window ladder: hours to hold the offered load — 1 (default, the case's normative window) | 2 | 4 | 6 | 8 | 12. A longer window is a STRICTER demonstration and persists like any measured run; nothing shorter than the case exists [default: 1]
@@ -338,7 +274,7 @@ the case exists.
 `--root` is the performance schedule, `perf/` in this repository: the class
 cases, the journey catalogue and the payloads the journeys send. `stress`,
 `aql-probe` and `perf-assets` read the same tree, and none of them reads
-`artifacts/` or `catalogue/`.
+`catalogue/`.
 
 The `environment` block is mandatory rather than optional because a latency
 number is a claim about a deployment, and a claim with no deployment described
@@ -732,30 +668,10 @@ Options:
   -h, --help               Print help
 ```
 
-## conformance-assets
-
-```text
-Render the conformance visuals (the capability heat grid + the per-chapter outcome bars) deterministically FROM the committed party artifacts — the perf-assets pattern for functional conformance
-
-Usage: veredictum conformance-assets [OPTIONS] --root <ROOT> --results <RESULTS> --verdicts <VERDICTS> --out <OUT>
-
-Options:
-      --root <ROOT>          The artifact root (for the capability matrix)
-      --results <RESULTS>    The committed results.json
-      --verdicts <VERDICTS>  The committed verdicts.json
-      --out <OUT>            Output directory for the SVG files
-      --suffix <SUFFIX>      A suffix appended to the SVG file stems (`-ehrbase` for the comparison SUT's copies) [default: ""]
-  -h, --help                 Print help
-```
-
-Both renderers are deterministic over files already committed, so a build job
-can regenerate them and diff the result. A hand-drawn number in a published
-chart is a build failure rather than a review comment.
-
 ## verdicts
 
 ```text
-Compute the verdicts from a statement + results against an artifact tree (the pure pipeline) and write the rendered submission documents
+Re-derive the measured performance-class verdicts from a statement and a results record against the performance schedule (the pure pipeline), and write them as `verdicts.json`
 
 Usage: veredictum verdicts [OPTIONS] --statement <STATEMENT> --results <RESULTS> --root <ROOT> --out <OUT>
 
@@ -765,113 +681,30 @@ Options:
       --results <RESULTS>
           The party results (`results.json`)
       --root <ROOT>
-          The artifact root (schedule/, vocab/, registers/)
+          The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
       --out <OUT>
-          Output directory for the rendered documents + verdicts.json
+          Output directory for verdicts.json
       --sign-key <SIGN_KEY>
-          An armored OpenPGP secret key — when supplied, the rendered documents are sealed with `record-manifest.json` and its detached signature, which `verify-record` and `gpg --verify` both check
+          An armored OpenPGP secret key — when supplied, verdicts.json is sealed with `record-manifest.json` and its detached signature, which `verify-record` and `gpg --verify` both check
       --sign-passphrase <SIGN_PASSPHRASE>
           The passphrase unlocking `--sign-key`. Supply it through the environment: a passphrase on the command line is visible to every process on the host [env: VEREDICTUM_SIGN_PASSPHRASE]
   -h, --help
           Print help
 ```
 
-The pure step. It reaches no network and reads nothing but its inputs, which is
-what makes a published verdict re-derivable by anyone who has the same four
-files.
+The pure step for a measured campaign. It reaches no network and reads nothing
+but its inputs, which is what makes a published verdict re-derivable by anyone
+who has the same three: the statement, the results record carrying the
+measurements, and the performance schedule under `perf/`.
 
-## replay
+Each measured class verdict is re-derived from the measurement record's
+embedded histograms against its performance case, and a stored verdict that
+does not re-derive is a review finding. A claimed class with no measurement,
+or a claim with no environment reference, is a review finding too. The command
+writes `verdicts.json` and exits `1` when the review found anything.
 
-```text
-Re-judge a recorded run from its transcript, answering every composed request out of the recording instead of a server, and optionally refuse a results document the recorded exchanges do not support
-
-Usage: veredictum replay [OPTIONS] --root <ROOT> --ixit <IXIT> --transcript <TRANSCRIPT>
-
-Options:
-      --root <ROOT>              The artifact root (schedule/, bindings/, corpus/, vocab/)
-      --ixit <IXIT>              The ixit topology the recorded run was driven under
-      --transcript <TRANSCRIPT>  The transcript of that run (`transcript.json`)
-      --statement <STATEMENT>    The party statement ISO/IEC 9646 test selection re-applies: it decides which option arm, extension route, claimed capability and release floor the re-judgement selects. Omitting it re-derives a whole-catalogue sweep stamped `selection_basis: statement_blind`, which `--against` refuses to hold against a record an ICS selected
-      --filter <FILTER>          Re-judge only cases whose id contains this substring
-      --out <OUT>                Where the re-judged `results.json` is written
-      --against <AGAINST>        The submitted `results.json` the re-judgement is held against: any row whose status or row counts differ fails the command
-      --progress                 Print `progress: <k>/<n> <case>` lines while re-judging
-  -h, --help                     Print help
-```
-
-Only the transport changes. The catalogue is driven again through the same
-request composition, the same response classification and the same assertion
-evaluators the live run used, with the recorded response standing in for the
-server's. A case whose recording runs out, or whose replay composes a request
-the recording does not carry, records a transport failure: a verdict is never
-reproduced over evidence nobody has.
-
-With `--against`, every row is compared on its status and its two row counts,
-and any disagreement exits `1` naming the case. The reason text is not
-compared, because a replay reaches a recording rather than a server and
-identical judgements can carry different words.
-
-Omitting `--statement` re-derives a sweep of the whole catalogue. The replay
-says so on stderr, in the words a live run uses, and stamps
-`selection_basis: statement_blind` on the document it writes. With `--against`
-the selection facts a `results.json` records are compared before any row is: a
-record an ICS selected, re-judged blind, under a statement the record does not
-name, or under one declaring different its-rest formats, exits `2` rather than
-reporting agreement, because a re-derivation under another claim re-derives
-another campaign. The statement is named by `statement_digest`, the leading 8
-bytes of the SHA-256 over the declaration's own bytes, so the refusal prints
-the recorded value and the applied one and a reader checks either with
-`sha256sum statement.json | cut -c1-16`. A record written before
-`selection_basis` or `statement_digest` existed identifies nothing about what
-selected it, and the replay reports that instead of refusing.
-
-What this establishes is that the judgement follows from the evidence. It does
-not establish the evidence: a transcript is what the instrument says it sent
-and received.
-
-## evidence
-
-```text
-Export a finished run's recorded exchanges for a named set of cases: the triage input, carved out of the run's own transcript. No statement is read, and a bundle that would carry nothing is refused
-
-Usage: veredictum evidence [OPTIONS] --transcript <TRANSCRIPT> --out <OUT> <--failing|--only <ONLY>|--filter <FILTER>>
-
-Options:
-      --transcript <TRANSCRIPT>  The run's `transcript.json` (written by `run --record-exchanges`)
-      --results <RESULTS>        The run's `results.json`. Required by `--failing`, and otherwise optional: supplying it puts each exported case's outcome row beside its exchanges
-      --failing                  Export the red rows the results record names — every `failed` and every `errored` case. The one-command triage input
-      --only <ONLY>              Export this case, by id. Repeat the flag once per case
-      --filter <FILTER>          Export cases whose id contains this substring
-      --out <OUT>                Where the bundle is written
-  -h, --help                     Print help
-```
-
-At least one of `--failing`, `--only` and `--filter` is required, and the three
-union: a case is exported when any of them names it. The unfiltered document is
-the transcript itself.
-
-The red rows of a run become a triage input in one command:
-
-```bash
-veredictum evidence --transcript run/transcript.json \
-    --results run/results.json --failing --out run/evidence.json
-```
-
-**No statement is read.** Sealing a record needs a claim; reading the exchanges
-a run recorded does not, and a run that went red is exactly when they are
-needed.
-
-**An export that would carry nothing is refused**, exit `2`, with no file
-written. A selection matching no recorded case names what was asked for and
-what the transcript actually carries; a selection whose every case recorded no
-exchange names those cases and says that recording is opt-in. A selection that
-half-matched still exports, and the bundle's `without_exchanges` names every
-case it could not carry, so a partial answer never reads as a complete one.
-
-The `authorization` request header's value is withheld by the export itself,
-whatever the transcript held. Response bodies are the wire's own bytes and can
-carry real patient data, so the bundle is operator-controlled output like the
-transcript it comes from.
+Conformance verdicts over the Arazzo catalogue are `veredictum test`'s results
+document and its exit status.
 
 ## export
 

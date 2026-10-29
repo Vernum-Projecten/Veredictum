@@ -70,72 +70,29 @@ pub struct Credential {
     pub value: Secret,
 }
 
-/// What to drive, mirroring the `veredictum run` CLI surface one to one and
-/// adding nothing to it.
+/// What to drive, mirroring the `veredictum test` CLI surface one to one
+/// and adding nothing to it.
 #[derive(Debug)]
 pub struct RunSpec {
-    /// The artifact root the run reads.
+    /// The catalogue root the run reads.
     pub root: PathBuf,
-    /// The ixit topology document (already written; carries env var NAMES,
-    /// never values).
-    pub ixit: PathBuf,
-    /// The output directory the run writes into.
-    pub out_dir: PathBuf,
-    /// `--sut-name`: the operator's display name, passed only when the
-    /// server does not state its own through System OPTIONS.
-    pub sut_name: Option<String>,
-    /// `--sut-version`: the operator's version label, passed only when the
-    /// server does not state its own.
-    pub sut_version: Option<String>,
+    /// The server's base URL, up to and including the openEHR REST base.
+    pub base_url: String,
+    /// The `--auth` token: `none`, `basic` or `bearer`.
+    pub auth: &'static str,
     /// The party statement, when test selection should apply.
     pub statement: Option<PathBuf>,
-    /// Drive only cases whose id contains this substring.
-    pub filter: Option<String>,
-    /// The secret values for the environment-variable names the ixit
-    /// declares. They reach the child process environment and nothing else.
-    pub credentials: Vec<Credential>,
-    /// Ask the engine for its `--progress` stream (#81); a binary predating
-    /// the flag refuses the argument, so the caller decides.
-    pub progress: bool,
-    /// Ask the engine to persist the wire exchanges as `transcript.json`
-    /// beside the results (#96). Off by default: the artifact can carry real
-    /// patient data, so the operator opts in per run.
-    pub record_exchanges: bool,
-}
-
-/// What to judge and seal, mirroring the `veredictum verdicts` CLI surface
-/// one to one and adding nothing to it.
-///
-/// The passphrase is deliberately absent: [`Engine::verdicts`] reads it from
-/// the console's own environment at spawn time and puts it in the child's,
-/// so it never lands in a struct anything could print or serialize.
-#[derive(Debug)]
-pub struct VerdictsSpec {
-    /// The party statement the run was graded against.
-    pub statement: PathBuf,
-    /// The party results the run produced.
-    pub results: PathBuf,
-    /// The artifact root the judgement reads.
-    pub root: PathBuf,
-    /// The directory the rendered documents and the sealed set land in.
+    /// The IXIT the rows files' `declared` inputs read (already written;
+    /// carries no secret).
+    pub ixit: Option<PathBuf>,
+    /// Run only these documents, by id; empty runs every document.
+    pub documents: Vec<String>,
+    /// The output directory the run writes into.
     pub out_dir: PathBuf,
-    /// The armored secret key that seals the bundle, when one is mounted.
-    pub sign_key: Option<PathBuf>,
-}
-
-/// What to export, mirroring the `veredictum evidence` CLI surface one to one
-/// and adding nothing to it.
-///
-/// No statement is named because the subcommand reads none: a run's recorded
-/// exchanges are readable whether or not a party claimed anything over them.
-#[derive(Debug)]
-pub struct EvidenceSpec {
-    /// The finished run's `transcript.json`.
-    pub transcript: PathBuf,
-    /// The finished run's `results.json`, which names the red rows.
-    pub results: PathBuf,
-    /// Where the bundle is written.
-    pub out: PathBuf,
+    /// The secret values under the variable names `test` reads
+    /// ([`veredictum::identity::USER_ENV`] and its siblings). They reach the
+    /// child process environment and nothing else.
+    pub credentials: Vec<Credential>,
 }
 
 /// Whom to identify, mirroring the `veredictum identify` CLI surface one to
@@ -162,18 +119,18 @@ pub enum Line {
 }
 
 /// A finished run: the exit status, where the documents landed, and the
-/// results record parsed through the published lib's typed model.
+/// results document parsed through the published lib's typed model.
 #[derive(Debug)]
 pub struct Finished {
-    /// Whether the engine reported a clean campaign (exit status success).
+    /// Whether the engine reported a green run (exit status success).
     pub clean_exit: bool,
-    /// The party results record, typed by the published `veredictum` lib —
-    /// never a console-side re-parse.
-    pub results: veredictum::party::Results,
+    /// The results document, typed by the published `veredictum` lib — never
+    /// a console-side re-parse.
+    pub results: veredictum::arazzo::results::Results,
     /// Where `results.json` landed.
     pub results_path: PathBuf,
-    /// Where `run-exceptions.json` landed.
-    pub exceptions_path: PathBuf,
+    /// Where the HAR recording landed.
+    pub recording_path: PathBuf,
 }
 
 /// Everything the seam can refuse, typed at the boundary that branches.
@@ -205,20 +162,6 @@ pub enum Error {
         /// Why it could not be read.
         #[source]
         source: std::io::Error,
-    },
-    /// The judgement subcommand exited non-zero; the field is the engine's
-    /// own diagnostic, verbatim.
-    #[error("the engine refused the judgement: {diagnostic}")]
-    Judgement {
-        /// What the engine printed, trimmed.
-        diagnostic: String,
-    },
-    /// The evidence subcommand exited non-zero, which is how it says the
-    /// bundle would have carried nothing.
-    #[error("the engine refused the evidence export: {diagnostic}")]
-    Evidence {
-        /// What the engine printed, trimmed.
-        diagnostic: String,
     },
     /// The identify subcommand exited non-zero; the field is the engine's own
     /// diagnostic, verbatim.
@@ -301,7 +244,7 @@ impl Engine {
     }
 
     /// Drives one run through the engine, streaming each output line to
-    /// `on_line` as it happens, then parses the results record through the
+    /// `on_line` as it happens, then parses the results document through the
     /// published lib.
     ///
     /// The credentials reach the child process environment and nothing
@@ -316,76 +259,6 @@ impl Engine {
     pub fn run(&self, spec: &RunSpec, on_line: impl FnMut(Line)) -> Result<Finished, Error> {
         let running = self.spawn(spec)?;
         running.stream(on_line)
-    }
-
-    /// Renders and seals the judgement documents by running the pinned
-    /// binary's `verdicts` subcommand to completion.
-    ///
-    /// The sealing is the engine's, never the console's. The passphrase is
-    /// read from [`crate::state::SIGN_PASSPHRASE_ENV`] here and set on the
-    /// child only, so it reaches no console state, no file and no log line.
-    ///
-    /// # Errors
-    /// [`Error::Execute`] when the process cannot run, and
-    /// [`Error::Judgement`] carrying the engine's own diagnostic when it
-    /// exits at 2 or above, or exits at 1 without writing the verdicts
-    /// document.
-    pub fn verdicts(&self, spec: &VerdictsSpec) -> Result<(), Error> {
-        let mut command = std::process::Command::new(&self.binary);
-        command
-            .args(verdicts_args(spec))
-            .stdin(std::process::Stdio::null());
-        if let Ok(passphrase) = std::env::var(crate::state::SIGN_PASSPHRASE_ENV) {
-            command.env(crate::state::SIGN_PASSPHRASE_ENV, passphrase);
-        }
-        let output = command.output().map_err(Error::Execute)?;
-        if output.status.success() {
-            return Ok(());
-        }
-        // The same tolerance as the reproduction lane (#269): exit 1 with a
-        // verdicts document is a judgement carrying review findings, while
-        // exit 2 is not a judgement at all.
-        if output.status.code() == Some(1) && spec.out_dir.join("verdicts.json").is_file() {
-            return Ok(());
-        }
-        // stderr first, because the engine's refusals print there.
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-        let diagnostic = if stderr.is_empty() {
-            String::from_utf8_lossy(&output.stdout).trim().to_owned()
-        } else {
-            stderr
-        };
-        Err(Error::Judgement { diagnostic })
-    }
-
-    /// Exports the finished run's red rows as an evidence bundle by running
-    /// the pinned binary's `evidence` subcommand to completion.
-    ///
-    /// The refusal is the engine's own: a run whose red rows recorded no
-    /// exchanges exits non-zero and writes nothing, so the console can never
-    /// hand a reader a bundle of the right shape with no content in it.
-    ///
-    /// # Errors
-    /// [`Error::Execute`] when the process cannot run, and
-    /// [`Error::Evidence`] carrying the engine's own diagnostic when it
-    /// refuses the export.
-    pub fn evidence(&self, spec: &EvidenceSpec) -> Result<(), Error> {
-        let output = std::process::Command::new(&self.binary)
-            .args(evidence_args(spec))
-            .stdin(std::process::Stdio::null())
-            .output()
-            .map_err(Error::Execute)?;
-        if output.status.success() {
-            return Ok(());
-        }
-        // stderr first, because the engine's refusals print there.
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-        let diagnostic = if stderr.is_empty() {
-            String::from_utf8_lossy(&output.stdout).trim().to_owned()
-        } else {
-            stderr
-        };
-        Err(Error::Evidence { diagnostic })
     }
 
     /// Reads the server's identity by running the pinned binary's `identify`
@@ -560,7 +433,7 @@ fn drain_to_completion(
     Ok(status)
 }
 
-/// Reads the results record the finished run left in `out_dir`, parsed
+/// Reads the results document the finished run left in `out_dir`, parsed
 /// through the published lib.
 ///
 /// # Errors
@@ -568,13 +441,13 @@ fn drain_to_completion(
 /// run's ordinary shape), and [`Error::Malformed`] when that document does
 /// not parse as the published record.
 fn read_finished(out_dir: &Path, clean_exit: bool) -> Result<Finished, Error> {
-    let results_path = out_dir.join("results.json");
-    let exceptions_path = out_dir.join("run-exceptions.json");
+    let results_path = out_dir.join(veredictum::pipeline::arazzo_run::RESULTS_FILE);
+    let recording_path = out_dir.join(veredictum::pipeline::arazzo_run::RECORDING_FILE);
     let body = std::fs::read_to_string(&results_path).map_err(|source| Error::NoResults {
         path: results_path.clone(),
         source,
     })?;
-    let results: veredictum::party::Results =
+    let results: veredictum::arazzo::results::Results =
         serde_json::from_str(&body).map_err(|source| Error::Malformed {
             path: results_path.clone(),
             source,
@@ -583,7 +456,7 @@ fn read_finished(out_dir: &Path, clean_exit: bool) -> Result<Finished, Error> {
         clean_exit,
         results,
         results_path,
-        exceptions_path,
+        recording_path,
     })
 }
 
@@ -633,40 +506,32 @@ pub fn locate_with(explicit: Option<&str>) -> Result<Engine, Error> {
     }
 }
 
-/// Assembles the exact `veredictum run` argument vector for a spec.
+/// Assembles the exact `veredictum test` argument vector for a spec.
 #[must_use]
 pub fn args(spec: &RunSpec) -> Vec<std::ffi::OsString> {
     let mut args: Vec<std::ffi::OsString> = vec![
-        "run".into(),
+        "test".into(),
         "--root".into(),
         spec.root.clone().into(),
-        "--ixit".into(),
-        spec.ixit.clone().into(),
-        "--out".into(),
-        spec.out_dir.clone().into(),
+        "--base-url".into(),
+        spec.base_url.clone().into(),
+        "--auth".into(),
+        spec.auth.into(),
     ];
-    if let Some(name) = &spec.sut_name {
-        args.push("--sut-name".into());
-        args.push(name.clone().into());
-    }
-    if let Some(version) = &spec.sut_version {
-        args.push("--sut-version".into());
-        args.push(version.clone().into());
-    }
     if let Some(statement) = &spec.statement {
         args.push("--statement".into());
         args.push(statement.clone().into());
     }
-    if let Some(filter) = &spec.filter {
-        args.push("--filter".into());
-        args.push(filter.clone().into());
+    if let Some(ixit) = &spec.ixit {
+        args.push("--ixit".into());
+        args.push(ixit.clone().into());
     }
-    if spec.record_exchanges {
-        args.push("--record-exchanges".into());
+    for document in &spec.documents {
+        args.push("--document".into());
+        args.push(document.clone().into());
     }
-    if spec.progress {
-        args.push("--progress".into());
-    }
+    args.push("--out".into());
+    args.push(spec.out_dir.clone().into());
     args
 }
 
@@ -707,45 +572,6 @@ pub fn identity_answer(
     }
 }
 
-/// Assembles the exact `veredictum verdicts` argument vector for a spec.
-#[must_use]
-pub fn verdicts_args(spec: &VerdictsSpec) -> Vec<std::ffi::OsString> {
-    let mut args: Vec<std::ffi::OsString> = vec![
-        "verdicts".into(),
-        "--statement".into(),
-        spec.statement.clone().into(),
-        "--results".into(),
-        spec.results.clone().into(),
-        "--root".into(),
-        spec.root.clone().into(),
-        "--out".into(),
-        spec.out_dir.clone().into(),
-    ];
-    if let Some(key) = &spec.sign_key {
-        args.push("--sign-key".into());
-        args.push(key.clone().into());
-    }
-    args
-}
-
-/// Assembles the exact `veredictum evidence` argument vector for a spec.
-///
-/// `--failing` is fixed rather than exposed: the console offers one thing,
-/// which is the red rows of the run being read.
-#[must_use]
-pub fn evidence_args(spec: &EvidenceSpec) -> Vec<std::ffi::OsString> {
-    vec![
-        "evidence".into(),
-        "--transcript".into(),
-        spec.transcript.clone().into(),
-        "--results".into(),
-        spec.results.clone().into(),
-        "--failing".into(),
-        "--out".into(),
-        spec.out.clone().into(),
-    ]
-}
-
 /// Returns a value's published token: the lib's own serialization, without
 /// its JSON quotes.
 ///
@@ -772,8 +598,8 @@ pub fn opt_token<T: serde::Serialize>(
 #[cfg(test)]
 mod tests {
     use super::{
-        Credential, ENGINE_ENV, ENGINE_VERSION, Error, RunSpec, Secret, VerdictsSpec, args,
-        locate_with, opt_token, token, verdicts_args,
+        Credential, ENGINE_ENV, ENGINE_VERSION, Error, RunSpec, Secret, args, locate_with,
+        opt_token, token,
     };
 
     /// An override naming a file that is not there is an operator's typo, and
@@ -816,16 +642,17 @@ mod tests {
     /// argument for argument.
     fn full_spec() -> RunSpec {
         RunSpec {
-            root: "artifacts".into(),
-            ixit: "out/ixit.json".into(),
-            out_dir: "out".into(),
-            sut_name: Some("my-cdr".into()),
-            sut_version: Some("1.2.3".into()),
+            root: "catalogue".into(),
+            base_url: String::from("http://cdr.test/openehr/v1"),
+            auth: "basic",
             statement: Some("mine/statement.json".into()),
-            filter: Some("create_ehr-main".into()),
-            credentials: vec![],
-            progress: true,
-            record_exchanges: true,
+            ixit: Some("out/ixit.json".into()),
+            documents: vec![String::from("ehr"), String::from("ehr_status")],
+            out_dir: "out".into(),
+            credentials: vec![Credential {
+                name: String::from("VEREDICTUM_SUT_PASSWORD"),
+                value: Secret::new(String::from("hunter2")),
+            }],
         }
     }
 
@@ -837,49 +664,47 @@ mod tests {
     }
 
     #[test]
-    fn the_argument_vector_mirrors_the_cli_surface() {
+    fn the_argument_vector_mirrors_the_cli_surface_and_carries_no_secret() {
+        let rendered = rendered(&full_spec());
         assert_eq!(
-            rendered(&full_spec()),
+            rendered,
             [
-                "run",
+                "test",
                 "--root",
-                "artifacts",
-                "--ixit",
-                "out/ixit.json",
-                "--out",
-                "out",
-                "--sut-name",
-                "my-cdr",
-                "--sut-version",
-                "1.2.3",
+                "catalogue",
+                "--base-url",
+                "http://cdr.test/openehr/v1",
+                "--auth",
+                "basic",
                 "--statement",
                 "mine/statement.json",
-                "--filter",
-                "create_ehr-main",
-                "--record-exchanges",
-                "--progress",
+                "--ixit",
+                "out/ixit.json",
+                "--document",
+                "ehr",
+                "--document",
+                "ehr_status",
+                "--out",
+                "out",
             ]
         );
+        assert!(!rendered.iter().any(|a| a.contains("hunter2")));
     }
 
-    /// A field the server states passes no operator flag, so the engine
-    /// records the server's value.
+    /// A run with no statement, no IXIT and no document narrowing passes none
+    /// of those flags, so the engine's own defaults govern.
     #[test]
-    fn a_server_stated_identity_passes_no_operator_flag() {
+    fn an_unnarrowed_run_passes_no_optional_flag() {
         let spec = RunSpec {
-            sut_name: None,
-            sut_version: None,
+            statement: None,
+            ixit: None,
+            documents: Vec::new(),
             ..full_spec()
         };
         let rendered = rendered(&spec);
-        assert!(
-            !rendered.contains(&String::from("--sut-name")),
-            "{rendered:?}"
-        );
-        assert!(
-            !rendered.contains(&String::from("--sut-version")),
-            "{rendered:?}"
-        );
+        for flag in ["--statement", "--ixit", "--document"] {
+            assert!(!rendered.contains(&String::from(flag)), "{rendered:?}");
+        }
     }
 
     #[test]
@@ -909,95 +734,6 @@ mod tests {
         assert!(!rendered.iter().any(|a| a.contains("hunter2")));
     }
 
-    /// Recording is opt-in: an unchecked box passes no flag at all, so the
-    /// engine's own default (no transcript) governs.
-    #[test]
-    fn an_unrecorded_run_passes_no_transcript_flag() {
-        let spec = RunSpec {
-            record_exchanges: false,
-            ..full_spec()
-        };
-        assert!(
-            !rendered(&spec).contains(&String::from("--record-exchanges")),
-            "{:?}",
-            rendered(&spec)
-        );
-    }
-
-    #[test]
-    fn the_judgement_argument_vector_mirrors_the_cli_surface() {
-        let spec = VerdictsSpec {
-            statement: "out/console-job-1/statement.json".into(),
-            results: "out/console-job-1/results.json".into(),
-            root: "artifacts".into(),
-            out_dir: "out/console-job-1/export".into(),
-            sign_key: Some("keys/cnf-signing.sec.asc".into()),
-        };
-        let rendered: Vec<String> = verdicts_args(&spec)
-            .into_iter()
-            .map(|a| a.to_string_lossy().into_owned())
-            .collect();
-        assert_eq!(
-            rendered,
-            [
-                "verdicts",
-                "--statement",
-                "out/console-job-1/statement.json",
-                "--results",
-                "out/console-job-1/results.json",
-                "--root",
-                "artifacts",
-                "--out",
-                "out/console-job-1/export",
-                "--sign-key",
-                "keys/cnf-signing.sec.asc",
-            ]
-        );
-    }
-
-    /// No key mounted means no `--sign-key`, so the engine renders the
-    /// documents unsealed rather than being handed an empty path.
-    #[test]
-    fn the_judgement_vector_omits_the_key_when_none_is_mounted() {
-        let spec = VerdictsSpec {
-            statement: "s.json".into(),
-            results: "r.json".into(),
-            root: "artifacts".into(),
-            out_dir: "export".into(),
-            sign_key: None,
-        };
-        let rendered: Vec<String> = verdicts_args(&spec)
-            .into_iter()
-            .map(|a| a.to_string_lossy().into_owned())
-            .collect();
-        assert!(
-            !rendered.contains(&String::from("--sign-key")),
-            "{rendered:?}"
-        );
-    }
-
-    /// The passphrase never becomes a command-line argument: it is visible to
-    /// every process on the host there, which is why the CLI takes it from
-    /// the environment.
-    #[test]
-    fn the_judgement_vector_never_carries_a_passphrase() {
-        let spec = VerdictsSpec {
-            statement: "s.json".into(),
-            results: "r.json".into(),
-            root: "artifacts".into(),
-            out_dir: "export".into(),
-            sign_key: Some("k.asc".into()),
-        };
-        let rendered: Vec<String> = verdicts_args(&spec)
-            .into_iter()
-            .map(|a| a.to_string_lossy().into_owned())
-            .collect();
-        assert!(
-            !rendered.iter().any(|a| a.contains("passphrase")),
-            "{rendered:?}"
-        );
-    }
-
     /// A token is locked to the lib's own serialization, never a mirrored
     /// table.
     #[expect(
@@ -1007,8 +743,8 @@ mod tests {
     #[test]
     fn a_token_is_the_libs_own_spelling_without_its_quotes() -> Result<(), serde_json::Error> {
         assert_eq!(
-            token(&veredictum::party::OutcomeStatus::NotApplicable)?,
-            "not_applicable"
+            token(&veredictum::arazzo::results::SkipReason::NotClaimed)?,
+            "not-claimed"
         );
         assert_eq!(token(&veredictum::vocab::Tier::SecBasic)?, "SEC-BASIC");
         assert_eq!(token(&veredictum::vocab::FormatName::WtFlat)?, "wt-flat");

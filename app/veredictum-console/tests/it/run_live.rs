@@ -11,7 +11,7 @@
 
 use veredictum_console::engine::{Credential, Engine, RunSpec, Secret};
 use veredictum_console::run_api::{
-    AuthChoice, DeclaredPostures, DigestEncoding, PostureForm, RunDraft, RunScreen, SigningPosture,
+    AuthChoice, DeclaredPostures, DigestEncoding, RunDraft, RunScreen, SigningPosture,
     StartOutcome, read,
 };
 use veredictum_console::run_job::{JobSlot, JobStatus, JobView, Latest, Limits, RunId};
@@ -62,27 +62,7 @@ fn a_job_supervises_a_run_to_its_finished_view() -> Result<(), Box<dyn std::erro
         id,
         engine_gate::gate_submitter(),
         &engine,
-        RunSpec {
-            root: engine_gate::repo_root().join("artifacts"),
-            ixit,
-            out_dir: out.clone(),
-            sut_name: Some(String::from("job-gate")),
-            sut_version: Some(String::from("0.0.0-gate")),
-            statement: None,
-            filter: Some(String::from("I_EHR_SERVICE.create_ehr-main")),
-            credentials: vec![
-                Credential {
-                    name: String::from("GATE_SUT_USER"),
-                    value: Secret::new(String::from("gate-user")),
-                },
-                Credential {
-                    name: String::from("GATE_SUT_PASS"),
-                    value: Secret::new(String::from("gate-pass")),
-                },
-            ],
-            progress: true,
-            record_exchanges: false,
-        },
+        engine_gate::gate_spec(ixit, port, out.clone()),
         String::from("job-gate"),
     )?;
 
@@ -99,13 +79,9 @@ fn a_job_supervises_a_run_to_its_finished_view() -> Result<(), Box<dyn std::erro
         "a 500-only SUT cannot pass"
     );
     assert!(std::path::Path::new(&finished.results_path).is_file());
-    // The engine's own progress stream fed the counters (the workspace
-    // binary carries --progress).
-    assert!(
-        terminal.total > 0,
-        "the progress stream never announced a total"
-    );
-    assert_eq!(terminal.completed, terminal.total);
+    // `test` announces no progress, so the counters stay at zero rather than
+    // showing a number the engine never stated.
+    assert_eq!((terminal.completed, terminal.total), (0, 0));
     Ok(())
 }
 
@@ -120,11 +96,11 @@ fn posture_draft(postures: DeclaredPostures) -> RunDraft {
         auth: AuthChoice::Basic,
         credentials: vec![
             Credential {
-                name: String::from("CONSOLE_SUT_USER"),
+                name: String::from(veredictum::identity::USER_ENV),
                 value: Secret::new(String::from("user-value-hunter2")),
             },
             Credential {
-                name: String::from("CONSOLE_SUT_PASS"),
+                name: String::from(veredictum::identity::PASSWORD_ENV),
                 value: Secret::new(String::from("pass-value-hunter2")),
             },
         ],
@@ -132,7 +108,6 @@ fn posture_draft(postures: DeclaredPostures) -> RunDraft {
         statement_json: None,
         statement_product: None,
         filter: None,
-        record_exchanges: false,
         postures,
     }
 }
@@ -145,8 +120,8 @@ fn posture_draft(postures: DeclaredPostures) -> RunDraft {
 fn the_generated_ixit_carries_names_and_never_values() -> Result<(), Box<dyn std::error::Error>> {
     let draft = posture_draft(DeclaredPostures::default());
     let document = read::ixit_document(&draft)?;
-    assert!(document.contains("CONSOLE_SUT_USER"));
-    assert!(document.contains("CONSOLE_SUT_PASS"));
+    assert!(document.contains(veredictum::identity::USER_ENV));
+    assert!(document.contains(veredictum::identity::PASSWORD_ENV));
     assert!(
         !document.contains("hunter2"),
         "a credential VALUE reached the ixit document: {document}"
@@ -190,16 +165,16 @@ fn the_composed_ixit_pins_every_posture_the_console_supplies()
       "base_url": "http://cdr.example",
       "auth": {
         "mode": "basic",
-        "user_env": "CONSOLE_SUT_USER",
-        "password_env": "CONSOLE_SUT_PASS"
+        "user_env": "VEREDICTUM_SUT_USER",
+        "password_env": "VEREDICTUM_SUT_PASSWORD"
       }
     },
     "sut": {
       "base_url": "http://cdr.example",
       "auth": {
         "mode": "basic",
-        "user_env": "CONSOLE_SUT_USER",
-        "password_env": "CONSOLE_SUT_PASS"
+        "user_env": "VEREDICTUM_SUT_USER",
+        "password_env": "VEREDICTUM_SUT_PASSWORD"
       }
     },
     "unauthenticated": {
@@ -319,7 +294,7 @@ fn an_undeclared_posture_composes_no_key() -> Result<(), Box<dyn std::error::Err
 )]
 #[expect(
     clippy::too_many_lines,
-    reason = "one gate walks the whole chain — run, red-first, join, judgement — and splitting it would hide the chain it exists to assert"
+    reason = "one gate walks the whole chain — run, address, red-first, explanation, wire — and splitting it would hide the chain it exists to assert"
 )]
 #[test]
 fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std::error::Error>> {
@@ -338,18 +313,21 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
     let ixit = engine_gate::write_ixit(scratch.path(), port)?;
     let out = scratch.path().join("record-run");
     std::fs::create_dir_all(&out)?;
-    let statement = engine_gate::declaration_fixture();
     // What start_run does for a pasted claim: the accepted bytes travel with
-    // the run, and the verdicts read them back from the job directory.
-    std::fs::copy(&statement, out.join("statement.json"))?;
+    // the run.
+    let statement = out.join("statement.json");
+    std::fs::write(
+        &statement,
+        r#"{"product":{"name":"record-gate","version":"0.0.0-gate","vendor":"gate","identifier":"urn:veredictum:gate"},"schedule_release":"cnf-2.0-w2","claims":{"capabilities":["system"]}}"#,
+    )?;
 
-    let root = engine_gate::repo_root().join("artifacts");
     let state = veredictum_console::state::ConsoleState {
-        root: root.clone(),
+        root: engine_gate::repo_root().join("catalogue"),
         specs: engine_gate::repo_root().join("specs/openehr"),
         out: scratch.path().to_path_buf(),
         catalogue: std::sync::Arc::new(
-            veredictum::pipeline::catalogue::validate_tree(&root, None).map_err(|e| e.to_string()),
+            veredictum::pipeline::listing::read(&engine_gate::repo_root().join("catalogue"), None)
+                .map_err(|e| e.to_string()),
         ),
         draft: std::sync::Arc::new(std::sync::Mutex::new(engine_gate::drafts_of(RunDraft {
             base_url: String::from("http://unused"),
@@ -360,13 +338,10 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
             credentials: vec![],
             probed_ok: true,
             statement_json: Some(std::fs::read_to_string(&statement)?),
-            statement_product: Some(String::from("Fixture CDR 0.0.0-fixture")),
+            statement_product: Some(String::from("record-gate 0.0.0-gate")),
             filter: None,
-            record_exchanges: false,
             postures: DeclaredPostures::default(),
         }))),
-        sign_key: None,
-        verify_key: None,
         jobs: JobSlot::default(),
         client_ip_header: None,
         posture: veredictum_console::posture::Posture::Local,
@@ -381,16 +356,8 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
             engine_gate::gate_submitter(),
             &engine,
             RunSpec {
-                root,
-                ixit,
-                out_dir: out,
-                sut_name: Some(String::from("record-gate")),
-                sut_version: Some(String::from("0.0.0-gate")),
                 statement: Some(statement),
-                filter: Some(String::from("I_EHR_SERVICE.create_ehr-main")),
-                credentials: vec![],
-                progress: true,
-                record_exchanges: false,
+                ..engine_gate::gate_spec(ixit, port, out)
             },
             String::from("record-gate"),
         )
@@ -438,207 +405,52 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
         "a run's own address answers whoever holds it"
     );
 
-    // S6: the results screen reads the record red-first.
+    // S6: the results screen reads the results red-first.
     let results = veredictum_console::record_api::read::results_screen(&state, who)
         .map_err(|e| format!("results: {e}"))?
         .ok_or("a finished run must yield a results screen")?;
     assert!(!results.rows.is_empty());
+    assert_eq!(results.base_url, format!("http://127.0.0.1:{port}"));
     let first = results.rows.first().ok_or("rows checked non-empty")?;
     assert!(
         matches!(first.status.as_str(), "failed" | "errored"),
         "red rows must sort first against a 500-only SUT: {first:?}"
     );
 
-    // The drawer joins the catalogue.
-    let detail = veredictum_console::record_api::read::result_detail(
-        &state,
-        who,
-        &first.case,
-        first.format.as_deref(),
-    )
-    .map_err(|e| format!("detail: {e}"))?
-    .ok_or("the first row must have a detail")?;
-    assert!(detail.test_purpose.is_some(), "the catalogue join failed");
-    assert!(!detail.spec_refs.is_empty());
-    // This run asked for no transcript, so the drawer says so rather than
-    // showing an empty wire section (#96).
-    assert_eq!(
-        detail.transcript,
-        veredictum_console::record_api::TranscriptView::NotRecorded,
-        "an unrecorded run carries no transcript file"
-    );
-
-    // S7: the judgement runs through the lib and carries the documents.
-    match veredictum_console::record_api::read::verdicts_screen(&state, who)
-        .map_err(|e| format!("verdicts: {e}"))?
-    {
-        veredictum_console::record_api::VerdictsScreen::Judged {
-            profiles,
-            documents,
-            ..
-        } => {
-            assert!(!profiles.is_empty(), "the matrix must carry the tiers");
-            let names: Vec<&str> = documents.iter().map(|d| d.name.as_str()).collect();
+    // The drawer carries the engine's four-part explanation and the exchange
+    // it names, read from the recording beside the results.
+    let detail =
+        veredictum_console::record_api::read::result_detail(&state, who, &first.case, first.row)
+            .map_err(|e| format!("detail: {e}"))?
+            .ok_or("the first row must have a detail")?;
+    assert!(detail.summary.is_some(), "the catalogue join failed");
+    assert!(detail.what.is_some() && detail.expected.is_some() && detail.received.is_some());
+    assert!(detail.whose.is_some());
+    match &detail.recording {
+        veredictum_console::record_api::RecordingView::Exchange(exchange) => {
             assert!(
-                names.contains(&"CONFORMANCE_REPORT.md"),
-                "documents: {names:?}"
+                exchange.request_line.contains(&format!("127.0.0.1:{port}")),
+                "{exchange:?}"
+            );
+            assert_eq!(exchange.status_line, "HTTP 500");
+        }
+        veredictum_console::record_api::RecordingView::NoExchange => {
+            assert!(
+                first.status == "errored",
+                "a failed row is judged on an exchange: {detail:?}"
             );
         }
-        other => panic!("a statement run must judge: {other:?}"),
+        veredictum_console::record_api::RecordingView::Unreadable(why) => {
+            panic!("the recording beside the results must read: {why}")
+        }
     }
     Ok(())
 }
-
-/// The #96 gate: the operator ticks "Record the wire exchanges" on Scope, the
-/// draft carries it into the spawned run, and the results drawer reads the
-/// exchanges the transcript beside the record holds.
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
-)]
-#[expect(
-    clippy::too_many_lines,
-    reason = "one gate walks the whole chain — tick, drive, read the drawer — and splitting it would hide the chain it exists to assert"
-)]
-#[test]
-fn a_recorded_run_fills_the_drawer_with_its_wire() -> Result<(), Box<dyn std::error::Error>> {
-    let binary = engine_gate::gate_binary();
-    if !binary.exists() {
-        eprintln!(
-            "SKIPPED(no engine binary at {}): build the workspace first",
-            binary.display()
-        );
-        return Ok(());
-    }
-    let engine = Engine::verified(&binary)?;
-
-    let scratch = assert_fs::TempDir::new()?;
-    let port = engine_gate::fixture_sut()?;
-    let ixit = engine_gate::write_ixit(scratch.path(), port)?;
-    let out = scratch.path().join("wire-run");
-    std::fs::create_dir_all(&out)?;
-
-    let root = engine_gate::repo_root().join("artifacts");
-    let state = veredictum_console::state::ConsoleState {
-        root: root.clone(),
-        specs: engine_gate::repo_root().join("specs/openehr"),
-        out: scratch.path().to_path_buf(),
-        catalogue: std::sync::Arc::new(
-            veredictum::pipeline::catalogue::validate_tree(&root, None).map_err(|e| e.to_string()),
-        ),
-        draft: std::sync::Arc::new(std::sync::Mutex::new(engine_gate::drafts_of(RunDraft {
-            base_url: String::from("http://unused"),
-            sut_name: String::from("wire-gate"),
-            sut_version: String::from("0.0.0-gate"),
-            identity: None,
-            auth: AuthChoice::None,
-            credentials: vec![],
-            probed_ok: true,
-            statement_json: None,
-            statement_product: None,
-            filter: None,
-            record_exchanges: false,
-            postures: DeclaredPostures::default(),
-        }))),
-        sign_key: None,
-        verify_key: None,
-        jobs: JobSlot::default(),
-        client_ip_header: None,
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-    };
-
-    // The Scope step with the box ticked: the save is what carries the choice
-    // onto the draft that start_run then reads.
-    let who = engine_gate::gate_submitter();
-    let saved = read::save_scope(&state, who, None, None, true, &PostureForm::default())
-        .map_err(|e| format!("scope: {e}"))?;
-    assert_eq!(saved, None, "no claim was pasted, so there is no summary");
-    let view = read::draft_view(&state, who).ok_or("the draft exists after the scope save")?;
-    assert!(view.record_exchanges, "the ticked box reached the draft");
-
-    let id = state.jobs.allocate_id();
-    state
-        .jobs
-        .start(
-            id,
-            engine_gate::gate_submitter(),
-            &engine,
-            RunSpec {
-                root,
-                ixit,
-                out_dir: out.clone(),
-                sut_name: Some(String::from("wire-gate")),
-                sut_version: Some(String::from("0.0.0-gate")),
-                statement: None,
-                filter: Some(String::from("I_EHR_SERVICE.create_ehr-main")),
-                // The fixture ixit declares Basic auth: without the values
-                // the driver refuses every step before it sends, and the run
-                // would record no wire at all.
-                credentials: vec![
-                    Credential {
-                        name: String::from("GATE_SUT_USER"),
-                        value: Secret::new(String::from("gate-user")),
-                    },
-                    Credential {
-                        name: String::from("GATE_SUT_PASS"),
-                        value: Secret::new(String::from("gate-pass")),
-                    },
-                ],
-                progress: true,
-                record_exchanges: view.record_exchanges,
-            },
-            String::from("wire-gate"),
-        )
-        .map_err(|e| e.to_string())?;
-    let terminal = wait_terminal(&state.jobs, id).ok_or("the job never left Running")?;
-    assert_eq!(
-        terminal.status,
-        JobStatus::Finished,
-        "tail: {:?}",
-        terminal.tail
-    );
-
-    assert!(
-        out.join("transcript.json").is_file(),
-        "the recorded run wrote its transcript beside the record"
-    );
-    let results = veredictum_console::record_api::read::results_screen(&state, who)
-        .map_err(|e| format!("results: {e}"))?
-        .ok_or("a finished run must yield a results screen")?;
-    let first = results.rows.first().ok_or("the run recorded rows")?;
-    let detail = veredictum_console::record_api::read::result_detail(
-        &state,
-        who,
-        &first.case,
-        first.format.as_deref(),
-    )
-    .map_err(|e| format!("detail: {e}"))?
-    .ok_or("the first row must have a detail")?;
-
-    let veredictum_console::record_api::TranscriptView::Recorded(exchanges) = detail.transcript
-    else {
-        panic!("a recorded run fills the drawer");
-    };
-    let first_exchange = exchanges
-        .first()
-        .ok_or("the driven case sent at least one request")?;
-    assert!(
-        first_exchange.request_line.contains("http://127.0.0.1:"),
-        "the request line names the fixture SUT: {}",
-        first_exchange.request_line
-    );
-    assert_eq!(first_exchange.status_line, "HTTP 500");
-    assert_eq!(first_exchange.response_body.as_deref(), Some("no"));
-    Ok(())
-}
-
 /// A console state over one scratch output tree, with no catalogue: the live
 /// screen's resolver reads the slot and the output mount, and nothing else.
 fn state_over(out: &std::path::Path) -> veredictum_console::state::ConsoleState {
     veredictum_console::state::ConsoleState {
-        root: engine_gate::repo_root().join("artifacts"),
+        root: engine_gate::repo_root().join("catalogue"),
         specs: engine_gate::repo_root().join("specs/openehr"),
         out: out.to_path_buf(),
         catalogue: std::sync::Arc::new(Err(String::from("unused by the live screen"))),
@@ -646,8 +458,6 @@ fn state_over(out: &std::path::Path) -> veredictum_console::state::ConsoleState 
             veredictum_console::run_api::Drafts::new(),
         )),
         client_ip_header: None,
-        sign_key: None,
-        verify_key: None,
         jobs: JobSlot::default(),
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
@@ -668,27 +478,15 @@ fn the_live_screen_answers_for_a_run_this_process_never_drove()
     // Authored as bytes, the way the engine writes the document the console
     // reads back, so a codec change fails here.
     const RECORD: &str = r#"{
-        "sut": { "name": { "value": "recorded-cdr", "source": "operator" }, "version": { "value": "9.9", "source": "operator" } },
-        "runner": {
-            "name": "veredictum",
-            "version": "0",
-            "verification_pack_status": "passed"
-        },
+        "document": "catalogue",
+        "engine": { "name": "veredictum", "version": "0" },
         "instrument_status": "pre-approval",
-        "schedule_release": "0",
-        "tech_profile": { "its": "its-rest", "formats": [] },
-        "ixit_digest": "0",
-        "outcomes": [
-            { "case": "A-a", "status": "passed", "rows_driven": 1, "rows_total": 1 },
-            { "case": "A-b", "status": "failed", "rows_driven": 1, "rows_total": 1 },
-            { "case": "A-c", "status": "errored", "rows_driven": 1, "rows_total": 1 },
-            {
-                "case": "A-d",
-                "status": "not_applicable",
-                "rows_driven": 0,
-                "rows_total": 1,
-                "citation": "ITS-REST"
-            }
+        "base_url": "http://recorded.example/openehr/v1",
+        "rows": [
+            { "case": "a/a", "row": 0, "status": "passed", "inputs": {}, "generated": [] },
+            { "case": "a/b", "row": 0, "status": "failed", "inputs": {}, "generated": [] },
+            { "case": "a/c", "row": 0, "status": "errored", "inputs": {}, "generated": [] },
+            { "case": "a/d", "row": 0, "status": "skipped", "inputs": {}, "generated": [] }
         ]
     }"#;
 
@@ -724,13 +522,13 @@ fn the_live_screen_answers_for_a_run_this_process_never_drove()
         panic!("a job directory is a recorded run");
     };
     let results = recorded.results.ok_or("the record parses into a tally")?;
-    assert_eq!(results.sut_name, "recorded-cdr");
+    assert_eq!(results.base_url, "http://recorded.example/openehr/v1");
     assert_eq!(
         (
             results.passed,
             results.failed,
             results.errored,
-            results.not_applicable
+            results.skipped
         ),
         (1, 1, 1, 1)
     );
@@ -751,32 +549,8 @@ fn visitor(octet: u8) -> Submitter {
 }
 
 /// One run against the fixture SUT, writing into its own directory.
-fn spec_for(
-    root: &std::path::Path,
-    ixit: &std::path::Path,
-    out_dir: std::path::PathBuf,
-) -> RunSpec {
-    RunSpec {
-        root: root.to_path_buf(),
-        ixit: ixit.to_path_buf(),
-        out_dir,
-        sut_name: Some(String::from("cap-gate")),
-        sut_version: Some(String::from("0.0.0-gate")),
-        statement: None,
-        filter: Some(String::from("I_EHR_SERVICE.create_ehr-main")),
-        credentials: vec![
-            Credential {
-                name: String::from("GATE_SUT_USER"),
-                value: Secret::new(String::from("gate-user")),
-            },
-            Credential {
-                name: String::from("GATE_SUT_PASS"),
-                value: Secret::new(String::from("gate-pass")),
-            },
-        ],
-        progress: true,
-        record_exchanges: false,
-    }
+fn spec_for(port: u16, ixit: &std::path::Path, out_dir: std::path::PathBuf) -> RunSpec {
+    engine_gate::gate_spec(ixit.to_path_buf(), port, out_dir)
 }
 
 /// Polls until the NAMED job leaves `Running`, within `budget`.
@@ -817,7 +591,6 @@ fn two_runs_drive_at_once_and_the_third_is_queued() -> Result<(), Box<dyn std::e
     // before the next line executes.
     let port = engine_gate::slow_fixture_sut(std::time::Duration::from_millis(400))?;
     let ixit = engine_gate::write_ixit(scratch.path(), port)?;
-    let root = engine_gate::repo_root().join("artifacts");
 
     let slot = JobSlot::default();
     let limits = slot.limits();
@@ -830,7 +603,7 @@ fn two_runs_drive_at_once_and_the_third_is_queued() -> Result<(), Box<dyn std::e
             id,
             visitor(seat),
             &engine,
-            spec_for(&root, &ixit, dir),
+            spec_for(port, &ixit, dir),
             format!("cap-gate-{seat}"),
         )?;
         started.push(id);
@@ -916,7 +689,6 @@ fn a_second_start_from_one_address_names_the_run_it_already_has()
     let scratch = assert_fs::TempDir::new()?;
     let port = engine_gate::slow_fixture_sut(std::time::Duration::from_millis(400))?;
     let ixit = engine_gate::write_ixit(scratch.path(), port)?;
-    let root = engine_gate::repo_root().join("artifacts");
 
     let slot = JobSlot::default();
     let mine = visitor(1);
@@ -927,7 +699,7 @@ fn a_second_start_from_one_address_names_the_run_it_already_has()
         first,
         mine,
         &engine,
-        spec_for(&root, &ixit, dir),
+        spec_for(port, &ixit, dir),
         String::from("cap-gate-first"),
     )?;
 
@@ -939,7 +711,7 @@ fn a_second_start_from_one_address_names_the_run_it_already_has()
             second,
             mine,
             &engine,
-            spec_for(&root, &ixit, second_dir),
+            spec_for(port, &ixit, second_dir),
             String::from("cap-gate-second"),
         )
         .expect_err("one address gets one run in flight");
@@ -993,7 +765,6 @@ fn the_wall_clock_cap_ends_a_run_and_discards_its_record() -> Result<(), Box<dyn
     let scratch = assert_fs::TempDir::new()?;
     let port = engine_gate::slow_fixture_sut(std::time::Duration::from_secs(3))?;
     let ixit = engine_gate::write_ixit(scratch.path(), port)?;
-    let root = engine_gate::repo_root().join("artifacts");
 
     let slot = JobSlot::with_limits(Limits {
         wall_clock: std::time::Duration::from_secs(2),
@@ -1007,7 +778,7 @@ fn the_wall_clock_cap_ends_a_run_and_discards_its_record() -> Result<(), Box<dyn
         id,
         visitor(1),
         &engine,
-        spec_for(&root, &ixit, dir.clone()),
+        spec_for(port, &ixit, dir.clone()),
         String::from("cap-gate-slow"),
     )?;
 
@@ -1059,12 +830,14 @@ fn the_start_seam_answers_with_the_run_already_in_flight() -> Result<(), Box<dyn
     let scratch = assert_fs::TempDir::new()?;
     let port = engine_gate::slow_fixture_sut(std::time::Duration::from_millis(400))?;
 
-    let root = engine_gate::repo_root().join("artifacts");
     let state = veredictum_console::state::ConsoleState {
-        root,
+        root: engine_gate::repo_root().join("catalogue"),
         specs: engine_gate::repo_root().join("specs/openehr"),
         out: scratch.path().to_path_buf(),
-        catalogue: std::sync::Arc::new(Err(String::from("unused by the start seam"))),
+        catalogue: std::sync::Arc::new(
+            veredictum::pipeline::listing::read(&engine_gate::repo_root().join("catalogue"), None)
+                .map_err(|e| e.to_string()),
+        ),
         draft: std::sync::Arc::new(std::sync::Mutex::new(engine_gate::drafts_of(RunDraft {
             base_url: format!("http://127.0.0.1:{port}"),
             sut_name: String::from("busy-gate"),
@@ -1075,12 +848,9 @@ fn the_start_seam_answers_with_the_run_already_in_flight() -> Result<(), Box<dyn
             probed_ok: true,
             statement_json: None,
             statement_product: None,
-            filter: Some(String::from("I_EHR_SERVICE.create_ehr-main")),
-            record_exchanges: false,
+            filter: Some(String::from(engine_gate::GATE_DOCUMENT)),
             postures: DeclaredPostures::default(),
         }))),
-        sign_key: None,
-        verify_key: None,
         jobs: JobSlot::default(),
         client_ip_header: None,
         posture: veredictum_console::posture::Posture::Local,

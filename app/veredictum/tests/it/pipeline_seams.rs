@@ -1,20 +1,18 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The consumable pipeline seams (`veredictum::pipeline`): loading and
-//! validating a catalogue, judging a committed campaign, rendering the
-//! published assets, and the typed failures each seam reports.
+//! The consumable pipeline seams (`veredictum::pipeline`): judging a
+//! committed measured campaign, rendering the published assets, reading the
+//! party documents, and the typed failures each seam reports.
 //!
 //! Every input here is a file already committed to this repository — the
-//! catalogue, the vendored spec tree, a party statement, the example results
-//! document — so the seams are exercised the way a second consumer of the
-//! library would drive them, with no system under test involved.
+//! performance schedule, a party statement, the example results document —
+//! so the seams are exercised the way a second consumer of the library would
+//! drive them, with no system under test involved.
 
 use std::path::{Path, PathBuf};
 
-use veredictum::pipeline::{
-    Error, assets, catalogue, judgement, measured, read_json, replay, to_json_document,
-};
+use veredictum::pipeline::{Error, assets, judgement, measured, read_json, to_json_document};
 
 /// Anything a seam or a fixture read can fail with, so a test body
 /// propagates plumbing failures with `?` instead of unwrapping them
@@ -26,17 +24,9 @@ fn repo_root() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
 }
 
-fn artifacts() -> PathBuf {
-    repo_root().join("artifacts")
-}
-
 /// The performance schedule the measured instruments read.
 fn perf() -> PathBuf {
     repo_root().join("perf")
-}
-
-fn specs() -> PathBuf {
-    repo_root().join("specs/openehr")
 }
 
 /// The named ICS fixture: a filled-in declaration for a product that does not
@@ -53,11 +43,11 @@ fn results_path() -> PathBuf {
     ))
 }
 
-/// Judges the example campaign against the committed catalogue.
+/// Judges the example campaign against the committed performance schedule.
 fn judge_example() -> Result<judgement::Judgement, Error> {
     let statement = statement_path();
     let results = results_path();
-    let root = artifacts();
+    let root = perf();
     judgement::judge(&judgement::JudgementRequest {
         statement: &statement,
         results: &results,
@@ -67,156 +57,44 @@ fn judge_example() -> Result<judgement::Judgement, Error> {
 
 // ── the catalogue seam ──────────────────────────────────────────────────────
 
-/// The seam reports exactly what the `validate` gate reports over the same
-/// root, so a consumer reading the seam sees the command line's own findings
-/// — neither filtered nor reordered.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn the_validation_seam_reports_the_gate_findings_unchanged() -> Fallible {
-    let root = artifacts();
-    let specs = specs();
-    let validation = catalogue::validate_tree(&root, Some(&specs))?;
-
-    let loaded = veredictum::artifacts::load_root(&root)?;
-    let direct = veredictum::validate::validate(&veredictum::validate::Context {
-        set: &loaded.set,
-        load_errors: &loaded.errors,
-        spec_root: Some(&specs),
-    });
-    let rendered = |findings: &[veredictum::validate::Finding]| -> Vec<String> {
-        findings.iter().map(ToString::to_string).collect()
-    };
-    assert_eq!(rendered(&validation.findings), rendered(&direct));
-    assert_eq!(
-        validation.is_clean(),
-        validation.findings.is_empty(),
-        "`is_clean` means no finding at all"
-    );
-    Ok(())
-}
-
-/// The oracle-dependent gates cannot run without the vendored spec tree, so
-/// dropping it never turns a finding INTO cleanliness: the findings without
-/// the oracle are a subset of the findings with it.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn dropping_the_oracle_only_removes_findings() -> Fallible {
-    let root = artifacts();
-    let specs = specs();
-    let with_oracle = catalogue::validate_tree(&root, Some(&specs))?;
-    let without = catalogue::validate_tree(&root, None)?;
-    let with_rendered: Vec<String> = with_oracle
-        .findings
-        .iter()
-        .map(ToString::to_string)
-        .collect();
-    for finding in &without.findings {
-        assert!(
-            with_rendered.contains(&finding.to_string()),
-            "the oracle-less pass invented a finding: {finding}"
-        );
-    }
-    assert_eq!(
-        with_oracle.loaded.set.cases.len(),
-        without.loaded.set.cases.len(),
-        "the oracle changes the gates, never what loaded"
-    );
-    Ok(())
-}
-
-/// The report path follows the artifact root it describes (#91): the
-/// derivation is total, so a bare relative root still names a location.
-#[test]
-fn the_coverage_report_path_follows_the_artifact_root() {
-    assert_eq!(
-        catalogue::coverage_report_path(Path::new("/tmp/checkout/artifacts")),
-        PathBuf::from("/tmp/checkout/artifacts/coverage-report.md")
-    );
-    assert_eq!(
-        catalogue::coverage_report_path(Path::new("artifacts")),
-        PathBuf::from("artifacts/coverage-report.md")
-    );
-}
-
-/// The write is the render: the seam creates the directory it was pointed at
-/// and writes exactly what the renderer produced.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn the_coverage_report_is_written_where_it_is_asked_for() -> Fallible {
-    let root = artifacts();
-    let specs = specs();
-    let loaded = veredictum::artifacts::load_root(&root)?;
-    let dir = assert_fs::TempDir::new()?;
-    let path = dir.path().join("nested/conformance/coverage-report.md");
-
-    catalogue::write_coverage_report(&loaded.set, &specs, &path)?;
-
-    let written = std::fs::read_to_string(&path)?;
-    assert_eq!(
-        written,
-        veredictum::validate::render_coverage_report(&loaded.set, Some(&specs)),
-        "the written report is the rendered report, byte for byte"
-    );
-    assert!(!written.is_empty());
-    Ok(())
-}
-
 // ── the judgement seam ─────────────────────────────────────────────────────
 
-/// The submission set is the verdict record, the three documents and the
-/// badge endpoints, in publication order — one seam call produces all of it
-/// from three committed files.
+/// Judging the committed campaign writes one document, `verdicts.json`, and
+/// that document is the report itself: the measured class verdicts
+/// re-derived from the embedded histograms.
 #[test]
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
 )]
-fn judging_a_committed_campaign_renders_its_whole_submission_set() -> Fallible {
+fn judging_a_committed_campaign_writes_its_verdict_record() -> Fallible {
     let judgement = judge_example()?;
-
     let names: Vec<&str> = judgement
         .documents
         .iter()
         .map(|d| d.name.as_str())
         .collect();
-    assert_eq!(
-        &names[..4],
-        &[
-            "verdicts.json",
-            "CONFORMANCE_REPORT.md",
-            "CONFORMANCE_STATEMENT.md",
-            "CONFORMANCE_CERTIFICATE.md",
-        ],
-        "the verdict record leads the set, then the three documents"
-    );
+    assert_eq!(names, [judgement::VERDICTS_FILE]);
+    let record = judgement
+        .documents
+        .first()
+        .ok_or("the judgement writes its record")?;
     assert!(
-        names.len() > 4
-            && names[4..]
-                .iter()
-                .all(|n| Path::new(n).extension().is_some_and(|ext| ext == "json")),
-        "the badge endpoints follow the documents: {names:?}"
+        record.body.ends_with('\n'),
+        "every emitted document ends with a newline"
     );
-    for document in &judgement.documents {
-        assert!(!document.body.is_empty(), "{} is empty", document.name);
-    }
-
-    assert_eq!(judgement.results.sut.name.value, "example-cdr");
+    assert_eq!(
+        record.body,
+        to_json_document(&judgement.report, "verdicts")?
+    );
+    assert_eq!(
+        judgement.report.performance.len(),
+        judgement.results.measurements.len(),
+        "every measurement re-derives into one verdict"
+    );
     assert_eq!(
         judgement.statement.product.name, "Fixture CDR",
         "the statement travels back with the judgement"
-    );
-    assert!(
-        !judgement.report.capabilities.is_empty(),
-        "every matrix capability carries evidence"
     );
     assert_eq!(
         judgement.is_clean(),
@@ -226,47 +104,12 @@ fn judging_a_committed_campaign_renders_its_whole_submission_set() -> Fallible {
     Ok(())
 }
 
-/// The rendered `verdicts.json` is the report itself: a consumer parsing the
-/// document sees the same per-capability evidence the seam computed.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn the_verdict_document_carries_the_computed_evidence() -> Fallible {
-    let judgement = judge_example()?;
-    let verdicts = judgement
-        .documents
-        .iter()
-        .find(|d| d.name == "verdicts.json")
-        .ok_or("the submission set carries a verdict record")?;
-    assert!(
-        verdicts.body.ends_with('\n'),
-        "every emitted document ends with a newline"
-    );
-    let parsed: assets::VerdictEvidence = serde_json::from_str(&verdicts.body)?;
-    assert_eq!(
-        parsed.capabilities.len(),
-        judgement.report.capabilities.len()
-    );
-    assert_eq!(
-        parsed.capabilities.first().map(|(name, _)| name.clone()),
-        judgement
-            .report
-            .capabilities
-            .first()
-            .map(|(name, _)| name.to_string()),
-        "the record keeps the capability-matrix authored order"
-    );
-    Ok(())
-}
-
 /// A campaign the results record does not describe is refused rather than
 /// judged: the statement path must name a statement.
 #[test]
 fn judging_refuses_a_document_that_is_not_a_statement() {
     let results = results_path();
-    let root = artifacts();
+    let root = perf();
     // The results document is a valid party artifact of the WRONG family, so
     // the schema stage is what rejects it.
     let error = judgement::judge(&judgement::JudgementRequest {
@@ -281,81 +124,6 @@ fn judging_refuses_a_document_that_is_not_a_statement() {
 }
 
 // ── the asset seams ────────────────────────────────────────────────────────
-
-/// The conformance visuals are a pure function of the two committed records,
-/// and the suffix is what puts a comparison SUT's copies beside the primary
-/// ones.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn the_conformance_visuals_render_from_committed_records() -> Fallible {
-    let judgement = judge_example()?;
-    let verdicts = judgement
-        .documents
-        .iter()
-        .find(|d| d.name == "verdicts.json")
-        .ok_or("the submission set carries a verdict record")?;
-    let dir = assert_fs::TempDir::new()?;
-    let verdicts_path = dir.path().join("verdicts.json");
-    std::fs::write(&verdicts_path, &verdicts.body)?;
-
-    let root = artifacts();
-    let results = results_path();
-    let files = assets::conformance_assets(&root, &results, &verdicts_path, "-compare")?;
-    let names: Vec<&str> = files.iter().map(|f| f.name.as_str()).collect();
-    assert_eq!(
-        names,
-        vec![
-            "conformance-heat-grid-compare.svg",
-            "conformance-chapter-bars-compare.svg"
-        ]
-    );
-    for file in &files {
-        assert!(file.body.starts_with("<svg"), "{} is not SVG", file.name);
-        assert!(
-            file.body.contains("example-cdr 0.0.0-example"),
-            "{} does not label the system under test",
-            file.name
-        );
-    }
-
-    // Deterministic: the same inputs render the same bytes, which is what
-    // makes regenerate-and-diff a build gate.
-    let again = assets::conformance_assets(&root, &results, &verdicts_path, "-compare")?;
-    assert_eq!(
-        files.iter().map(|f| f.body.clone()).collect::<Vec<_>>(),
-        again.iter().map(|f| f.body.clone()).collect::<Vec<_>>()
-    );
-    Ok(())
-}
-
-/// A verdict record the seam cannot read is a typed parse failure naming what
-/// was being read, never a chart drawn from nothing.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn the_conformance_visuals_refuse_an_unreadable_verdict_record() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let root = artifacts();
-    let results = results_path();
-
-    let missing = dir.path().join("absent.json");
-    let error = assets::conformance_assets(&root, &results, &missing, "")
-        .expect_err("an absent verdict record is not renderable");
-    assert!(matches!(error, Error::Read { .. }), "{error}");
-
-    let broken = dir.path().join("broken.json");
-    std::fs::write(&broken, "{ not json")?;
-    let error = assets::conformance_assets(&root, &results, &broken, "")
-        .expect_err("a malformed verdict record is not renderable");
-    assert!(matches!(error, Error::Parse { .. }), "{error}");
-    assert!(error.to_string().starts_with("verdicts:"), "{error}");
-    Ok(())
-}
 
 /// The performance visuals render the class ladder plus one latency chart per
 /// measurement, and the resource and disk charts only from records that
@@ -415,23 +183,6 @@ fn the_schema_seam_serves_the_committed_published_set() -> Fallible {
 }
 
 // ── the shared readers ─────────────────────────────────────────────────────
-
-/// A root that is not a catalogue at all is a runner defect, kept apart from
-/// files that failed their own load stages.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn an_empty_root_loads_as_an_empty_catalogue() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let loaded = veredictum::pipeline::load_clean_root(dir.path())?;
-    assert!(
-        loaded.set.cases.is_empty() && loaded.set.bindings.is_empty(),
-        "nothing is discovered under an empty root"
-    );
-    Ok(())
-}
 
 #[test]
 #[expect(
@@ -621,48 +372,6 @@ fn the_measured_preamble_reads_its_inputs_from_the_committed_schedule() -> Falli
 
 // ── the seams' typed refusals ──────────────────────────────────────────────
 
-/// A catalogue tree whose files failed their OWN load stages is reported one
-/// diagnostic per file, kept apart from a root that cannot be opened at all:
-/// the first is a defect in the tree, the second a defect in the runner.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn a_tree_whose_files_did_not_load_reports_one_diagnostic_per_file() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let root = dir.path().join("artifacts");
-    std::fs::create_dir_all(root.join("schedule"))?;
-    std::fs::write(root.join("schedule/broken.yaml"), "id: [unclosed\n")?;
-    std::fs::write(root.join("schedule/also-broken.yaml"), "kind: 7\n")?;
-
-    let error = veredictum::pipeline::load_clean_root(&root)
-        .expect_err("a tree with unloadable files is not a clean root");
-    let Error::Artifacts(diagnostics) = &error else {
-        panic!("expected per-file diagnostics, got {error}");
-    };
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:?}");
-
-    // The rendering carries every diagnostic, so a caller that only prints
-    // the error still sees every file that failed and why.
-    let rendered = error.to_string();
-    for diagnostic in diagnostics {
-        assert!(
-            rendered.contains(&diagnostic.to_string()),
-            "the rendering dropped a diagnostic: {rendered}"
-        );
-    }
-    assert!(rendered.contains("also-broken.yaml"), "{rendered}");
-    assert!(rendered.contains("unclosed bracket"), "{rendered}");
-
-    // The validation seam does NOT refuse the same tree: a file that failed
-    // its load stages is a FINDING there, so one pass reports the whole tree.
-    let validation = catalogue::validate_tree(&root, None)?;
-    assert!(!validation.is_clean());
-    assert!(!validation.loaded.errors.is_empty());
-    Ok(())
-}
-
 /// An excused row with no citation would claim a case was out of scope
 /// without saying on what ground. Two gates refuse it, and the ORDER matters
 /// to whoever reads the diagnostic: the published schema stage runs first and
@@ -708,7 +417,7 @@ fn an_uncited_excused_row_is_refused_by_the_schema_and_by_the_invariant() -> Fal
     let path = dir.path().join("results.json");
     std::fs::write(&path, to_json_document(&results, "results")?)?;
     let statement = statement_path();
-    let root = artifacts();
+    let root = perf();
     let error = judgement::judge(&judgement::JudgementRequest {
         statement: &statement,
         results: &path,
@@ -717,70 +426,6 @@ fn an_uncited_excused_row_is_refused_by_the_schema_and_by_the_invariant() -> Fal
     .expect_err("a record that breaks its own invariants is not judgeable");
     assert!(matches!(error, Error::Party(_)), "{error}");
     assert!(error.to_string().contains("citation"), "{error}");
-    Ok(())
-}
-
-/// A tree missing the artifact a seam judges against says WHICH piece it
-/// needs: the judging seam needs the capability matrix and the ambiguity
-/// register, and the conformance visuals need the matrix.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn a_seam_names_the_artifact_family_its_tree_is_missing() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let root = dir.path().join("artifacts");
-    std::fs::create_dir_all(root.join("vocab"))?;
-    let statement = statement_path();
-    let results = results_path();
-    let request = judgement::JudgementRequest {
-        statement: &statement,
-        results: &results,
-        root: &root,
-    };
-
-    let error = judgement::judge(&request).expect_err("no capability matrix, no verdicts");
-    assert!(matches!(error, Error::Missing(_)), "{error}");
-    assert!(error.to_string().contains("capability matrix"), "{error}");
-
-    // With the committed matrix in place, the register is what is missing.
-    std::fs::copy(
-        artifacts().join("vocab/capability_matrix.yaml"),
-        root.join("vocab/capability_matrix.yaml"),
-    )?;
-    let error = judgement::judge(&request).expect_err("no ambiguity register, no verdicts");
-    assert!(error.to_string().contains("ambiguity register"), "{error}");
-
-    // With both in place the tree judges, even though it declares no wire
-    // surface: `served_extensions` is a DECLARATION rendered into the
-    // statement, never an input to a verdict, so its absence is empty rather
-    // than a refusal.
-    std::fs::create_dir_all(root.join("registers"))?;
-    std::fs::copy(
-        artifacts().join("registers/ambiguities.yaml"),
-        root.join("registers/ambiguities.yaml"),
-    )?;
-    let judgement = judgement::judge(&request)?;
-    let names: Vec<&str> = judgement
-        .documents
-        .iter()
-        .map(|d| d.name.as_str())
-        .collect();
-    assert!(names.contains(&"verdicts.json"), "{names:?}");
-    assert!(names.contains(&"CONFORMANCE_STATEMENT.md"), "{names:?}");
-    assert!(
-        names.contains(&"badge.json"),
-        "the submission set carries its badge endpoints: {names:?}"
-    );
-
-    // The conformance visuals rest on the same matrix.
-    let bare = dir.path().join("bare");
-    std::fs::create_dir_all(&bare)?;
-    let error = assets::conformance_assets(&bare, &results, &results, "")
-        .expect_err("no capability matrix, no heat grid");
-    assert!(matches!(error, Error::Missing(_)), "{error}");
-    assert!(error.to_string().contains("capability matrix"), "{error}");
     Ok(())
 }
 
@@ -949,16 +594,6 @@ fn an_unwritable_document_names_what_it_was_writing() -> Fallible {
         panic!("expected the directory failure, got {error}");
     };
     assert!(path.ends_with("under"), "{}", path.display());
-
-    // The coverage-report writer reports the same way.
-    let loaded = veredictum::pipeline::load_clean_root(&artifacts())?;
-    let error = catalogue::write_coverage_report(
-        &loaded.set,
-        &specs(),
-        &occupied.join("under/coverage-report.md"),
-    )
-    .expect_err("a file cannot hold the report's directory");
-    assert!(matches!(error, Error::Write { .. }), "{error}");
     Ok(())
 }
 
@@ -981,214 +616,3 @@ fn an_unreadable_ixit_is_a_read_failure_not_a_parse_failure() -> Fallible {
 }
 
 // ── the replay seam's selection posture ────────────────────────────────────
-
-/// The ixit of the named fixture declaration the seams above read.
-fn ixit_path() -> PathBuf {
-    repo_root().join("fixtures/declaration/ixit.json")
-}
-
-/// A transcript of a campaign that drove nothing, written into `dir`.
-///
-/// The posture a replay records is decided before any case is judged, so an
-/// empty recording isolates it: the catalogue and the ixit still load, and no
-/// case outcome can stand in for the advisory.
-fn empty_transcript(dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let transcript = veredictum::transcript::RunTranscript {
-        sut: veredictum::party::Sut::operator(String::from("selection-gate"), String::from("0")),
-        schedule_release: String::from("cnf-2.0-w2"),
-        identity: None,
-        cases: Vec::new(),
-    };
-    let path = dir.join("transcript.json");
-    std::fs::write(&path, to_json_document(&transcript, "transcript")?)?;
-    Ok(path)
-}
-
-/// Re-judges the empty recording, driving no case, and returns everything the
-/// replay reported alongside the document it emitted.
-fn replay_posture(
-    statement: Option<&Path>,
-    ixit: &Path,
-    transcript: &Path,
-) -> Result<(Vec<String>, veredictum::party::Results), Error> {
-    let root = artifacts();
-    let none: [String; 0] = [];
-    let request = replay::ReplayRequest {
-        root: &root,
-        ixit,
-        transcript,
-        statement,
-        filter: None,
-        only: Some(&none),
-    };
-    let reported = std::cell::RefCell::new(Vec::new());
-    let outcome = replay::replay_run(
-        &request,
-        &|warning| reported.borrow_mut().extend(warning.lines()),
-        &mut |_| {},
-    )?;
-    Ok((reported.into_inner(), outcome.results))
-}
-
-/// A replay with no statement stamps `statement_blind` AND says so, in the
-/// lines the run-level advisory renders (#471). The silence this replaces was
-/// reachable by hand: the re-derivation gate passes `--statement` from the
-/// record's own artifact, so nothing in the lane ever printed the warning it
-/// was not raising.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn a_blind_replay_stamps_its_basis_and_announces_it() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let transcript = empty_transcript(dir.path())?;
-    let (reported, results) = replay_posture(None, &ixit_path(), &transcript)?;
-    assert_eq!(
-        results.selection_basis,
-        Some(veredictum::party::SelectionBasis::StatementBlind),
-        "a replay with no statement records a whole-catalogue sweep"
-    );
-    let opening = reported.first().ok_or("a blind replay announces itself")?;
-    assert!(opening.contains("--statement"), "{reported:?}");
-    for fact in veredictum::run::UnestablishedFact::ALL {
-        assert!(
-            reported.iter().any(|line| line.contains(fact.token())),
-            "{} is not named: {reported:?}",
-            fact.token()
-        );
-    }
-    Ok(())
-}
-
-/// The advisory a blind replay prints is the one a blind run prints: one
-/// rendering, so the two commands cannot drift into two sentences that mean
-/// the same thing.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn the_replay_advisory_is_the_run_advisory() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let transcript = empty_transcript(dir.path())?;
-    let (reported, _) = replay_posture(None, &ixit_path(), &transcript)?;
-    let excused = std::collections::BTreeMap::new();
-    let run_advisory = veredictum::pipeline::conformance::Selection::of(None, &excused)
-        .advisory()
-        .ok_or("a blind campaign announces itself")?;
-    assert_eq!(reported, run_advisory.lines());
-    Ok(())
-}
-
-/// A replay carrying the record's statement stamps `statement` and reports
-/// nothing: the advisory belongs to the blind campaign alone.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn a_replay_that_carries_a_statement_reports_no_advisory() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let transcript = empty_transcript(dir.path())?;
-    let statement = statement_path();
-    let (reported, results) = replay_posture(Some(&statement), &ixit_path(), &transcript)?;
-    assert_eq!(
-        results.selection_basis,
-        Some(veredictum::party::SelectionBasis::Statement)
-    );
-    assert_eq!(reported, Vec::<String>::new());
-    Ok(())
-}
-
-/// The re-derivation gate's own property (#471): a record an ICS selected,
-/// re-judged blind, is refused rather than reported as agreeing, while the
-/// record the statement-carrying replay produced agrees with itself. Both
-/// documents come out of the replay seam here, so the refusal is decided over
-/// facts a real campaign records rather than over a hand-built pair.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn a_blind_replay_is_refused_against_a_record_a_statement_selected() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let transcript = empty_transcript(dir.path())?;
-    let ixit = ixit_path();
-    let statement = statement_path();
-    let (_, submitted) = replay_posture(Some(&statement), &ixit, &transcript)?;
-    let (_, blind) = replay_posture(None, &ixit, &transcript)?;
-    let refused = replay::selection_agreement(&submitted, &blind);
-    assert!(refused.refuses(), "{refused}");
-    let again = submitted.clone();
-    let agreed = replay::selection_agreement(&submitted, &again);
-    assert_eq!(agreed, replay::SelectionAgreement::Same);
-    Ok(())
-}
-
-/// A replay names the statement it applied, by the digest of the declaration
-/// file it was handed, and a blind replay names none (#490).
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn a_replay_records_the_digest_of_the_statement_it_applied() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let transcript = empty_transcript(dir.path())?;
-    let statement = statement_path();
-    let (_, results) = replay_posture(Some(&statement), &ixit_path(), &transcript)?;
-    assert_eq!(
-        results.statement_digest,
-        Some(veredictum::pipeline::conformance::statement_digest(
-            &std::fs::read_to_string(&statement)?
-        )),
-        "the recorded digest is the one `sha256sum statement.json | cut -c1-16` prints"
-    );
-
-    let (_, blind) = replay_posture(None, &ixit_path(), &transcript)?;
-    assert_eq!(
-        blind.statement_digest, None,
-        "a campaign nothing selected names no statement"
-    );
-    Ok(())
-}
-
-/// The defect #490 closes, over documents the replay seam itself emitted: two
-/// statements declaring the same its-rest formats agree on every other
-/// recorded fact, and the recorded statement identity refuses the second one.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn a_replay_under_another_statement_declaring_the_same_formats_is_refused() -> Fallible {
-    let dir = assert_fs::TempDir::new()?;
-    let transcript = empty_transcript(dir.path())?;
-    let ixit = ixit_path();
-    let statement = statement_path();
-    let declared = std::fs::read_to_string(&statement)?;
-    let other = dir.path().join("other-statement.json");
-    std::fs::write(
-        &other,
-        declared.replace("\"Fixture CDR\"", "\"Another CDR\""),
-    )?;
-
-    let (_, submitted) = replay_posture(Some(&statement), &ixit, &transcript)?;
-    let (_, elsewhere) = replay_posture(Some(&other), &ixit, &transcript)?;
-    assert_eq!(
-        submitted.tech_profile.formats, elsewhere.tech_profile.formats,
-        "the two claims are one value to every recorded fact but the digest"
-    );
-    let refused = replay::selection_agreement(&submitted, &elsewhere);
-    assert!(refused.refuses(), "{refused}");
-    let rendered = refused.to_string();
-    for named in [&submitted, &elsewhere] {
-        let digest = named
-            .statement_digest
-            .as_deref()
-            .ok_or("both re-judgements name their statement")?;
-        assert!(rendered.contains(digest), "{rendered}");
-    }
-    Ok(())
-}

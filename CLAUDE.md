@@ -18,10 +18,11 @@ and in the code.
 ## Layout
 
 This repository holds the whole instrument: the runner, the catalogue, the
-corpora, the ambiguity register and the vendored spec oracle. It commits no
+performance schedule and the vendored spec oracle. It commits no
 conformance declaration about any product: ISO/IEC 9646-7 assigns an ICS
 proforma's support columns to the supplier of the implementation, so this
-repository authors the proforma (`artifacts/vocab/capability_matrix.yaml`) and
+repository authors the proforma (the capability folders under
+`catalogue/cases/` and the options of `catalogue/capabilities.yaml`) and
 a declaration travels with the submission it describes (#465).
 
 A change to instrument behaviour lands here, and every release ships from here. The crate is on crates.io, and a `v*` tag publishes signed binaries
@@ -29,14 +30,15 @@ and the container image through the pipeline the Releasing section describes.
 
 | Path | Contents |
 |---|---|
-| `app/veredictum/src/**` | the runner machinery: driver, provisioning, resolver, outcome classification, comparator, verdict pipeline, the perf/stress/probe instruments |
+| `app/veredictum/src/**` | the runner machinery: the Arazzo reader, gates, evaluator and HAR recording, the measured-verdict pipeline, the perf/stress/probe instruments |
 | `app/veredictum/src/bin/veredictum.rs` | the instrument binary; every instrument is a subcommand of it |
-| `app/veredictum/tests/**` | the integration suite: artifact gates, seeded-defect rejection, schema drift, claim completeness, the verification pack, the perf driver |
+| `app/veredictum/tests/**` | the integration suite: catalogue gates, seeded-defect rejection, schema drift, the verification pack, the perf driver |
 | `app/veredictum-console/**` | the web console: the Leptos frontend the container image serves (#6, design #52); its rules are `.claude/rules/leptos-ui.md` |
-| `artifacts/**` | the catalogue: `schedule/` case cores, `bindings/` per-ITS operation bindings, `vocab/`, `corpus/`, `registers/ambiguities.yaml` |
-| `fixtures/**` | test material: the named ICS fixture and the SMART lane's committed test issuer |
+| `catalogue/**` | the conformance catalogue: Arazzo workflows per capability folder under `cases/`, `capabilities.yaml` options, rows files, `id-map.yaml` (ARCHITECTURE.md §15) |
+| `perf/**` | the performance schedule: its cases, journeys and payloads (ARCHITECTURE.md §8.14) |
+| `fixtures/**` | test material: the named ICS fixture, the signing keys and the SMART lane's committed test issuer |
 | `schemas/**` | the published JSON Schemas for every artifact family (emitted, drift-guarded) |
-| `verification-pack/**` | the recorded transcript proving the verdict pipeline reproduces its adjudicated verdicts |
+| `verification-pack/**` | the recorded HAR exchanges proving the evaluator re-judges them into their adjudicated results |
 | `specs/openehr/**` | the vendored released openEHR spec text: the oracle |
 | `specs/its-xml-schemas/**`, `specs/its-json-schemas/**`, `specs/rest-oas/**` | the released machine-readable bundles, the second root a citation resolves against where the docs tree carries only prose |
 | `upstream/<openEHR repository>/**` | proposed fixes to a released specification, one patch per `upstream-report` issue, written against the vendored commit and never applied to `specs/` |
@@ -57,9 +59,8 @@ authoring or changing any expectation, read the governing section first-hand
 and quote the sentence that assigns the value.
 
 - **Oracle set:** the RELEASED components. RM, BASE, AM, QUERY (AQL), TERM,
-  ITS-XML, SM (the operation semantics and the naming the case cores use), and
-  the ITS-REST **docs text**. SM anchors the operation, ITS-REST binds it to
-  the wire, and both are oracles.
+  ITS-XML, and the ITS-REST **docs text**, which binds every operation to the
+  wire. The SM was never released and is no part of the oracle (#604).
 - **One ordered supplement:** the released OpenAPI documents are part of the
   release's own specification artifacts, so they ground an expectation **where
   the docs text is silent**. They lose to the docs text on any conflict, and an
@@ -74,9 +75,7 @@ and quote the sentence that assigns the value.
   under `upstream/`, and a citation that rests on defective text names that
   issue in `report:`. Behaviour the release leaves to the implementation is an
   option in `catalogue/capabilities.yaml`, which a statement answers. A private
-  resolution is never acceptable, and neither is a bent expectation. The old
-  ambiguity register is frozen: nothing new enters it, and it is deleted with
-  the old tree (#604).
+  resolution is never acceptable, and neither is a bent expectation.
 
 ### 2. The three-way attribution law (the core discipline)
 
@@ -273,7 +272,7 @@ anything.
 exactly one, mapped to the conventional-commit types: `documentation`, `chore`,
 `refactor`, `perf`, `ci` or `test`. The component
 an issue adjudicates against carries a `spec:` label (`spec:RM`, `spec:BASE`,
-`spec:AM`, `spec:QUERY`, `spec:TERM`, `spec:ITS`, `spec:SM`, `spec:CNF`).
+`spec:AM`, `spec:QUERY`, `spec:TERM`, `spec:ITS`, `spec:CNF`).
 `question` routes a question, `on-hold` marks work parked by owner decision, and
 `no-changelog` is the escape hatch the changelog guard reads — a guard label that
 does not exist fails silently at apply time, so the label exists before the guard
@@ -377,17 +376,13 @@ cargo +nightly fuzz run <target> fuzz/corpus/<target> fuzz/seeds/<target> \
 before any SUT is composed:
 
 ```bash
-cargo run -- validate --root artifacts --specs specs/openehr
 cargo run -- validate --root catalogue --specs specs/openehr
 ```
 
-The second root is the Arazzo catalogue (ARCHITECTURE.md §15). Both run until
-the cut-over (#604) retires `artifacts/`, and both must report zero findings.
-
-It is every machine check over the artifact tree — id uniqueness, citation
-resolution against the vendored specs, binding completeness, coverage of the
-enumerated wire surface, per-capability case-count floors — and **zero findings
-is the only passing result.** `--statement <file>` adds the static conformance
+It is every machine check over the catalogue (ARCHITECTURE.md §15.9): the
+Arazzo document shape, citation resolution against the vendored specs, the
+condition profile, coverage of the released operations, per-capability
+floors — and **zero findings is the only passing result.** `--statement <file>` adds the static conformance
 review of one SUPPLIED declaration, which is the only way a claim enters:
 nothing is swept from the tree. `veredictum --help` is the authority on how to
 invoke everything else, and `veredictum <subcommand> --help` on one subcommand;
@@ -513,14 +508,14 @@ subagents.
 ## References
 
 - `ARCHITECTURE.md` — **the architecture record**, and the design authority for
-  the machinery: the artifact set and the case-core field definitions, the
-  operation bindings, the outcome taxonomy and the ambiguity register, the
-  assertion vocabulary, the verdict computation, and §8.14's
+  the machinery: the party documents and the verdict computation (§8), the
+  Arazzo catalogue with its extensions, condition profile and gates (§15), and
+  §8.14's
   population-anchored performance-class model with its journey decomposition.
   Read it before changing how the instrument judges or measures anything. It
   moved here from the FerroEHR mono-repo at the split and is still being worked
   on: adapt names and paths when the tree moves, never reword the content
-- `.claude/rules/cnf-triage.md` — the attribution law and the register lifecycle
+- `.claude/rules/cnf-triage.md` — the attribution law and the upstream-report lifecycle
 - `.claude/rules/testing.md` — test discipline and the coverage mandate
 - `.claude/rules/fuzzing.md` — the harness contract, the crash law, and the
   crash-to-regression-test procedure

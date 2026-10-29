@@ -98,8 +98,8 @@ history carries it. A comment describes the code as it IS.
 - **Adjudicated 2026-08-27 (#125): a corpus-local README is NOT a sanctioned
   exception to rule 11.** A document committed beside the material it
   describes moves and dies like any other internal document, so the guard
-  refuses every in-repo markdown citation — an `artifacts/`, `fixtures/`,
-  `registry/`, `scripts/`, `website/`, `schemas/`, `fuzz/`, `app/` or
+  refuses every in-repo markdown citation — a `catalogue/`, `perf/`,
+  `fixtures/`, `scripts/`, `website/`, `schemas/`, `fuzz/`, `app/` or
   `verification-pack/` path ending in `.md`, and the root documents by name —
   and a comment grounds on the material itself instead (the committed test keypair's armored
   certificate carries its own user id and subkey binding, so nothing outside
@@ -109,7 +109,7 @@ history carries it. A comment describes the code as it IS.
   `scripts/checks/comment-style.sh --self-test` is its seeded-violation proof
   and runs in the CI guards job. Widened 2026-08-29 (#176) to every path form:
   the guard builds the suffix set of every committed non-spec markdown file, so
-  an artifact-root-relative citation (`corpus/recipes/bp_series.md`) is refused
+  a root-relative citation (`payloads/ckm/PROVENANCE.md`) is refused
   exactly like the full path, while a suffix naming nothing committed and a URL
   ending in `.md` both stay legal.
 - **Adjudicated 2026-08-29 (#176): manifest provenance naming a digest-pinned
@@ -118,7 +118,8 @@ history carries it. A comment describes the code as it IS.
   digest, which makes the named contract file load-bearing catalogue data: edit
   the file and the digest no longer matches, so the reference fails loud instead
   of rotting silently. Rule 11 governs prose comments, and a pinned data
-  reference is not prose. A comment in a `.rs` file still may not name that same
+  reference is not prose. That manifest went with the case-core corpus at the
+  cut-over (#604); the ruling stands for any digest-pinned data reference. A comment in a `.rs` file still may not name that same
   file, because a comment carries no digest and nothing catches it going stale.
 - `clippy::too_long_first_doc_paragraph` (nursery cherry-pick, CI
   `-D warnings`) — the RFC 1574 summary line.

@@ -4,17 +4,16 @@
 //! Documentation capture mode: the stand-ins the surfaces show for the facts
 //! one run stamps.
 //!
-//! The book's screenshots photograph a live run's clock, its record digest,
-//! its signing time, the run's own identity, the address the fixture server
-//! bound and the latency the connect probe measured. Every one of those
+//! The book's screenshots photograph a live run's clock, the run's own
+//! identity, the address the fixture server bound and the latency the connect
+//! probe measured. Every one of those
 //! changes on every pass, so the `ui-screenshot-guard` job cannot tell a
 //! re-run from a real visual change.
 //!
 //! In capture mode the server functions answer with the fixed stand-ins
 //! below, so an unchanged console photographs identically. Nothing else
-//! moves: the record, the manifest, the signature and the presentation files
-//! carry real values, because the pinning happens where a value is SENT TO A
-//! BROWSER and nowhere else.
+//! moves: the results and the recording carry real values, because the
+//! pinning happens where a value is SENT TO A BROWSER and nowhere else.
 //!
 //! What a pass measures is pinned; what a pass RECORDED is not. The case
 //! counter, the case now driving, the engine's own output and the finished
@@ -29,7 +28,7 @@
 //! so a screenshot photographs a settled frame instead of whatever phase of
 //! the progress bar's width transition it happened to catch.
 
-use crate::export_api::{ExportScreen, ExportSummary};
+use crate::record_api::{ExchangeView, RecordingView, ResultDetail, ResultsScreen};
 use crate::run_api::{DraftView, ProbeAnswer, RecordedResults, RecordedRun, RunScreen};
 use crate::run_job::{FinishedView, JobView, RunId};
 
@@ -63,16 +62,6 @@ pub fn root_class(capture: bool) -> &'static str {
     if capture { CAPTURE_CLASS } else { "" }
 }
 
-/// The digest every captured surface shows in place of a real one.
-///
-/// All zeros: it has a digest's exact shape, so the layout is the layout a
-/// reader will see, and it is unmistakably not the output of a hash.
-pub const PINNED_DIGEST: &str = "0000000000000000000000000000000000000000000000000000000000000000";
-
-/// The instant every captured surface shows in place of a real signing time:
-/// the Unix epoch, which no run can have been signed at.
-pub const PINNED_TIME: &str = "1970-01-01T00:00:00Z";
-
 /// Every duration a captured surface measured, in milliseconds: the run
 /// clock, the estimate beside it, and the connect probe's round trip.
 ///
@@ -95,29 +84,6 @@ pub const PINNED_RUN_ID: RunId = RunId::NIL;
 /// makes the stand-in unmistakable.
 pub const PINNED_ENDPOINT: &str = "http://127.0.0.1:0";
 
-/// The export section as this console answers it: pinned under capture mode,
-/// verbatim otherwise.
-#[cfg(feature = "ssr")]
-#[must_use]
-pub fn export_screen(state: &crate::state::ConsoleState, screen: ExportScreen) -> ExportScreen {
-    if state.capture {
-        pin_export(screen)
-    } else {
-        screen
-    }
-}
-
-/// One sealed record's summary as this console answers it.
-#[cfg(feature = "ssr")]
-#[must_use]
-pub fn export_summary(state: &crate::state::ConsoleState, summary: ExportSummary) -> ExportSummary {
-    if state.capture {
-        pin_summary(summary)
-    } else {
-        summary
-    }
-}
-
 /// The live screen as this console answers it.
 #[cfg(feature = "ssr")]
 #[must_use]
@@ -126,6 +92,34 @@ pub fn run_screen(state: &crate::state::ConsoleState, screen: RunScreen) -> RunS
         pin_run_screen(screen)
     } else {
         screen
+    }
+}
+
+/// The results screen as this console answers it.
+#[cfg(feature = "ssr")]
+#[must_use]
+pub fn results(
+    state: &crate::state::ConsoleState,
+    screen: Option<ResultsScreen>,
+) -> Option<ResultsScreen> {
+    if state.capture {
+        screen.map(pin_results)
+    } else {
+        screen
+    }
+}
+
+/// One row's detail as this console answers it.
+#[cfg(feature = "ssr")]
+#[must_use]
+pub fn detail(
+    state: &crate::state::ConsoleState,
+    detail: Option<ResultDetail>,
+) -> Option<ResultDetail> {
+    if state.capture {
+        detail.map(pin_detail)
+    } else {
+        detail
     }
 }
 
@@ -181,26 +175,6 @@ pub fn pin_probe(answer: ProbeAnswer) -> ProbeAnswer {
     }
 }
 
-/// The export section as a capture shows it.
-#[must_use]
-pub fn pin_export(screen: ExportScreen) -> ExportScreen {
-    match screen {
-        ExportScreen::Prepared(summary) => ExportScreen::Prepared(Box::new(pin_summary(*summary))),
-        other => other,
-    }
-}
-
-/// One sealed record's facts as a capture shows them.
-#[must_use]
-pub fn pin_summary(summary: ExportSummary) -> ExportSummary {
-    ExportSummary {
-        digest: String::from(PINNED_DIGEST),
-        digest_prefix: crate::export::prefix_of(PINNED_DIGEST),
-        signed_at: String::from(PINNED_TIME),
-        ..summary
-    }
-}
-
 /// The live screen as a capture shows it.
 ///
 /// A streamed run and a run read back from its own directory both carry the
@@ -231,7 +205,7 @@ pub fn pin_job(view: JobView) -> JobView {
         tail: view
             .tail
             .iter()
-            .map(|line| pin_run_paths(line, &minted))
+            .map(|line| pin_loopback_port(&pin_run_paths(line, &minted)))
             .collect(),
         finished: view.finished.map(|summary| FinishedView {
             results_path: pin_run_paths(&summary.results_path, &minted),
@@ -253,10 +227,88 @@ pub fn pin_recorded(run: RecordedRun) -> RecordedRun {
         id: PINNED_RUN_ID,
         dir: pin_run_paths(&run.dir, &minted),
         results: run.results.map(|results| RecordedResults {
+            base_url: String::from(PINNED_ENDPOINT),
             results_path: pin_run_paths(&results.results_path, &minted),
             ..results
         }),
     }
+}
+
+/// The results screen as a capture shows it.
+///
+/// The screen prints the address the run drove, which is the fixture
+/// server's ephemeral port; the tallies and the rows are the run's own.
+#[must_use]
+pub fn pin_results(screen: ResultsScreen) -> ResultsScreen {
+    ResultsScreen {
+        base_url: String::from(PINNED_ENDPOINT),
+        ..screen
+    }
+}
+
+/// One row's detail as a capture shows it.
+///
+/// The judged exchange names the fixture server's address in its request
+/// line, its `Host` header and any URL the server answered with; that
+/// address is rewritten to the pinned one, and every other byte of the
+/// exchange is the recording's own.
+#[must_use]
+pub fn pin_detail(detail: ResultDetail) -> ResultDetail {
+    let RecordingView::Exchange(exchange) = &detail.recording else {
+        return detail;
+    };
+    let Some(authority) = authority_of(&exchange.request_line) else {
+        return detail;
+    };
+    let pinned = PINNED_ENDPOINT
+        .split_once("://")
+        .map_or(PINNED_ENDPOINT, |(_, authority)| authority);
+    let swap = |text: &str| text.replace(&authority, pinned);
+    let exchange = ExchangeView {
+        entry: exchange.entry,
+        request_line: swap(&exchange.request_line),
+        request_headers: swap(&exchange.request_headers),
+        request_body: exchange.request_body.as_deref().map(swap),
+        status_line: exchange.status_line.clone(),
+        response_headers: swap(&exchange.response_headers),
+        response_body: exchange.response_body.as_deref().map(swap),
+    };
+    ResultDetail {
+        recording: RecordingView::Exchange(exchange),
+        ..detail
+    }
+}
+
+/// One engine output line with every loopback port rewritten to port zero.
+///
+/// The engine names each red row's exchange by its URL, and the harness's
+/// fixture server is a loopback address on an ephemeral port, so the port is
+/// the one fact in those lines a re-run moves.
+#[must_use]
+fn pin_loopback_port(line: &str) -> String {
+    const LOOPBACK: &str = "127.0.0.1:";
+    let mut pinned = String::with_capacity(line.len());
+    let mut rest = line;
+    while let Some((before, after)) = rest.split_once(LOOPBACK) {
+        pinned.push_str(before);
+        pinned.push_str(LOOPBACK);
+        let past_port = after.trim_start_matches(|c: char| c.is_ascii_digit());
+        if past_port.len() < after.len() {
+            pinned.push('0');
+        }
+        rest = past_port;
+    }
+    pinned.push_str(rest);
+    pinned
+}
+
+/// The `host:port` of a `METHOD url` request line.
+// NOTE: no openEHR spec governs this — our own design; a line naming no absolute URL has no address to pin.
+fn authority_of(request_line: &str) -> Option<String> {
+    let (_, url) = request_line.split_once(' ')?;
+    let (_, rest) = url.split_once("://")?;
+    let authority = rest.split(['/', '?']).next()?;
+    (!authority.is_empty()).then(|| authority.to_owned())
 }
 
 /// One line with the run's minted id rewritten to the pinned one.
@@ -267,67 +319,9 @@ fn pin_run_paths(line: &str, minted: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        PINNED_DIGEST, PINNED_ELAPSED_MS, PINNED_RUN_ID, PINNED_TIME, pin_export, pin_job,
-        pin_run_screen, pin_summary,
-    };
-    use crate::export_api::{ExportScreen, ExportSummary};
+    use super::{PINNED_ELAPSED_MS, PINNED_RUN_ID, pin_job, pin_run_screen};
     use crate::run_api::{DraftView, ProbeAnswer, RecordedResults, RecordedRun, RunScreen};
     use crate::run_job::{FinishedView, JobStatus, JobView, RunId};
-
-    /// One sealed record's summary as the export seam builds it.
-    fn summary() -> ExportSummary {
-        ExportSummary {
-            digest: String::from(
-                "9f2c1e5a7b3d0f4e6a8c2b1d3e5f70819a2b3c4d5e6f708192a3b4c5d6e7f809",
-            ),
-            digest_prefix: String::from("9f2c1e5a7b3d"),
-            fingerprint: String::from("ABCD1234"),
-            signed_at: String::from("2026-08-30T09:41:07Z"),
-            sut: String::from("example-cdr 1.0"),
-            profile_summary: String::from("CORE pass"),
-            sealed_files: vec![String::from("record-manifest.json")],
-            presentation_files: vec![String::from("seal-card.svg")],
-            badge_markdown: String::from("[![badge](record-badge.svg)](record-report.html)"),
-            badge_html: String::from("<a href=\"record-report.html\"></a>"),
-        }
-    }
-
-    /// The volatile three are pinned and everything else survives untouched:
-    /// a capture that redacted the verdicts would document a different
-    /// console.
-    #[test]
-    fn a_pinned_summary_keeps_every_stable_fact() {
-        let pinned = pin_summary(summary());
-        assert_eq!(pinned.digest, PINNED_DIGEST);
-        assert_eq!(pinned.digest_prefix, "000000000000");
-        assert_eq!(pinned.signed_at, PINNED_TIME);
-        assert_eq!(pinned.fingerprint, summary().fingerprint);
-        assert_eq!(pinned.sut, summary().sut);
-        assert_eq!(pinned.profile_summary, summary().profile_summary);
-        assert_eq!(pinned.sealed_files, summary().sealed_files);
-    }
-
-    /// Pinning is idempotent, which is the whole property a capture pass
-    /// needs: the second pass photographs what the first one did.
-    #[test]
-    fn pinning_twice_is_pinning_once() {
-        let once = pin_summary(summary());
-        assert_eq!(pin_summary(once.clone()), once);
-    }
-
-    /// A screen with nothing sealed carries nothing to pin.
-    #[test]
-    fn an_unprepared_export_is_left_alone() {
-        assert_eq!(pin_export(ExportScreen::Ready), ExportScreen::Ready);
-        assert_eq!(pin_export(ExportScreen::NoRun), ExportScreen::NoRun);
-        let ExportScreen::Prepared(pinned) =
-            pin_export(ExportScreen::Prepared(Box::new(summary())))
-        else {
-            panic!("a prepared export stays prepared");
-        };
-        assert_eq!(pinned.digest, PINNED_DIGEST);
-    }
 
     /// The stylesheet's still-frame rule keys on this exact class, and an
     /// ordinary serve carries none of it: a console that photographed with
@@ -397,14 +391,14 @@ mod tests {
         let pinned = pin_job(JobView {
             id: minted,
             tail: vec![
-                String::from("1 case-records: 0 passed / 0 failed / 1 errored / 0 n-a"),
-                format!("wrote target/out/console-job-{MINTED}/transcript.json"),
+                String::from("1 row(s): 0 passed, 0 failed, 1 errored, 0 skipped"),
+                format!("wrote target/out/console-job-{MINTED}/recording.har"),
             ],
             finished: Some(FinishedView {
                 passed: 0,
                 failed: 0,
                 errored: 1,
-                not_applicable: 0,
+                skipped: 0,
                 results_path: format!("target/out/console-job-{MINTED}/results.json"),
             }),
             ..driving()
@@ -412,8 +406,8 @@ mod tests {
         assert_eq!(
             pinned.tail,
             vec![
-                String::from("1 case-records: 0 passed / 0 failed / 1 errored / 0 n-a"),
-                format!("wrote target/out/console-job-{PINNED_RUN_ID}/transcript.json"),
+                String::from("1 row(s): 0 passed, 0 failed, 1 errored, 0 skipped"),
+                format!("wrote target/out/console-job-{PINNED_RUN_ID}/recording.har"),
             ]
         );
         let Some(summary) = pinned.finished else {
@@ -428,7 +422,8 @@ mod tests {
     }
 
     /// A run read back from its own directory carries the same identity in
-    /// the same two places.
+    /// the same two places, and the address it drove is the fixture server's
+    /// ephemeral port, so it is the pinned one; the tally is the record's own.
     #[expect(
         clippy::panic_in_result_fn,
         reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
@@ -441,11 +436,11 @@ mod tests {
                 id: minted,
                 dir: format!("target/out/console-job-{MINTED}"),
                 results: Some(RecordedResults {
-                    sut_name: String::from("my-cdr"),
+                    base_url: String::from("http://cdr.test/openehr/v1"),
                     passed: 0,
                     failed: 0,
                     errored: 1,
-                    not_applicable: 0,
+                    skipped: 0,
                     results_path: format!("target/out/console-job-{MINTED}/results.json"),
                 }),
             })))
@@ -464,7 +459,8 @@ mod tests {
             results.results_path,
             format!("target/out/console-job-{PINNED_RUN_ID}/results.json")
         );
-        assert_eq!(results.sut_name, "my-cdr");
+        assert_eq!(results.base_url, super::PINNED_ENDPOINT);
+        assert_eq!(results.errored, 1, "the record's own tally is the record's");
         Ok(())
     }
 
@@ -480,18 +476,13 @@ mod tests {
             auth: String::from("none"),
             probed_ok: false,
             statement: Some(String::from("my-cdr unknown")),
-            filter: Some(String::from("I_EHR_SERVICE.create_ehr-main")),
-            record_exchanges: true,
+            filter: Some(String::from("ehr_status")),
             postures: vec![String::from("system id: cdr.example.org")],
         });
         assert_eq!(pinned.base_url, super::PINNED_ENDPOINT);
         assert_eq!(pinned.sut_name, "my-cdr");
         assert_eq!(pinned.statement.as_deref(), Some("my-cdr unknown"));
-        assert_eq!(
-            pinned.filter.as_deref(),
-            Some("I_EHR_SERVICE.create_ehr-main")
-        );
-        assert!(pinned.record_exchanges);
+        assert_eq!(pinned.filter.as_deref(), Some("ehr_status"));
         assert!(!pinned.probed_ok);
         assert_eq!(
             pinned.postures,
@@ -535,5 +526,72 @@ mod tests {
             panic!("a streamed run stays streamed");
         };
         assert_eq!(pinned.elapsed_ms, PINNED_ELAPSED_MS);
+    }
+
+    /// The judged exchange's address is the fixture server's ephemeral port,
+    /// so the request line, the `Host` header and a `Location` the server
+    /// answered with show the pinned one; the status and every other byte
+    /// stay the recording's own.
+    #[test]
+    fn a_pinned_detail_names_the_pinned_address() {
+        use crate::record_api::{ExchangeView, RecordingView, ResultDetail, ResultRow};
+        let detail = ResultDetail {
+            row: ResultRow {
+                case: String::from("ehr/create_ehr"),
+                row: 0,
+                status: String::from("failed"),
+                reason: Some(String::from("status 500")),
+            },
+            summary: None,
+            step: None,
+            what: None,
+            why: None,
+            expected: None,
+            received: None,
+            whose: None,
+            report: None,
+            skip: None,
+            recording: RecordingView::Exchange(ExchangeView {
+                entry: 3,
+                request_line: String::from("POST http://127.0.0.1:36803/openehr/v1/ehr"),
+                request_headers: String::from("host: 127.0.0.1:36803"),
+                request_body: None,
+                status_line: String::from("HTTP 201"),
+                response_headers: String::from("location: http://127.0.0.1:36803/openehr/v1/ehr/1"),
+                response_body: Some(String::from("{}")),
+            }),
+        };
+        let pinned = super::pin_detail(detail);
+        let RecordingView::Exchange(exchange) = pinned.recording else {
+            panic!("an exchange stays an exchange");
+        };
+        assert_eq!(
+            exchange.request_line,
+            "POST http://127.0.0.1:0/openehr/v1/ehr"
+        );
+        assert_eq!(exchange.request_headers, "host: 127.0.0.1:0");
+        assert_eq!(
+            exchange.response_headers,
+            "location: http://127.0.0.1:0/openehr/v1/ehr/1"
+        );
+        assert_eq!(exchange.status_line, "HTTP 201");
+        assert_eq!(exchange.entry, 3);
+    }
+
+    /// The engine's own output names each red row's exchange by its URL; the
+    /// loopback port moves on every pass and is pinned, and nothing else in
+    /// the line is touched.
+    #[test]
+    fn an_output_line_keeps_everything_but_the_loopback_port() {
+        assert_eq!(
+            super::pin_loopback_port(
+                "Exchange OPTIONS http://127.0.0.1:44439/ -> 500   (recording entry 0)"
+            ),
+            "Exchange OPTIONS http://127.0.0.1:0/ -> 500   (recording entry 0)"
+        );
+        assert_eq!(
+            super::pin_loopback_port("driving http://cdr.test:8080/ and 127.0.0.1:"),
+            "driving http://cdr.test:8080/ and 127.0.0.1:"
+        );
     }
 }

@@ -1,24 +1,16 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The run wire transcript: the exchanges a run drove, persisted beside its
-//! `results.json` when the operator asks for them (`run --record-exchanges`).
+//! One recorded wire exchange: the request as it was sent and the response
+//! as it came back, the way the `identify` read records the System OPTIONS
+//! exchange it judged nothing on.
 //!
-//! NOTE: no openEHR spec governs this — our own design; the attribution law
-//! starts from the observed exchange, and without this artifact a triage
-//! against a finished run has nothing to read.
+//! NOTE: no openEHR spec governs this — our own design.
 //!
-//! Two properties make the document safe to hand around and safe to trust.
-//! It is a SERIALIZATION of what the driver already holds, so recording adds
-//! no wire traffic and cannot change a verdict. And it is ordered by case id,
-//! then by the sequence the driver sent, so the same run re-emits the same
-//! bytes.
-//!
-//! The artifact can carry real patient data: a SUT's response body is
-//! recorded verbatim, and a test EHR on a live deployment is still somebody's
-//! clinical record. It is operator-controlled output, never a log — the one
-//! value the recorder withholds is the `authorization` request header, whose
-//! credential belongs to the run's environment and to nothing on disk.
+//! The record can carry what a server answered verbatim, so it is
+//! operator-controlled output, never a log. The one value the recorder
+//! withholds is the `authorization` request header, whose credential belongs
+//! to the process environment and to nothing on disk.
 
 #![expect(
     clippy::disallowed_types,
@@ -31,44 +23,13 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// The transcript's file name, beside the `results.json` it belongs to.
-pub const TRANSCRIPT_FILE: &str = "transcript.json";
-
 /// What replaces a credential-bearing request header value.
 pub const REDACTED: &str = "«redacted»";
 
 /// The request header whose value never lands in the artifact.
 const CREDENTIAL_HEADER: &str = "authorization";
 
-/// Whether a run records the exchanges it drives.
-///
-/// A closed two-token vocabulary rather than a bare `bool`, so the call sites
-/// carrying it from the CLI flag down to the driver read as what they are.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Recording {
-    /// The exchanges are classified and dropped (the default).
-    #[default]
-    Off,
-    /// The exchanges are kept, for the transcript artifact.
-    On,
-}
-
-impl Recording {
-    /// Returns whether recording is on.
-    #[must_use]
-    pub fn is_on(self) -> bool {
-        matches!(self, Self::On)
-    }
-}
-
-impl From<bool> for Recording {
-    fn from(on: bool) -> Self {
-        if on { Self::On } else { Self::Off }
-    }
-}
-
-/// One recorded request, as the driver sent it.
+/// One recorded request, as the instrument sent it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordedRequest {
     /// The HTTP method.
@@ -94,70 +55,18 @@ pub struct RecordedResponse {
     pub body: Option<Value>,
 }
 
-/// One exchange of the transcript: what went out, and what came back.
+/// One recorded exchange: what went out, and what came back.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordedExchange {
-    /// The exchange's ordinal within its case, counting from 1 in the order
-    /// the driver sent them — provisioning exchanges included, because a
-    /// precondition that went wrong is exactly what a triage needs to see.
+    /// The exchange's ordinal, counting from 1 in the order the instrument
+    /// sent them.
     pub seq: u32,
-    /// The decision-table row the driver was on when it sent this exchange.
+    /// The row the instrument was on when it sent this exchange.
     pub row: u32,
     /// The request.
     pub request: RecordedRequest,
     /// The response.
     pub response: RecordedResponse,
-}
-
-/// Every exchange one case×format execution drove.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CaseTranscript {
-    /// The case id.
-    pub case: crate::ids::CaseId,
-    /// The wire format the case ran on, when format-parameterized.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub format: Option<crate::vocab::FormatName>,
-    /// The exchanges, in send order.
-    pub exchanges: Vec<RecordedExchange>,
-}
-
-/// The whole run's transcript.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RunTranscript {
-    /// The system under test the exchanges were driven against.
-    pub sut: crate::party::Sut,
-    /// The schedule release the campaign ran, as the results record spells it.
-    pub schedule_release: String,
-    /// The System OPTIONS exchange the run read the SUT's identity through,
-    /// when it was answered. It belongs to no case and is never judged.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub identity: Option<RecordedExchange>,
-    /// One entry per case that drove at least one exchange, case-id sorted.
-    pub cases: Vec<CaseTranscript>,
-}
-
-impl RunTranscript {
-    /// Sorts the cases by id and renumbers each case's exchanges from 1, so
-    /// two runs of the same campaign emit the same bytes.
-    pub fn canonicalize(&mut self) {
-        self.cases.sort_by(|a, b| {
-            a.case
-                .cmp(&b.case)
-                .then_with(|| a.format.cmp(&b.format))
-                .then_with(|| a.exchanges.len().cmp(&b.exchanges.len()))
-        });
-        for case in &mut self.cases {
-            for (index, exchange) in case.exchanges.iter_mut().enumerate() {
-                exchange.seq = u32::try_from(index).unwrap_or(u32::MAX).saturating_add(1);
-            }
-        }
-    }
-
-    /// The total number of recorded exchanges.
-    #[must_use]
-    pub fn exchange_count(&self) -> usize {
-        self.cases.iter().map(|case| case.exchanges.len()).sum()
-    }
 }
 
 /// Lower-cases the header names and withholds the credential header's value.
@@ -185,47 +94,13 @@ pub fn recorded_headers(headers: &BTreeMap<String, String>) -> BTreeMap<String, 
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::{
-        CaseTranscript, RecordedExchange, RecordedRequest, RecordedResponse, Recording,
-        RunTranscript, recorded_headers,
-    };
+    use super::{RecordedExchange, RecordedRequest, RecordedResponse, recorded_headers};
 
     fn header_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         pairs
             .iter()
             .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
             .collect()
-    }
-
-    fn exchange(seq: u32) -> RecordedExchange {
-        RecordedExchange {
-            seq,
-            row: 0,
-            request: RecordedRequest {
-                method: String::from("GET"),
-                url: String::from("http://sut.invalid/ehr"),
-                headers: BTreeMap::new(),
-                body: None,
-            },
-            response: RecordedResponse {
-                status: 200,
-                headers: BTreeMap::new(),
-                body: None,
-            },
-        }
-    }
-
-    fn case_id(id: &str) -> crate::ids::CaseId {
-        crate::ids::CaseId::parse(id).expect("a well-formed case id")
-    }
-
-    fn transcript(cases: Vec<CaseTranscript>) -> RunTranscript {
-        RunTranscript {
-            sut: crate::party::Sut::operator(String::from("example-cdr"), String::from("0.0.0")),
-            schedule_release: String::from("cnf-2.0-w2"),
-            identity: None,
-            cases,
-        }
     }
 
     /// The credential never lands in the artifact, and every other header
@@ -252,110 +127,31 @@ mod tests {
         );
     }
 
-    /// Case order is by id, and the sequence numbers are re-derived, so the
-    /// same exchanges always render the same document.
-    #[test]
-    fn canonicalization_orders_by_case_and_renumbers_the_sequence() {
-        let mut document = transcript(vec![
-            CaseTranscript {
-                case: case_id("I_EHR_SERVICE.get_ehr-main"),
-                format: None,
-                exchanges: vec![exchange(9), exchange(4)],
-            },
-            CaseTranscript {
-                case: case_id("I_EHR_SERVICE.create_ehr-main"),
-                format: Some(crate::vocab::FormatName::CanonicalJson),
-                exchanges: vec![exchange(7)],
-            },
-        ]);
-        document.canonicalize();
-        let ids: Vec<&str> = document.cases.iter().map(|c| c.case.as_str()).collect();
-        assert_eq!(
-            ids,
-            [
-                "I_EHR_SERVICE.create_ehr-main",
-                "I_EHR_SERVICE.get_ehr-main"
-            ]
-        );
-        let seqs: Vec<u32> = document
-            .cases
-            .iter()
-            .flat_map(|c| c.exchanges.iter().map(|e| e.seq))
-            .collect();
-        assert_eq!(seqs, [1, 1, 2]);
-        assert_eq!(document.exchange_count(), 3);
-    }
-
-    /// Serializing and reading back is lossless: the console reads this
-    /// document through these very types.
+    /// One exchange survives a serialization round trip unchanged.
     #[expect(
         clippy::panic_in_result_fn,
         reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
     )]
     #[test]
-    fn the_document_round_trips() -> Result<(), serde_json::Error> {
-        let document = transcript(vec![CaseTranscript {
-            case: case_id("I_EHR_SERVICE.create_ehr-main"),
-            format: None,
-            exchanges: vec![exchange(1)],
-        }]);
-        let text = serde_json::to_string(&document)?;
-        let parsed: RunTranscript = serde_json::from_str(&text)?;
-        assert_eq!(parsed, document);
+    fn an_exchange_round_trips() -> Result<(), serde_json::Error> {
+        let exchange = RecordedExchange {
+            seq: 1,
+            row: 0,
+            request: RecordedRequest {
+                method: String::from("OPTIONS"),
+                url: String::from("http://sut.invalid/"),
+                headers: BTreeMap::new(),
+                body: None,
+            },
+            response: RecordedResponse {
+                status: 200,
+                headers: BTreeMap::new(),
+                body: None,
+            },
+        };
+        let text = serde_json::to_string(&exchange)?;
+        let parsed: RecordedExchange = serde_json::from_str(&text)?;
+        assert_eq!(parsed, exchange);
         Ok(())
-    }
-
-    /// One case can drive several format axes, so the case id alone is not a
-    /// total order: the format and then the exchange count break the tie, so
-    /// two runs of the same campaign emit the same bytes whatever order the
-    /// runner happened to append the entries in.
-    #[test]
-    fn the_canonical_order_is_total_within_one_case_id() {
-        let entry = |format: Option<crate::vocab::FormatName>, exchanges: usize| CaseTranscript {
-            case: case_id("I_EHR_SERVICE.create_ehr-main"),
-            format,
-            exchanges: (0..exchanges)
-                .map(|i| exchange(u32::try_from(i).unwrap_or(0)))
-                .collect(),
-        };
-        let ordered = |entries: Vec<CaseTranscript>| {
-            let mut document = transcript(entries);
-            document.canonicalize();
-            document
-                .cases
-                .iter()
-                .map(|c| (c.format, c.exchanges.len()))
-                .collect::<Vec<_>>()
-        };
-
-        // The format breaks the tie, in the vocabulary's own order.
-        let by_format = ordered(vec![
-            entry(Some(crate::vocab::FormatName::CanonicalXml), 1),
-            entry(Some(crate::vocab::FormatName::CanonicalJson), 1),
-            entry(None, 1),
-        ]);
-        assert_eq!(
-            by_format,
-            vec![
-                (None, 1),
-                (Some(crate::vocab::FormatName::CanonicalJson), 1),
-                (Some(crate::vocab::FormatName::CanonicalXml), 1),
-            ]
-        );
-
-        // Same case, same format: the exchange count is the last tie-break, so
-        // the order never depends on the order the entries arrived in.
-        let by_count = ordered(vec![entry(None, 3), entry(None, 1), entry(None, 2)]);
-        assert_eq!(by_count, vec![(None, 1), (None, 2), (None, 3)]);
-        let reversed = ordered(vec![entry(None, 1), entry(None, 2), entry(None, 3)]);
-        assert_eq!(by_count, reversed);
-    }
-
-    #[test]
-    fn recording_is_off_by_default() {
-        assert_eq!(Recording::default(), Recording::Off);
-        assert!(!Recording::default().is_on());
-        assert!(Recording::from(true).is_on());
-        assert!(!Recording::from(false).is_on());
     }
 }

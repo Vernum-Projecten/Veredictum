@@ -25,7 +25,7 @@
 # (https://docs.docker.com/engine/storage/bind-mounts):
 #
 #   volumes:
-#     - ./my-artifacts:/work/artifacts
+#     - ./my-catalogue:/work/catalogue
 #
 # A run's artifacts stay inside the container, at `/work/out`, and a recreate
 # forgets them: the console hands a finished run's record over HTTP, which is

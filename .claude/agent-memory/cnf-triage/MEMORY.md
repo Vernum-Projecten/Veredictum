@@ -1,6 +1,5 @@
 # Memory index
 
-- [Option arms need an ICS](option-arms-need-an-ics.md) — a statement-blind run drives BOTH arms of every option_select pair; the undeclared arm is red by construction, runner-side
 - [Admin 405 is permitted](admin-405-is-permitted.md) — the Admin API is DEVELOPMENT-stage and Conformance is "tbd."; a 405 on /admin/** is never a SUT defect
 - [Unparsed body is an instrument limit](unparsed-body-is-an-instrument-limit.md) — equivalent over an XML/text body the binding itself negotiated is a comparator gap
 - [Signing posture has no selection arm](signing-posture-has-no-selection-arm.md) — a missing ixit `signing` posture errors at assert time where every sibling fact resolves n-a
@@ -10,4 +9,4 @@
 - [Version envelope in hand](version-envelope-in-hand.md) — "no commit_audit.change_type" is the driver mistaking a served COMPOSITION for the VERSION envelope
 - [Version count is per container](version-count-per-container.md) — REVISION_HISTORY counts ONE container; a cross-container sum is a catalogue defect
 - [Lifecycle state is a coded term](lifecycle-state-coded-term.md) — assert the full terminology::code|rubric|, never the bare code
-- [Access control is delegated](access-control-is-delegated.md) — an expect-forbidden role boundary has no released ground; SM hands the choice over
+- [Access control is delegated](access-control-is-delegated.md) — an expect-forbidden role boundary has no released ground; ITS-REST puts authorization at SHOULD

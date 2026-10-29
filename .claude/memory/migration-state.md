@@ -12,8 +12,9 @@ Veredictum was built inside
 [FerroEHR](https://github.com/rubentalstra/FerroEHR) as a workspace member and
 moved to this repository on 2026-08-26 under
 [FerroEHR#2789](https://github.com/rubentalstra/FerroEHR/issues/2789). That move
-is finished. The runner, the catalogue, the corpora, the ambiguity register, the
-party declarations and the vendored spec oracle live here, releases ship from
+is finished. The runner, the catalogue, the performance schedule and the
+vendored spec oracle live here (the case-core catalogue, its corpora and the
+ambiguity register were retired at the cut-over, #604), releases ship from
 here, and the crate is on crates.io. This file is the origin record.
 
 ## What the move left behind that still matters

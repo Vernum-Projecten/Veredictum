@@ -9,7 +9,7 @@
 #
 # Claude Code PreToolUse hook (matcher: Write|Edit|NotebookEdit). NON-BLOCKING
 # reminder fired when a catalogue EXPECTATION artifact is edited
-# (artifacts/{schedule,bindings,vocab}/**). It injects the attribution law as
+# (catalogue/**). It injects the attribution law as
 # additionalContext so the agent self-checks — at the exact moment of the edit —
 # that it is correcting the catalogue toward the SPEC, not bending an
 # expectation to match observed server behaviour.
@@ -21,8 +21,8 @@
 # new coverage cases are normal); it only reminds.
 #
 # Reads the tool-call JSON on stdin; prints hookSpecificOutput.additionalContext
-# and exits 0. Corpus data and the ambiguity register are deliberately NOT
-# guarded (corpus = data; registers/ = the sanctioned spec-silence path).
+# and exits 0. Every path under catalogue/ is guarded: the workflows, their
+# rows files and capabilities.yaml all carry expectations.
 
 set -euo pipefail
 
@@ -36,13 +36,11 @@ fi
 [[ -n "${path:-}" ]] || exit 0
 
 case "$path" in
-  */artifacts/schedule/* | artifacts/schedule/* | \
-  */artifacts/bindings/* | artifacts/bindings/* | \
-  */artifacts/vocab/*    | artifacts/vocab/*) ;;
+  */catalogue/* | catalogue/*) ;;
   *) exit 0 ;;
 esac
 
-msg="Attribution law (.claude/rules/cnf-triage.md): you are editing a catalogue expectation. The vendored released openEHR spec text is the oracle, and this instrument is a suspect on every red row — never presumed correct. This edit is valid ONLY if it moves the catalogue toward the SPEC with a first-hand citation; it must NOT bend an expected status/header/outcome/value to match what a server returned. If the three-way comparison (spec-required vs catalogue-expected vs SUT-observed) shows the SERVER is wrong, the outcome is a defect report to that CDR, NOT a catalogue edit. THE ORACLE ORDER: (1) the ITS-REST DOCS TEXT — QUOTE the decisive sentence that assigns THIS value; it WINS every conflict. (2) Where the docs text is SILENT — not conflicting — the RELEASED OAS grounds the value; cite it AS the OAS (file + element), never as docs text, and never read MORE into it than it states (an optional schema member is not a presence requirement). (3) Silent in BOTH -> artifacts/registers/ambiguities.yaml, never a bent expectation. 'The overview permits X generally' is the RATIONALIZATION TELL, not an assignment — if neither source assigns the value, register it. A server's response is never a source for any tier."
+msg="Attribution law (.claude/rules/cnf-triage.md): you are editing a catalogue expectation. The vendored released openEHR spec text is the oracle, and this instrument is a suspect on every red row — never presumed correct. This edit is valid ONLY if it moves the catalogue toward the SPEC with a first-hand citation; it must NOT bend an expected status/header/outcome/value to match what a server returned. If the three-way comparison (spec-required vs catalogue-expected vs SUT-observed) shows the SERVER is wrong, the outcome is a defect report to that CDR, NOT a catalogue edit. THE ORACLE ORDER: (1) the ITS-REST DOCS TEXT — QUOTE the decisive sentence that assigns THIS value; it WINS every conflict. (2) Where the docs text is SILENT — not conflicting — the RELEASED OAS grounds the value; cite it AS the OAS (file + element), never as docs text, and never read MORE into it than it states (an optional schema member is not a presence requirement). (3) Silent in BOTH -> an upstream-report issue and no case asserting the behaviour (or an option in catalogue/capabilities.yaml where the release leaves it to the implementation), never a bent expectation. 'The overview permits X generally' is the RATIONALIZATION TELL, not an assignment — if neither source assigns the value, report it. A server's response is never a source for any tier."
 
 if command -v jq >/dev/null 2>&1; then
   jq -n --arg m "$msg" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $m}}'

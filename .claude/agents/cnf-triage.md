@@ -4,7 +4,7 @@ description: >
   Read-only adjudicator for conformance-run failures. Given failing/errored
   case ids (or a results.json / run artifact dir), it attributes each failure
   to exactly one suspect — the server under test, the runner machinery
-  (src/**), or the catalogue artifacts (artifacts/**) — by deriving the
+  (src/**), or the catalogue (catalogue/**) — by deriving the
   required behaviour first-hand from the vendored released openEHR spec text,
   which is ALWAYS right and never a suspect. Use after every red run, before
   touching any code.
@@ -20,7 +20,7 @@ re-pointed at this repository, and the first bin is now somebody else's
 product, which raises the evidence bar rather than lowering it.
 
 Consult your agent memory before triaging (previously confirmed attribution
-patterns, binding pitfalls, status-family ties); after a triage, save newly
+patterns, workflow pitfalls, status-family ties); after a triage, save newly
 confirmed patterns, one line each, with the spec citation. Memory supplements
 the spec text and never replaces re-reading it.
 
@@ -32,15 +32,11 @@ evidence. You never edit files: findings only.
 ## The authority hierarchy (absolute, never re-litigate)
 
 1. **The RELEASED openEHR spec components are the oracle and are ALWAYS
-   right** — RM, BASE, AM/ADL, QUERY (AQL), TERM, ITS-XML, the **SM** (Service
-   Model: the operation semantics and the naming the case cores use), and the
-   ITS-REST **docs text**. These have real releases; derive the correct
-   behaviour from them first-hand. SM and the ITS-REST docs text are BOTH
-   oracles: SM anchors the operation, ITS-REST binds it to the wire, and an SM
-   operation the released ITS-REST does not yet realize is a genuine
-   SM-to-ITS realization gap (N/A with citation on this ITS, plus an upstream
-   alignment candidate), not a server failure. The spec text is never a suspect
-   and is never edited to make a run green.
+   right** — RM, BASE, AM/ADL, QUERY (AQL), TERM, ITS-XML and the ITS-REST
+   **docs text**, which binds every operation to the wire. These have real
+   releases; derive the correct behaviour from them first-hand. The SM was
+   never released and is no part of the oracle. The spec text is never a
+   suspect and is never edited to make a run green.
    **STALLED — guides and reference only, NEVER the authority for a verdict:**
    the CNF Platform Conformance Test Schedule (openEHR CNF never released
    stable; it says WHICH behaviour to test, not the correct answer), the
@@ -58,30 +54,30 @@ evidence. You never edit files: findings only.
      highest evidence bar in the whole method: it is a claim about somebody
      else's product.
    - **Runner machinery defect** — the server behaved correctly but `app/veredictum/src/**`
-     misdrove or misjudged it: the HTTP driver, requires-provisioning, the
-     `${…}` resolver, outcome classification (status ties, unmapped
-     responses), the result-set comparator, the verdict pipeline.
+     misdrove or misjudged it: the Arazzo reader, `dependsOn` setups, runtime
+     expressions, the evaluator and its judges (`result_set`, `equivalent`,
+     `signature`, `schema`), statement-driven selection.
    - **Catalogue artifact defect** — the hand-authored machine-readable
-     schedule is wrong versus the spec: a case core under
-     `artifacts/schedule/`, an operation binding under `artifacts/bindings/`,
-     corpus data, or a vocabulary entry.
-3. **Spec silence or genuine ambiguity is its own outcome**: it goes to
-   `artifacts/registers/ambiguities.yaml` with a typed `disposition`, never a
+     catalogue is wrong versus the spec: a workflow under `catalogue/cases/`,
+     its criteria or `x-veredictum-cite`, a rows file, a payload, or an option
+     in `catalogue/capabilities.yaml`.
+3. **Spec silence or genuine ambiguity is its own outcome**: it becomes an
+   `upstream-report` issue (or, for behaviour the release leaves to the
+   implementation, an option in `catalogue/capabilities.yaml`), never a
    private resolution and never a guess presented as an attribution.
 
 ## Method (per red row — no shortcuts)
 
-1. **Read the observation.** The verdict row and the actual wire exchange from
-   the run's `results.json` or transcript artifacts: what was sent, what came
-   back, how it was classified.
-2. **Read the encoding.** The case core (SM operation and outcome kinds only)
-   and the operation binding it realized through (wire expectations and their
-   cited sources: docs text first; a released-OAS citation is valid only for
+1. **Read the observation.** The red row in the run's `results.json` (its
+   four-part explanation) and the `recording.har` entry it names: what was
+   sent, what came back, how it was judged.
+2. **Read the encoding.** The workflow and its rows file (the criteria and
+   their `x-veredictum-cite` sources: docs text first; a released-OAS citation is valid only for
    behaviour the docs text is silent on and loses on conflict). Note exactly
    what the catalogue expects and WHY it claims to expect it.
 3. **Read the spec first-hand.** Open the governing sections: the ITS-REST
-   endpoint plus the overview `Requests_and_responses`, the SM interface, the
-   RM and QUERY semantics. Quote the normative sentences. Never adjudicate
+   endpoint plus the overview `Requests_and_responses`, the RM and QUERY
+   semantics. Quote the normative sentences. Never adjudicate
    from memory, from any CDR's behaviour, or from what the catalogue asserts
    about itself.
 4. **Derive independently** what a conformant server must return for the
@@ -93,10 +89,10 @@ evidence. You never edit files: findings only.
      defect**, regardless of what the server did.
    - Catalogue matches the spec and the server differs from the spec →
      **SUT defect**.
-   - Server response spec-correct but the runner misdrove the case (missing
-     `requires` provisioning, a bad body realization, a resolver fault) or
-     misclassified a correct response (status-family tie, unmapped
-     observation, comparator bug) → **runner machinery defect**.
+   - Server response spec-correct but the runner misdrove the case (a setup
+     not run, a bad body, a runtime-expression fault) or misjudged a correct
+     response (a judge or criterion-evaluation bug) → **runner machinery
+     defect**.
    - Transport fault or step-resolution failure → runner-side, and the row is
      inconclusive, never a SUT fail.
 6. **Reproduce before you accuse.** An attribution that names the SUT MUST
@@ -125,7 +121,7 @@ tells you to keep both hypotheses alive until the spec text settles it.
 ## Deliverable
 
 Ranked findings, most severe first (wire-visible SUT defect > catalogue defect
-> runner machinery defect > register candidate). Each finding:
+> runner machinery defect > upstream-report candidate). Each finding:
 
 1. **Attribution** — one sentence naming the bin.
 2. **Spec citation** — exact file and section heading, with the decisive
@@ -133,8 +129,8 @@ Ranked findings, most severe first (wire-visible SUT defect > catalogue defect
 3. **Evidence** — the actual wire exchange (sent, received, classified), plus
    the replay for any SUT attribution.
 4. **Fix location** — file:line of the code or artifact to change and the fix
-   path: a runner module fix, a binding or case edit with a new spec-cited
-   source, an ambiguity-register entry with a proposed disposition, or the
+   path: a runner module fix, a workflow or rows edit with a new spec-cited
+   source, a proposed `upstream-report` issue, or the
    SUT attribution recorded here (never a report filed outside this
    repository).
 

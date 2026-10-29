@@ -25,12 +25,13 @@ use crate::components::surface::{CARD_PAD, CARD_TITLE};
 use crate::components::toast;
 use crate::identity::{FieldEntry, IdentityAnswer, resolve};
 use crate::run_api::fns::{
-    cancel_run, compose_claim, fetch_draft, fetch_run, fetch_scope_preview, fetch_tier_counts,
+    cancel_run, compose_claim, fetch_capability_rows, fetch_draft, fetch_run, fetch_scope_preview,
     probe_and_save, save_scope, start_run,
 };
 use crate::run_api::{
-    AuthChoice, ClaimSummary, ConnectAnswer, DigestEncoding, PostureForm, ProbeAnswer, RecordedRun,
-    RunScreen, ScopePreview, ScopeTier, SigningChoice, SpecProfileChoice, StartOutcome, TierRow,
+    AuthChoice, CapabilityRow, ClaimSummary, ConnectAnswer, DigestEncoding, PostureForm,
+    ProbeAnswer, RecordedRun, RunScreen, ScopePreview, SigningChoice, SpecProfileChoice,
+    StartOutcome,
 };
 use crate::run_job::{JobStatus, JobView, RunId};
 
@@ -46,7 +47,7 @@ pub fn Run() -> impl IntoView {
 
 /// The step indicator: one row, the active step accented — a URL per step.
 pub(crate) fn steps(active: &'static str) -> impl IntoView + use<> {
-    ["connect", "scope", "live", "results", "verdicts"]
+    ["connect", "scope", "live", "results"]
         .into_iter()
         .map(|step| {
             let class = if step == active {
@@ -484,23 +485,23 @@ pub fn Connect() -> impl IntoView {
 )]
 #[expect(
     clippy::too_many_lines,
-    reason = "the tier row, the statement pick, the filter, the preview and the save answer — one cohesive screen, its sections erased per rules §1"
+    reason = "the capability row, the statement pick, the filter, the preview and the save answer — one cohesive screen, its sections erased per rules §1"
 )]
 #[component]
 pub fn Scope() -> impl IntoView {
     let draft = Resource::new(|| (), |()| fetch_draft());
     let statement_json = RwSignal::new(String::new());
-    let tier_counts = Resource::new(|| (), |()| fetch_tier_counts());
-    let checked_tiers = RwSignal::new(Vec::<ScopeTier>::new());
+    let capability_rows = Resource::new(|| (), |()| fetch_capability_rows());
+    let checked = RwSignal::new(Vec::<String>::new());
     let composed_note = RwSignal::new(None::<Result<String, String>>);
-    let compose = Action::new(move |selection: &Vec<ScopeTier>| {
+    let compose = Action::new(move |selection: &Vec<String>| {
         let selection = selection.clone();
         async move {
             match compose_claim(Some(selection)).await {
                 Ok(document) => {
                     statement_json.set(document);
                     composed_note.set(Some(Ok(String::from(
-                        "Composed from the checked tiers. Read it, edit it if you need to, then save the scope.",
+                        "Composed from the checked capabilities. Read it, edit it if you need to, then save the scope.",
                     ))));
                 }
                 Err(e) => composed_note.set(Some(Err(e.to_string()))),
@@ -508,7 +509,6 @@ pub fn Scope() -> impl IntoView {
         }
     });
     let filter = RwSignal::new(String::new());
-    let record_exchanges = RwSignal::new(false);
     let postures = PostureSignals::new();
     // Every mutation below reports BOTH outcomes as a toast and keeps its
     // inline pane. The answers land in each action's own async continuation,
@@ -523,7 +523,7 @@ pub fn Scope() -> impl IntoView {
                     toast::success(
                         "Selection previewed",
                         &format!(
-                            "{} cases are in scope; every one of them lands as an outcome or a recorded exception.",
+                            "{} cases are in scope; every one of them lands as a row of the results.",
                             scope.total
                         ),
                     );
@@ -534,7 +534,7 @@ pub fn Scope() -> impl IntoView {
                     toast::error(
                         "The preview was refused",
                         &format!(
-                            "The catalogue could not be counted: {body}. Check the mounted artifact root."
+                            "The catalogue could not be counted: {body}. Check the mounted catalogue root."
                         ),
                     );
                     previewed.set(Some(Err(body)));
@@ -549,7 +549,6 @@ pub fn Scope() -> impl IntoView {
             match save_scope(
                 Some(input.statement_json),
                 Some(input.filter),
-                input.record_exchanges,
                 input.postures,
             )
             .await
@@ -650,33 +649,19 @@ pub fn Scope() -> impl IntoView {
         <section class=format!("{CARD_PAD} mt-4 max-w-2xl")>
             <h2 class=CARD_TITLE>"Selection"</h2>
             <div class="space-y-4">
-                {tier_picker(tier_counts, checked_tiers, compose, composed_note)}
+                {capability_picker(capability_rows, checked, compose, composed_note)}
                 {statement_picker(statement_json)} <div>
                     <label class=LABEL for="filter">
-                        "Case-id filter (optional)"
+                        "Document-id filter (optional)"
                     </label>
                     <input
                         id="filter"
                         type="text"
                         class=format!("{INPUT} mt-1 w-full font-mono")
-                        placeholder="I_EHR_SERVICE"
+                        placeholder="ehr_status"
                         prop:value=move || filter.get()
                         on:input:target=move |ev| filter.set(ev.target().value())
                     />
-                </div> <div>
-                    <label class="flex items-center gap-2 text-sm text-ink" for="record-exchanges">
-                        <input
-                            id="record-exchanges"
-                            type="checkbox"
-                            class="size-4 accent-accent"
-                            prop:checked=move || record_exchanges.get()
-                            on:change:target=move |ev| record_exchanges.set(ev.target().checked())
-                        />
-                        "Record the wire exchanges"
-                    </label>
-                    <p class="mt-1 text-sm text-ink-muted">
-                        "Off by default. The transcript keeps every request and response the run drove, so it can carry real patient data from the server you are grading. It lands beside results.json in the run's output directory, and the sealed record covers it."
-                    </p>
                 </div> {posture_picker(postures)} <div class="flex items-center gap-2">
                     <button
                         type="button"
@@ -694,7 +679,6 @@ pub fn Scope() -> impl IntoView {
                             save.dispatch(ScopeInput {
                                 statement_json: statement_json.get(),
                                 filter: filter.get(),
-                                record_exchanges: record_exchanges.get(),
                                 postures: postures.read(),
                             });
                             preview.dispatch(filter.get());
@@ -795,70 +779,60 @@ pub fn Scope() -> impl IntoView {
     }
 }
 
-/// The tier picker: the per-tier counts, the checkboxes that build the claim,
-/// and the compose button with its note.
-fn tier_picker(
-    tier_counts: Resource<Result<Vec<TierRow>, ServerFnError>>,
-    checked_tiers: RwSignal<Vec<ScopeTier>>,
-    compose: Action<Vec<ScopeTier>, ()>,
+/// The capability picker: each folder's counts, the checkboxes that build the
+/// claim, and the compose button with its note.
+fn capability_picker(
+    capability_rows: Resource<Result<Vec<CapabilityRow>, ServerFnError>>,
+    checked: RwSignal<Vec<String>>,
+    compose: Action<Vec<String>, ()>,
     composed_note: RwSignal<Option<Result<String, String>>>,
 ) -> impl IntoView + use<> {
-    let toggle_tier = move |tier: ScopeTier, on: bool| {
-        checked_tiers.update(|selection| {
-            selection.retain(|held| *held != tier);
-            if on {
-                selection.push(tier);
-            }
-            // NOTE: no openEHR spec governs this — our own design: the
-            // published judgement refuses a STANDARD claim that does not also
-            // claim CORE, so the row keeps the two paired.
-            match (tier, on) {
-                (ScopeTier::Standard, true) => {
-                    if !selection.contains(&ScopeTier::Core) {
-                        selection.push(ScopeTier::Core);
-                    }
-                }
-                (ScopeTier::Core, false) => selection.retain(|held| *held != ScopeTier::Standard),
-                _ => {}
-            }
-        });
-    };
     view! {
         <div>
-            <span class=LABEL>"Build the claim from tiers"</span>
+            <span class=LABEL>"Build the claim from capabilities"</span>
             <p class="mt-1 text-sm text-ink-muted">
-                "Checking a tier claims the capabilities the matrix requires for it; the counts say how many catalogue cases those capabilities gate. Composing writes the claim into the box below, where you read it before anything runs. Option branches stay undeclared, because only the party running the server knows which branch it realizes."
+                "Checking a capability claims its folder of the catalogue; the counts say how many documents and cases it holds. Composing writes the claim into the box below, where you read it before anything runs. Options stay undeclared, because only the party running the server knows which arm it realizes."
             </p>
             <Suspense fallback=|| {
-                view! { <p class="text-sm text-ink-muted">"Counting the tiers…"</p> }
+                view! { <p class="text-sm text-ink-muted">"Counting the capabilities…"</p> }
             }>
                 {move || Suspend::new(async move {
-                    match tier_counts.await {
+                    match capability_rows.await {
                         Ok(rows) => {
                             let boxes = rows
                                 .into_iter()
                                 .map(|row| {
-                                    let tier = row.tier;
+                                    let control = format!("capability-{}", row.name);
+                                    let labelled = control.clone();
                                     let label = format!(
-                                        "{} · {} capabilities · {} cases",
-                                        tier.token(),
-                                        row.capabilities,
+                                        "{} · {} documents · {} cases",
+                                        row.name,
+                                        row.documents,
                                         row.cases,
                                     );
+                                    let held = row.name.clone();
+                                    let toggled = row.name;
                                     view! {
                                         <label
                                             class="flex items-center gap-2 text-sm text-ink"
-                                            for=tier.control_id()
+                                            for=labelled
                                         >
                                             <input
-                                                id=tier.control_id()
+                                                id=control
                                                 type="checkbox"
                                                 class="size-4 accent-accent"
                                                 prop:checked=move || {
-                                                    checked_tiers.with(|held| held.contains(&tier))
+                                                    checked.with(|names| names.contains(&held))
                                                 }
                                                 on:change:target=move |ev| {
-                                                    toggle_tier(tier, ev.target().checked());
+                                                    let on = ev.target().checked();
+                                                    checked
+                                                        .update(|names| {
+                                                            names.retain(|name| *name != toggled);
+                                                            if on {
+                                                                names.push(toggled.clone());
+                                                            }
+                                                        });
                                                 }
                                             />
                                             {label}
@@ -878,7 +852,7 @@ fn tier_picker(
                     type="button"
                     class=BTN_SECONDARY
                     on:click=move |_| {
-                        compose.dispatch(checked_tiers.get());
+                        compose.dispatch(checked.get());
                     }
                 >
                     "Compose the claim"
@@ -910,12 +884,12 @@ fn statement_picker(statement_json: RwSignal<String>) -> impl IntoView + use<> {
                 "Party statement (ICS) — the claim this run grades"
             </label>
             <p class="mt-1 text-sm text-ink-muted">
-                "Paste your own statement.json, or compose one from the tiers above and edit it. The claim is the supplier's to make, so this instrument holds none about any product. Leave the box empty for an honest no-claim run: everything applicable drives, nothing is certified."
+                "Paste your own statement.json, or compose one from the capabilities above and edit it. The claim is the supplier's to make, so this instrument holds none about any product. Leave the box empty for an honest no-claim run: everything applicable drives, nothing is certified."
             </p>
             <textarea
                 id="statement-json"
                 class=format!("{TEXTAREA} mt-2 h-48")
-                placeholder="{ \"product\": { \"name\": …, \"version\": … }, \"claims\": { \"profiles\": [\"CORE\"], \"capabilities\": [s] }, … }"
+                placeholder="{ \"product\": { \"name\": …, \"version\": … }, \"claims\": { \"capabilities\": [\"ehr\"] }, … }"
                 prop:value=move || statement_json.get()
                 on:input:target=move |ev| statement_json.set(ev.target().value())
             ></textarea>
@@ -1205,10 +1179,8 @@ fn posture_picker(postures: PostureSignals) -> impl IntoView + use<> {
 struct ScopeInput {
     /// The pasted statement document, empty for a no-claim run.
     statement_json: String,
-    /// The case-id filter, empty for the whole catalogue.
+    /// The document-id filter, empty for the whole catalogue.
     filter: String,
-    /// Whether the run persists its wire exchanges.
-    record_exchanges: bool,
     /// The deployment postures the operator declared.
     postures: PostureForm,
 }
@@ -1223,13 +1195,8 @@ fn saved_body(claim: Option<&ClaimSummary>) -> String {
             )
         },
         |summary| {
-            let profiles = if summary.profiles.is_empty() {
-                String::from("none")
-            } else {
-                summary.profiles.join(", ")
-            };
             format!(
-                "Claim accepted: {} — profiles {profiles} — {} capabilities.",
+                "Claim accepted: {} — {} capabilities.",
                 summary.product, summary.capabilities,
             )
         },
@@ -1471,14 +1438,14 @@ fn recorded_view(run: &RecordedRun) -> impl IntoView + use<> {
         |results| {
             view! {
                 <div class="space-y-1">
-                    <p class="text-sm text-ink">{format!("{} · finished", results.sut_name)}</p>
+                    <p class="text-sm text-ink">{format!("{} · finished", results.base_url)}</p>
                     <p class="tabular-nums text-sm text-ink">
                         {format!(
-                            "{} passed · {} failed · {} errored · {} not applicable",
+                            "{} passed · {} failed · {} errored · {} skipped",
                             results.passed,
                             results.failed,
                             results.errored,
-                            results.not_applicable,
+                            results.skipped,
                         )}
                     </p>
                     <p class="font-mono text-xs text-ink-muted">
@@ -1585,11 +1552,11 @@ fn live_view(job: &JobView, cancel: Action<RunId, ()>) -> impl IntoView + use<> 
                 <h2 class=CARD_TITLE>"Outcome"</h2>
                 <p class="tabular-nums text-sm text-ink">
                     {format!(
-                        "{} passed · {} failed · {} errored · {} not applicable",
+                        "{} passed · {} failed · {} errored · {} skipped",
                         summary.passed,
                         summary.failed,
                         summary.errored,
-                        summary.not_applicable,
+                        summary.skipped,
                     )}
                 </p>
                 <p class="mt-1 font-mono text-xs text-ink-muted">
@@ -1598,9 +1565,6 @@ fn live_view(job: &JobView, cancel: Action<RunId, ()>) -> impl IntoView + use<> 
                 <div class="mt-2 flex items-center gap-2">
                     <A href="/run/results" attr:class=BTN_PRIMARY>
                         "Read the results"
-                    </A>
-                    <A href="/run/verdicts" attr:class=BTN_SECONDARY>
-                        "Compute the verdicts"
                     </A>
                 </div>
             </section>

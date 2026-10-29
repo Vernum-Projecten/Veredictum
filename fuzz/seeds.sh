@@ -2,13 +2,14 @@
 # SPDX-FileCopyrightText: Veredictum contributors
 # SPDX-License-Identifier: Apache-2.0
 # Populate fuzz/seeds/<target>/ from material already committed in this
-# repository: the catalogue, the fixture declarations, and the vendored packs.
+# repository: the catalogue's rows files, the fixture declarations, and the
+# example results document.
 #
 # Two shapes of seed. A DOCUMENT seed is symlinked, never copied — the artifact
 # tree is large and each file is provenance-stamped where it lives. A FRAGMENT
-# seed is a short string harvested out of those same files (a `${…}` reference,
-# a citation, a decision-table cell), written out one per file because libFuzzer
-# takes one input per file and there is nothing to link to.
+# seed is a short string harvested out of those same files (a decision-table
+# cell), written out one per file because libFuzzer takes one input per file
+# and there is nothing to link to.
 #
 # Selection is size-bounded and deterministic — sorted, then capped. libFuzzer
 # re-reads every seed on each run and derives its default input length from the
@@ -90,49 +91,14 @@ harvest() {
   echo "  $target <- $label ($written fragments)"
 }
 
-# ── The reference and identifier grammars ──────────────────────────────────
-# The `${…}` references the catalogue actually authors, the capture sources the
-# bindings read, and the identifier spaces: SM operation anchors, case ids,
-# corpus keys. Written rather than linked because each is a short string inside
-# a YAML file, not a file of its own.
-seed_reference_grammar() {
-  require_dir artifacts
-  grep -rhoE '\$\{[^}]*\}' "$repo_root/artifacts" --include='*.yaml' \
-    | harvest reference_grammar "catalogue \${…} references" ref 400
-  grep -rhoE '\bI_[A-Z0-9_]+\.[a-z0-9_]+' "$repo_root/artifacts" --include='*.yaml' \
-    | harvest reference_grammar "SM operation anchors" smop 200
-  grep -rhoE '^id: [^ ]+$' "$repo_root/artifacts/schedule" --include='*.yaml' \
-    | sed -E 's/^id: //' \
-    | harvest reference_grammar "case ids" caseid 200
-  grep -rhoE '\bcnf\.[a-z0-9._-]+' "$repo_root/artifacts" --include='*.yaml' \
-    | harvest reference_grammar "corpus keys" key 200
-
-  # The degenerate separator cases, which no authored artifact carries: the
-  # point of a written seed is to hand libFuzzer the SHAPE so its mutations
-  # land inside the grammar instead of rediscovering that `::` and `#` matter.
-  local dest="$seeds_root/reference_grammar"
-  printf '%s' '${ds:cnf.set.bp-10#magnitude_ge_140_by_uid}' > "$dest/shape_ds_view"
-  printf '%s' '${time:between(t1,t2)}' > "$dest/shape_time_between"
-  printf '%s' '${recipe:ehr_status(row)}' > "$dest/shape_recipe"
-  printf '%s' '${offset?}::${row.x}' > "$dest/shape_two_refs"
-  printf '%s' 'created.version_uids[]' > "$dest/shape_list_capture"
-  printf '%s' 'header ETag last-segment' > "$dest/shape_wire_from"
-  printf '%s' 'pattern:^W/"[^"]+"$' > "$dest/shape_header_pattern"
-  printf '%s' '${' > "$dest/shape_unterminated"
-  echo "  reference_grammar <- written grammar shapes (8 fragments)"
-}
-
 # ── The decision-table literal grammar ─────────────────────────────────────
-# The content chapters carry the literals: range, list, term code, ordinal and
-# scale tuples, quantities, and the `violates` entries beside them.
+# The content rows files carry the literals: range, list, term code, ordinal
+# and scale tuples, and quantities.
 seed_literal_grammar() {
-  require_dir artifacts/schedule/content
-  grep -rhoE '"[^"]*(\.\.|::|\|)[^"]*"' "$repo_root/artifacts/schedule" --include='*.yaml' \
+  require_dir catalogue/cases/content
+  grep -rhoE '"[^"]*(\.\.|::|\|)[^"]*"' "$repo_root/catalogue/cases" --include='*.rows.yaml' \
     | sed -E 's/^"//; s/"$//' \
     | harvest literal_grammar "decision-table literals" lit 400
-  grep -rhoE '(rm_schema|rm_invariant|iso8601|constraint)(\([^)]*\))?: [^"]+' \
-    "$repo_root/artifacts/schedule" --include='*.yaml' \
-    | harvest literal_grammar "violation entries" viol 200
 
   local dest="$seeds_root/literal_grammar"
   printf '%s' '[cm 5.0..10.0, m]' > "$dest/shape_unit_range_list"
@@ -143,34 +109,6 @@ seed_literal_grammar() {
   printf '%s' '100 mg' > "$dest/shape_quantity"
   printf '%s' '[[[[1]]]]' > "$dest/shape_nested_list"
   echo "  literal_grammar <- written grammar shapes (7 fragments)"
-}
-
-# ── The citation reader ────────────────────────────────────────────────────
-# Every `spec_refs` entry the catalogue carries, which is the largest hand-typed
-# corpus in the tree and the one whose clause boundaries have already leaked.
-seed_citation() {
-  require_dir artifacts
-  grep -rhoE '"(CNF|RM|BASE|AM|QUERY|TERM|LANG|SM|ITS-REST|ITS-JSON|ITS-XML) [^"]+"' \
-    "$repo_root/artifacts" --include='*.yaml' \
-    | sed -E 's/^"//; s/"$//' \
-    | harvest citation "catalogue citations" cite 600
-
-  local dest="$seeds_root/citation"
-  printf '%s' 'ITS-REST OAS operations/directory_{update,delete}.yaml §requestBody' \
-    > "$dest/shape_brace_group"
-  printf '%s' 'RM common master06 §The "Virtual Version Tree"; BASE base_types master05 §Composite Identifiers' \
-    > "$dest/shape_two_clauses"
-  printf '%s' 'SM openehr_platform I_EHR_SERVICE.create_ehr §create_ehr — the operation anchor' \
-    > "$dest/shape_gloss"
-  echo "  citation <- written citation shapes (3 fragments)"
-}
-
-# ── The artifact front-end ─────────────────────────────────────────────────
-# Real case cores, the document family the harness carries end to end.
-seed_artifact_yaml() {
-  link_from artifact_yaml artifacts/schedule 32k 400 '*.yaml'
-  link_from artifact_yaml artifacts/vocab 32k 40 '*.yaml'
-  link_from artifact_yaml artifacts/bindings 32k 100 '*.yaml'
 }
 
 # ── The party documents ────────────────────────────────────────────────────
@@ -237,7 +175,7 @@ link_regressions() {
 
 targets=("$@")
 if [[ ${#targets[@]} -eq 0 ]]; then
-  targets=(reference_grammar literal_grammar citation artifact_yaml party_document hdr_v2)
+  targets=(literal_grammar party_document hdr_v2)
 fi
 
 for target in "${targets[@]}"; do

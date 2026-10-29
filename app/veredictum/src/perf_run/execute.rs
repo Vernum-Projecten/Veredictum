@@ -900,7 +900,7 @@ pub(crate) fn perform(
             note(observed, reply.status) == StatusCode::OK
         }
         PerfOp::ArchetypeAdl2List => {
-            // EXTENSION route (register AMB-37) — no openEHR spec governs it;
+            // EXTENSION route — no openEHR spec governs it;
             // it loads the ADL 2 archetype listing this product serves of its
             // own design.
             let reply = client.request(
@@ -913,10 +913,9 @@ pub(crate) fn perform(
             note(observed, reply.status) == StatusCode::OK
         }
         PerfOp::AdminContributionReport => {
-            // EXTENSION route (register AMB-33) — no openEHR spec governs it.
+            // EXTENSION route — no openEHR spec governs it.
             // The EHR service is the only versioned-content service this
-            // arrival reports on (SM platform_service.adoc); the count is a
-            // pure read and mutates nothing.
+            // arrival reports on; the count is a pure read and mutates nothing.
             let reply = client.request(
                 reqwest::Method::GET,
                 "/admin/report/contribution/count?a_service=Ehr",
@@ -927,7 +926,7 @@ pub(crate) fn perform(
             note(observed, reply.status) == StatusCode::OK
         }
         PerfOp::EhrExtractExport => {
-            // EXTENSION route (register AMB-34) — no openEHR spec governs it.
+            // EXTENSION route — no openEHR spec governs it.
             // A pure read: the EHR's content as a `List<EXTRACT>`.
             let reply = client.request(
                 reqwest::Method::GET,

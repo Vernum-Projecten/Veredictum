@@ -3865,7 +3865,6 @@ name = "veredictum-fuzz"
 version = "0.0.0"
 dependencies = [
  "base64 0.23.1",
- "jsonschema",
  "libfuzzer-sys",
  "serde_json",
  "veredictum",
