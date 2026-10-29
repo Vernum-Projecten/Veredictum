@@ -1634,8 +1634,9 @@ cases:
   I_DEMOGRAPHIC_SERVICE.create_party-simplified_content_type:
     new: []
     open: >-
-      A PARTY in a Simplified Format needs an option whose accepting arm
-      sends one, which needs a demographic template. Tracked by #733.
+      No released text maps a PARTY to a Simplified Format: the Simplified
+      Formats specification maps COMPOSITION content only, so no request body
+      exists for either arm (upstream report #352).
   I_DEMOGRAPHIC_SERVICE.create_party-version_lifecycle:
     new: [versioned_party/create_person-version_lifecycle]
   I_DEMOGRAPHIC_SERVICE.create_party-wrong_subtype_body:
@@ -3429,11 +3430,8 @@ cases:
     new:
       - composition_tags/composition_tags_get-other_ehr
       - ehr_status_tags/ehr_status_tags_get-composition_uid
-    open: >-
-      A demographic party's uid on the COMPOSITION route is not carried: the
-      only route that creates a party is the demographic API, a capability a
-      statement may leave unclaimed, and these EHR workflows depend on no
-      such capability. The EHR-side directions are carried.
+      - composition_tags_party_uid/composition_tags_get-party_versioned_object_uid
+      - composition_tags_party_uid/composition_tags_get-party_version_uid
   I_ITS_REST_ITEM_TAGS.composition_tags_get-supersession_does_not_move_tags:
     new:
       - composition_tags/composition_tags_get-new_version_untagged
