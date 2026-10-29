@@ -5,7 +5,9 @@
 //!
 //! Every rows file sits beside the Arazzo document whose workflow it feeds,
 //! as `<workflowId>.rows.yaml`, validates against the published rows schema,
-//! and binds every input that workflow requires.
+//! and binds every input that workflow requires. A file that says `server`
+//! may carry no rows, and is then the only rows file a workflow that
+//! declares no inputs takes.
 //!
 //! A rows file may declare `literals`, the columns whose values are
 //! decision-table literals: each such value parses against the literal
@@ -63,7 +65,10 @@ pub struct RowsFile {
     /// The properties of the whole run, judged once after the last row.
     #[serde(default)]
     pub aggregate: Vec<Aggregate>,
-    /// The rows, each binding input names to values.
+    /// The rows, each binding input names to values; empty when the file
+    /// only says what the server must be, and the workflow then runs once
+    /// with no authored values.
+    #[serde(default)]
     pub rows: Vec<BTreeMap<String, Value>>,
 }
 
@@ -366,14 +371,25 @@ fn check_header(rows: &RowsFile, shape: &InputShape) -> Vec<String> {
 
 /// Checks every row of `rows` against `workflow`'s inputs; returns one
 /// message per problem, each naming its row.
+///
+/// A file with no rows stands for one run with no authored values, so its
+/// generated and declared inputs alone must satisfy the inputs schema. A
+/// workflow that declares no inputs refuses every row and every header
+/// member that names an input.
 #[must_use]
 pub fn check_rows(rows: &RowsFile, workflow: &Workflow) -> Vec<String> {
     let mut out = Vec::new();
+    if !rows.aggregate.is_empty() && rows.rows.is_empty() {
+        out.push("`aggregate` needs rows to judge".to_owned());
+    }
     let Some(inputs) = &workflow.inputs else {
-        out.push(format!(
-            "workflow `{}` declares no inputs, so a row has nothing to bind",
-            workflow.workflow_id
-        ));
+        if !rows.rows.is_empty() {
+            out.push(format!(
+                "workflow `{}` declares no inputs, so a row has nothing to bind",
+                workflow.workflow_id
+            ));
+        }
+        out.extend(check_header(rows, &InputShape::default()));
         return out;
     };
     let shape = InputShape::of(workflow);
@@ -413,6 +429,7 @@ pub fn check_rows(rows: &RowsFile, workflow: &Workflow) -> Vec<String> {
         }
     }
     let bound = match bind(rows) {
+        Ok(bound) if bound.is_empty() => vec![BTreeMap::new()],
         Ok(bound) => bound,
         Err(problems) => {
             out.extend(problems);
@@ -554,6 +571,68 @@ mod tests {
             let file = json!({ "workflow": "admin/w", "iteration": "single_pass",
                                "server": seeded, "rows": [{}] });
             assert!(parse(&file).is_err(), "{file}");
+        }
+    }
+
+    #[test]
+    fn an_input_less_workflow_takes_the_exclusive_marker_and_refuses_rows() {
+        let no_inputs: Workflow = serde_json::from_value(
+            json!({ "workflowId": "w", "steps": [{ "stepId": "s", "operationId": "o" }] }),
+        )
+        .unwrap();
+        let marker = json!({ "workflow": "admin/w", "iteration": "reset_per_row",
+                             "server": "exclusive" });
+        let file = parse(&marker).unwrap();
+        assert_eq!(file.server, Some(ServerOwnership::Exclusive));
+        assert!(file.rows.is_empty());
+        assert_eq!(check_rows(&file, &no_inputs), Vec::<String>::new());
+        let with_rows = RowsFile {
+            rows: vec![BTreeMap::new()],
+            ..file.clone()
+        };
+        assert_eq!(
+            check_rows(&with_rows, &no_inputs),
+            vec!["workflow `w` declares no inputs, so a row has nothing to bind".to_owned()]
+        );
+        let mut with_declared = file.clone();
+        with_declared.declared.insert(
+            "system_id".to_owned(),
+            Declared::try_from("ixit.system_id".to_owned()).unwrap(),
+        );
+        let found = check_rows(&with_declared, &no_inputs);
+        assert!(
+            found
+                .iter()
+                .any(|m| m.contains("declared input `system_id`")),
+            "{found:?}"
+        );
+        let with_aggregate = RowsFile {
+            aggregate: vec![Aggregate {
+                distinct: "ehr_id".to_owned(),
+                cite: serde_json::from_value(
+                    json!({ "source": "s", "section": "d", "quote": "q" }),
+                )
+                .unwrap(),
+            }],
+            ..file.clone()
+        };
+        let found = check_rows(&with_aggregate, &no_inputs);
+        assert!(
+            found.iter().any(|m| m.contains("`aggregate` needs rows")),
+            "{found:?}"
+        );
+        let required = check_rows(&file, &workflow(&inputs()));
+        assert_eq!(required.len(), 1, "{required:?}");
+        assert!(
+            required.iter().all(|m| m.contains("magnitude")),
+            "{required:?}"
+        );
+        for seeded in [
+            json!({ "workflow": "admin/w", "iteration": "reset_per_row" }),
+            json!({ "workflow": "admin/w", "iteration": "reset_per_row",
+                    "server": "exclusive", "rows": [] }),
+        ] {
+            assert!(parse(&seeded).is_err(), "{seeded}");
         }
     }
 

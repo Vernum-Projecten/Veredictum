@@ -402,7 +402,10 @@ impl<'d> Evaluator<'d> {
         plan: &Plan,
         case: &str,
     ) -> Result<Vec<Row>, Vec<ResultRow>> {
-        let mut rows = file.map_or_else(|| vec![Row::new()], |f| f.rows.clone());
+        let mut rows = file
+            .map(|f| f.rows.clone())
+            .filter(|rows| !rows.is_empty())
+            .unwrap_or_else(|| vec![Row::new()]);
         let server_declared = file
             .and_then(|f| f.server)
             .is_none_or(|server| server.declared_by(plan.ixit.as_ref()));
@@ -1671,6 +1674,68 @@ workflows:
             &[(201, r#"{"ehr_id":{"value":"a"}}"#)],
         );
         assert_eq!(ran.rows.first().unwrap().status, Status::Passed);
+    }
+
+    const INPUTLESS_DOC: &str = "arazzo: 1.1.0
+info: { title: t, version: '1' }
+sourceDescriptions:
+  - { name: ehr, url: ehr.yaml, type: openapi }
+workflows:
+  - workflowId: wipe
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    steps:
+      - stepId: create
+        operationId: $sourceDescriptions.ehr.ehr_create
+        successCriteria: [{ condition: $statusCode == 201 }]
+";
+
+    #[test]
+    fn a_row_less_exclusive_workflow_runs_once_when_declared_and_is_skipped_otherwise() {
+        let file = crate::arazzo::gates::rows::parse(&serde_json::json!({
+            "workflow": "admin/wipe",
+            "iteration": "reset_per_row",
+            "server": "exclusive"
+        }))
+        .unwrap();
+        assert!(file.rows.is_empty());
+        let (dir, document) = load(INPUTLESS_DOC);
+        let wipe = document.description().workflows.first().unwrap();
+        assert_eq!(
+            crate::arazzo::gates::rows::check_rows(&file, wipe),
+            Vec::<String>::new()
+        );
+        let drive = |exclusive_server: bool, answers: &[(u16, &'static str)]| {
+            let plan = Plan {
+                rows: BTreeMap::from([("wipe".to_owned(), file.clone())]),
+                ixit: Some(serde_json::json!({
+                    "instances": {},
+                    "environment": { "exclusive_server": exclusive_server }
+                })),
+                ..Plan::default()
+            };
+            assert!(plan.is_exclusive("wipe"));
+            let mut transport = Scripted::new(answers);
+            run_document(
+                &document,
+                "admin",
+                config(),
+                dir.path(),
+                &plan,
+                &mut transport,
+            )
+            .unwrap()
+            .0
+        };
+        let ran = drive(true, &[(201, r#"{"ehr_id":{"value":"a"}}"#)]);
+        assert_eq!(ran.rows.len(), 1);
+        let row = ran.rows.first().unwrap();
+        assert_eq!(row.status, Status::Passed);
+        assert!(row.inputs.is_empty());
+        let skipped = drive(false, &[]);
+        assert_eq!(skipped.rows.len(), 1);
+        let row = skipped.rows.first().unwrap();
+        assert_eq!(row.status, Status::Skipped);
+        assert_eq!(row.skip.as_ref().unwrap().reason, SkipReason::NotDeclared);
     }
 
     const SHARED_SETUP: &str = "arazzo: 1.1.0
