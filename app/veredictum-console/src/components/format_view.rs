@@ -11,7 +11,7 @@
 use leptos::prelude::{
     ClassAttribute, ElementChild, Get, GlobalAttributes, IntoView, OnAttribute, component, view,
 };
-use leptos_use::{UseClipboardReturn, use_clipboard};
+use leptos_use_clipboard::{UseClipboardReturn, use_clipboard};
 
 use crate::components::surface::WELL;
 
