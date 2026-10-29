@@ -44,3 +44,10 @@ not loopback.
 A conformance run's recording carries the exchanges its results are
 re-judged from (`veredictum test --rejudge`), and a bench record embeds the histograms
 its summary is re-derived from, so both are checkable after the fact.
+
+`verdicts` takes `--sign-key`, which seals the documents it emits with a
+SHA-256 digest manifest and a detached OpenPGP signature over it.
+`verify-record` recomputes every digest and checks that signature against a
+public key you supply, so a published record is tamper-evident to anyone who
+has the key. The bundle is ordinary files, so `gpg --verify` and `sha256sum`
+answer the same questions without this tool.

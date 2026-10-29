@@ -74,7 +74,7 @@ reqwest = { version = "0.13.4", default-features = false, features = ["rustls", 
 serde-saphyr = "2.0.0"
 # The published artifact schemas are the norm; every loaded artifact validates
 # against them before typed parsing.
-jsonschema = "0.59.0"
+jsonschema = "0.60.0"
 # `applies` spec-version ranges use the Cargo/semver requirement grammar.
 regex = "1"
 # Wall-clock time (token `iat`/`exp`, run stamps) comes from the pinned time
@@ -107,7 +107,7 @@ sha2 = "0.11.0"
 # and that crate fails the cargo-deny license gate.
 pgp = { version = "0.21.0", default-features = false }
 # The RNG the signed run record's detached-signature call takes. NOT rand 0.10:
-# `pgp 0.20`'s signing call wants an RNG from rand 0.8's rand_core generation,
+# `pgp 0.21`'s signing call wants an RNG from rand 0.8's rand_core generation,
 # so the types must come from that major or they do not unify.
 rand = "0.8"
 # The SMART lane's per-step token mint: a CDR is a SMART resource server and
@@ -130,11 +130,9 @@ serde_json_path = "0.7.2"
 # the graph through it, read for its syntax tree so a pattern outside the
 # ECMA-262 and Rust shared subset is refused by construct.
 regex-syntax = "0.8.11"
-# The AQL parser (https://docs.rs/openehr-query/0.0.97): `validate` parses
-# every catalogue query with it. BUSL-1.1, the one dependency outside the
-# permissive licence set, admitted with the approval of the crate's owner
-# (2026-10-23, #626) through a `deny.toml` exception scoped to this crate.
-openehr-query = "=0.0.97"
+# The AQL parser (https://docs.rs/openehr-query/0.0.116): `validate` parses
+# every catalogue query with it.
+openehr-query = "=0.0.116"
 
 [dev-dependencies]
 assert_fs = "1"
