@@ -8,12 +8,12 @@
 //! `issue` turns issuance on; unset, `trial`, or anything else is trial mode,
 //! so a typo never starts signing. In trial mode runs, results and verdicts
 //! work as ever, no certificate is created, every page says so, and no signing
-//! key is read: [`ssr::Issuance::load`] does not open the key file at all.
+//! key is read: the issuance loader does not open the key file at all.
 //!
 //! With issuance on, the console reads the Ed25519 key [`KEY_FILE_ENV`] names,
 //! checks it against the JWK Set this console publishes at [`JWKS_ROUTE`], and
 //! refuses to start on a key the set does not publish, revokes or has let
-//! expire. A finished run then gets [`veredictum::certificate::CERTIFICATE_FILE`]
+//! expire. A finished run then gets `certificate.jws`
 //! beside its results, issued by the engine's own `certificate` module. No
 //! openEHR spec governs this — our own design.
 
