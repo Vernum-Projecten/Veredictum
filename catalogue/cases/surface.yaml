@@ -127,31 +127,30 @@ gaps:
   - { api: query, operation: query_execute_stored_query_body, status: "408", issue: 754 }
   - { api: query, operation: query_execute_stored_query_version, status: "408", issue: 754 }
   - { api: query, operation: query_execute_stored_query_version_body, status: "408", issue: 754 }
-# The CONTRIBUTION and DIRECTORY gaps, covered by #698: the simplified
-# formats of a directory write and read and of the answer of a CONTRIBUTION
-# create, the XML answer of a write, and an XML request body on a write
-# (whose accepting arms of `contribution-xml-write` and `directory-xml-write`
-# have no document).
-  - { api: ehr, operation: contribution_create, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
-  - { api: ehr, operation: contribution_create, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
-  - { api: ehr, operation: contribution_create, header: Accept, value: application/xml, issue: 698 }
-  - { api: ehr, operation: contribution_create, header: Content-Type, value: application/xml, issue: 698 }
-  - { api: ehr, operation: directory_create, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
-  - { api: ehr, operation: directory_create, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
-  - { api: ehr, operation: directory_create, header: Accept, value: application/xml, issue: 698 }
-  - { api: ehr, operation: directory_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 698 }
-  - { api: ehr, operation: directory_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 698 }
-  - { api: ehr, operation: directory_create, header: Content-Type, value: application/xml, issue: 698 }
-  - { api: ehr, operation: directory_update, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
-  - { api: ehr, operation: directory_update, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
-  - { api: ehr, operation: directory_update, header: Accept, value: application/xml, issue: 698 }
-  - { api: ehr, operation: directory_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 698 }
-  - { api: ehr, operation: directory_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 698 }
-  - { api: ehr, operation: directory_update, header: Content-Type, value: application/xml, issue: 698 }
-  - { api: ehr, operation: directory_get_at_time, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
-  - { api: ehr, operation: directory_get_at_time, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
-  - { api: ehr, operation: directory_get_by_version_id, header: Accept, value: application/openehr.wt.flat+json, issue: 698 }
-  - { api: ehr, operation: directory_get_by_version_id, header: Accept, value: application/openehr.wt.structured+json, issue: 698 }
+# An XML request body on a CONTRIBUTION or directory write: only the refusing
+# arms of `contribution-xml-write` and `directory-xml-write` have a document.
+# No published XSD declares a document element for the CONTRIBUTION commit
+# envelope, nor one named for FOLDER (only the generic `items` element of type
+# LOCATABLE in `documents/Structure.xsd`), upstream report #759.
+  - { api: ehr, operation: contribution_create, header: Content-Type, value: application/xml, issue: 759 }
+  - { api: ehr, operation: directory_create, header: Content-Type, value: application/xml, issue: 759 }
+  - { api: ehr, operation: directory_update, header: Content-Type, value: application/xml, issue: 759 }
+# The Simplified Formats on the directory operations: they declare both
+# formats for a FOLDER, and master05 of the Simplified Formats maps
+# COMPOSITION content only, so no released text says what a FOLDER looks like
+# in either format (upstream report #352).
+  - { api: ehr, operation: directory_create, header: Accept, value: application/openehr.wt.flat+json, issue: 352 }
+  - { api: ehr, operation: directory_create, header: Accept, value: application/openehr.wt.structured+json, issue: 352 }
+  - { api: ehr, operation: directory_create, header: Content-Type, value: application/openehr.wt.flat+json, issue: 352 }
+  - { api: ehr, operation: directory_create, header: Content-Type, value: application/openehr.wt.structured+json, issue: 352 }
+  - { api: ehr, operation: directory_update, header: Accept, value: application/openehr.wt.flat+json, issue: 352 }
+  - { api: ehr, operation: directory_update, header: Accept, value: application/openehr.wt.structured+json, issue: 352 }
+  - { api: ehr, operation: directory_update, header: Content-Type, value: application/openehr.wt.flat+json, issue: 352 }
+  - { api: ehr, operation: directory_update, header: Content-Type, value: application/openehr.wt.structured+json, issue: 352 }
+  - { api: ehr, operation: directory_get_at_time, header: Accept, value: application/openehr.wt.flat+json, issue: 352 }
+  - { api: ehr, operation: directory_get_at_time, header: Accept, value: application/openehr.wt.structured+json, issue: 352 }
+  - { api: ehr, operation: directory_get_by_version_id, header: Accept, value: application/openehr.wt.flat+json, issue: 352 }
+  - { api: ehr, operation: directory_get_by_version_id, header: Accept, value: application/openehr.wt.structured+json, issue: 352 }
 # The admin gaps: each delete branch the release leaves to the service is
 # asserted by the one arm of `admin-ehr-delete-processing` or
 # `admin-ehr-delete-all` that produces it (#737), and no released sentence
