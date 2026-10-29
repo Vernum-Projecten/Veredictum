@@ -493,12 +493,6 @@ version on.
 
 ### Changed
 
-- The YAML reader behind every catalogue artifact, workload file and supplied
-  declaration is `serde-saphyr` 2.0.0 (#729). A tag that selects a unit enum
-  variant now refuses a non-null payload instead of discarding it, and only an
-  empty value, `~`, `null`, `Null` and `NULL` read as null, so a spelling such
-  as `NulL` is a string. A document that relied on either leniency now fails
-  to load with a typed error.
 - `I_EHR_COMPOSITION.create_composition-terminology_binding_unresolvable_fail_open`
   runs on its own deployment, the `sut_fail_open` instance, the way its
   fail-closed twin runs on `sut_pgp` (#684). A party that wires one
