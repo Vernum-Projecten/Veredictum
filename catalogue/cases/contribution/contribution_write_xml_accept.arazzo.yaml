@@ -1,0 +1,122 @@
+# A CONTRIBUTION create that asks with Accept application/xml for the full
+# representation, for a service that serves a CONTRIBUTION in canonical XML:
+# the served arm of the `contribution-xml-read` option, whose other arm is
+# `contribution_write_xml_not_acceptable.arazzo.yaml`, as an Arazzo 1.1.0
+# workflow over the released ITS-REST `-validation` OAS. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: CONTRIBUTION create answered in canonical XML
+  version: 0.1.0
+  description: >-
+    A CONTRIBUTION committed in canonical JSON with Prefer
+    return=representation and Accept application/xml, sent to a service that
+    serves it in canonical XML.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: setup
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: commit_contribution-accept_xml
+    summary: A CONTRIBUTION create that asks for canonical XML is answered in it
+    description: >-
+      Creates an EHR, then commits in canonical JSON a CONTRIBUTION whose one
+      member creates a COMPOSITION, with Prefer return=representation and
+      Accept application/xml. The commit is answered 201 with
+      Content-Type application/xml.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "Proper header `Content-Type: application/xml` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: commit
+        description: Commit a CONTRIBUTION whose one member creates a COMPOSITION, asking for the full representation in canonical XML.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        requestBody:
+          contentType: application/json
+          payload:
+            versions:
+              - lifecycle_state:
+                  _type: DV_CODED_TEXT
+                  value: complete
+                  defining_code: { terminology_id: { value: openehr }, code_string: "532" }
+                commit_audit: &creation_audit
+                  _type: UPDATE_AUDIT
+                  change_type:
+                    _type: DV_CODED_TEXT
+                    value: creation
+                    defining_code: { terminology_id: { value: openehr }, code_string: "249" }
+                  committer: { _type: PARTY_IDENTIFIED, name: Veredictum }
+                data:
+                  _type: COMPOSITION
+                  name: { _type: DV_TEXT, value: Minimal }
+                  archetype_details:
+                    archetype_id: { value: openEHR-EHR-COMPOSITION.minimal.v1 }
+                    template_id: { value: minimal_evaluation.en.v1 }
+                    rm_version: "1.0.2"
+                  archetype_node_id: openEHR-EHR-COMPOSITION.minimal.v1
+                  language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                  territory: { terminology_id: { value: ISO_3166-1 }, code_string: UY }
+                  category:
+                    value: event
+                    defining_code: { terminology_id: { value: openehr }, code_string: "433" }
+                  composer: { _type: PARTY_IDENTIFIED, name: Dr. Canonical }
+                  context:
+                    start_time: { value: "2021-09-21T21:52:31.927-03:00" }
+                    setting:
+                      value: other care
+                      defining_code: { terminology_id: { value: openehr }, code_string: "238" }
+                  content:
+                    - _type: EVALUATION
+                      name: { _type: DV_TEXT, value: Minimal }
+                      archetype_details:
+                        archetype_id: { value: openEHR-EHR-EVALUATION.minimal.v1 }
+                        template_id: { value: minimal_evaluation.en.v1 }
+                        rm_version: "1.0.2"
+                      archetype_node_id: openEHR-EHR-EVALUATION.minimal.v1
+                      language: { terminology_id: { value: ISO_639-1 }, code_string: en }
+                      encoding: { terminology_id: { value: IANA_character-sets }, code_string: UTF-8 }
+                      subject: { _type: PARTY_SELF }
+                      data:
+                        _type: ITEM_TREE
+                        name: { _type: DV_TEXT, value: Arbol }
+                        archetype_node_id: at0001
+                        items:
+                          - _type: ELEMENT
+                            name: { _type: DV_TEXT, value: quantity }
+                            archetype_node_id: at0002
+                            value: { _type: DV_QUANTITY, magnitude: 78.5, units: kg }
+            audit: *creation_audit
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_CONTRIBUTION.yaml
+              section: description
+              quote: "`201 Created` is returned when the CONTRIBUTION is successfully created."
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/xml'

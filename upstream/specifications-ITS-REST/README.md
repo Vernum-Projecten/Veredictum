@@ -7,6 +7,7 @@ the commit `specs/openehr/ITS-REST/` vendors.
 
 | Patch | Report |
 |---|---|
+| `0352-folder-and-ehr-status-are-canonical-only.patch` | #352 |
 | `0352-party-kinds-are-canonical-only.patch` | #352 |
 | `0618-ehr-status-body-operations-declare-422.patch` | #618 |
 | `0619-ehr-id-parameter-is-a-hier-object-id.patch` | #619 |
