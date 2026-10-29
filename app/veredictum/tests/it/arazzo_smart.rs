@@ -173,12 +173,16 @@ fn no_token_in(output: &Output, out: &Path) -> Result<Value, Box<dyn std::error:
     let results = std::fs::read_to_string(out.join("results.json"))?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    for secret in [READ_TOKEN, CRUD_TOKEN, "a token whose scope claim"] {
-        assert!(!recording.contains(secret), "the recording holds {secret}");
-        assert!(!results.contains(secret), "the results hold {secret}");
+    let needles = [READ_TOKEN, CRUD_TOKEN, "a token whose scope claim"];
+    for (index, needle) in needles.into_iter().enumerate() {
         assert!(
-            !stdout.contains(secret) && !stderr.contains(secret),
-            "the run printed {secret}"
+            !recording.contains(needle),
+            "the recording holds needle {index}"
+        );
+        assert!(!results.contains(needle), "the results hold needle {index}");
+        assert!(
+            !stdout.contains(needle) && !stderr.contains(needle),
+            "the run printed needle {index}"
         );
     }
     Ok(serde_json::from_str(&recording)?)

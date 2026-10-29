@@ -299,14 +299,14 @@ pub fn run_catalogue(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arazzo::credential::{ADMINISTRATIVE_MARKER, ORDINARY_MARKER, SecretSource};
+    use crate::arazzo::credential::{ADMINISTRATIVE_MARKER, Locator, ORDINARY_MARKER};
     use crate::arazzo::results::Explanation;
     use std::collections::BTreeMap;
 
     #[test]
     fn a_principal_carries_its_marker_only_when_it_presents_a_credential() {
         let token = CredentialSource::Bearer {
-            token: SecretSource::Variable("T".to_owned()),
+            token: Locator::Variable("T".to_owned()),
         };
         assert_eq!(
             marker(&token, Role::Ordinary).as_deref(),

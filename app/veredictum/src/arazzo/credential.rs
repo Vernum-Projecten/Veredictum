@@ -143,7 +143,7 @@ pub enum CredentialError {
 
 /// Where one secret is read from.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SecretSource {
+pub enum Locator {
     /// This environment variable.
     Variable(String),
     /// The file a `_FILE` variable names.
@@ -164,14 +164,14 @@ pub enum CredentialSource {
     /// HTTP Basic, from a user and a password.
     Basic {
         /// Where the user is read from.
-        user: SecretSource,
+        user: Locator,
         /// Where the password is read from.
-        password: SecretSource,
+        password: Locator,
     },
     /// A bearer token.
     Bearer {
         /// Where the token is read from.
-        token: SecretSource,
+        token: Locator,
     },
 }
 
@@ -199,11 +199,11 @@ impl CredentialSource {
         Ok(match kind {
             AuthKind::None => Self::None,
             AuthKind::Basic => Self::Basic {
-                user: locate_secret(user, lookup)?,
-                password: locate_secret(password, lookup)?,
+                user: locate_source(user, lookup)?,
+                password: locate_source(password, lookup)?,
             },
             AuthKind::Bearer => Self::Bearer {
-                token: locate_secret(token, lookup)?,
+                token: locate_source(token, lookup)?,
             },
         })
     }
@@ -218,14 +218,14 @@ impl CredentialSource {
 /// Locates one secret. A variable set to the empty string counts as unset:
 /// a CI system expands a secret it does not hold to an empty value, and an
 /// empty credential presented to a server is a missing one.
-fn locate_secret(
+fn locate_source(
     variable: &str,
     lookup: &dyn Fn(&str) -> Option<OsString>,
-) -> Result<SecretSource, CredentialError> {
+) -> Result<Locator, CredentialError> {
     let file_variable = format!("{variable}{FILE_SUFFIX}");
     let set = |name: &str| lookup(name).filter(|value| !value.is_empty());
     match (set(variable).is_some(), set(&file_variable)) {
-        (true, None) => Ok(SecretSource::Variable(variable.to_owned())),
+        (true, None) => Ok(Locator::Variable(variable.to_owned())),
         (false, Some(path)) => {
             let path = PathBuf::from(path);
             std::fs::File::open(&path).map_err(|source| CredentialError::Unreadable {
@@ -233,7 +233,7 @@ fn locate_secret(
                 path: path.clone(),
                 source,
             })?;
-            Ok(SecretSource::File {
+            Ok(Locator::File {
                 variable: file_variable,
                 path,
             })
@@ -251,9 +251,9 @@ fn locate_secret(
 
 /// Reads one secret. One trailing line ending is dropped from a file, the
 /// one an editor or an `echo` leaves; anything else in it is the secret.
-fn read(source: &SecretSource) -> Result<String, CredentialError> {
+fn read(source: &Locator) -> Result<String, CredentialError> {
     match source {
-        SecretSource::Variable(variable) => {
+        Locator::Variable(variable) => {
             let missing = || CredentialError::Missing {
                 variable: variable.clone(),
                 file_variable: format!("{variable}{FILE_SUFFIX}"),
@@ -267,7 +267,7 @@ fn read(source: &SecretSource) -> Result<String, CredentialError> {
                 }
             }
         }
-        SecretSource::File { variable, path } => {
+        Locator::File { variable, path } => {
             let text =
                 std::fs::read_to_string(path).map_err(|source| CredentialError::Unreadable {
                     file_variable: variable.clone(),
@@ -360,8 +360,8 @@ pub struct ScopedTokensDeclaration {
 /// openEHR spec governs this — our own design.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ScopedSources {
-    issued: BTreeMap<ScopeSet, SecretSource>,
-    mint: Option<(MintDeclaration, SecretSource)>,
+    issued: BTreeMap<ScopeSet, Locator>,
+    mint: Option<(MintDeclaration, Locator)>,
 }
 
 impl ScopedSources {
@@ -407,7 +407,7 @@ impl ScopedSources {
                      (upper-case letters, digits and `_`, and not {SCOPED_KEY_ENV})"
                 )));
             }
-            let source = locate_secret(variable, lookup)?;
+            let source = locate_source(variable, lookup)?;
             if issued.insert(set.clone(), source).is_some() {
                 return Err(bad(format!("the scope set `{set}` is declared twice")));
             }
@@ -423,7 +423,7 @@ impl ScopedSources {
                         "`mint.claims` sets `{claim}`, which the minter sets"
                     )));
                 }
-                let key = locate_secret(SCOPED_KEY_ENV, lookup)?;
+                let key = locate_source(SCOPED_KEY_ENV, lookup)?;
                 Some((mint, key))
             }
         };
@@ -626,21 +626,21 @@ mod tests {
         file.write_str("s3cret\r\n").unwrap();
         let path = file.path().to_str().unwrap();
         assert_eq!(
-            locate_secret("P", &lookup(&[("P", "plain")])).unwrap(),
-            SecretSource::Variable("P".to_owned())
+            locate_source("P", &lookup(&[("P", "plain")])).unwrap(),
+            Locator::Variable("P".to_owned())
         );
-        let located = locate_secret("P", &lookup(&[("P_FILE", path)])).unwrap();
+        let located = locate_source("P", &lookup(&[("P_FILE", path)])).unwrap();
         assert_eq!(read(&located).unwrap(), "s3cret");
         assert!(matches!(
-            locate_secret("P", &lookup(&[("P", "x"), ("P_FILE", path)])),
+            locate_source("P", &lookup(&[("P", "x"), ("P_FILE", path)])),
             Err(CredentialError::Both { .. })
         ));
         assert!(matches!(
-            locate_secret("P", &lookup(&[])),
+            locate_source("P", &lookup(&[])),
             Err(CredentialError::Missing { .. })
         ));
         assert!(matches!(
-            locate_secret("P", &lookup(&[("P_FILE", "/nonexistent/secret")])),
+            locate_source("P", &lookup(&[("P_FILE", "/nonexistent/secret")])),
             Err(CredentialError::Unreadable { .. })
         ));
     }
@@ -648,7 +648,7 @@ mod tests {
     #[test]
     fn an_empty_variable_counts_as_unset() {
         assert!(matches!(
-            locate_secret("P", &lookup(&[("P", "")])),
+            locate_source("P", &lookup(&[("P", "")])),
             Err(CredentialError::Missing { variable, .. }) if variable == "P"
         ));
         let dir = assert_fs::TempDir::new().unwrap();
@@ -656,23 +656,23 @@ mod tests {
         file.write_str("t0ken\n").unwrap();
         let path = file.path().to_str().unwrap();
         assert!(matches!(
-            locate_secret("P", &lookup(&[("P", ""), ("P_FILE", path)])),
-            Ok(SecretSource::File { .. })
+            locate_source("P", &lookup(&[("P", ""), ("P_FILE", path)])),
+            Ok(Locator::File { .. })
         ));
     }
 
     #[test]
     fn an_empty_file_variable_counts_as_unset() {
         assert!(matches!(
-            locate_secret("P", &lookup(&[("P_FILE", "")])),
+            locate_source("P", &lookup(&[("P_FILE", "")])),
             Err(CredentialError::Missing { file_variable, .. }) if file_variable == "P_FILE"
         ));
         assert!(matches!(
-            locate_secret("P", &lookup(&[("P", "plain"), ("P_FILE", "")])),
-            Ok(SecretSource::Variable(variable)) if variable == "P"
+            locate_source("P", &lookup(&[("P", "plain"), ("P_FILE", "")])),
+            Ok(Locator::Variable(variable)) if variable == "P"
         ));
         assert!(matches!(
-            locate_secret("P", &lookup(&[("P", ""), ("P_FILE", "")])),
+            locate_source("P", &lookup(&[("P", ""), ("P_FILE", "")])),
             Err(CredentialError::Missing { .. })
         ));
     }
@@ -687,14 +687,14 @@ mod tests {
         assert_eq!(
             CredentialSource::locate_with(AuthKind::Basic, Role::Ordinary, &vars).unwrap(),
             CredentialSource::Basic {
-                user: SecretSource::Variable("VEREDICTUM_SUT_USER".to_owned()),
-                password: SecretSource::Variable("VEREDICTUM_SUT_PASSWORD".to_owned()),
+                user: Locator::Variable("VEREDICTUM_SUT_USER".to_owned()),
+                password: Locator::Variable("VEREDICTUM_SUT_PASSWORD".to_owned()),
             }
         );
         assert_eq!(
             CredentialSource::locate_with(AuthKind::Bearer, Role::Administrative, &vars).unwrap(),
             CredentialSource::Bearer {
-                token: SecretSource::Variable("VEREDICTUM_ADMIN_TOKEN".to_owned()),
+                token: Locator::Variable("VEREDICTUM_ADMIN_TOKEN".to_owned()),
             }
         );
         let none =
@@ -711,7 +711,7 @@ mod tests {
         let file = dir.child("token");
         file.write_str("t0ken-value").unwrap();
         let source = CredentialSource::Bearer {
-            token: SecretSource::File {
+            token: Locator::File {
                 variable: "T_FILE".to_owned(),
                 path: file.path().to_owned(),
             },
