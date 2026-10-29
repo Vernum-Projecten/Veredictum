@@ -1218,7 +1218,9 @@ impl ApiVisitor {
         self.call(
             <ProbeAndSave as ServerFn>::PATH,
             &format!(
-                "base_url={}&sut_name={sut_name}&sut_version=0.0.0-gate&auth=None&user=&password=&token=",
+                "base_url={}&sut_name={sut_name}&sut_version=0.0.0-gate\
+                 &server[auth]=None&server[user]=&server[password]=&server[token]=\
+                 &admin[auth]=None&admin[user]=&admin[password]=&admin[token]=",
                 encode(sut_base_url)
             ),
         )
