@@ -124,7 +124,15 @@ pub fn router(
                 move || shell(leptos_options.clone())
             },
         )
-        .fallback(leptos_axum::file_and_error_handler(shell))
+        // The 404 page renders the shell too, and the shell's status line
+        // reads the state, so the fallback provides it like the routes do.
+        .fallback(leptos_axum::file_and_error_handler_with_context(
+            {
+                let state = state.clone();
+                move || leptos::prelude::provide_context(state.clone())
+            },
+            shell,
+        ))
         // AFTER the server functions and the fallback, which is the whole
         // point: "the middleware is only applied to existing routes"
         // (<https://docs.rs/axum/latest/axum/routing/struct.Router.html#method.layer>),
