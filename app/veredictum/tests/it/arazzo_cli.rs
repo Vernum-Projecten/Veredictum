@@ -579,3 +579,35 @@ fn a_run_that_cannot_start_exits_two() -> Fallible {
     assert!(!Path::new(&out).exists(), "a refused run wrote its output");
     Ok(())
 }
+
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn an_empty_credential_variable_is_refused_like_an_unset_one() -> Fallible {
+    let dir = assert_fs::TempDir::new()?;
+    let out = dir.path().join("run").to_string_lossy().into_owned();
+    let url = closed_port_url();
+    let empties: [&[(&str, &str)]; 2] = [
+        &[("VEREDICTUM_SUT_TOKEN", "")],
+        &[
+            ("VEREDICTUM_SUT_TOKEN", ""),
+            ("VEREDICTUM_SUT_TOKEN_FILE", ""),
+        ],
+    ];
+    for envs in empties {
+        let output = test_command(
+            &["--base-url", &url, "--out", &out, "--auth", "bearer"],
+            envs,
+        )?;
+        assert_eq!(output.status.code(), Some(2), "{envs:?}: {output:?}");
+        let stderr = String::from_utf8(output.stderr)?;
+        assert!(
+            stderr.contains("VEREDICTUM_SUT_TOKEN"),
+            "{envs:?}: {stderr}"
+        );
+    }
+    assert!(!Path::new(&out).exists(), "a refused run wrote its output");
+    Ok(())
+}
