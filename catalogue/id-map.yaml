@@ -4526,21 +4526,28 @@ cases:
     new: []
     open: *signature_serialisation
   SMART-DISCOVERY-document_shape:
-    new: []
+    new:
+      - smart_discovery/smart_configuration-document
     open: >-
-      Not carried yet: master04-service_discovery.adoc serves the document
-      "relative to the _Platform_ base URL", which differs from the
-      openEHR REST base the evaluator addresses, and no released OAS
-      declares the route; #745.
+      The `capabilities` array is not carried: master04 §Capabilities
+      advertises it "as an array value", and no criterion of the condition
+      profile tells an array from another JSON value; #745.
   SMART-RESOURCE_SCOPES-granted_scope_permits:
-    new: []
-    open: &smart_scopes >-
-      Not carried yet: each row presents a Bearer token whose scope claim
-      is the row's value (master08-scopes.adoc §Resource Scopes), and the
-      evaluator sends one fixed credential per run; #745.
+    new:
+      - smart_scopes/template_list-system_scope_granted
+    open: >-
+      The `user` compartment rows are not carried: master08 §Resource Scopes
+      makes a user grant "subject to the user's security profile", so the
+      scope alone does not decide the outcome. The identity-scope row is not
+      carried either, because `openid` identifies a user and the carried
+      rows are in the `system` compartment.
   SMART-RESOURCE_SCOPES-scope_deny_403:
     new: []
-    open: *smart_scopes
+    open: >-
+      Not carried: no released chapter maps a SMART scope to an ITS-REST
+      operation or says what a request outside its granted scopes receives
+      (upstream report #758), so neither the refusal nor its status is
+      assigned.
 corpora:
   aql-conformance:
     source: https://github.com/Cadasto/aql-conformance

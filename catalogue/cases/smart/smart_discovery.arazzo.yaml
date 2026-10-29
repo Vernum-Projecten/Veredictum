@@ -1,0 +1,58 @@
+# The SMART on openEHR service-discovery document, read from the Platform
+# base URL. SMART on openEHR is in the DEVELOPMENT state in Release-1.1.0
+# (docs/smart_app_launch/manifest_vars.adoc), so a statement may leave this
+# folder unclaimed. The released text fixes the document's path and media
+# type and the required openEHR service entry, and assigns no status code,
+# authentication or caching to the request (upstream report #758), so the
+# workflow asserts the three and nothing else. A run given no Platform base
+# URL skips it as not-declared. Every quote is copied verbatim from the named
+# vendored file.
+arazzo: 1.1.0
+info:
+  title: SMART on openEHR service discovery
+  version: 0.1.0
+  description: >-
+    Reading the SMART configuration document a SMART on openEHR Platform
+    serves relative to its base URL.
+sourceDescriptions:
+  - name: platform
+    url: ../../sources/smart-platform.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: smart_configuration-document
+    summary: The SMART configuration document is JSON and advertises the openEHR REST API at an absolute URL
+    description: >-
+      Reads /.well-known/smart-configuration relative to the Platform base
+      URL. The document is served as application/json, its `services` map
+      carries the openEHR REST API under the key `org.openehr.rest`, and that
+      entry's `baseUrl` is an absolute URL.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/smart_app_launch/master04-service_discovery.adoc
+      section: Service Discovery
+      quote: "The configuration endpoint should be always available relative to the _Platform_ base URL."
+      report: 758
+    steps:
+      - stepId: discover
+        description: Read the SMART configuration document from the Platform base URL.
+        operationId: $sourceDescriptions.platform.smart_configuration
+        successCriteria:
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json\s*(;|$)'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/smart_app_launch/master04-service_discovery.adoc
+              section: Service Discovery
+              quote: "Responses to `/.well-known/smart-configuration` endpoint must be served with the `application/json` MIME type."
+          - condition: $response.body#/services/org.openehr.rest != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/smart_app_launch/master04-service_discovery.adoc
+              section: Services
+              quote: "At a minimum, the `services` section must include the openEHR REST API using the key `org.openehr.rest`."
+          # An absolute URI begins with its scheme and a colon (RFC 3986 §4.3).
+          - context: $response.body#/services/org.openehr.rest/baseUrl
+            type: regex
+            condition: '^[A-Za-z][A-Za-z0-9+.-]*:'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/smart_app_launch/master04-service_discovery.adoc
+              section: Services
+              quote: "`baseUrl`: Absolute URL to the root of the API `*(required)*`"
