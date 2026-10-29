@@ -336,7 +336,9 @@ pub mod fns {
     pub async fn fetch_results() -> Result<Option<ResultsScreen>, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
-        super::read::results_screen(&state, who).map_err(ServerFnError::new)
+        super::read::results_screen(&state, who)
+            .map(|screen| crate::capture::results(&state, screen))
+            .map_err(ServerFnError::new)
     }
 
     /// One row's detail; `None` for a row the results document does not
@@ -351,7 +353,9 @@ pub mod fns {
     ) -> Result<Option<ResultDetail>, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
-        super::read::result_detail(&state, who, &case, row).map_err(ServerFnError::new)
+        super::read::result_detail(&state, who, &case, row)
+            .map(|detail| crate::capture::detail(&state, detail))
+            .map_err(ServerFnError::new)
     }
 }
 

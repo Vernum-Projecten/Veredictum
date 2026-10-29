@@ -28,6 +28,7 @@
 //! so a screenshot photographs a settled frame instead of whatever phase of
 //! the progress bar's width transition it happened to catch.
 
+use crate::record_api::{ExchangeView, RecordingView, ResultDetail, ResultsScreen};
 use crate::run_api::{DraftView, ProbeAnswer, RecordedResults, RecordedRun, RunScreen};
 use crate::run_job::{FinishedView, JobView, RunId};
 
@@ -91,6 +92,34 @@ pub fn run_screen(state: &crate::state::ConsoleState, screen: RunScreen) -> RunS
         pin_run_screen(screen)
     } else {
         screen
+    }
+}
+
+/// The results screen as this console answers it.
+#[cfg(feature = "ssr")]
+#[must_use]
+pub fn results(
+    state: &crate::state::ConsoleState,
+    screen: Option<ResultsScreen>,
+) -> Option<ResultsScreen> {
+    if state.capture {
+        screen.map(pin_results)
+    } else {
+        screen
+    }
+}
+
+/// One row's detail as this console answers it.
+#[cfg(feature = "ssr")]
+#[must_use]
+pub fn detail(
+    state: &crate::state::ConsoleState,
+    detail: Option<ResultDetail>,
+) -> Option<ResultDetail> {
+    if state.capture {
+        detail.map(pin_detail)
+    } else {
+        detail
     }
 }
 
@@ -198,10 +227,65 @@ pub fn pin_recorded(run: RecordedRun) -> RecordedRun {
         id: PINNED_RUN_ID,
         dir: pin_run_paths(&run.dir, &minted),
         results: run.results.map(|results| RecordedResults {
+            base_url: String::from(PINNED_ENDPOINT),
             results_path: pin_run_paths(&results.results_path, &minted),
             ..results
         }),
     }
+}
+
+/// The results screen as a capture shows it.
+///
+/// The screen prints the address the run drove, which is the fixture
+/// server's ephemeral port; the tallies and the rows are the run's own.
+#[must_use]
+pub fn pin_results(screen: ResultsScreen) -> ResultsScreen {
+    ResultsScreen {
+        base_url: String::from(PINNED_ENDPOINT),
+        ..screen
+    }
+}
+
+/// One row's detail as a capture shows it.
+///
+/// The judged exchange names the fixture server's address in its request
+/// line, its `Host` header and any URL the server answered with; that
+/// address is rewritten to the pinned one, and every other byte of the
+/// exchange is the recording's own.
+#[must_use]
+pub fn pin_detail(detail: ResultDetail) -> ResultDetail {
+    let RecordingView::Exchange(exchange) = &detail.recording else {
+        return detail;
+    };
+    let Some(authority) = authority_of(&exchange.request_line) else {
+        return detail;
+    };
+    let pinned = PINNED_ENDPOINT
+        .split_once("://")
+        .map_or(PINNED_ENDPOINT, |(_, authority)| authority);
+    let swap = |text: &str| text.replace(&authority, pinned);
+    let exchange = ExchangeView {
+        entry: exchange.entry,
+        request_line: swap(&exchange.request_line),
+        request_headers: swap(&exchange.request_headers),
+        request_body: exchange.request_body.as_deref().map(swap),
+        status_line: exchange.status_line.clone(),
+        response_headers: swap(&exchange.response_headers),
+        response_body: exchange.response_body.as_deref().map(swap),
+    };
+    ResultDetail {
+        recording: RecordingView::Exchange(exchange),
+        ..detail
+    }
+}
+
+/// The `host:port` of a `METHOD url` request line.
+// NOTE: no openEHR spec governs this — our own design; a line naming no absolute URL has no address to pin.
+fn authority_of(request_line: &str) -> Option<String> {
+    let (_, url) = request_line.split_once(' ')?;
+    let (_, rest) = url.split_once("://")?;
+    let authority = rest.split(['/', '?']).next()?;
+    (!authority.is_empty()).then(|| authority.to_owned())
 }
 
 /// One line with the run's minted id rewritten to the pinned one.
@@ -315,7 +399,8 @@ mod tests {
     }
 
     /// A run read back from its own directory carries the same identity in
-    /// the same two places.
+    /// the same two places, and the address it drove is the fixture server's
+    /// ephemeral port, so it is the pinned one; the tally is the record's own.
     #[expect(
         clippy::panic_in_result_fn,
         reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
@@ -351,7 +436,8 @@ mod tests {
             results.results_path,
             format!("target/out/console-job-{PINNED_RUN_ID}/results.json")
         );
-        assert_eq!(results.base_url, "http://cdr.test/openehr/v1");
+        assert_eq!(results.base_url, super::PINNED_ENDPOINT);
+        assert_eq!(results.errored, 1, "the record's own tally is the record's");
         Ok(())
     }
 
@@ -417,5 +503,55 @@ mod tests {
             panic!("a streamed run stays streamed");
         };
         assert_eq!(pinned.elapsed_ms, PINNED_ELAPSED_MS);
+    }
+
+    /// The judged exchange's address is the fixture server's ephemeral port,
+    /// so the request line, the `Host` header and a `Location` the server
+    /// answered with show the pinned one; the status and every other byte
+    /// stay the recording's own.
+    #[test]
+    fn a_pinned_detail_names_the_pinned_address() {
+        use crate::record_api::{ExchangeView, RecordingView, ResultDetail, ResultRow};
+        let detail = ResultDetail {
+            row: ResultRow {
+                case: String::from("ehr/create_ehr"),
+                row: 0,
+                status: String::from("failed"),
+                reason: Some(String::from("status 500")),
+            },
+            summary: None,
+            step: None,
+            what: None,
+            why: None,
+            expected: None,
+            received: None,
+            whose: None,
+            report: None,
+            skip: None,
+            recording: RecordingView::Exchange(ExchangeView {
+                entry: 3,
+                request_line: String::from("POST http://127.0.0.1:36803/openehr/v1/ehr"),
+                request_headers: String::from("host: 127.0.0.1:36803"),
+                request_body: None,
+                status_line: String::from("HTTP 201"),
+                response_headers: String::from("location: http://127.0.0.1:36803/openehr/v1/ehr/1"),
+                response_body: Some(String::from("{}")),
+            }),
+        };
+        let pinned = super::pin_detail(detail);
+        let RecordingView::Exchange(exchange) = pinned.recording else {
+            panic!("an exchange stays an exchange");
+        };
+        assert_eq!(
+            exchange.request_line,
+            "POST http://127.0.0.1:0/openehr/v1/ehr"
+        );
+        assert_eq!(exchange.request_headers, "host: 127.0.0.1:0");
+        assert_eq!(
+            exchange.response_headers,
+            "location: http://127.0.0.1:0/openehr/v1/ehr/1"
+        );
+        assert_eq!(exchange.status_line, "HTTP 201");
+        assert_eq!(exchange.entry, 3);
     }
 }
