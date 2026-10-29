@@ -16,6 +16,7 @@ use crate::arazzo::cite::{CITE_KEY, EXCLUDED_ROOT, ORACLE_ROOTS};
 use crate::arazzo::derive::DERIVE_KEY;
 use crate::arazzo::document::CHECK_KEY;
 use crate::arazzo::gates::profile::ProfileHeader;
+use crate::arazzo::gates::rows::ServerOwnership;
 use crate::arazzo::gates::surface::NegotiationHeader;
 use crate::arazzo::principal::PRINCIPAL_KEY;
 use crate::arazzo::recipe::{ContentClass, SynthesizedClass};
@@ -261,6 +262,10 @@ pub fn rows_schema() -> Value {
                 "items": { "type": "string", "minLength": 1 }
             },
             "recipe": recipe_def(),
+            "server": {
+                "description": "What the workflow needs the server under test to be. `exclusive`: the workflow changes state it did not create, such as a delete of every EHR, so it runs only when the party's IXIT declares `environment.exclusive_server: true`; any other IXIT skips every row with the reason `not-declared`.",
+                "enum": ServerOwnership::ALL.iter().map(|s| s.token()).collect::<Vec<_>>()
+            },
             "declared": {
                 "description": "Inputs bound from a value the party declares: each maps an input the workflow declares to `ixit.<member>…` or `statement.<member>…`, a dotted path into the party's IXIT or statement. No row supplies a declared input. A run whose party does not declare the value skips every row with the reason `not-declared`.",
                 "type": "object",

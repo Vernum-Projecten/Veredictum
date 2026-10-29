@@ -334,6 +334,7 @@ mod tests {
             literals: Vec::new(),
             recipe: None,
             declared: BTreeMap::new(),
+            server: None,
             aggregate: Vec::new(),
             rows: queries
                 .iter()

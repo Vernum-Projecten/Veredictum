@@ -146,6 +146,12 @@
         }
       ]
     },
+    "server": {
+      "description": "What the workflow needs the server under test to be. `exclusive`: the workflow changes state it did not create, such as a delete of every EHR, so it runs only when the party's IXIT declares `environment.exclusive_server: true`; any other IXIT skips every row with the reason `not-declared`.",
+      "enum": [
+        "exclusive"
+      ]
+    },
     "declared": {
       "description": "Inputs bound from a value the party declares: each maps an input the workflow declares to `ixit.<member>…` or `statement.<member>…`, a dotted path into the party's IXIT or statement. No row supplies a declared input. A run whose party does not declare the value skips every row with the reason `not-declared`.",
       "type": "object",
