@@ -398,8 +398,7 @@ version on.
   them (every criterion resolves to a citation whose quote occurs in the
   vendored file, every operation resolves in its released OAS, every
   condition is inside the profile), and drives a workflow into passed,
-  failed, errored or skipped with a four-part explanation. The
-  `arazzo_spike` example runs a document against a server. The CLI and the
+  failed, errored or skipped with a four-part explanation. The CLI and the
   existing catalogue are unchanged.
 - `validate` gates the Arazzo catalogue (#601). Every document under
   `catalogue/cases/` validates against the official Arazzo 1.1 JSON

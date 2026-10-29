@@ -247,8 +247,8 @@ VEREDICTUM_ROOT="artifacts" \
 VEREDICTUM_SPECS="specs/openehr" \
 VEREDICTUM_OUT="target/ui-e2e/out" \
 VEREDICTUM_ENGINE="$ENGINE_BIN" \
-VEREDICTUM_SIGN_KEY="artifacts/corpus/keys/cnf-signing.sec.asc" \
-VEREDICTUM_VERIFY_KEY="artifacts/corpus/keys/cnf-signing.pub.asc" \
+VEREDICTUM_SIGN_KEY="fixtures/keys/cnf-signing.sec.asc" \
+VEREDICTUM_VERIFY_KEY="fixtures/keys/cnf-signing.pub.asc" \
 VEREDICTUM_CAPTURE_MODE="${UI_E2E_DOCS_SHOTS:-}" \
 VEREDICTUM_CLIENT_IP_HEADER="$CLIENT_IP_HEADER" \
   "$CONSOLE_BIN" &

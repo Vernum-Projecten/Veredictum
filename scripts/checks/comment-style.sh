@@ -117,7 +117,7 @@ case "$mode" in
   trap 'rm -rf "$tmp"' EXIT
   seeded="$tmp/seeded.rs"
   {
-    echo '// the committed keypair (`artifacts/corpus/keys/README.md` records it)'
+    echo '// the committed keypair (`fixtures/keys/README.md` records it)'
     echo '/// the crate CLAUDE.md doctrine'
     echo '//! see website/book/src/commands.md for the surface'
     echo '/// the recipe contract in `corpus/recipes/bp_series.md`'

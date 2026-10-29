@@ -351,7 +351,7 @@ fn a_sealed_recorded_run_covers_the_transcript_and_withholds_the_credential() ->
     let scratch = assert_fs::TempDir::new()?;
     let port = fixture_sut()?;
     let ixit = write_ixit(scratch.path(), port, true)?;
-    let key = repo_root().join("artifacts/corpus/keys/cnf-signing.sec.asc");
+    let key = repo_root().join("fixtures/keys/cnf-signing.sec.asc");
     // The fixture answers 500, so every row fails: a non-zero exit is the
     // campaign's own verdict and says nothing about the emission under test.
     let _clean = run_binary(
@@ -385,7 +385,7 @@ fn a_sealed_recorded_run_covers_the_transcript_and_withholds_the_credential() ->
         assert_eq!(value, REDACTED, "the header's value is withheld");
     }
 
-    let public = repo_root().join("artifacts/corpus/keys/cnf-signing.pub.asc");
+    let public = repo_root().join("fixtures/keys/cnf-signing.pub.asc");
     let verification = veredictum::record::verify_bundle(scratch.path(), &public)?;
     assert!(
         verification.is_clean(),
@@ -418,7 +418,7 @@ fn an_unrecorded_sealed_run_names_no_transcript() -> Fallible {
     let scratch = assert_fs::TempDir::new()?;
     let port = fixture_sut()?;
     let ixit = write_ixit(scratch.path(), port, true)?;
-    let key = repo_root().join("artifacts/corpus/keys/cnf-signing.sec.asc");
+    let key = repo_root().join("fixtures/keys/cnf-signing.sec.asc");
     let _clean = run_binary(
         scratch.path(),
         &ixit,
@@ -429,7 +429,7 @@ fn an_unrecorded_sealed_run_names_no_transcript() -> Fallible {
         !scratch.path().join(TRANSCRIPT_FILE).exists(),
         "no flag, no transcript file"
     );
-    let public = repo_root().join("artifacts/corpus/keys/cnf-signing.pub.asc");
+    let public = repo_root().join("fixtures/keys/cnf-signing.pub.asc");
     let verification = veredictum::record::verify_bundle(scratch.path(), &public)?;
     assert!(
         verification.is_clean(),

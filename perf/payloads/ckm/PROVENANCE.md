@@ -6,7 +6,7 @@ Each file is CKM's own OPT export for the cited template, verbatim.
 Example skeletons (`*.example.json`) are generated once against the
 composed SUT by `scripts/generate-ckm-examples.sh` and committed
 (byte-identical payload ground for every SUT; never fetched at run
-time). Manifest entries: `artifacts/corpus/MANIFEST.yaml`.
+time). Payload entries: `perf/payloads.yaml`.
 
 Four of them — `ccta-report`, `gp-data-set`,
 `international-patient-summary`, `sars-event-notification` — were
@@ -19,22 +19,22 @@ generator's transformation was applied to the committed files directly
 form and RM-correct, but a real re-run against a composed SUT
 confirming byte-identical output is still outstanding (issue #1724).
 
-The **curated journey pack** below is referenced by slug from the
-manifest, the journey definitions and the example generator — the
-slugs are a stable contract. The **full library** is a separate pack
-under `full/` with its own provenance file.
+The **curated journey pack** below is referenced by slug from
+`perf/payloads.yaml`, the journey definitions and the example generator —
+the slugs are a stable contract.
 
 ## Licensing
 
 CKM publishes no repository-level license; each OPT embeds its source
 archetypes' `licence` metadata, and the corpus is **mixed**: a count
-over this directory on 2026-08-12 found **114 files carrying CC-BY-SA
+on 2026-08-12, over the corpus directory this pack was then vendored into
+together with the full CKM library, found **114 files carrying CC-BY-SA
 4.0 and 10 carrying CC-BY-SA 3.0**. The earlier wording here —
 "predominantly CC-BY-SA 3.0" — was the wrong way round. Read the
 individual file; its own metadata is the authority. Vendored verbatim,
 so authorship and licence metadata ride along; root reference copies:
 `LICENSE-CC-BY-SA-3.0` and `LICENSE-CC-BY-SA-4.0`, and `REUSE.toml`
-declares this tree as `CC-BY-SA-3.0 AND CC-BY-SA-4.0`.
+declares `perf/payloads/` as `CC-BY-SA-3.0 AND CC-BY-SA-4.0`.
 
 | cid | slug | display name | status | modified | journey role |
 |---|---|---|---|---|---|

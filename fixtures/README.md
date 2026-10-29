@@ -33,4 +33,5 @@ static conformance review can be seen to fire. That is what
 |---|---|
 | `declaration/statement.json` | A filled-in ICS for a product that does not exist, claiming every row of the capability matrix. The static conformance review (`veredictum validate --statement`) runs over it. |
 | `declaration/ixit.json` | The ixit beside it, exercising every deployment posture the runner reads. Every address in it is fictional. |
+| `keys/` | The OpenPGP test key pair a server under test may sign VERSIONs with, and the instrument's own record-sealing tests use. Test-only and deliberately non-secret; read its own README before touching it. |
 | `smart-test-issuer/` | The SMART lane's committed test issuer: a public, deliberately non-secret key pair. Read its own README before touching it. |

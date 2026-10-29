@@ -84,7 +84,7 @@ SPDX-License-Identifier = "CC-BY-SA-3.0 AND CC-BY-SA-4.0"
 # A bench pack is compiled into the binary, so the bytes it offers a system
 # live under `app/` where the catch-all above would claim them for Veredictum.
 # They are not ours. The operational template is byte-identical to the vendored
-# CKM export under `artifacts/corpus/templates/ckm/`, so it carries that tree's
+# CKM export under `perf/payloads/ckm/`, so it carries that tree's
 # declaration.
 [[annotations]]
 path = "app/veredictum/src/bench/fixtures/vital_signs.opt"
@@ -174,7 +174,7 @@ path = [
   "specs/rest-oas/PROVENANCE.md",
   "artifacts/corpus/archetypes/adl2/PROVENANCE.md",
   "artifacts/corpus/archetypes/ckm/PROVENANCE.md",
-  "artifacts/corpus/templates/ckm/PROVENANCE.md",
+  "perf/payloads/ckm/PROVENANCE.md",
   "artifacts/corpus/templates/ckm/full/PROVENANCE.md",
 ]
 precedence = "override"

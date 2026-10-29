@@ -53,7 +53,7 @@ fixture, so both would have to move together.
 recipe cannot silently drift from it:
 
 ```bash
-gpg --show-keys artifacts/corpus/keys/cnf-signing.pub.asc
+gpg --show-keys fixtures/keys/cnf-signing.pub.asc
 
 export GNUPGHOME=/tmp/cg && mkdir -p "$GNUPGHOME" && chmod 700 "$GNUPGHOME"
 gpg --batch --pinentry-mode loopback --gen-key <<'EOF'

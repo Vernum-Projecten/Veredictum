@@ -34,9 +34,7 @@ use crate::engine_gate;
 /// certificate is self-describing: its packets carry the user id, the key
 /// flags and the subkey binding signature.
 fn key(name: &str) -> PathBuf {
-    engine_gate::repo_root()
-        .join("artifacts/corpus/keys")
-        .join(name)
+    engine_gate::repo_root().join("fixtures/keys").join(name)
 }
 
 /// A console state over the repository's own mounts, with both keys.
