@@ -387,7 +387,7 @@ render_body() {
     "      <figure class=\"code\">\n" +
     "        <figcaption>One command, one record</figcaption>\n" +
     "        <pre><code><span class=\"cmt\"># The credential is read from the environment; it never rides argv.</span>\n" +
-    "<span class=\"p\">$</span> export VEREDICTUM_BENCH_PASSWORD=…\n" +
+    "<span class=\"p\">$</span> export VEREDICTUM_CDR_PASSWORD=…\n" +
     "<span class=\"p\">$</span> veredictum bench --base-url https://cdr.example/openehr/v1 \\\n" +
     "      --auth basic --user &lt;user&gt; \\\n" +
     "      --pack community-vitals --repetitions 3 --with-baselines \\\n" +

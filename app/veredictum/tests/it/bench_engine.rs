@@ -1928,3 +1928,86 @@ fn the_version_probe_reads_what_a_server_discloses_and_nothing_more() -> Fallibl
     assert_eq!(probe_sut_version(&client_for(&sut)?), None);
     Ok(())
 }
+
+/// Every variable a bench credential can come from, removed so a run sees
+/// only what the test sets.
+const CDR_CREDENTIAL_VARS: &[&str] = &[
+    "VEREDICTUM_CDR_USER",
+    "VEREDICTUM_CDR_USER_FILE",
+    "VEREDICTUM_CDR_PASSWORD",
+    "VEREDICTUM_CDR_PASSWORD_FILE",
+    "VEREDICTUM_CDR_TOKEN",
+    "VEREDICTUM_CDR_TOKEN_FILE",
+];
+
+/// One `bench --auth basic` invocation against `sut`, with only `envs` set.
+fn bench_basic(
+    sut: &FakeSut,
+    out: &std::path::Path,
+    envs: &[(&str, &str)],
+) -> Result<std::process::Output, std::io::Error> {
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_veredictum"));
+    command.args(["bench", "--base-url", &sut.base_url(), "--auth", "basic"]);
+    command.arg("--out").arg(out);
+    for name in CDR_CREDENTIAL_VARS {
+        command.env_remove(name);
+    }
+    command.envs(envs.iter().copied());
+    command.output()
+}
+
+/// The bench reads its credential from the variables `test` and `identify`
+/// read: the user from `VEREDICTUM_CDR_USER` when `--user` is absent, and the
+/// password from the file `VEREDICTUM_CDR_PASSWORD_FILE` names. Without a
+/// user it refuses before any request and names the variable.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn the_bench_reads_the_cdr_credential_variables() -> Fallible {
+    use base64::Engine as _;
+
+    let dir = assert_fs::TempDir::new()?;
+    let sut = FakeSut::start();
+    let refused = bench_basic(&sut, dir.path(), &[])?;
+    assert!(!refused.status.success(), "{refused:?}");
+    let stderr = String::from_utf8(refused.stderr)?;
+    assert!(stderr.contains("VEREDICTUM_CDR_USER"), "{stderr}");
+    assert!(sut.requests().is_empty(), "a refused bench sent a request");
+
+    let password = dir.path().join("password");
+    std::fs::write(&password, "s3cret-from-file\n")?;
+    let password = password.to_string_lossy().into_owned();
+    let expected = format!(
+        "Basic {}",
+        base64::engine::general_purpose::STANDARD.encode("bench-user:s3cret-from-file")
+    );
+    sut.mount(Mock::given(method("GET")).respond_with(ResponseTemplate::new(401)));
+    let output = bench_basic(
+        &sut,
+        dir.path(),
+        &[
+            ("VEREDICTUM_CDR_USER", "bench-user"),
+            ("VEREDICTUM_CDR_PASSWORD_FILE", &password),
+        ],
+    )?;
+    let first = sut
+        .requests()
+        .into_iter()
+        .next()
+        .ok_or("the bench sent no request")?;
+    let presented = first
+        .headers
+        .get("authorization")
+        .map(|value| value.to_str().map(str::to_owned))
+        .transpose()?;
+    assert_eq!(presented.as_deref(), Some(expected.as_str()));
+    let printed = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!printed.contains("s3cret-from-file"), "{printed}");
+    Ok(())
+}

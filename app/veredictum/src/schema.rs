@@ -1968,6 +1968,66 @@ pub fn jwks_schema() -> Value {
     })
 }
 
+/// `identity.schema.json` — the document `veredictum identify` prints: what
+/// the server answered to ITS-REST System OPTIONS
+/// (`specifications/operations/options.yaml`), classified.
+#[must_use]
+pub fn identity_schema() -> Value {
+    let member = |description: &str| json!({ "type": "string", "description": description });
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("identity"),
+        "title": "Server identity",
+        "description": "What the server answered to `OPTIONS <base>/`, the ITS-REST System OPTIONS operation (specifications/operations/options.yaml, served on `/` by the released system.openapi.yaml). The operation says services SHOULD answer with a payload revealing details about themselves, so every outcome is an answer and none is a finding: `offered` carries the members of the `Options` document (specifications/schemas/others/Options.yaml, every member optional) the server sent, `not_offered` a status outside 2xx, and `not_options_document` a 2xx whose body is not an `Options` document.",
+        "type": "object",
+        "required": ["outcome", "status"],
+        "oneOf": [
+            {
+                "additionalProperties": false,
+                "required": ["outcome", "status", "options"],
+                "properties": {
+                    "outcome": { "const": "offered" },
+                    "status": { "const": 200 },
+                    "options": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "The members of the `Options` document the server sent; a member the schema does not name is not carried.",
+                        "properties": {
+                            "solution": member("The product name."),
+                            "solution_version": member("The product version."),
+                            "vendor": member("The vendor."),
+                            "restapi_specs_version": member("The ITS-REST release the server states it implements."),
+                            "conformance_profile": member("The conformance profile the server states."),
+                            "endpoints": {
+                                "type": "array",
+                                "items": { "type": "string" },
+                                "description": "The endpoints the server lists."
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "additionalProperties": false,
+                "required": ["outcome", "status"],
+                "properties": {
+                    "outcome": { "const": "not_offered" },
+                    "status": { "type": "integer", "minimum": 100, "maximum": 599, "not": { "minimum": 200, "maximum": 299 } }
+                }
+            },
+            {
+                "additionalProperties": false,
+                "required": ["outcome", "status", "reason"],
+                "properties": {
+                    "outcome": { "const": "not_options_document" },
+                    "status": { "type": "integer", "minimum": 200, "maximum": 299 },
+                    "reason": { "type": "string", "description": "Why the body is not an `Options` document, in the parser's own words." }
+                }
+            }
+        ]
+    })
+}
+
 /// The full published set: (file name, schema document).
 #[must_use]
 pub fn emit_all() -> Vec<(&'static str, Value)> {
@@ -2005,6 +2065,7 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
         ("arazzo-results.schema.json", arazzo_results_schema()),
         ("certificate.schema.json", certificate_schema()),
         ("jwks.schema.json", jwks_schema()),
+        ("identity.schema.json", identity_schema()),
     ]
 }
 

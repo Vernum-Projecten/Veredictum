@@ -325,11 +325,13 @@ enum Command {
         /// How the client presents itself: `none`, `basic` or `bearer`.
         ///
         /// The secret never rides argv: `basic` reads
-        /// `VEREDICTUM_BENCH_PASSWORD` and `bearer` reads
-        /// `VEREDICTUM_BENCH_TOKEN`.
+        /// `VEREDICTUM_CDR_PASSWORD` and `bearer` reads
+        /// `VEREDICTUM_CDR_TOKEN`, the variables `test` and `identify` read,
+        /// each also from the file its `_FILE` form names.
         #[arg(long, default_value = "none")]
         auth: String,
-        /// The user `--auth basic` presents.
+        /// The user `--auth basic` presents; without it, the user is read
+        /// from `VEREDICTUM_CDR_USER`.
         #[arg(long)]
         user: Option<String>,
         /// The embedded pack to drive.

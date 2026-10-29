@@ -304,6 +304,8 @@ pub struct JobView {
     pub status: JobStatus,
     /// The SUT display name the run records.
     pub sut_name: String,
+    /// The SUT version label the run records.
+    pub sut_version: String,
     /// Cases completed, from the engine's own progress stream.
     pub completed: u64,
     /// Cases selected, from the engine's own progress stream; `0` until the
@@ -636,6 +638,7 @@ fn snapshot(jobs: &Jobs, job: &JobState) -> JobView {
         id: job.id,
         status: job.status.clone(),
         sut_name: job.sut.name.value.clone(),
+        sut_version: job.sut.version.value.clone(),
         completed: job.completed,
         total: job.total,
         current_case: job.current_case.clone(),

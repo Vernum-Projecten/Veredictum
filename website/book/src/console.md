@@ -63,6 +63,17 @@ Grading starts at Connect: the CDR base URL, the display identity, the
 authentication choice from the ixit's own vocabulary, and a probe whose
 answer renders verbatim before anything continues.
 
+An administrative credential is optional and separate from the server's. The
+run receives it through `--admin-auth` and the `VEREDICTUM_CDR_ADMIN_*`
+variables ([Logging in to the CDR](authentication.md)); without one, every
+workflow with an administrative step is skipped as `not-declared`, and the
+IXIT the run writes names no administrative principal.
+
+The display name and version label stay editable after the probe, and Continue
+carries what the screen shows to the run. The address and the credentials are
+what the probe tested, so editing one of them after the probe withholds
+Continue until you probe again, and the screen says so.
+
 ![The connect step in light mode](console/img/connect-light.png)
 ![The connect step in dark mode](console/img/connect-dark.png)
 
@@ -90,15 +101,19 @@ documents whose id contains it.
 ![The scope step in light mode](console/img/scope-light.png)
 
 The run is the engine's own `veredictum test`, with the credentials in the
-spawned process's environment only. The live screen shows the elapsed clock
-and the tail of the engine's output, and when the run finishes the outcome
+spawned process's environment only. The live screen names the server and
+version the run records, and shows the elapsed clock and the tail of the
+engine's output, and when the run finishes the outcome
 links straight to the results.
 
 ![A finished run on the live screen](console/img/live-light.png)
 
 ## The results
 
-Results reads the finished run's own `results.json`, red rows first. A row
+Results reads the finished run's own `results.json`, red rows first: failed
+rows, then errored rows under their own status. An errored row is the
+instrument saying it could not judge, and its detail names what stopped the
+judgement. A row
 links to its detail: the four-part explanation the engine wrote (what was
 checked, why it is required with the cited sentence, what was expected and
 what was received, and whose problem the row is), which is what

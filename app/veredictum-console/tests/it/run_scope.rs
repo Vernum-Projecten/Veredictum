@@ -135,6 +135,7 @@ fn the_draft_view_carries_no_secret() -> Result<(), Box<dyn std::error::Error>> 
             sut_version: String::from("y"),
             identity: None,
             auth: AuthChoice::Basic,
+            admin_auth: AuthChoice::None,
             credentials: vec![Credential {
                 name: String::from(veredictum::identity::PASSWORD_ENV),
                 value: Secret::new(String::from("hunter2-super-secret")),
@@ -177,6 +178,7 @@ fn drafted_state() -> veredictum_console::state::ConsoleState {
             sut_version: String::from("0.0.0-gate"),
             identity: None,
             auth: AuthChoice::None,
+            admin_auth: AuthChoice::None,
             credentials: vec![],
             probed_ok: true,
             statement_json: None,

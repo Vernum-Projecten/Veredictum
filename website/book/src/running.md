@@ -175,7 +175,7 @@ in the binary, pinned by digest, and described by `bench-packs`.
 
 ```bash
 # The credential is read from the environment. It never rides argv.
-export VEREDICTUM_BENCH_PASSWORD=…
+export VEREDICTUM_CDR_PASSWORD=…
 
 veredictum bench \
   --base-url https://cdr.example/openehr/v1 \

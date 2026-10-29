@@ -181,16 +181,18 @@ pub enum BenchError {
         detail: String,
     },
     /// `--auth basic` was selected without the user the header needs.
-    #[error("--auth basic needs --user")]
+    #[error(
+        "--auth basic needs --user, or {} (or its _FILE form) when the flag is absent",
+        crate::identity::USER_ENV
+    )]
     MissingUser,
-    /// A credential environment variable is unset. Secrets never ride argv.
-    #[error("credential environment variable {name} is unset: {source}")]
+    /// A credential could not be read from the environment. Secrets never
+    /// ride argv.
+    #[error("the bench credential: {source}")]
     Credential {
-        /// The variable that was consulted.
-        name: &'static str,
-        /// The lookup failure.
+        /// The reader's refusal, naming the variable.
         #[source]
-        source: std::env::VarError,
+        source: crate::arazzo::credential::CredentialError,
     },
     /// The HTTP client could not be built.
     #[error("http client: {source}")]

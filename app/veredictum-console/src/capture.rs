@@ -350,6 +350,7 @@ mod tests {
         JobView {
             id: RunId::NIL,
             sut_name: String::from("example-cdr"),
+            sut_version: String::from("1.0.0"),
             status: JobStatus::Running,
             completed: 7,
             total: 11,
@@ -485,6 +486,7 @@ mod tests {
             sut_name: String::from("my-cdr"),
             sut_version: String::from("unknown"),
             auth: String::from("none"),
+            admin_auth: String::from("none"),
             probed_ok: false,
             statement: Some(String::from("my-cdr unknown")),
             filter: Some(String::from("ehr_status")),

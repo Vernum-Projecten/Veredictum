@@ -45,7 +45,7 @@ pub fn NotFound() -> impl IntoView {
             <EmptyState
                 icon=icondata_lu::LuCompass
                 message=format!("No route answers {path}")
-                hint="The console serves four surfaces: the instrument, the catalogue, the run wizard and the public record check."
+                hint="The console serves three surfaces: the instrument, the catalogue, and the run wizard with its results."
             >
                 <div class="flex flex-wrap items-center gap-2">
                     <A href="/" attr:class=BTN_PRIMARY>
