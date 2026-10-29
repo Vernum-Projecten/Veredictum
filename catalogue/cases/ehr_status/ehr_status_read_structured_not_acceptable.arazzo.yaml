@@ -1,7 +1,7 @@
 # The EHR_STATUS answered in the Simplified Structured JSON format, for a service
 # that does not serve it: the refusing arm of the `ehr-status-structured-read`
 # option. The release defines no EHR_STATUS form in the format (upstream
-# report #785), so the serving arm has no document. Every quote is copied
+# report #352), so the serving arm has no document. Every quote is copied
 # verbatim from the named vendored file.
 arazzo: 1.1.0
 info:

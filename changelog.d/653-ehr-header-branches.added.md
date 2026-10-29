@@ -6,5 +6,6 @@
   `ehr-status-flat-read` and `ehr-status-structured-read`, hold a service
   that declines a Simplified Format on the EHR and EHR_STATUS routes to
   `415` and `406`. The release defines no EHR_STATUS form in either format
-  (upstream report #785) or an XML document element for it (#759), so those
-  branches stay surface gaps that name the report.
+  (upstream report #352), and no sentence requires a service to accept the
+  XML root an EHR_STATUS has (#759), so those branches stay surface gaps
+  that name the report.

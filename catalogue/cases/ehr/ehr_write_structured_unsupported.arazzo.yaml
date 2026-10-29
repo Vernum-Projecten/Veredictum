@@ -1,7 +1,7 @@
 # The EHR creates with an EHR_STATUS sent as application/openehr.wt.structured+json,
 # for a service that does not process the Simplified Structured JSON format: the
 # refusing arm of the `ehr-status-structured-write` option. The release defines no
-# EHR_STATUS form in the format (upstream report #785), so the body is the
+# EHR_STATUS form in the format (upstream report #352), so the body is the
 # canonical EHR_STATUS and only the media type is judged; the accepting arm
 # has no document. Every quote is copied verbatim from the named vendored file.
 arazzo: 1.1.0
