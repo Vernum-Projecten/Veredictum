@@ -379,7 +379,10 @@ impl<'d> Evaluator<'d> {
         let mut out = Vec::new();
         let mut produced = Vec::new();
         for (index, row) in rows.iter().enumerate() {
-            if scope::uncovered(workflow, row, &self.config.scoped).is_some() {
+            if self
+                .uncovered_scope(self.document, workflow, row, &mut Vec::new())
+                .is_some()
+            {
                 produced.push(BTreeMap::new());
                 out.push(ResultRow {
                     case: case.clone(),
@@ -538,6 +541,34 @@ impl<'d> Evaluator<'d> {
 
     /// Runs every workflow `workflow` depends on, depth first; `Err` carries
     /// the explanation of the first one that did not pass.
+    /// The first scope set a row of `workflow`, or a set-up it runs through
+    /// `dependsOn` at any depth, presents that the party does not cover. A
+    /// set-up runs with no row inputs, so only its literal scope sets count.
+    fn uncovered_scope(
+        &self,
+        document: &ArazzoDocument,
+        workflow: &Workflow,
+        inputs: &Row,
+        visited: &mut Vec<String>,
+    ) -> Option<scope::ScopeSet> {
+        if let Some(set) = scope::uncovered(workflow, inputs, &self.config.scoped) {
+            return Some(set);
+        }
+        workflow.depends_on.iter().find_map(|id| {
+            if visited.contains(id) {
+                return None;
+            }
+            visited.push(id.clone());
+            // NOTE: an unresolvable `dependsOn` is not "uncovered"; the set-up reports it as a run error.
+            let (owner, workflow_id) = match split_qualified(id) {
+                Some((source, workflow_id)) => (&*self.externals.get(source)?.1, workflow_id),
+                None => (document, id.as_str()),
+            };
+            let dependency = owner.workflow(workflow_id)?;
+            self.uncovered_scope(owner, dependency, &Row::new(), visited)
+        })
+    }
+
     fn setup(
         &mut self,
         (name, document): DocumentRef<'_>,
@@ -2744,6 +2775,110 @@ workflows:
         assert!(!text.contains(scope::MARKER_PREFIX), "{text}");
         let replayed = rejudge(&document, "smart", dir.path(), None, &plan, &har).unwrap();
         assert_eq!(replayed.to_text().unwrap(), results.to_text().unwrap());
+    }
+
+    const SCOPED_SETUP_DOC: &str = "arazzo: 1.1.0
+info: { title: t, version: '1' }
+sourceDescriptions:
+  - { name: rest, url: rest.yaml, type: openapi }
+workflows:
+  - workflowId: prepare
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    steps:
+      - stepId: list
+        operationId: $sourceDescriptions.rest.list
+        x-veredictum-scope: system/template-*.crud
+        successCriteria: [{ condition: $statusCode == 200 }]
+  - workflowId: middle
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    dependsOn: [prepare]
+    steps:
+      - stepId: list
+        operationId: $sourceDescriptions.rest.list
+        successCriteria: [{ condition: $statusCode == 200 }]
+  - workflowId: use
+    x-veredictum-cite: { source: s, section: d, quote: q }
+    dependsOn: [middle]
+    steps:
+      - stepId: list
+        operationId: $sourceDescriptions.rest.list
+        x-veredictum-scope: system/template-*.r
+        successCriteria: [{ condition: $statusCode == 200 }]
+";
+
+    #[test]
+    fn a_row_whose_set_up_presents_an_uncovered_scope_set_is_skipped_not_declared() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("rest.yaml").write_str(REST_OAS).unwrap();
+        dir.child("doc.yaml").write_str(SCOPED_SETUP_DOC).unwrap();
+        let document = ArazzoDocument::load(&dir.path().join("doc.yaml")).unwrap();
+        let mut plan = plan_with("use", &[Row::new()], Iteration::ResetPerRow);
+        for other in ["prepare", "middle"] {
+            plan.skips
+                .insert(other.to_owned(), scope::undeclared_skip(dir.path()));
+        }
+        let read = scope::ScopeSet::parse("system/template-*.r").unwrap();
+        let crud = scope::ScopeSet::parse("system/template-*.crud").unwrap();
+        let covering = |sets: &[&scope::ScopeSet]| RunConfig {
+            scoped: Coverage {
+                issued: sets.iter().map(|set| (*set).clone()).collect(),
+                minted: false,
+            },
+            ..config()
+        };
+        let row = |results: &Results| {
+            results
+                .rows
+                .iter()
+                .find(|row| row.case == "doc/use")
+                .cloned()
+                .unwrap()
+        };
+
+        let mut transport = Scripted::new(&[]);
+        let (results, _) = run_document(
+            &document,
+            "doc",
+            covering(&[&read]),
+            dir.path(),
+            &plan,
+            &mut transport,
+        )
+        .unwrap();
+        let skipped = row(&results);
+        assert_eq!(skipped.status, Status::Skipped, "{results:?}");
+        assert_eq!(
+            skipped.skip.map(|skip| skip.reason),
+            Some(SkipReason::NotDeclared)
+        );
+        assert!(transport.sent.is_empty());
+
+        let mut transport = Scripted::new(&[(200, ""), (200, ""), (200, "")]);
+        let (results, _) = run_document(
+            &document,
+            "doc",
+            covering(&[&read, &crud]),
+            dir.path(),
+            &plan,
+            &mut transport,
+        )
+        .unwrap();
+        assert_eq!(row(&results).status, Status::Passed, "{results:?}");
+        let sent: Vec<Option<&str>> = transport
+            .sent
+            .iter()
+            .map(|(_, _, headers)| headers.get("authorization").map(String::as_str))
+            .collect();
+        let crud_marker = scope::marker(&crud);
+        let read_marker = scope::marker(&read);
+        assert_eq!(
+            sent,
+            [
+                Some(crud_marker.as_str()),
+                Some("Basic eDp5"),
+                Some(read_marker.as_str())
+            ]
+        );
     }
 
     #[test]
