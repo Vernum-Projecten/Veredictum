@@ -1,0 +1,100 @@
+# The EHR_STATUS update with a body sent as application/openehr.wt.structured+json,
+# for a service that does not process the Simplified Structured JSON format: the
+# refusing arm of the `ehr-status-structured-write` option. The release defines no
+# EHR_STATUS form in the format (upstream report #785), so the body is the
+# canonical EHR_STATUS and only the media type is judged; the accepting arm
+# has no document. Every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: EHR_STATUS update in the Simplified Structured format, refused
+  version: 0.1.0
+  description: >-
+    Updating an EHR_STATUS with Content-Type
+    application/openehr.wt.structured+json against a service that does not
+    process the Simplified Structured JSON format.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: update-structured_unsupported_media
+    summary: An EHR_STATUS update sent as Simplified Structured JSON is refused as unsupported media and not performed
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with a body that clears
+      is_queryable, sent with Content-Type application/openehr.wt.structured+json
+      under the current version in If-Match. The update is refused with 415
+      Unsupported Media Type, and the EHR_STATUS read back is still
+      queryable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "If the service cannot process the request payload as the simplified format is not supported, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create
+        stepId: create
+        description: Create the EHR with the client-supplied ehr_id and the default EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - &current
+        stepId: current
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: update
+        description: Update the EHR_STATUS with a body that clears is_queryable, naming the Simplified Structured JSON format.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+        requestBody:
+          contentType: application/openehr.wt.structured+json
+          payload:
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: false
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 415
+      - stepId: read-back
+        description: Read the latest EHR_STATUS back; the refused update left it queryable.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/ehr_status_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the version extant _at specified time_, otherwise retrieves the _latest_ EHR_STATUS version."
+          - condition: $response.body#/is_queryable == true
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: HTTP status codes
+              quote: "The service is refusing the request because the payload is in a format not supported by this method on the target resource"

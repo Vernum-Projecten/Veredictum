@@ -1293,3 +1293,123 @@ workflows:
           - condition: $statusCode == 200
             x-veredictum-cite: *ehr_retrieved
           - *etag_weak
+
+  - workflowId: create_ehr-prefer_minimal
+    summary: An EHR create with Prefer return=minimal succeeds and points at the new EHR
+    description: >-
+      Creates an EHR whose EHR_STATUS names a subject, with Prefer
+      return=minimal. The create succeeds, the answer carries a Location
+      header, and the EHR is read back by its subject. The Location rule is
+      recommended, so a row that lacks the header is advisory.
+    x-veredictum-cite: &minimal_location
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Prefer minimal, identifier or full representation response
+      quote: "The response SHOULD include a `Location` header pointing to the newly created or updated resource."
+      level: should
+    inputs:
+      type: object
+      properties:
+        subject_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create an EHR whose EHR_STATUS names the subject, asking for the minimal response.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/json
+          payload: *subject_status
+          replacements: *subject_replacements
+        successCriteria:
+          - &minimal_success
+            context: $statusCode
+            type: regex
+            condition: '^2[0-9][0-9]$'
+            x-veredictum-cite: *success_status
+          - context: $response.header.Location
+            type: regex
+            condition: '^.+$'
+      - stepId: read-back
+        description: Retrieve the created EHR by the subject's id and namespace.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_subject
+        parameters:
+          - { name: subject_id, in: query, value: $inputs.subject_id }
+          - { name: subject_namespace, in: query, value: veredictum }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *ehr_retrieved
+
+  - workflowId: create_ehr-prefer_minimal-with_id
+    summary: An EHR create under a client-supplied ehr_id with Prefer return=minimal succeeds and points at the new EHR
+    description: >-
+      Creates an EHR with a client-supplied ehr_id and Prefer return=minimal.
+      The create succeeds, the answer carries a Location header that names
+      the ehr_id, and the EHR is read back by that ehr_id. The Location rule
+      is recommended, so a row that lacks the header is advisory.
+    x-veredictum-cite: *minimal_location
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the EHR with the client-supplied ehr_id, asking for the minimal response.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=minimal }
+        successCriteria:
+          - *minimal_success
+          - context: $response.header.Location
+            type: regex
+            condition: '{$inputs.ehr_id}'
+      - stepId: read-back
+        description: Retrieve the created EHR by its ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *ehr_retrieved
+
+  - workflowId: create_ehr-return_identifier-with_id
+    summary: An EHR create under a client-supplied ehr_id asking for the identifier only answers that ehr_id under uid
+    description: >-
+      Creates an EHR with a client-supplied ehr_id and Prefer
+      return=identifier. The answer is 201 with a JSON body that carries the
+      ehr_id under uid and none of the EHR's own attributes, and the EHR is
+      read back by that ehr_id. The released text recommends the identifier
+      body, so the status and body criteria are advisory.
+    x-veredictum-cite: *identifier_only
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the EHR with the client-supplied ehr_id and ask for its identifier only.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - *minimal_success
+          - condition: $statusCode == 201
+          - context: $response.body#/uid
+            type: regex
+            condition: '^{$inputs.ehr_id}$'
+          - condition: $response.body#/ehr_id == null
+          - condition: $response.body#/system_id == null
+          - condition: $response.body#/ehr_status == null
+      - stepId: read-back
+        description: Retrieve the created EHR by its ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *ehr_retrieved
