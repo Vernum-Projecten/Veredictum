@@ -31,6 +31,7 @@ the commit `specs/openehr/ITS-REST/` vendors.
 | `0757-admin-delete-effect.patch` | #757 |
 | `0758-smart-discovery-and-scopes.patch` | #758 |
 | `0759-simplified-other-rejections.patch` | #759 |
+| `0791-simplified-formats-tables-and-examples.patch` | #791 |
 
 A patch is named after its report's number. Apply one in a checkout of that
 repository with `git apply <patch>`.
