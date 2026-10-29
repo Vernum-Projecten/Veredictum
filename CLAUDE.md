@@ -446,6 +446,13 @@ pipeline is a `needs` edge, so no leg guesses whether an earlier one finished.
 6. `git tag -s vX.Y.Z -m "…"` on the verified merge commit, and push it. The
    `release tags` ruleset requires a signature and refuses deletion, so a tag is
    never re-pointed: the recovery for a bad cut is the next version.
+7. Once `finalize` has published the GitHub release, the owner edits it and
+   ticks "Publish this Action to the GitHub Marketplace" (primary category
+   Testing, second Continuous integration). The pipeline cannot do this: it is
+   a step in the release form, and it needs the owning account's two-factor
+   authentication. The form reads `action.yml` from the tagged commit, so a
+   description over the limit cannot be fixed on that tag (#802, #829);
+   `scripts/checks/action-metadata.sh` holds it on every pull request.
 
 **A release candidate is cut the same way**, on a `release/vX.Y.Z-rcN` branch,
 with `X.Y.Z-rcN` wherever the steps above say `X.Y.Z`: in the manifests and the
