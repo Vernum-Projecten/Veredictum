@@ -14,10 +14,9 @@ any product, and no gate reads it as one.**
 ISO/IEC 9646-7 splits an ICS in exactly one place: "All table cells should be
 completed by the ICS proforma specifier, except the support and supported
 values columns, which need to be completed by the supplier of the
-implementation." The form is this repository's to author, and
-`artifacts/vocab/capability_matrix.yaml` is that form: one row per capability,
-each with its family, tier, `required` flag, `min_cases` floor and a spec
-citation.
+implementation." The form is this repository's to author: the capability
+folders under `catalogue/cases/` are its rows, and `catalogue/capabilities.yaml`
+lists each option with the arms a supplier picks from.
 
 The support columns are the supplier's. ISO/IEC 17050-1 is titled *supplier's*
 declaration of conformity, so a filled-in declaration written by the test

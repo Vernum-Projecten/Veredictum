@@ -25,14 +25,14 @@
   <link rel="stylesheet" href="./style.css">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Veredictum — the independent openEHR conformance instrument">
-  <meta property="og:description" content="1649 spec-cited cases, 249 operation bindings, verdicts computed as pure functions. The released openEHR specifications are the only authority.">
+  <meta property="og:description" content="1649 spec-cited cases in 203 Arazzo documents, verdicts computed as pure functions. The released openEHR specifications are the only authority.">
   <meta property="og:url" content="https://veredictum.eu/">
   <meta property="og:site_name" content="Veredictum">
   <meta property="og:image" content="https://veredictum.eu/assets/veredictum-seal.svg">
   <meta property="og:image:alt" content="The Veredictum conformance seal">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Veredictum — the independent openEHR conformance instrument">
-  <meta name="twitter:description" content="1649 spec-cited cases, 249 operation bindings, verdicts computed as pure functions.">
+  <meta name="twitter:description" content="1649 spec-cited cases in 203 Arazzo documents, verdicts computed as pure functions.">
   <meta name="twitter:image" content="https://veredictum.eu/assets/veredictum-seal.svg">
 
   <!-- Structured data. `WebSite` and `Organization` identify the site and its
@@ -129,7 +129,7 @@
       </div>
       <div class="facts">
         <div class="fact"><span class="n">1649</span><span class="l">spec-cited cases</span></div>
-        <div class="fact"><span class="n">249</span><span class="l">operation bindings</span></div>
+        <div class="fact"><span class="n">203</span><span class="l">Arazzo documents</span></div>
         <div class="fact"><span class="n">released</span><span class="l">openEHR specs, version-aware</span></div>
       </div>
     </div>
@@ -163,30 +163,28 @@
         <div class="stage">
           <h3>The catalogue</h3>
           <p>1649 test cases, one small isolated case per behaviour, so a red
-            row names one defect. Every expectation carries the specification
-            section it comes from. 249 operation bindings say how each case
-            reaches the wire; a case core carries no status code, header or
-            media type of its own.</p>
+            row names one defect. Every case is an Arazzo workflow over the
+            released openEHR REST API, and every expectation carries the
+            specification sentence it comes from, quoted.</p>
           <p><code>veredictum validate</code> checks the catalogue itself. Zero
             findings is the only passing result.</p>
         </div>
         <div class="stage">
           <h3>The run</h3>
-          <p>You declare your deployment once, in an IXIT file: endpoints, the
-            names of the environment variables holding credentials, and the
-            postures your server serves. The instrument drives the catalogue
-            against those endpoints and records every request and response.</p>
-          <p><code>veredictum run</code> writes <code>results.json</code>, which
-            is a record of exchanges and not yet a judgement.</p>
+          <p>Your statement names the capabilities you claim and the option
+            arms your server sits on. The instrument drives the cases it
+            selects against your server and records every request and
+            response as HAR.</p>
+          <p><code>veredictum test</code> writes the recording and
+            <code>results.json</code>, judged row by row.</p>
         </div>
         <div class="stage">
           <h3>The verdict</h3>
           <p>A verdict is a pure function of your statement of claims, the
-            recorded results, the catalogue and the capability matrix. Run it
-            again on the same inputs and you get the same documents, on any
-            machine.</p>
-          <p><code>veredictum verdicts</code> writes the report, the statement
-            and the certificate.</p>
+            recording and the catalogue. Judge the recording again and you get
+            the same bytes, on any machine, with no server involved.</p>
+          <p><code>veredictum test --rejudge</code> reproduces the results
+            from the recording alone.</p>
         </div>
       </div>
     </div>
@@ -208,9 +206,9 @@
           </thead>
           <tbody>
             <tr>
-              <td><strong>Functional</strong><br><code>run</code> + <code>verdicts</code></td>
+              <td><strong>Functional</strong><br><code>test</code></td>
               <td>Which capabilities does this server implement to the released specification, and which does it fail?</td>
-              <td><code>results.json</code>, then the report, statement and certificate</td>
+              <td><code>results.json</code> and the HAR recording it was judged from</td>
             </tr>
             <tr>
               <td><strong>Measured performance</strong><br><code>perf</code></td>

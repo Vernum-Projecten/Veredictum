@@ -26,11 +26,12 @@ If that check fails, do not run the file.
   other network destination. With `--with-baselines` it additionally drives
   your local `docker` CLI to pull and run the two pinned reference images
   (from ghcr.io and Docker Hub) on loopback ports, and removes them when done.
-- **`run`** sends requests to the endpoints your own IXIT file declares, reads
-  the catalogue and spec paths you pass, and writes into `--out`. It creates
-  and deletes data on the target, which is why you point it at a test system.
-- **`validate`, `verdicts`, `verify-record`, `bench-compare`, the asset
-  renderers** are offline: they read the paths you pass and write where you
+- **`test`** (also spelled `run`) sends requests to the base URL you give it,
+  reads the catalogue and the vendored specs, and writes into `--out`. It
+  creates and deletes data on the target, which is why you point it at a test
+  system. With `--rejudge` it sends nothing at all.
+- **`validate`, `verdicts`, `export`, `verify-record`, `bench-compare`, the
+  asset renderer** are offline: they read the paths you pass and write where you
   say. No network at all.
 - **The console image** binds loopback by default, has no login, and reaches
   a CDR only through the runs you start in it.
@@ -40,6 +41,6 @@ not loopback.
 
 ## The record does not depend on trusting the operator
 
-A conformance record carries the recorded exchanges its verdicts are
-re-derived from (`veredictum replay`), and a bench record embeds the histograms
+A conformance run's recording carries the exchanges its results are
+re-judged from (`veredictum test --rejudge`), and a bench record embeds the histograms
 its summary is re-derived from, so both are checkable after the fact.

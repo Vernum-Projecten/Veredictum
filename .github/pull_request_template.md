@@ -10,7 +10,7 @@ Closes #<!-- tracker issue number; the merge closes it. One Closes keyword per i
 For anything that changes an expectation, a verdict, or wire behaviour: the
 component, the document, and the section heading, with the sentence you are
 relying on quoted. Where the released specification text and the OpenAPI
-documents are both silent, say so and name the register disposition.
+documents are both silent, say so and name the `upstream-report` issue.
 An expectation with no citation is not reviewable.
 -->
 
@@ -18,7 +18,7 @@ An expectation with no citation is not reviewable.
 
 - [ ] `bash scripts/checks/comment-style.sh --all`
 - [ ] Rust gates green: `cargo fmt --all --check` · `cargo clippy --all-targets -- -D warnings` · `cargo nextest run` · `cargo deny check`
-- [ ] `cargo run -- validate --root artifacts --specs specs/openehr` and `cargo run -- validate --root catalogue --specs specs/openehr` report zero findings
+- [ ] `cargo run -- validate --root catalogue --specs specs/openehr` reports zero findings
 - [ ] No test, case, or expectation weakened, skipped, or deleted, and no test edited to route around a defect it exposes
 - [ ] Every new or changed expectation carries the specification section it comes from
 - [ ] No expectation set or adjusted from what a server under test did

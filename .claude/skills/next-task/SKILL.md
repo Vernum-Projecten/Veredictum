@@ -44,7 +44,7 @@ project-board move, deferred at the split, is back since #1 landed the board.
    - **Which files** are involved. Search for them rather than guessing paths;
      the layout table in `CLAUDE.md` § Layout names every tree.
    - **Which of the three the change touches** — the runner machinery under
-     `app/veredictum/src/`, the catalogue under `artifacts/`, or the repository's own
+     `app/veredictum/src/`, the catalogue under `catalogue/`, or the repository's own
      machinery. The attribution law turns on that distinction, so the plan
      states it before any code is written.
    - **Which released specification sections govern it**, for anything
@@ -58,7 +58,7 @@ project-board move, deferred at the split, is back since #1 landed the board.
      available proof is the guard tier (`bash scripts/checks/*.sh`, actionlint,
      zizmor, reuse lint), the Rust tier (`cargo clippy --all-targets -- -D
      warnings`, `cargo nextest run`, `cargo deny check`) and
-     `cargo run -- validate --root artifacts --specs specs/openehr` at zero
+     `cargo run -- validate --root catalogue --specs specs/openehr` at zero
      findings.
 
 3. **Note whether the task suits a subagent.** Bounded, well-specified work with

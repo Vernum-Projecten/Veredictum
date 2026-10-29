@@ -40,7 +40,7 @@ path if you want the command on your `PATH`.
 
 ```bash
 cargo install veredictum --locked
-veredictum validate --root artifacts --specs specs/openehr
+veredictum validate --root catalogue --specs specs/openehr
 ```
 
 `--locked` is worth understanding rather than copying: it builds against the
@@ -83,11 +83,10 @@ for `<tag>`. The image is multi-architecture and is pushed by digest, with its
 tags applied only after a smoke run and a vulnerability scan of that digest have
 passed.
 
-The catalogue and the specification oracle are not baked into the image either,
-so the data you grade against is the data you can see in your own checkout: run
-compose beside a clone and the `/work` mount carries `artifacts/` and
-`specs/openehr/`; run it beside an empty directory and the console
-comes up and says what it is missing. The console has no login, so both
+The image carries the release's own catalogue and specification oracle, at
+`/work/catalogue` and `/work/specs`, so it works in an empty directory and a
+record produced with it names the catalogue of a published release. To grade
+against your own checkout instead, bind-mount it over those paths. The console has no login, so both
 invocations above bind it to loopback; exposing it further is the operator's
 decision, behind their own gate. [The console chapter](console.md) shows what it
 does today.
@@ -120,7 +119,7 @@ The toolchain pins itself from `rust-toolchain.toml`, so you do not choose a
 Rust version:
 
 ```bash
-cargo run -- validate --root artifacts --specs specs/openehr
+cargo run -- validate --root catalogue --specs specs/openehr
 ```
 
 The declared minimum supported Rust version is 1.98, verified in CI against
@@ -132,17 +131,14 @@ if you intend to run the project's own test suite.
 `validate` is the check to run first, because it needs no server:
 
 ```bash
-veredictum validate --root artifacts --specs specs/openehr
+veredictum validate --root catalogue --specs specs/openehr
 ```
 
 A working install over an intact clone prints one line and exits zero:
 
 ```text
-1146 case(s), 249 binding(s), 43 capability row(s), 0 finding(s)
+203 document(s), 1649 workflow(s), 375 rows file(s), 14 capability folder(s), 0 finding(s)
 ```
 
 Any finding count above zero is a failure of the catalogue, not of your setup,
-and the findings printed above that line say which artifact is at fault. A
-missing `--specs` tree is the common first-run mistake: the citation and
-Service-Model gates are skipped without it, so the case count is reported while
-the checks that make the count meaningful never run.
+and the findings printed above that line say which document is at fault.

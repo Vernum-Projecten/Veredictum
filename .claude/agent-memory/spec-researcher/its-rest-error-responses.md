@@ -41,7 +41,6 @@ OAS (tier 2, cite AS the OAS): `ITS-REST/specifications/responses/*.yaml`
 No error type exists in `specs/its-json-schemas/**` or
 `specs/its-xml-schemas/**` (greps for "error" return zero definitions).
 
-Catalogue side: the live adjudication is register **AMB-217** (`editorial`,
-`upstream_issue: 2612`), not "AMB-1" — AMB-1 does not exist in
-`artifacts/registers/ambiguities.yaml` although the runner's doc comments
-cite it.
+Catalogue side: the register entry that carried this went with the cut-over
+(#604); a workflow asserting the error body needs an `upstream-report` issue
+here, named in its citation's `report:`.

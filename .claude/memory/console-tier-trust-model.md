@@ -9,10 +9,10 @@ A record produced at console.veredictum.eu is trustworthy because its judgement
 is recomputed here, never because the instance is trusted. Two mechanisms carry
 that, and both were built in v0.1.4 (#392, #408).
 
-**The transport is the driver's only seam.** `HttpDriver` composes every
-request, classifies every response and judges every assertion; `Transport` is
-the one place bytes leave the process. So `veredictum replay` answers a composed
-request from a recording and reaches its outcomes through the same code the live
+**The transport is the evaluator's only seam.** The Arazzo evaluator composes
+every request and judges every criterion; the transport is the one place bytes
+leave the process. So `veredictum test --rejudge` answers a composed request
+from the HAR recording and reaches its results through the same code the live
 run used — a second reading of the evidence rather than a second implementation
 of the judge. Changing that boundary breaks the property the console tier rests
 on.

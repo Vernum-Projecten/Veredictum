@@ -1,6 +1,5 @@
-`test` drives the Arazzo catalogue under `catalogue/`, where `run` drives the
-case-core catalogue under `artifacts/`. The two live side by side until the
-cut-over to the Arazzo catalogue removes the case-core one.
+`test` drives the Arazzo catalogue under `catalogue/`. `veredictum run` is the
+same subcommand under its other name.
 
 **What runs.** Every document under `cases/<capability>/`, in path order. The
 shared setups under `cases/_setup/` are not cases: a setup runs only where a

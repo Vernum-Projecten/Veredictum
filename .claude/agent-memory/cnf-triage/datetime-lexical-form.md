@@ -21,8 +21,7 @@ any format change"). Nothing else narrows it: BASE
 `UML/classes/iso8601_timezone.adoc` §Description states "`Z` is a literal
 meaning UTC … i.e. timezone `+0000`"; BASE `UML/classes/iso8601_date_time.adoc`
 §Description admits `[Z | ±hh[:mm]]` as alternatives; ITS-REST
-`schemas/query/ResultSetRow.yaml` types a cell as untyped `ANY`; SM
-`UML/classes/result_set_row.adoc` types `values` as `List<Any>`; ITS-JSON
+`schemas/query/ResultSetRow.yaml` types a cell as untyped `ANY`; ITS-JSON
 `DV_DATE_TIME.json` gives `value` a bare `{"type":"string"}` with no pattern.
 
 **How to apply:** assert the instant, never the spelling, in a `result_set`

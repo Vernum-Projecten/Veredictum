@@ -8,13 +8,12 @@ output, so a flag cannot land in the binary and go missing here. The sections
 follow the order `veredictum --help` lists them in, and the prose under each
 one is written by hand and lives in `website/book/commands/`.
 
-Three commands make the conformance record (`validate`, `run`, `verdicts`),
-three measure (`perf`, `stress`, `bench`), `replay` re-judges a recorded run
-out of its own transcript, `evidence` carves the exchanges behind a red run's
-rows out of that transcript, `test` drives the Arazzo catalogue or re-judges
-its recording, `export` renders an Arazzo results document as
-JUnit XML, CTRF and a Markdown summary for a CI system, `verify-record` checks
-a sealed bundle, and the rest render or explore.
+Two commands make the conformance record: `validate` checks the catalogue,
+and `test` (also spelled `run`) drives it or re-judges its recording. `export`
+renders a results document as JUnit XML, CTRF and a Markdown summary for a CI
+system. Three commands measure (`perf`, `stress`, `bench`), `verdicts`
+re-derives the measured class verdicts, `verify-record` checks a sealed
+bundle, and the rest render or explore.
 
 ## emit-schemas
 
@@ -91,9 +90,8 @@ Options:
           Print help (see a summary with '-h')
 ```
 
-`test` drives the Arazzo catalogue under `catalogue/`, where `run` drives the
-case-core catalogue under `artifacts/`. The two live side by side until the
-cut-over to the Arazzo catalogue removes the case-core one.
+`test` drives the Arazzo catalogue under `catalogue/`. `veredictum run` is the
+same subcommand under its other name.
 
 **What runs.** Every document under `cases/<capability>/`, in path order. The
 shared setups under `cases/_setup/` are not cases: a setup runs only where a
@@ -202,8 +200,8 @@ does not offer the document is within the specification, which says services
 SHOULD answer. It exits `2` only when no answer arrived at all, or when the
 credential variable `--auth` names is unset.
 
-`run` performs the same read before it drives anything, so the identity this
-command prints is the identity a run against the same base URL records.
+Run it before `test` to see which product and version a run against the same
+base URL is about to grade.
 
 ## validate
 
@@ -267,7 +265,7 @@ the case exists.
 `--root` is the performance schedule, `perf/` in this repository: the class
 cases, the journey catalogue and the payloads the journeys send. `stress`,
 `aql-probe` and `perf-assets` read the same tree, and none of them reads
-`artifacts/` or `catalogue/`.
+`catalogue/`.
 
 The `environment` block is mandatory rather than optional because a latency
 number is a claim about a deployment, and a claim with no deployment described
