@@ -264,10 +264,15 @@ a failed row. The container image ships the catalogue and runs the same
 subcommand:
 
 ```bash
-docker run --rm -v "$PWD/out:/work/out" -e VEREDICTUM_SUT_TOKEN \
+docker run --rm -v "$PWD/out:/work/out" -e VEREDICTUM_CDR_TOKEN \
   ghcr.io/vernum-projecten/veredictum:<tag> \
   test --base-url https://cdr.example/openehr/v1 --auth bearer --out /work/out
 ```
+
+That example is for a CDR that wants a bearer token. One that wants a username
+and password takes `--auth basic` with `VEREDICTUM_CDR_USER` and
+`VEREDICTUM_CDR_PASSWORD`, and one that needs no login takes no `--auth` at
+all ([Logging in to the CDR](https://veredictum.eu/docs/authentication.html)).
 
 The documents are plain Arazzo 1.1.0: any Arazzo tool can read them, and a
 workflow runner can smoke-run them against a server. A conformance verdict

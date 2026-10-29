@@ -42,18 +42,18 @@ const DEMOGRAPHIC: &str = "person";
 /// developer's or the runner's own environment never reaches a test.
 const READ_VARS: [&str; 13] = [
     "VEREDICTUM_CATALOGUE",
-    "VEREDICTUM_SUT_USER",
-    "VEREDICTUM_SUT_USER_FILE",
-    "VEREDICTUM_SUT_PASSWORD",
-    "VEREDICTUM_SUT_PASSWORD_FILE",
-    "VEREDICTUM_SUT_TOKEN",
-    "VEREDICTUM_SUT_TOKEN_FILE",
-    "VEREDICTUM_ADMIN_USER",
-    "VEREDICTUM_ADMIN_USER_FILE",
-    "VEREDICTUM_ADMIN_PASSWORD",
-    "VEREDICTUM_ADMIN_PASSWORD_FILE",
-    "VEREDICTUM_ADMIN_TOKEN",
-    "VEREDICTUM_ADMIN_TOKEN_FILE",
+    "VEREDICTUM_CDR_USER",
+    "VEREDICTUM_CDR_USER_FILE",
+    "VEREDICTUM_CDR_PASSWORD",
+    "VEREDICTUM_CDR_PASSWORD_FILE",
+    "VEREDICTUM_CDR_TOKEN",
+    "VEREDICTUM_CDR_TOKEN_FILE",
+    "VEREDICTUM_CDR_ADMIN_USER",
+    "VEREDICTUM_CDR_ADMIN_USER_FILE",
+    "VEREDICTUM_CDR_ADMIN_PASSWORD",
+    "VEREDICTUM_CDR_ADMIN_PASSWORD_FILE",
+    "VEREDICTUM_CDR_ADMIN_TOKEN",
+    "VEREDICTUM_CDR_ADMIN_TOKEN_FILE",
 ];
 
 fn catalogue() -> PathBuf {
@@ -352,8 +352,8 @@ fn the_administrative_credential_is_sent_and_never_recorded() -> Fallible {
         ]
         .concat(),
         &[
-            ("VEREDICTUM_ADMIN_USER", "root"),
-            ("VEREDICTUM_ADMIN_PASSWORD_FILE", &password),
+            ("VEREDICTUM_CDR_ADMIN_USER", "root"),
+            ("VEREDICTUM_CDR_ADMIN_PASSWORD_FILE", &password),
         ],
     )?;
     assert!(matches!(output.status.code(), Some(0 | 1)), "{output:?}");
@@ -522,7 +522,7 @@ fn a_run_that_cannot_start_exits_two() -> Fallible {
         &json!({ "options": [AUTHENTICATION_ARM] }),
     )?;
     let url = closed_port_url();
-    let refusals: [(&[&str], &str); 7] = [
+    let refusals: [(&[&str], &str); 8] = [
         (
             &[
                 "--base-url",
@@ -555,7 +555,12 @@ fn a_run_that_cannot_start_exits_two() -> Fallible {
         ),
         (
             &["--base-url", &url, "--out", &out, "--auth", "basic"],
-            "VEREDICTUM_SUT_USER",
+            "--auth basic needs VEREDICTUM_CDR_USER and VEREDICTUM_CDR_PASSWORD (or their _FILE \
+             forms)",
+        ),
+        (
+            &["--base-url", &url, "--out", &out, "--admin-auth", "bearer"],
+            "--admin-auth bearer needs VEREDICTUM_CDR_ADMIN_TOKEN (or its _FILE form)",
         ),
         (
             &[
@@ -590,10 +595,10 @@ fn an_empty_credential_variable_is_refused_like_an_unset_one() -> Fallible {
     let out = dir.path().join("run").to_string_lossy().into_owned();
     let url = closed_port_url();
     let empties: [&[(&str, &str)]; 2] = [
-        &[("VEREDICTUM_SUT_TOKEN", "")],
+        &[("VEREDICTUM_CDR_TOKEN", "")],
         &[
-            ("VEREDICTUM_SUT_TOKEN", ""),
-            ("VEREDICTUM_SUT_TOKEN_FILE", ""),
+            ("VEREDICTUM_CDR_TOKEN", ""),
+            ("VEREDICTUM_CDR_TOKEN_FILE", ""),
         ],
     ];
     for envs in empties {
@@ -604,7 +609,7 @@ fn an_empty_credential_variable_is_refused_like_an_unset_one() -> Fallible {
         assert_eq!(output.status.code(), Some(2), "{envs:?}: {output:?}");
         let stderr = String::from_utf8(output.stderr)?;
         assert!(
-            stderr.contains("VEREDICTUM_SUT_TOKEN"),
+            stderr.contains("VEREDICTUM_CDR_TOKEN"),
             "{envs:?}: {stderr}"
         );
     }

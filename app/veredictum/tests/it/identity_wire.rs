@@ -132,6 +132,101 @@ fn a_wrong_typed_member_is_not_an_options_document() -> Fallible {
     Ok(())
 }
 
+/// Every variable `identify` reads a credential from, removed so the
+/// developer's or the runner's own environment never reaches a test.
+const CREDENTIAL_VARS: [&str; 6] = [
+    "VEREDICTUM_CDR_USER",
+    "VEREDICTUM_CDR_USER_FILE",
+    "VEREDICTUM_CDR_PASSWORD",
+    "VEREDICTUM_CDR_PASSWORD_FILE",
+    "VEREDICTUM_CDR_TOKEN",
+    "VEREDICTUM_CDR_TOKEN_FILE",
+];
+
+/// One `identify` invocation against `base_url`, with only `envs` set.
+fn identify_command(
+    base_url: &str,
+    auth: &str,
+    envs: &[(&str, &str)],
+) -> Result<std::process::Output, std::io::Error> {
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_veredictum"));
+    command.args(["identify", "--base-url", base_url, "--auth", auth]);
+    for name in CREDENTIAL_VARS {
+        command.env_remove(name);
+    }
+    command.envs(envs.iter().copied());
+    command.output()
+}
+
+/// A missing credential stops `identify` before any request, and the error
+/// names the mode and the variables it reads.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_missing_credential_names_the_mode_and_its_variables() -> Fallible {
+    let sut = serving(ResponseTemplate::new(200).set_body_json(full_document()));
+    let cases = [
+        (
+            "basic",
+            "--auth basic needs VEREDICTUM_CDR_USER and VEREDICTUM_CDR_PASSWORD (or their _FILE \
+             forms)",
+        ),
+        (
+            "bearer",
+            "--auth bearer needs VEREDICTUM_CDR_TOKEN (or its _FILE form)",
+        ),
+    ];
+    for (auth, named) in cases {
+        let output = identify_command(&sut.base_url(), auth, &[])?;
+        assert_eq!(output.status.code(), Some(2), "{auth}: {output:?}");
+        let stderr = String::from_utf8(output.stderr)?;
+        assert!(stderr.contains(named), "{auth}: {stderr}");
+    }
+    assert!(
+        sut.requests().is_empty(),
+        "a refused identify sent a request"
+    );
+    Ok(())
+}
+
+/// The token is read from the file `VEREDICTUM_CDR_TOKEN_FILE` names and
+/// presented as a bearer credential, and it never reaches the output.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_bearer_token_is_read_from_its_file_form() -> Fallible {
+    let sut = FakeSut::start();
+    sut.mount(
+        Mock::given(method("OPTIONS"))
+            .and(path("/"))
+            .and(header("authorization", "Bearer t0ken-from-file"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(full_document())),
+    );
+    let dir = assert_fs::TempDir::new()?;
+    let token = dir.path().join("token");
+    std::fs::write(&token, "t0ken-from-file\n")?;
+    let token = token.to_string_lossy().into_owned();
+    let output = identify_command(
+        &sut.base_url(),
+        "bearer",
+        &[("VEREDICTUM_CDR_TOKEN_FILE", &token)],
+    )?;
+    assert!(output.status.success(), "{output:?}");
+    let raw: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    assert_eq!(raw.get("outcome"), Some(&json!("offered")));
+    let printed = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!printed.contains("t0ken-from-file"), "{printed}");
+    Ok(())
+}
+
 /// The binary prints the classified answer as one JSON document on stdout.
 #[test]
 #[expect(

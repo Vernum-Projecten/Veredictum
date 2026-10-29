@@ -29,13 +29,13 @@
 #   IN_NETWORK      the container network the run joins
 #
 # Credentials are read from the variables the engine reads
-# (VEREDICTUM_SUT_USER, VEREDICTUM_SUT_PASSWORD, VEREDICTUM_SUT_TOKEN and the
-# VEREDICTUM_ADMIN_ trio), or from files named by the same variables with
-# `_FILE` appended. A credential is handed to the container by NAME, so its
-# value never appears on a command line, and an EMPTY variable is not handed
-# over at all: a secret that does not exist in the caller's repository expands
-# to an empty string, and the run must then stop on a missing credential
-# rather than present an empty one.
+# (VEREDICTUM_CDR_USER, VEREDICTUM_CDR_PASSWORD, VEREDICTUM_CDR_TOKEN and
+# their VEREDICTUM_CDR_ADMIN_ counterparts), or from files named by the same
+# variables with `_FILE` appended. A credential is handed to the container by
+# NAME, so its value never appears on a command line, and an EMPTY variable is
+# not handed over at all: a secret that does not exist in the caller's
+# repository expands to an empty string, and the run must then stop on a
+# missing credential rather than present an empty one.
 #
 # Usage:
 #   scripts/action/run.sh               # as the action runs it
@@ -43,12 +43,12 @@
 set -euo pipefail
 
 readonly CREDENTIALS=(
-  VEREDICTUM_SUT_USER
-  VEREDICTUM_SUT_PASSWORD
-  VEREDICTUM_SUT_TOKEN
-  VEREDICTUM_ADMIN_USER
-  VEREDICTUM_ADMIN_PASSWORD
-  VEREDICTUM_ADMIN_TOKEN
+  VEREDICTUM_CDR_USER
+  VEREDICTUM_CDR_PASSWORD
+  VEREDICTUM_CDR_TOKEN
+  VEREDICTUM_CDR_ADMIN_USER
+  VEREDICTUM_CDR_ADMIN_PASSWORD
+  VEREDICTUM_CDR_ADMIN_TOKEN
 )
 readonly RELEASE_IMAGE=ghcr.io/vernum-projecten/veredictum
 
@@ -299,15 +299,15 @@ STUB
     "pull --quiet ${RELEASE_IMAGE}:9\\.8\\.7" ''
   check "a failed row exits 1" 1 '^exit-code=1$' '' STUB_TEST_EXIT=1
   check "a run that cannot start exits 2" 2 'could not start' '' STUB_TEST_EXIT=2
-  check "a token is passed by name, never by value" 0 '-e VEREDICTUM_SUT_TOKEN ' 's3cr3t' \
-    VEREDICTUM_SUT_TOKEN=s3cr3t
-  check "an empty credential is not passed at all" 0 '' 'VEREDICTUM_SUT_TOKEN' \
-    VEREDICTUM_SUT_TOKEN=
+  check "a token is passed by name, never by value" 0 '-e VEREDICTUM_CDR_TOKEN ' 's3cr3t' \
+    VEREDICTUM_CDR_TOKEN=s3cr3t
+  check "an empty credential is not passed at all" 0 '' 'VEREDICTUM_CDR_TOKEN' \
+    VEREDICTUM_CDR_TOKEN=
   check "a _FILE credential is mounted and renamed" 0 \
-    'VEREDICTUM_ADMIN_TOKEN_FILE=/work/secrets/VEREDICTUM_ADMIN_TOKEN' 'from-a-file' \
-    VEREDICTUM_ADMIN_TOKEN_FILE=token
+    'VEREDICTUM_CDR_ADMIN_TOKEN_FILE=/work/secrets/VEREDICTUM_CDR_ADMIN_TOKEN' 'from-a-file' \
+    VEREDICTUM_CDR_ADMIN_TOKEN_FILE=token
   check "a missing _FILE credential is refused" 2 'not a file' '' \
-    VEREDICTUM_ADMIN_TOKEN_FILE=missing
+    VEREDICTUM_CDR_ADMIN_TOKEN_FILE=missing
   check "the statement is mounted read-only" 0 \
     'statement\.json:/work/input/statement\.json:ro .*--statement /work/input/statement\.json' '' \
     IN_STATEMENT=statement.json
