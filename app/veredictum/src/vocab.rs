@@ -357,6 +357,20 @@ impl FormatName {
             FormatName::Wt => "wt",
         }
     }
+
+    /// The media type a client names this format with in `Accept` or
+    /// `Content-Type` (ITS-REST `docs/overview/Resources.md` §XML Format,
+    /// §JSON Format and §Simplified Formats).
+    #[must_use]
+    pub const fn media_type(self) -> &'static str {
+        match self {
+            FormatName::CanonicalJson => "application/json",
+            FormatName::CanonicalXml => "application/xml",
+            FormatName::WtFlat => "application/openehr.wt.flat+json",
+            FormatName::WtStructured => "application/openehr.wt.structured+json",
+            FormatName::Wt => "application/openehr.wt+json",
+        }
+    }
 }
 
 impl CorpusFormat {

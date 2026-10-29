@@ -12,7 +12,10 @@
 //! [`Plan`], built from what the party declares: its statement's
 //! `claims.capabilities` names the capability folders it claims, and every
 //! workflow of a document in another folder is skipped as `not-claimed`; its
-//! `options` select the arm of every option in `capabilities.yaml`; its IXIT and
+//! `options` select the arm of every option in `capabilities.yaml`; its
+//! `spec_versions` and `tech_profiles` skip a document whose `applies` range
+//! it is outside of as `version-out-of-range`, and one needing a format it
+//! does not claim as `format-not-claimed`; its IXIT and
 //! statement answer a rows file's `declared` inputs, and a party that
 //! supplies no administrative principal has every workflow that needs one
 //! skipped as `not-declared`, as does one that supplies no SMART Platform
@@ -26,7 +29,9 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use crate::arazzo::capabilities::{CAPABILITIES_FILE, Capabilities, CapabilitiesError};
+use crate::arazzo::capabilities::{
+    CAPABILITIES_FILE, Capabilities, CapabilitiesError, SpecVersion,
+};
 use crate::arazzo::document::{ArazzoDocument, DocumentError};
 use crate::arazzo::evaluate::{
     Evaluator, Plan, RunConfig, RunError, recorded_inputs, rejudge_config, replayed_whole,
@@ -38,6 +43,8 @@ use crate::arazzo::principal::{self, Principal};
 use crate::arazzo::results::{Engine, Results, Skip, SkipReason, Why};
 use crate::arazzo::rows::{self, RowsError, rows_path};
 use crate::exec::transport::Transport;
+use crate::party::TechProfile;
+use crate::vocab::{FormatName, ItsName, SpecComponent};
 
 /// The capability folder holding the shared setups, which run only through
 /// a case's `dependsOn`.
@@ -61,7 +68,21 @@ pub const CLAIMS_RULE: &str = "Every workflow of an Arazzo document in a capabil
 /// The description [`STATEMENT_SCHEMA`] publishes for `claims.capabilities`,
 /// which carries [`CLAIMS_RULE`]. No openEHR spec governs the claim
 /// mechanism — our own design.
-pub const CLAIMS_DESCRIPTION: &str = "The capabilities the party claims: each is a capability folder under `catalogue/cases/`, whose name is the folder's. Every workflow of an Arazzo document in a capability folder the statement does not claim is skipped not-claimed.";
+pub const CLAIMS_DESCRIPTION: &str = "The capabilities the party claims, at least one: each is a capability folder under `catalogue/cases/`, whose name is the folder's. Every workflow of an Arazzo document in a capability folder the statement does not claim is skipped not-claimed.";
+
+/// The section of [`STATEMENT_SCHEMA`] a `format-not-claimed` skip cites.
+pub const FORMATS_SECTION: &str = "#/properties/tech_profiles";
+
+/// The rule a `format-not-claimed` skip quotes, verbatim from
+/// [`FORMATS_DESCRIPTION`].
+pub const FORMATS_RULE: &str = "Every workflow of an Arazzo document that needs a wire format the statement's its-rest profile does not list is skipped format-not-claimed.";
+
+/// The description [`STATEMENT_SCHEMA`] publishes for `tech_profiles`.
+///
+/// It carries [`FORMATS_RULE`]. ITS-REST `docs/overview/Resources.md` §Data
+/// representation requires one of the canonical formats and leaves the rest
+/// to the service, so which formats a party serves is its own claim.
+pub const FORMATS_DESCRIPTION: &str = "The technology profiles the party claims, each an ITS with the wire formats the party serves on it. A statement without an its-rest profile claims every format. Every workflow of an Arazzo document that needs a wire format the statement's its-rest profile does not list is skipped format-not-claimed.";
 
 /// Why a catalogue cannot be run.
 #[derive(Debug, thiserror::Error)]
@@ -118,6 +139,21 @@ pub enum CatalogueError {
     /// The statement claims a capability the catalogue has no folder for.
     #[error("the statement claims `{0}`, which is not a capability folder of the catalogue")]
     UnknownCapability(String),
+    /// The statement declares a version of a component an `applies` range
+    /// bounds, and the version is not `MAJOR.MINOR.PATCH`.
+    #[error(
+        "the statement's `spec_versions.{component}` must be a release version \
+         MAJOR.MINOR.PATCH, since {CAPABILITIES_FILE} bounds documents by it: {found}"
+    )]
+    VersionShape {
+        /// The component, as `spec_versions` keys it.
+        component: &'static str,
+        /// What the statement declares.
+        found: String,
+    },
+    /// The statement's `tech_profiles` is not a list of technology profiles.
+    #[error("the statement's `tech_profiles` is not a list of technology profiles: {0}")]
+    TechProfilesShape(String),
 }
 
 /// What the party declares, which every document's plan reads.
@@ -254,6 +290,82 @@ pub fn not_claimed() -> Skip {
     }
 }
 
+/// The skip every workflow of a document needing a format the statement does
+/// not claim carries, citing the statement schema's `tech_profiles` clause.
+#[must_use]
+pub fn format_not_claimed() -> Skip {
+    Skip {
+        reason: SkipReason::FormatNotClaimed,
+        why: Why {
+            source: STATEMENT_SCHEMA.to_owned(),
+            section: FORMATS_SECTION.to_owned(),
+            quote: FORMATS_RULE.to_owned(),
+            link: None,
+            report: None,
+        },
+    }
+}
+
+/// The versions the statement's `spec_versions` declares of `components`;
+/// a component it does not declare is left out, and so is every component
+/// without a statement.
+///
+/// # Errors
+/// [`CatalogueError::VersionShape`] when a declared version of one of
+/// `components` is not `MAJOR.MINOR.PATCH`.
+pub fn declared_versions(
+    statement: Option<&Value>,
+    components: &BTreeSet<SpecComponent>,
+) -> Result<BTreeMap<SpecComponent, SpecVersion>, CatalogueError> {
+    let mut declared = BTreeMap::new();
+    let Some(versions) = statement.and_then(|s| s.get("spec_versions")) else {
+        return Ok(declared);
+    };
+    for component in components {
+        let Some(found) = versions.get(component.token()) else {
+            continue;
+        };
+        let shape = || CatalogueError::VersionShape {
+            component: component.token(),
+            found: found.to_string(),
+        };
+        let version = found
+            .as_str()
+            .ok_or_else(shape)?
+            .parse::<SpecVersion>()
+            .map_err(|_not_a_version| shape())?;
+        declared.insert(*component, version);
+    }
+    Ok(declared)
+}
+
+/// The wire formats the statement's its-rest profiles claim; `None` without
+/// a statement, or with one that declares no its-rest profile, which claims
+/// every format.
+///
+/// # Errors
+/// [`CatalogueError::TechProfilesShape`] when `tech_profiles` is not a list
+/// of technology profiles.
+pub fn claimed_formats(
+    statement: Option<&Value>,
+) -> Result<Option<BTreeSet<FormatName>>, CatalogueError> {
+    let Some(profiles) = statement.and_then(|s| s.get("tech_profiles")) else {
+        return Ok(None);
+    };
+    let profiles: Vec<TechProfile> = serde_json::from_value(profiles.clone())
+        .map_err(|error| CatalogueError::TechProfilesShape(error.to_string()))?;
+    let mut rest = profiles
+        .into_iter()
+        .filter(|profile| profile.its == ItsName::ItsRest)
+        .peekable();
+    // NOTE: a statement naming no its-rest profile records every format as
+    // `defaulted` in the results too; no openEHR spec governs this — our own design.
+    if rest.peek().is_none() {
+        return Ok(None);
+    }
+    Ok(Some(rest.flat_map(|profile| profile.formats).collect()))
+}
+
 fn sorted_entries(folder: &Path) -> Result<Vec<PathBuf>, CatalogueError> {
     let list = |source| CatalogueError::List {
         path: folder.to_owned(),
@@ -323,12 +435,42 @@ pub struct Choice<'a> {
     pub arms: &'a [String],
     /// Whether the statement claims the document's capability folder.
     pub claimed: bool,
+    /// The versions the statement declares of every component an `applies`
+    /// range bounds.
+    pub versions: &'a BTreeMap<SpecComponent, SpecVersion>,
+    /// The formats the statement claims; `None` claims every format.
+    pub formats: Option<&'a BTreeSet<FormatName>>,
+}
+
+impl Choice<'_> {
+    /// The skip every workflow of the document `name` carries, from what the
+    /// statement alone decides: an unclaimed capability, then an unselected
+    /// arm, then a declared version outside the document's range, then a
+    /// format the statement does not claim; `None` when the document runs.
+    #[must_use]
+    pub fn skip(&self, name: &str, repo_root: &Path) -> Option<Skip> {
+        if !self.claimed {
+            return Some(not_claimed());
+        }
+        let capabilities = self.capabilities?;
+        if let Some(skip) = capabilities.skip_for(name, self.arms, repo_root) {
+            return Some(skip);
+        }
+        if let Some(skip) = capabilities.version_skip(name, self.versions, repo_root) {
+            return Some(skip);
+        }
+        let unclaimed = self
+            .formats
+            .and_then(|formats| capabilities.unclaimed_format(name, formats));
+        unclaimed.map(|_| format_not_claimed())
+    }
 }
 
 /// The plan `document`, whose id is `name`, runs under.
 ///
 /// It skips the documents of a capability the statement does not claim,
-/// then those of an arm it does not select, then the workflows of an
+/// then those of an arm it does not select, a version range the statement
+/// is outside of, or a format it does not claim, then the workflows of an
 /// administrative principal or a Platform base URL the party does not
 /// supply, and carries the declarations and every rows file beside the
 /// document. Only the document's own workflows are skipped: a setup it
@@ -350,11 +492,7 @@ pub fn plan(
         statement: declarations.statement.clone(),
         ..Plan::default()
     };
-    let unclaimed = (!choice.claimed).then(not_claimed);
-    let unselected = choice
-        .capabilities
-        .and_then(|c| c.skip_for(name, choice.arms, repo_root));
-    if let Some(skip) = unclaimed.or(unselected) {
+    if let Some(skip) = choice.skip(name, repo_root) {
         for workflow in &document.description().workflows {
             plan.skips
                 .insert(workflow.workflow_id.clone(), skip.clone());
@@ -391,9 +529,39 @@ pub struct Selection {
     capabilities: Option<Capabilities>,
     selected: Vec<String>,
     claimed: Option<BTreeSet<String>>,
+    versions: BTreeMap<SpecComponent, SpecVersion>,
+    formats: Option<BTreeSet<FormatName>>,
 }
 
 impl Selection {
+    /// The documents the run drives, in path order.
+    #[must_use]
+    pub fn paths(&self) -> &[DocumentPath] {
+        &self.paths
+    }
+
+    /// The capability folders the statement claims; `None` without a
+    /// statement.
+    #[must_use]
+    pub fn claimed(&self) -> Option<&BTreeSet<String>> {
+        self.claimed.as_ref()
+    }
+
+    /// What the statement decides about the document `found`.
+    #[must_use]
+    pub fn choice(&self, found: &DocumentPath) -> Choice<'_> {
+        Choice {
+            capabilities: self.capabilities.as_ref(),
+            arms: &self.selected,
+            claimed: self
+                .claimed
+                .as_ref()
+                .is_none_or(|claimed| claimed.contains(&found.capability)),
+            versions: &self.versions,
+            formats: self.formats.as_ref(),
+        }
+    }
+
     /// Selects every document of the catalogue under `root`, or only the
     /// documents `only` names when it names any, the capability folders
     /// `statement` claims and the arms it selects.
@@ -431,11 +599,19 @@ impl Selection {
             None
         };
         let selected = selected_arms(statement, capabilities.as_ref())?;
+        let ranged = capabilities
+            .as_ref()
+            .map(Capabilities::ranged_components)
+            .unwrap_or_default();
+        let versions = declared_versions(statement, &ranged)?;
+        let formats = claimed_formats(statement)?;
         Ok(Self {
             paths,
             capabilities,
             selected,
             claimed,
+            versions,
+            formats,
         })
     }
 
@@ -452,15 +628,13 @@ impl Selection {
         let mut planned = Vec::new();
         for found in &self.paths {
             let document = ArazzoDocument::load(&found.path)?;
-            let choice = Choice {
-                capabilities: self.capabilities.as_ref(),
-                arms: &self.selected,
-                claimed: self
-                    .claimed
-                    .as_ref()
-                    .is_none_or(|claimed| claimed.contains(&found.capability)),
-            };
-            let plan = plan(&document, &found.id, declarations, choice, repo_root)?;
+            let plan = plan(
+                &document,
+                &found.id,
+                declarations,
+                self.choice(found),
+                repo_root,
+            )?;
             planned.push(Planned {
                 name: found.id.clone(),
                 capability: found.capability.clone(),
@@ -767,5 +941,168 @@ mod tests {
             .and_then(Value::as_str)
             .unwrap();
         assert!(described.contains(&skip.why.quote), "{described}");
+    }
+
+    #[test]
+    fn the_format_not_claimed_skip_quotes_the_published_statement_schema() {
+        assert!(FORMATS_DESCRIPTION.contains(FORMATS_RULE));
+        let skip = format_not_claimed();
+        assert_eq!(skip.reason, SkipReason::FormatNotClaimed);
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let schema: Value =
+            serde_json::from_str(&std::fs::read_to_string(root.join(&skip.why.source)).unwrap())
+                .unwrap();
+        let described = schema
+            .pointer(skip.why.section.trim_start_matches('#'))
+            .and_then(|clause| clause.get("description"))
+            .and_then(Value::as_str)
+            .unwrap();
+        assert!(described.contains(&skip.why.quote), "{described}");
+    }
+
+    #[test]
+    fn the_statement_declares_versions_only_of_ranged_components() {
+        let ranged = BTreeSet::from([SpecComponent::ItsRest]);
+        let statement = json!({ "spec_versions": { "its_rest": "1.0.2", "rm": "development" } });
+        let declared = declared_versions(Some(&statement), &ranged).unwrap();
+        assert_eq!(
+            declared
+                .get(&SpecComponent::ItsRest)
+                .map(ToString::to_string),
+            Some("1.0.2".to_owned())
+        );
+        assert_eq!(declared.len(), 1);
+        assert!(declared_versions(None, &ranged).unwrap().is_empty());
+        assert!(
+            declared_versions(Some(&json!({})), &ranged)
+                .unwrap()
+                .is_empty()
+        );
+        for refused in [json!("1.1"), json!(1.1), json!("latest")] {
+            assert!(
+                matches!(
+                    declared_versions(
+                        Some(&json!({ "spec_versions": { "its_rest": refused } })),
+                        &ranged
+                    ),
+                    Err(CatalogueError::VersionShape {
+                        component: "its_rest",
+                        ..
+                    })
+                ),
+                "{refused}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_statement_claims_the_formats_of_its_its_rest_profile() {
+        assert_eq!(claimed_formats(None).unwrap(), None);
+        assert_eq!(claimed_formats(Some(&json!({}))).unwrap(), None);
+        assert_eq!(
+            claimed_formats(Some(&json!({ "tech_profiles": [] }))).unwrap(),
+            None
+        );
+        assert_eq!(
+            claimed_formats(Some(&json!({ "tech_profiles": [
+                { "its": "its-rest", "formats": ["canonical-json", "wt-flat"] }
+            ] })))
+            .unwrap(),
+            Some(BTreeSet::from([
+                FormatName::CanonicalJson,
+                FormatName::WtFlat
+            ]))
+        );
+        assert_eq!(
+            claimed_formats(Some(&json!({ "tech_profiles": [{ "its": "its-rest" }] }))).unwrap(),
+            Some(BTreeSet::new())
+        );
+        for refused in [
+            json!({ "tech_profiles": "its-rest" }),
+            json!({ "tech_profiles": [{ "its": "its-rest", "formats": ["yaml"] }] }),
+            json!({ "tech_profiles": [{ "its": "its-soap" }] }),
+        ] {
+            assert!(
+                matches!(
+                    claimed_formats(Some(&refused)),
+                    Err(CatalogueError::TechProfilesShape(_))
+                ),
+                "{refused}"
+            );
+        }
+    }
+
+    /// A catalogue root holding the committed System document under a
+    /// capabilities file that gives it `applies` and `formats`, with the
+    /// vendored specs linked where the document's sources resolve.
+    fn needs_world() -> assert_fs::TempDir {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let dir = assert_fs::TempDir::new().unwrap();
+        std::os::unix::fs::symlink(repo.join("specs"), dir.path().join("specs")).unwrap();
+        dir.child("catalogue/cases/system/system_options.arazzo.yaml")
+            .write_str(
+                &std::fs::read_to_string(
+                    repo.join("catalogue/cases/system/system_options.arazzo.yaml"),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        dir.child("catalogue/capabilities.yaml")
+            .write_str(
+                "documents:\n  system_options:\n    applies:\n      its_rest:\n        min: 1.1.0\n        x-veredictum-cite: { source: specs/openehr/ITS-REST/specifications/docs/overview/Amendment_record.md, section: Release-1.1.0, quote: q }\n    formats: [canonical-json]\n",
+            )
+            .unwrap();
+        dir
+    }
+
+    /// The skip of every workflow of the System document under `statement`.
+    fn system_skips(statement: &Value) -> Vec<Option<Skip>> {
+        let world = needs_world();
+        let selection =
+            Selection::read(&world.path().join("catalogue"), Some(statement), &[]).unwrap();
+        let planned = selection
+            .load(world.path(), &Declarations::default())
+            .unwrap();
+        assert_eq!(planned.len(), 1);
+        let system = planned.first().unwrap();
+        system
+            .document
+            .description()
+            .workflows
+            .iter()
+            .map(|w| system.plan.skips.get(&w.workflow_id).cloned())
+            .collect()
+    }
+
+    #[test]
+    fn a_document_runs_inside_its_version_range_and_is_skipped_outside_it() {
+        let claims = json!({ "capabilities": ["system"] });
+        let inside =
+            system_skips(&json!({ "claims": claims, "spec_versions": { "its_rest": "1.1.0" } }));
+        assert_eq!(inside, vec![None, None, None]);
+        let undeclared =
+            system_skips(&json!({ "claims": claims, "spec_versions": { "rm": "1.0.0" } }));
+        assert_eq!(undeclared, vec![None, None, None]);
+        let outside =
+            system_skips(&json!({ "claims": claims, "spec_versions": { "its_rest": "1.0.2" } }));
+        assert_eq!(outside.len(), 3);
+        for skip in outside {
+            let skip = skip.unwrap();
+            assert_eq!(skip.reason, SkipReason::VersionOutOfRange);
+            assert!(skip.why.source.ends_with("Amendment_record.md"));
+            assert_eq!(skip.why.section, "Release-1.1.0");
+        }
+    }
+
+    #[test]
+    fn a_document_runs_when_its_format_is_claimed_and_is_skipped_when_not() {
+        let claims = json!({ "capabilities": ["system"] });
+        let profile = |formats: Value| json!({ "claims": claims, "tech_profiles": [{ "its": "its-rest", "formats": formats }] });
+        let claimed = system_skips(&profile(json!(["canonical-json"])));
+        assert_eq!(claimed, vec![None, None, None]);
+        let defaulted = system_skips(&json!({ "claims": claims }));
+        assert_eq!(defaulted, vec![None, None, None]);
+        let unclaimed = system_skips(&profile(json!(["canonical-xml"])));
+        assert_eq!(unclaimed, vec![Some(format_not_claimed()); 3]);
     }
 }

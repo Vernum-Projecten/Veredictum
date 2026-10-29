@@ -21,7 +21,11 @@ use crate::arazzo::gates::surface::NegotiationHeader;
 use crate::arazzo::principal::PRINCIPAL_KEY;
 use crate::arazzo::recipe::{ContentClass, SynthesizedClass};
 use crate::arazzo::scope::SCOPE_KEY;
-use crate::vocab::Iteration;
+use crate::vocab::{FormatName, Iteration, SpecComponent};
+
+/// `MAJOR.MINOR.PATCH`, the form of a release version an `applies` range
+/// bounds.
+pub const VERSION_PATTERN: &str = "^[0-9]+\\.[0-9]+\\.[0-9]+$";
 
 const DRAFT: &str = "https://json-schema.org/draft/2020-12/schema";
 
@@ -308,6 +312,59 @@ pub fn rows_schema() -> Value {
     })
 }
 
+/// The `documents` member of the capabilities file: what a document needs
+/// from the statement before it runs.
+fn documents_def() -> Value {
+    json!({
+        "description": "What a document needs from the statement before it runs, keyed by document id. `validate` refuses a key that names no document of the catalogue.",
+        "type": "object",
+        "propertyNames": { "pattern": WORKFLOW_ID_PATTERN },
+        "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "minProperties": 1,
+            "properties": {
+                "applies": {
+                    "description": "The specification versions the document applies to, keyed by the component a statement's `spec_versions` declares a version of. Every workflow of the document is skipped version-out-of-range when the statement declares a version of a component outside its range; a component the statement does not declare decides nothing.",
+                    "type": "object",
+                    "minProperties": 1,
+                    "propertyNames": { "enum": tokens(SpecComponent::ALL) },
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [CITE_KEY],
+                        "anyOf": [{ "required": ["min"] }, { "required": ["max"] }],
+                        "properties": {
+                            "min": {
+                                "description": "The first release the document applies to, inclusive.",
+                                "type": "string",
+                                "pattern": VERSION_PATTERN
+                            },
+                            "max": {
+                                "description": "The last release the document applies to, inclusive.",
+                                "type": "string",
+                                "pattern": VERSION_PATTERN
+                            },
+                            CITE_KEY: {
+                                "description": "The released sentence that bounds the range, in the `arazzo-extensions` cite shape.",
+                                "type": "object",
+                                "required": ["source", "section", "quote"]
+                            }
+                        }
+                    }
+                },
+                "formats": {
+                    "description": "The wire formats the server must serve or process for the document to run, in the statement's `tech_profiles` vocabulary. Every workflow of the document is skipped format-not-claimed when the statement's its-rest profile does not list one of them. A document that tests the refusal of a format needs nothing: it runs for a party that does not serve the format.",
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": { "enum": tokens(FormatName::ALL) }
+                }
+            }
+        }
+    })
+}
+
 /// The capabilities file: the options a statement answers, with the
 /// documents that test each arm.
 #[must_use]
@@ -316,10 +373,23 @@ pub fn capabilities_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-capabilities"),
         "title": "Options and their arm documents for the Arazzo catalogue",
-        "description": "Lives at `catalogue/capabilities.yaml`. Each option is behaviour the released text leaves to the implementation, citing the sentence that leaves it. Its arms are keyed by the token a statement's `options` list selects one with, and each names the documents, by document id, that test it. The documents of every arm the statement does not select are skipped with `option-not-selected`, and a surface element counts as covered when every arm of its option covers it, or when the option's `decides` lists it, one arm asserts it, and every arm calls its operation. `validate` refuses an arm naming a document the catalogue does not hold, a document under two arms of one option, and a `decides` status no arm asserts or whose operation an arm does not call.",
+        "description": "Lives at `catalogue/capabilities.yaml`. Each option is behaviour the released text leaves to the implementation, citing the sentence that leaves it. Its arms are keyed by the token a statement's `options` list selects one with, and each names the documents, by document id, that test it. The documents of every arm the statement does not select are skipped with `option-not-selected`, and a surface element counts as covered when every arm of its option covers it, or when the option's `decides` lists it, one arm asserts it, and every arm calls its operation. `validate` refuses an arm naming a document the catalogue does not hold, a document under two arms of one option, and a `decides` status no arm asserts or whose operation an arm does not call. `documents` states what a document needs before it runs, `floors` the workflow count each capability folder keeps, and `extension-only` the capability folders verified only over Veredictum's own extension routes.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
+            "documents": documents_def(),
+            "floors": {
+                "description": "The workflow count each capability folder keeps, keyed by folder name. `validate` refuses a folder without a floor, a floor naming no folder, and a folder holding fewer workflows than its floor; a test re-derives every floor from the catalogue, so a floor moves with the folder it counts.",
+                "type": "object",
+                "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+                "additionalProperties": { "type": "integer", "minimum": 1 }
+            },
+            "extension-only": {
+                "description": "The capability folders verified only over the routes of `catalogue/sources/veredictum-extensions.openapi.yaml`, which no openEHR OAS describes. `validate` refuses a listed folder with a step calling another source, and an unlisted folder whose every step calls that one.",
+                "type": "array",
+                "uniqueItems": true,
+                "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+            },
             "options": {
                 "type": "object",
                 "additionalProperties": {

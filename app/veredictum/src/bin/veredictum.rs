@@ -146,9 +146,13 @@ enum Command {
         /// another folder is skipped as `not-claimed`, while a setup a claimed
         /// document depends on still runs. Its `options` list selects one arm
         /// of each option in `capabilities.yaml`, and the documents of every
-        /// other arm are skipped as `option-not-selected`. A name that is not
-        /// a folder or an arm stops the run. Without a statement, every
-        /// capability runs and no arm is selected.
+        /// other arm are skipped as `option-not-selected`. A document whose
+        /// `applies` range in `capabilities.yaml` excludes a version its
+        /// `spec_versions` declares is skipped as `version-out-of-range`, and
+        /// one needing a wire format its its-rest `tech_profiles` entry does
+        /// not list as `format-not-claimed`. A name that is not a folder or an
+        /// arm stops the run. Without a statement, every capability runs, in
+        /// every version and format, and no arm is selected.
         #[arg(long)]
         statement: Option<PathBuf>,
         /// The party's IXIT (JSON), which the `declared` inputs of a rows
@@ -218,8 +222,9 @@ enum Command {
         #[arg(long)]
         specs: Option<PathBuf>,
         /// A submitted declaration (`statement.json`) to hold to the static
-        /// review: its published schema, the capability folders it claims and
-        /// the option arms it selects.
+        /// review: its published schema, the capability folders it claims, the
+        /// option arms it selects, and that every claimed folder holds a
+        /// workflow its declarations let run.
         ///
         /// ISO/IEC 9646-7 assigns an ICS proforma's support and
         /// supported-values columns to the supplier of the implementation, so
