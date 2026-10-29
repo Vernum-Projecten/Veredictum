@@ -46,14 +46,16 @@ exist is worse than no step, because it reports green.
 
 5. **Changelog check.** If the work changed a user-visible surface — the CLI, the
    published artifact schemas, verdict semantics, the container image, or
-   anything a party's published record depends on — confirm a `CHANGELOG.md`
-   `[Unreleased]` entry exists in-branch. `scripts/checks/changelog-structure.sh`
-   checks the file's shape in CI, not whether the entry is there, so this step is
-   the one that catches a missing entry.
+   anything a party's published record depends on — confirm the branch adds a
+   fragment under `changelog.d/` (`changelog.d/README.md` has the format) and
+   adds nothing under the Unreleased heading of `CHANGELOG.md`.
+   `bash scripts/checks/changelog-entry.sh` checks both against `origin/main`,
+   and `bash scripts/release/changelog.sh --check` checks the fragment's form.
 
 6. **Gates green.** Confirm the guard tier actually ran and passed on the work:
    `bash scripts/checks/comment-style.sh --all`,
    `bash scripts/checks/changelog-structure.sh`,
+   `bash scripts/release/changelog.sh --check-preview`,
    `bash scripts/checks/ci-conclusion-complete.sh`, and — for any change under
    `.github/` — actionlint and zizmor. Report the real output; never claim a
    green you did not see.
