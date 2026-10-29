@@ -752,13 +752,17 @@ mod tests {
         declared.rebase_paths(Path::new("/fixtures/declaration"));
         assert_eq!(
             declared.smart.as_ref().unwrap().mint.key_file,
-            PathBuf::from("/fixtures/declaration/../../catalogue/keys/smart-test-issuer/cnf-smart-test.key.pem")
+            PathBuf::from(
+                "/fixtures/declaration/../../catalogue/keys/smart-test-issuer/cnf-smart-test.key.pem"
+            )
         );
         // Rebasing is idempotent for an already-absolute path.
         declared.rebase_paths(Path::new("/elsewhere"));
         assert_eq!(
             declared.smart.as_ref().unwrap().mint.key_file,
-            PathBuf::from("/fixtures/declaration/../../catalogue/keys/smart-test-issuer/cnf-smart-test.key.pem")
+            PathBuf::from(
+                "/fixtures/declaration/../../catalogue/keys/smart-test-issuer/cnf-smart-test.key.pem"
+            )
         );
     }
 
