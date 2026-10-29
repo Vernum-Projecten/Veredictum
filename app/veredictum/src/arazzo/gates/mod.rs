@@ -474,8 +474,10 @@ fn check_capabilities(
 
 /// The surface gate, over the scope `cases/surface.yaml` declares.
 ///
-/// A document under an option's arm covers an element only when every arm of
-/// that option covers it, because a statement runs one arm alone.
+/// A statement runs one arm of an option alone, so the documents under an
+/// option's arms cover what [`surface::option_covered`] credits them with:
+/// an element every arm covers, and a response status the one arm asserts
+/// whose answer it is, when every arm calls that operation.
 fn check_surface(
     workflows: &Path,
     spec_root: &Path,
@@ -531,20 +533,19 @@ fn check_surface(
             .map(|(_, located)| &located.document),
     );
     for option in capabilities.iter().flat_map(|c| c.options.values()) {
-        let mut common: Option<std::collections::BTreeSet<surface::Element>> = None;
-        for arm in option.arms.values() {
-            let arm_covered = surface::covered(
-                arm.documents
-                    .iter()
-                    .filter_map(|d| documents.get(d))
-                    .map(|located| &located.document),
-            );
-            common = Some(match common {
-                None => arm_covered,
-                Some(so_far) => so_far.intersection(&arm_covered).cloned().collect(),
-            });
-        }
-        covered.extend(common.unwrap_or_default());
+        let arms: Vec<_> = option
+            .arms
+            .values()
+            .map(|arm| {
+                surface::covered(
+                    arm.documents
+                        .iter()
+                        .filter_map(|d| documents.get(d))
+                        .map(|located| &located.document),
+                )
+            })
+            .collect();
+        covered.extend(surface::option_covered(&arms));
     }
     for message in surface::judge(&elements, &covered, &file.gaps) {
         findings.push(GateFinding::new(Gate::Surface, &path, "#", message));

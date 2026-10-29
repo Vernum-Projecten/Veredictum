@@ -477,6 +477,41 @@ pub fn covered<'a>(documents: impl IntoIterator<Item = &'a ArazzoDocument>) -> B
     out
 }
 
+/// What the arms of one option cover together, each arm given as the
+/// elements its documents cover.
+///
+/// An element every arm covers is covered. A response status one arm alone
+/// asserts is covered too when every arm calls its operation: the arms are
+/// the mutually exclusive answers a service gives to that operation, a
+/// service selects the arm whose answer it gives, and that arm asserts it.
+/// An operation or a negotiation value is a request the instrument makes,
+/// never an answer the service chooses, so it is covered only when every arm
+/// covers it, and an arm with no document calls nothing, so it credits no
+/// arm's answer. No openEHR spec governs this, our own design.
+#[must_use]
+pub fn option_covered(arms: &[BTreeSet<Element>]) -> BTreeSet<Element> {
+    let Some((first, rest)) = arms.split_first() else {
+        return BTreeSet::new();
+    };
+    let mut out: BTreeSet<Element> = first
+        .iter()
+        .filter(|element| rest.iter().all(|arm| arm.contains(element)))
+        .cloned()
+        .collect();
+    for element in arms.iter().flatten() {
+        if let Element::Response { api, operation, .. } = element {
+            let called = Element::Operation {
+                api: api.clone(),
+                operation: operation.clone(),
+            };
+            if arms.iter().all(|arm| arm.contains(&called)) {
+                out.insert(element.clone());
+            }
+        }
+    }
+    out
+}
+
 /// Compares the surface with what is covered and with the gaps.
 ///
 /// Returns one message per uncovered element without a gap, per gap whose
@@ -653,6 +688,54 @@ mod tests {
             twice.iter().any(|m| m.contains("listed twice")),
             "{twice:?}"
         );
+    }
+
+    fn negotiation(operation: &str, value: &str) -> Element {
+        Element::Negotiation {
+            api: "ehr".to_owned(),
+            operation: operation.to_owned(),
+            header: NegotiationHeader::Accept,
+            value: value.to_owned(),
+        }
+    }
+
+    fn set(elements: &[Element]) -> BTreeSet<Element> {
+        elements.iter().cloned().collect()
+    }
+
+    #[test]
+    fn each_arm_covers_the_answer_it_asserts_when_every_arm_calls_the_operation() {
+        let synchronous = set(&[op("d"), response("d", "204"), response("d", "404")]);
+        let asynchronous = set(&[op("d"), response("d", "202"), response("d", "404")]);
+        assert_eq!(
+            option_covered(&[synchronous, asynchronous]),
+            set(&[
+                op("d"),
+                response("d", "202"),
+                response("d", "204"),
+                response("d", "404")
+            ])
+        );
+    }
+
+    #[test]
+    fn a_seeded_arm_that_never_calls_the_operation_credits_no_answer() {
+        let calls = set(&[op("d"), response("d", "204"), op("e")]);
+        let other = set(&[op("e")]);
+        assert_eq!(option_covered(&[calls.clone(), other]), set(&[op("e")]));
+        assert_eq!(
+            option_covered(&[calls, BTreeSet::new()]),
+            BTreeSet::new(),
+            "an arm without documents leaves its servers untested"
+        );
+    }
+
+    #[test]
+    fn a_seeded_request_element_one_arm_alone_sends_stays_uncovered() {
+        let xml = set(&[op("g"), negotiation("g", "application/xml")]);
+        let json = set(&[op("g"), negotiation("g", "application/json")]);
+        assert_eq!(option_covered(&[xml, json]), set(&[op("g")]));
+        assert_eq!(option_covered(&[]), BTreeSet::new());
     }
 
     #[test]

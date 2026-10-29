@@ -304,7 +304,7 @@ pub fn capabilities_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-capabilities"),
         "title": "Options and their arm documents for the Arazzo catalogue",
-        "description": "Lives at `catalogue/capabilities.yaml`. Each option is behaviour the released text leaves to the implementation, citing the sentence that leaves it. Its arms are keyed by the token a statement's `options` list selects one with, and each names the documents, by document id, that test it. The documents of every arm the statement does not select are skipped with `option-not-selected`, and a surface element counts as covered only when every arm of its option covers it. `validate` refuses an arm naming a document the catalogue does not hold, and a document under two arms of one option.",
+        "description": "Lives at `catalogue/capabilities.yaml`. Each option is behaviour the released text leaves to the implementation, citing the sentence that leaves it. Its arms are keyed by the token a statement's `options` list selects one with, and each names the documents, by document id, that test it. The documents of every arm the statement does not select are skipped with `option-not-selected`, and a surface element counts as covered when every arm of its option covers it, or when it is a response status one arm asserts and every arm calls its operation, since the arms are the service's mutually exclusive answers to that operation. `validate` refuses an arm naming a document the catalogue does not hold, and a document under two arms of one option.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
