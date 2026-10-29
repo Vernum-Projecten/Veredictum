@@ -195,7 +195,8 @@ enum Command {
     /// a live SUT and merge the §8.10 measurement records into an existing
     /// results.json (conformance-by-measurement).
     Perf {
-        /// The artifact root.
+        /// The performance schedule root, `perf/` in this repository
+        /// (classes/, journeys.yaml, payloads.yaml, payloads/)
         #[arg(long)]
         root: PathBuf,
         /// The ixit topology file (JSON) — its environment block is
@@ -224,7 +225,8 @@ enum Command {
     /// (exploration only; never a conformance record, and class-free by
     /// design).
     Stress {
-        /// The artifact root.
+        /// The performance schedule root, `perf/` in this repository
+        /// (classes/, journeys.yaml, payloads.yaml, payloads/)
         #[arg(long)]
         root: PathBuf,
         /// The ixit topology file (JSON) — its environment block is
@@ -338,7 +340,8 @@ enum Command {
     /// `pg_stat_statements` (exploration evidence for the optimization
     /// loop — never a conformance record).
     AqlProbe {
-        /// The artifact root.
+        /// The performance schedule root, `perf/` in this repository
+        /// (classes/, journeys.yaml, payloads.yaml, payloads/)
         #[arg(long)]
         root: PathBuf,
         /// The ixit topology file (JSON) — the `containers` block enables
@@ -382,7 +385,8 @@ enum Command {
     /// results.json (deterministic; CI regenerates and diffs — hand-drawn
     /// numbers are a build failure).
     PerfAssets {
-        /// The artifact root (for the class-ladder floors).
+        /// The performance schedule root, `perf/` in this repository (for the
+        /// class-ladder floors)
         #[arg(long)]
         root: PathBuf,
         /// The committed results.json carrying the measurement records.

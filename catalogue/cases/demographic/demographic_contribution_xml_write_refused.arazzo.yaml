@@ -1,0 +1,48 @@
+# A demographic CONTRIBUTION commit in canonical XML, for a service that does
+# not process XML request payloads on it: the refused arm of the
+# `demographic-contribution-xml-write` option. Every quote is copied verbatim
+# from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Demographic CONTRIBUTION commit in canonical XML refused
+  version: 0.1.0
+  description: >-
+    Committing a demographic CONTRIBUTION labelled Content-Type
+    application/xml to a service that cannot process the payload as XML.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: commit_demographic_contribution-xml_refused
+    summary: A demographic CONTRIBUTION commit in XML is refused with 415
+    description: >-
+      Commits a demographic CONTRIBUTION whose one member creates a PERSON,
+      labelled Content-Type application/xml, to a service that cannot process
+      the payload as XML. The commit is answered 415 Unsupported Media Type.
+      No published XSD declares a document element for the commit envelope,
+      so the payload names its root element after the RM class.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    steps:
+      - stepId: commit
+        description: Commit the CONTRIBUTION labelled Content-Type application/xml.
+        operationId: $sourceDescriptions.demographic.contribution_create
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <contribution xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+              <versions>
+                <lifecycle_state><value>complete</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>532</code_string></defining_code></lifecycle_state>
+                <commit_audit><change_type><value>creation</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>249</code_string></defining_code></change_type><committer xsi:type="PARTY_IDENTIFIED"><name>Veredictum</name></committer></commit_audit>
+                <data xsi:type="PERSON" archetype_node_id="openEHR-DEMOGRAPHIC-PERSON.person.v1"><name><value>person v1</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-PERSON.person.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Person Contributed</value></value></items></details></identities></data>
+              </versions>
+              <audit><change_type><value>creation</value><defining_code><terminology_id><value>openehr</value></terminology_id><code_string>249</code_string></defining_code></change_type><committer xsi:type="PARTY_IDENTIFIED"><name>Veredictum</name></committer></audit>
+            </contribution>
+        successCriteria:
+          - condition: $statusCode == 415

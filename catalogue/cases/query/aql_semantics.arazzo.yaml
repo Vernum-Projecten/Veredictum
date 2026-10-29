@@ -743,6 +743,7 @@ workflows:
       source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
       section: LIKE
       quote: "To match a literal `?` or `*`, the respective character in a pattern must be escaped by using the backslash `\\` character, e.g. `\"test \\?\"`."
+      report: 771
     steps:
       - stepId: query
         description: >-

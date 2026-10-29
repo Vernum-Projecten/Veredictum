@@ -31,6 +31,8 @@
 #   app/veredictum-console/src/   the web console the image serves
 #   artifacts/      the catalogue — a case, a binding or a register entry
 #                   changes what a run reports about somebody's server
+#   perf/           the performance schedule — a class case, a journey or a
+#                   payload changes what a measured run records
 #   schemas/        the published JSON Schemas an integrator authors against
 #   docker/         the container image, and the ignore file that decides what
 #   .dockerignore   its build can even see
@@ -58,6 +60,7 @@ readonly USER_VISIBLE_PATHS=(
   'app/veredictum/src/'
   'app/veredictum-console/src/'
   'artifacts/'
+  'perf/'
   'schemas/'
   'docker/'
   '\.dockerignore$'

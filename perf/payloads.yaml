@@ -1,0 +1,164 @@
+# The payload manifest of the performance schedule: every request body and
+# operational template the measured instruments send, keyed by the name a
+# journey stage or the seeder uses. `source` resolves under payloads/,
+# `template_id` is the OPT's wire identifier where the payload has one, and
+# `provenance` records where the bytes come from.
+#
+# No openEHR spec governs measured performance (CNF guide
+# master03-overview.adoc §Product Scope excludes it); this tree is our own
+# design. Each file is byte-identical to the corpus entry of the same key
+# while the case-core corpus exists, and a test holds the two together.
+#
+# A journey stage that commits names a template key here; the instrument
+# reads that key's OPT and its `.example` skeleton. The other keys are the
+# scale corpus OPT (cnf.opt.blood_pressure), the Simplified-FLAT pair and
+# the demographic bodies. An entry nothing reads is a load error.
+cnf.ckm.breast_cancer_report:
+  source: ckm/bc-breast-cancer-report.opt
+  template_id: "British Columbia Cancer agency Breast Cancer Synoptic Report"
+  provenance: "openEHR CKM cid 1013.26.199 (British Columbia Cancer agency Breast Cancer Synoptic Report, status INITIAL, modified 2018-11-12T12:27:58+01:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: specialist_report (cancer synoptic report)"
+cnf.ckm.breast_cancer_report.example:
+  source: ckm/bc-breast-cancer-report.example.json
+  template_id: "British Columbia Cancer agency Breast Cancer Synoptic Report"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.ccta_report:
+  source: ckm/ccta-report.opt
+  template_id: "CCTA report"
+  provenance: "openEHR CKM cid 1013.26.386 (CCTA report, status INITIAL, modified 2021-08-02T07:29:55+02:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: imaging_pipeline (report)"
+cnf.ckm.ccta_report.example:
+  source: ckm/ccta-report.example.json
+  template_id: "CCTA report"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.covid19_report:
+  source: ckm/covid19-infection-report.opt
+  template_id: "openEHR confirmed COVID-19 infection report.v0"
+  provenance: "openEHR CKM cid 1013.26.282 (openEHR confirmed COVID-19 infection report.v0, status DRAFT, modified 2020-08-07T07:19:11+02:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: public_health_notification (confirmed-case follow-up)"
+cnf.ckm.covid19_report.example:
+  source: ckm/covid19-infection-report.example.json
+  template_id: "openEHR confirmed COVID-19 infection report.v0"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.diphtheria_investigation:
+  source: ckm/diphtheria-case-investigation.opt
+  template_id: "Diphtheria case investigation form"
+  provenance: "openEHR CKM cid 1013.26.980 (Diphtheria case investigation form, status INITIAL, modified 2024-12-30T01:55:25+01:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: case_investigation"
+cnf.ckm.diphtheria_investigation.example:
+  source: ckm/diphtheria-case-investigation.example.json
+  template_id: "Diphtheria case investigation form"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.eprescription:
+  source: ckm/eprescription-fhir.opt
+  template_id: "ePrescription (FHIR)"
+  provenance: "openEHR CKM cid 1013.26.80 (ePrescription (FHIR), status DRAFT, modified 2016-05-23T23:01:02+02:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: medication_round (order + administrations)"
+cnf.ckm.eprescription.example:
+  source: ckm/eprescription-fhir.example.json
+  template_id: "ePrescription (FHIR)"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.ereferral:
+  source: ckm/ereferral.opt
+  template_id: "eReferral"
+  provenance: "openEHR CKM cid 1013.26.2 (eReferral, status DRAFT, modified 2010-03-25T07:26:15+01:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: lab_pipeline / imaging_pipeline (order)"
+cnf.ckm.ereferral.example:
+  source: ckm/ereferral.example.json
+  template_id: "eReferral"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.gp_data_set:
+  source: ckm/gp-data-set.opt
+  template_id: "GP data set"
+  provenance: "openEHR CKM cid 1013.26.191 (GP data set, status INITIAL, modified 2018-10-15T02:11:04+02:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: correction target (ward-seeded, amended)"
+cnf.ckm.gp_data_set.example:
+  source: ckm/gp-data-set.example.json
+  template_id: "GP data set"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.ips:
+  source: ckm/international-patient-summary.opt
+  template_id: "International Patient Summary"
+  provenance: "openEHR CKM cid 1013.26.376 (International Patient Summary, status DRAFT, modified 2020-08-18T04:28:14+02:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: admission / discharge summary"
+cnf.ckm.ips.example:
+  source: ckm/international-patient-summary.example.json
+  template_id: "International Patient Summary"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.lab_result:
+  source: ckm/generic-lab-test-result.opt
+  template_id: "Generic lab test result example simple"
+  provenance: "openEHR CKM cid 1013.26.408 (Generic lab test result example simple, status DRAFT, modified 2021-10-18T11:28:46+02:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: lab_pipeline (result contribution)"
+cnf.ckm.lab_result.example:
+  source: ckm/generic-lab-test-result.example.json
+  template_id: "Generic lab test result example simple"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.medicines_list:
+  source: ckm/medicines-list.opt
+  template_id: "Medicines list item R1"
+  provenance: "openEHR CKM cid 1013.26.357 (Medicines list item R1, status INITIAL, modified 2020-07-22T09:13:37+02:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: medicines_reconciliation (ward-seeded, updated)"
+cnf.ckm.medicines_list.example:
+  source: ckm/medicines-list.example.json
+  template_id: "Medicines list item R1"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.poisoning_investigation:
+  source: ckm/poisoning-case-investigation.opt
+  template_id: "Accidental poisoning case investigation form"
+  provenance: "openEHR CKM cid 1013.26.988 (Accidental poisoning case investigation form, status INITIAL, modified 2024-12-30T03:35:42+01:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: case_investigation"
+cnf.ckm.poisoning_investigation.example:
+  source: ckm/poisoning-case-investigation.example.json
+  template_id: "Accidental poisoning case investigation form"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.problem_list:
+  source: ckm/problem-list.opt
+  template_id: "Problem/Diagnosis list item R1"
+  provenance: "openEHR CKM cid 1013.26.360 (Problem/Diagnosis list item R1, status INITIAL, modified 2020-07-22T09:15:48+02:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: admission (problem list)"
+cnf.ckm.problem_list.example:
+  source: ckm/problem-list.example.json
+  template_id: "Problem/Diagnosis list item R1"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.sars_notification:
+  source: ckm/sars-event-notification.opt
+  template_id: "SARS event notification"
+  provenance: "openEHR CKM cid 1013.26.377 (SARS event notification, status DRAFT, modified 2020-10-13T06:36:16+02:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: public_health_notification (statutory notification)"
+cnf.ckm.sars_notification.example:
+  source: ckm/sars-event-notification.example.json
+  template_id: "SARS event notification"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.syphilis_investigation:
+  source: ckm/congenital-syphilis-case-investigation.opt
+  template_id: "Congenital syphilis case investigation form"
+  provenance: "openEHR CKM cid 1013.26.977 (Congenital syphilis case investigation form, status INITIAL, modified 2024-12-30T01:49:57+01:00) — CKM's own OPT 1.4 export vendored verbatim 2026-08-01 (byte-identical to the full-pack copy and to a fresh export); the LARGEST OPT the CKM publishes (5.2 MB) — the large-payload scale probe (#1462); journey role: case_investigation"
+cnf.ckm.syphilis_investigation.example:
+  source: ckm/congenital-syphilis-case-investigation.example.json
+  template_id: "Congenital syphilis case investigation form"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-08-01 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time; at ~526 KB the largest committed composition payload (the #1462 large-payload scale probe)"
+cnf.ckm.treat_registry_report:
+  source: ckm/treat-registry-report.opt
+  template_id: "TREAT Registry report"
+  provenance: "openEHR CKM cid 1013.26.40 (TREAT Registry report, status DRAFT, modified 2015-02-18T21:32:34+01:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: registry_submission (registry export)"
+cnf.ckm.treat_registry_report.example:
+  source: ckm/treat-registry-report.example.json
+  template_id: "TREAT Registry report"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.vital_signs:
+  source: ckm/vital-signs.opt
+  template_id: "Vital signs"
+  provenance: "openEHR CKM cid 1013.26.380 (Vital signs, status DRAFT, modified 2021-03-08T13:30:44+01:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: vitals_round (full observation round)"
+cnf.ckm.vital_signs.example:
+  source: ckm/vital-signs.example.json
+  template_id: "Vital signs"
+  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.opt.blood_pressure:
+  source: templates/blood_pressure.opt
+  template_id: "cnf.blood_pressure"
+  provenance: "generated by generate_content_opts.py 2026-07-22 — the AQL-corpus committed-set template carrying exactly the archetype/node ids the bp_series recipe commits (corpus/recipes/bp_series.md); validated against the SUT"
+cnf.opt.minimal_action:
+  source: templates/minimal_action.opt
+  template_id: "minimal_action.en.v1"
+  provenance: "the minimal ACTION template (openEHR-EHR-COMPOSITION.minimal.v1 + openEHR-EHR-ACTION.minimal.v1, WT root `minimal`, ISM_TRANSITION + DV_MULTIMEDIA leaf), preserved verbatim 2026-07-22 from the former templates/vitals.opt when cnf.opt.vitals was re-authored as the body_temperature carrier. Carries the minimal/... FLAT paths + ISM_TRANSITION current_state that the SF ctx/example/wt/map/nodeid cases and the cnf.flat.vitals.minimal_ctx / cnf.flat.vitals.composer_self fixtures exercise; provenance of the ACTION content: openEHR CNF Robot corpus (vendored specs/openehr/CNF/tests/platform/robot @ the CNF pin)"
+cnf.flat.vitals.minimal_ctx:
+  source: flat/vitals.minimal_ctx.json
+  template_id: "minimal_action.en.v1"
+  provenance: "openEHR CNF Robot corpus (vendored specs/openehr/CNF/tests/platform/robot @ the CNF pin); re-adjudicated 2026-07-21 to spec-text-only evidence"
+cnf.demographic.person.v1:
+  source: demographic/person.v1.json
+  provenance: "authored 2026-07-21 from the RM demographic class model (§PERSON; §PARTY Identities_valid: identities non-empty) — first content state"
+cnf.demographic.person.v2:
+  source: demographic/person.v2.json
+  provenance: "authored 2026-07-21 from the RM demographic class model (§PERSON; §PARTY Identities_valid) — updated content state (amended identity value)"
+cnf.demographic.party_relationship.v1:
+  source: demographic/party_relationship.v1.json
+  provenance: "authored 2026-07-21 from the RM demographic class model (§PARTY_RELATIONSHIP source/target PARTY_REF) — first content state"
