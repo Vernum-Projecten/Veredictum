@@ -112,7 +112,10 @@ fn wait_terminal(
     slot: &JobSlot,
     id: veredictum_console::run_job::RunId,
 ) -> Option<veredictum_console::run_job::JobView> {
-    for _ in 0..600 {
+    // A CI runner takes about a minute to spawn and drive the debug engine,
+    // so the bound is wall-clock time, never a poll count.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_mins(4);
+    while std::time::Instant::now() < deadline {
         let view = slot.view_of(id).ok()??;
         if view.status.is_terminal() {
             return Some(view);
