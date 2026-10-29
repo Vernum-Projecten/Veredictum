@@ -1,0 +1,1150 @@
+# COMPOSITIONs created from the Simplified Flat JSON format whose paths set
+# the optional RM attributes master05 maps with an underscore prefix: the
+# EVENT_CONTEXT rows, archetyped other_context content, and the links, feeder
+# audits and uids of the COMPOSITION, an ENTRY, an ELEMENT and a CLUSTER, for
+# a service that processes the format: part of the accepting arm of the
+# `composition-flat-write` option, as Arazzo 1.1.0 workflows over the released
+# ITS-REST `-validation` OAS. Each workflow commits a flat document of the
+# template test_all_types.en.v1 and reads the COMPOSITION back in canonical
+# JSON. Every criterion resolves to an `x-veredictum-cite` (its own, else its
+# step's, else its workflow's), and every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: Optional RM attributes from the Simplified Flat JSON format
+  version: 0.1.0
+  description: >-
+    The EVENT_CONTEXT, LINK, FEEDER_AUDIT and uid rows of the Simplified
+    Formats specification (master05-rm_mapping.adoc), one row per workflow,
+    judged on the canonical JSON of the COMPOSITION a flat document of the
+    template test_all_types.en.v1 created.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: sf
+    url: ../_setup/simplified_formats.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: create_composition-flat-context_end_time
+    summary: A flat context/_end_time sets the end_time of the EVENT_CONTEXT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose context gives
+      start_time 2021-12-21T14:19:31.649613+01:00 and _end_time
+      2021-12-21T15:19:31.649613+01:00, and reads the COMPOSITION back in
+      canonical JSON. Its EVENT_CONTEXT ends at that end_time.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: EVENT_CONTEXT
+      quote: '| `/_end_time` | <<DV_DATE_TIME,DV_DATE_TIME>> | end_time | no |'
+    inputs: &ehr_input
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create_ehr
+        stepId: create-ehr
+        description: Create the EHR with the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: '`201 Created` is returned when the EHR has been successfully created,'
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context gives an end time and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/context/start_time: '2021-12-21T14:19:31.649613+01:00'
+            test_all_types/context/_end_time: '2021-12-21T15:19:31.649613+01:00'
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/context/end_time/value
+            type: regex
+            condition: '^2021-12-21T15:19:31\.649613\+01:00$'
+
+  - workflowId: create_composition-flat-context_location
+    summary: A flat context/_location sets the location of the EVENT_CONTEXT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose context gives
+      _location Ward A3, Room 12, and reads the COMPOSITION back in
+      canonical JSON. Its EVENT_CONTEXT has that location.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: EVENT_CONTEXT
+      quote: '| `/_location` | String | location | no | Free-text label (e.g. "Ward A3"); not a date-time.'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context gives a location and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/context/_location: 'Ward A3, Room 12'
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/context/location
+            type: regex
+            condition: '^Ward A3, Room 12$'
+
+  - workflowId: create_composition-flat-context_health_care_facility
+    summary: A flat context/_health_care_facility sets the health care facility of the EVENT_CONTEXT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose context gives
+      _health_care_facility with the name Hospital, the id 9091 and the id
+      scheme and namespace HOSPITAL-NS, and reads the COMPOSITION back in
+      canonical JSON. Its EVENT_CONTEXT carries a health_care_facility named
+      Hospital whose external_ref carries the id 9091 in the namespace
+      HOSPITAL-NS.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: EVENT_CONTEXT
+      quote: '| `/_health_care_facility` | <<PARTY_IDENTIFIED,PARTY_IDENTIFIED>> | health_care_facility | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context names the health care facility and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/context/_health_care_facility|id: '9091'
+            test_all_types/context/_health_care_facility|id_scheme: 'HOSPITAL-NS'
+            test_all_types/context/_health_care_facility|id_namespace: 'HOSPITAL-NS'
+            test_all_types/context/_health_care_facility|name: Hospital
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/context/health_care_facility/name
+            type: regex
+            condition: '^Hospital$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: PARTY_IDENTIFIED
+              quote: '| `\|name` | String | name | no |'
+          - context: $response.body#/context/health_care_facility/external_ref/id/value
+            type: regex
+            condition: '^9091$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: PARTY_IDENTIFIED
+              quote: '| `\|id` | String | external_ref.id.value | no |'
+          - context: $response.body#/context/health_care_facility/external_ref/namespace
+            type: regex
+            condition: '^HOSPITAL-NS$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: PARTY_IDENTIFIED
+              quote: '| `\|id_namespace` | String | external_ref.namespace | (yes) | required if id is set'
+
+  - workflowId: create_composition-flat-context_participation
+    summary: A flat context/_participation sets a participation of the EVENT_CONTEXT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose context gives
+      _participation:0 with the function requester, the mode face-to-face
+      communication, the name Dr. Marcus Johnson and the id 199, and reads
+      the COMPOSITION back in canonical JSON. Its EVENT_CONTEXT carries that
+      participation, whose performer is named Dr. Marcus Johnson and
+      referenced by the id 199.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: EVENT_CONTEXT
+      quote: '| `/_participation:i` | <<PARTICIPATION,PARTICIPATION>> | participations | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context gives a participation and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/context/_participation:0|function: requester
+            test_all_types/context/_participation:0|mode: 'face-to-face communication'
+            test_all_types/context/_participation:0|name: Dr. Marcus Johnson
+            test_all_types/context/_participation:0|id: '199'
+            test_all_types/context/_participation:0|id_scheme: 'HOSPITAL-NS'
+            test_all_types/context/_participation:0|id_namespace: 'HOSPITAL-NS'
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.context.participations[?@.function.value == 'requester' && @.performer.name == 'Dr. Marcus Johnson']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: PARTICIPATION
+              quote: '| `\|function` | String | function.value | yes |'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.context.participations[?@.function.value == 'requester' && @.mode.value == 'face-to-face communication']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: PARTICIPATION
+              quote: '| `\|mode` | String | mode.value | no | ValueSet (openEHR `participation mode` group)'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.context.participations[?@.function.value == 'requester' && @.performer.external_ref.id.value == '199']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: PARTICIPATION
+              quote: '| `\|id` | String | performer.external_ref.id.value | no |'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.context.participations[?@.function.value == 'requester' && @.performer.external_ref.namespace == 'HOSPITAL-NS']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: PARTICIPATION
+              quote: '| `\|id_namespace` | String | performer.external_ref.namespace | (yes) | required if `\|id` is set. (RM `OBJECT_REF` has `namespace` directly on the reference, not nested under `id`.)'
+
+  - workflowId: create_composition-flat-participation_party_related
+    summary: A flat participation /relationship makes its performer a PARTY_RELATED
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose context gives
+      _participation:0 with the function next of kin, the name Susan Doe and
+      a /relationship coded 10 mother in the openehr terminology, and reads
+      the COMPOSITION back in canonical JSON. The performer of that
+      participation is a PARTY_RELATED whose relationship carries the code
+      10.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: PARTY_RELATED performer
+      quote: 'When the `performer` is a `PARTY_RELATED` (a sub-type of `PARTY_IDENTIFIED` that carries a `relationship: DV_CODED_TEXT`), the `relationship` attribute is emitted as a sub-path under the participation'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose participation names a related party and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/context/_participation:0|function: next of kin
+            test_all_types/context/_participation:0|name: Susan Doe
+            test_all_types/context/_participation:0/relationship|code: '10'
+            test_all_types/context/_participation:0/relationship|value: mother
+            test_all_types/context/_participation:0/relationship|terminology: openehr
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.context.participations[?@.performer._type == 'PARTY_RELATED' && @.performer.name == 'Susan Doe']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.context.participations[?@.performer.relationship.defining_code.code_string == '10' && @.performer.relationship.defining_code.terminology_id.value == 'openehr']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: PARTY_RELATED performer
+              quote: '| `/relationship` | <<DV_CODED_TEXT,DV_CODED_TEXT>> | relationship (when `performer` is `PARTY_RELATED`) | (yes) | Required when `performer` is a `PARTY_RELATED`; not present otherwise.'
+
+  - workflowId: create_composition-flat-other_context
+    summary: A flat context/<node-name> leaf sets archetyped content of the other_context
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose leaf
+      test_all_types/context/context_coded_text carries the code at0006, and
+      reads the COMPOSITION back in canonical JSON. Its EVENT_CONTEXT
+      other_context is the ITEM_SINGLE at0004 whose ELEMENT at0005 carries
+      that code.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: EVENT_CONTEXT
+      quote: 'archetyped context content is flattened to sit directly under `/context/<node-name>/...`'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose context gives an other_context leaf and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/context/context_coded_text|code: at0006
+            test_all_types/context/context_coded_text|value: value1
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.other_context.archetype_node_id == 'at0004' && @.other_context.item.archetype_node_id == 'at0005' && @.other_context.item.value.defining_code.code_string == 'at0006']"
+
+  - workflowId: create_composition-flat-link_composition
+    summary: A flat _link on the COMPOSITION sets its links
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose path test_all_types
+      carries _link:0 of the type problem, the meaning problem related note
+      and a target, and reads the COMPOSITION back in canonical JSON. The
+      COMPOSITION carries a LINK with that type, meaning and target.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: COMPOSITION
+      quote: '| `/_link:i` | <<LINK,LINK>> | links | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose COMPOSITION carries a link and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/_link:0|type: problem
+            test_all_types/_link:0|meaning: problem related note
+            test_all_types/_link:0|target: 'ehr://ehr.network/347a5490-55ee-4da9-b91a-9bba710f730e'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.links[?@.type.value == 'problem']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: LINK
+              quote: '| `\|type` | STRING | type.value | yes |'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.links[?@.meaning.value == 'problem related note']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: LINK
+              quote: '| `\|meaning` | STRING | meaning.value | yes |'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.links[?@.target.value == 'ehr://ehr.network/347a5490-55ee-4da9-b91a-9bba710f730e']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+              section: LINK
+              quote: '| `\|target` | STRING | target.value | yes |'
+
+  - workflowId: create_composition-flat-link_entry
+    summary: A flat _link on an OBSERVATION sets its links
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose path
+      test_all_types/test_all_types:0 carries _link:0 of the type problem,
+      the meaning problem related note and a target, and reads the
+      COMPOSITION back in canonical JSON. An OBSERVATION carries a LINK with
+      that type, meaning and target.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: OBSERVATION
+      quote: '| `/_link:i` | <<LINK,LINK>> | links | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose OBSERVATION carries a link and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types:0/_link:0|type: problem
+            test_all_types/test_all_types:0/_link:0|meaning: problem related note
+            test_all_types/test_all_types:0/_link:0|target: 'ehr://ehr.network/347a5490-55ee-4da9-b91a-9bba710f730e'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].links[?@.type.value == 'problem' && @.meaning.value == 'problem related note' && @.target.value == 'ehr://ehr.network/347a5490-55ee-4da9-b91a-9bba710f730e']"
+
+  - workflowId: create_composition-flat-link_element
+    summary: A flat _link on an ELEMENT sets its links
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose path
+      test_all_types/test_all_types:0/quantity carries _link:0 of the type
+      problem, the meaning problem related note and a target, and reads the
+      COMPOSITION back in canonical JSON. An ELEMENT carries a LINK with
+      that type, meaning and target.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: ELEMENT
+      quote: '| `/_link:i` | <<LINK,LINK>> | links | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose ELEMENT carries a link and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types:0/quantity/_link:0|type: problem
+            test_all_types/test_all_types:0/quantity/_link:0|meaning: problem related note
+            test_all_types/test_all_types:0/quantity/_link:0|target: 'ehr://ehr.network/347a5490-55ee-4da9-b91a-9bba710f730e'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007'].links[?@.type.value == 'problem' && @.meaning.value == 'problem related note' && @.target.value == 'ehr://ehr.network/347a5490-55ee-4da9-b91a-9bba710f730e']"
+
+  - workflowId: create_composition-flat-link_cluster
+    summary: A flat _link on a CLUSTER sets its links
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose path
+      test_all_types/test_all_types_1:0/cluster_1 carries _link:0 of the
+      type problem, the meaning problem related note and a target, and reads
+      the COMPOSITION back in canonical JSON. A CLUSTER carries a LINK with
+      that type, meaning and target.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: CLUSTER
+      quote: '| `/_link:i` | <<LINK,LINK>> | links | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose CLUSTER carries a link and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types_1:0/cluster_1/cluster_2/cluster_3/text_2: text 2 3
+            test_all_types/test_all_types_1:0/cluster_1/_link:0|type: problem
+            test_all_types/test_all_types_1:0/cluster_1/_link:0|meaning: problem related note
+            test_all_types/test_all_types_1:0/cluster_1/_link:0|target: 'ehr://ehr.network/347a5490-55ee-4da9-b91a-9bba710f730e'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0006'].links[?@.type.value == 'problem' && @.meaning.value == 'problem related note' && @.target.value == 'ehr://ehr.network/347a5490-55ee-4da9-b91a-9bba710f730e']"
+
+  - workflowId: create_composition-flat-feeder_audit_composition
+    summary: A flat _feeder_audit on the COMPOSITION sets its FEEDER_AUDIT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose path test_all_types
+      carries _feeder_audit with an originating system audit of the system
+      orig and the version final, and reads the COMPOSITION back in
+      canonical JSON. The COMPOSITION's feeder_audit carries that
+      originating system audit.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: COMPOSITION
+      quote: '| `/_feeder_audit` | <<FEEDER_AUDIT,FEEDER_AUDIT>> | feeder_audit | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose COMPOSITION carries a feeder audit and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/_feeder_audit/originating_system_audit|system_id: orig
+            test_all_types/_feeder_audit/originating_system_audit|version_id: final
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body#/feeder_audit/originating_system_audit/system_id
+            type: regex
+            condition: '^orig$'
+          - context: $response.body#/feeder_audit/originating_system_audit/version_id
+            type: regex
+            condition: '^final$'
+
+  - workflowId: create_composition-flat-feeder_audit_entry
+    summary: A flat _feeder_audit on an EVALUATION sets its FEEDER_AUDIT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose path
+      test_all_types/test_all_types_1:0 carries _feeder_audit with an
+      originating system audit of the system orig and the version final, and
+      reads the COMPOSITION back in canonical JSON. An EVALUATION's
+      feeder_audit carries that originating system audit.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: EVALUATION
+      quote: '| `/_feeder_audit` | <<FEEDER_AUDIT,FEEDER_AUDIT>> | feeder_audit | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose EVALUATION carries a feeder audit and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types_1:0/uri: 'http://example.com/path/resource'
+            test_all_types/test_all_types_1:0/_feeder_audit/originating_system_audit|system_id: orig
+            test_all_types/test_all_types_1:0/_feeder_audit/originating_system_audit|version_id: final
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1' && @.feeder_audit.originating_system_audit.system_id == 'orig']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1' && @.feeder_audit.originating_system_audit.version_id == 'final']"
+
+  - workflowId: create_composition-flat-feeder_audit_element
+    summary: A flat _feeder_audit on an ELEMENT sets its FEEDER_AUDIT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose path
+      test_all_types/test_all_types:0/quantity carries _feeder_audit with an
+      originating system audit of the system orig and the version final, and
+      reads the COMPOSITION back in canonical JSON. An ELEMENT's
+      feeder_audit carries that originating system audit.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: ELEMENT
+      quote: '| `/_feeder_audit` | <<FEEDER_AUDIT,FEEDER_AUDIT>> | feeder_audit | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose ELEMENT carries a feeder audit and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types:0/quantity/_feeder_audit/originating_system_audit|system_id: orig
+            test_all_types/test_all_types:0/quantity/_feeder_audit/originating_system_audit|version_id: final
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007' && @.feeder_audit.originating_system_audit.system_id == 'orig']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007' && @.feeder_audit.originating_system_audit.version_id == 'final']"
+
+  - workflowId: create_composition-flat-feeder_audit_cluster
+    summary: A flat _feeder_audit on a CLUSTER sets its FEEDER_AUDIT
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose path
+      test_all_types/test_all_types_1:0/cluster_1 carries _feeder_audit with
+      an originating system audit of the system orig and the version final,
+      and reads the COMPOSITION back in canonical JSON. A CLUSTER's
+      feeder_audit carries that originating system audit.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: CLUSTER
+      quote: '| `/_feeder_audit` | <<FEEDER_AUDIT,FEEDER_AUDIT>> | feeder_audit | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose CLUSTER carries a feeder audit and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types_1:0/cluster_1/cluster_2/cluster_3/text_2: text 2 3
+            test_all_types/test_all_types_1:0/cluster_1/_feeder_audit/originating_system_audit|system_id: orig
+            test_all_types/test_all_types_1:0/cluster_1/_feeder_audit/originating_system_audit|version_id: final
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0006' && @.feeder_audit.originating_system_audit.system_id == 'orig']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0006' && @.feeder_audit.originating_system_audit.version_id == 'final']"
+
+  - workflowId: create_composition-flat-uid_entry
+    summary: A flat _uid on an OBSERVATION sets its uid
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose path
+      test_all_types/test_all_types:0 carries _uid
+      9fcc1c70-9349-444d-b9cb-8fa817697f5e, and reads the COMPOSITION back
+      in canonical JSON. An OBSERVATION's uid has that value.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: OBSERVATION
+      quote: '| `/_uid` | STRING | uid.value | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose OBSERVATION carries a uid and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types:0/_uid: '9fcc1c70-9349-444d-b9cb-8fa817697f5e'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1' && @.uid.value == '9fcc1c70-9349-444d-b9cb-8fa817697f5e']"
+
+  - workflowId: create_composition-flat-uid_element
+    summary: A flat _uid on an ELEMENT sets its uid
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose path
+      test_all_types/test_all_types:0/quantity carries _uid
+      9fcc1c70-9349-444d-b9cb-8fa817697f5e, and reads the COMPOSITION back
+      in canonical JSON. An ELEMENT's uid has that value.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: ELEMENT
+      quote: '| `/_uid` | STRING | uid.value | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose ELEMENT carries a uid and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types:0/quantity/_uid: '9fcc1c70-9349-444d-b9cb-8fa817697f5e'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-OBSERVATION.test_all_types.v1'].data.events[*].data.items[?@.archetype_node_id == 'at0007' && @.uid.value == '9fcc1c70-9349-444d-b9cb-8fa817697f5e']"
+
+  - workflowId: create_composition-flat-uid_cluster
+    summary: A flat _uid on a CLUSTER sets its uid
+    description: >-
+      Creates an EHR, then creates a COMPOSITION of the template
+      test_all_types.en.v1 from a flat document whose path
+      test_all_types/test_all_types_1:0/cluster_1 carries _uid
+      9fcc1c70-9349-444d-b9cb-8fa817697f5e, and reads the COMPOSITION back
+      in canonical JSON. A CLUSTER's uid has that value.
+    dependsOn: [$sourceDescriptions.sf.upload_template-test_all_types]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/docs/simplified_formats/master05-rm_mapping.adoc
+      section: CLUSTER
+      quote: '| `/_uid` | STRING | uid.value | no |'
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Create the COMPOSITION from the flat document whose CLUSTER carries a uid and keep the version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: test_all_types.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload:
+            ctx/language: en
+            ctx/territory: US
+            ctx/composer_name: CNF Composer
+            test_all_types/test_all_types:0/quantity|magnitude: 68.07
+            test_all_types/test_all_types:0/quantity|unit: mg
+            test_all_types/test_all_types_1:0/cluster_1/cluster_2/cluster_3/text_2: text 2 3
+            test_all_types/test_all_types_1:0/cluster_1/_uid: '9fcc1c70-9349-444d-b9cb-8fa817697f5e'
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: '`201 Created` is returned when the COMPOSITION is successfully created.'
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: read
+        description: Retrieve the COMPOSITION by its version_uid in canonical JSON.
+        operationId: $sourceDescriptions.ehr.composition_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_retrieved.yaml
+              section: description
+              quote: '`200 OK` is returned when the requested COMPOSITION is successfully retrieved.'
+          - context: $response.body
+            type: jsonpath
+            condition: "$.content[?@.archetype_node_id == 'openEHR-EHR-EVALUATION.test_all_types.v1'].data.items[?@.archetype_node_id == 'at0006' && @.uid.value == '9fcc1c70-9349-444d-b9cb-8fa817697f5e']"

@@ -1,0 +1,74 @@
+# The EHR creates with an EHR_STATUS sent as application/openehr.wt.structured+json,
+# for a service that does not process the Simplified Structured JSON format: the
+# refusing arm of the `ehr-status-structured-write` option. The release defines no
+# EHR_STATUS form in the format (upstream report #352), so the body is the
+# canonical EHR_STATUS and only the media type is judged; the accepting arm
+# has no document. Every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: EHR create in the Simplified Structured format, refused
+  version: 0.1.0
+  description: >-
+    Creating an EHR with Content-Type application/openehr.wt.structured+json on
+    both wire forms of the create, against a service that does not process
+    the Simplified Structured JSON format.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_ehr-structured_unsupported_media
+    summary: An EHR create sent as Simplified Structured JSON is refused as unsupported media
+    description: >-
+      Creates an EHR with a client-supplied ehr_id and then without one, each
+      time sending the EHR_STATUS with Content-Type
+      application/openehr.wt.structured+json. Both creates are refused with 415
+      Unsupported Media Type, and no EHR exists under the client-supplied
+      ehr_id afterwards.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "If the service cannot process the request payload as the simplified format is not supported, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create-with-id
+        description: Create the EHR with the client-supplied ehr_id, naming the Simplified Structured JSON format.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/openehr.wt.structured+json
+          payload: &status
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: true
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 415
+      - stepId: create
+        description: Create an EHR without an ehr_id, naming the Simplified Structured JSON format.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        requestBody:
+          contentType: application/openehr.wt.structured+json
+          payload: *status
+        successCriteria:
+          - condition: $statusCode == 415
+      - stepId: read-back
+        description: No EHR exists under the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 404
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id.yaml
+              section: description
+              quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist."

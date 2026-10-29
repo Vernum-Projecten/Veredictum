@@ -7,8 +7,7 @@ the commit `specs/openehr/ITS-REST/` vendors.
 
 | Patch | Report |
 |---|---|
-| `0352-folder-and-ehr-status-are-canonical-only.patch` | #352 |
-| `0352-party-kinds-are-canonical-only.patch` | #352 |
+| `0352-canonical-only-operations.patch` | #352 |
 | `0618-ehr-status-body-operations-declare-422.patch` | #618 |
 | `0619-ehr-id-parameter-is-a-hier-object-id.patch` | #619 |
 | `0620-etag-descriptions-name-the-weak-tag.patch` | #620 |
@@ -31,6 +30,7 @@ the commit `specs/openehr/ITS-REST/` vendors.
 | `0757-admin-delete-effect.patch` | #757 |
 | `0758-smart-discovery-and-scopes.patch` | #758 |
 | `0759-simplified-other-rejections.patch` | #759 |
+| `0791-simplified-formats-tables-and-examples.patch` | #791 |
 
 A patch is named after its report's number. Apply one in a checkout of that
 repository with `git apply <patch>`.

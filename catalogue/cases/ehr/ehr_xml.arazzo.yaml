@@ -1,16 +1,17 @@
-# The EHR reads in canonical XML, for a service that serves the EHR resource
-# in XML. Which of the two conformant answers a service gives to
+# The EHR reads and the answers of the EHR creates in canonical XML, for a
+# service that serves the EHR resource in XML. Which of the two conformant answers a service gives to
 # `Accept: application/xml` is the service's choice, so this document is the
 # served arm and `ehr_xml_not_acceptable.arazzo.yaml` the refused one; a
 # statement selects one of them. Every quote is copied verbatim from the
 # named vendored file.
 arazzo: 1.1.0
 info:
-  title: EHR reads in canonical XML
+  title: EHR reads and creates in canonical XML
   version: 0.1.0
   description: >-
-    Reading an EHR by id and by subject with Accept application/xml from a
-    service that serves the EHR resource in canonical XML.
+    Reading an EHR by id and by subject, and creating one on both wire
+    forms of the create, with Accept application/xml from a service that
+    serves the EHR resource in canonical XML.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
@@ -109,3 +110,45 @@ workflows:
           - { name: subject_namespace, in: query, value: veredictum }
           - { name: Accept, in: header, value: application/xml }
         successCriteria: *xml_read_criteria
+
+  - workflowId: create_ehr-xml
+    summary: An EHR create asking for the full resource in XML is answered in XML
+    description: >-
+      Creates an EHR with Prefer return=representation and Accept
+      application/xml. The answer is 201 with the EHR in its body, so it
+      carries Content-Type application/xml.
+    x-veredictum-cite: *xml_served
+    steps:
+      - stepId: create
+        description: Create an EHR and ask for the full resource in canonical XML.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria: &xml_create_criteria
+          - condition: $statusCode == 201
+            x-veredictum-cite: *ehr_created
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/xml'
+
+  - workflowId: create_ehr-xml-with_id
+    summary: An EHR create under a client-supplied ehr_id asking for the full resource in XML is answered in XML
+    description: >-
+      Creates an EHR with a client-supplied ehr_id, Prefer
+      return=representation and Accept application/xml. The answer is 201
+      with the EHR in its body, so it carries Content-Type application/xml.
+    x-veredictum-cite: *xml_served
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the EHR with the client-supplied ehr_id and ask for the full resource in canonical XML.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria: *xml_create_criteria

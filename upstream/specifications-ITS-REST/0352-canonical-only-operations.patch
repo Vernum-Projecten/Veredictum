@@ -41,6 +41,153 @@ index 7a722fb3..7b7545e0 100644
    - $ref: ../parameters/header/openehr-version-item-tag.yaml
  requestBody:
    description: |
+diff --git a/specifications/operations/contribution_create.yaml b/specifications/operations/contribution_create.yaml
+index 667bb891..1b6ebcb1 100644
+--- a/specifications/operations/contribution_create.yaml
++++ b/specifications/operations/contribution_create.yaml
+@@ -16,7 +16,7 @@ description: |
+ 
+   The `Content-Type` and `Accept` headers MAY be set to one of the Simplified Formats MIME types - `application/openehr.wt.flat+json` or `application/openehr.wt.structured+json` - in addition to the canonical `application/json` / `application/xml`.
+ 
+-  When a Simplified Formats MIME type is used, the **CONTRIBUTION envelope itself remains canonical JSON** (i.e. `uid`, `versions[]` metadata, and `audit` follow the canonical RM serialization). Only the inner versioned payload - each `versions[i].data` (the embedded `COMPOSITION`, `EHR_STATUS`, or `FOLDER`) - is serialized in the chosen FLAT or STRUCTURED form. See [Simplified Formats](../simplified_formats.html) for the rules that apply to that inner payload.
++  When a Simplified Formats MIME type is used, the **CONTRIBUTION envelope itself remains canonical JSON** (i.e. `uid`, `versions[]` metadata, and `audit` follow the canonical RM serialization). Only an embedded `COMPOSITION` in `versions[i].data` is serialized in the chosen FLAT or STRUCTURED form; an embedded `EHR_STATUS` or `FOLDER` stays canonical JSON, because the Simplified Formats define no mapping for either. See [Simplified Formats](../simplified_formats.html) for the rules that apply to that inner payload.
+ tags:
+   - CONTRIBUTION
+ parameters:
+diff --git a/specifications/operations/contribution_get.yaml b/specifications/operations/contribution_get.yaml
+index 871e935a..629568c9 100644
+--- a/specifications/operations/contribution_get.yaml
++++ b/specifications/operations/contribution_get.yaml
+@@ -7,7 +7,7 @@ description: |
+ 
+   The `Accept` header MAY be set to one of the Simplified Formats MIME types - `application/openehr.wt.flat+json` or `application/openehr.wt.structured+json` - in addition to the canonical `application/json` / `application/xml`.
+ 
+-  When a Simplified Formats MIME type is requested, the **CONTRIBUTION envelope itself is still returned as canonical JSON** (`uid`, `versions[]` metadata, `audit`). Only the inner `versions[i].data` payload (`COMPOSITION`, `EHR_STATUS`, or `FOLDER`) is serialized in the chosen FLAT or STRUCTURED form. See [Simplified Formats](../simplified_formats.html) for the rules that apply to that inner payload.
++  When a Simplified Formats MIME type is requested, the **CONTRIBUTION envelope itself is still returned as canonical JSON** (`uid`, `versions[]` metadata, `audit`). Only an inner `versions[i].data` payload that is a `COMPOSITION` is serialized in the chosen FLAT or STRUCTURED form; an `EHR_STATUS` or `FOLDER` payload stays canonical JSON, because the Simplified Formats define no mapping for either. See [Simplified Formats](../simplified_formats.html) for the rules that apply to that inner payload.
+ tags:
+   - CONTRIBUTION
+ parameters:
+diff --git a/specifications/operations/directory_create.yaml b/specifications/operations/directory_create.yaml
+index 880dc179..7db36b30 100644
+--- a/specifications/operations/directory_create.yaml
++++ b/specifications/operations/directory_create.yaml
+@@ -7,8 +7,8 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+ requestBody:
+   description: |
+     The directory.
+diff --git a/specifications/operations/directory_get_at_time.yaml b/specifications/operations/directory_get_at_time.yaml
+index 227fa720..a5892539 100644
+--- a/specifications/operations/directory_get_at_time.yaml
++++ b/specifications/operations/directory_get_at_time.yaml
+@@ -11,7 +11,7 @@ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/query/version_at_time.yaml
+   - $ref: ../parameters/query/path.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_FOLDER_retrieved.yaml
+diff --git a/specifications/operations/directory_get_by_version_id.yaml b/specifications/operations/directory_get_by_version_id.yaml
+index 512320b1..51e5da28 100644
+--- a/specifications/operations/directory_get_by_version_id.yaml
++++ b/specifications/operations/directory_get_by_version_id.yaml
+@@ -10,7 +10,7 @@ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/path/version_uid.yaml
+   - $ref: ../parameters/query/path.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_FOLDER_retrieved.yaml
+diff --git a/specifications/operations/directory_update.yaml b/specifications/operations/directory_update.yaml
+index dae1daf1..62c95a74 100644
+--- a/specifications/operations/directory_update.yaml
++++ b/specifications/operations/directory_update.yaml
+@@ -10,8 +10,8 @@ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/header/If-Match.yaml
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+ requestBody:
+   description: |
+     The new directory.
+diff --git a/specifications/operations/ehr_create.yaml b/specifications/operations/ehr_create.yaml
+--- a/specifications/operations/ehr_create.yaml
++++ b/specifications/operations/ehr_create.yaml
+@@ -16,7 +16,7 @@
+ parameters:
+   - $ref: ../parameters/header/Prefer.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+ requestBody:
+   description: |
+     An EHR_STATUS resource MAY be also supplied by the client as the request body.
+diff --git a/specifications/operations/ehr_create_with_id.yaml b/specifications/operations/ehr_create_with_id.yaml
+--- a/specifications/operations/ehr_create_with_id.yaml
++++ b/specifications/operations/ehr_create_with_id.yaml
+@@ -20,7 +20,7 @@
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/header/Prefer.yaml
+   - $ref: ../parameters/header/Accept_canonical.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+ requestBody:
+   description: |
+     An EHR_STATUS resource MAY be also supplied by the client as the request body.
+diff --git a/specifications/operations/ehr_status_get_at_time.yaml b/specifications/operations/ehr_status_get_at_time.yaml
+index 0f59e61a..74f722b7 100644
+--- a/specifications/operations/ehr_status_get_at_time.yaml
++++ b/specifications/operations/ehr_status_get_at_time.yaml
+@@ -12,7 +12,7 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/query/version_at_time.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_EHR_STATUS_retrieved.yaml
+diff --git a/specifications/operations/ehr_status_get_by_version_id.yaml b/specifications/operations/ehr_status_get_by_version_id.yaml
+index 272ae6db..e92c419c 100644
+--- a/specifications/operations/ehr_status_get_by_version_id.yaml
++++ b/specifications/operations/ehr_status_get_by_version_id.yaml
+@@ -10,7 +10,7 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/path/version_uid.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_EHR_STATUS_retrieved.yaml
+diff --git a/specifications/operations/ehr_status_update.yaml b/specifications/operations/ehr_status_update.yaml
+index 3c3c0eaf..7e06d584 100644
+--- a/specifications/operations/ehr_status_update.yaml
++++ b/specifications/operations/ehr_status_update.yaml
+@@ -15,8 +15,8 @@ parameters:
+   - $ref: ../parameters/path/ehr_id.yaml
+   - $ref: ../parameters/header/If-Match.yaml
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+   - $ref: ../parameters/header/openehr-item-tag.yaml
+   - $ref: ../parameters/header/openehr-version-item-tag.yaml
+ requestBody:
 diff --git a/specifications/operations/group_create.yaml b/specifications/operations/group_create.yaml
 index d91e2f4d..e1c35ab3 100644
 --- a/specifications/operations/group_create.yaml
@@ -239,6 +386,45 @@ index 23d1599d..70b4c57f 100644
    openehr-item-tag:
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
+diff --git a/specifications/responses/200_EHR_STATUS_retrieved.yaml b/specifications/responses/200_EHR_STATUS_retrieved.yaml
+index d3a119dc..d66c7ac5 100644
+--- a/specifications/responses/200_EHR_STATUS_retrieved.yaml
++++ b/specifications/responses/200_EHR_STATUS_retrieved.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/200_EHR_STATUS_updated.yaml b/specifications/responses/200_EHR_STATUS_updated.yaml
+index 5240e206..98ef6893 100644
+--- a/specifications/responses/200_EHR_STATUS_updated.yaml
++++ b/specifications/responses/200_EHR_STATUS_updated.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_EHR_STATUS.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/200_FOLDER_retrieved.yaml b/specifications/responses/200_FOLDER_retrieved.yaml
+index 3d2249cf..bb9396a1 100644
+--- a/specifications/responses/200_FOLDER_retrieved.yaml
++++ b/specifications/responses/200_FOLDER_retrieved.yaml
+@@ -2,7 +2,7 @@ description: |
+   `200 OK` is returned when the FOLDER is successfully retrieved.
+ headers:
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+ content:
+   application/json:
+     schema:
 diff --git a/specifications/responses/200_GROUP_retrieved.yaml b/specifications/responses/200_GROUP_retrieved.yaml
 index 5d892f5b..7171925f 100644
 --- a/specifications/responses/200_GROUP_retrieved.yaml
@@ -343,6 +529,19 @@ index b91f079c..4db88a64 100644
    openehr-item-tag:
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
+diff --git a/specifications/responses/200_directory_updated.yaml b/specifications/responses/200_directory_updated.yaml
+index 0c0e943f..e0f29cc2 100644
+--- a/specifications/responses/200_directory_updated.yaml
++++ b/specifications/responses/200_directory_updated.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_directory.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+ content:
+   application/json:
+     schema:
 diff --git a/specifications/responses/201_AGENT.yaml b/specifications/responses/201_AGENT.yaml
 index d54bb3f1..09bbccfc 100644
 --- a/specifications/responses/201_AGENT.yaml
@@ -408,3 +607,16 @@ index 78d3fa5b..8bf9af5a 100644
    openehr-item-tag:
      $ref: ../headers/openehr-item-tag.yaml
    openehr-version-item-tag:
+diff --git a/specifications/responses/201_directory.yaml b/specifications/responses/201_directory.yaml
+index 39d5e7e9..e4fc7792 100644
+--- a/specifications/responses/201_directory.yaml
++++ b/specifications/responses/201_directory.yaml
+@@ -8,7 +8,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_directory.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+ content:
+   application/json:
+     schema:
