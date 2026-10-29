@@ -56,6 +56,10 @@ pub struct RowsFile {
     /// The inputs bound from a value the party declares, by input name.
     #[serde(default)]
     pub declared: BTreeMap<String, Declared>,
+    /// What the workflow needs the server under test to be, beyond what
+    /// every workflow needs.
+    #[serde(default)]
+    pub server: Option<ServerOwnership>,
     /// The properties of the whole run, judged once after the last row.
     #[serde(default)]
     pub aggregate: Vec<Aggregate>,
@@ -111,6 +115,44 @@ impl Declared {
             .iter()
             .try_fold(declaration, |value, member| value.get(member))
             .filter(|value| !value.is_null())
+    }
+}
+
+/// What a workflow needs the server under test to be.
+///
+/// No openEHR spec governs this, our own design: a workflow whose operation
+/// changes state the workflow did not create runs only on a server the party
+/// declares as exclusively its run's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ServerOwnership {
+    /// The party's IXIT declares `environment.exclusive_server: true`, so no
+    /// other client holds data on the server while the run lasts.
+    Exclusive,
+}
+
+impl ServerOwnership {
+    /// Every value, in vocabulary order (schema emission derives from this).
+    pub const ALL: &[Self] = &[Self::Exclusive];
+
+    /// The token a rows file spells the value with.
+    #[must_use]
+    pub fn token(self) -> &'static str {
+        match self {
+            Self::Exclusive => "exclusive",
+        }
+    }
+
+    /// Whether the party's IXIT declares what this value needs; an absent
+    /// IXIT, environment or member declares nothing.
+    #[must_use]
+    pub fn declared_by(self, ixit: Option<&Value>) -> bool {
+        match self {
+            Self::Exclusive => ixit
+                .and_then(|ixit| ixit.pointer("/environment/exclusive_server"))
+                .and_then(Value::as_bool)
+                .is_some_and(|exclusive| exclusive),
+        }
     }
 }
 
@@ -467,6 +509,7 @@ mod tests {
             literals: Vec::new(),
             recipe: None,
             declared: BTreeMap::new(),
+            server: None,
             aggregate: Vec::new(),
             rows: vec![serde_json::from_value(row).unwrap()],
         };
@@ -488,6 +531,30 @@ mod tests {
         )
         .unwrap();
         assert_eq!(check_rows(&rows(json!({})), &no_inputs).len(), 1);
+    }
+
+    #[test]
+    fn an_exclusive_server_is_declared_only_by_a_true_ixit_member() {
+        let rows = parse(&json!({
+            "workflow": "admin/w",
+            "iteration": "single_pass",
+            "server": "exclusive",
+            "rows": [{}]
+        }))
+        .unwrap();
+        assert_eq!(rows.server, Some(ServerOwnership::Exclusive));
+        let exclusive = ServerOwnership::Exclusive;
+        let ixit = |environment: Value| json!({ "instances": {}, "environment": environment });
+        assert!(exclusive.declared_by(Some(&ixit(json!({ "exclusive_server": true })))));
+        assert!(!exclusive.declared_by(Some(&ixit(json!({ "exclusive_server": false })))));
+        assert!(!exclusive.declared_by(Some(&ixit(json!({})))));
+        assert!(!exclusive.declared_by(Some(&json!({ "instances": {} }))));
+        assert!(!exclusive.declared_by(None));
+        for seeded in [json!("shared"), json!("Exclusive"), json!(true)] {
+            let file = json!({ "workflow": "admin/w", "iteration": "single_pass",
+                               "server": seeded, "rows": [{}] });
+            assert!(parse(&file).is_err(), "{file}");
+        }
     }
 
     #[test]

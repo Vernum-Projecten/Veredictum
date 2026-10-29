@@ -16,6 +16,7 @@ use crate::arazzo::cite::{CITE_KEY, EXCLUDED_ROOT, ORACLE_ROOTS};
 use crate::arazzo::derive::DERIVE_KEY;
 use crate::arazzo::document::CHECK_KEY;
 use crate::arazzo::gates::profile::ProfileHeader;
+use crate::arazzo::gates::rows::ServerOwnership;
 use crate::arazzo::gates::surface::NegotiationHeader;
 use crate::arazzo::principal::PRINCIPAL_KEY;
 use crate::arazzo::recipe::{ContentClass, SynthesizedClass};
@@ -261,6 +262,10 @@ pub fn rows_schema() -> Value {
                 "items": { "type": "string", "minLength": 1 }
             },
             "recipe": recipe_def(),
+            "server": {
+                "description": "What the workflow needs the server under test to be. `exclusive`: the workflow changes state it did not create, such as a delete of every EHR, so it runs only when the party's IXIT declares `environment.exclusive_server: true`; any other IXIT skips every row with the reason `not-declared`.",
+                "enum": ServerOwnership::ALL.iter().map(|s| s.token()).collect::<Vec<_>>()
+            },
             "declared": {
                 "description": "Inputs bound from a value the party declares: each maps an input the workflow declares to `ixit.<member>…` or `statement.<member>…`, a dotted path into the party's IXIT or statement. No row supplies a declared input. A run whose party does not declare the value skips every row with the reason `not-declared`.",
                 "type": "object",
@@ -304,7 +309,7 @@ pub fn capabilities_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-capabilities"),
         "title": "Options and their arm documents for the Arazzo catalogue",
-        "description": "Lives at `catalogue/capabilities.yaml`. Each option is behaviour the released text leaves to the implementation, citing the sentence that leaves it. Its arms are keyed by the token a statement's `options` list selects one with, and each names the documents, by document id, that test it. The documents of every arm the statement does not select are skipped with `option-not-selected`, and a surface element counts as covered only when every arm of its option covers it. `validate` refuses an arm naming a document the catalogue does not hold, and a document under two arms of one option.",
+        "description": "Lives at `catalogue/capabilities.yaml`. Each option is behaviour the released text leaves to the implementation, citing the sentence that leaves it. Its arms are keyed by the token a statement's `options` list selects one with, and each names the documents, by document id, that test it. The documents of every arm the statement does not select are skipped with `option-not-selected`, and a surface element counts as covered when every arm of its option covers it, or when the option's `decides` lists it, one arm asserts it, and every arm calls its operation. `validate` refuses an arm naming a document the catalogue does not hold, a document under two arms of one option, and a `decides` status no arm asserts or whose operation an arm does not call.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -335,6 +340,31 @@ pub fn capabilities_schema() -> Value {
                             "description": "The citation, in the `arazzo-extensions` cite shape.",
                             "type": "object",
                             "required": ["source", "section", "quote"]
+                        },
+                        "decides": {
+                            "description": "The response branches the arms are the mutually exclusive answers to: for each operation, the statuses a service answers with one arm or another, and the released sentence that makes them alternatives. A listed status counts as covered when one arm asserts it and every arm calls the operation; every other element needs every arm. No openEHR spec governs this, our own design.",
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": ["api", "operation", "statuses", CITE_KEY],
+                                "properties": {
+                                    "api": { "type": "string", "minLength": 1 },
+                                    "operation": { "type": "string", "minLength": 1 },
+                                    "statuses": {
+                                        "type": "array",
+                                        "minItems": 2,
+                                        "uniqueItems": true,
+                                        "items": { "type": "string", "pattern": "^[1-5][0-9]{2}$" }
+                                    },
+                                    CITE_KEY: {
+                                        "description": "The citation, in the `arazzo-extensions` cite shape.",
+                                        "type": "object",
+                                        "required": ["source", "section", "quote"]
+                                    }
+                                }
+                            }
                         }
                     }
                 }

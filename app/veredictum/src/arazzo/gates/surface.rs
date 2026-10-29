@@ -194,6 +194,23 @@ pub enum Element {
     },
 }
 
+impl Element {
+    /// The operation element a response or negotiation branch belongs to;
+    /// `None` for an operation element itself.
+    #[must_use]
+    pub fn operation(&self) -> Option<Self> {
+        match self {
+            Self::Operation { .. } => None,
+            Self::Response { api, operation, .. } | Self::Negotiation { api, operation, .. } => {
+                Some(Self::Operation {
+                    api: api.clone(),
+                    operation: operation.clone(),
+                })
+            }
+        }
+    }
+}
+
 impl fmt::Display for Element {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -477,6 +494,87 @@ pub fn covered<'a>(documents: impl IntoIterator<Item = &'a ArazzoDocument>) -> B
     out
 }
 
+/// What the arms of one option cover together, each arm given as the
+/// elements its documents cover, and `decides` as the response branches the
+/// option declares its arms the mutually exclusive answers to.
+///
+/// An element every arm covers is covered. A response in `decides` is
+/// covered too when one arm asserts it and every arm calls its operation: a
+/// service gives one of the decided answers, selects the arm that names it,
+/// and that arm asserts it. Every other element keeps the every-arm rule,
+/// so a status one arm happens to check is never credited to the servers of
+/// the other arms. No openEHR spec governs this, our own design.
+#[must_use]
+pub fn option_covered(
+    arms: &[BTreeSet<Element>],
+    decides: &BTreeSet<Element>,
+) -> BTreeSet<Element> {
+    let Some((first, rest)) = arms.split_first() else {
+        return BTreeSet::new();
+    };
+    let mut out: BTreeSet<Element> = first
+        .iter()
+        .filter(|element| rest.iter().all(|arm| arm.contains(element)))
+        .cloned()
+        .collect();
+    for element in decides {
+        if arms.iter().any(|arm| arm.contains(element))
+            && let Some(called) = element.operation()
+            && arms.iter().all(|arm| arm.contains(&called))
+        {
+            out.insert(element.clone());
+        }
+    }
+    out
+}
+
+/// Why one decided response branch of an option cannot be credited.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum DecidesError {
+    /// An arm does not call the operation the branch belongs to.
+    #[error("`{element}`: the arm `{arm}` does not call the operation")]
+    NotCalled {
+        /// The decided branch.
+        element: Element,
+        /// The arm that does not call it.
+        arm: String,
+    },
+    /// No arm asserts the branch.
+    #[error("`{element}`: no arm asserts the status")]
+    NotAsserted {
+        /// The decided branch.
+        element: Element,
+    },
+}
+
+/// Checks each decided branch against the arms, given by name with the
+/// elements their documents cover.
+#[must_use]
+pub fn check_decides(
+    arms: &[(&str, BTreeSet<Element>)],
+    decides: &BTreeSet<Element>,
+) -> Vec<DecidesError> {
+    let mut out = Vec::new();
+    for element in decides {
+        if let Some(called) = element.operation() {
+            for (arm, covered) in arms {
+                if !covered.contains(&called) {
+                    out.push(DecidesError::NotCalled {
+                        element: element.clone(),
+                        arm: (*arm).to_owned(),
+                    });
+                }
+            }
+        }
+        if !arms.iter().any(|(_, covered)| covered.contains(element)) {
+            out.push(DecidesError::NotAsserted {
+                element: element.clone(),
+            });
+        }
+    }
+    out
+}
+
 /// Compares the surface with what is covered and with the gaps.
 ///
 /// Returns one message per uncovered element without a gap, per gap whose
@@ -653,6 +751,99 @@ mod tests {
             twice.iter().any(|m| m.contains("listed twice")),
             "{twice:?}"
         );
+    }
+
+    fn negotiation(operation: &str, value: &str) -> Element {
+        Element::Negotiation {
+            api: "ehr".to_owned(),
+            operation: operation.to_owned(),
+            header: NegotiationHeader::Accept,
+            value: value.to_owned(),
+        }
+    }
+
+    fn set(elements: &[Element]) -> BTreeSet<Element> {
+        elements.iter().cloned().collect()
+    }
+
+    fn sync_async() -> [BTreeSet<Element>; 2] {
+        [
+            set(&[op("d"), response("d", "204"), response("d", "400")]),
+            set(&[op("d"), response("d", "202"), response("d", "404")]),
+        ]
+    }
+
+    #[test]
+    fn each_arm_covers_the_decided_answer_it_asserts() {
+        let decides = set(&[response("d", "202"), response("d", "204")]);
+        assert_eq!(
+            option_covered(&sync_async(), &decides),
+            set(&[op("d"), response("d", "202"), response("d", "204")])
+        );
+    }
+
+    #[test]
+    fn a_seeded_status_one_arm_checks_and_no_option_decides_stays_uncovered() {
+        assert_eq!(
+            option_covered(&sync_async(), &BTreeSet::new()),
+            set(&[op("d")]),
+            "without `decides` only what every arm covers is credited"
+        );
+        let decides = set(&[response("d", "202"), response("d", "204")]);
+        let covered = option_covered(&sync_async(), &decides);
+        assert!(!covered.contains(&response("d", "404")), "{covered:?}");
+        assert!(!covered.contains(&response("d", "400")), "{covered:?}");
+    }
+
+    #[test]
+    fn a_seeded_arm_that_never_calls_the_operation_credits_no_decided_answer() {
+        let decides = set(&[response("d", "204")]);
+        let calls = set(&[op("d"), response("d", "204"), op("e")]);
+        let other = set(&[op("e")]);
+        assert_eq!(
+            option_covered(&[calls.clone(), other.clone()], &decides),
+            set(&[op("e")])
+        );
+        assert_eq!(
+            option_covered(&[calls.clone(), BTreeSet::new()], &decides),
+            BTreeSet::new(),
+            "an arm without documents leaves its servers untested"
+        );
+        assert_eq!(
+            check_decides(&[("calls", calls), ("other", other)], &decides),
+            [DecidesError::NotCalled {
+                element: response("d", "204"),
+                arm: "other".to_owned()
+            }]
+        );
+    }
+
+    #[test]
+    fn a_seeded_decided_status_no_arm_asserts_is_refused() {
+        let [synchronous, asynchronous] = sync_async();
+        let arms = [("sync", synchronous), ("async", asynchronous)];
+        assert_eq!(
+            check_decides(&arms, &set(&[response("d", "202"), response("d", "204")])),
+            Vec::new()
+        );
+        assert_eq!(
+            check_decides(&arms, &set(&[response("d", "500")])),
+            [DecidesError::NotAsserted {
+                element: response("d", "500")
+            }]
+        );
+    }
+
+    #[test]
+    fn a_seeded_request_element_one_arm_alone_sends_stays_uncovered() {
+        let xml = set(&[op("g"), negotiation("g", "application/xml")]);
+        let json = set(&[op("g"), negotiation("g", "application/json")]);
+        let decides = set(&[negotiation("g", "application/xml")]);
+        assert_eq!(
+            option_covered(&[xml, json], &BTreeSet::new()),
+            set(&[op("g")])
+        );
+        assert_eq!(option_covered(&[], &decides), BTreeSet::new());
     }
 
     #[test]
