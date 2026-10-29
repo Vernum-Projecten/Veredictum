@@ -1,568 +1,218 @@
-<p align="center"><img src="https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/assets/brand/veredictum-icon.svg" width="112" alt="The Veredictum seal"></p>
+<div align="center">
 
-<h1 align="center">Veredictum</h1>
+<img src="https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/assets/brand/veredictum-icon.svg" width="112" alt="The Veredictum seal">
 
-<p align="center"><em>The independent conformance instrument for openEHR clinical data repositories.</em></p>
+# Veredictum
 
-<p align="center">
-<a href="https://veredictum.eu"><strong>veredictum.eu</strong></a> &nbsp;·&nbsp;
-<a href="https://veredictum.eu/docs/">Documentation</a>
-</p>
+**The independent conformance instrument for openEHR clinical data repositories.**
 
-<p align="center">
-<a href="https://github.com/Vernum-Projecten/Veredictum/actions/workflows/ci.yml"><img src="https://github.com/Vernum-Projecten/Veredictum/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-<a href="https://github.com/Vernum-Projecten/Veredictum/actions/workflows/codeql.yml"><img src="https://github.com/Vernum-Projecten/Veredictum/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL"></a>
-<a href="https://sonarcloud.io/summary/new_code?id=rubentalstra_Veredictum"><img src="https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=alert_status" alt="Quality gate status"></a>
-<a href="https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=coverage"><img src="https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=coverage" alt="Coverage"></a>
-</p>
+[Documentation](https://veredictum.eu/docs/) ·
+[veredictum.eu](https://veredictum.eu) ·
+[Quick start](#quick-start) ·
+[GitHub Action](https://veredictum.eu/docs/github-action.html)
 
-<p align="center">
-<a href="https://crates.io/crates/veredictum"><img src="https://img.shields.io/crates/v/veredictum?logo=rust" alt="crates.io"></a>
-<a href="https://crates.io/crates/veredictum"><img src="https://img.shields.io/crates/d/veredictum?logo=rust&label=crate%20downloads" alt="crate downloads"></a>
-<a href="https://docs.rs/veredictum"><img src="https://img.shields.io/docsrs/veredictum?logo=docsdotrs" alt="docs.rs"></a>
-<a href="https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum"><img src="https://img.shields.io/badge/ghcr.io-veredictum-2496ED.svg?logo=docker&logoColor=white" alt="GHCR"></a>
-<a href="https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fghcr-badge.elias.eu.org%2Fapi%2FVernum-Projecten%2FVeredictum%2Fveredictum&query=downloadCount&label=image%20pulls&logo=github" alt="Image pulls"></a>
-</p>
+**Project**<br>
+[![Release](https://img.shields.io/github/v/release/Vernum-Projecten/Veredictum?logo=github&label=release)](https://github.com/Vernum-Projecten/Veredictum/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/Vernum-Projecten/Veredictum/ci.yml?branch=main&logo=githubactions&logoColor=white&label=CI)](https://github.com/Vernum-Projecten/Veredictum/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/veredictum?logo=rust&label=crates.io)](https://crates.io/crates/veredictum)
+[![crate downloads](https://img.shields.io/crates/d/veredictum?logo=rust&label=crate%20downloads)](https://crates.io/crates/veredictum)
+[![docs.rs](https://img.shields.io/docsrs/veredictum?logo=docsdotrs&label=docs.rs)](https://docs.rs/veredictum)
+[![Docs](https://img.shields.io/badge/docs-veredictum.eu-blue?logo=mdbook)](https://veredictum.eu/docs/)
+[![GHCR](https://img.shields.io/badge/ghcr.io-veredictum-2496ED?logo=docker&logoColor=white)](https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum)
+[![Image pulls](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fghcr-badge.elias.eu.org%2Fapi%2FVernum-Projecten%2FVeredictum%2Fveredictum&query=downloadCount&label=image%20pulls&logo=github)](https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum)
+[![DOI](https://zenodo.org/badge/1347360549.svg)](https://doi.org/10.5281/zenodo.22113258)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-46215C?logo=apache)](https://github.com/Vernum-Projecten/Veredictum/blob/main/LICENSE)
+[![Rust 1.98](https://img.shields.io/badge/rust-1.98-B7431B?logo=rust&logoColor=white)](https://github.com/Vernum-Projecten/Veredictum/blob/main/rust-toolchain.toml)
 
-<p align="center">
-<a href="https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=reliability_rating"><img src="https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=reliability_rating" alt="Reliability rating"></a>
-<a href="https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=security_rating"><img src="https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=security_rating" alt="Security rating"></a>
-<a href="https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=sqale_rating"><img src="https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=sqale_rating" alt="Maintainability rating"></a>
-<a href="https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=duplicated_lines_density"><img src="https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=duplicated_lines_density" alt="Duplicated lines"></a>
-</p>
+**Quality and security**<br>
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/Vernum-Projecten/Veredictum/codeql.yml?branch=main&logo=github&label=CodeQL)](https://github.com/Vernum-Projecten/Veredictum/actions/workflows/codeql.yml)
+[![Quality gate](https://img.shields.io/sonar/quality_gate/rubentalstra_Veredictum?server=https%3A%2F%2Fsonarcloud.io&logo=sonarqubecloud&label=quality%20gate)](https://sonarcloud.io/summary/new_code?id=rubentalstra_Veredictum)
+[![Coverage](https://img.shields.io/sonar/coverage/rubentalstra_Veredictum?server=https%3A%2F%2Fsonarcloud.io&logo=sonarqubecloud&label=coverage)](https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=coverage)
+[![Reliability rating](https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=reliability_rating)](https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=reliability_rating)
+[![Security rating](https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=security_rating)](https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=security_rating)
+[![Maintainability rating](https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=sqale_rating)](https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=sqale_rating)
+[![Duplicated lines](https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=duplicated_lines_density)](https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=duplicated_lines_density)
+<br>
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Vernum-Projecten/Veredictum/badge)](https://scorecard.dev/viewer/?uri=github.com/Vernum-Projecten/Veredictum)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14252/badge)](https://www.bestpractices.dev/projects/14252)
+[![SLSA Build L3](https://slsa.dev/images/gh-badge-level3.svg)](https://veredictum.eu/docs/installation.html)
 
-<p align="center">
-<a href="https://scorecard.dev/viewer/?uri=github.com/Vernum-Projecten/Veredictum"><img src="https://api.scorecard.dev/projects/github.com/Vernum-Projecten/Veredictum/badge" alt="OpenSSF Scorecard"></a>
-<a href="https://www.bestpractices.dev/projects/14252"><img src="https://www.bestpractices.dev/projects/14252/badge" alt="OpenSSF Best Practices"></a>
-<a href="https://veredictum.eu/docs/installation.html"><img src="https://slsa.dev/images/gh-badge-level3.svg" alt="SLSA Build L3"></a>
-<a href="https://doi.org/10.5281/zenodo.22113258"><img src="https://zenodo.org/badge/1347360549.svg" alt="DOI"></a>
-<a href="https://github.com/Vernum-Projecten/Veredictum/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-46215C" alt="License: Apache-2.0"></a>
-<a href="https://github.com/Vernum-Projecten/Veredictum/blob/main/rust-toolchain.toml"><img src="https://img.shields.io/badge/rust-1.98-B7431B?logo=rust&logoColor=white" alt="Rust 1.97"></a>
-</p>
+**The catalogue**<br>
+the released openEHR specifications, version-aware per case ·
+1651 spec-cited cases · 205 Arazzo documents
 
-<p align="center">
-<strong>the released openEHR specifications, version-aware per case</strong> &nbsp;·&nbsp; <strong>1651 spec-cited cases</strong> &nbsp;·&nbsp; <strong>205 Arazzo documents</strong>
-</p>
+</div>
 
 <!--
-Every badge above is a live reading, not a claim. The Sonar badges come from the
-analysis lane in .github/workflows/sonar.yml, coverage included; the two OpenSSF
-badges are the Scorecard weekly analysis and Best Practices project 14252; the
-registry row reads crates.io, docs.rs and the GHCR package directly, so the
-version shown is whatever is actually published, the docs badge goes red if a
-docs.rs build fails, and the pull count is the package's own. Several read below
-their ceiling today, and the scorecard workflow's header says why check by
-check — Fuzzing reads low by Scorecard's own detection (it looks for OSS-Fuzz
-and the integrations it knows), while the harnesses exist under fuzz/ (#11):
-CI compiles them per pull request and campaigns weekly. Those are the honest
-numbers, and they
-are the baseline the next ones are measured against.
-
-The SLSA badge is the one static image here, and its claim is substantiated
-rather than asserted: binaries and images build inside reusable workflows
-(release-build.yml, build-image.yml) per GitHub's documented SLSA Build L3
-construction, each artifact carries a signed provenance attestation on its
-digest, and the linked installation page shows the `gh attestation verify`
-invocation that checks it.
+Every badge above is a live reading, not a claim, and the SLSA badge's claim is
+substantiated by the attestation check the installation page shows. The book's
+"About the project" chapter (website/book/src/about.md) says what each one reads.
 -->
 
 > **Status:** Veredictum is on 0.x and is not yet approved by the openEHR SEC.
 > Version 1.0.0 will mark that approval.
 
+## What Veredictum does
+
 Veredictum grades openEHR servers. Point it at a running clinical data
-repository (CDR) and it tells you, with a specification citation on every
-finding, which parts of the released openEHR specifications that server
-actually implements, what load it sustains, and how fast it answers.
+repository (CDR) and it tells you which parts of the released openEHR
+specifications that server implements, what load it sustains, and how fast it
+answers. Every finding carries the specification section it comes from.
 
-It ships as two products over one engine:
+It drives a machine-readable catalogue of
+[Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html) workflows over
+the server's own REST API, records every exchange, and computes the verdicts
+as pure functions over that recording. Anyone who holds the recording can
+judge it again and get the same bytes. One binary answers four questions:
+does it conform (`test`), what class does it sustain (`perf`), where does it
+break (`stress`), and how fast is it (`bench`).
 
-- **The instrument CLI** — the `veredictum` command, installed from
-  [crates.io](https://crates.io/crates/veredictum) or taken as a signed
-  release binary. Every verdict this repository speaks is a run of it.
-- **The web console** — the container image at
-  [ghcr.io/vernum-projecten/veredictum](https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum),
-  a browser frontend that drives the same pinned CLI underneath: connect a
-  CDR, paste the vendor's claim, watch the run live, read the results and
-  the verdicts. The image is the console, never the CLI — a static binary
-  needs no container.
+### Who it is for
 
-[console.veredictum.eu](https://console.veredictum.eu) is the hosted
-conformance instrument. It drives the catalogue against the endpoint you
-name, records every exchange, and computes the verdicts, so you read the full
-results and verdicts for your own server. It runs functional conformance
-only: the measured instruments (`perf`, `stress`, `aql-probe` and `bench`)
-are run locally with the CLI. Nothing a run produces is published, and this
-repository keeps no list of results.
+- **Evaluators and procurement teams** that need a claim about a CDR someone
+  other than its vendor can check.
+- **CDR vendors and maintainers** that want to know where their server departs
+  from the released text before a customer finds out.
+- **The openEHR community**, which gets a conformance test suite in
+  machine-readable form.
 
-What a hosted run establishes is that the judgement was made by an instrument
-nobody in the exchange controls, and that the judgement is arithmetic anyone
-can repeat from the recorded exchanges. What it cannot establish is the
-environment: you chose the endpoint, and the record says so. Running the
-instrument yourself answers the same question on your own hardware, and the
-section below is how. The delivery pipeline behind the hosted instrument is
-documented in [deploy/hosted/README.md](deploy/hosted/README.md).
+### Why you can trust its verdicts
 
-Both are pre-1.0. The 0.1.x line publishes working releases and makes no
-API-stability claim yet; every claim a release does make is checked, signed
-and reproducible, which is the stability that matters for a verdict.
-
-## What it does
-
-The instrument is one binary plus a data tree. The data tree is a
-machine-readable catalogue of 1651 test cases: [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html)
-workflows over the released openEHR REST API OpenAPI documents, in
-205 Arazzo documents under `catalogue/`. Each case cites the specification
-section it enforces, and the released specification text is vendored in this
-repository, so every citation resolves against text you can read. The counts
-on this page are the line `veredictum validate` prints over `catalogue/`, and
-a CI guard fails the build when a count here disagrees with the catalogue.
-
-One command surface answers four different questions about a server:
-
-| Question | Commands |
-|---|---|
-| **Does it conform?** | `validate` checks the catalogue itself before any server is involved; zero findings is the only passing result. `test` drives the cases your statement selects against the server over its own REST wire, records every exchange as HAR, judges each row and writes `results.json`; `--rejudge` reproduces those results from the recording alone. `export` renders the results for a CI system. |
-| **What class does it sustain?** | `perf` seeds the population-scale corpus and holds a class's offered load for the sustained window, open-loop, merging the measured record into the results. |
-| **Where does it break?** | `stress` steps load up to the maximum sustainable throughput; `stress-compare` overlays two committed stress reports; `aql-probe` explores AQL behaviour over the seeded corpus with per-statement database attribution. All three are exploration and never produce a conformance record. |
-| **How fast is it?** | `bench` runs an embedded benchmark pack against any reachable CDR from a base URL and credentials; `bench-compare` aligns committed results into one table; `bench-packs` writes the byte-deterministic description of what every pack runs. Comparative speed only, never a conformance verdict. |
-
-Three more subcommands serve the records themselves: `verdicts` re-derives
-the measured class verdicts, `verify-record` checks a sealed bundle,
-`emit-schemas` writes the published JSON Schemas, and `perf-assets` renders
-the published charts from committed artifacts. `veredictum --help` is the
-authoritative list.
-
-`verdicts` takes `--sign-key`, which seals the documents it emits
-with a SHA-256 digest manifest and a detached OpenPGP signature over it.
-`verify-record` recomputes every digest and checks that signature against a
-public key you supply, so a published record is tamper-evident to anyone who
-has the key. The bundle is ordinary files, so `gpg --verify` and `sha256sum`
-answer the same questions without this tool.
+The released openEHR specifications are the only authority it accepts. Every
+expectation names the section it comes from, so it can be refuted by a better
+reading of that text and by nothing else, never by what a server did. Where
+the text is silent, no case asserts the behaviour. When a row goes red, the
+instrument is a suspect ahead of the server: the first live triage attributed
+7 of 7 diagnosed defects to the instrument and none to the server under test.
+Releases are signed and carry SLSA Build L3 provenance and an SBOM, and the
+repository publishes the instrument and no results about anybody's product.
+[The conformance method](https://veredictum.eu/docs/methodology.html) sets
+this out in full.
 
 ## Quick start
 
 The fastest path installs nothing:
 [console.veredictum.eu](https://console.veredictum.eu) is the hosted
-instrument described above. For a deployment the internet cannot reach, for
-the measured instruments, or to work offline, run the instrument yourself —
-fastest first: the console with `docker compose up`, the CLI from cargo, the
-signed bare-metal binaries. Grading a server end to end needs the catalogue,
-which lives in this repository — that path closes the section.
+instrument, for functional conformance runs against a server the internet can
+reach. To run it yourself, pick one of the three below.
 
-### docker compose up — the console
+### The container image
 
-```bash
-curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/deploy/docker/docker-compose.yml
-docker compose up
-```
-
-Open <http://127.0.0.1:3210>. The image carries the console and the pinned
-engine; started beside an empty directory it comes up and says what it is
-missing, and started beside a checkout of this repository it reads the
-catalogue, the specification oracle and the party declarations from the
-mount. The console has no login, so the compose file binds it to loopback;
-exposing it further is the operator's decision, behind their own gate. From
-the next release onward the same file also sits in the release assets,
-pinned to that release's image.
-[The console chapter](https://veredictum.eu/docs/console.html) shows what it
-does today.
-
-### cargo install
+The image ships the catalogue and the specification oracle, and runs any
+subcommand given as its first argument:
 
 ```bash
-cargo install veredictum
-```
-
-That puts the `veredictum` command on your `PATH`. The library target is
-published with the binary, so an integrator can consume the typed artifact
-model and the published JSON Schemas directly instead of reimplementing the
-format.
-
-### Bare-metal binaries
-
-Prebuilt binaries for `x86_64` and `aarch64` Linux are attached to each
-[release](https://github.com/Vernum-Projecten/Veredictum/releases), each with a
-`sha256sum`, a CycloneDX dependency SBOM and a Sigstore bundle you can check:
-
-```bash
-gh attestation verify veredictum-<tag>-<target>.tar.gz \
-    -R Vernum-Projecten/Veredictum \
-    --signer-workflow Vernum-Projecten/Veredictum/.github/workflows/release-build.yml
-```
-
-### Benchmark a CDR in one command
-
-The benchmark needs no clone and no declaration files: the packs are
-embedded in the binary, pinned by digest, and described by `bench-packs`.
-
-```bash
-# The credential is read from the environment. It never rides argv.
-export VEREDICTUM_BENCH_PASSWORD=…
-
-veredictum bench \
-  --base-url https://cdr.example/openehr/v1 \
-  --auth basic --user <user> \
-  --pack community-vitals \
-  --repetitions 3 \
-  --with-baselines \
-  --out ./bench \
-  --label "Your CDR 1.2.3"
-```
-
-`community-vitals` reproduces the openEHR community's vital-signs harness
-and then measures the same population a second way, open-loop, so a stall
-shows up in the percentiles instead of quietly reducing the request count.
-`--with-baselines` composes the two pinned reference CDRs, EHRbase and
-FerroEHR, from image digests on your machine and drives the same pack at the
-same seed against each, so the record carries one relative index per
-reference — the only kind of number that means anything across machines. A
-declared posture profile is checked by canaries on both sides of the
-measured window, and a run whose deployment disagrees with its declaration
-is refused rather than recorded.
-
-### Run the full conformance catalogue
-
-A conformance run reads the catalogue and the vendored specification oracle
-as paths. The published crate carries the code; those two trees are over
-300 MB of data no registry accepts, and this repository is where they live —
-so grading a server starts from a clone:
-
-```bash
-git clone https://github.com/Vernum-Projecten/Veredictum
-cd Veredictum
-
-# 1. Check the catalogue itself. Zero findings is the only passing result.
-veredictum validate --root catalogue --specs specs/openehr
-
-# 2. Write the two documents that describe YOUR deployment, against the
-#    published schemas in schemas/: mine/statement.json (the capability
-#    folders under catalogue/cases/ you claim, and one arm of each option in
-#    catalogue/capabilities.yaml) and mine/ixit.json (the values the
-#    catalogue's declared inputs read). This repository commits no declaration
-#    about anybody's product. fixtures/declaration/ shows the shape.
-
-# 3. Hold your claim to the static review.
-veredictum validate --root catalogue --specs specs/openehr \
-    --statement mine/statement.json
-
-# 4. Drive the catalogue against your running server. A failed or errored
-#    row exits 1, so a CI job goes red on it.
-veredictum test --root catalogue --base-url https://cdr.example/openehr/v1 \
-    --auth bearer --statement mine/statement.json --ixit mine/ixit.json \
-    --out out/
-```
-
-No installed binary? `cargo run -- <subcommand> …` from the clone does the
-same; the toolchain pins itself from `rust-toolchain.toml`, and the only
-extra tool is `cargo-nextest`, only if you intend to run the test suite.
-
-### Run the catalogue from the container image
-
-`veredictum test` writes `results.json` and a HAR recording of every
-exchange, and exits `1` when a row failed or errored, so a CI job goes red on
-a failed row. The container image ships the catalogue and runs the same
-subcommand:
-
-```bash
-docker run --rm -v "$PWD/out:/work/out" -e VEREDICTUM_SUT_TOKEN \
+mkdir -p out
+export VEREDICTUM_SUT_TOKEN=…   # read from the environment, never from argv
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/out:/work/out" -e VEREDICTUM_SUT_TOKEN \
   ghcr.io/vernum-projecten/veredictum:<tag> \
   test --base-url https://cdr.example/openehr/v1 --auth bearer --out /work/out
 ```
 
-The documents are plain Arazzo 1.1.0: any Arazzo tool can read them, and a
-workflow runner can smoke-run them against a server. A conformance verdict
-comes only from `veredictum`, because the citation behind each criterion, the
-judges a plain condition cannot express, the selection of documents by your
-statement and the attribution of each red row live in its `x-veredictum-*`
-extensions and its pipeline, which a generic runner ignores.
-[The book](https://veredictum.eu/docs/running.html#re-judging-a-recording)
-covers the statement, the credentials and the offline re-judgement.
+The run writes `out/results.json` and `out/recording.har`, and exits `1` when
+a row failed or errored. Run with no arguments, the image serves the web
+console instead. [Running the instrument](https://veredictum.eu/docs/running.html)
+covers the statement that selects what runs, and
+[Installation](https://veredictum.eu/docs/installation.html#with-docker-the-web-console)
+the console.
 
-## Why an independent instrument
+### cargo install
 
-A vendor's own test suite cannot answer the question a hospital procurement
-is asking. The suite and the server come from the same people, built on the
-same reading of the specification, and when the two disagree it is usually
-the suite that gets adjusted.
+```bash
+cargo install veredictum --locked
+git clone https://github.com/Vernum-Projecten/Veredictum && cd Veredictum
+veredictum validate --root catalogue --specs specs/openehr
+veredictum test --base-url https://cdr.example/openehr/v1 --auth bearer --out out/
+```
 
-Veredictum is built so that adjustment has nowhere to happen. The released
-specifications are the only authority it accepts: every expectation in the
-catalogue names the section it comes from, so it can be refuted by a better
-reading of that text and by nothing else. No server's behaviour, no vendor's
-documentation, and no stalled upstream test suite ever sets an expected
-value. Where the released text is genuinely silent or contradicts itself,
-no case asserts the behaviour: the gap is an `upstream-report` issue here,
-with a proposed patch to the specification, or an option the party's
-statement answers. A private resolution never happens.
+The crate carries the code; the catalogue and the specification oracle are
+over 300 MB of data and live in the clone.
+[Installation](https://veredictum.eu/docs/installation.html) also covers the
+signed release binaries and how to verify them.
 
-Every failure is attributed before anything is changed. A red row has
-exactly three possible causes, and the instrument itself is a suspect ahead
-of the server:
+### The GitHub Action
 
-| Suspect | Fix path |
-|---|---|
-| **The server under test** violates the specification | a defect report to that CDR, carrying the reproduced exchange and the citation |
-| **The instrument** misdrove the case or misjudged the response | fix the runner; those rows were inconclusive, never failures |
-| **The catalogue** expectation is wrong against the specification | fix the artifact, with a new cited source for the corrected expectation |
+One step in a vendor's workflow runs the catalogue against their server and
+fails the job on a failed row:
 
-The first live triage attributed 7 of 7 diagnosed defects to the runner and
-none to the server under test. An instrument that presumes itself correct is
-worth nothing to the people who rely on its verdicts.
+```yaml
+- uses: Vernum-Projecten/Veredictum@<commit-sha> # vX.Y.Z
+  env:
+    VEREDICTUM_SUT_TOKEN: ${{ secrets.CDR_TOKEN }}
+  with:
+    base-url: http://127.0.0.1:8080/openehr/v1
+    statement: conformance/statement.json
+    ixit: conformance/ixit.json
+    auth: bearer
+```
 
-## Results and certificates
+[The GitHub Action](https://veredictum.eu/docs/github-action.html) has a
+complete workflow, every input, and what to keep out of an uploaded artifact.
 
-This repository publishes the instrument, never results about somebody's
-product. A run's record stays with whoever drove the run.
+## What ships today
 
-**A test report is not a certificate.** A record says what happened when a
-named version of a named system was driven by a named version of this
-instrument on a named machine. Certificates are issued by the hosted
-instrument (#593). It runs in trial mode for now: a vendor sees the full
-results and verdicts, and no certificate is issued.
+### Conformance
 
-## Where the hosted instrument runs
+- [The Arazzo catalogue](https://veredictum.eu/docs/introduction.html#what-is-in-the-box): 1651 spec-cited cases in 15 capability folders, one behaviour per case, with a refusal case for every invalid shape
+- [`validate`](https://veredictum.eu/docs/commands.html#validate): every gate over the catalogue, plus the static review of a party's statement
+- [`test`](https://veredictum.eu/docs/running.html#4-drive-the-catalogue): drives the catalogue over the server's own wire and records every exchange as HAR
+- [`test --rejudge`](https://veredictum.eu/docs/running.html#re-judging-a-recording): judges a recording again with no server, byte for byte
+- [Options and upstream reports](https://veredictum.eu/docs/methodology.html#where-the-specification-does-not-say) where the release leaves a behaviour open or says nothing
+- [SMART on openEHR](https://veredictum.eu/docs/commands.html#test), with a Platform base URL and scoped tokens
 
-An instrument that grades other people's products in public states its own
-conditions in public.
+### Measured instruments
 
-| | |
-|---|---|
-| Provider | Hetzner Cloud |
-| Location | Falkenstein, Germany, network zone `eu-central` |
-| Machine | CAX21: 4 vCPU Arm (Ampere Altra), 8 GB RAM, 80 GB local disk |
-| Price | €10.49 per month, from the account's own record on 2026-10-23 |
-| Paid by | The maintainer, out of pocket. No vendor funds the instrument that grades them |
-| Concurrent runs | Two |
+- [`perf`](https://veredictum.eu/docs/running.html#measured-performance-stress-and-speed): earns a population-anchored performance class (POC, S, L, R) under open-loop load
+- [`stress`](https://veredictum.eu/docs/commands.html#stress) and [`aql-probe`](https://veredictum.eu/docs/commands.html#aql-probe): find where a deployment breaks, as exploration that never yields a conformance record
+- [`bench`](https://veredictum.eu/docs/running.html#benchmark-a-cdr-in-one-command): comparative speed from embedded packs, with EHRbase and FerroEHR as pinned baselines
 
-The cap comes from the machine. An engine process loads the whole catalogue,
-and every concurrent run shares the box's 8 GB with the console, the proxy and
-the operating system. A cap above what the memory holds would be the OOM
-killer ending a conformance run halfway through, which looks exactly like a
-defect in the instrument, so the value is the one #388 reasoned for an 8 GB
-machine and it moves only with a measurement. The number lives in one place,
-`VEREDICTUM_MAX_CONCURRENT_RUNS` in the box's environment file, beside the
-container's memory limit. Raising it is an environment edit and a redeploy,
-never a release, so a bigger machine changes what the instrument admits
-without changing a line of code.
+### Results and CI exports
 
-**The host holds no credential.** What the box can do is drive the catalogue,
-record the exchanges and show the verdicts.
+- [`export`](https://veredictum.eu/docs/commands.html#export): JUnit XML, CTRF and a Markdown summary of a results document
+- [`verdicts` and `verify-record`](https://veredictum.eu/docs/trust.html#the-record-does-not-depend-on-trusting-the-operator): re-derived class verdicts, sealed with a digest manifest and an OpenPGP signature
+- [Published JSON Schemas](https://veredictum.eu/docs/commands.html#emit-schemas) for every artifact family, drift-tested
+- [Signed releases](https://veredictum.eu/docs/installation.html#from-a-release-binary) for `x86_64` and `aarch64` Linux, with SLSA provenance and a CycloneDX SBOM
 
-The box is disposable. It stores nothing durable, and the whole posture is
-committed under
-[`deploy/hosted/`](https://github.com/Vernum-Projecten/Veredictum/tree/main/deploy/hosted):
-the cloud-init that built it, the compose file, the proxy configuration. A
-rebuild from that directory produces the same machine.
+### The console
 
-**Who can change the thing that judges.** A verdict is trusted because the
-engine and the catalogue that produced it are the ones on `main`. So who can
-move `main` is part of the trust claim, and the answer is published rather than
-implied.
+- [The web console](https://veredictum.eu/docs/console.html): connect a CDR, paste the vendor's claim, watch the run live, read the results and the verdicts
+- [The hosted instrument](https://veredictum.eu/docs/hosted.html) at console.veredictum.eu, with its machine, its price and who can change it stated in public
 
-Every change to `main` requires a pull request, with its diff, its CI run and its
-audit-log entry. The maintainer holds a pull-request-only bypass, which means
-they may merge their own pull request without a second reviewer, and may merge
-one whose checks have not passed. They cannot push to `main` at all. Signed
-commits, no force-pushes and no branch deletion are enforced with no exception
-for anyone.
+## Learn more
 
-For a project with one maintainer, a second reviewer is a promise nobody could
-keep. A visible object for every change is one that can be kept, and it is the
-one that matters when somebody wants to audit how a verdict was produced.
-
-**One measurement caveat, stated before anyone reads a number.** The hosted
-instrument performs functional conformance runs only. The measured instruments
-(`perf`, `stress`, `aql-probe` and the comparative `bench`) are run locally with
-the CLI, and the hosted console exposes none of them.
-A latency measured from a fixed origin in Falkenstein carries the network path to
-wherever the system under test lives, and distance is not a property of the
-database being graded. Measured runs are driven by the operator, on hardware
-they describe.
-
-## What is in the box
-
-| | |
-|---|---|
-| **The catalogue** | `catalogue/cases/` — 1651 workflows in 205 Arazzo documents, one small isolated case per behaviour, so a red row names one defect. Grouped in 15 capability folders: EHR, EHR status, composition, content, contribution, directory, item tags, query, definition, demographic, admin, security, simplified formats, SMART, system. Every criterion carries the released sentence it enforces |
-| **The options** | `catalogue/capabilities.yaml` — the behaviours the release leaves to the implementation, each an option with its arms; a party's statement picks one arm of each, and the documents of every other arm are skipped |
-| **The id map** | `catalogue/id-map.yaml` — every case id of the former case-core catalogue, mapped to the workflows that carry it or to the reason none does |
-| **The performance schedule** | `perf/` — the four class cases, the journey catalogue and the payloads `perf`, `stress` and `aql-probe` read, kept apart from the conformance catalogue |
-| **The published schemas** | `schemas/` — JSON Schema for every artifact family, emitted by the instrument and drift-tested, so an integrator can author against the format |
-| **The verification pack** | `verification-pack/arazzo/` — recorded HAR exchanges with their adjudicated results. The evaluator re-judges every recording and must reproduce every row, so no harness, this one included, is trusted on its word |
-| **The oracle** | `specs/openehr/` — the released specification text, vendored verbatim, plus the released XSD, JSON Schema and OpenAPI bundles a citation resolves against |
-
-## How a verdict is computed
-
-A verdict is a pure function of four inputs: the party's statement (the
-capabilities the server claims and the option arms it sits on), the IXIT,
-the catalogue, and the recorded exchanges. Nothing else enters. Two
-independent runners given the same four inputs must compute identical
-verdicts, and the verification pack exists to check exactly that. A
-certificate row a human typed is a defect.
-
-Two verdict machineries share that discipline
-([`docs/ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md) §8):
-
-- **Conformance by assertion:** the statement selects the applicable
-  documents, the criteria judge each recorded exchange, and each row ends
-  passed, failed, errored or skipped. A skipped row names its reason
-  (`not-claimed`, `option-not-selected`, `not-declared`), so a thin claim is
-  visible instead of silently green, and a red row carries what was checked,
-  why, what was expected and what came back.
-- **Conformance by measurement:** a performance class is earned when every
-  threshold holds in one measured run. The class verdict is re-derived from
-  the HDR histograms embedded in the record, so a stored summary is
-  tamper-checked rather than trusted.
-
-Load is offered open-loop: arrivals follow a seeded schedule of planned
-instants, and latency is measured from the planned instant rather than the
-actual send. A stalled server therefore accumulates the delay it caused,
-which is what stops coordinated omission from hiding a stall behind a
-slowed-down client.
-
-The performance classes anchor to population served rather than to a
-concurrent-user guess, with the full derivation from OECD, Eurostat and NHS
-activity statistics in [`docs/ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md) §8.14:
-
-| Class | Population served | Corpus | Sustained arrival floor | p99 budget | Error rate |
-|---|---|---|---|---|---|
-| POC | demonstration | 10k EHRs | 2/s | ≤ 1 s | 0 |
-| S | 100 thousand | 100k EHRs | 15/s | ≤ 1 s | 0 |
-| L | 1 million | 1M EHRs | 150/s | ≤ 1 s | 0 |
-| R | 10 million | 10M EHRs | 1,500/s | ≤ 1 s | 0 |
-
-## Coverage is a mandate
-
-A green run over a thin catalogue proves nothing, so coverage is
-machine-checked rather than asserted. The surface-coverage gate enumerates
-the released operations, their response branches and the negotiation
-headers from the released ITS-REST OpenAPI documents, and fails on any that
-has neither a covering step nor a recorded gap naming its tracker issue. A
-behaviour the specification defines and the catalogue misses is a gap to
-close.
-
-Cases are added. They are never removed to make a run go green.
-
-## Lineage
-
-None of the vocabulary here is invented. ISO/IEC 9646 standardized this
-architecture in 1991: a supplier's conformance statement (ICS) selects the
-applicable cases from an Abstract Test Suite, the supplier's IXIT provides
-the instance parameters to run them, and verdicts land in a standardized
-report. ETSI, the Bluetooth SIG and USB-IF still run on it. In those terms
-the catalogue is the ATS, `statement.json` is the ICS, and `ixit.json` is
-the IXIT.
-
-openEHR's own conformance component defined the right concepts and then
-stalled: its last content amendment is from March 2022, its assessment layer
-was never written, and it carries zero AQL test cases. That component
-remains the structural guide for which behaviours need covering. It is never
-the correctness authority; the released specifications are.
-
-## Origin of the name
-
-*Veredictum* is medieval Latin for "truly spoken", *vere dictum*, and it is
-the word that became the English *verdict*. That is what this instrument
-produces: it runs the catalogue against a running CDR and speaks a verdict
-about what it observed. The seal above is the mark of that verdict.
-
-## Design record
-
-[`docs/ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md) carries the reasoning rather than a
-summary of it: the Arazzo catalogue with its extensions, condition profile
-and gates, the party documents, the verdict computation, and the
-population-anchored performance-class model with its hospital-simulation
-journey decomposition. It also records the evidence base for why the
-instrument exists in this shape: the state of the official openEHR CNF
-component, how other standards run conformance, and the ISO/IEC 9646 and
-CASCO vocabulary the scheme is built in.
+- [Documentation](https://veredictum.eu/docs/), starting with the [introduction](https://veredictum.eu/docs/introduction.html)
+- [What the instrument touches](https://veredictum.eu/docs/trust.html), before you run it
+- [The conformance method](https://veredictum.eu/docs/methodology.html): the oracle, the attribution law, how a verdict is computed
+- [The hosted instrument](https://veredictum.eu/docs/hosted.html): where it runs, results and certificates
+- [Command reference](https://veredictum.eu/docs/commands.html) and [glossary](https://veredictum.eu/docs/glossary.html)
+- [About the project](https://veredictum.eu/docs/about.html): lineage, the origin of the name, the design record, credits
+- [Changelog](https://github.com/Vernum-Projecten/Veredictum/blob/main/CHANGELOG.md) and the [public roadmap board](https://github.com/orgs/Vernum-Projecten/projects/1)
 
 ## Contributing
 
-[`CONTRIBUTING.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/CONTRIBUTING.md) has the gates and the review bar.
-[`CLAUDE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/CLAUDE.md) is the working discipline the project holds itself
-to, including the attribution law above. Security reports go through
-[`SECURITY.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/SECURITY.md), and questions through
+[`CONTRIBUTING.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/CONTRIBUTING.md)
+has the gates and the review bar, and
+[`CLAUDE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/CLAUDE.md)
+is the working discipline the project holds itself to. Questions go through
 [`SUPPORT.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/SUPPORT.md).
-
 If you maintain a CDR and want it graded, open an issue. A defect this
 instrument finds in your server arrives with the reproduced exchange and the
-citation, and a defect you find in this instrument is a first-class bug
-here.
+citation, and a defect you find in this instrument is a first-class bug here.
 
-The [public roadmap board](https://github.com/orgs/Vernum-Projecten/projects/1)
-shows what is planned, in progress, and shipped — a view over the issue
-tracker, where milestones are releases.
+## Security
 
-## Credits
+Report a vulnerability as
+[`SECURITY.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/SECURITY.md)
+describes, never in a public issue.
 
-The conformance work here stands on work other people did first. Each entry
-below says what that work contributed to this catalogue.
+## Licence
 
-- **The openEHR SEC and the CNF authors:** the
-  [Conformance component](https://specifications.openehr.org/releases/CNF/development),
-  whose Conformance Guide and Platform Conformance Test Schedule set the SUT
-  model, the profile matrix and the certificate shape, and say which
-  behaviours a platform product has to be tested for. The schedule's
-  amendment record names T Beale, B Naess, I McNicoll, C Chevalley,
-  H Frankel, S Iancu, B Lah and W Wagner across its revisions, beside
-  P Pazos. 349 of the 1146 case cores of the former case-core catalogue
-  cited one of its Test Schedule chapters.
-- **Pablo Pazos (CaboLabs):** the fleshed EHR, COMPOSITION, CONTRIBUTION and
-  DIRECTORY chapters of that schedule, which are its usable core. The
-  amendment record names him as the raiser of Test Schedule revisions 0.8.0
-  (23 Nov 2021) through 0.8.6 (24 Mar 2022), and as co-author of the
-  Conformance Guide's initial writing with T Beale. He wrote the original
-  2019 EHRbase conformance tests at Hannover Medical School, and his
-  [openEHR conformance verification framework](https://github.com/ppazos/openehr-conformance-verification)
-  is the expanded continuation of that work, carrying a conformance testing
-  specification of its own. He has argued the case for openEHR conformance
-  testing on the community forums for years. 127 of the 1146 former case
-  cores cited the four chapters those revisions wrote.
-- **The EHRbase and vitasystems team:** the executable battery. The 223 Robot
-  files the CNF component vendored name Wladislaw Wagner (Vitasystems GmbH),
-  Pablo Pazos and Jake Smolka (Hannover Medical School) in their copyright
-  headers, and the team maintains that set as its
-  [integration tests](https://github.com/ehrbase/integration-tests). 156 of
-  the 462 provenance records of the former corpus named that set as the source of the
-  entry's bytes or of its template skeleton, each one re-adjudicated against
-  the released specifications.
-- **The openEHR Foundation:** the
-  [released specifications](https://specifications.openehr.org/) every
-  expectation in the catalogue cites, and the machine-readable artifacts the
-  workflows resolve against: the ITS-XML and ITS-JSON schema bundles and the
-  ITS-REST OpenAPI documents.
+Apache-2.0 ([LICENSE](https://github.com/Vernum-Projecten/Veredictum/blob/main/LICENSE)).
+The vendored specification text and clinical models keep their upstream
+terms, declared in `REUSE.toml`;
+[About the project](https://veredictum.eu/docs/about.html#licence) states them.
 
-The Test Schedule chapters are cited as the structural guide to which
-behaviours need covering. The correctness authority is always the released
-specification a case cites.
-
-## License
-
-Apache-2.0. Attribution travels with every copy and derivative through the
-license and the `NOTICE` file, as its section 4 requires. The vendored
-specification text and clinical models keep their upstream terms, recorded
-per tree in `PROVENANCE.md` and declared machine-readably in `REUSE.toml`.
-
-One dependency has a different licence. `validate` parses every AQL query in
-the catalogue with [`openehr-query`](https://crates.io/crates/openehr-query),
-which is BUSL-1.1 (Business Source License 1.1). It is a Rust implementation of
-the released AQL grammar, and its owner approved its use here. It is linked
-into the `veredictum` binary and the container image, so those carry its terms
-as well. Non-production use is free. Production use is granted only for the
-Non-Commercial Purposes its licence defines, and any other production use needs
-a commercial licence from the Licensor, Cadasto B.V. Each published version
-becomes Apache-2.0 four years after its release. It is the only dependency
-outside the permissive set `deny.toml` allows, admitted by an exception that
-names that crate alone.
-
-## openEHR
-
-openEHR® is the registered trademark of the openEHR Foundation. Veredictum
-is an independent, community-driven conformance instrument: it names openEHR
-descriptively, to say what is being tested against, and it is not an
-official openEHR Foundation product, not the Foundation's CNF program, and
-not endorsed by or affiliated with the Foundation. The released openEHR
-specifications are this instrument's oracle by its own choice, and every
-expectation cites them — that fidelity is a design discipline here, never a
-claim of official status.
+openEHR® is the registered trademark of the openEHR Foundation. Veredictum is
+an independent, community-driven instrument that names openEHR to say what it
+tests against. It is not an official openEHR Foundation product and is not
+endorsed by or affiliated with the Foundation.

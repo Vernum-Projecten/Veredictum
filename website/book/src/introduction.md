@@ -18,13 +18,46 @@ product.
 conformance instrument. It serves the catalogue, and a run driven there against
 a publicly reachable CDR shows the full results and verdicts for that server.
 It runs functional conformance only; the measured instruments are run locally
-with the command line. The instance holds no key and nothing durable. Running
-the instrument yourself works against any deployment you can reach
-([Installation](installation.md)).
+with the command line. The instance holds no key and nothing durable.
+[The hosted instrument](hosted.md) says where it runs and what a hosted run
+establishes. Running the instrument yourself works against any deployment you
+can reach ([Installation](installation.md)).
 
 The released openEHR specifications are the only authority the instrument
 accepts. Every expectation in the catalogue names the section it comes from, so
 it can be refuted by a better reading of the specification and by nothing else.
+
+## Two products over one engine
+
+- **The instrument CLI:** the `veredictum` command, installed from
+  [crates.io](https://crates.io/crates/veredictum) or taken as a signed
+  release binary. Every verdict this repository speaks is a run of it.
+- **The web console:** the container image at
+  [ghcr.io/vernum-projecten/veredictum][ghcr],
+  a browser frontend that drives the same pinned CLI underneath: connect a
+  CDR, paste the vendor's claim, watch the run live, read the results and the
+  verdicts. The image also runs any CLI subcommand given as its first
+  argument, so `docker run <image> test …` drives the catalogue it ships.
+
+Both are pre-1.0. The 0.x line publishes working releases and makes no
+API-stability claim yet; every claim a release does make is checked, signed
+and reproducible, which is the stability that matters for a verdict.
+
+## Four questions, one command surface
+
+| Question | Commands |
+|---|---|
+| **Does it conform?** | `validate` checks the catalogue itself before any server is involved; zero findings is the only passing result. `test` drives the cases your statement selects against the server over its own REST wire, records every exchange as HAR, judges each row and writes `results.json`; `--rejudge` reproduces those results from the recording alone. `export` renders the results for a CI system. |
+| **What class does it sustain?** | `perf` seeds the population-scale corpus and holds a class's offered load for the sustained window, open-loop, merging the measured record into the results. |
+| **Where does it break?** | `stress` steps load up to the maximum sustainable throughput; `stress-compare` overlays two committed stress reports; `aql-probe` explores AQL behaviour over the seeded corpus with per-statement database attribution. All three are exploration and never produce a conformance record. |
+| **How fast is it?** | `bench` runs an embedded benchmark pack against any reachable CDR from a base URL and credentials; `bench-compare` aligns committed results into one table; `bench-packs` writes the byte-deterministic description of what every pack runs. Comparative speed only, never a conformance verdict. |
+
+More subcommands serve the records themselves: `verdicts` re-derives the
+measured class verdicts, `verify-record` checks a sealed bundle,
+`emit-schemas` writes the published JSON Schemas, `perf-assets` renders the
+published charts from committed artifacts, and `identify` asks a server who it
+is. `veredictum --help` is the authoritative list, and the
+[command reference](commands.md) is generated from it.
 
 ## Who this is for
 
@@ -42,14 +75,21 @@ it can be refuted by a better reading of the specification and by nothing else.
 
 ## What is in the box
 
+The instrument is one binary plus a data tree, and the data tree lives in the
+repository. The counts on these pages are the line `veredictum validate`
+prints over `catalogue/`, and a CI guard fails the build when a count here
+disagrees with the catalogue.
+
 | | |
 |---|---|
-| **1651 spec-cited cases** | Arazzo workflows over the released openEHR REST API OpenAPI documents, in 205 Arazzo documents. One small isolated case per behaviour, so a red row names one defect. Every invalid shape is kept as its own refusal case, so a lenient server fails it |
+| **The catalogue** | `catalogue/cases/`: 1651 spec-cited cases as [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html) workflows over the released openEHR REST API OpenAPI documents, in 205 Arazzo documents. One small isolated case per behaviour, so a red row names one defect. Every invalid shape is kept as its own refusal case, so a lenient server fails it. Every criterion carries the released sentence it enforces |
 | **15 capability folders** | EHR, EHR status, composition, content, contribution, directory, item tags, query, definition, demographic, admin, security, simplified formats, SMART, system. A statement claims folders |
-| **The options** | The behaviours the release leaves to the implementation, each with the arms a statement picks one of |
-| **The performance schedule** | The four measured-workload class cases, the journey catalogue and the payloads the measured instruments send |
-| **The published schemas** | JSON Schema for every artifact family, emitted and drift-tested, so you can author against the format |
-| **The specification oracle** | The released specification text, vendored verbatim, plus the released XSD, JSON Schema and OpenAPI bundles a citation resolves against |
+| **The options** | `catalogue/capabilities.yaml`: the behaviours the release leaves to the implementation, each an option with its arms; a party's statement picks one arm of each, and the documents of every other arm are skipped |
+| **The id map** | `catalogue/id-map.yaml`: every case id of the former case-core catalogue, mapped to the workflows that carry it or to the reason none does |
+| **The performance schedule** | `perf/`: the four measured-workload class cases, the journey catalogue and the payloads `perf`, `stress` and `aql-probe` send, kept apart from the conformance catalogue |
+| **The published schemas** | `schemas/`: JSON Schema for every artifact family, emitted by the instrument and drift-tested, so you can author against the format |
+| **The verification pack** | `verification-pack/arazzo/`: recorded HAR exchanges with their adjudicated results. The evaluator re-judges every recording and must reproduce every row, so no harness, this one included, is trusted on its word |
+| **The specification oracle** | `specs/openehr/`: the released specification text, vendored verbatim, plus the released XSD, JSON Schema and OpenAPI bundles a citation resolves against |
 
 ## Two commands, and a re-judgement
 
@@ -79,4 +119,9 @@ happens to a gap it finds.
 > is an independent, community-driven conformance instrument: it names
 > openEHR descriptively, to say what is being tested, and it is not an
 > official openEHR Foundation product, not the Foundation's CNF program, and
-> not endorsed by or affiliated with the Foundation.
+> not endorsed by or affiliated with the Foundation. The released openEHR
+> specifications are this instrument's oracle by its own choice, and every
+> expectation cites them. That fidelity is a design discipline here, never a
+> claim of official status.
+
+[ghcr]: https://github.com/Vernum-Projecten/Veredictum/pkgs/container/veredictum
