@@ -3761,7 +3761,7 @@ cases:
     new: []
     open: >-
       The term-code form of the node predicate name shortcut. Not converted yet,
-      tracked by #711.
+      tracked by #790.
   I_QUERY_SERVICE.execute_ad_hoc_query-node_predicate_paths:
     new: [aql_semantics/node_predicate-name_shortcut, aql_semantics/node_predicate-name_criterion, aql_semantics/node_predicate-name_mismatch]
   I_QUERY_SERVICE.execute_ad_hoc_query-not_contains:
@@ -3811,24 +3811,24 @@ cases:
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_routed_expand_filters:
     new: []
     open: >-
-      Needs a declared terminology server. Not converted yet, tracked by #711.
+      Needs a declared terminology server. Not converted yet, tracked by #790.
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_routed_validate_member:
     new: []
     open: >-
-      Needs a declared terminology server. Not converted yet, tracked by #711.
+      Needs a declared terminology server. Not converted yet, tracked by #790.
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_routed_validate_non_member:
     new: []
     open: >-
-      Needs a declared terminology server. Not converted yet, tracked by #711.
+      Needs a declared terminology server. Not converted yet, tracked by #790.
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_subsumes:
     new: []
     open: >-
-      Needs a declared terminology server. Not converted yet, tracked by #711.
+      Needs a declared terminology server. Not converted yet, tracked by #790.
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_two_servers:
     new: []
     open: >-
       Needs two declared terminology servers. Not converted yet, tracked by
-      #711.
+      #790.
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_unsupported_forms:
     new: []
     open: >-
