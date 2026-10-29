@@ -429,3 +429,36 @@ fn a_declared_test_issuer_mints_each_row_a_token_with_its_scope_claim() -> Falli
     }
     Ok(())
 }
+
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn an_ixit_naming_a_variable_outside_the_scoped_token_prefix_is_refused() -> Fallible {
+    let dir = assert_fs::TempDir::new()?;
+    let sut = platform();
+    let statement = statement(dir.path())?;
+    let ixit = write_json(
+        dir.path(),
+        "ixit.json",
+        &json!({ "scoped_tokens": { "issued": { READ_SCOPE: "HOME" } } }),
+    )?;
+    let base_url = format!("{}/openehr/v1", sut.base_url());
+    let output = test_command(
+        &[
+            "--statement",
+            &statement,
+            "--ixit",
+            &ixit,
+            "--base-url",
+            &base_url,
+            "--out",
+            &dir.path().join("run").to_string_lossy(),
+        ],
+        &[],
+    )?;
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    assert!(sut.requests().is_empty());
+    Ok(())
+}

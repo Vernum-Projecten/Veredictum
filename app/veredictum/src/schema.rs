@@ -1162,7 +1162,8 @@ pub fn ixit_schema() -> Value {
             "spec_profile": spec_profile_def(
                 "The party's DEFAULT openEHR specification generation set: `stable` = the latest RELEASED generations, `development` = the development generations, which admit surface no release defines yet. Declared here because no released operation discloses which set a deployment runs (the openEHR release strategy makes a minor release a compatible superset, so the sets differ only in accepted surface); absent => every case whose expectation rests on a generation set is not-applicable with that citation. An instance may override it."
             ),
-            "smart": ixit_smart_def()
+            "smart": ixit_smart_def(),
+            "scoped_tokens": ixit_scoped_tokens_def()
         }
     })
 }
@@ -1216,6 +1217,47 @@ fn ixit_instances_def() -> Value {
                 "administrative": {
                     "description": "Whether this instance's principal holds administrative authorization (register AMB-228). SM master02-overview.adoc §Functional Style delegates access control to the implementation, so the posture is an IXIT declaration; a role-boundary case states the posture it needs in requires, and an undeclared or opposite declaration records it not-applicable with that citation. Absent => undeclared, never a default.",
                     "type": "boolean"
+                }
+            }
+        }
+    })
+}
+
+/// The `scoped_tokens` member of the IXIT: where `veredictum test` takes the
+/// token a step that names a SMART scope set presents. No openEHR spec
+/// governs it — our own design.
+fn ixit_scoped_tokens_def() -> Value {
+    use crate::arazzo::credential::{
+        MINTED_CLAIMS, SCOPED_KEY_ENV, SCOPED_TOKEN_PREFIX, SCOPED_TOKENS_MEMBER,
+    };
+    json!({
+        "description": format!("The tokens a step that names a SMART scope set (`x-veredictum-scope`) presents in `veredictum test`. `issued` maps a scope set, space-delimited scope tokens in any order (RFC 6749 §3.3), to the variable holding a token issued for it, read from the variable or from the file its `_FILE` variant names. `mint` declares a test issuer the deployment trusts, which signs an RS256 token for any scope set with the RSA private key in `{SCOPED_KEY_ENV}` (or its `_FILE`); a supplied token wins over a minted one. Every variable named here must be set when the run starts. Absent => every row presenting a scope set is skipped as `not-declared`. The `{SCOPED_TOKENS_MEMBER}` member names variables, never a token."),
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "issued": {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "string",
+                    "pattern": format!("^{SCOPED_TOKEN_PREFIX}[A-Z0-9_]+$"),
+                    "not": { "const": SCOPED_KEY_ENV }
+                }
+            },
+            "mint": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["issuer", "subject", "kid", "ttl_seconds"],
+                "properties": {
+                    "issuer": { "description": "The `iss` claim.", "type": "string" },
+                    "subject": { "description": "The `sub` claim.", "type": "string" },
+                    "audience": { "description": "The `aud` claim, if the deployment checks one.", "type": "string" },
+                    "kid": { "description": "The `kid` header parameter naming the key the deployment verifies with.", "type": "string" },
+                    "ttl_seconds": { "description": "How long a minted token lives.", "type": "integer", "minimum": 1, "maximum": u32::MAX },
+                    "claims": {
+                        "description": "Further claims, such as the role claim the deployment's own access control reads.",
+                        "type": "object",
+                        "propertyNames": { "not": { "enum": MINTED_CLAIMS } }
+                    }
                 }
             }
         }

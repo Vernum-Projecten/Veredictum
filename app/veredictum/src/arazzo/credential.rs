@@ -335,17 +335,18 @@ pub struct MintDeclaration {
 }
 
 /// The claims a minted token always carries, which the IXIT cannot set.
-const MINTED_CLAIMS: [&str; 6] = ["iss", "sub", "aud", "iat", "exp", "scope"];
+pub const MINTED_CLAIMS: [&str; 6] = ["iss", "sub", "aud", "iat", "exp", "scope"];
 
-/// The IXIT's `scoped_tokens` member.
-#[derive(Debug, Deserialize)]
+/// The IXIT's `scoped_tokens` member: where the tokens a scoped step
+/// presents come from. It names variables and a test issuer, never a token.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ScopedDeclaration {
+pub struct ScopedTokensDeclaration {
     /// The variable each supplied token is read from, by scope set.
     #[serde(default)]
-    issued: BTreeMap<String, String>,
+    pub issued: BTreeMap<String, String>,
     /// The test issuer, if the deployment trusts one.
-    mint: Option<MintDeclaration>,
+    pub mint: Option<MintDeclaration>,
 }
 
 /// Where the tokens a scoped step presents come from: a locator that holds
@@ -387,7 +388,7 @@ impl ScopedSources {
             return Ok(Self::default());
         };
         let bad = |reason: String| CredentialError::Declaration(reason);
-        let declared: ScopedDeclaration =
+        let declared: ScopedTokensDeclaration =
             serde_json::from_value(member.clone()).map_err(|e| bad(e.to_string()))?;
         let mut issued = BTreeMap::new();
         for (scope, variable) in &declared.issued {

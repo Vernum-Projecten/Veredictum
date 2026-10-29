@@ -19,4 +19,5 @@
   the tokens; the results and the recording never hold one. A declared
   variable that is not set stops the run with exit status 2, and a row whose
   scope set is not covered is skipped as `not-declared`. The published
-  `arazzo-extensions` schema gains the `scope` definition.
+  `arazzo-extensions` schema gains the `scope` definition, and the published
+  IXIT schema the `scoped_tokens` member.

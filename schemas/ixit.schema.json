@@ -447,6 +447,73 @@
           }
         }
       }
+    },
+    "scoped_tokens": {
+      "description": "The tokens a step that names a SMART scope set (`x-veredictum-scope`) presents in `veredictum test`. `issued` maps a scope set, space-delimited scope tokens in any order (RFC 6749 §3.3), to the variable holding a token issued for it, read from the variable or from the file its `_FILE` variant names. `mint` declares a test issuer the deployment trusts, which signs an RS256 token for any scope set with the RSA private key in `VEREDICTUM_SCOPED_TOKEN_KEY` (or its `_FILE`); a supplied token wins over a minted one. Every variable named here must be set when the run starts. Absent => every row presenting a scope set is skipped as `not-declared`. The `scoped_tokens` member names variables, never a token.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "issued": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^VEREDICTUM_SCOPED_TOKEN_[A-Z0-9_]+$",
+            "not": {
+              "const": "VEREDICTUM_SCOPED_TOKEN_KEY"
+            }
+          }
+        },
+        "mint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "issuer",
+            "subject",
+            "kid",
+            "ttl_seconds"
+          ],
+          "properties": {
+            "issuer": {
+              "description": "The `iss` claim.",
+              "type": "string"
+            },
+            "subject": {
+              "description": "The `sub` claim.",
+              "type": "string"
+            },
+            "audience": {
+              "description": "The `aud` claim, if the deployment checks one.",
+              "type": "string"
+            },
+            "kid": {
+              "description": "The `kid` header parameter naming the key the deployment verifies with.",
+              "type": "string"
+            },
+            "ttl_seconds": {
+              "description": "How long a minted token lives.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967295
+            },
+            "claims": {
+              "description": "Further claims, such as the role claim the deployment's own access control reads.",
+              "type": "object",
+              "propertyNames": {
+                "not": {
+                  "enum": [
+                    "iss",
+                    "sub",
+                    "aud",
+                    "iat",
+                    "exp",
+                    "scope"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
