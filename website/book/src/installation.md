@@ -63,7 +63,7 @@ The fastest start is the operator compose file, which pins the image to the
 version it shipped with and binds the console to loopback on port 3210:
 
 ```bash
-curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/docker/docker-compose.yml
+curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/deploy/docker/docker-compose.yml
 docker compose up
 ```
 

@@ -80,7 +80,7 @@ ARG TAILWIND_VERSION
 # amd64 | arm64 — provided by buildx; the from-source target builds natively.
 ARG TARGETARCH
 # curl + ca-certificates fetch the pinned tool binaries below. Unversioned on
-# purpose (hadolint DL3008 is adjudicated in .hadolint.yaml): Debian rolls
+# purpose (hadolint DL3008 is adjudicated in deploy/docker/hadolint.yaml): Debian rolls
 # security point releases under one package name, and the artifact's real pins
 # are the digest-pinned base, the tool versions above, and Cargo.lock.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -189,7 +189,7 @@ ENV LEPTOS_OUTPUT_NAME=veredictum-console \
 # An operator who wants their own trees bind-mounts over these paths, which
 # takes precedence over image content
 # (https://docs.docker.com/engine/storage/bind-mounts — a bind mount obscures
-# what the image has at the target). `docker/docker-compose.yml` does exactly
+# what the image has at the target). `deploy/docker/docker-compose.yml` does exactly
 # that, so the local development loop reads the working tree as before.
 # The Arazzo catalogue's documents name their OAS sources as
 # `../../../specs/rest-oas/…`, so it sits one level below /work exactly as it

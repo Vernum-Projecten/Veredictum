@@ -206,7 +206,7 @@ jobs:
             printf '\nFull reports are attached to the run as `image-scan-reports`: %s\n' "$RUN_URL"
             printf '\nThese are findings **with a fix available**, so the remedy is a rebuild and'
             printf ' a re-release of the image. A finding in the base layer is fixed by bumping'
-            printf ' the pinned digest in `docker/Dockerfile`; a finding in the Rust dependency'
+            printf ' the pinned digest in `deploy/docker/Dockerfile`; a finding in the Rust dependency'
             printf ' graph is fixed the way `cargo deny` findings are fixed. Either way the fix'
             printf ' only reaches users on the next tag, because the image republishes on a tag.\n'
           } > body.md

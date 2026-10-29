@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Veredictum contributors
 # SPDX-License-Identifier: Apache-2.0
 #
-# The FerroEHR half of the real-SUT pair, beside docker/e2e-ehrbase.yml: the
+# The FerroEHR half of the real-SUT pair, beside deploy/docker/e2e-ehrbase.yml: the
 # published FerroEHR image with its own PostgreSQL image, in the pairing and
 # posture of FerroEHR's quickstart (https://github.com/FerroHEALTH/FerroEHR,
 # docker-compose.yml): Basic auth with the quickstart's dev user
@@ -15,11 +15,11 @@
 # port defaults to 8093 so it coexists with a FerroEHR quickstart on 8080 and
 # EHRbase on 8090. The database publishes no port at all.
 #
-# The server configuration is docker/e2e-ferroehr.toml, bind-mounted and named
+# The server configuration is deploy/docker/e2e-ferroehr.toml, bind-mounted and named
 # by FERROEHR_CONFIG: from 5.5.0 the server reads a file only when that
 # variable names it, and podman compose ignores an inline `configs` block.
 #
-#   docker compose -p veredictum-ferroehr -f docker/e2e-ferroehr.yml up -d
+#   docker compose -p veredictum-ferroehr -f deploy/docker/e2e-ferroehr.yml up -d
 #   curl -u ferroehr:ferroehr -X POST -i \
 #     http://127.0.0.1:8093/ferroehr/rest/openehr/v1/ehr
 

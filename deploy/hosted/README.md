@@ -61,7 +61,7 @@ variant of the same tag.
 **One image, and this directory builds none of it.** `ghcr.io/vernum-projecten/veredictum`
 carries the engine, the console and the release's own catalogue and vendored
 specification oracle (#420), which is why this instance
-mounts nothing at all. `docker/Dockerfile` is where that is built, at a release.
+mounts nothing at all. `deploy/docker/Dockerfile` is where that is built, at a release.
 
 Two consequences worth stating. A run produced here names a catalogue
 revision that belongs to a published version, because the data in the image is
@@ -90,7 +90,7 @@ which CI builds and pushes; the box only pulls.
 ## The posture travels in the image
 
 The compose file and the Caddyfile the box runs are release data, exactly like
-the catalogue (#423). `docker/Dockerfile` COPYs both to `/app/posture/`, and
+the catalogue (#423). `deploy/docker/Dockerfile` COPYs both to `/app/posture/`, and
 `deploy.sh` extracts them out of the image it just pulled:
 
 1. It reads `CONSOLE_IMAGE` from `.env`, which is what names the artifact to

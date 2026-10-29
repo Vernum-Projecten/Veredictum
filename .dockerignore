@@ -1,5 +1,5 @@
 # The build-context ignore file for the ONE image this repository builds
-# (docker/Dockerfile). A Dockerfile-adjacent
+# (deploy/docker/Dockerfile). A Dockerfile-adjacent
 # `*.dockerignore` would SHADOW this file entirely
 # (https://docs.docker.com/build/concepts/context — a Dockerfile-specific
 # ignore-file takes precedence), so there is only this one — the FerroEHR shape.

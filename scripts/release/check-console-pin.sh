@@ -54,7 +54,7 @@ CONSOLE_MANIFEST=app/veredictum-console/Cargo.toml
 ENGINE_MANIFEST=app/veredictum/Cargo.toml
 ROOT_MANIFEST=Cargo.toml
 LOCK=Cargo.lock
-COMPOSE=docker/docker-compose.yml
+COMPOSE=deploy/docker/docker-compose.yml
 
 dep_pin="$(sed -nE 's/^veredictum = \{.*version = "=([^"]+)".*$/\1/p' "$CONSOLE_MANIFEST" | head -1)"
 # The `[package]` table's own version, never the first `version = ` line: the

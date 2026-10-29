@@ -152,7 +152,7 @@ which lives in this repository — that path closes the section.
 ### docker compose up — the console
 
 ```bash
-curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/docker/docker-compose.yml
+curl -LO https://raw.githubusercontent.com/Vernum-Projecten/Veredictum/main/deploy/docker/docker-compose.yml
 docker compose up
 ```
 

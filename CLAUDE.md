@@ -42,6 +42,8 @@ and the container image through the pipeline the Releasing section describes.
 | `specs/openehr/**` | the vendored released openEHR spec text: the oracle |
 | `specs/its-xml-schemas/**`, `specs/its-json-schemas/**`, `specs/rest-oas/**` | the released machine-readable bundles, the second root a citation resolves against where the docs tree carries only prose |
 | `upstream/<openEHR repository>/**` | proposed fixes to a released specification, one patch per `upstream-report` issue, written against the vendored commit and never applied to `specs/` |
+| `deploy/docker/**` | the container image: its `Dockerfile`, the quickstart `docker-compose.yml`, the browser-journey SUT pairs, and the hadolint configuration |
+| `deploy/hosted/**` | the hosted instrument: the posture the image carries and the box's cloud-init |
 | `docs/**` | the design and governance record: `ARCHITECTURE.md`, `ASSURANCE_CASE.md`, `GOVERNANCE.md`, `MAINTAINERS.md`, `AI_STATEMENT.md` |
 | `scripts/vendor/**` | one script per vendored tree — the only way any of them is refreshed |
 | `scripts/checks/**` | the repository guard scripts |

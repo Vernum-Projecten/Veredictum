@@ -9,7 +9,7 @@
 #
 # What it deliberately does NOT do: fetch anything from this repository. The box
 # holds no checkout. Everything the instrument needs is baked into the image
-# (docker/Dockerfile, #420), including the posture the box itself runs (#423),
+# (deploy/docker/Dockerfile, #420), including the posture the box itself runs (#423),
 # so the deploy is a pull and an extraction.
 
 users:
@@ -181,7 +181,7 @@ write_files:
       # command= restriction on the key.
       #
       # The posture this box runs — docker-compose.yml and Caddyfile — travels
-      # INSIDE the published image at /app/posture (docker/Dockerfile, #423), so
+      # INSIDE the published image at /app/posture (deploy/docker/Dockerfile, #423), so
       # a committed posture change arrives with the release that carries it and
       # inherits that artifact's provenance. This script extracts it from the
       # image it just pulled and installs it only after the compose file parses.

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Veredictum contributors
 # SPDX-License-Identifier: Apache-2.0
 #
-# The FerroEHR server configuration docker/e2e-ferroehr.yml mounts, cut from
+# The FerroEHR server configuration deploy/docker/e2e-ferroehr.yml mounts, cut from
 # the quickstart to what the conformance surface needs: the sandbox profile,
 # the local EHR index, the dev Basic user ferroehr / ferroehr, RBAC off.
 

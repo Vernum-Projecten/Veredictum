@@ -158,7 +158,7 @@ jobs:
           # that decides what it can see, the hosted posture that runs it, the
           # lint configuration, the GitHub Action's test Dockerfile, and this
           # file.
-          if echo "$changed" | grep -qE '^(docker/|deploy/hosted/|\.dockerignore$|\.hadolint\.yaml$|scripts/action/test/engine\.Dockerfile$|\.github/workflows/ci\.yml$)'; then
+          if echo "$changed" | grep -qE '^(deploy/docker/|deploy/hosted/|\.dockerignore$|scripts/action/test/engine\.Dockerfile$|\.github/workflows/ci\.yml$)'; then
             echo "docker=true" >> "$GITHUB_OUTPUT"
           else
             echo "docker=false" >> "$GITHUB_OUTPUT"
@@ -170,7 +170,7 @@ jobs:
           # them out of the context, so no change there can alter the image.
           # `grep -v` exits 1 when nothing survives, which pipefail reads false.
           if echo "$changed" | grep -vE '^app/veredictum/tests/' \
-            | grep -qE '^(app/|catalogue/|specs/|assets/brand/|docker/|deploy/hosted/|Cargo\.(toml|lock)$|rust-toolchain\.toml$|\.dockerignore$|\.hadolint\.yaml$|\.github/workflows/ci\.yml$)'; then
+            | grep -qE '^(app/|catalogue/|specs/|assets/brand/|deploy/docker/|deploy/hosted/|Cargo\.(toml|lock)$|rust-toolchain\.toml$|\.dockerignore$|\.github/workflows/ci\.yml$)'; then
             echo "image=true" >> "$GITHUB_OUTPUT"
           else
             echo "image=false" >> "$GITHUB_OUTPUT"
@@ -503,7 +503,7 @@ jobs:
   # hadolint over the Dockerfile — the ONE image, the web console (#6) — and
   # over the GitHub Action's test Dockerfile (#770), whose images the action's
   # CI job runs.
-  # Configuration lives in `.hadolint.yaml`, where a rule this repository
+  # Configuration lives in `deploy/docker/hadolint.yaml`, where a rule this repository
   # deliberately violates is named with its reason — never a blanket disable
   # (OWASP Docker Security Cheat Sheet rule 9).
   #
@@ -526,13 +526,13 @@ jobs:
           persist-credentials: false
       - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
         with:
-          dockerfile: docker/Dockerfile
-          config: .hadolint.yaml
+          dockerfile: deploy/docker/Dockerfile
+          config: deploy/docker/hadolint.yaml
           failure-threshold: warning
       - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
         with:
           dockerfile: scripts/action/test/engine.Dockerfile
-          config: .hadolint.yaml
+          config: deploy/docker/hadolint.yaml
           failure-threshold: warning
 
   # The image is BUILT, not merely linted. Until now nothing below the release
@@ -582,7 +582,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: docker/Dockerfile
+          file: deploy/docker/Dockerfile
           target: runtime-from-source
           push: false
           # `load` exports type=docker, which is what makes the image reachable
@@ -1009,7 +1009,7 @@ jobs:
       # compiles a vendored OpenSSL tree.
       - name: Fetch cargo-leptos and Tailwind (pinned, checksum-verified)
         env:
-          DOCKERFILE: docker/Dockerfile
+          DOCKERFILE: deploy/docker/Dockerfile
         run: |
           set -euo pipefail
           clv="$(grep -E '^ARG CARGO_LEPTOS_VERSION=' "$DOCKERFILE" | head -1 | cut -d= -f2)"
