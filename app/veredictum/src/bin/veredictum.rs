@@ -113,6 +113,13 @@ enum Command {
         /// (for example `https://cdr.example/openehr/v1`).
         #[arg(long, required_unless_present = "rejudge")]
         base_url: Option<String>,
+        /// The SMART Platform base URL (for example
+        /// `https://platform.example`), which SMART on openEHR serves its
+        /// discovery document relative to and which can differ from the
+        /// openEHR REST base. Without it, every workflow with a step sent to it
+        /// is skipped as `not-declared`.
+        #[arg(long)]
+        platform_url: Option<String>,
         /// How the client presents itself: `none`, `basic` or `bearer`.
         ///
         /// `basic` reads `VEREDICTUM_SUT_USER` and `VEREDICTUM_SUT_PASSWORD`,
@@ -143,6 +150,15 @@ enum Command {
         /// The party's IXIT (JSON), which the `declared` inputs of a rows
         /// file read. A row whose declared value is missing is skipped as
         /// `not-declared`.
+        ///
+        /// Its `scoped_tokens` member declares the tokens a step that names a
+        /// SMART scope set presents: `issued` maps a scope set to the variable
+        /// (`VEREDICTUM_SCOPED_TOKEN_<NAME>`, or the file its `_FILE` names)
+        /// holding a token issued for it, and `mint` declares a test issuer the
+        /// deployment trusts, whose RSA key is read from
+        /// `VEREDICTUM_SCOPED_TOKEN_KEY`. A row whose scope set neither covers is
+        /// skipped as `not-declared`; a declared variable that is not set stops
+        /// the run before any request.
         #[arg(long)]
         ixit: Option<PathBuf>,
         /// Run only this document, by its id (`ehr` for
@@ -159,7 +175,7 @@ enum Command {
         /// request is answered from the recording, so the results are the
         /// bytes the recorded run wrote. Pass the root, statement, IXIT and
         /// documents the recorded run was given.
-        #[arg(long, value_name = "RECORDING", conflicts_with_all = ["base_url", "auth", "admin_auth"])]
+        #[arg(long, value_name = "RECORDING", conflicts_with_all = ["base_url", "platform_url", "auth", "admin_auth"])]
         rejudge: Option<PathBuf>,
     },
     /// Read a server's identity from the ITS-REST System OPTIONS operation and
@@ -534,6 +550,7 @@ fn main() -> ExitCode {
         Command::Test {
             root,
             base_url,
+            platform_url,
             auth,
             admin_auth,
             statement,
@@ -550,6 +567,7 @@ fn main() -> ExitCode {
             },
             &TestTarget {
                 base_url: base_url.as_deref(),
+                platform_url: platform_url.as_deref(),
                 auth: &auth,
                 admin_auth: &admin_auth,
                 rejudge: rejudge.as_deref(),
@@ -904,6 +922,8 @@ struct BenchInvocation<'a> {
 struct TestTarget<'a> {
     /// The server's base URL, for a live run.
     base_url: Option<&'a str>,
+    /// The SMART Platform base URL, for a live run.
+    platform_url: Option<&'a str>,
     /// The `--auth` token.
     auth: &'a str,
     /// The `--admin-auth` token.
@@ -943,6 +963,7 @@ fn test_command(
                 base_url,
                 ordinary,
                 administrative,
+                platform_url: target.platform_url,
             }
         }
         (None, None) => {

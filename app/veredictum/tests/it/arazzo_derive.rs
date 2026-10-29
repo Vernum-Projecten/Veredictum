@@ -90,12 +90,7 @@ fn a_request_is_addressed_by_the_object_id_a_step_derives() -> Fallible {
     dir.child("doc.arazzo.yaml").write_str(DOC)?;
     let document = ArazzoDocument::load(&dir.path().join("doc.arazzo.yaml"))?;
     let mut transport = HttpTransport::new()?;
-    let config = RunConfig {
-        base_url: format!("{}/v1", sut.base_url()),
-        authorization: None,
-        signing: None,
-        administrative: None,
-    };
+    let config = RunConfig::new(&format!("{}/v1", sut.base_url()));
     let (results, _) = run_document(
         &document,
         "doc",

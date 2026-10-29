@@ -74,7 +74,8 @@ pick are skipped as `option-not-selected`. Without a statement, every
 capability runs and no arm is selected, which is what you want when you are
 exploring an unfamiliar server rather than grading a declared one. A workflow
 with an administrative step needs `--admin-auth`; without it, it is skipped as
-`not-declared`.
+`not-declared`. A SMART on openEHR Platform also passes `--platform-url` and
+declares its scoped tokens in the IXIT ([`test`](commands.md#test)).
 
 The run writes `out/results.json`, one row per workflow row, each passed,
 failed, errored or skipped, and `out/recording.har`, every exchange as HAR 1.2.

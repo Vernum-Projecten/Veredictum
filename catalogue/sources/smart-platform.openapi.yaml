@@ -1,0 +1,26 @@
+# NOT AN openEHR SPECIFICATION. The SMART on openEHR routes a step sends to
+# the SMART Platform base URL, which no released openEHR OpenAPI document
+# declares, declared here so an Arazzo step can address them. The root's
+# `x-veredictum-base: platform` appends every path to the Platform base URL
+# the party supplies (`veredictum test --platform-url`), never to the openEHR
+# REST base. Nothing in this file is an expectation: every expectation on
+# these routes cites the released SMART on openEHR text.
+openapi: 3.0.3
+info:
+  title: SMART on openEHR Platform routes (not an openEHR specification)
+  version: 0.1.0
+  description: >-
+    The routes SMART on openEHR places relative to the Platform base URL,
+    which the released text describes in prose and no released OpenAPI
+    document declares. This document is Veredictum's own and carries no
+    openEHR authority.
+  x-veredictum-non-openehr: true
+x-veredictum-base: platform
+paths:
+  /.well-known/smart-configuration:
+    get:
+      operationId: smart_configuration
+      summary: The SMART configuration document, served relative to the Platform base URL
+      responses:
+        default:
+          description: Whatever the Platform answers.
