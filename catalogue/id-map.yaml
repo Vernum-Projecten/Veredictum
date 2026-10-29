@@ -1911,12 +1911,15 @@ cases:
   I_EHR_COMPOSITION.create_composition-item_node_id_empty:
     new: [composition_create_refused/create_composition-item_node_id_empty]
   I_EHR_COMPOSITION.create_composition-item_tag_wrapper_headers:
-    new: []
-    open: >-
-      An ITEM_TAG behaviour, which is optional ("If the server does not
-      support ITEM_TAGs, these headers will also be unsupported"). No
-      workflow sends the wrapper headers yet; the container half is
-      addressable by the derived versioned_object_uid.
+    new:
+      - composition_tags/composition_create-item_tag_header
+      - composition_tags/composition_create-version_item_tag_header
+      - composition_tags/composition_create-version_item_tag_header_list
+      - composition_tags/composition_update-item_tag_header
+      - composition_tags/composition_update-version_item_tag_header
+      - composition_tags/composition_update-item_tag_header_empty
+      - ehr_status_tags/ehr_status_update-item_tag_header
+      - ehr_status_tags/ehr_status_update-version_item_tag_header
   I_EHR_COMPOSITION.create_composition-item_tree_empty:
     new: [composition_create/create_composition-item_tree_empty]
   I_EHR_COMPOSITION.create_composition-language_invalid:
@@ -3755,10 +3758,10 @@ cases:
       A WHERE predicate over a multi-valued path; AQL never says how it
       evaluates, upstream report #195.
   I_QUERY_SERVICE.execute_ad_hoc_query-node_name_term_code:
-    new: []
-    open: >-
-      The term-code form of the node predicate name shortcut. Not converted yet,
-      tracked by #790.
+    new:
+      - aql_semantics/node_predicate-name_term_code
+      - aql_semantics/node_predicate-name_term_code_with_value
+      - aql_semantics/node_predicate-name_term_code_mismatch
   I_QUERY_SERVICE.execute_ad_hoc_query-node_predicate_paths:
     new: [aql_semantics/node_predicate-name_shortcut, aql_semantics/node_predicate-name_criterion, aql_semantics/node_predicate-name_mismatch]
   I_QUERY_SERVICE.execute_ad_hoc_query-not_contains:
@@ -3807,25 +3810,26 @@ cases:
       Carried on the aql-terminology-supported arm.
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_routed_expand_filters:
     new: []
-    open: >-
-      Needs a declared terminology server. Not converted yet, tracked by #790.
+    open: &terminology_outcome_unassigned >-
+      Not carried (#790): the outcome is what an external terminology server
+      answers, and master03 §TERMINOLOGY assigns none of it. The return type
+      "depends on the invoked `operation` and `service_api` and is considered
+      to be of `Any` type", the operation "is not restricted to any particular
+      value", and service_api "is not the service endpoint as such", so which
+      server a call reaches and what it returns are deployment facts no
+      released sentence fixes.
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_routed_validate_member:
     new: []
-    open: >-
-      Needs a declared terminology server. Not converted yet, tracked by #790.
+    open: *terminology_outcome_unassigned
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_routed_validate_non_member:
     new: []
-    open: >-
-      Needs a declared terminology server. Not converted yet, tracked by #790.
+    open: *terminology_outcome_unassigned
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_subsumes:
     new: []
-    open: >-
-      Needs a declared terminology server. Not converted yet, tracked by #790.
+    open: *terminology_outcome_unassigned
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_two_servers:
     new: []
-    open: >-
-      Needs two declared terminology servers. Not converted yet, tracked by
-      #790.
+    open: *terminology_outcome_unassigned
   I_QUERY_SERVICE.execute_ad_hoc_query-terminology_unsupported_forms:
     new: []
     open: >-

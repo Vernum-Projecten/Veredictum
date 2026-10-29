@@ -925,8 +925,8 @@ floors:
   directory: 85
   ehr: 48
   ehr_status: 76
-  item_tags: 63
-  query: 191
+  item_tags: 71
+  query: 194
   security: 10
   simplified_formats: 133
   smart: 2

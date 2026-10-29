@@ -1095,3 +1095,350 @@ workflows:
             type: jsonpath
             condition: "$[?@.key == 'flag' && @.target_path == '/context/setting/value']"
           - condition: $response.body#/2 == null
+
+  - workflowId: composition_create-item_tag_header
+    summary: The openehr-item-tag header of a COMPOSITION create tags the VERSIONED_COMPOSITION
+    description: >-
+      Commits a COMPOSITION with the openehr-item-tag header category=final,
+      derives the versioned_object_uid of its container from the version_uid
+      the commit answers with, and reads both tag lists back. The header
+      applies to the VERSIONED_OBJECT, so the container's list holds the tag
+      and the version's list is empty.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: &header_usage
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Usage in Requests
+      quote: "When used as request headers for creation or update operations (`PUT`, `POST`), the header instructs the system which ITEM_TAG list should be associated with the target VERSION or VERSIONED_OBJECT resource (depending on the header name)."
+    inputs: *ehr_input
+    steps:
+      - *create
+      - stepId: commit
+        description: >-
+          Commit a COMPOSITION with openehr-item-tag category=final, keep the
+          version_uid of the full representation and derive the container's
+          versioned_object_uid from it.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-item-tag, in: header, value: 'key="category",value="final"' }
+        requestBody:
+          contentType: application/json
+          payload: *composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &composition_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: description
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - &header_container_tags
+        stepId: container-tags
+        description: Retrieve the container's tags; they hold category=final only.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'category' && @.value == 'final']"
+          - condition: $response.body#/1 == null
+      - stepId: version-tags
+        description: Retrieve the version's tags; the header named no version, so they are empty.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - condition: $response.body#/0 == null
+            x-veredictum-cite: &item_tag_target
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: openehr-item-tag and openehr-version-item-tag
+              quote: "`openehr-item-tag` applies to *VERSIONED_OBJECT* targets."
+
+  - workflowId: composition_create-version_item_tag_header
+    summary: The openehr-version-item-tag header of a COMPOSITION create tags the created version
+    description: >-
+      Commits a COMPOSITION with the openehr-version-item-tag header
+      reviewed=true and reads both tag lists back. The header applies to the
+      VERSION the create makes, so the version's list holds the tag and the
+      container's list, addressed by the derived versioned_object_uid, is
+      empty.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *header_usage
+    inputs: *ehr_input
+    steps:
+      - *create
+      - stepId: commit
+        description: >-
+          Commit a COMPOSITION with openehr-version-item-tag reviewed=true,
+          keep the version_uid of the full representation and derive the
+          container's versioned_object_uid from it.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version-item-tag, in: header, value: 'key="reviewed",value="true"' }
+        requestBody:
+          contentType: application/json
+          payload: *composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: version-tags
+        description: Retrieve the version's tags; they hold reviewed=true only.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'reviewed' && @.value == 'true']"
+          - condition: $response.body#/1 == null
+      - &header_container_untagged
+        stepId: container-tags
+        description: Retrieve the container's tags; the header named no container, so they are empty.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - condition: $response.body#/0 == null
+            x-veredictum-cite: &version_item_tag_target
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: openehr-item-tag and openehr-version-item-tag
+              quote: "`openehr-version-item-tag` applies to a specific target *VERSION* within a VERSIONED_OBJECT."
+
+  - workflowId: composition_create-version_item_tag_header_list
+    summary: An openehr-version-item-tag header carrying two tags stores both on the created version
+    description: >-
+      Commits a COMPOSITION with an openehr-version-item-tag header holding
+      two tags separated by a semicolon, the second with a target_path. The
+      version's list read back holds both tags, the second with its
+      target_path.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: openehr-item-tag and openehr-version-item-tag
+      quote: "Tag values are provided as a list of key-value pairs, separated by semicolons. They both support the same syntax and schema, having the following attributes: `key`, `value` and `target_path`."
+    inputs: *ehr_input
+    steps:
+      - *create
+      - stepId: commit
+        description: >-
+          Commit a COMPOSITION with openehr-version-item-tag reviewed=true and
+          flag=follow-up on /context/start_time/value, and keep the
+          version_uid of the full representation.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version-item-tag, in: header, value: 'key="reviewed",value="true"; key="flag",value="follow-up",target_path="/context/start_time/value"' }
+        requestBody:
+          contentType: application/json
+          payload: *composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *composition_created
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: version-tags
+        description: Retrieve the version's tags; they hold both tags.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'reviewed' && @.value == 'true']"
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'flag' && @.value == 'follow-up' && @.target_path == '/context/start_time/value']"
+          - condition: $response.body#/2 == null
+
+  - workflowId: composition_update-item_tag_header
+    summary: The openehr-item-tag header of a COMPOSITION update tags the VERSIONED_COMPOSITION
+    description: >-
+      Commits a COMPOSITION, then updates it, addressed by the derived
+      versioned_object_uid and preconditioned on the first version_uid, with
+      the openehr-item-tag header category=final. The header applies to the
+      VERSIONED_OBJECT, so the container's list holds the tag and the second
+      version's list is empty.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *header_usage
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit_container
+      - stepId: update
+        description: >-
+          Update the COMPOSITION with openehr-item-tag category=final and keep
+          the second version's version_uid.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-item-tag, in: header, value: 'key="category",value="final"' }
+        requestBody:
+          contentType: application/json
+          payload: *composition
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &composition_updated
+              source: specs/openehr/ITS-REST/specifications/responses/200_COMPOSITION_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the COMPOSITION is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+        outputs:
+          version_uid: $response.body#/uid/value
+      - *header_container_tags
+      - stepId: version-tags
+        description: Retrieve the second version's tags; the header named no version, so they are empty.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.update.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - condition: $response.body#/0 == null
+            x-veredictum-cite: *item_tag_target
+
+  - workflowId: composition_update-version_item_tag_header
+    summary: The openehr-version-item-tag header of a COMPOSITION update tags the new version
+    description: >-
+      Commits a COMPOSITION, then updates it, addressed by the derived
+      versioned_object_uid and preconditioned on the first version_uid, with
+      the openehr-version-item-tag header reviewed=true. The header applies
+      to the VERSION the update makes, so the second version's list holds
+      the tag, and the first version's list and the container's list are
+      empty.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite: *header_usage
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit_container
+      - stepId: update
+        description: >-
+          Update the COMPOSITION with openehr-version-item-tag reviewed=true
+          and keep the second version's version_uid.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version-item-tag, in: header, value: 'key="reviewed",value="true"' }
+        requestBody:
+          contentType: application/json
+          payload: *composition
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *composition_updated
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: second-version-tags
+        description: Retrieve the second version's tags; they hold reviewed=true only.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.update.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'reviewed' && @.value == 'true']"
+          - condition: $response.body#/1 == null
+      - stepId: first-version-tags
+        description: Retrieve the first version's tags; the update's header did not name it, so they are empty.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - condition: $response.body#/0 == null
+            x-veredictum-cite: *version_item_tag_target
+      - *header_container_untagged
+
+  - workflowId: composition_update-item_tag_header_empty
+    summary: An empty openehr-item-tag header on a COMPOSITION update removes the container's tags
+    description: >-
+      Commits a COMPOSITION, tags its VERSIONED_COMPOSITION, addressed by the
+      derived versioned_object_uid, with scope=container, then updates the
+      COMPOSITION with an empty openehr-item-tag header. The empty value
+      removes every tag of the container, so its list read back is empty.
+    dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Usage in Requests
+      quote: "Providing an empty value for this header will effectively remove all ITEM_TAGs associated with the given target."
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *commit_container
+      - *tag_container
+      - stepId: update
+        description: Update the COMPOSITION with an empty openehr-item-tag header.
+        operationId: $sourceDescriptions.ehr.composition_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: If-Match, in: header, value: '"{$steps.commit.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-item-tag, in: header, value: '' }
+        requestBody:
+          contentType: application/json
+          payload: *composition
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *composition_updated
+      - stepId: container-tags
+        description: Retrieve the container's tags; they are empty.
+        operationId: $sourceDescriptions.ehr.composition_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.commit.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - *list_empty
