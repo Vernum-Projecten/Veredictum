@@ -1,8 +1,11 @@
-- The surface gate counts a response status as covered when one arm of a
-  capability option asserts it and every arm of that option calls its
-  operation, since the arms are the service's alternative answers to that
-  operation. This covers the Admin API delete branches `202`, `204` and the
-  bulk delete's `405`. Operations and negotiation values still need every arm.
+- An option in `capabilities.yaml` can carry `decides`, the response statuses
+  of an operation that its arms divide as alternative answers, each with the
+  released sentence that makes them alternatives. The surface gate counts a
+  listed status as covered when one arm asserts it and every arm calls the
+  operation. Every other element still needs every arm, and `validate`
+  refuses a listed status that no arm asserts or whose operation an arm does
+  not call. This covers the Admin API delete branches `202` and `204` and the
+  bulk delete's `405`.
 - A rows file can carry `server: exclusive`: its workflow runs only when the
   party's IXIT declares `environment.exclusive_server: true`, and is skipped
   as `not-declared` otherwise (#738).

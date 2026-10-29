@@ -455,16 +455,38 @@ fn check_capabilities(
     let mut quotes = repo_root.map(QuoteChecker::new);
     for (name, option) in &capabilities.options {
         let at = format!("#/options/{name}");
-        if let Err(error) = check_level(&option.cite) {
-            findings.push(GateFinding::new(Gate::Level, &path, &at, error.to_string()));
+        let cites = std::iter::once((at.clone(), &option.cite)).chain(
+            option
+                .decides
+                .iter()
+                .enumerate()
+                .map(|(i, d)| (format!("{at}/decides/{i}"), &d.cite)),
+        );
+        for (at, cite) in cites {
+            if let Err(error) = check_level(cite) {
+                findings.push(GateFinding::new(Gate::Level, &path, &at, error.to_string()));
+            }
+            if let Some(quotes) = quotes.as_mut()
+                && let Err(error) = quotes.check(cite)
+            {
+                findings.push(GateFinding::new(
+                    Gate::Citation,
+                    &path,
+                    &at,
+                    error.to_string(),
+                ));
+            }
         }
-        if let Some(quotes) = quotes.as_mut()
-            && let Err(error) = quotes.check(&option.cite)
-        {
+        let arms: Vec<(&str, std::collections::BTreeSet<surface::Element>)> = option
+            .arms
+            .iter()
+            .map(|(arm, decl)| (arm.as_str(), arm_covered(&decl.documents, documents)))
+            .collect();
+        for error in surface::check_decides(&arms, &option.decided()) {
             findings.push(GateFinding::new(
-                Gate::Citation,
+                Gate::Identity,
                 &path,
-                &at,
+                format!("{at}/decides"),
                 error.to_string(),
             ));
         }
@@ -472,12 +494,25 @@ fn check_capabilities(
     Some(capabilities)
 }
 
+/// The elements the documents of one arm cover.
+fn arm_covered(
+    arm: &[String],
+    documents: &BTreeMap<String, Located>,
+) -> std::collections::BTreeSet<surface::Element> {
+    surface::covered(
+        arm.iter()
+            .filter_map(|d| documents.get(d))
+            .map(|located| &located.document),
+    )
+}
+
 /// The surface gate, over the scope `cases/surface.yaml` declares.
 ///
 /// A statement runs one arm of an option alone, so the documents under an
 /// option's arms cover what [`surface::option_covered`] credits them with:
-/// an element every arm covers, and a response status the one arm asserts
-/// whose answer it is, when every arm calls that operation.
+/// an element every arm covers, and a response status the option's
+/// `decides` lists, when one arm asserts it and every arm calls its
+/// operation.
 fn check_surface(
     workflows: &Path,
     spec_root: &Path,
@@ -536,16 +571,9 @@ fn check_surface(
         let arms: Vec<_> = option
             .arms
             .values()
-            .map(|arm| {
-                surface::covered(
-                    arm.documents
-                        .iter()
-                        .filter_map(|d| documents.get(d))
-                        .map(|located| &located.document),
-                )
-            })
+            .map(|arm| arm_covered(&arm.documents, documents))
             .collect();
-        covered.extend(surface::option_covered(&arms));
+        covered.extend(surface::option_covered(&arms, &option.decided()));
     }
     for message in surface::judge(&elements, &covered, &file.gaps) {
         findings.push(GateFinding::new(Gate::Surface, &path, "#", message));
@@ -781,6 +809,38 @@ mod tests {
             .write_str("option: {}\n")
             .unwrap();
         assert!(gates(&dir).iter().any(|(gate, _)| *gate == Gate::Load));
+    }
+
+    #[test]
+    fn a_seeded_decides_entry_no_arm_asserts_or_an_arm_does_not_call_is_refused() {
+        let dir = world("");
+        let caps = |decides: &str| {
+            format!(
+                "options:\n  o:\n    description: d\n    arms:\n      a: {{ documents: [ehr] }}\n      b: {{ documents: [] }}\n    x-veredictum-cite: {{ source: specs/openehr/x.md, section: s, quote: q }}\n    decides:\n      - api: ehr\n        operation: ehr_create_with_id\n        statuses: [{decides}]\n        x-veredictum-cite: {{ source: specs/openehr/x.md, section: s, quote: q }}\n"
+            )
+        };
+        dir.child("catalogue/capabilities.yaml")
+            .write_str(&caps("\"201\", \"409\""))
+            .unwrap();
+        let found = gates(&dir);
+        for fragment in [
+            "`ehr/ehr_create_with_id response 201`: the arm `b` does not call the operation",
+            "`ehr/ehr_create_with_id response 409`: no arm asserts the status",
+        ] {
+            assert!(
+                found
+                    .iter()
+                    .any(|(gate, message)| *gate == Gate::Identity && message == fragment),
+                "{fragment}: {found:?}"
+            );
+        }
+        dir.child("catalogue/capabilities.yaml")
+            .write_str(&caps("\"201\""))
+            .unwrap();
+        assert!(
+            gates(&dir).iter().any(|(gate, _)| *gate == Gate::Load),
+            "one status decides nothing"
+        );
     }
 
     #[test]
