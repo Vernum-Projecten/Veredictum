@@ -9,7 +9,7 @@ follow the order `veredictum --help` lists them in, and the prose under each
 one is written by hand and lives in `website/book/commands/`.
 
 Two commands make the conformance record: `validate` checks the catalogue,
-and `test` (also spelled `run`) drives it or re-judges its recording. `export`
+and `test` drives it or re-judges its recording. `export`
 renders a results document as JUnit XML, CTRF and a Markdown summary for a CI
 system. Three commands measure (`perf`, `stress`, `bench`), `verdicts`
 re-derives the measured class verdicts, `verify-record` checks a sealed

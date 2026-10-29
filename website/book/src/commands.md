@@ -9,7 +9,7 @@ follow the order `veredictum --help` lists them in, and the prose under each
 one is written by hand and lives in `website/book/commands/`.
 
 Two commands make the conformance record: `validate` checks the catalogue,
-and `test` (also spelled `run`) drives it or re-judges its recording. `export`
+and `test` drives it or re-judges its recording. `export`
 renders a results document as JUnit XML, CTRF and a Markdown summary for a CI
 system. Three commands measure (`perf`, `stress`, `bench`), `verdicts`
 re-derives the measured class verdicts, `verify-record` checks a sealed
@@ -90,8 +90,8 @@ Options:
           Print help (see a summary with '-h')
 ```
 
-`test` drives the Arazzo catalogue under `catalogue/`. `veredictum run` is the
-same subcommand under its other name.
+`test` drives the Arazzo catalogue under `catalogue/`. It replaces the removed
+`run` subcommand, which no longer exists under any name.
 
 **What runs.** Every document under `cases/<capability>/`, in path order. The
 shared setups under `cases/_setup/` are not cases: a setup runs only where a

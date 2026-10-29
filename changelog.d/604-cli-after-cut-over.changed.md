@@ -1,5 +1,3 @@
-- `veredictum run` is a visible alias of `veredictum test`, so either spelling
-  drives the Arazzo catalogue.
 - `veredictum validate` reads the Arazzo catalogue only. Its summary line
   counts what it read (documents, workflows, rows files and capability
   folders) beside the findings, `--statement` holds a declaration to the

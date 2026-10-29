@@ -68,8 +68,6 @@ veredictum test --base-url https://cdr.example/openehr/v1 --auth basic \
     --statement mine/statement.json --ixit mine/ixit.json --out out/
 ```
 
-`veredictum run` is the same subcommand under its other name.
-
 Every workflow of a document in a folder your statement does not claim is
 skipped as `not-claimed`, and the documents of every option arm you did not
 pick are skipped as `option-not-selected`. Without a statement, every

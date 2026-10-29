@@ -26,7 +26,7 @@ If that check fails, do not run the file.
   other network destination. With `--with-baselines` it additionally drives
   your local `docker` CLI to pull and run the two pinned reference images
   (from ghcr.io and Docker Hub) on loopback ports, and removes them when done.
-- **`test`** (also spelled `run`) sends requests to the base URL you give it,
+- **`test`** sends requests to the base URL you give it,
   reads the catalogue and the vendored specs, and writes into `--out`. It
   creates and deletes data on the target, which is why you point it at a test
   system. With `--rejudge` it sends nothing at all.

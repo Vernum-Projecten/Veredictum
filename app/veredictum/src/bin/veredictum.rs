@@ -97,7 +97,6 @@ enum Command {
     /// when any other row failed or errored; `2` when the run could not start
     /// or finish: a usage error, a gate finding, an unreadable file, a missing
     /// credential, or a recording that does not replay.
-    #[command(visible_alias = "run")]
     Test {
         /// The catalogue root, holding `capabilities.yaml` and `cases/`. Its
         /// parent holds the vendored `specs/` tree its citations and OAS
