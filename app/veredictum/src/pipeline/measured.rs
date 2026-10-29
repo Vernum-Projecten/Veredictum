@@ -329,7 +329,7 @@ pub fn run_stress(
     let report = crate::stress::run_stress(
         &corpus,
         &workload,
-        environment,
+        &environment,
         ixit.containers.as_ref(),
         &options,
         progress,
@@ -380,7 +380,7 @@ pub fn run_aql_probe(
     crate::probe::run_probe(
         &client,
         &corpus,
-        environment,
+        &environment,
         ixit.containers.as_ref(),
         &options,
         progress,
@@ -513,7 +513,7 @@ pub fn run_measured(
             &corpus,
             &journey_pack,
             &catalogue,
-            environment,
+            &environment,
             warmup_s,
             duration_s,
             &progress,

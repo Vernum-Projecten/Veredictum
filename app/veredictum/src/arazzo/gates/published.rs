@@ -245,10 +245,11 @@ pub fn rows_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-rows"),
         "title": "Input rows for one data-driven Arazzo workflow",
-        "description": "Sits beside the Arazzo document whose workflow it feeds, named `<workflowId>.rows.yaml`; `workflow` repeats that workflow's case id. Each row binds the workflow's `inputs` by property name: a key the inputs schema does not name is refused, every `required` input is bound in every row, and each row validates against the inputs schema. An input of `format: uuid` with no value is generated per row. A value under a column `literals` names is a decision-table literal, and `validate` refuses one that does not parse against the literal grammar, naming its row, its column and the character offset of the production that fails. A `recipe` binds one or two more inputs per row from the row's literals, and the row it completes is what the inputs schema validates.",
+        "description": "Sits beside the Arazzo document whose workflow it feeds, named `<workflowId>.rows.yaml`; `workflow` repeats that workflow's case id. Each row binds the workflow's `inputs` by property name: a key the inputs schema does not name is refused, every `required` input is bound in every row, and each row validates against the inputs schema. An input of `format: uuid` with no value is generated per row. A value under a column `literals` names is a decision-table literal, and `validate` refuses one that does not parse against the literal grammar, naming its row, its column and the character offset of the production that fails. A `recipe` binds one or two more inputs per row from the row's literals, and the row it completes is what the inputs schema validates. A file with `server` may omit `rows`: the workflow then runs once, with only its generated and declared inputs, and `validate` refuses a file whose workflow requires any other input. A workflow that declares no inputs takes such a file and no rows.",
         "type": "object",
         "additionalProperties": false,
-        "required": ["workflow", "iteration", "rows"],
+        "required": ["workflow", "iteration"],
+        "anyOf": [{ "required": ["rows"] }, { "required": ["server"] }],
         "dependentRequired": { "recipe": ["literals"] },
         "properties": {
             "workflow": {
