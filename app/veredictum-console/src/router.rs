@@ -96,6 +96,22 @@ pub fn router(
         // bundle or the app shell is broken: it claims only "the server
         // accepts connections".
         .route("/healthz", axum::routing::get(|| async { "ok" }))
+        // The verifying keys, outside the Leptos route tree for the same
+        // reason: a verifier needs them whatever state the app shell is in.
+        .route(
+            crate::certificates::JWKS_ROUTE,
+            axum::routing::get(crate::certificates::ssr::jwks),
+        )
+        .route(
+            &format!("{}/{{run}}", crate::certificates::CERTIFICATE_ROUTE),
+            axum::routing::get({
+                let out = state.out.clone();
+                move |axum::extract::Path(run): axum::extract::Path<String>| {
+                    let out = out.clone();
+                    async move { crate::certificates::ssr::download(&out, &run) }
+                }
+            }),
+        )
         .leptos_routes_with_context(
             &leptos_options,
             routes,

@@ -5719,6 +5719,7 @@ dependencies = [
  "console_error_panic_hook",
  "icondata_core",
  "icondata_lu",
+ "jiff",
  "jsonschema",
  "leptos",
  "leptos-use-clipboard",

@@ -63,7 +63,7 @@ fn a_job_supervises_a_run_to_its_finished_view() -> Result<(), Box<dyn std::erro
         engine_gate::gate_submitter(),
         &engine,
         engine_gate::gate_spec(ixit, port, out.clone()),
-        String::from("job-gate"),
+        veredictum::party::Sut::operator("job-gate", "1"),
     )?;
 
     let terminal = wait_terminal(&slot, id).ok_or("the job never left Running")?;
@@ -359,7 +359,7 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
                 statement: Some(statement),
                 ..engine_gate::gate_spec(ixit, port, out)
             },
-            String::from("record-gate"),
+            veredictum::party::Sut::operator("record-gate", "1"),
         )
         .map_err(|e| e.to_string())?;
     let terminal = wait_terminal(&state.jobs, id).ok_or("the job never left Running")?;
@@ -604,7 +604,7 @@ fn two_runs_drive_at_once_and_the_third_is_queued() -> Result<(), Box<dyn std::e
             visitor(seat),
             &engine,
             spec_for(port, &ixit, dir),
-            format!("cap-gate-{seat}"),
+            veredictum::party::Sut::operator(format!("cap-gate-{seat}"), "1"),
         )?;
         started.push(id);
     }
@@ -700,7 +700,7 @@ fn a_second_start_from_one_address_names_the_run_it_already_has()
         mine,
         &engine,
         spec_for(port, &ixit, dir),
-        String::from("cap-gate-first"),
+        veredictum::party::Sut::operator("cap-gate-first", "1"),
     )?;
 
     let second = slot.allocate_id();
@@ -712,7 +712,7 @@ fn a_second_start_from_one_address_names_the_run_it_already_has()
             mine,
             &engine,
             spec_for(port, &ixit, second_dir),
-            String::from("cap-gate-second"),
+            veredictum::party::Sut::operator("cap-gate-second", "1"),
         )
         .expect_err("one address gets one run in flight");
     assert!(
@@ -779,7 +779,7 @@ fn the_wall_clock_cap_ends_a_run_and_discards_its_record() -> Result<(), Box<dyn
         visitor(1),
         &engine,
         spec_for(port, &ixit, dir.clone()),
-        String::from("cap-gate-slow"),
+        veredictum::party::Sut::operator("cap-gate-slow", "1"),
     )?;
 
     let terminal = wait_terminal_for(&slot, id, std::time::Duration::from_mins(2))

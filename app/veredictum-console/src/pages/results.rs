@@ -9,8 +9,8 @@
 //! shareable.
 
 use leptos::prelude::{
-    AddAnyAttr, ClassAttribute, CollectView, ElementChild, Get, IntoAny, IntoView, Memo, Resource,
-    Suspend, Suspense, With, component, view,
+    AddAnyAttr, ClassAttribute, CollectView, ElementChild, Get, GlobalAttributes, IntoAny,
+    IntoView, Memo, Resource, Suspend, Suspense, With, component, view,
 };
 use leptos_meta::Title;
 use leptos_router::components::A;
@@ -25,7 +25,9 @@ use crate::components::stat_card::StatCard;
 use crate::components::surface::{CARD_PAD, CARD_TITLE};
 use crate::pages::run::steps;
 use crate::record_api::fns::{fetch_result_detail, fetch_results};
-use crate::record_api::{ExchangeView, RecordingView, ResultDetail, ResultsScreen};
+use crate::record_api::{
+    CertificateNotice, ExchangeView, RecordingView, ResultDetail, ResultsScreen,
+};
 
 /// The `?case=` selection from the URL.
 fn query_case() -> Memo<String> {
@@ -121,6 +123,41 @@ pub fn Results() -> impl IntoView {
     }
 }
 
+/// What the screen says about the run's certificate.
+fn certificate_view(notice: &CertificateNotice) -> impl IntoView + use<> {
+    match notice.clone() {
+        CertificateNotice::Trial => view! {
+            <p id="certificate-notice" class="mb-4 text-sm text-ink-muted">
+                "Trial run: the results and verdicts are complete, and no certificate is issued."
+            </p>
+        }
+        .into_any(),
+        CertificateNotice::Issued(href) => view! {
+            <p id="certificate-notice" class="mb-4 text-sm text-ink">
+                <a
+                    href=href
+                    rel="external"
+                    download="certificate.jws"
+                    class="font-medium text-accent hover:underline"
+                >
+                    "Download the certificate"
+                </a>
+                " — it verifies offline with "
+                <code class="font-mono text-xs">
+                    "veredictum verify certificate.jws --jwks jwks.json"
+                </code>
+            </p>
+        }
+        .into_any(),
+        CertificateNotice::NotIssued(reason) => view! {
+            <p id="certificate-notice" class="mb-4 text-sm text-ink">
+                {format!("No certificate was issued for this run: {reason}")}
+            </p>
+        }
+        .into_any(),
+    }
+}
+
 /// The tallies and the red-first table.
 fn results_view(results: &ResultsScreen) -> impl IntoView + use<> {
     let (passed, failed, errored, skipped) = results.tallies;
@@ -168,6 +205,7 @@ fn results_view(results: &ResultsScreen) -> impl IntoView + use<> {
                 icon=icondata_lu::LuFileText
             />
         </div>
+        {certificate_view(&results.certificate)}
         <p class="mb-2 text-sm text-ink-muted">{format!("Base URL: {}", results.base_url)}</p>
         <div class=TABLE_WRAP>
             <table class=TABLE>

@@ -209,10 +209,22 @@ pub fn StatusBanner() -> impl IntoView {
                 {move || Suspend::new(async move {
                     match status.await {
                         Ok(line) => {
+                            let notice = line
+                                .issuance
+                                .notice()
+                                .map(|notice| {
+                                    view! {
+                                        " · "
+                                        <span id="trial-mode" class="font-medium text-ink">
+                                            {notice}
+                                        </span>
+                                    }
+                                });
                             view! {
                                 <span class="font-medium text-ink">{line.token}</span>
                                 ": "
                                 {line.summary}
+                                {notice}
                             }
                                 .into_any()
                         }

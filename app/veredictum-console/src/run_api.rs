@@ -424,6 +424,31 @@ impl RunDraft {
     pub fn resolved(&self) -> crate::identity::Resolved {
         crate::identity::resolve(self.identity.as_ref(), &self.sut_name, &self.sut_version)
     }
+
+    /// The identity a run over this draft records, each field with who
+    /// supplied it; a field neither side supplied is the operator's blank,
+    /// which a certificate refuses.
+    #[must_use]
+    pub fn recorded_sut(&self) -> veredictum::party::Sut {
+        use veredictum::party::IdentityField;
+        let resolved = self.resolved();
+        let field = |value: Option<String>, operator: Option<String>| match (value, operator) {
+            (Some(value), None) => IdentityField::server(value),
+            (_, Some(operator)) => IdentityField::operator(operator),
+            (None, None) => IdentityField::operator(String::new()),
+        };
+        let stated = self.identity.as_ref();
+        veredictum::party::Sut {
+            name: field(resolved.name, resolved.operator_name),
+            version: field(resolved.version, resolved.operator_version),
+            vendor: stated
+                .and_then(crate::identity::IdentityAnswer::vendor)
+                .map(IdentityField::server),
+            restapi_specs_version: stated
+                .and_then(crate::identity::IdentityAnswer::restapi_specs_version)
+                .map(IdentityField::server),
+        }
+    }
 }
 
 /// Every visitor's connection draft, one per submitter.
@@ -1191,9 +1216,9 @@ pub mod read {
             out_dir,
             credentials: std::mem::take(&mut draft.credentials),
         };
-        let sut_name = draft.resolved().name.unwrap_or_default();
+        let sut = draft.recorded_sut();
         drop(guard);
-        match state.jobs.start(id, submitter, engine, spec, sut_name) {
+        match state.jobs.start(id, submitter, engine, spec, sut) {
             Ok(accepted) => Ok(StartOutcome::Accepted(accepted)),
             Err(crate::run_job::JobError::Busy(existing)) => {
                 Ok(StartOutcome::AlreadyInFlight(existing))

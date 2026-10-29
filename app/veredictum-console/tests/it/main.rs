@@ -14,6 +14,8 @@ mod body_limits;
 mod bundle_names;
 #[cfg(feature = "ssr")]
 mod captures;
+#[cfg(feature = "ssr")]
+mod certificates_http;
 
 mod e2e_console;
 #[cfg(feature = "ssr")]

@@ -73,8 +73,24 @@ async fn serve() -> anyhow::Result<()> {
     // The posture is the ONE startup value that refuses rather than degrades
     // (#390): a public instance that read a typo as `local` would drive
     // whatever address a visitor named.
-    let state = veredictum_console::state::ConsoleState::load()?;
+    let (state, setting) = veredictum_console::state::ConsoleState::load_with_setting()?;
     eprintln!("veredictum-console: {} posture", state.posture.token());
+    // The setting's value names a mode and never a secret, so it is safe to
+    // echo; an unrecognised one keeps trial mode, and says so here.
+    if let veredictum_console::certificates::ssr::Setting::Unrecognised(value) = &setting {
+        eprintln!(
+            "veredictum-console: {}={value:?} is not `{}`, so certificate issuance stays off",
+            veredictum_console::certificates::ISSUANCE_ENV,
+            veredictum_console::certificates::ISSUE
+        );
+    }
+    eprintln!(
+        "veredictum-console: certificate issuance {}",
+        match state.jobs.issuance_mode() {
+            veredictum_console::certificates::IssuanceMode::Trial => "off (trial mode)",
+            veredictum_console::certificates::IssuanceMode::Issuing => "on",
+        }
+    );
     if let Err(reason) = state.catalogue.as_ref() {
         // A load diagnostic about a mount, never SUT data: no response body
         // reaches a log stream.

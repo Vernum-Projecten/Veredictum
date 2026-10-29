@@ -237,11 +237,21 @@ pub fn pin_recorded(run: RecordedRun) -> RecordedRun {
 /// The results screen as a capture shows it.
 ///
 /// The screen prints the address the run drove, which is the fixture
-/// server's ephemeral port; the tallies and the rows are the run's own.
+/// server's ephemeral port, and a certificate's download path names the
+/// run's id; the tallies and the rows are the run's own.
 #[must_use]
 pub fn pin_results(screen: ResultsScreen) -> ResultsScreen {
+    let certificate = match screen.certificate {
+        crate::record_api::CertificateNotice::Issued(_) => {
+            crate::record_api::CertificateNotice::Issued(crate::certificates::download_href(
+                &PINNED_RUN_ID.to_string(),
+            ))
+        }
+        other => other,
+    };
     ResultsScreen {
         base_url: String::from(PINNED_ENDPOINT),
+        certificate,
         ..screen
     }
 }
@@ -400,6 +410,7 @@ mod tests {
                 errored: 1,
                 skipped: 0,
                 results_path: format!("target/out/console-job-{MINTED}/results.json"),
+                certificate: crate::certificates::CertificateStatus::Trial,
             }),
             ..driving()
         });

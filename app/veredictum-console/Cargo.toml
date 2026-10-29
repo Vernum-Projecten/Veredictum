@@ -89,6 +89,9 @@ tokio = { version = "1", features = ["rt-multi-thread", "signal", "net", "io-uti
 # `anyhow` stays legal in binary entry points only, and the ssr main is one;
 # library code returns typed `thiserror` errors.
 anyhow = { version = "1", optional = true }
+# The certificate's issue instant, from the engine's own time library (already
+# in the graph through the engine).
+jiff = { version = "0.2.31", optional = true }
 
 # browser-only (behind `hydrate`)
 wasm-bindgen = { version = "0.2", optional = true }
@@ -116,6 +119,7 @@ ssr = [
     "dep:axum",
     "dep:tokio",
     "dep:anyhow",
+    "dep:jiff",
 ]
 
 [dev-dependencies]
