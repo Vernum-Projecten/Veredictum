@@ -12,29 +12,29 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Component {
-    /// EHR lifecycle and `EHR_STATUS` (SM `I_EHR_SERVICE` / `I_EHR_STATUS`).
+    /// EHR lifecycle and `EHR_STATUS` (ITS-REST EHR API).
     Ehr,
-    /// COMPOSITION commit/read/versioning (SM `I_EHR_COMPOSITION`).
+    /// COMPOSITION commit/read/versioning (ITS-REST EHR API).
     EhrComposition,
-    /// CONTRIBUTION commit and retrieval (SM `I_EHR_CONTRIBUTION`).
+    /// CONTRIBUTION commit and retrieval (ITS-REST EHR API).
     EhrContribution,
-    /// The EHR's FOLDER directory (SM `I_EHR_DIRECTORY`).
+    /// The EHR's FOLDER directory (ITS-REST EHR API).
     EhrDirectory,
-    /// ADL 1.4 template definitions — OPT upload/list/get (SM `I_DEFINITION_ADL14`).
+    /// ADL 1.4 template definitions — OPT upload/list/get (ITS-REST Definition API).
     #[serde(rename = "DEFINITION_ADL14")]
     DefinitionAdl14,
-    /// ADL 2 archetype/template definitions (SM `I_DEFINITION_ADL2`).
+    /// ADL 2 archetype/template definitions (ITS-REST Definition API).
     #[serde(rename = "DEFINITION_ADL2")]
     DefinitionAdl2,
-    /// Stored-query definitions (SM `I_DEFINITION_QUERY`).
+    /// Stored-query definitions (ITS-REST Definition API).
     DefinitionQuery,
-    /// AQL execution — ad-hoc and stored (SM `I_QUERY_SERVICE`).
+    /// AQL execution — ad-hoc and stored (ITS-REST Query API).
     Query,
-    /// Demographic parties and relationships (SM `I_DEMOGRAPHIC_SERVICE`).
+    /// Demographic parties and relationships (ITS-REST Demographic API).
     Demographic,
-    /// The administrative surface (SM `I_ADMIN_SERVICE`).
+    /// The administrative surface (ITS-REST Admin API).
     Admin,
-    /// EHR-Extract / TDD messaging (SM `I_MESSAGE_SERVICE`).
+    /// EHR-Extract / TDD messaging (no released ITS-REST API).
     Messaging,
     /// RM content semantics asserted per data type, independent of one
     /// endpoint — the template-parameterized decision-table chapter.

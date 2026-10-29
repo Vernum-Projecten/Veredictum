@@ -18,8 +18,8 @@ prior art; these documents are the oracle.
 
   | Attribute | Expands to | Vendored files |
   |---|---|---|
-  | `:uml_diagrams_uri: UML/diagrams` | `docs/UML/diagrams/<name>.svg` | **129** — BASE 15, RM 33, AM 27, LANG 31, SM 22, TERM 1 |
-  | `:diagrams_uri: {doc_name}/diagrams` | `docs/<doc_name>/diagrams/<name>` | **200** together with `images` — RM 70, AM 44, LANG 38, BASE 34, CNF 6, ITS-REST 4, SM 3, TERM 1 |
+  | `:uml_diagrams_uri: UML/diagrams` | `docs/UML/diagrams/<name>.svg` | **107** — BASE 15, RM 33, AM 27, LANG 31, TERM 1 |
+  | `:diagrams_uri: {doc_name}/diagrams` | `docs/<doc_name>/diagrams/<name>` | **197** together with `images` — RM 70, AM 44, LANG 38, BASE 34, CNF 6, ITS-REST 4, TERM 1 |
   | `:images_uri: {doc_name}/images` | `docs/<doc_name>/images/<name>` | (as above) |
 
   `{doc_name}` is the document directory the referencing chapter lives in
@@ -48,21 +48,22 @@ Spec documents are AsciiDoc books: `docs/<spec>/master.adoc` includes the
 | `QUERY/` | QUERY 1.1.0 (tag) | `docs/AQL/` — the AQL spec (grammar, operators, functions, result set), `docs/AQL_examples/` |
 | `TERM/` | TERM 3.1.0 | `docs/SupportTerminology/` — the openEHR support terminology (code sets, term sets) |
 | `LANG/` | LANG (master) | `docs/bmm/`, `docs/bmm3/`, `docs/bmm_persistence/` (P_BMM), `docs/odin/`, `docs/EL/`, `docs/BEL/` |
-| `SM/` | SM (master) | `docs/openehr_platform/` (the abstract platform service model behind ITS-REST), `docs/serial_data_formats/` + `docs/simplified_im_b/` (DEVELOPMENT-state model documents — never implemented; the STABLE ITS-REST `simplified_formats` sub-spec is the FLAT/STRUCTURED wire authority). The SM UML diagrams are LOAD-BEARING: text-free path art carrying inheritance/bindings absent from the class tables — rasterize to read, and never let a re-vendor drop them |
 | `CNF/` | CNF (master) | `docs/platform_test_schedule/` (**the Platform Conformance Test Schedule — a STALLED structural guide, never the correctness authority**, per-endpoint + per-data-type test cases), `docs/guide/`, `docs/profiles/`, `tests/platform/robot/` (the executable Robot conformance suite + fixtures: `.opt` templates, canonical JSON/XML test data) |
 | `ITS-REST/` | ITS-REST Release-1.1.0 @ `24058992d` | `docs/` (the docs text — THE wire oracle) + `specifications/` (the OAS the released text presents as its computable artifacts; subordinate — wins only where the docs text is silent). All 7 API groups vendored (Overview/System/EHR/Query/Definition/Formats STABLE; Demographic/Admin/SMART DEVELOPMENT) |
 | `ITS-XML/` | ITS-XML (master) | docs only; the XSDs themselves are vendored at `crates/openehr-its/schemas/xml/` |
 | `ITS-JSON/` | ITS-JSON @ `5acae05` | `components/**` — the canonical-JSON schemas (same pin as the fidelity-gate schema in `crates/openehr-its/schemas/`) |
 
-PROC (Process / Task Planning) is deliberately NOT vendored — openEHR publishes no releasable text for it. SM ch.10 nonetheless types `DATA_FRAME.primary_method/fallback_method` against PROC's `SYSTEM_CALL` (recoverable only from the rasterized §10.6 diagram); the tracker's SM upstream reports carry that gap.
+PROC (Process / Task Planning) is deliberately NOT vendored — openEHR publishes no releasable text for it.
+
+SM (the Service Model) is deliberately NOT vendored either (#604): it was never released, so it is no part of the oracle, and ITS-REST binds every operation to the wire on its own.
 
 ITS-BMM is deliberately not here: it is vendored verbatim (all serializations)
 at `tools/openehr-codegen/vendor/bmm/` as the codegen input.
 
 ## How to use (agents + humans)
 
-1. Identify the owning component (RM behaviour → `RM/`, REST wire → `ITS-REST/`
-   + `SM/`, AQL semantics → `QUERY/`, validation/constraints → `AM/` + `RM/`,
+1. Identify the owning component (RM behaviour → `RM/`, REST wire → `ITS-REST/`,
+   AQL semantics → `QUERY/`, validation/constraints → `AM/` + `RM/`,
    conformance expectations → `CNF/`).
 2. Grep the class/attribute/endpoint name across that component's `docs/`
    chapter files; read the surrounding section, including invariants and

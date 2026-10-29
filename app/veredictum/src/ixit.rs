@@ -326,10 +326,9 @@ pub struct Instance {
     pub spec_profile: Option<SpecProfile>,
     /// Whether THIS instance's principal holds administrative authorization.
     ///
-    /// SM `master02-overview.adoc` §Functional Style delegates the "approach
-    /// to access control and authorisation" to the implementation, so which
-    /// roles a principal holds is an IXIT declaration and nothing on the wire
-    /// discloses it. A case whose premise is a role boundary (an ordinary
+    /// No released operation discloses which roles a principal holds (upstream
+    /// report #757), so it is an IXIT declaration: no openEHR spec governs
+    /// this — our own design. A case whose premise is a role boundary (an ordinary
     /// principal refused on an administrative operation) states the posture
     /// it needs in `requires.instances`, and an undeclared or opposite
     /// declaration records the case not-applicable with that citation.
@@ -411,10 +410,9 @@ pub struct Ixit {
     #[serde(default)]
     pub system_id: Option<String>,
     /// A location on the SUT's OWN file system the admin dump/load operations
-    /// may write an archive to and read one back from — SM
-    /// `i_admin_dump_load.adoc` `export_ehrs(file_sys_loc: String [1])` /
-    /// `load_ehrs(file_sys_loc)`, whose only declared error is
-    /// `file_not_writable`.
+    /// may write an archive to and read one back from. No released ITS-REST
+    /// operation names such a location: no openEHR spec governs this — our
+    /// own design.
     ///
     /// It is an IXIT fact because it is a pure DEPLOYMENT fact no released (or
     /// served) operation discloses: which paths a containerized SUT can write

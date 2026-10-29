@@ -448,7 +448,7 @@ pub fn ixit_schema() -> Value {
                 "minLength": 1
             },
             "dump_location": {
-                "description": "A location on the SUT's OWN file system the admin dump/load operations may write an archive to and read one back from (SM i_admin_dump_load.adoc export_ehrs(file_sys_loc)/load_ehrs(file_sys_loc), whose only declared error is file_not_writable). Declared here because which paths a deployment can write is a property of its image and mounts that no operation discloses; absent => the cases reading ${ixit:dump_location} are not-applicable with that citation.",
+                "description": "A location on the SUT's OWN file system the admin dump/load operations may write an archive to and read one back from (no released ITS-REST operation names one). Declared here because which paths a deployment can write is a property of its image and mounts that no operation discloses; absent => the cases reading ${ixit:dump_location} are not-applicable with that citation.",
                 "type": "string",
                 "minLength": 1
             },
@@ -513,7 +513,7 @@ fn ixit_instances_def() -> Value {
                     "THIS instance's openEHR specification generation set, when it differs from the party default. One running deployment implements exactly one set, so a party claiming both runs two deployments and declares each one's set on its own instance — the same law the `signing` and `terminology` blocks follow. Absent => the top-level `spec_profile` applies."
                 ),
                 "administrative": {
-                    "description": "Whether this instance's principal holds administrative authorization (upstream report #757). SM master02-overview.adoc §Functional Style delegates access control to the implementation, so the posture is an IXIT declaration; a role-boundary case states the posture it needs in requires, and an undeclared or opposite declaration records it not-applicable with that citation. Absent => undeclared, never a default.",
+                    "description": "Whether this instance's principal holds administrative authorization (upstream report #757). No released operation discloses which roles a principal holds, so the posture is an IXIT declaration; a role-boundary case states the posture it needs in requires, and an undeclared or opposite declaration records it not-applicable with that citation. Absent => undeclared, never a default.",
                     "type": "boolean"
                 }
             }

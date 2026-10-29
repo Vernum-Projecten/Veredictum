@@ -915,8 +915,7 @@ pub(crate) fn perform(
         PerfOp::AdminContributionReport => {
             // EXTENSION route — no openEHR spec governs it.
             // The EHR service is the only versioned-content service this
-            // arrival reports on (SM platform_service.adoc); the count is a
-            // pure read and mutates nothing.
+            // arrival reports on; the count is a pure read and mutates nothing.
             let reply = client.request(
                 reqwest::Method::GET,
                 "/admin/report/contribution/count?a_service=Ehr",
