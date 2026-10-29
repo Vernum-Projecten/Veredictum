@@ -38,7 +38,7 @@
 #   UI_E2E_REAL_SUTS      when set, compose the two real CDRs — FerroEHR's own
 #                         quickstart (its published docker-compose.yml, basic
 #                         auth ferroehr/ferroehr on 8080) and EHRbase's
-#                         official pairing (docker/e2e-ehrbase.yml, basic auth
+#                         official pairing (deploy/docker/e2e-ehrbase.yml, basic auth
 #                         defaults on 8090) — and run the two-CDR journey
 #                         against them (#99). Both are deliberately `:latest`
 #                         (owner ruling on #99): the SUT is the thing being
@@ -149,7 +149,7 @@ cleanup() {
     docker compose -p veredictum-e2e-ferroehr \
       -f "$ROOT/target/ui-e2e/suts/ferroehr.yml" down -v >/dev/null 2>&1 || true
     docker compose -p veredictum-e2e-ehrbase \
-      -f "$ROOT/docker/e2e-ehrbase.yml" down -v >/dev/null 2>&1 || true
+      -f "$ROOT/deploy/docker/e2e-ehrbase.yml" down -v >/dev/null 2>&1 || true
   fi
   [[ -n "$LOCK_HELD" ]] && release_lock
   return 0
@@ -183,7 +183,7 @@ if [[ -z "${UI_E2E_NO_BUILD:-}" ]]; then
   echo "── building the console (cargo leptos build)"
   # The Tailwind pin is single-sourced from the image build, so the harness
   # and the shipped bundle cannot style differently.
-  TAILWIND_VERSION="$(grep -E '^ARG TAILWIND_VERSION=' docker/Dockerfile | head -1 | cut -d= -f2)"
+  TAILWIND_VERSION="$(grep -E '^ARG TAILWIND_VERSION=' deploy/docker/Dockerfile | head -1 | cut -d= -f2)"
   (cd app/veredictum-console && LEPTOS_TAILWIND_VERSION="$TAILWIND_VERSION" cargo leptos build)
   for artifact in "$ROOT/target/debug/veredictum-console" "$ROOT/target/site/pkg" \
                   "$ROOT/target/debug/hash.txt"; do
@@ -308,7 +308,7 @@ wait_http "$DRIVER_URL/status" 120 "the browser endpoint"
 # Two live SUTs the two-CDR journey grades side by side. FerroEHR runs its own
 # published quickstart compose (fetched fresh, so "latest" is whatever its
 # release train currently pins); EHRbase runs the official image pairing from
-# docker/e2e-ehrbase.yml. Answering = any HTTP status (a 401 from basic auth
+# deploy/docker/e2e-ehrbase.yml. Answering = any HTTP status (a 401 from basic auth
 # is an answer), so the wait cannot pass on a connection refused.
 FERROEHR_SUT_URL=""
 EHRBASE_SUT_URL=""
@@ -331,7 +331,7 @@ if [[ -n "${UI_E2E_REAL_SUTS:-}" ]]; then
   docker compose -p veredictum-e2e-ferroehr \
     -f "$ROOT/target/ui-e2e/suts/ferroehr.yml" up -d --quiet-pull
   docker compose -p veredictum-e2e-ehrbase \
-    -f "$ROOT/docker/e2e-ehrbase.yml" up -d --quiet-pull
+    -f "$ROOT/deploy/docker/e2e-ehrbase.yml" up -d --quiet-pull
   FERROEHR_SUT_URL="http://127.0.0.1:8080/ferroehr/rest/openehr/v1"
   EHRBASE_SUT_URL="http://127.0.0.1:8090/ehrbase/rest/openehr/v1"
   wait_answering "$FERROEHR_SUT_URL/definition/template/adl1.4" 180 "FerroEHR"

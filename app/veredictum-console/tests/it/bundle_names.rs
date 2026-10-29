@@ -127,7 +127,7 @@ fn the_image_serves_with_the_hashing_the_manifest_builds_with()
 -> Result<(), Box<dyn std::error::Error>> {
     let repo_root = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
     let manifest = std::fs::read_to_string(repo_root.join("app/veredictum-console/Cargo.toml"))?;
-    let dockerfile = std::fs::read_to_string(repo_root.join("docker/Dockerfile"))?;
+    let dockerfile = std::fs::read_to_string(repo_root.join("deploy/docker/Dockerfile"))?;
 
     let builds_hashed = manifest
         .lines()

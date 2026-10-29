@@ -30,7 +30,7 @@
 #                          document, in ANY path form: a tree-rooted path
 #                          (`catalogue/`, `perf/`, `fixtures/`, `scripts/`,
 #                          `website/`, `schemas/`, `fuzz/`, `app/`, `verification-pack/`)
-#                          ending in `.md`, the root documents by name
+#                          ending in `.md`, the project documents by name
 #                          (README, CLAUDE, ARCHITECTURE, CONTRIBUTING,
 #                          CHANGELOG), and any RELATIVE citation whose path
 #                          matches a committed markdown file at a segment
@@ -117,7 +117,7 @@ case "$mode" in
   trap 'rm -rf "$tmp"' EXIT
   seeded="$tmp/seeded.rs"
   {
-    echo '// the committed keypair (`fixtures/keys/README.md` records it)'
+    echo '// the committed keypair (`catalogue/keys/openpgp/README.md` records it)'
     echo '/// the crate CLAUDE.md doctrine'
     echo '//! see website/book/src/commands.md for the surface'
     echo '/// the pack provenance in `payloads/ckm/PROVENANCE.md`'

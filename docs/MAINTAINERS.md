@@ -68,7 +68,7 @@ There is no succession plan a document can create. What exists instead:
   catalogue whose correctness can be re-derived from the openEHR specifications
   without asking anyone here.
 - **A vulnerability report has a fallback.** If a private report receives no
-  acknowledgement within the window [SECURITY.md](SECURITY.md) commits to, that
+  acknowledgement within the window [SECURITY.md](../SECURITY.md) commits to, that
   policy already tells you to escalate publicly. That path does not depend on
   the maintainer.
 
@@ -80,6 +80,6 @@ verdict you published.
 ## Adding a maintainer
 
 The route is in [GOVERNANCE.md](GOVERNANCE.md). When someone takes it, this file
-gains a row, [`.github/CODEOWNERS`](.github/CODEOWNERS) gains their handle on
+gains a row, [`.github/CODEOWNERS`](../.github/CODEOWNERS) gains their handle on
 the areas they own, and the table above gains a second holder wherever the
 identity permits one. Those three edits are the whole mechanism.

@@ -23,7 +23,7 @@ and needs no key-generation step. It was produced with:
 
 ```bash
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
-  -out fixtures/smart-test-issuer/cnf-smart-test.key.pem
+  -out catalogue/keys/smart-test-issuer/cnf-smart-test.key.pem
 # jwks.json is the public half: kty=RSA, kid=cnf-smart-test, alg=RS256,
 # n = the modulus (base64url), e = AQAB.
 ```

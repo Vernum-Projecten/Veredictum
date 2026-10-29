@@ -8,7 +8,7 @@ Practices `assurance_case` criterion asks for. Every row below names a file in
 this repository, so each claim can be opened and checked.
 
 Reporting routes, supported versions, and the repository's GitHub security
-posture live in [SECURITY.md](SECURITY.md), which this page does not repeat.
+posture live in [SECURITY.md](../SECURITY.md), which this page does not repeat.
 
 ## 1. The product, and what an attacker gains
 
@@ -30,7 +30,7 @@ or a container image are the same attack at three layers.
 the system under test, and the exchanges it records come from a server the
 operator does not own. Leaking either into a published artifact, an error
 message, or a log line is a vulnerability in this instrument
-([SECURITY.md § Scope notes](SECURITY.md#scope-notes)).
+([SECURITY.md § Scope notes](../SECURITY.md#scope-notes)).
 
 ## 2. Trust boundaries
 
@@ -39,7 +39,7 @@ message, or a log line is a vulnerability in this instrument
 | **The catalogue and the vendored specifications** (`catalogue/**`, `specs/**`) | trusted, committed, reviewed | `veredictum validate --root catalogue --specs specs/openehr` is every machine gate over the tree (the Arazzo schema, source and citation resolution against the vendored text, the condition profile, rows, surface coverage, id uniqueness), and zero findings is the only passing result. Entry point: `validate` in `app/veredictum/src/validate.rs`. |
 | **The system under test** | untrusted by definition | A SUT's responses are evidence in a comparison, never instructions. The attribution law makes this structural: an expectation is refuted by a better reading of the released specification and by nothing else, so a server cannot move the reference it is measured against (`.claude/rules/cnf-triage.md`). |
 | **The operator's IXIT and credentials** | trusted input, kept out of records and logs | `AuthMode` in `app/veredictum/src/ixit.rs` holds credential *references* only: environment-variable names for Basic and Bearer, a declared key file for the SMART lane. The IXIT file is committed and shared, so the model makes an inline secret unrepresentable. |
-| **The console's HTTP surface** (`app/veredictum-console`) | every endpoint is public | Mandate 3 of `app/veredictum-console/CLAUDE.md`: "Every `#[server]` fn is a publicly reachable HTTP endpoint, and the console has no login by design: it binds `127.0.0.1` by default, wider exposure is the operator's decision with their own gate in front. So every server fn treats input as untrusted and stays under the mounted roots, and SUT credentials … live in memory and the spawned run's environment only — never in client-readable signals, props, or serialized resource data, never in a file, never in a log line." The default bind is `site-addr = "127.0.0.1:3000"` in that crate's `Cargo.toml`; the container image sets `LEPTOS_SITE_ADDR=0.0.0.0:3000` inside its own network namespace (`docker/Dockerfile`). |
+| **The console's HTTP surface** (`app/veredictum-console`) | every endpoint is public | Mandate 3 of `app/veredictum-console/CLAUDE.md`: "Every `#[server]` fn is a publicly reachable HTTP endpoint, and the console has no login by design: it binds `127.0.0.1` by default, wider exposure is the operator's decision with their own gate in front. So every server fn treats input as untrusted and stays under the mounted roots, and SUT credentials … live in memory and the spawned run's environment only — never in client-readable signals, props, or serialized resource data, never in a file, never in a log line." The default bind is `site-addr = "127.0.0.1:3000"` in that crate's `Cargo.toml`; the container image sets `LEPTOS_SITE_ADDR=0.0.0.0:3000` inside its own network namespace (`deploy/docker/Dockerfile`). |
 | **The published record** | tamper-evident, verifiable without this tool | `app/veredictum/src/record.rs` seals a bundle with a byte-deterministic SHA-256 digest manifest (`record-manifest.json`) and an armored RFC 9580 detached signature over its exact bytes (`record-manifest.json.asc`). `veredictum verify-record --record DIR --key FILE` recomputes both; `gpg --verify record-manifest.json.asc record-manifest.json` accepts the same bundle with no Veredictum binary present. `RecordError::UnsafeFileName` and `RecordError::DuplicateFile` refuse a manifest entry that would read outside the bundle or silently replace another digest. |
 
 Two properties of the record boundary are worth stating outright. The manifest
@@ -67,12 +67,12 @@ the run executed under.
 | The workflows are analysed like code | `zizmor --min-severity=low` over `.github/workflows/` and `.github/actions/` with `GH_TOKEN` set, so the online impostor-commit audit runs; `actionlint` in the digest-pinned official image, which bundles the shellcheck pass over every embedded `run:` block | the `workflow-audit` job, `.github/workflows/ci.yml` |
 | Static analysis reads the Rust and the pipeline itself | CodeQL on a `rust` and an `actions` matrix, per pull request and weekly | `.github/workflows/codeql.yml` |
 | The supply-chain posture carries a score anyone can read back | OSSF Scorecard weekly, uploading SARIF to code scanning | `.github/workflows/scorecard.yml` |
-| The published image carries no known HIGH or CRITICAL vulnerability | Trivy per published platform, with the severity floor and `ignore-unfixed` in one shared config | `trivy.yaml`; `.github/workflows/image-scan.yml` |
+| The published image carries no known HIGH or CRITICAL vulnerability | Trivy per published platform, with the severity floor and `ignore-unfixed` in one shared config | `security/trivy.yaml`; `.github/workflows/image-scan.yml` |
 | Secrets, shell, and workflow YAML get a second independent sweep | SonarQube Cloud over the whole tree minus the vendored bytes, including secret detection. Advisory by standing rule: it gates no merge and never outranks the specification text or the local gates | `sonar-project.properties`; `.github/workflows/sonar.yml`; `.claude/rules/ai-code-review.md` |
 | No CI job runs without gating the merge | `scripts/checks/ci-conclusion-complete.sh` refuses a job missing from the single required `conclusion` check's `needs` list | the `workflow-audit` job, `.github/workflows/ci.yml` |
-| Every commit reaching `main` is signed and reviewed through a pull request | the `main` ruleset (signed commits, no force-push, pull request required, strict required checks); the GitHub contents API is banned because it writes unsigned commits | `CLAUDE.md` hard rules 8 and 9; [SECURITY.md § Repository security settings](SECURITY.md#repository-security-settings--the-posture-of-record) |
+| Every commit reaching `main` is signed and reviewed through a pull request | the `main` ruleset (signed commits, no force-push, pull request required, strict required checks); the GitHub contents API is banned because it writes unsigned commits | `CLAUDE.md` hard rules 8 and 9; [SECURITY.md § Repository security settings](../SECURITY.md#repository-security-settings--the-posture-of-record) |
 | No release artifact can be substituted undetected | binaries and images build inside reusable workflows per GitHub's documented SLSA Build L3 construction, each carrying a signed provenance attestation on its digest plus an attested CycloneDX SBOM; `cargo-auditable` embeds the dependency list in the binary; the image publishes by digest before any tag applies; `finalize` refuses to publish until every expected asset is attached | `.github/workflows/release-build.yml`, `build-image.yml`, `release.yml`; the badge rationale in `README.md` |
-| A bad release cut cannot be papered over | the `refs/tags/v*` ruleset forbids tag deletion and non-fast-forward updates and requires a signature, so the recovery is the next version | [SECURITY.md § Repository security settings](SECURITY.md#repository-security-settings--the-posture-of-record) |
+| A bad release cut cannot be papered over | the `refs/tags/v*` ruleset forbids tag deletion and non-fast-forward updates and requires a signature, so the recovery is the next version | [SECURITY.md § Repository security settings](../SECURITY.md#repository-security-settings--the-posture-of-record) |
 
 ## 4. Requirements with no machine check
 
@@ -119,6 +119,6 @@ hides its wishes is worth less than one that names them
   states the limit in the verification output itself.
 
 Findings against any statement on this page go through the private reporting
-route in [SECURITY.md](SECURITY.md#reporting-a-vulnerability). A claim here that
+route in [SECURITY.md](../SECURITY.md#reporting-a-vulnerability). A claim here that
 turns out to be stale is a defect in the assurance case, and it is fixed the
 same way any other defect is.

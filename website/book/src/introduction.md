@@ -7,7 +7,7 @@ the openEHR specification that server implements.
 > **Status:** Veredictum is on 0.x and is not yet approved by the openEHR SEC.
 > Version 1.0.0 will mark that approval.
 
-It executes a machine-readable catalogue of 1649 spec-cited test cases against
+It executes a machine-readable catalogue of 1651 spec-cited test cases against
 the server's own wire, records every exchange, and computes verdicts as pure
 functions over what it recorded. Functional conformance, measured performance,
 step-load stress and the comparative-speed benchmark come from the one tool.
@@ -44,8 +44,8 @@ it can be refuted by a better reading of the specification and by nothing else.
 
 | | |
 |---|---|
-| **1649 spec-cited cases** | Arazzo workflows over the released openEHR REST API OpenAPI documents, in 203 Arazzo documents. One small isolated case per behaviour, so a red row names one defect. Every invalid shape is kept as its own refusal case, so a lenient server fails it |
-| **14 capability folders** | EHR, EHR status, composition, content, contribution, directory, item tags, query, definition, demographic, admin, security, simplified formats, system. A statement claims folders |
+| **1651 spec-cited cases** | Arazzo workflows over the released openEHR REST API OpenAPI documents, in 205 Arazzo documents. One small isolated case per behaviour, so a red row names one defect. Every invalid shape is kept as its own refusal case, so a lenient server fails it |
+| **15 capability folders** | EHR, EHR status, composition, content, contribution, directory, item tags, query, definition, demographic, admin, security, simplified formats, SMART, system. A statement claims folders |
 | **The options** | The behaviours the release leaves to the implementation, each with the arms a statement picks one of |
 | **The performance schedule** | The four measured-workload class cases, the journey catalogue and the payloads the measured instruments send |
 | **The published schemas** | JSON Schema for every artifact family, emitted and drift-tested, so you can author against the format |

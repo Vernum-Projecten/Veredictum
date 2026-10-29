@@ -25,8 +25,8 @@ reasoning, which decays into a list nobody can re-evaluate.
   stale `not_affected` is worse than no VEX at all.
 - The scanners consume these files (`trivy --vex`), so a statement that stops
   being true stops being invisible: the finding returns and the gate fails.
-- The container-layer statements pair with `.trivyignore.yaml`: the ignore
-  file is what the shared `trivy.yaml` wires into every lane and carries the
+- The container-layer statements pair with `security/trivyignore.yaml`: the ignore
+  file is what the shared `security/trivy.yaml` wires into every lane and carries the
   expiry date; the OpenVEX document is the published, machine-readable form of
   the same adjudication. The two are edited in the same change, always.
 

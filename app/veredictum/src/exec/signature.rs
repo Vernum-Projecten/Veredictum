@@ -196,7 +196,7 @@ mod tests {
         use rand::rngs::OsRng;
 
         let keys = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-            .join("fixtures/keys");
+            .join("catalogue/keys/openpgp");
         let (secret, _) = SignedSecretKey::from_string(&std::fs::read_to_string(
             keys.join("cnf-signing.sec.asc"),
         )?)?;
@@ -335,7 +335,7 @@ mod tests {
         assert!(key_failure.starts_with("pgp public key:"), "{key_failure}");
 
         let keys = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-            .join("fixtures/keys");
+            .join("catalogue/keys/openpgp");
         let public_armored =
             std::fs::read_to_string(keys.join("cnf-signing.pub.asc")).expect("the committed key");
         let signature_failure = verify_pgp(b"payload", "not a signature", &public_armored)

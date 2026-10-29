@@ -29,7 +29,7 @@ the `question` label.
 
 There is no commercial support offering, no service-level agreement, and no paid
 tier. Answers come when the maintainer is at a keyboard, and
-[MAINTAINERS.md](MAINTAINERS.md) is honest about how many keyboards that is.
+[MAINTAINERS.md](docs/MAINTAINERS.md) is honest about how many keyboards that is.
 
 ## My server failed a case and I think the case is wrong
 
@@ -76,7 +76,7 @@ has the reasoning.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) is the practical guide: where the code
 currently lives, the gates, and the hard rules.
-[GOVERNANCE.md](GOVERNANCE.md) is how a decision gets made and how someone
+[GOVERNANCE.md](docs/GOVERNANCE.md) is how a decision gets made and how someone
 becomes a maintainer, including someone from a competing implementation.
 
 ## What a verdict from this instrument is, and is not

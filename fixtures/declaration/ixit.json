@@ -215,7 +215,7 @@
       "roles": [
         "USER"
       ],
-      "key_file": "../smart-test-issuer/cnf-smart-test.key.pem",
+      "key_file": "../../catalogue/keys/smart-test-issuer/cnf-smart-test.key.pem",
       "kid": "cnf-smart-test",
       "ttl_seconds": 300
     }

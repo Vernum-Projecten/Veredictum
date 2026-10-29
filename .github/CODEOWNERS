@@ -10,7 +10,7 @@
 #   1. It makes ownership EXPLICIT rather than assumed, which is what a second
 #      maintainer inherits on day one: the areas are already carved, so adding
 #      a person is a one-line change per area rather than a structural decision
-#      under time pressure. GOVERNANCE.md says a maintainer from a competing
+#      under time pressure. docs/GOVERNANCE.md says a maintainer from a competing
 #      CDR is welcome, and this is where that arrives.
 #   2. Combined with a code-owner-review requirement on the default-branch
 #      ruleset, it is what makes a pull request from an account WITHOUT write
@@ -27,7 +27,7 @@
 # paths that decide what "conformant" means should never land without an owner
 # already named.
 #
-# MAINTAINERS.md is the roster and the access-continuity record; GOVERNANCE.md
+# docs/MAINTAINERS.md is the roster and the access-continuity record; docs/GOVERNANCE.md
 # is the decision process. This file is only the routing table.
 
 *                                   @rubentalstra
@@ -50,7 +50,7 @@
 /src/                               @rubentalstra
 
 # ── Test fixtures ───────────────────────────────────────────────────────────
-# The named ICS fixture and the SMART lane's committed test issuer.
+# The named ICS fixture: a declaration and its ixit.
 /fixtures/                          @rubentalstra
 
 # ── Supply chain, CI and release ────────────────────────────────────────────
@@ -68,11 +68,11 @@
 
 # ── Policy and legal ────────────────────────────────────────────────────────
 /SECURITY.md                        @rubentalstra
-/GOVERNANCE.md                      @rubentalstra
-/MAINTAINERS.md                     @rubentalstra
+/docs/GOVERNANCE.md                 @rubentalstra
+/docs/MAINTAINERS.md                @rubentalstra
 /SUPPORT.md                         @rubentalstra
 /CODE_OF_CONDUCT.md                 @rubentalstra
-/AI_STATEMENT.md                    @rubentalstra
+/docs/AI_STATEMENT.md               @rubentalstra
 /LICENSE                            @rubentalstra
 /NOTICE                             @rubentalstra
 /.github/CODEOWNERS                 @rubentalstra

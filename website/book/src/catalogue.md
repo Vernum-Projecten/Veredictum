@@ -15,7 +15,7 @@ The formats this instrument adds are published as JSON Schema in
 files are emitted by `veredictum emit-schemas` and drift-tested against it, so
 the published format and the code that reads it are one thing. The design
 record is
-[`ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/ARCHITECTURE.md)
+[`docs/ARCHITECTURE.md`](https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md)
 §15; this page will not repeat every field.
 
 ## The layout
@@ -29,11 +29,12 @@ Everything lives under `catalogue/` in the repository.
 | `cases/_setup/` | Shared setups. A setup is not a case: it runs only where a case names it in `dependsOn` |
 | `capabilities.yaml` | The options: behaviour the released text leaves to the implementation, each with the arms a statement picks from |
 | `sources/` | The routes no openEHR OpenAPI document describes, in one document of our own |
+| `keys/` | The test signing material a run can be given: the OpenPGP pair a server signs VERSIONs with, and the SMART test issuer the runner mints tokens with. Public by design and never for real use |
 | `id-map.yaml` | Every case id of the former case-core catalogue, mapped to the workflows that carry it |
 
-There are 14 capability folders: `ehr`, `ehr_status`, `composition`,
+There are 15 capability folders: `ehr`, `ehr_status`, `composition`,
 `content`, `contribution`, `directory`, `item_tags`, `query`, `definition`,
-`demographic`, `admin`, `security`, `simplified_formats` and `system`.
+`demographic`, `admin`, `security`, `simplified_formats`, `smart` and `system`.
 
 ## A workflow
 

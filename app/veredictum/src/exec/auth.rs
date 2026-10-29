@@ -146,11 +146,11 @@ mod tests {
     use crate::ixit::Ixit;
     use serde_json::Value;
 
-    /// The committed CNF SMART test issuer (`fixtures/smart-test-issuer/`) —
+    /// The committed CNF SMART test issuer (`catalogue/keys/smart-test-issuer/`) —
     /// public test material by design, never production key material.
     fn test_mint(roles: &[String]) -> crate::ixit::BearerMint {
         let key_file = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-            .join("fixtures/smart-test-issuer/cnf-smart-test.key.pem");
+            .join("catalogue/keys/smart-test-issuer/cnf-smart-test.key.pem");
         serde_json::from_value(serde_json::json!({
             "issuer": "https://as.cnf.test",
             "audience": "cnf-smart-sut",
@@ -171,7 +171,7 @@ mod tests {
         assert_eq!(header.kid.as_deref(), Some("cnf-smart-test"));
 
         let jwks_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-            .join("fixtures/smart-test-issuer/jwks.json");
+            .join("catalogue/keys/smart-test-issuer/jwks.json");
         let jwks: jsonwebtoken::jwk::JwkSet =
             serde_json::from_str(&std::fs::read_to_string(jwks_path).unwrap()).unwrap();
         let jwk = jwks.find("cnf-smart-test").unwrap();

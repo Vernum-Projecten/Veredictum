@@ -83,7 +83,7 @@ updates:
       include: "scope"
 
   - package-ecosystem: "docker"
-    directory: "/docker"
+    directory: "/deploy/docker"
     schedule:
       interval: "weekly"
     # Fourteen days, the longest of the three. A base-image bump changes the

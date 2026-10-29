@@ -5,7 +5,7 @@
 # (#632), in the workflow documents and in `capabilities.yaml` alike.
 #
 # A citation that rests on defective released text names the tracker issue the
-# defect is reported in (ARCHITECTURE.md §15.4). `validate` is offline and can
+# defect is reported in (docs/ARCHITECTURE.md §15.4). `validate` is offline and can
 # only check that the number is positive, so this guard asks the tracker: each
 # number must be an ISSUE in this repository, open or closed, carrying the
 # `upstream-report` label. A pull request number, a missing issue or an
