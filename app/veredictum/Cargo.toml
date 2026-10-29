@@ -74,7 +74,7 @@ reqwest = { version = "0.13.4", default-features = false, features = ["rustls", 
 serde-saphyr = "2.0.0"
 # The published artifact schemas are the norm; every loaded artifact validates
 # against them before typed parsing.
-jsonschema = "0.59.0"
+jsonschema = "0.60.0"
 # `applies` spec-version ranges use the Cargo/semver requirement grammar.
 regex = "1"
 # Wall-clock time (token `iat`/`exp`, run stamps) comes from the pinned time
@@ -105,7 +105,7 @@ sha2 = "0.11.0"
 # rPGP — pure-Rust OpenPGP (RFC 9580). `default-features = false` drops the
 # bzip2 (libbz2-rs-sys) dependency: a detached signature needs no compression,
 # and that crate fails the cargo-deny license gate.
-pgp = { version = "0.20.0", default-features = false }
+pgp = { version = "0.21.0", default-features = false }
 # The RNG the signed run record's detached-signature call takes. NOT rand 0.10:
 # `pgp 0.20`'s signing call wants an RNG from rand 0.8's rand_core generation,
 # so the types must come from that major or they do not unify.
