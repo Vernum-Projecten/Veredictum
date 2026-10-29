@@ -1,0 +1,410 @@
+diff --git a/specifications/operations/agent_create.yaml b/specifications/operations/agent_create.yaml
+index 262369db..785cef5a 100644
+--- a/specifications/operations/agent_create.yaml
++++ b/specifications/operations/agent_create.yaml
+@@ -10,8 +10,8 @@ tags:
+   - AGENT
+ parameters:
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+   - $ref: ../parameters/header/openehr-item-tag.yaml
+   - $ref: ../parameters/header/openehr-version-item-tag.yaml
+ requestBody:
+diff --git a/specifications/operations/agent_get.yaml b/specifications/operations/agent_get.yaml
+index 6af653b2..d068865b 100644
+--- a/specifications/operations/agent_get.yaml
++++ b/specifications/operations/agent_get.yaml
+@@ -17,7 +17,7 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/uid_based_id.yaml
+   - $ref: ../parameters/query/version_at_time.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_AGENT_retrieved.yaml
+diff --git a/specifications/operations/agent_update.yaml b/specifications/operations/agent_update.yaml
+index 7a722fb3..7b7545e0 100644
+--- a/specifications/operations/agent_update.yaml
++++ b/specifications/operations/agent_update.yaml
+@@ -18,8 +18,8 @@ parameters:
+   - $ref: ../parameters/path/uid_based_id_as_versioned_object_uid.yaml
+   - $ref: ../parameters/header/If-Match.yaml
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+   - $ref: ../parameters/header/openehr-version-item-tag.yaml
+ requestBody:
+   description: |
+diff --git a/specifications/operations/group_create.yaml b/specifications/operations/group_create.yaml
+index d91e2f4d..e1c35ab3 100644
+--- a/specifications/operations/group_create.yaml
++++ b/specifications/operations/group_create.yaml
+@@ -10,8 +10,8 @@ tags:
+   - GROUP
+ parameters:
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+   - $ref: ../parameters/header/openehr-item-tag.yaml
+   - $ref: ../parameters/header/openehr-version-item-tag.yaml
+ requestBody:
+diff --git a/specifications/operations/group_get.yaml b/specifications/operations/group_get.yaml
+index d8d04da4..bc5b6daf 100644
+--- a/specifications/operations/group_get.yaml
++++ b/specifications/operations/group_get.yaml
+@@ -17,7 +17,7 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/uid_based_id.yaml
+   - $ref: ../parameters/query/version_at_time.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_GROUP_retrieved.yaml
+diff --git a/specifications/operations/group_update.yaml b/specifications/operations/group_update.yaml
+index 00e34c30..dd7ae70a 100644
+--- a/specifications/operations/group_update.yaml
++++ b/specifications/operations/group_update.yaml
+@@ -18,8 +18,8 @@ parameters:
+   - $ref: ../parameters/path/uid_based_id_as_versioned_object_uid.yaml
+   - $ref: ../parameters/header/If-Match.yaml
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+   - $ref: ../parameters/header/openehr-version-item-tag.yaml
+ requestBody:
+   description: |
+diff --git a/specifications/operations/organisation_create.yaml b/specifications/operations/organisation_create.yaml
+index 2685670c..c07cbb11 100644
+--- a/specifications/operations/organisation_create.yaml
++++ b/specifications/operations/organisation_create.yaml
+@@ -10,8 +10,8 @@ tags:
+   - ORGANISATION
+ parameters:
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+   - $ref: ../parameters/header/openehr-item-tag.yaml
+   - $ref: ../parameters/header/openehr-version-item-tag.yaml
+ requestBody:
+diff --git a/specifications/operations/organisation_get.yaml b/specifications/operations/organisation_get.yaml
+index 89649358..538c1370 100644
+--- a/specifications/operations/organisation_get.yaml
++++ b/specifications/operations/organisation_get.yaml
+@@ -17,7 +17,7 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/uid_based_id.yaml
+   - $ref: ../parameters/query/version_at_time.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_ORGANISATION_retrieved.yaml
+diff --git a/specifications/operations/organisation_update.yaml b/specifications/operations/organisation_update.yaml
+index 3b236641..15d321e1 100644
+--- a/specifications/operations/organisation_update.yaml
++++ b/specifications/operations/organisation_update.yaml
+@@ -18,8 +18,8 @@ parameters:
+   - $ref: ../parameters/path/uid_based_id_as_versioned_object_uid.yaml
+   - $ref: ../parameters/header/If-Match.yaml
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+   - $ref: ../parameters/header/openehr-version-item-tag.yaml
+ requestBody:
+   description: |
+diff --git a/specifications/operations/person_create.yaml b/specifications/operations/person_create.yaml
+index 28145fed..ba1a1bb8 100644
+--- a/specifications/operations/person_create.yaml
++++ b/specifications/operations/person_create.yaml
+@@ -10,8 +10,8 @@ tags:
+   - PERSON
+ parameters:
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+   - $ref: ../parameters/header/openehr-item-tag.yaml
+   - $ref: ../parameters/header/openehr-version-item-tag.yaml
+ requestBody:
+diff --git a/specifications/operations/person_get.yaml b/specifications/operations/person_get.yaml
+index d48c4441..bfb22810 100644
+--- a/specifications/operations/person_get.yaml
++++ b/specifications/operations/person_get.yaml
+@@ -17,7 +17,7 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/uid_based_id.yaml
+   - $ref: ../parameters/query/version_at_time.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_PERSON_retrieved.yaml
+diff --git a/specifications/operations/person_update.yaml b/specifications/operations/person_update.yaml
+index 715ac8bb..6d9e2fe3 100644
+--- a/specifications/operations/person_update.yaml
++++ b/specifications/operations/person_update.yaml
+@@ -18,8 +18,8 @@ parameters:
+   - $ref: ../parameters/path/uid_based_id_as_versioned_object_uid.yaml
+   - $ref: ../parameters/header/If-Match.yaml
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+   - $ref: ../parameters/header/openehr-version-item-tag.yaml
+ requestBody:
+   description: |
+diff --git a/specifications/operations/role_create.yaml b/specifications/operations/role_create.yaml
+index 01b16c47..0720fcca 100644
+--- a/specifications/operations/role_create.yaml
++++ b/specifications/operations/role_create.yaml
+@@ -10,8 +10,8 @@ tags:
+   - ROLE
+ parameters:
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+   - $ref: ../parameters/header/openehr-item-tag.yaml
+   - $ref: ../parameters/header/openehr-version-item-tag.yaml
+ requestBody:
+diff --git a/specifications/operations/role_get.yaml b/specifications/operations/role_get.yaml
+index 0e62dc6b..62696399 100644
+--- a/specifications/operations/role_get.yaml
++++ b/specifications/operations/role_get.yaml
+@@ -17,7 +17,7 @@ tags:
+ parameters:
+   - $ref: ../parameters/path/uid_based_id.yaml
+   - $ref: ../parameters/query/version_at_time.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
+ responses:
+   '200':
+     $ref: ../responses/200_ROLE_retrieved.yaml
+diff --git a/specifications/operations/role_update.yaml b/specifications/operations/role_update.yaml
+index 54e5d390..6f34c985 100644
+--- a/specifications/operations/role_update.yaml
++++ b/specifications/operations/role_update.yaml
+@@ -18,8 +18,8 @@ parameters:
+   - $ref: ../parameters/path/uid_based_id_as_versioned_object_uid.yaml
+   - $ref: ../parameters/header/If-Match.yaml
+   - $ref: ../parameters/header/Prefer.yaml
+-  - $ref: ../parameters/header/Accept_LOCATABLE.yaml
+-  - $ref: ../parameters/header/ContentType_LOCATABLE.yaml
++  - $ref: ../parameters/header/Accept_canonical.yaml
++  - $ref: ../parameters/header/ContentType_canonical.yaml
+   - $ref: ../parameters/header/openehr-version-item-tag.yaml
+ requestBody:
+   description: |
+diff --git a/specifications/responses/200_AGENT_retrieved.yaml b/specifications/responses/200_AGENT_retrieved.yaml
+index 8a5b2eab..0f01cae8 100644
+--- a/specifications/responses/200_AGENT_retrieved.yaml
++++ b/specifications/responses/200_AGENT_retrieved.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/200_AGENT_updated.yaml b/specifications/responses/200_AGENT_updated.yaml
+index 23d1599d..70b4c57f 100644
+--- a/specifications/responses/200_AGENT_updated.yaml
++++ b/specifications/responses/200_AGENT_updated.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_AGENT.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/200_GROUP_retrieved.yaml b/specifications/responses/200_GROUP_retrieved.yaml
+index 5d892f5b..7171925f 100644
+--- a/specifications/responses/200_GROUP_retrieved.yaml
++++ b/specifications/responses/200_GROUP_retrieved.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/200_GROUP_updated.yaml b/specifications/responses/200_GROUP_updated.yaml
+index 344972c3..fa938efd 100644
+--- a/specifications/responses/200_GROUP_updated.yaml
++++ b/specifications/responses/200_GROUP_updated.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_GROUP.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/200_ORGANISATION_retrieved.yaml b/specifications/responses/200_ORGANISATION_retrieved.yaml
+index ec2bc94b..1556a884 100644
+--- a/specifications/responses/200_ORGANISATION_retrieved.yaml
++++ b/specifications/responses/200_ORGANISATION_retrieved.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/200_ORGANISATION_updated.yaml b/specifications/responses/200_ORGANISATION_updated.yaml
+index e0352a92..c97c7417 100644
+--- a/specifications/responses/200_ORGANISATION_updated.yaml
++++ b/specifications/responses/200_ORGANISATION_updated.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_ORGANISATION.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/200_PERSON_retrieved.yaml b/specifications/responses/200_PERSON_retrieved.yaml
+index 50152803..44bb9243 100644
+--- a/specifications/responses/200_PERSON_retrieved.yaml
++++ b/specifications/responses/200_PERSON_retrieved.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/200_PERSON_updated.yaml b/specifications/responses/200_PERSON_updated.yaml
+index 1acb7dde..236d0cfc 100644
+--- a/specifications/responses/200_PERSON_updated.yaml
++++ b/specifications/responses/200_PERSON_updated.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_PERSON.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/200_ROLE_retrieved.yaml b/specifications/responses/200_ROLE_retrieved.yaml
+index 19b52f5c..25704414 100644
+--- a/specifications/responses/200_ROLE_retrieved.yaml
++++ b/specifications/responses/200_ROLE_retrieved.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_deprecated.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/200_ROLE_updated.yaml b/specifications/responses/200_ROLE_updated.yaml
+index b91f079c..4db88a64 100644
+--- a/specifications/responses/200_ROLE_updated.yaml
++++ b/specifications/responses/200_ROLE_updated.yaml
+@@ -6,7 +6,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_ROLE.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/201_AGENT.yaml b/specifications/responses/201_AGENT.yaml
+index d54bb3f1..09bbccfc 100644
+--- a/specifications/responses/201_AGENT.yaml
++++ b/specifications/responses/201_AGENT.yaml
+@@ -8,7 +8,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_AGENT.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/201_GROUP.yaml b/specifications/responses/201_GROUP.yaml
+index e91c1338..51fc966e 100644
+--- a/specifications/responses/201_GROUP.yaml
++++ b/specifications/responses/201_GROUP.yaml
+@@ -8,7 +8,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_GROUP.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/201_ORGANISATION.yaml b/specifications/responses/201_ORGANISATION.yaml
+index ba4c18de..2c136215 100644
+--- a/specifications/responses/201_ORGANISATION.yaml
++++ b/specifications/responses/201_ORGANISATION.yaml
+@@ -8,7 +8,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_ORGANISATION.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/201_PERSON.yaml b/specifications/responses/201_PERSON.yaml
+index 6871ca99..52fbfcc0 100644
+--- a/specifications/responses/201_PERSON.yaml
++++ b/specifications/responses/201_PERSON.yaml
+@@ -8,7 +8,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_PERSON.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
+diff --git a/specifications/responses/201_ROLE.yaml b/specifications/responses/201_ROLE.yaml
+index 78d3fa5b..8bf9af5a 100644
+--- a/specifications/responses/201_ROLE.yaml
++++ b/specifications/responses/201_ROLE.yaml
+@@ -8,7 +8,7 @@ headers:
+   Location:
+     $ref: ../headers/Location_ROLE.yaml
+   Content-Type:
+-    $ref: ../headers/ContentType_LOCATABLE.yaml
++    $ref: ../headers/ContentType_canonical.yaml
+   openehr-item-tag:
+     $ref: ../headers/openehr-item-tag.yaml
+   openehr-version-item-tag:
