@@ -28,7 +28,9 @@ use crate::arazzo::gates::check_catalogue;
 use crate::arazzo::har::Har;
 use crate::arazzo::results::{ResultRow, Results, Status, Whose};
 use crate::exec::transport::HttpTransport;
-use crate::pipeline::{Error, RenderedFile, read_json};
+use crate::ixit::{DeclaredEnvironment, Ixit};
+use crate::pipeline::{Error, RenderedFile, load_party_json, read_json};
+use crate::schema::ixit_schema;
 
 /// The file a run's results are written to.
 pub const RESULTS_FILE: &str = "results.json";
@@ -163,13 +165,28 @@ fn marker(source: &CredentialSource, role: Role) -> Option<String> {
     source.is_supplied().then(|| role.marker().to_owned())
 }
 
+/// Reads the IXIT at `path` through the published IXIT schema and the typed
+/// model, returning the document a rows file's `declared` inputs read and
+/// the environment it declares.
+///
+/// # Errors
+/// [`Error::Party`] naming the file and every schema violation, or the
+/// typed-model failure.
+fn read_ixit(path: &Path) -> Result<(Value, Option<DeclaredEnvironment>), Error> {
+    let value: Value = load_party_json(path, &ixit_schema(), "ixit")?;
+    let ixit: Ixit = serde_json::from_value(value.clone())
+        .map_err(|e| Error::Party(format!("{}: model: {e}", path.display())))?;
+    Ok((value, ixit.environment))
+}
+
 /// Runs the catalogue live, or re-judges a recording of it.
 ///
 /// Everything the party supplies is read and checked before the gate, so an
 /// unknown document or capability is refused at once.
 ///
 /// # Errors
-/// [`Error::Read`] or [`Error::Parse`] for the statement or the IXIT,
+/// [`Error::Read`] or [`Error::Parse`] for the statement, [`Error::Party`]
+/// for an IXIT that fails the published IXIT schema or the typed model,
 /// [`Error::Recording`] when the recording does not read,
 /// [`Error::ArazzoCatalogue`] when the catalogue cannot be planned,
 /// [`Error::ArazzoGate`] when the catalogue has a gate finding,
@@ -185,9 +202,17 @@ pub fn run_catalogue(
     let read = |path: Option<&Path>, context: &str| -> Result<Option<Value>, Error> {
         path.map(|path| read_json(path, context)).transpose()
     };
+    let (ixit, environment) = match request.ixit {
+        Some(path) => {
+            let (value, environment) = read_ixit(path)?;
+            (Some(value), environment)
+        }
+        None => (None, None),
+    };
     let mut declarations = Declarations {
         statement: read(request.statement, "the statement")?,
-        ixit: read(request.ixit, "the IXIT")?,
+        ixit,
+        environment,
         administrative: false,
     };
     let target = match drive {

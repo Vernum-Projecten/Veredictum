@@ -1128,13 +1128,12 @@ pub fn ixit_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("ixit"),
         "title": "CNF 2.0 IXIT (implementation extra information for testing)",
-        "description": "The SUT topology a runner drives: named instances (base URL + auth mode, credentials by env-var reference, never inline) plus the environment block. The default instance `sut` is required for every run.",
+        "description": "The SUT topology a runner drives: named instances (base URL + auth mode, credentials by env-var reference, never inline) plus the environment block. `veredictum test` takes its server from `--base-url` and reads no instance, so a conformance-only IXIT may omit `instances`; every instrument that addresses an instance refuses an IXIT without the default instance `sut`.",
         "type": "object",
         "additionalProperties": false,
-        "required": ["instances"],
         "properties": {
             "instances": ixit_instances_def(),
-            "environment": environment_def(),
+            "environment": declared_environment_def(),
             "containers": {
                 "type": "object",
                 "additionalProperties": false,
@@ -1319,8 +1318,23 @@ fn resources_def() -> Value {
     })
 }
 
-/// The ixit environment block (shared by the ixit schema and every
-/// measurement record — an earned class is reported WITH its environment).
+/// The ixit environment block as a party declares it: a conformance run
+/// reads only `exclusive_server`, and a measured run refuses an IXIT lacking
+/// any other member, naming it.
+fn declared_environment_def() -> Value {
+    let mut def = environment_def();
+    if let Some(block) = def.as_object_mut() {
+        block.remove("required");
+        block.insert(
+            "description".to_owned(),
+            json!("`exclusive_server` is all a conformance run reads. `perf`, `stress` and `aql-probe` need every other member, and refuse an IXIT lacking one, naming it."),
+        );
+    }
+    def
+}
+
+/// The environment a measured run was taken in (every measurement record
+/// embeds it — an earned class is reported WITH its environment).
 fn environment_def() -> Value {
     json!({
         "type": "object",
