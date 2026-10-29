@@ -162,6 +162,28 @@ fn issued_ixit(dir: &Path) -> Result<String, Box<dyn std::error::Error>> {
     )
 }
 
+/// The run's recording, after checking that neither supplied token nor a
+/// scope marker reached it, the results or the run's own output.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn no_token_in(output: &Output, out: &Path) -> Result<Value, Box<dyn std::error::Error>> {
+    let recording = std::fs::read_to_string(out.join("recording.har"))?;
+    let results = std::fs::read_to_string(out.join("results.json"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    for secret in [READ_TOKEN, CRUD_TOKEN, "a token whose scope claim"] {
+        assert!(!recording.contains(secret), "the recording holds {secret}");
+        assert!(!results.contains(secret), "the results hold {secret}");
+        assert!(
+            !stdout.contains(secret) && !stderr.contains(secret),
+            "the run printed {secret}"
+        );
+    }
+    Ok(serde_json::from_str(&recording)?)
+}
+
 #[test]
 #[expect(
     clippy::panic_in_result_fn,
@@ -233,17 +255,7 @@ fn each_scoped_row_presents_its_own_token_and_the_recording_holds_none() -> Fall
         [None]
     );
 
-    let recording = std::fs::read_to_string(out.join("recording.har"))?;
-    for secret in [READ_TOKEN, CRUD_TOKEN, "a token whose scope claim"] {
-        assert!(!recording.contains(secret), "the recording holds {secret}");
-    }
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    for secret in [READ_TOKEN, CRUD_TOKEN] {
-        assert!(!stdout.contains(secret) && !stderr.contains(secret));
-        assert!(!std::fs::read_to_string(out.join("results.json"))?.contains(secret));
-    }
-    let recording: Value = serde_json::from_str(&recording)?;
+    let recording = no_token_in(&output, &out)?;
     assert_eq!(
         recording.pointer("/log/_veredictum/platformUrl"),
         Some(&json!(platform_url))
