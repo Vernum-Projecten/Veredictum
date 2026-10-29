@@ -23,6 +23,7 @@ mod aql_examples;
 mod arazzo_catalogue;
 mod arazzo_cli;
 mod arazzo_derive;
+mod arazzo_exclusive;
 mod arazzo_pack;
 mod artifact_gates;
 mod bench_engine;

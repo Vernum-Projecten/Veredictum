@@ -154,8 +154,10 @@ enum Command {
     /// The whole catalogue is gated first, as `validate` gates it, and nothing
     /// runs while the gate has a finding. Every document under `cases/` runs,
     /// in path order, except the shared setups under `cases/_setup/`, which
-    /// run only where a case names them in `dependsOn`. Every row is printed,
-    /// and a failed or errored row with its four-part explanation.
+    /// run only where a case names them in `dependsOn`. A workflow whose rows
+    /// file says `server: exclusive` runs in a final phase, after every other
+    /// workflow, and a re-judgement replays in the same order. Every row is
+    /// printed, and a failed or errored row with its four-part explanation.
     ///
     /// A credential is read from the environment, never from an argument:
     /// from the variables `--auth` and `--admin-auth` name, or from the file

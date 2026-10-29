@@ -5,8 +5,10 @@
 //! results document and one HAR recording.
 //!
 //! The documents are `cases/<capability>/<id>.arazzo.yaml`, run in path
-//! order. The shared setups under [`SETUP_DIR`] are not cases: they run only
-//! where a case names them in `dependsOn`. Each document runs under its own
+//! order, in two phases ([`Phase`]): every workflow whose rows file says
+//! `server: exclusive` runs after every other workflow of the run. The
+//! shared setups under [`SETUP_DIR`] are not cases: they run only where a
+//! case names them in `dependsOn`. Each document runs under its own
 //! [`Plan`], built from what the party declares: its statement's
 //! `claims.capabilities` names the capability folders it claims, and every
 //! workflow of a document in another folder is skipped as `not-claimed`; its
@@ -470,7 +472,63 @@ fn results(base_url: String, rows: Vec<crate::arazzo::results::ResultRow>) -> Re
     }
 }
 
-/// Runs every planned document live, in order, into one recording.
+/// The phase of a catalogue run a workflow runs in.
+///
+/// A workflow whose rows file says `server: exclusive` changes state it did
+/// not create, such as a delete of every EHR, so it runs in
+/// [`Phase::Exclusive`], which starts once every [`Phase::Shared`] workflow
+/// of every document has finished. Nothing set up is carried across
+/// workflows: each workflow runs its own `dependsOn` setups, so no setup
+/// result is reused after an exclusive workflow has run. No openEHR spec
+/// governs this — our own design.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Phase {
+    /// Every workflow that leaves the state it did not create alone.
+    Shared,
+    /// Every workflow whose rows file says `server: exclusive`.
+    Exclusive,
+}
+
+impl Phase {
+    /// Every phase, in the order a run drives them.
+    pub const ORDER: [Self; 2] = [Self::Shared, Self::Exclusive];
+
+    /// The phase `workflow_id` of a document planned as `plan` runs in.
+    #[must_use]
+    pub fn of(plan: &Plan, workflow_id: &str) -> Self {
+        if plan.is_exclusive(workflow_id) {
+            Self::Exclusive
+        } else {
+            Self::Shared
+        }
+    }
+}
+
+/// The order a run drives the planned documents in: phase by phase, each
+/// document in path order, and only the documents with a workflow in the
+/// phase. A live run and its re-judgement both follow it, so the
+/// re-judgement replays the recording in the order it was recorded.
+fn drive_order(planned: &[Planned]) -> Vec<(Phase, &Planned)> {
+    Phase::ORDER
+        .into_iter()
+        .flat_map(|phase| {
+            planned
+                .iter()
+                .filter(move |document| {
+                    document
+                        .document
+                        .description()
+                        .workflows
+                        .iter()
+                        .any(|w| Phase::of(&document.plan, &w.workflow_id) == phase)
+                })
+                .map(move |document| (phase, document))
+        })
+        .collect()
+}
+
+/// Runs every planned document live, in [`Phase`] order, into one
+/// recording.
 ///
 /// # Errors
 /// [`RunError`] when a document cannot be run at all.
@@ -483,7 +541,7 @@ pub fn run(
     let mut recording = Har::new(&config.base_url);
     recording.log.veredictum.administrative = config.administrative.is_some();
     let mut rows = Vec::new();
-    for document in planned {
+    for (phase, document) in drive_order(planned) {
         let mut evaluator = Evaluator::new(
             &document.document,
             &document.name,
@@ -491,14 +549,18 @@ pub fn run(
             repo_root,
         )?;
         evaluator.continue_recording(recording);
-        rows.extend(evaluator.run(&document.plan, transport)?.rows);
+        let plan = &document.plan;
+        let results = evaluator.run_where(plan, transport, |w| {
+            Phase::of(plan, &w.workflow_id) == phase
+        })?;
+        rows.extend(results.rows);
         recording = evaluator.into_recording();
     }
     Ok((results(config.base_url.clone(), rows), recording))
 }
 
 /// Re-judges a recording of a catalogue run without a server, replaying it
-/// through the planned documents in order.
+/// through the planned documents in the [`Phase`] order the run drove.
 ///
 /// The documents must be planned as the recorded run planned them: under
 /// the same declarations, with [`Declarations::administrative`] read from
@@ -516,12 +578,16 @@ pub fn rejudge(
     let mut inputs = recorded_inputs(recording);
     let mut replayed = Har::new(&recording.log.veredictum.base_url);
     let mut rows = Vec::new();
-    for document in planned {
+    for (phase, document) in drive_order(planned) {
         let config = rejudge_config(recording, None);
         let mut evaluator = Evaluator::new(&document.document, &document.name, config, repo_root)?;
         evaluator.continue_recording(replayed);
         evaluator.replay_inputs(inputs);
-        rows.extend(evaluator.run(&document.plan, &mut transport)?.rows);
+        let plan = &document.plan;
+        let results = evaluator.run_where(plan, &mut transport, |w| {
+            Phase::of(plan, &w.workflow_id) == phase
+        })?;
+        rows.extend(results.rows);
         inputs = evaluator.unreplayed();
         replayed = evaluator.into_recording();
     }
@@ -654,6 +720,24 @@ mod tests {
             claimed_capabilities(Some(&json!({ "options": [] })), &folders),
             Err(CatalogueError::ClaimsShape(_))
         ));
+    }
+
+    #[test]
+    fn only_a_rows_file_saying_exclusive_puts_a_workflow_in_the_last_phase() {
+        let file = |server: Value| {
+            serde_json::from_value::<crate::arazzo::gates::rows::RowsFile>(json!({
+                "workflow": "d/w", "iteration": "reset_per_row", "server": server, "rows": [{}]
+            }))
+            .unwrap()
+        };
+        let mut plan = Plan::default();
+        plan.rows
+            .insert("exclusive".to_owned(), file(json!("exclusive")));
+        plan.rows.insert("shared".to_owned(), file(Value::Null));
+        assert_eq!(Phase::of(&plan, "exclusive"), Phase::Exclusive);
+        assert_eq!(Phase::of(&plan, "shared"), Phase::Shared);
+        assert_eq!(Phase::of(&plan, "no_rows_file"), Phase::Shared);
+        assert_eq!(Phase::ORDER, [Phase::Shared, Phase::Exclusive]);
     }
 
     #[test]
