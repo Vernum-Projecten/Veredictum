@@ -5,6 +5,26 @@
 A conformance verdict is only worth what its method is worth. This chapter sets
 the method out.
 
+## Why an independent instrument
+
+A vendor's own test suite cannot answer the question a hospital procurement is
+asking. The suite and the server come from the same people, built on the same
+reading of the specification, and when the two disagree it is usually the suite
+that gets adjusted.
+
+Veredictum is built so that adjustment has nowhere to happen. The released
+specifications are the only authority it accepts: every expectation in the
+catalogue names the section it comes from, so it can be refuted by a better
+reading of that text and by nothing else. No server's behaviour, no vendor's
+documentation, and no stalled upstream test suite ever sets an expected value.
+Where the released text is genuinely silent or contradicts itself, no case
+asserts the behaviour: the gap is an `upstream-report` issue in the repository,
+with a proposed patch to the specification, or an option the party's statement
+answers ([below](#where-the-specification-does-not-say)). A private resolution
+never happens. Every failure is attributed before anything is changed, and the
+instrument itself is a suspect ahead of the server
+([below](#when-a-run-goes-red)).
+
 ## The oracle is the released specification text
 
 The vendored openEHR specification text is the oracle, and it is never a
@@ -145,16 +165,46 @@ Three properties make this a transparency mechanism rather than an excuse list:
 
 ## Verdicts are computed, never asserted
 
-A verdict is a pure function of the party's statement, the recorded results, the
-catalogue and the capability matrix. The recording step and the judging step are
-separate commands, so the record survives the judgement and anyone holding the
-same files can re-derive the same documents.
+A verdict is a pure function of four inputs: the party's statement (the
+capabilities the server claims and the option arms it sits on), the IXIT, the
+catalogue, and the recorded exchanges. Nothing else enters. Two independent
+runners given the same four inputs must compute identical verdicts, and the
+verification pack exists to check exactly that. A certificate row a human
+typed is a defect. The recording step and the judging step are separate, so
+the record survives the judgement and anyone holding the same files can
+re-derive the same documents.
 
-Measured performance works the same way. A class verdict is re-derived from the
-HDR histograms embedded in the record, so the stored summary is tamper-checked
-rather than trusted, and latency is measured from the planned arrival instant
-under open-loop offered load, which is what stops coordinated omission from
-hiding a stall.
+Two verdict machineries share that discipline
+([`docs/ARCHITECTURE.md`][architecture] §8):
+
+- **Conformance by assertion:** the statement selects the applicable
+  documents, the criteria judge each recorded exchange, and each row ends
+  passed, failed, errored or skipped. A skipped row names its reason
+  (`not-claimed`, `option-not-selected`, `not-declared`), so a thin claim is
+  visible instead of silently green, and a red row carries what was checked,
+  why, what was expected and what came back.
+- **Conformance by measurement:** a performance class is earned when every
+  threshold holds in one measured run. The class verdict is re-derived from
+  the HDR histograms embedded in the record, so a stored summary is
+  tamper-checked rather than trusted.
+
+Load is offered open-loop: arrivals follow a seeded schedule of planned
+instants, and latency is measured from the planned instant rather than the
+actual send. A stalled server therefore accumulates the delay it caused, which
+is what stops coordinated omission from hiding a stall behind a slowed-down
+client.
+
+The performance classes anchor to population served rather than to a
+concurrent-user guess, with the full derivation from OECD, Eurostat and NHS
+activity statistics in
+[`docs/ARCHITECTURE.md`][architecture] §8.14:
+
+| Class | Population served | Corpus | Sustained arrival floor | p99 budget | Error rate |
+|---|---|---|---|---|---|
+| POC | demonstration | 10k EHRs | 2/s | ≤ 1 s | 0 |
+| S | 100 thousand | 100k EHRs | 15/s | ≤ 1 s | 0 |
+| L | 1 million | 1M EHRs | 150/s | ≤ 1 s | 0 |
+| R | 10 million | 10M EHRs | 1,500/s | ≤ 1 s | 0 |
 
 ## Coverage is a mandate
 
@@ -167,3 +217,5 @@ a recorded gap naming its tracker issue.
 A behaviour the specification defines and the catalogue misses is a gap to
 close. Cases are added; they are never
 removed to make a run go green.
+
+[architecture]: https://github.com/Vernum-Projecten/Veredictum/blob/main/docs/ARCHITECTURE.md

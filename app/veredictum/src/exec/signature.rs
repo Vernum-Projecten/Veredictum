@@ -121,7 +121,7 @@ fn verify_pgp(
     signature_armored: &str,
     public_key_armored: &str,
 ) -> Result<bool, String> {
-    // NOTE: RFC 9580 obsoletes RFC 4880 and is what `pgp` 0.20 implements, so
+    // NOTE: RFC 9580 obsoletes RFC 4880 and is what `pgp` 0.21 implements, so
     // it is this verifier's citation; the RM's own wording naming RFC 4880 is
     // quoted only where the catalogue states the requirement.
     use pgp::composed::{Deserializable as _, DetachedSignature, SignedPublicKey};

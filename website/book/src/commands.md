@@ -59,16 +59,22 @@ Options:
           The SMART Platform base URL (for example `https://platform.example`), which SMART on openEHR serves its discovery document relative to and which can differ from the openEHR REST base. Without it, every workflow with a step sent to it is skipped as `not-declared`
 
       --auth <AUTH>
-          How the client presents itself: `none`, `basic` or `bearer`.
+          How the CDR wants the client to log in: `none`, `basic` or `bearer`.
           
-          `basic` reads `VEREDICTUM_SUT_USER` and `VEREDICTUM_SUT_PASSWORD`, and `bearer` reads `VEREDICTUM_SUT_TOKEN`.
+          `none`: the CDR needs no login.
+          
+          `basic`: a username and password, from `VEREDICTUM_CDR_USER` and `VEREDICTUM_CDR_PASSWORD`.
+          
+          `bearer`: a token, from `VEREDICTUM_CDR_TOKEN`.
           
           [default: none]
 
       --admin-auth <ADMIN_AUTH>
-          How the administrative principal presents itself: `none`, `basic` or `bearer`. With `none`, every workflow with an administrative step is skipped as `not-declared`.
+          How the CDR wants the administrative principal to log in: `none`, `basic` or `bearer`. With `none`, every workflow with an administrative step is skipped as `not-declared`.
           
-          `basic` reads `VEREDICTUM_ADMIN_USER` and `VEREDICTUM_ADMIN_PASSWORD`, and `bearer` reads `VEREDICTUM_ADMIN_TOKEN`.
+          `basic`: a username and password, from `VEREDICTUM_CDR_ADMIN_USER` and `VEREDICTUM_CDR_ADMIN_PASSWORD`.
+          
+          `bearer`: a token, from `VEREDICTUM_CDR_ADMIN_TOKEN`.
           
           [default: none]
 
@@ -152,9 +158,11 @@ scope set needs a token for it (see SMART on openEHR below); either is skipped
 as `not-declared` without. The `version-out-of-range`
 and `format-not-claimed` skips are not computed yet (#777, #778).
 
-**Credentials.** Each principal's secrets are read from the environment, from
-the variable itself or from a file named by the variable with `_FILE`
-appended, which is how container secrets are mounted. Setting both is
+**Credentials.** `--auth` and `--admin-auth` say how the CDR wants each
+principal to log in: `none`, `basic` or `bearer`, with the variables
+[Logging in to the CDR](authentication.md) lists. Each secret is read from the
+environment, from the variable itself or from a file named by the variable
+with `_FILE` appended, which is how container secrets are mounted. Setting both is
 refused. A variable set to the empty string counts as unset, because a CI
 system expands a secret it does not hold to an empty value, so the run stops
 on the missing credential instead of presenting an empty one. No credential
@@ -234,7 +242,7 @@ at the catalogue the image ships:
 
 ```bash
 docker run --rm -v "$PWD/out:/work/out" \
-    -e VEREDICTUM_SUT_TOKEN \
+    -e VEREDICTUM_CDR_TOKEN \
     ghcr.io/vernum-projecten/veredictum:<tag> \
     test --base-url https://cdr.example/openehr/v1 --auth bearer --out /work/out
 ```
@@ -261,9 +269,13 @@ Options:
           The server's base URL, up to and including the openEHR REST base
 
       --auth <AUTH>
-          How the client presents itself: `none`, `basic` or `bearer`.
+          How the CDR wants the client to log in: `none`, `basic` or `bearer`. The secret never rides argv: each variable can instead name a file through its `_FILE` form.
           
-          The secret never rides argv: `basic` reads `VEREDICTUM_SUT_USER` and `VEREDICTUM_SUT_PASSWORD`, and `bearer` reads `VEREDICTUM_SUT_TOKEN`.
+          `none`: the CDR needs no login.
+          
+          `basic`: a username and password, from `VEREDICTUM_CDR_USER` and `VEREDICTUM_CDR_PASSWORD`.
+          
+          `bearer`: a token, from `VEREDICTUM_CDR_TOKEN`.
           
           [default: none]
 
@@ -275,7 +287,8 @@ Prints what the server states about itself through the ITS-REST System
 `OPTIONS` operation, and exits `0` whatever the server answered: a server that
 does not offer the document is within the specification, which says services
 SHOULD answer. It exits `2` only when no answer arrived at all, or when the
-credential variable `--auth` names is unset.
+credential `--auth` names is not supplied. It reads the credential exactly as
+`test` does ([Logging in to the CDR](authentication.md)), `_FILE` forms included.
 
 Run it before `test` to see which product and version a run against the same
 base URL is about to grade.
@@ -818,8 +831,8 @@ belongs to:
 ```yaml
       - uses: Vernum-Projecten/Veredictum@<commit-sha> # vX.Y.Z
         env:
-          VEREDICTUM_SUT_USER: ${{ secrets.CDR_USER }}
-          VEREDICTUM_SUT_PASSWORD: ${{ secrets.CDR_PASSWORD }}
+          VEREDICTUM_CDR_USER: ${{ secrets.CDR_USER }}
+          VEREDICTUM_CDR_PASSWORD: ${{ secrets.CDR_PASSWORD }}
         with:
           base-url: ${{ vars.CDR_BASE_URL }}
           statement: conformance/statement.json

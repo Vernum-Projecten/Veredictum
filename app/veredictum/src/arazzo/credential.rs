@@ -44,13 +44,13 @@ pub const ADMINISTRATIVE_MARKER: &str = "[the administrative principal's credent
 pub const FILE_SUFFIX: &str = "_FILE";
 
 /// The user of the administrative principal under `basic`.
-pub const ADMIN_USER_ENV: &str = "VEREDICTUM_ADMIN_USER";
+pub const ADMIN_USER_ENV: &str = "VEREDICTUM_CDR_ADMIN_USER";
 
 /// The password of the administrative principal under `basic`.
-pub const ADMIN_PASSWORD_ENV: &str = "VEREDICTUM_ADMIN_PASSWORD";
+pub const ADMIN_PASSWORD_ENV: &str = "VEREDICTUM_CDR_ADMIN_PASSWORD";
 
 /// The token of the administrative principal under `bearer`.
-pub const ADMIN_TOKEN_ENV: &str = "VEREDICTUM_ADMIN_TOKEN";
+pub const ADMIN_TOKEN_ENV: &str = "VEREDICTUM_CDR_ADMIN_TOKEN";
 
 /// The IXIT member that declares the tokens a scoped step presents.
 pub const SCOPED_TOKENS_MEMBER: &str = "scoped_tokens";
@@ -65,9 +65,11 @@ pub const SCOPED_KEY_ENV: &str = "VEREDICTUM_SCOPED_TOKEN_KEY";
 /// The principal a credential belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Role {
-    /// The run's ordinary principal, which reads `VEREDICTUM_SUT_*`.
+    /// The run's ordinary principal, which reads `VEREDICTUM_CDR_USER`,
+    /// `VEREDICTUM_CDR_PASSWORD` and `VEREDICTUM_CDR_TOKEN`.
     Ordinary,
-    /// The administrative principal, which reads `VEREDICTUM_ADMIN_*`.
+    /// The administrative principal, which reads `VEREDICTUM_CDR_ADMIN_USER`,
+    /// `VEREDICTUM_CDR_ADMIN_PASSWORD` and `VEREDICTUM_CDR_ADMIN_TOKEN`.
     Administrative,
 }
 
@@ -83,6 +85,15 @@ impl Role {
                 crate::identity::TOKEN_ENV,
             ),
             Self::Administrative => (ADMIN_USER_ENV, ADMIN_PASSWORD_ENV, ADMIN_TOKEN_ENV),
+        }
+    }
+
+    /// The command-line flag that chooses how this principal logs in.
+    #[must_use]
+    pub fn flag(self) -> &'static str {
+        match self {
+            Self::Ordinary => "--auth",
+            Self::Administrative => "--admin-auth",
         }
     }
 
@@ -109,6 +120,24 @@ pub enum CredentialError {
         /// The variable.
         variable: String,
         /// The variable naming a file.
+        file_variable: String,
+    },
+    /// A login mode's credential is not supplied. The error names the flag,
+    /// the mode and every variable the mode reads.
+    #[error(
+        "{flag} {mode} needs {needs}, and {variable} is not set, nor is {file_variable} (an \
+         empty value counts as unset)"
+    )]
+    Unsupplied {
+        /// The flag that chose the mode (`--auth` or `--admin-auth`).
+        flag: &'static str,
+        /// The mode (`basic` or `bearer`).
+        mode: &'static str,
+        /// The variables the mode reads, with their `_FILE` alternative.
+        needs: String,
+        /// The variable that is not set.
+        variable: String,
+        /// The variable naming a file, which is not set either.
         file_variable: String,
     },
     /// Both the variable and its file variable are set.
@@ -196,14 +225,34 @@ impl CredentialSource {
         lookup: &dyn Fn(&str) -> Option<OsString>,
     ) -> Result<Self, CredentialError> {
         let (user, password, token) = role.variables();
+        let needs = match kind {
+            AuthKind::None => String::new(),
+            AuthKind::Basic => format!("{user} and {password} (or their {FILE_SUFFIX} forms)"),
+            AuthKind::Bearer => format!("{token} (or its {FILE_SUFFIX} form)"),
+        };
+        let locate = |variable: &str| {
+            locate_source(variable, lookup).map_err(|error| match error {
+                CredentialError::Missing {
+                    variable,
+                    file_variable,
+                } => CredentialError::Unsupplied {
+                    flag: role.flag(),
+                    mode: kind.as_str(),
+                    needs: needs.clone(),
+                    variable,
+                    file_variable,
+                },
+                other => other,
+            })
+        };
         Ok(match kind {
             AuthKind::None => Self::None,
             AuthKind::Basic => Self::Basic {
-                user: locate_source(user, lookup)?,
-                password: locate_source(password, lookup)?,
+                user: locate(user)?,
+                password: locate(password)?,
             },
             AuthKind::Bearer => Self::Bearer {
-                token: locate_source(token, lookup)?,
+                token: locate(token)?,
             },
         })
     }
@@ -680,21 +729,21 @@ mod tests {
     #[test]
     fn each_principal_is_located_by_its_own_variables() {
         let vars = lookup(&[
-            ("VEREDICTUM_SUT_USER", "alice"),
-            ("VEREDICTUM_SUT_PASSWORD", "a"),
-            ("VEREDICTUM_ADMIN_TOKEN", "t"),
+            ("VEREDICTUM_CDR_USER", "alice"),
+            ("VEREDICTUM_CDR_PASSWORD", "a"),
+            ("VEREDICTUM_CDR_ADMIN_TOKEN", "t"),
         ]);
         assert_eq!(
             CredentialSource::locate_with(AuthKind::Basic, Role::Ordinary, &vars).unwrap(),
             CredentialSource::Basic {
-                user: Locator::Variable("VEREDICTUM_SUT_USER".to_owned()),
-                password: Locator::Variable("VEREDICTUM_SUT_PASSWORD".to_owned()),
+                user: Locator::Variable("VEREDICTUM_CDR_USER".to_owned()),
+                password: Locator::Variable("VEREDICTUM_CDR_PASSWORD".to_owned()),
             }
         );
         assert_eq!(
             CredentialSource::locate_with(AuthKind::Bearer, Role::Administrative, &vars).unwrap(),
             CredentialSource::Bearer {
-                token: Locator::Variable("VEREDICTUM_ADMIN_TOKEN".to_owned()),
+                token: Locator::Variable("VEREDICTUM_CDR_ADMIN_TOKEN".to_owned()),
             }
         );
         let none =
@@ -702,6 +751,29 @@ mod tests {
         assert!(!none.is_supplied());
         assert!(
             CredentialSource::locate_with(AuthKind::Basic, Role::Administrative, &vars).is_err()
+        );
+    }
+
+    #[test]
+    fn a_missing_credential_names_the_flag_the_mode_and_its_variables() {
+        let vars = lookup(&[("VEREDICTUM_CDR_USER", "alice")]);
+        let basic = CredentialSource::locate_with(AuthKind::Basic, Role::Ordinary, &vars)
+            .unwrap_err()
+            .to_string();
+        assert_eq!(
+            basic,
+            "--auth basic needs VEREDICTUM_CDR_USER and VEREDICTUM_CDR_PASSWORD (or their _FILE \
+             forms), and VEREDICTUM_CDR_PASSWORD is not set, nor is \
+             VEREDICTUM_CDR_PASSWORD_FILE (an empty value counts as unset)"
+        );
+        let bearer = CredentialSource::locate_with(AuthKind::Bearer, Role::Administrative, &vars)
+            .unwrap_err()
+            .to_string();
+        assert_eq!(
+            bearer,
+            "--admin-auth bearer needs VEREDICTUM_CDR_ADMIN_TOKEN (or its _FILE form), and \
+             VEREDICTUM_CDR_ADMIN_TOKEN is not set, nor is VEREDICTUM_CDR_ADMIN_TOKEN_FILE (an \
+             empty value counts as unset)"
         );
     }
 

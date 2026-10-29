@@ -23,6 +23,9 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 
+use crate::arazzo::credential::{
+    CredentialError, CredentialSource, CredentialedTransport, ORDINARY_MARKER, Role,
+};
 use crate::exec::transport::Transport;
 use crate::ixit::{AuthMode, Ixit};
 use crate::party::{IdentityField, Sut};
@@ -33,14 +36,15 @@ use crate::vocab::HttpMethod;
 /// `system.openapi.yaml`, `paths: /`).
 pub const PATH: &str = "/";
 
-/// Where `identify --auth basic` reads the user from.
-pub const USER_ENV: &str = "VEREDICTUM_SUT_USER";
+/// Where `--auth basic` reads the CDR user from, in `test` and `identify`.
+pub const USER_ENV: &str = "VEREDICTUM_CDR_USER";
 
-/// Where `identify --auth basic` reads the password from.
-pub const PASSWORD_ENV: &str = "VEREDICTUM_SUT_PASSWORD";
+/// Where `--auth basic` reads the CDR password from, in `test` and
+/// `identify`.
+pub const PASSWORD_ENV: &str = "VEREDICTUM_CDR_PASSWORD";
 
-/// Where `identify --auth bearer` reads the token from.
-pub const TOKEN_ENV: &str = "VEREDICTUM_SUT_TOKEN";
+/// Where `--auth bearer` reads the CDR token from, in `test` and `identify`.
+pub const TOKEN_ENV: &str = "VEREDICTUM_CDR_TOKEN";
 
 /// The media type the request asks for (`options.yaml` names the
 /// `Accept_JSON` header parameter).
@@ -207,6 +211,10 @@ pub enum IdentityError {
     /// The credential the request needs could not be resolved.
     #[error("the System OPTIONS request has no credential: {0}")]
     Credential(String),
+    /// The credential `identify --auth` names is not supplied or does not
+    /// read.
+    #[error(transparent)]
+    Unsupplied(#[from] CredentialError),
     /// The exchange could not be performed.
     #[error("the System OPTIONS request was not answered: {0}")]
     Transport(String),
@@ -259,7 +267,7 @@ pub fn read(
     let mut headers = BTreeMap::new();
     headers.insert(String::from("Accept"), String::from(ACCEPT_JSON));
     if let Some(value) = authorization {
-        headers.insert(String::from("Authorization"), value.to_owned());
+        headers.insert(String::from("authorization"), value.to_owned());
     }
     let response = transport
         .exchange(HttpMethod::Options, &url, &headers, None, false)
@@ -288,38 +296,25 @@ pub fn read(
     Ok(IdentityExchange { read, exchange })
 }
 
-/// The ixit auth mode `identify --auth` names, over this module's fixed
-/// environment-variable names, so the credential is resolved exactly as a
-/// run resolves an ixit instance's.
-#[must_use]
-pub fn auth_mode(auth: crate::bench::client::AuthKind) -> AuthMode {
-    match auth {
-        crate::bench::client::AuthKind::None => AuthMode::None,
-        crate::bench::client::AuthKind::Basic => AuthMode::Basic {
-            user_env: USER_ENV.to_owned(),
-            password_env: PASSWORD_ENV.to_owned(),
-        },
-        crate::bench::client::AuthKind::Bearer => AuthMode::Bearer {
-            token_env: TOKEN_ENV.to_owned(),
-        },
-    }
-}
-
 /// Reads one target's identity: the `identify` subcommand's seam.
 ///
+/// The credential `auth` names is the ordinary principal's, read exactly as
+/// `test` reads it: from [`USER_ENV`] and [`PASSWORD_ENV`], or [`TOKEN_ENV`],
+/// or the file each one's `_FILE` variable names.
+///
 /// # Errors
-/// [`IdentityError::Credential`] when a credential variable is unset, and
-/// [`IdentityError::Transport`] when no client can be built or the exchange
-/// cannot be performed.
+/// [`IdentityError::Unsupplied`] when the credential is not supplied or does
+/// not read, and [`IdentityError::Transport`] when no client can be built or
+/// the exchange cannot be performed.
 pub fn identify(
     base_url: &str,
     auth: crate::bench::client::AuthKind,
 ) -> Result<IdentityRead, IdentityError> {
-    let authorization = crate::exec::auth::lane_auth_header(None, &auth_mode(auth), None)
-        .map_err(IdentityError::Credential)?;
-    let mut transport =
-        crate::exec::transport::HttpTransport::new().map_err(IdentityError::Transport)?;
-    read(&mut transport, base_url, authorization.as_deref()).map(|answered| answered.read)
+    let source = CredentialSource::locate(auth, Role::Ordinary)?;
+    let inner = crate::exec::transport::HttpTransport::new().map_err(IdentityError::Transport)?;
+    let mut transport = CredentialedTransport::new(inner, &source, &CredentialSource::None)?;
+    let marker = source.is_supplied().then_some(ORDINARY_MARKER);
+    read(&mut transport, base_url, marker).map(|answered| answered.read)
 }
 
 /// The identity values the operator supplied on the command line.

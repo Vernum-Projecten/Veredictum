@@ -35,8 +35,8 @@ belongs to:
 ```yaml
       - uses: Vernum-Projecten/Veredictum@<commit-sha> # vX.Y.Z
         env:
-          VEREDICTUM_SUT_USER: ${{ secrets.CDR_USER }}
-          VEREDICTUM_SUT_PASSWORD: ${{ secrets.CDR_PASSWORD }}
+          VEREDICTUM_CDR_USER: ${{ secrets.CDR_USER }}
+          VEREDICTUM_CDR_PASSWORD: ${{ secrets.CDR_PASSWORD }}
         with:
           base-url: ${{ vars.CDR_BASE_URL }}
           statement: conformance/statement.json

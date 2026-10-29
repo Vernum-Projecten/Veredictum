@@ -38,8 +38,8 @@ const CRUD_TOKEN: &str = "tok-crud-91bc";
 /// developer's or the runner's own environment never reaches a test.
 const READ_VARS: [&str; 9] = [
     "VEREDICTUM_CATALOGUE",
-    "VEREDICTUM_SUT_TOKEN",
-    "VEREDICTUM_SUT_TOKEN_FILE",
+    "VEREDICTUM_CDR_TOKEN",
+    "VEREDICTUM_CDR_TOKEN_FILE",
     "VEREDICTUM_SCOPED_TOKEN_READ",
     "VEREDICTUM_SCOPED_TOKEN_READ_FILE",
     "VEREDICTUM_SCOPED_TOKEN_CRUD",

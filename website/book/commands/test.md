@@ -55,9 +55,11 @@ scope set needs a token for it (see SMART on openEHR below); either is skipped
 as `not-declared` without. The `version-out-of-range`
 and `format-not-claimed` skips are not computed yet (#777, #778).
 
-**Credentials.** Each principal's secrets are read from the environment, from
-the variable itself or from a file named by the variable with `_FILE`
-appended, which is how container secrets are mounted. Setting both is
+**Credentials.** `--auth` and `--admin-auth` say how the CDR wants each
+principal to log in: `none`, `basic` or `bearer`, with the variables
+[Logging in to the CDR](authentication.md) lists. Each secret is read from the
+environment, from the variable itself or from a file named by the variable
+with `_FILE` appended, which is how container secrets are mounted. Setting both is
 refused. A variable set to the empty string counts as unset, because a CI
 system expands a secret it does not hold to an empty value, so the run stops
 on the missing credential instead of presenting an empty one. No credential
@@ -137,7 +139,7 @@ at the catalogue the image ships:
 
 ```bash
 docker run --rm -v "$PWD/out:/work/out" \
-    -e VEREDICTUM_SUT_TOKEN \
+    -e VEREDICTUM_CDR_TOKEN \
     ghcr.io/vernum-projecten/veredictum:<tag> \
     test --base-url https://cdr.example/openehr/v1 --auth bearer --out /work/out
 ```

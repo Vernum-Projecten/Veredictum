@@ -166,7 +166,7 @@ fn test_command(root: &Path, args: &[&str]) -> Result<Output, std::io::Error> {
         .args(["--document", "a_wipe", "--document", "b_read"])
         .args(args)
         .env_remove("VEREDICTUM_CATALOGUE")
-        .env("VEREDICTUM_ADMIN_TOKEN", "admin-token")
+        .env("VEREDICTUM_CDR_ADMIN_TOKEN", "admin-token")
         .output()
 }
 

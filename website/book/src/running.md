@@ -63,10 +63,15 @@ one arm. A claim that fails here would otherwise stop the run.
 ## 4. Drive the catalogue
 
 ```bash
-export VEREDICTUM_SUT_USER=… VEREDICTUM_SUT_PASSWORD=…
+export VEREDICTUM_CDR_USER=… VEREDICTUM_CDR_PASSWORD=…
 veredictum test --base-url https://cdr.example/openehr/v1 --auth basic \
     --statement mine/statement.json --ixit mine/ixit.json --out out/
 ```
+
+This CDR wants a username and password. One that needs no login takes no
+`--auth` at all, and one that wants a bearer token takes `--auth bearer` with
+`VEREDICTUM_CDR_TOKEN`; [Logging in to the CDR](authentication.md) has the
+table, the administrator's variables and the `_FILE` forms.
 
 Every workflow of a document in a folder your statement does not claim is
 skipped as `not-claimed`, and the documents of every option arm you did not
@@ -118,7 +123,7 @@ directory the image's user (uid 65532) can write to, and name it as `--out`:
 
 ```bash
 docker run --rm -v "$PWD/out:/work/out" \
-    -e VEREDICTUM_SUT_USER -e VEREDICTUM_SUT_PASSWORD \
+    -e VEREDICTUM_CDR_USER -e VEREDICTUM_CDR_PASSWORD \
     ghcr.io/vernum-projecten/veredictum:<tag> \
     test --base-url https://cdr.example/openehr/v1 --auth basic --out /work/out
 ```
@@ -162,6 +167,36 @@ that block.
 All three want an idle machine and a deployment whose resource limits match the
 envelope you are claiming. A measured run on a laptop that is also running a
 browser measures the browser.
+
+### Benchmark a CDR in one command
+
+The benchmark needs no clone and no declaration files: the packs are embedded
+in the binary, pinned by digest, and described by `bench-packs`.
+
+```bash
+# The credential is read from the environment. It never rides argv.
+export VEREDICTUM_BENCH_PASSWORD=…
+
+veredictum bench \
+  --base-url https://cdr.example/openehr/v1 \
+  --auth basic --user <user> \
+  --pack community-vitals \
+  --repetitions 3 \
+  --with-baselines \
+  --out ./bench \
+  --label "Your CDR 1.2.3"
+```
+
+`community-vitals` reproduces the openEHR community's vital-signs harness and
+then measures the same population a second way, open-loop, so a stall shows up
+in the percentiles instead of quietly reducing the request count.
+`--with-baselines` composes the two pinned reference CDRs, EHRbase and
+FerroEHR, from image digests on your machine and drives the same pack at the
+same seed against each, so the record carries one relative index per
+reference, the only kind of number that means anything across machines. A
+declared posture profile is checked by canaries on both sides of the measured
+window, and a run whose deployment disagrees with its declaration is refused
+rather than recorded. [`bench`](commands.md#bench) lists every flag.
 
 ## Where to look when something goes wrong
 

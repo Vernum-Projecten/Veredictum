@@ -650,7 +650,7 @@ mod tests {
             documents: vec![String::from("ehr"), String::from("ehr_status")],
             out_dir: "out".into(),
             credentials: vec![Credential {
-                name: String::from("VEREDICTUM_SUT_PASSWORD"),
+                name: String::from("VEREDICTUM_CDR_PASSWORD"),
                 value: Secret::new(String::from("hunter2")),
             }],
         }
@@ -713,7 +713,7 @@ mod tests {
             base_url: String::from("http://cdr.test/openehr/v1"),
             auth: "basic",
             credentials: vec![Credential {
-                name: String::from("VEREDICTUM_SUT_PASSWORD"),
+                name: String::from("VEREDICTUM_CDR_PASSWORD"),
                 value: Secret::new(String::from("hunter2")),
             }],
         };

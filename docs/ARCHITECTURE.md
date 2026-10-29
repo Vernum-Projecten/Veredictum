@@ -1980,8 +1980,7 @@ default the specs are silent on, for SEC ratification):
 against the released grammar, `specs/openehr/QUERY/docs/AQL/grammar/AqlParser.g4`
 and `AqlLexer.g4`, so a mistyped query can never become a false failure. The
 parsing is done with `openehr-query`, a Rust implementation of that grammar
-(BUSL-1.1, used here with its owner's approval, through a licence exception
-scoped to that crate alone in `deny.toml`). It is the one AQL parser this
+(Apache-2.0, like every dependency `deny.toml` admits). It is the one AQL parser this
 instrument uses. Because FerroEHR, a server this instrument judges, is built on
 the same parser, the grammar stays the authority over it: the parser check is
 tested against the worked queries of the release this repository pins,
