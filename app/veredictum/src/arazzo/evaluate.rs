@@ -379,20 +379,9 @@ impl<'d> Evaluator<'d> {
         let mut out = Vec::new();
         let mut produced = Vec::new();
         for (index, row) in rows.iter().enumerate() {
-            if self
-                .uncovered_scope(self.document, workflow, row, &mut Vec::new())
-                .is_some()
-            {
+            if let Some(skipped) = self.scope_skipped(workflow, &case, index, row) {
                 produced.push(BTreeMap::new());
-                out.push(ResultRow {
-                    case: case.clone(),
-                    row: index,
-                    status: Status::Skipped,
-                    inputs: row.clone(),
-                    generated: Vec::new(),
-                    skip: Some(scope::undeclared_skip(&self.repo_root)),
-                    explanation: None,
-                });
+                out.push(skipped);
                 continue;
             }
             let setup = if let Some(done) = &shared {
@@ -541,6 +530,27 @@ impl<'d> Evaluator<'d> {
 
     /// Runs every workflow `workflow` depends on, depth first; `Err` carries
     /// the explanation of the first one that did not pass.
+    /// The skipped row `index` of `workflow` becomes when it, or a set-up it
+    /// runs, presents a scope set the party does not cover.
+    fn scope_skipped(
+        &self,
+        workflow: &Workflow,
+        case: &str,
+        index: usize,
+        row: &Row,
+    ) -> Option<ResultRow> {
+        self.uncovered_scope(self.document, workflow, row, &mut Vec::new())?;
+        Some(ResultRow {
+            case: case.to_owned(),
+            row: index,
+            status: Status::Skipped,
+            inputs: row.clone(),
+            generated: Vec::new(),
+            skip: Some(scope::undeclared_skip(&self.repo_root)),
+            explanation: None,
+        })
+    }
+
     /// The first scope set a row of `workflow`, or a set-up it runs through
     /// `dependsOn` at any depth, presents that the party does not cover. A
     /// set-up runs with no row inputs, so only its literal scope sets count.
