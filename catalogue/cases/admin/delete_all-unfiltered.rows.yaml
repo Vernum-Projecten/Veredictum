@@ -1,0 +1,9 @@
+# The delete removes every EHR on the server, so the workflow runs only on a
+# server the party's IXIT declares exclusively the run's
+# (environment.exclusive_server: true); any other IXIT skips it as
+# not-declared. No openEHR spec governs this, our own design.
+workflow: admin_ehr_delete_all_unfiltered/delete_all-unfiltered
+iteration: reset_per_row
+server: exclusive
+rows:
+  - {}

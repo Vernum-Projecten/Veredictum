@@ -512,9 +512,9 @@ options:
       not serve it selects neither arm.
     arms:
       admin-delete-synchronous:
-        documents: [admin_ehr_delete, admin_ehr_delete_all]
+        documents: [admin_ehr_delete, admin_ehr_delete_all, admin_ehr_delete_all_unfiltered]
       admin-delete-asynchronous:
-        documents: [admin_ehr_delete_async, admin_ehr_delete_all_async]
+        documents: [admin_ehr_delete_async, admin_ehr_delete_all_async, admin_ehr_delete_all_unfiltered_async]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete.yaml
       section: description
@@ -525,7 +525,7 @@ options:
       it disabled and answers 405.
     arms:
       admin-delete-all-enabled:
-        documents: [admin_ehr_delete_all, admin_ehr_delete_all_async, admin_ehr_delete_all_refused]
+        documents: [admin_ehr_delete_all, admin_ehr_delete_all_async, admin_ehr_delete_all_refused, admin_ehr_delete_all_unfiltered, admin_ehr_delete_all_unfiltered_async]
       admin-delete-all-disabled:
         documents: [admin_ehr_delete_all_disabled]
     x-veredictum-cite:
