@@ -141,7 +141,7 @@ zip = { version = "9", default-features = false, features = ["deflate"] }
 # for the `macros` feature the `#[tokio::test]` attribute needs; the ssr
 # dependency above carries only what the server binary uses. Dev-only, so
 # neither crate reaches the ssr binary or the hydrate bundle.
-thirtyfour = "0.37.2"
+thirtyfour = "0.38.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 # The concurrency journey (#389) is TWO visitors: the browser, and the journey
 # itself calling the same public server-function endpoints under a different
