@@ -484,7 +484,7 @@ Options:
       --auth <AUTH>
           How the client presents itself: `none`, `basic` or `bearer`.
           
-          The secret never rides argv: `basic` reads `VEREDICTUM_CDR_PASSWORD` and `bearer` reads `VEREDICTUM_CDR_TOKEN`, each or the file its `_FILE` form names, the variables `test` and `identify` read.
+          The secret never rides argv: `basic` reads `VEREDICTUM_CDR_PASSWORD` and `bearer` reads `VEREDICTUM_CDR_TOKEN`, the variables `test` and `identify` read, each also from the file its `_FILE` form names.
           
           [default: none]
 
