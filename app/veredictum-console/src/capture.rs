@@ -205,7 +205,7 @@ pub fn pin_job(view: JobView) -> JobView {
         tail: view
             .tail
             .iter()
-            .map(|line| pin_run_paths(line, &minted))
+            .map(|line| pin_loopback_port(&pin_run_paths(line, &minted)))
             .collect(),
         finished: view.finished.map(|summary| FinishedView {
             results_path: pin_run_paths(&summary.results_path, &minted),
@@ -277,6 +277,29 @@ pub fn pin_detail(detail: ResultDetail) -> ResultDetail {
         recording: RecordingView::Exchange(exchange),
         ..detail
     }
+}
+
+/// One engine output line with every loopback port rewritten to port zero.
+///
+/// The engine names each red row's exchange by its URL, and the harness's
+/// fixture server is a loopback address on an ephemeral port, so the port is
+/// the one fact in those lines a re-run moves.
+#[must_use]
+fn pin_loopback_port(line: &str) -> String {
+    const LOOPBACK: &str = "127.0.0.1:";
+    let mut pinned = String::with_capacity(line.len());
+    let mut rest = line;
+    while let Some((before, after)) = rest.split_once(LOOPBACK) {
+        pinned.push_str(before);
+        pinned.push_str(LOOPBACK);
+        let past_port = after.trim_start_matches(|c: char| c.is_ascii_digit());
+        if past_port.len() < after.len() {
+            pinned.push('0');
+        }
+        rest = past_port;
+    }
+    pinned.push_str(rest);
+    pinned
 }
 
 /// The `host:port` of a `METHOD url` request line.
@@ -553,5 +576,22 @@ mod tests {
         );
         assert_eq!(exchange.status_line, "HTTP 201");
         assert_eq!(exchange.entry, 3);
+    }
+
+    /// The engine's own output names each red row's exchange by its URL; the
+    /// loopback port moves on every pass and is pinned, and nothing else in
+    /// the line is touched.
+    #[test]
+    fn an_output_line_keeps_everything_but_the_loopback_port() {
+        assert_eq!(
+            super::pin_loopback_port(
+                "Exchange OPTIONS http://127.0.0.1:44439/ -> 500   (recording entry 0)"
+            ),
+            "Exchange OPTIONS http://127.0.0.1:0/ -> 500   (recording entry 0)"
+        );
+        assert_eq!(
+            super::pin_loopback_port("driving http://cdr.test:8080/ and 127.0.0.1:"),
+            "driving http://cdr.test:8080/ and 127.0.0.1:"
+        );
     }
 }
