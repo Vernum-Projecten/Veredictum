@@ -190,6 +190,13 @@ impl ArazzoDocument {
         &self.workflow_sources
     }
 
+    /// The indexed OpenAPI source named `name`; `None` for a source that is
+    /// not `type: openapi` or did not index.
+    #[must_use]
+    pub fn source(&self, name: &str) -> Option<&OperationIndex> {
+        self.sources.get(name)
+    }
+
     /// Resolves a qualified `$sourceDescriptions.<name>.<operationId>`.
     #[must_use]
     pub fn operation(&self, qualified: &str) -> Option<&Operation> {

@@ -1629,7 +1629,7 @@ cases:
   I_DEMOGRAPHIC_SERVICE.create_party-wrong_subtype_body:
     new: [person_refused/create_person-wrong_type]
   I_DEMOGRAPHIC_SERVICE.create_party-xml:
-    new: [party_xml_write_refused/create_person-xml_refused]
+    new: [party_xml_create_refused/create_person-xml_refused]
   I_DEMOGRAPHIC_SERVICE.create_party_relationship-aaaa:
     new: []
     open: &no_relationship_route >-
@@ -1984,7 +1984,7 @@ cases:
   I_EHR_COMPOSITION.create_composition-setting_invalid:
     new: [composition_create_refused/create_composition-setting_invalid]
   I_EHR_COMPOSITION.create_composition-setting_invalid_xml:
-    new: [composition_xml/create_composition-xml-setting_invalid]
+    new: [composition_xml_setting_invalid/create_composition-xml-setting_invalid]
   I_EHR_COMPOSITION.create_composition-single_member:
     new: [composition_create/create_composition-event]
   I_EHR_COMPOSITION.create_composition-subject_external_ref:
@@ -3198,7 +3198,7 @@ cases:
   I_EHR_SERVICE.get_ehr-xml_not_acceptable:
     new: [ehr_xml_not_acceptable/get_ehr-xml_not_acceptable]
   I_EHR_SERVICE.get_ehrs_for_subject-xml:
-    new: [ehr_xml/get_ehr-by_subject-xml]
+    new: [ehr_xml_json_setup/get_ehr-by_subject-xml]
   I_EHR_SERVICE.has_ehr-existing_ehr_id:
     new: [ehr/get_ehr-by_id]
   I_EHR_SERVICE.has_ehr-existing_subject_id:
@@ -3210,7 +3210,7 @@ cases:
   I_EHR_SERVICE.has_ehr-xml:
     new: [ehr_xml/get_ehr-xml]
   I_EHR_SERVICE.has_ehr_for_subject-xml:
-    new: [ehr_xml/get_ehr-by_subject-xml]
+    new: [ehr_xml_json_setup/get_ehr-by_subject-xml]
   I_EHR_STATUS.clear_ehr_modifiable-bad_ehr:
     new: [ehr_status_update/update-unknown_ehr]
   I_EHR_STATUS.clear_ehr_modifiable-existing_ehr:
@@ -3334,7 +3334,7 @@ cases:
   I_EHR_STATUS.get_versioned_ehr_status-xml:
     new:
       - ehr_status_xml/get_versioned_ehr_status-xml
-      - ehr_status_xml/get_versioned_ehr_status_version-by_id-xml
+      - ehr_status_xml_json_setup/get_versioned_ehr_status_version-by_id-xml
   I_EHR_STATUS.set_ehr_modifiable-bad_ehr:
     new: [ehr_status_update/update-unknown_ehr]
   I_EHR_STATUS.set_ehr_modifiable-deactivated_ehr:

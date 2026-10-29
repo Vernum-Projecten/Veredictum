@@ -65,6 +65,15 @@ pub struct Operation {
 /// names the base URL its paths are appended to.
 pub const BASE_KEY: &str = "x-veredictum-base";
 
+/// The specification-extension key, in the `info` object of an OpenAPI
+/// source, that marks the source as Veredictum's own: it declares routes no
+/// openEHR OAS describes and carries no openEHR authority.
+///
+/// No openEHR spec governs this — our own design: the realization-scope gate
+/// reads the mark to tell a folder verified only over these routes from one
+/// verified over a released operation.
+pub const NON_OPENEHR_KEY: &str = "x-veredictum-non-openehr";
+
 /// The base URL a source's paths are appended to.
 ///
 /// SMART on openEHR serves its discovery document "relative to the
@@ -137,6 +146,14 @@ pub enum SourceError {
         /// The value, as JSON text.
         value: String,
     },
+    /// The source's `info.x-veredictum-non-openehr` is not a boolean.
+    #[error("source `{path}`: `info.{NON_OPENEHR_KEY}` is {value}, which is not a boolean")]
+    NonOpenehrMark {
+        /// The file.
+        path: PathBuf,
+        /// The value, as JSON text.
+        value: String,
+    },
     /// Two operations share one `operationId`.
     #[error("source `{path}`: operationId `{operation_id}` is declared twice")]
     DuplicateOperation {
@@ -151,6 +168,7 @@ pub enum SourceError {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct OperationIndex {
     operations: BTreeMap<String, Operation>,
+    non_openehr: bool,
 }
 
 /// The OAS 3.0 path-item keys that are not operations.
@@ -161,7 +179,8 @@ impl OperationIndex {
     ///
     /// # Errors
     /// [`SourceError`] when the file does not load, has no `paths`, uses a
-    /// method outside [`HttpMethod`], or repeats an `operationId`.
+    /// method outside [`HttpMethod`], repeats an `operationId`, or marks
+    /// itself with a [`NON_OPENEHR_KEY`] that is not a boolean.
     pub fn load(path: &Path) -> Result<Self, SourceError> {
         static INDEXED: LazyLock<Mutex<BTreeMap<Stamp, OperationIndex>>> =
             LazyLock::new(Mutex::default);
@@ -184,6 +203,19 @@ impl OperationIndex {
                     }
                 })?,
             };
+        let non_openehr = match document
+            .get("info")
+            .and_then(|info| info.get(NON_OPENEHR_KEY))
+        {
+            None => false,
+            Some(Value::Bool(mark)) => *mark,
+            Some(value) => {
+                return Err(SourceError::NonOpenehrMark {
+                    path: path.to_owned(),
+                    value: value.to_string(),
+                });
+            }
+        };
         let Some(Value::Object(paths)) = document.get("paths") else {
             return Err(SourceError::NoPaths(path.to_owned()));
         };
@@ -235,7 +267,17 @@ impl OperationIndex {
                 }
             }
         }
-        Ok(Self { operations })
+        Ok(Self {
+            operations,
+            non_openehr,
+        })
+    }
+
+    /// Whether the source marks itself as Veredictum's own with
+    /// [`NON_OPENEHR_KEY`].
+    #[must_use]
+    pub fn is_non_openehr(&self) -> bool {
+        self.non_openehr
     }
 
     /// The operation named `operation_id`, if the source declares it.
@@ -573,6 +615,48 @@ mod tests {
         assert!(second.get("bb").is_some());
         let parameters = ParameterIndex::load(file.path()).unwrap();
         assert_eq!(parameters, ParameterIndex::load(file.path()).unwrap());
+    }
+
+    #[test]
+    fn a_source_marks_itself_non_openehr_with_a_boolean_only() {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        let file = |name: &str, info: &str| {
+            let child = dir.child(name);
+            child
+                .write_str(&format!(
+                    "openapi: 3.0.3\ninfo:\n  title: t\n{info}paths:\n  /a:\n    get:\n      operationId: a\n"
+                ))
+                .unwrap();
+            child.path().to_owned()
+        };
+        let mark = |path: &Path| OperationIndex::load(path).unwrap().is_non_openehr();
+        assert!(!mark(&file("plain.yaml", "")));
+        assert!(mark(&file(
+            "own.yaml",
+            "  x-veredictum-non-openehr: true\n"
+        )));
+        assert!(!mark(&file(
+            "off.yaml",
+            "  x-veredictum-non-openehr: false\n"
+        )));
+        assert!(matches!(
+            OperationIndex::load(&file("text.yaml", "  x-veredictum-non-openehr: yes-ish\n")),
+            Err(SourceError::NonOpenehrMark { .. })
+        ));
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        for own in [
+            "smart-platform.openapi.yaml",
+            "veredictum-probes.openapi.yaml",
+        ] {
+            assert!(
+                mark(&root.join("catalogue/sources").join(own)),
+                "{own} must carry the mark"
+            );
+        }
+        assert!(!mark(
+            &root.join("specs/rest-oas/ehr-validation.openapi.yaml")
+        ));
     }
 
     #[test]

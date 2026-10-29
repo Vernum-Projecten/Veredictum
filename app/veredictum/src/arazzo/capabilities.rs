@@ -44,15 +44,11 @@ pub struct Capabilities {
     /// The workflow count each capability folder keeps, by folder name.
     #[serde(default)]
     pub floors: BTreeMap<String, usize>,
-    /// The capability folders verified only over the routes of
-    /// [`EXTENSIONS_SOURCE`].
+    /// The capability folders verified only over the routes of sources
+    /// marked with [`NON_OPENEHR_KEY`](crate::arazzo::source::NON_OPENEHR_KEY).
     #[serde(default, rename = "extension-only")]
     pub extension_only: BTreeSet<String>,
 }
-
-/// The file name of the OpenAPI document declaring the routes no openEHR
-/// OAS describes, under `catalogue/sources/`.
-pub const EXTENSIONS_SOURCE: &str = "veredictum-extensions.openapi.yaml";
 
 /// What one document needs from the statement before it runs.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize)]

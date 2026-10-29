@@ -31,13 +31,19 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
-declare -a NAMES=() CMDS=() TIERS=() NEEDS=()
-# gate <tier> <name> <command> [required-tool]
+declare -a NAMES=() CMDS=() TIERS=() NEEDS=() VERSIONS=()
+# gate <tier> <name> <command> [required-tool] [version-command]
 #
 # A gate naming a tool the machine does not have is SKIPPED and says so by
 # name. A silent skip and a pass print the same thing, which is the defect
 # class this script exists to close, so the summary lists every skip.
-gate() { TIERS+=("$1"); NAMES+=("$2"); CMDS+=("$3"); NEEDS+=("${4:-}"); }
+#
+# A version command prints which build of the tool ran, before the gate runs.
+# It exists for tools CI pins while a local run takes whatever is installed:
+# zizmor 1.31 added an audit the 1.29 pin did not have, and the local gate went
+# red on a main CI called green with nothing saying the two ran different
+# auditors (#832).
+gate() { TIERS+=("$1"); NAMES+=("$2"); CMDS+=("$3"); NEEDS+=("${4:-}"); VERSIONS+=("${5:-}"); }
 
 gate guard "comment style"            "bash scripts/checks/comment-style.sh --all"
 gate guard "comment style self-test"  "bash scripts/checks/comment-style.sh --self-test"
@@ -72,7 +78,8 @@ gate guard "fuzz seeds"               "bash fuzz/seeds.sh"
 # The three workflow and licensing checks CI runs through actions rather than
 # through a `run:` line, so `gates-cover-ci.sh` cannot see them. Each names its
 # tool and skips by name when it is absent.
-gate guard "workflow security"        "zizmor --min-severity=low action.yml .github/workflows/ .github/actions/" zizmor
+gate guard "workflow security"        "zizmor --min-severity=low action.yml .github/workflows/ .github/actions/" zizmor \
+  "printf '%s (ci.yml pins %s)' \"\$(zizmor --version)\" \"\$(grep -oE 'zizmor@[0-9.]+' .github/workflows/ci.yml)\""
 # SHELLCHECK_OPTS mirrors the workflow's own exclusion, for the reason recorded
 # there: every SC2016 here is a `git log --format=` or a `jq` filter, where
 # single quotes are the idiom that makes the directive reach the tool unexpanded.
@@ -138,6 +145,9 @@ for i in "${!NAMES[@]}"; do
     printf '    SKIPPED: %s is not installed\n' "$need"
     skipped+=("${NAMES[$i]} (no ${need})")
     continue
+  fi
+  if [[ -n "${VERSIONS[$i]}" ]]; then
+    printf '    ran: %s\n' "$(eval "${VERSIONS[$i]}" 2>&1)"
   fi
   if eval "${CMDS[$i]}" >/tmp/gate.$$.log 2>&1; then
     printf '    ok\n'

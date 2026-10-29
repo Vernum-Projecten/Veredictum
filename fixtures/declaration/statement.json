@@ -38,7 +38,8 @@
         "canonical-json",
         "canonical-xml",
         "wt-flat",
-        "wt-structured"
+        "wt-structured",
+        "wt"
       ]
     }
   ],

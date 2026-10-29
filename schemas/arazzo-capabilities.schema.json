@@ -102,7 +102,7 @@
       }
     },
     "extension-only": {
-      "description": "The capability folders verified only over the routes of `catalogue/sources/veredictum-extensions.openapi.yaml`, which no openEHR OAS describes. `validate` refuses a listed folder with a step calling another source, and an unlisted folder whose every step calls that one.",
+      "description": "The capability folders verified only over the routes of Veredictum's own sources, the OpenAPI documents whose `info` carries `x-veredictum-non-openehr: true` and which no openEHR OAS describes. `validate` refuses a listed folder with a step calling an unmarked source, and an unlisted folder whose every step calls a marked one.",
       "type": "array",
       "uniqueItems": true,
       "items": {

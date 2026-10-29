@@ -37,6 +37,9 @@ pub enum CheckId {
     /// The supplied statement claims a capability folder in which no
     /// workflow can run under the statement's own declarations.
     ClaimCompleteness,
+    /// The supplied statement selects an option arm whose documents need a
+    /// wire format the statement does not claim.
+    ArmFormat,
     /// One of the Arazzo catalogue's gates.
     Arazzo(Gate),
 }
@@ -48,6 +51,7 @@ impl CheckId {
         match self {
             Self::Statement => "statement",
             Self::ClaimCompleteness => "claim-completeness",
+            Self::ArmFormat => "arm-format",
             Self::Arazzo(gate) => gate.token(),
         }
     }
@@ -174,9 +178,32 @@ pub fn review_statement(root: &Path, path: &Path) -> Vec<Finding> {
         return violations;
     }
     match Selection::read(root, Some(&value), &[]) {
-        Ok(selection) => incomplete_claims(root, path, &selection),
+        Ok(selection) => {
+            let mut findings = unclaimed_arm_formats(path, &selection);
+            findings.extend(incomplete_claims(root, path, &selection));
+            findings
+        }
         Err(e) => vec![finding(e.to_string())],
     }
+}
+
+/// The arm-format gate: a selected option arm whose documents need a wire
+/// format the statement's its-rest profiles do not claim is refused, since
+/// the run skips those documents and nothing would verify the arm. No
+/// openEHR spec governs this — our own design.
+fn unclaimed_arm_formats(path: &Path, selection: &Selection) -> Vec<Finding> {
+    selection
+        .arms_needing_unclaimed_formats()
+        .into_iter()
+        .map(|(arm, document, format)| Finding {
+            check: CheckId::ArmFormat,
+            artifact: path.display().to_string(),
+            message: format!(
+                "the statement selects `{arm}`, whose document `{document}` needs `{}`, and no its-rest profile of the statement claims it",
+                format.token()
+            ),
+        })
+        .collect()
 }
 
 /// The claim-completeness gate: every capability folder the statement
@@ -342,6 +369,36 @@ mod tests {
                 "{claims}"
             );
         }
+        Ok(())
+    }
+
+    /// A selected XML arm is refused while the statement leaves its format
+    /// unclaimed, and accepted once it claims it.
+    #[test]
+    fn a_selected_arm_needs_the_formats_of_its_documents_claimed()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let dir = assert_fs::TempDir::new()?;
+        let path = dir.path().join("statement.json");
+        let review = |formats: &[&str]| -> Result<Vec<super::Finding>, std::io::Error> {
+            let statement = serde_json::json!({
+                "product": { "name": "x", "version": "1", "vendor": "v", "identifier": "urn:x" },
+                "schedule_release": "cnf-2.0-w2",
+                "claims": { "capabilities": ["ehr"] },
+                "tech_profiles": [{ "its": "its-rest", "formats": formats }],
+                "options": ["ehr-xml-supported"]
+            });
+            std::fs::write(&path, statement.to_string())?;
+            Ok(review_statement(&repo_root().join("catalogue"), &path))
+        };
+        let unclaimed = review(&["canonical-json"])?;
+        assert!(
+            unclaimed
+                .iter()
+                .any(|f| f.check == CheckId::ArmFormat && f.message.contains("`ehr_xml`")),
+            "{unclaimed:?}"
+        );
+        let claimed = review(&["canonical-json", "canonical-xml"])?;
+        assert!(claimed.is_empty(), "{claimed:?}");
         Ok(())
     }
 

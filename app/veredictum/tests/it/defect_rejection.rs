@@ -74,15 +74,21 @@ defects! {
         ("arazzo-stray-file.yaml", "cases/zz-notes.yaml", "arazzo-load"),
     arazzo_aql_unparsable =>
         ("arazzo-aql-unparsable.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-aql"),
+    // A document that sends canonical JSON without stating the format.
+    arazzo_json_format_unstated =>
+        ("arazzo-json-format-unstated.arazzo.yaml", "cases/system/zz-json-unstated.arazzo.yaml", "arazzo-identity"),
     // The claim gates: a capability folder below its committed floor, a
-    // folder verified only over extension routes and not marked so, and a
-    // statement claiming a folder in which nothing it declares can run.
+    // folder verified only over extension routes and not marked so, a
+    // statement claiming a folder in which nothing it declares can run, and
+    // a statement selecting an arm whose documents need an unclaimed format.
     arazzo_floor_below =>
         ("arazzo-floor-below.arazzo.yaml", "cases/system/system_options.arazzo.yaml", "arazzo-floor"),
     arazzo_extension_only_unmarked =>
         ("arazzo-extension-only-unmarked.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-realization-scope"),
     statement_claim_incomplete =>
         ("statement-claim-incomplete.json", "--statement", "claim-completeness"),
+    statement_arm_format_unclaimed =>
+        ("statement-arm-format-unclaimed.json", "--statement", "arm-format"),
 }
 
 /// The destination a statement fixture names: it is not overlaid on the

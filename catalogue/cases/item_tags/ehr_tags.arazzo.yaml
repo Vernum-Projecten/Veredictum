@@ -440,27 +440,3 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
               section: HTTP status codes
               quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
-
-  - workflowId: ehr_tags_get-xml_not_acceptable
-    summary: An EHR tag listing asked for as XML is answered 406
-    description: >-
-      Retrieves the tag listing of an EHR with Accept application/xml.
-      Canonical XML responses must conform to the published XSDs, and no
-      published XSD declares ITEM_TAG, so no conformant XML tag list exists
-      and the service cannot fulfill the request and answers 406 Not
-      Acceptable.
-    x-veredictum-cite:
-      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
-      section: XML Format
-      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
-    inputs: *ehr_input
-    steps:
-      - *create
-      - stepId: list
-        description: Retrieve the EHR's tag listing as XML.
-        operationId: $sourceDescriptions.ehr.ehr_tags_get
-        parameters:
-          - { name: ehr_id, in: path, value: $inputs.ehr_id }
-          - { name: Accept, in: header, value: application/xml }
-        successCriteria:
-          - condition: $statusCode == 406

@@ -1,0 +1,35 @@
+# The Demographic ITEM_TAG listing asked for as XML, as an Arazzo 1.1.0 workflow
+# over the released ITS-REST `-validation` OAS. It sends no canonical JSON, so
+# it runs for every party whatever formats its statement claims. Every quote
+# is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Demographic tags as XML
+  version: 0.1.0
+  description: >-
+    The ITEM_TAG listing of the Demographic space asked for as canonical XML,
+    which no published XSD declares, so the service refuses it whatever
+    formats it serves.
+sourceDescriptions:
+  - name: demographic
+    url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: demographic_tags_get-xml_not_acceptable
+    summary: The Demographic tag listing asked for as XML is answered 406
+    description: >-
+      Lists the Demographic tags with Accept application/xml. No
+      published XSD declares ITEM_TAG, so no conformant XML tag list
+      exists and the service answers 406 Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: list
+        description: List the Demographic tags as XML.
+        operationId: $sourceDescriptions.demographic.demographic_tags_get
+        parameters:
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406

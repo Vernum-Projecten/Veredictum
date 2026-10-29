@@ -1,0 +1,32 @@
+# Seeded defect: a document in the `system` capability folder whose step
+# sends Accept application/json, while capabilities.yaml states no
+# `canonical-json` need for it, so a party claiming only canonical XML would
+# run it. The needs gate refuses the document.
+arazzo: 1.1.0
+info:
+  title: System OPTIONS in JSON, format unstated
+  version: 0.1.0
+  description: >-
+    OPTIONS on the API base path asking for application/json.
+sourceDescriptions:
+  - name: system
+    url: ../../../specs/rest-oas/system-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: options-json_unstated
+    summary: OPTIONS on the API base path is answered 200
+    description: >-
+      Sends OPTIONS to the API base path with Accept application/json.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/options.yaml
+      section: description
+      quote: "Services SHOULD respond to this method with the appropriate HTTP codes, headers and potentially with a payload revealing more details about themselves."
+      level: should
+    steps:
+      - stepId: options
+        description: Send OPTIONS to the API base path.
+        operationId: $sourceDescriptions.system.options
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200

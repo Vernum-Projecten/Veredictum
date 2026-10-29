@@ -1,13 +1,13 @@
 # Seeded defect: every step of this capability folder calls an operation of
-# Veredictum's own extensions source, so the folder is verified only over
-# routes no openEHR OAS describes, and capabilities.yaml does not list it as
-# extension-only. The realization-scope gate reads the source each step
-# names, so it refuses the folder whether or not that source resolves.
+# a source whose `info` carries `x-veredictum-non-openehr: true`, so the
+# folder is verified only over routes no openEHR OAS describes, and
+# capabilities.yaml does not list it as extension-only. The realization-scope
+# gate reads the mark from each source a step names.
 arazzo: 1.1.0
 info: { title: seeded defect, version: 0.1.0 }
 sourceDescriptions:
-  - name: extensions
-    url: ../../sources/veredictum-extensions.openapi.yaml
+  - name: probes
+    url: ../../sources/veredictum-probes.openapi.yaml
     type: openapi
 workflows:
   - workflowId: extension_route
@@ -17,6 +17,6 @@ workflows:
       quote: "Services MUST support at least one of the openEHR **XML** or **JSON** canonical formats for resource representation."
     steps:
       - stepId: call
-        operationId: $sourceDescriptions.extensions.extension_route
+        operationId: $sourceDescriptions.probes.probe_ehr_delete
         successCriteria:
           - condition: $statusCode == 200

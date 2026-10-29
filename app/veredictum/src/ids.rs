@@ -100,8 +100,8 @@ string_id!(
 );
 
 string_id!(
-    /// A verdict-bearing capability name from the capability matrix
-    /// (e.g. `EhrOperations`).
+    /// A verdict-bearing capability name: the name of a capability folder
+    /// under the catalogue's `cases/` (e.g. `ehr`).
     CapabilityName,
     "capability name",
     "ASCII identifier",

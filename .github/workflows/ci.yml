@@ -442,7 +442,7 @@ jobs:
 
       - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
         with:
-          tool: zizmor@1.29.0
+          tool: zizmor@1.31.0
 
       - name: zizmor
         # GH_TOKEN enables the ONLINE audits, which is the point of running this

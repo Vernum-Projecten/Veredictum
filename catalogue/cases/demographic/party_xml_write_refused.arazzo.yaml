@@ -16,30 +16,6 @@ sourceDescriptions:
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
     type: openapi
 workflows:
-  - workflowId: create_person-xml_refused
-    summary: A PERSON create in XML is refused with 415
-    description: >-
-      Creates a PERSON with a body labelled Content-Type application/xml at a
-      service that cannot process the payload as XML. The create is answered
-      415 Unsupported Media Type.
-    x-veredictum-cite:
-      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
-      section: XML Format
-      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
-    steps:
-      - stepId: create
-        description: Create the PERSON labelled Content-Type application/xml.
-        operationId: $sourceDescriptions.demographic.person_create
-        parameters:
-          - { name: Content-Type, in: header, value: application/xml }
-        requestBody:
-          contentType: application/xml
-          payload: |-
-            <?xml version="1.0" encoding="UTF-8"?>
-            <person xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-PERSON.person.v1"><name><value>person v1</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-PERSON.person.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Person One</value></value></items></details></identities></person>
-        successCriteria:
-          - condition: $statusCode == 415
-
   - workflowId: update_person-xml_refused
     summary: A PERSON update in XML is refused with 415 and changes nothing
     description: >-
@@ -123,30 +99,6 @@ workflows:
               section: If-Match and accidental overwrites
               quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
 
-  - workflowId: create_agent-xml_refused
-    summary: An AGENT create in XML is refused with 415
-    description: >-
-      Creates an AGENT with a body labelled Content-Type application/xml at a
-      service that cannot process the payload as XML. The create is answered
-      415 Unsupported Media Type.
-    x-veredictum-cite:
-      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
-      section: XML Format
-      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
-    steps:
-      - stepId: create
-        description: Create the AGENT labelled Content-Type application/xml.
-        operationId: $sourceDescriptions.demographic.agent_create
-        parameters:
-          - { name: Content-Type, in: header, value: application/xml }
-        requestBody:
-          contentType: application/xml
-          payload: |-
-            <?xml version="1.0" encoding="UTF-8"?>
-            <agent xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-AGENT.agent.v1"><name><value>agent v1</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-AGENT.agent.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Agent One</value></value></items></details></identities></agent>
-        successCriteria:
-          - condition: $statusCode == 415
-
   - workflowId: update_agent-xml_refused
     summary: An AGENT update in XML is refused with 415 and changes nothing
     description: >-
@@ -211,30 +163,6 @@ workflows:
           - condition: $statusCode == 415
       - *still_created
 
-  - workflowId: create_group-xml_refused
-    summary: A GROUP create in XML is refused with 415
-    description: >-
-      Creates a GROUP with a body labelled Content-Type application/xml at a
-      service that cannot process the payload as XML. The create is answered
-      415 Unsupported Media Type.
-    x-veredictum-cite:
-      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
-      section: XML Format
-      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
-    steps:
-      - stepId: create
-        description: Create the GROUP labelled Content-Type application/xml.
-        operationId: $sourceDescriptions.demographic.group_create
-        parameters:
-          - { name: Content-Type, in: header, value: application/xml }
-        requestBody:
-          contentType: application/xml
-          payload: |-
-            <?xml version="1.0" encoding="UTF-8"?>
-            <group xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-GROUP.group.v1"><name><value>group v1</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-GROUP.group.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Group One</value></value></items></details></identities></group>
-        successCriteria:
-          - condition: $statusCode == 415
-
   - workflowId: update_group-xml_refused
     summary: A GROUP update in XML is refused with 415 and changes nothing
     description: >-
@@ -298,30 +226,6 @@ workflows:
         successCriteria:
           - condition: $statusCode == 415
       - *still_created
-
-  - workflowId: create_organisation-xml_refused
-    summary: An ORGANISATION create in XML is refused with 415
-    description: >-
-      Creates an ORGANISATION with a body labelled Content-Type application/xml
-      at a service that cannot process the payload as XML. The create is
-      answered 415 Unsupported Media Type.
-    x-veredictum-cite:
-      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
-      section: XML Format
-      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
-    steps:
-      - stepId: create
-        description: Create the ORGANISATION labelled Content-Type application/xml.
-        operationId: $sourceDescriptions.demographic.organisation_create
-        parameters:
-          - { name: Content-Type, in: header, value: application/xml }
-        requestBody:
-          contentType: application/xml
-          payload: |-
-            <?xml version="1.0" encoding="UTF-8"?>
-            <organisation xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1"><name><value>organisation v1</value></name><archetype_details><archetype_id><value>openEHR-DEMOGRAPHIC-ORGANISATION.organisation.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><identities archetype_node_id="at0001"><name><value>legal identity</value></name><details xsi:type="ITEM_TREE" archetype_node_id="at0002"><name><value>identity</value></name><items xsi:type="ELEMENT" archetype_node_id="at0003"><name><value>name</value></name><value xsi:type="DV_TEXT"><value>Organisation One</value></value></items></details></identities></organisation>
-        successCriteria:
-          - condition: $statusCode == 415
 
   - workflowId: update_organisation-xml_refused
     summary: An ORGANISATION update in XML is refused with 415 and changes nothing
