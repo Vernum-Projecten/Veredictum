@@ -16,7 +16,7 @@ use leptos::prelude::{
 use leptos_meta::Title;
 use leptos_router::components::{A, Redirect};
 use leptos_router::hooks::use_params_map;
-use leptos_use::{UseClipboardReturn, use_clipboard};
+use leptos_use_clipboard::{UseClipboardReturn, use_clipboard};
 
 use crate::components::field::{BTN_PRIMARY, BTN_SECONDARY, INPUT, LABEL, TEXTAREA};
 use crate::components::format_view::{Pane, inline_error};
@@ -1334,8 +1334,10 @@ pub fn Live() -> impl IntoView {
         }
     });
     Effect::new(move |_| {
-        let _pausable =
-            leptos_use::use_interval_fn(move || tick.update(|t| *t = t.wrapping_add(1)), 1_000);
+        let _pausable = leptos_use_interval_fn::use_interval_fn(
+            move || tick.update(|t| *t = t.wrapping_add(1)),
+            1_000,
+        );
     });
 
     view! {

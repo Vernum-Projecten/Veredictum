@@ -288,12 +288,13 @@ options:
     description: >-
       Whether the service serves each of the five PARTY kinds of the
       Demographic API (PERSON, AGENT, GROUP, ORGANISATION and ROLE) in
-      canonical XML when a client asks for it with Accept application/xml.
+      canonical XML when a client asks for it with Accept application/xml, on
+      a read and as the answer of a create or update.
     arms:
       party-xml-supported:
-        documents: [party_read_xml]
+        documents: [party_read_xml, party_write_xml_accept]
       party-xml-unsupported:
-        documents: [party_read_xml_not_acceptable]
+        documents: [party_read_xml_not_acceptable, party_write_xml_not_acceptable]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -316,13 +317,45 @@ options:
   party-xml-write:
     description: >-
       Whether the service processes a PARTY sent as canonical XML on the
-      create and update of each PARTY kind. No published XSD declares a
-      document element for a PARTY, so the accepting arm has no document yet.
+      create and update of each PARTY kind. The one published global element
+      of a type a PARTY extends is `items` (LOCATABLE) in documents/Structure.xsd,
+      and that schema does not include Demographic.xsd, where the PARTY types
+      are defined, so no published document schema validates a PARTY and the
+      accepting arm has no document yet.
     arms:
       party-xml-write-accepted:
         documents: []
       party-xml-write-refused:
         documents: [party_xml_write_refused]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+  demographic-contribution-xml-read:
+    description: >-
+      Whether the service serves a CONTRIBUTION of the Demographic API in
+      canonical XML when a client asks for it with Accept application/xml, on
+      the read and as the answer of the commit.
+    arms:
+      demographic-contribution-xml-supported:
+        documents: [demographic_contribution_read_xml]
+      demographic-contribution-xml-unsupported:
+        documents: [demographic_contribution_read_xml_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Services MUST support at least one of the openEHR **XML** or **JSON** canonical formats for resource representation."
+  demographic-contribution-xml-write:
+    description: >-
+      Whether the service processes a CONTRIBUTION sent as canonical XML on
+      the commit of the Demographic API. No published XSD declares a document
+      element or a type for the commit envelope, so the accepting arm has no
+      document yet.
+    arms:
+      demographic-contribution-xml-write-accepted:
+        documents: []
+      demographic-contribution-xml-write-refused:
+        documents: [demographic_contribution_xml_write_refused]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format

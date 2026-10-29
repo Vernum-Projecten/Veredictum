@@ -1,5 +1,5 @@
 # The aggregate-function cases of the aql-conformance corpus whose answer the released AQL text assigns. Each workflow carries one case of the AQL conformance corpus
-# (github.com/Cadasto/aql-conformance at d5b8c554fece), named in its
+# (github.com/Cadasto/aql-conformance at 28749a482a23), named in its
 # description; catalogue/id-map.yaml maps every case of the corpus. The case's
 # own data is committed by the set-up it names in
 # _setup/aql_conformance.arazzo.yaml, and its runtime identifiers reach the
@@ -61,3 +61,45 @@ workflows:
               match: set
               rows:
                 - - 1
+  - workflowId: count-count_star_over_no_matching_row_is_zero
+    summary: COUNT(*) over no matching row answers one row holding 0
+    description: 'Carries aql-conformance case aggregation.count.count_star_over_no_matching_row_is_zero
+      (level core, corpus/cases/aggregation/count_star_over_no_rows.yaml): over the set-up seed-vital_signs,
+      the query returns the rows the case expects.'
+    dependsOn:
+      - $sourceDescriptions.setup.seed-vital_signs
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: COUNT
+      quote: If there are no matching rows, then this function returns `0`.
+    steps:
+      - stepId: query
+        description: Execute the query with POST, the identifiers of the set-up passed as query parameters.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - name: Accept
+            in: header
+            value: application/json
+        requestBody:
+          contentType: application/json
+          payload:
+            q: SELECT COUNT(*) FROM EHR e CONTAINS COMPOSITION c WHERE e/ehr_id/value = $ehr_id AND c/name/value
+              = 'no composition is named this'
+            query_parameters:
+              ehr_id: replaced with the ehr_id of the set-up
+          replacements:
+            - target: /query_parameters/ehr_id
+              value: $workflows.$sourceDescriptions.setup.seed-vital_signs.outputs.ehr_id
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: '`200 OK` is returned when the server is able to execute the query.'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows:
+                - - 0

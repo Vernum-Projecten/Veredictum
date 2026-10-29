@@ -8,6 +8,7 @@ at commit `a87bb51fa1c515b863c9610a9444a2d5570dc05a`, which is the commit
 | Patch | Report |
 |---|---|
 | `0761-archetype-predicate-and-top.patch` | #761 |
+| `0771-precedence-regex-like-dates-comparisons-paths.patch` | #771 |
 
 A patch is named after its report's number. Apply one in a checkout of that
 repository with `git apply <patch>`.
