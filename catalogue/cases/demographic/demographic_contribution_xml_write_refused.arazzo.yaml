@@ -20,8 +20,9 @@ workflows:
       Commits a demographic CONTRIBUTION whose one member creates a PERSON,
       labelled Content-Type application/xml, to a service that cannot process
       the payload as XML. The commit is answered 415 Unsupported Media Type.
-      No published XSD declares a document element for the commit envelope,
-      so the payload names its root element after the RM class.
+      No published XSD declares an element or a type for the commit envelope
+      (upstream report #759), so the payload names its root element after the
+      RM class.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format

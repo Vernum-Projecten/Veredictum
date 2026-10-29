@@ -1,14 +1,15 @@
-# The EHR read in canonical XML, for a service that does not serve the EHR
-# resource in XML: the refused arm of the choice `ehr_xml.arazzo.yaml` serves.
-# A statement selects one of the two documents. Every quote is copied
-# verbatim from the named vendored file.
+# The EHR read and the answer of the EHR creates in canonical XML, for a
+# service that does not serve the EHR resource in XML: the refused arm of the
+# choice `ehr_xml.arazzo.yaml` serves. A statement selects one of the two
+# documents. Every quote is copied verbatim from the named vendored file.
 arazzo: 1.1.0
 info:
-  title: EHR read in canonical XML, refused
+  title: EHR reads and creates in canonical XML, refused
   version: 0.1.0
   description: >-
-    Reading an EHR with Accept application/xml from a service that does not
-    serve the EHR resource in canonical XML.
+    Reading an EHR, and creating one on both wire forms of the create, with
+    Accept application/xml from a service that does not serve the EHR
+    resource in canonical XML.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
@@ -100,6 +101,49 @@ workflows:
         parameters:
           - { name: subject_id, in: query, value: $inputs.subject_id }
           - { name: subject_namespace, in: query, value: veredictum }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: create_ehr-xml_not_acceptable
+    summary: An EHR create asking for the full resource in XML is refused with 406
+    description: >-
+      Creates an EHR with Prefer return=representation and Accept
+      application/xml from a service that does not serve the EHR resource in
+      XML. The create is refused with 406 Not Acceptable.
+    x-veredictum-cite: &xml_refused
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    steps:
+      - stepId: create
+        description: Create an EHR and ask for the full resource in canonical XML.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406
+
+  - workflowId: create_ehr-xml_not_acceptable-with_id
+    summary: An EHR create under a client-supplied ehr_id asking for the full resource in XML is refused with 406
+    description: >-
+      Creates an EHR with a client-supplied ehr_id, Prefer
+      return=representation and Accept application/xml from a service that
+      does not serve the EHR resource in XML. The create is refused with 406
+      Not Acceptable.
+    x-veredictum-cite: *xml_refused
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the EHR with the client-supplied ehr_id and ask for the full resource in canonical XML.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
           - { name: Accept, in: header, value: application/xml }
         successCriteria:
           - condition: $statusCode == 406
