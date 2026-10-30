@@ -1,5 +1,0 @@
-include::partial$module_vars.adoc[]
-
-* xref:index.adoc[{spec_title}]
-** xref:appendix.adoc[Appendix]
-

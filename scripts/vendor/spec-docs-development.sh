@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: Veredictum contributors
 # SPDX-License-Identifier: Apache-2.0
-# Vendors a pinned snapshot of the openEHR specification DEVELOPMENT line
-# into specs/openehr-development/: the text the `development` specification
+# Vendors a pinned snapshot of each openEHR specification repository's
+# `master`, the line that carries the newest text, into
+# specs/openehr-development/: the text the `development` specification
 # profile of `veredictum test` and `veredictum validate` reads, and the text a
 # proposed upstream patch under upstream/<openEHR repository>/ is written
 # against. It is never the oracle of a released claim; that is specs/openehr/,
@@ -22,9 +23,11 @@
 #   specs/openehr-development/specifications-ITS-REST/specifications/...
 #   specs/openehr-development/specifications-ITS-REST/computable/OAS/...
 #
-# Every repository is pinned BY COMMIT. The branch is recorded for provenance
-# only and is never read at run time: `development` where the repository
-# keeps one, and `master` where it keeps no other line (ITS-JSON, ITS-XML).
+# Every repository is pinned BY COMMIT on its `master` (owner ruling
+# 2026-10-30): `master` carries the newest text and the release's content,
+# while the repositories' `development` branches stopped moving and miss
+# commits the release carries. The branch is recorded for provenance only
+# and is never read at run time.
 # Every text format a citation or a patch can name is taken (INCLUDE_EXT);
 # figures and other binaries are not. Each upstream LICENSE rides along
 # verbatim.
@@ -41,13 +44,13 @@ INCLUDE_EXT=(adoc md txt csv json yaml yml g4 xsd xml)
 # Read with `git ls-remote https://github.com/openEHR/<repo>.git
 # refs/heads/<branch>` on 2026-10-30.
 COMPONENTS=(
-  "AM|specifications-AM|development|6fc148cb902b524746f35088d72077bd508e2705"
-  "BASE|specifications-BASE|development|3c3bf5539dd0aed283ed80d505164376f65bf940"
+  "AM|specifications-AM|master|15d7a3589d52e33aebd5efb97c321b2498407d6b"
+  "BASE|specifications-BASE|master|93abaf9f656b7bc87019458303c9d88f3f688ef8"
   "ITS-JSON|specifications-ITS-JSON|master|14387ce9191f228d768b6bade3308b79aaf87471"
-  "ITS-REST|specifications-ITS-REST|development|9afd2dac8d52a080961e405c6d78b1ddba1eb336"
+  "ITS-REST|specifications-ITS-REST|master|9d25ea783f790512e05f908ef743626b4f7e8d2c"
   "ITS-XML|specifications-ITS-XML|master|e6ff2a4e55c13cc79e15376a46c29f4c1e529f92"
-  "QUERY|specifications-QUERY|development|3df25fbc38f9b778f0fe9e86c54c3fa64063520f"
-  "RM|specifications-RM|development|3f631d205919fee1674b9f7892d12dd0d23c2e21"
+  "QUERY|specifications-QUERY|master|28575a39d6cda11b588892cc8d3376724e645b2e"
+  "RM|specifications-RM|master|654296bb027b03b4b076101e7171f3359f44cebc"
 )
 
 TMP="$(mktemp -d)"
@@ -120,7 +123,8 @@ for entry in "${COMPONENTS[@]}"; do
   repository's own relative paths (text formats only: ${INCLUDE_EXT[*]}).
   Figures and other binaries are excluded.
 
-A snapshot of the openEHR development line of this repository: the text a run
+A snapshot of this repository's \`master\`, the line that carries the newest
+openEHR text: the text a run
 under the \`development\` specification profile reads, and the text a patch
 under \`upstream/$repo/\` is written against. It is no part of the released
 oracle under \`specs/openehr/\`, and nothing judged against it enters a

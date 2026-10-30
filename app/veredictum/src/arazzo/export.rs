@@ -1212,7 +1212,7 @@ pub fn markdown(results: &Results) -> String {
     if !results.specification.is_released() {
         let _ = writeln!(
             out,
-            "| **Specification** | {} |\n\n> [!WARNING]\n> Judged against a pinned snapshot of the openEHR development branch, not the release. \
+            "| **Specification** | {} |\n\n> [!WARNING]\n> Judged against the pinned master of each openEHR repository, the newest text, not the release. \
              This is never a released result: it builds no certificate and is never compared with \
              or counted toward one.",
             md_inline(&results.specification.label()),

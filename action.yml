@@ -99,7 +99,7 @@ inputs:
   profile:
     description: >-
       The specification text the citations are read against: development (the
-      pinned snapshot of the openEHR development line, the latest text) or
+      pinned master of each openEHR repository, the newest text) or
       released (the frozen release). Only a released run backs a released
       claim or a certificate.
     required: false

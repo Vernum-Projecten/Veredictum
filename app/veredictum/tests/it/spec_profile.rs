@@ -154,7 +154,7 @@ fn a_run_without_a_profile_reads_the_development_snapshot_and_names_it_everywher
         skipped
             .pointer("/skip/why/link")
             .and_then(Value::as_str)
-            .is_some_and(|link| link.contains("specifications-RM/blob/3f631d205919")),
+            .is_some_and(|link| link.contains("specifications-RM/blob/654296bb027b")),
         "the citation links to the snapshot's commit: {skipped}"
     );
     let total = results
@@ -167,7 +167,7 @@ fn a_run_without_a_profile_reads_the_development_snapshot_and_names_it_everywher
     );
     let stdout = String::from_utf8(output.stdout)?;
     assert!(
-        stdout.contains("Profile  development snapshot (AM development@6fc148cb902b"),
+        stdout.contains("Profile  development snapshot (AM master@15d7a3589d52"),
         "{stdout}"
     );
     assert!(stdout.contains("never a released result"), "{stdout}");

@@ -28,7 +28,8 @@ before anything runs, and one that fails it, such as a misspelled member,
 stops the run with exit status 2 naming the file and the violation.
 
 **Which text.** `--profile development`, the default, reads every citation
-against the pinned snapshot of the openEHR development line under
+against the pinned `master` of each openEHR specification repository, the
+line that carries the newest text, under
 `specs/openehr-development/`; `--profile released` reads the frozen release
 under `specs/openehr/`. A case whose cited file, section or sentence the
 snapshot lacks is skipped as `cited-text-absent`, naming the profile and what

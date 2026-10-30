@@ -86,8 +86,8 @@ and quote the sentence that assigns the value.
   the release, and `validate` refuses a citation into it.
 - **Two specification profiles** (owner rulings 2026-10-30, #875). A run
   picks one. `development`, the default run profile, is the latest text: a
-  pinned snapshot of each openEHR repository's development line under
-  `specs/openehr-development/`, vendored by
+  pinned snapshot of the `master` of each openEHR repository, the line
+  that carries the newest text, under `specs/openehr-development/`, vendored by
   `scripts/vendor/spec-docs-development.sh` with a `PROVENANCE.md` naming
   the commit, and the text every patch under `upstream/` is written against.
   `released` is selectable and frozen: `specs/openehr/`, where nothing is

@@ -507,12 +507,12 @@ pub fn upstream_link(source: &str, repo_root: &Path) -> Option<String> {
 ///
 /// Under [`SpecProfile::Released`] it is [`upstream_link`]. Under another
 /// profile the source maps onto that profile's tree
-/// ([`SpecProfile::path_of`]), whose provenance names the commit; `None`
+/// ([`SpecProfile::file_of`]), whose provenance names the commit; `None`
 /// when the profile holds no such file.
 #[must_use]
 pub fn upstream_link_in(source: &str, repo_root: &Path, profile: SpecProfile) -> Option<String> {
     if profile != SpecProfile::Released {
-        let path = profile.path_of(source)?;
+        let path = profile.file_of(repo_root, source)?;
         if !repo_root.join(&path).is_file() {
             return None;
         }

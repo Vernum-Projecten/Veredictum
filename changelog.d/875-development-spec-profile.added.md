@@ -1,8 +1,8 @@
 - A run picks a specification profile. `development`, the default for `test`,
-  the GitHub Action's new `profile` input and the console, is the latest text:
-  a pinned snapshot of each openEHR specification repository's development
-  line under `specs/openehr-development/`, one directory per repository at its
-  own paths, vendored by `scripts/vendor/spec-docs-development.sh` with a
+  the GitHub Action's new `profile` input and the console, is the newest text:
+  a pinned snapshot of the `master` of each openEHR specification repository,
+  the line that carries the newest text, under `specs/openehr-development/`,
+  one directory per repository at its own paths, vendored by `scripts/vendor/spec-docs-development.sh` with a
   `PROVENANCE.md` naming the repository, branch and commit. `released` is
   selectable and frozen: the vendored release under `specs/openehr/`. A case
   whose cited file, section or sentence the snapshot lacks is skipped as
@@ -20,3 +20,8 @@
   per component. `validate` still defaults to the released profile, where zero
   findings is the only passing result.
 - The container image carries `specs/openehr-development/`.
+- Under the development profile a quote is matched against the cited text as
+  the page renders it: `link:`, `xref:` and labelled `<<id,label>>` macros read
+  as their label and a straight double quote as a backtick, and a class table
+  the release names by its class is found under its package-qualified name.
+  The released profile's matching is unchanged.

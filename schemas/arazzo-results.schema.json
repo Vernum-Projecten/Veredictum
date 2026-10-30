@@ -48,7 +48,7 @@
       "required": [
         "profile"
       ],
-      "description": "The specification text the run's citations were read against. `released` is the vendored release, the oracle of every released claim. `development` is a pinned snapshot of the openEHR development branch, named component by component with its repository, branch and commit; a development result builds no certificate and is never compared with or counted toward a released result. A results document without this member was judged against the release. No openEHR spec governs the profiles; they are the instrument's own design.",
+      "description": "The specification text the run's citations were read against. `released` is the vendored release, the oracle of every released claim. `development` is the pinned `master` of each openEHR specification repository, the line that carries the newest text, named component by component with its repository, branch and commit; a development result builds no certificate and is never compared with or counted toward a released result. A results document without this member was judged against the release. No openEHR spec governs the profiles; they are the instrument's own design.",
       "properties": {
         "profile": {
           "enum": [

@@ -102,14 +102,14 @@ Options:
       --profile <PROFILE>
           The specification text the case citations are read against.
           
-          `development` (the default): the pinned snapshot of the openEHR development line under `specs/openehr-development/`, the latest text. A case citing text the snapshot lacks is skipped as `cited-text-absent`, naming what is missing. The results name the profile and every snapshot commit, and a development result never builds a certificate and is never compared with or counted toward a released result.
+          `development` (the default): the pinned `master` of each openEHR specification repository under `specs/openehr-development/`, the line that carries the newest text. A case citing text the snapshot lacks is skipped as `cited-text-absent`, naming what is missing. The results name the profile and every snapshot commit, and a development result never builds a certificate and is never compared with or counted toward a released result.
           
           `released`: the frozen release under `specs/openehr/`. Only a released result backs a released claim or a certificate.
           
           The catalogue is gated against the release under either profile. A re-judgement takes the profile the recorded run was given.
 
           Possible values:
-          - development: The pinned snapshot of the openEHR development line: the latest text
+          - development: The pinned `master` of each openEHR repository: the newest text
           - released:    The frozen release: the oracle of every released claim
           
           [default: development]
@@ -148,7 +148,8 @@ before anything runs, and one that fails it, such as a misspelled member,
 stops the run with exit status 2 naming the file and the violation.
 
 **Which text.** `--profile development`, the default, reads every citation
-against the pinned snapshot of the openEHR development line under
+against the pinned `master` of each openEHR specification repository, the
+line that carries the newest text, under
 `specs/openehr-development/`; `--profile released` reads the frozen release
 under `specs/openehr/`. A case whose cited file, section or sentence the
 snapshot lacks is skipped as `cited-text-absent`, naming the profile and what
@@ -396,7 +397,7 @@ Options:
           `development`: the gates as under `released`, then every case citation read against the snapshot under `specs/openehr-development/` beside `--specs`. A citation whose file, section or quote the snapshot lacks is printed as `[info]` and counted per component; it is never a finding. A citation refused for any other reason is a `profile-citation` finding. Needs `--specs`.
 
           Possible values:
-          - development: The pinned snapshot of the openEHR development line: the latest text
+          - development: The pinned `master` of each openEHR repository: the newest text
           - released:    The frozen release: the oracle of every released claim
           
           [default: released]

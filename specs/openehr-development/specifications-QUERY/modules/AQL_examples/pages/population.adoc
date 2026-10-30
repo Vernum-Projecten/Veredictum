@@ -1,3 +1,0 @@
-include::partial$module_vars.adoc[]
-
-= Population AQL Examples

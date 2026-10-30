@@ -51,7 +51,8 @@ disagrees with a released component, the released component wins.
 A run reads its citations against one of two profiles.
 
 - **`development`:** the default run profile and the latest text. It is a
-  pinned snapshot of each openEHR specification repository's development line,
+  pinned snapshot of the `master` of each openEHR specification repository,
+  the line that carries the newest text,
   vendored under `specs/openehr-development/` with one directory per
   repository and a `PROVENANCE.md` naming the repository, the branch and the
   commit. Every patch this project proposes upstream is written against it.

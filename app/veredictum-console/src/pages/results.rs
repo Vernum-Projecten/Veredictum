@@ -1015,7 +1015,7 @@ fn specification_view(results: &ResultsScreen) -> AnyView {
     let note = (!results.released).then(|| {
         view! {
             <p class="mb-3 text-sm text-ink-muted">
-                "Judged against a pinned snapshot of the openEHR development line, not the release. This is never a released result: it builds no certificate and is never compared with or counted toward one."
+                "Judged against the pinned master of each openEHR repository, the newest text, not the release. This is never a released result: it builds no certificate and is never compared with or counted toward one."
             </p>
         }
     });

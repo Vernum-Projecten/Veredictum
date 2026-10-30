@@ -202,9 +202,9 @@ enum Command {
         rejudge: Option<PathBuf>,
         /// The specification text the case citations are read against.
         ///
-        /// `development` (the default): the pinned snapshot of the openEHR
-        /// development line under `specs/openehr-development/`, the latest
-        /// text. A case citing text the snapshot lacks is skipped as
+        /// `development` (the default): the pinned `master` of each openEHR
+        /// specification repository under `specs/openehr-development/`, the
+        /// line that carries the newest text. A case citing text the snapshot lacks is skipped as
         /// `cited-text-absent`, naming what is missing. The results name the
         /// profile and every snapshot commit, and a development result never
         /// builds a certificate and is never compared with or counted toward
@@ -617,7 +617,7 @@ enum Command {
 /// The specification profile a run or a validation reads.
 #[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 enum ProfileArg {
-    /// The pinned snapshot of the openEHR development line: the latest text.
+    /// The pinned `master` of each openEHR repository: the newest text.
     Development,
     /// The frozen release: the oracle of every released claim.
     Released,

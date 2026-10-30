@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The specification profile a run is judged under: a pinned snapshot of the
-//! openEHR development line, the latest text, or the frozen release.
+//! `master` of each openEHR specification repository, the line that carries
+//! the newest text, or the frozen release.
 //!
 //! A citation names the same source and section under both profiles; only
 //! the tree its text is read from changes. Under [`SpecProfile::Released`]
@@ -65,10 +66,10 @@ impl SpecProfile {
     /// source's root.
     ///
     /// The released profile reads every source where it names. The
-    /// development profile reads `specs/openehr/<C>/` from the snapshot of
-    /// `specifications-<C>`, following the development line's Antora layout
-    /// ([`antora_path`]), `specs/rest-oas/` from ITS-REST's `computable/OAS/`
-    /// and `specs/its-json-schemas/` from ITS-JSON's `components/`. The
+    /// development profile reads `specs/openehr/<C>/<path>` from
+    /// `specifications-<C>/<path>` in the snapshot, `specs/rest-oas/` from
+    /// ITS-REST's `computable/OAS/` and `specs/its-json-schemas/` from
+    /// ITS-JSON's `components/`. The
     /// ITS-XML bundles are vendored from release tags, so the development
     /// profile holds no counterpart for them.
     #[must_use]
@@ -80,11 +81,7 @@ impl SpecProfile {
                     .strip_prefix("specs/openehr/")
                     .and_then(|rest| rest.split_once('/'))
                 {
-                    return Some(format!(
-                        "{}/{}",
-                        self.component_dir(component),
-                        antora_path(inner)
-                    ));
+                    return Some(format!("{}/{inner}", self.component_dir(component)));
                 }
                 MIRRORED_ROOTS.iter().find_map(|(root, component, inside)| {
                     source
@@ -93,6 +90,20 @@ impl SpecProfile {
                 })
             }
         }
+    }
+
+    /// The file this profile reads for the cited `source` under `repo_root`:
+    /// [`SpecProfile::path_of`], or, when no file sits there, the class
+    /// table the snapshot names by its package-qualified class
+    /// ([`qualified_class_table`]). `None` when the profile holds no tree for
+    /// the source's root.
+    #[must_use]
+    pub fn file_of(self, repo_root: &Path, source: &str) -> Option<String> {
+        let path = self.path_of(source)?;
+        if self == Self::Released || repo_root.join(&path).is_file() {
+            return Some(path);
+        }
+        Some(qualified_class_table(repo_root, &path).unwrap_or(path))
     }
 
     /// The directory, relative to the repository root, that holds
@@ -106,48 +117,39 @@ impl SpecProfile {
     }
 }
 
-/// The package prefix the released AM class tables carry in their file names
-/// (`org.openehr.am.aom14.c_object.adoc`), which the Antora partials drop
-/// (`aom14.c_object.adoc`).
-const AM_PACKAGE_PREFIX: &str = "org.openehr.am.";
+/// The prefix of a package-qualified class-table file name.
+const QUALIFIED_CLASS: &str = "org.openehr.";
 
-/// Where the development line's Antora layout keeps the document a released
-/// path names, given relative to its component's directory.
+/// Finds the package-qualified class table for the class `path` names.
 ///
-/// The released tree publishes a document as `docs/<doc>/masterNN-<name>.adoc`
-/// and a class table as `docs/UML/classes/<class>.adoc`; the Antora
-/// component keeps them as `modules/<doc>/pages/<name>.adoc` and
-/// `modules/ROOT/partials/classes/<class>.adoc`
-/// (<https://docs.antora.org/antora/latest/standard-directories/>), an AM
-/// class without its `org.openehr.am.` package prefix. Any other path is
-/// kept as it is.
+/// The answer is the one table under the `docs/UML/classes/` directory of
+/// `path`, relative to `repo_root`, whose qualified name ends with that
+/// class; `None` when `path` names no unqualified class table, or when no
+/// single qualified table matches.
+///
+/// The release names a class table by its class
+/// (`docs/UML/classes/locatable.adoc`); the specification repositories'
+/// `master` names it with its package
+/// (`docs/UML/classes/org.openehr.rm.common.locatable.adoc`), since the
+/// republication with the upgraded UML extractor that qualifies every class
+/// (openEHR/specifications-RM commit `ad2435db479d`). No openEHR spec
+/// governs file names — our own design reads the two as one table.
 #[must_use]
-pub fn antora_path(inner: &str) -> String {
-    let Some(docs) = inner.strip_prefix("docs/") else {
-        return inner.to_owned();
-    };
-    let Some((document, file)) = docs.split_once('/') else {
-        return inner.to_owned();
-    };
-    let adoc = Path::new(file)
-        .extension()
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("adoc"));
-    if file.contains('/') || !adoc {
-        if document == "UML"
-            && let Some(class) = file.strip_prefix("classes/")
-            && !class.contains('/')
-        {
-            let class = class.strip_prefix(AM_PACKAGE_PREFIX).unwrap_or(class);
-            return format!("modules/ROOT/partials/classes/{class}");
-        }
-        return inner.to_owned();
+pub fn qualified_class_table(repo_root: &Path, path: &str) -> Option<String> {
+    let (dir, name) = path.rsplit_once('/')?;
+    if !dir.ends_with("/docs/UML/classes") || name.starts_with(QUALIFIED_CLASS) {
+        return None;
     }
-    let page = file
-        .strip_prefix("master")
-        .and_then(|numbered| numbered.split_once('-'))
-        .filter(|(number, _)| !number.is_empty() && number.chars().all(|c| c.is_ascii_digit()))
-        .map_or(file, |(_, name)| name);
-    format!("modules/{document}/pages/{page}")
+    let suffix = format!(".{name}");
+    // NOTE: no openEHR spec governs this — our own design; a directory or an entry that does
+    // not list holds no qualified table, so the caller reports the class table absent.
+    let entries = std::fs::read_dir(repo_root.join(dir)).ok()?;
+    let mut found = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|file| file.starts_with(QUALIFIED_CLASS) && file.ends_with(&suffix));
+    let one = found.next()?;
+    found.next().is_none().then(|| format!("{dir}/{one}"))
 }
 
 impl fmt::Display for SpecProfile {
@@ -425,21 +427,19 @@ mod tests {
             dev.path_of("specs/openehr/RM/docs/common/master06-change_control_package.adoc")
                 .as_deref(),
             Some(
-                "specs/openehr-development/specifications-RM/modules/common/pages/change_control_package.adoc"
+                "specs/openehr-development/specifications-RM/docs/common/master06-change_control_package.adoc"
             )
         );
         assert_eq!(
             dev.path_of("specs/openehr/RM/docs/UML/classes/locatable.adoc")
                 .as_deref(),
-            Some(
-                "specs/openehr-development/specifications-RM/modules/ROOT/partials/classes/locatable.adoc"
-            )
+            Some("specs/openehr-development/specifications-RM/docs/UML/classes/locatable.adoc")
         );
         assert_eq!(
             dev.path_of("specs/openehr/AM/docs/UML/classes/org.openehr.am.aom14.c_object.adoc")
                 .as_deref(),
             Some(
-                "specs/openehr-development/specifications-AM/modules/ROOT/partials/classes/aom14.c_object.adoc"
+                "specs/openehr-development/specifications-AM/docs/UML/classes/org.openehr.am.aom14.c_object.adoc"
             )
         );
         assert_eq!(
@@ -478,6 +478,60 @@ mod tests {
     }
 
     #[test]
+    fn a_class_table_is_found_under_its_package_qualified_name() {
+        let dev = SpecProfile::Development;
+        assert_eq!(
+            dev.file_of(&root(), "specs/openehr/RM/docs/UML/classes/locatable.adoc")
+                .as_deref(),
+            Some(
+                "specs/openehr-development/specifications-RM/docs/UML/classes/org.openehr.rm.common.locatable.adoc"
+            )
+        );
+        assert_eq!(
+            dev.file_of(&root(), "specs/openehr/RM/docs/UML/classes/event.adoc")
+                .as_deref(),
+            Some(
+                "specs/openehr-development/specifications-RM/docs/UML/classes/org.openehr.rm.data_structures.event.adoc"
+            ),
+            "a dot-bounded suffix never matches point_event or interval_event"
+        );
+        assert_eq!(
+            dev.file_of(
+                &root(),
+                "specs/openehr/RM/docs/UML/classes/no_such_class.adoc"
+            )
+            .as_deref(),
+            Some("specs/openehr-development/specifications-RM/docs/UML/classes/no_such_class.adoc"),
+            "an unmatched class keeps its mapped path, which the checker reports absent"
+        );
+        assert_eq!(
+            SpecProfile::Released
+                .file_of(&root(), "specs/openehr/RM/docs/UML/classes/locatable.adoc")
+                .as_deref(),
+            Some("specs/openehr/RM/docs/UML/classes/locatable.adoc")
+        );
+    }
+
+    #[test]
+    fn a_class_name_two_packages_share_matches_neither() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = assert_fs::TempDir::new()?;
+        let classes = dir
+            .path()
+            .join("specs/openehr-development/specifications-RM/docs/UML/classes");
+        std::fs::create_dir_all(&classes)?;
+        std::fs::write(classes.join("org.openehr.rm.a.thing.adoc"), "x")?;
+        std::fs::write(classes.join("org.openehr.rm.b.thing.adoc"), "x")?;
+        assert_eq!(
+            qualified_class_table(
+                dir.path(),
+                "specs/openehr-development/specifications-RM/docs/UML/classes/thing.adoc"
+            ),
+            None
+        );
+        Ok(())
+    }
+
+    #[test]
     fn the_vendored_snapshot_names_every_component_by_commit() -> Result<(), SnapshotError> {
         let snapshot = snapshot(&root())?;
         let components: Vec<&str> = snapshot.iter().map(|c| c.component.as_str()).collect();
@@ -488,14 +542,7 @@ mod tests {
             ]
         );
         for component in &snapshot {
-            let line = if component.component.starts_with("ITS-JSON")
-                || component.component.starts_with("ITS-XML")
-            {
-                "master"
-            } else {
-                "development"
-            };
-            assert_eq!(component.branch, line, "{component:?}");
+            assert_eq!(component.branch, "master", "{component:?}");
             assert_eq!(component.commit.len(), 40, "{component:?}");
             assert!(
                 component
@@ -513,7 +560,7 @@ mod tests {
         let development = Specification::of(SpecProfile::Development, &root())?;
         let refused = development.ensure_released();
         assert!(
-            matches!(&refused, Err(NotReleased { label }) if label.starts_with("development snapshot (AM development@")),
+            matches!(&refused, Err(NotReleased { label }) if label.starts_with("development snapshot (AM master@")),
             "{refused:?}"
         );
         Ok(())

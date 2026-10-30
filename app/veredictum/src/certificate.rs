@@ -1643,7 +1643,7 @@ mod tests {
             "\"base_url\":",
             r#""specification": { "profile": "development", "snapshot": [
       { "component": "RM", "repository": "https://github.com/openEHR/specifications-RM",
-        "branch": "development", "commit": "3f631d205919fee1674b9f7892d12dd0d23c2e21" } ] },
+        "branch": "master", "commit": "654296bb027b03b4b076101e7171f3359f44cebc" } ] },
   "base_url":"#,
             1,
         );
@@ -1656,7 +1656,7 @@ mod tests {
             issued_at: issued_at()?,
         });
         assert!(
-            matches!(&refused, Err(IssueError::NotReleased(NotReleased { label })) if label.contains("RM development@3f631d205919")),
+            matches!(&refused, Err(IssueError::NotReleased(NotReleased { label })) if label.contains("RM master@654296bb027b")),
             "{refused:?}"
         );
         let released = results_text().replacen(

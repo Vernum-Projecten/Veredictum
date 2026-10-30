@@ -1,7 +1,0 @@
-[source,json]
---------
-{
-    "name": "Comparable",
-    "is_abstract": true
-}
---------
