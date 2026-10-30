@@ -1023,7 +1023,7 @@ run, never in a public artifact.
 ```text
 Show an Arazzo results document in the terminal: one line per chapter, band and option, each with its counts and a bar.
 
-A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or @SpecDiverge for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged @SpecDiverge and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! advisory and ○ skipped (grey). An advisory row is a SHOULD the server did not follow and is never shown as a failure.
+A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged `@SpecDiverge` and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! advisory and ○ skipped (grey). An advisory row is a SHOULD the server did not follow and is never shown as a failure.
 
 Exit status: `0` when the view was printed; `2` when the document cannot be read.
 

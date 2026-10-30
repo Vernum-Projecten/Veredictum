@@ -524,9 +524,9 @@ enum Command {
     /// band by band, in the order the catalogue declares. OPTIONS follows by
     /// the same chapters and bands, one line per option naming its selected
     /// arm and its kind (Recommended (SHOULD), Optional (MAY), or
-    /// @SpecDiverge for an option that exists only because the released text
+    /// `@SpecDiverge` for an option that exists only because the released text
     /// is unclear), with the cases resting on TRIAL text in their band. A
-    /// closing note counts the cases tagged @SpecDiverge and links the
+    /// closing note counts the cases tagged `@SpecDiverge` and links the
     /// reports they are judged by. Every mark is a glyph as well
     /// as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow),
     /// ! advisory and ○ skipped (grey). An advisory row is a SHOULD the
