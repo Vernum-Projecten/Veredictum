@@ -780,10 +780,6 @@ mod tests {
         );
         assert_eq!(token(&veredictum::vocab::Tier::SecBasic)?, "SEC-BASIC");
         assert_eq!(token(&veredictum::vocab::FormatName::WtFlat)?, "wt-flat");
-        assert_eq!(
-            token(&veredictum::perf::ClassVerdict::NotEarned)?,
-            "not-earned"
-        );
         Ok(())
     }
 

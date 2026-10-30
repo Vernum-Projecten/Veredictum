@@ -22,6 +22,7 @@
 pub mod load;
 pub mod manifest;
 pub mod ops;
+pub mod payloads;
 pub mod plan;
 pub mod wire;
 

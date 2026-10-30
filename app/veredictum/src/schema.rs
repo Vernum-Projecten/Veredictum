@@ -24,10 +24,7 @@
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use crate::party::{
-    IdentitySource, InstrumentStatus, OutcomeStatus, SelectionBasis, TechProfileSource,
-    VerificationPackStatus,
-};
+use crate::party::{IdentitySource, InstrumentStatus};
 use crate::vocab::{FormatName, ItsName, SpecComponent, Tier};
 
 /// The schema version stamped into every `$id` (bumps with the schedule
@@ -66,7 +63,6 @@ fn urn(name: &str) -> String {
     format!("urn:openehr:cnf:schema:{name}:{SCHEMA_VERSION}")
 }
 
-const CASE_ID_PATTERN: &str = "^\\S+$";
 const IDENT_PATTERN: &str = "^[A-Za-z_][A-Za-z0-9_]*$";
 const CORPUS_KEY_PATTERN: &str = "^[a-z0-9_-]+(\\.[a-z0-9_-]+)*$";
 const OPTION_TAG_PATTERN: &str = "^[a-z0-9_-]+$";
@@ -88,24 +84,6 @@ fn tech_profile_def() -> Value {
         "properties": {
             "its": { "enum": tokens(ItsName::ALL) },
             "formats": { "type": "array", "items": { "enum": tokens(FormatName::ALL) } }
-        }
-    })
-}
-
-/// The technology profile a results document RECORDS: the declared shape plus
-/// the provenance of the recorded format list.
-fn recorded_tech_profile_def() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["its"],
-        "properties": {
-            "its": { "enum": tokens(ItsName::ALL) },
-            "formats": { "type": "array", "items": { "enum": tokens(FormatName::ALL) } },
-            "source": {
-                "enum": tokens(TechProfileSource::ALL),
-                "description": "Where the recorded format list came from: `declared` when the party statement's tech_profiles entry for this ITS named it, `defaulted` when no declaration named this ITS and every format the instrument speaks was recorded instead. The recorded list is what the verdict pipeline selects gating records with, so the two carry different claims: a defaulted list keeps a red row in an unlisted format from vanishing behind a pass, and it is not a party's claim about the formats it serves. Absent only in a document written before the member existed, where absence is unknown and never either source."
-            }
         }
     })
 }
@@ -168,15 +146,6 @@ pub fn statement_schema() -> Value {
                 "items": tech_profile_def()
             },
             "options": string_array(Some(OPTION_TAG_PATTERN)),
-            "performance": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["class", "environment_ref"],
-                "properties": {
-                    "class": { "enum": perf_class_tokens() },
-                    "environment_ref": { "type": "string", "minLength": 1 }
-                }
-            },
             "non_functional": { "type": "object" },
             "evidence": {
                 "type": "array",
@@ -202,44 +171,6 @@ pub fn statement_schema() -> Value {
                 }
             }
         }
-    })
-}
-
-/// One case×format outcome record, as the results document and the evidence
-/// bundle both carry it.
-fn outcome_record_def() -> Value {
-    let row_record = json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["row", "step", "reason"],
-        "properties": {
-            "row": { "type": "integer", "minimum": 0 },
-            "step": { "type": "integer", "minimum": 0 },
-            "reason": { "type": "string", "minLength": 1 }
-        }
-    });
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["case", "status", "rows_driven", "rows_total"],
-        "properties": {
-            "case": { "type": "string", "pattern": CASE_ID_PATTERN },
-            "format": { "enum": tokens(FormatName::ALL) },
-            "status": { "enum": tokens(OutcomeStatus::ALL) },
-            "rows_driven": { "type": "integer", "minimum": 0 },
-            "rows_total": { "type": "integer", "minimum": 0 },
-            "failing_step": { "type": "integer", "minimum": 0 },
-            "reason": { "type": "string" },
-            "citation": { "type": "string" },
-            "failed_rows": { "type": "array", "items": row_record },
-            "errored_rows": { "type": "array", "items": row_record }
-        },
-        "allOf": [
-            { "if": { "properties": { "status": { "enum": ["skipped", "not_applicable"] } },
-                      "required": ["status"] },
-              "then": { "required": ["case", "status", "rows_driven", "rows_total", "citation"],
-                        "properties": { "citation": { "type": "string", "minLength": 1 } } } }
-        ]
     })
 }
 
@@ -277,79 +208,6 @@ fn instrument_status_def() -> Value {
     json!({
         "enum": tokens(InstrumentStatus::ALL),
         "description": "The approval status of the instrument that wrote this document, derived from its own version: pre-approval for every 0.x version, which the openEHR SEC has not approved, and sec-approved from 1.0.0, which marks that approval."
-    })
-}
-
-/// `results.json` — the party results (the campaign outcomes).
-#[must_use]
-pub fn results_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("results"),
-        "title": "CNF 2.0 party results",
-        "description": "The campaign outcomes for one technology profile: per-case×format outcome records (with mandatory citations on skipped/not_applicable), the performance measurements, and provenance (SUT/runner/ixit digest).",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["sut", "runner", "instrument_status", "schedule_release", "tech_profile", "ixit_digest"],
-        "properties": {
-            "sut": sut_def(),
-            "runner": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["name", "version", "verification_pack_status"],
-                "properties": {
-                    "name": { "type": "string", "minLength": 1 },
-                    "version": { "type": "string", "minLength": 1 },
-                    "verification_pack_status": { "enum": tokens(VerificationPackStatus::ALL) }
-                }
-            },
-            "instrument_status": instrument_status_def(),
-            "schedule_release": { "type": "string", "minLength": 1 },
-            "tech_profile": recorded_tech_profile_def(),
-            "ixit_digest": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{16}$",
-                "description": "The leading 8 bytes of the SHA-256 over the ixit declaration this campaign was driven under, lowercase hex, computed over the document's bytes with nothing canonicalized first. A reader holding that declaration re-derives it with `sha256sum ixit.json | cut -c1-16`."
-            },
-            "statement_digest": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{16}$",
-                "description": "The leading 8 bytes of the SHA-256 over the party statement this campaign was selected under, lowercase hex, computed over the document's bytes with nothing canonicalized first. A reader holding that statement re-derives it with `sha256sum statement.json | cut -c1-16`, which is what tells one claim from another claim declaring the same its-rest formats. Absent for a campaign no statement selected (selection_basis statement_blind), and absent in a document written before the member existed, where the identity is unknown and never a match."
-            },
-            "selection_basis": {
-                "enum": tokens(SelectionBasis::ALL),
-                "description": "What ISO/IEC 9646 test selection had to select this campaign with: `statement` when a party statement (ICS) was supplied, `statement_blind` when none was. A blind campaign is a sweep of the whole catalogue rather than a party-scoped record — nothing selected the party's option arms, extension routes, claimed capabilities or release floors, and the cases whose failure that absence would manufacture (an unselected arm of a mutually exclusive option_select branch, an extension route no released text governs) are recorded not_applicable with their citation. Absent only in a document written before the member existed, where absence is unknown and never either basis."
-            },
-            "outcomes": {
-                "type": "array",
-                "items": outcome_record_def()
-            },
-            "measurements": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["case", "class", "environment", "offered_load_sustained",
-                                  "warmup_s", "duration_s", "operations", "verdict"],
-                    "properties": {
-                        "case": { "type": "string", "pattern": CASE_ID_PATTERN },
-                        "class": { "enum": perf_class_tokens() },
-                        "environment": environment_def(),
-                        "offered_load_sustained": { "type": "number", "minimum": 0.0 },
-                        "warmup_s": { "type": "integer", "minimum": 0 },
-                        "duration_s": { "type": "integer", "minimum": 1 },
-                        "operations": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": operation_measurement_def()
-                        },
-                        "verdict": { "enum": ["earned", "not-earned"] },
-                        "violations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-                        "resources": resources_def()
-                    }
-                }
-            }
-        }
     })
 }
 
@@ -598,68 +456,6 @@ fn ixit_smart_def() -> Value {
     })
 }
 
-/// The resource-telemetry block of one measurement record or stress step
-/// — measured CONTEXT, never verdict-bearing: per-container CPU/RSS/I/O
-/// series on a fixed cadence (run-clock offsets, phase-stamped) plus, on
-/// measured class runs only, the database volume's four disk anchors
-/// (stress steps stay anchor-free — exploration stays light). Optional:
-/// absent when the ixit declares no `containers` block or the container
-/// runtime was unreachable.
-fn resources_def() -> Value {
-    let byte_counter = json!({ "type": "integer", "minimum": 0 });
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["sample_interval_s", "containers"],
-        "properties": {
-            "sample_interval_s": { "type": "integer", "minimum": 1 },
-            "containers": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["role", "name", "samples"],
-                    "properties": {
-                        "role": { "enum": tokens(crate::perf::ContainerRole::ALL) },
-                        "name": { "type": "string", "minLength": 1 },
-                        "samples": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": ["offset_s", "phase", "cpu_pct", "rss_bytes",
-                                              "blk_read_bytes", "blk_write_bytes",
-                                              "net_rx_bytes", "net_tx_bytes"],
-                                "properties": {
-                                    "offset_s": { "type": "integer", "minimum": 0 },
-                                    "phase": { "enum": tokens(crate::perf::ResourcePhase::ALL) },
-                                    "cpu_pct": { "type": "number", "minimum": 0.0 },
-                                    "rss_bytes": byte_counter.clone(),
-                                    "blk_read_bytes": byte_counter.clone(),
-                                    "blk_write_bytes": byte_counter.clone(),
-                                    "net_rx_bytes": byte_counter.clone(),
-                                    "net_tx_bytes": byte_counter.clone()
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "disk": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                    "before_scale_seed_bytes": byte_counter.clone(),
-                    "after_scale_seed_bytes": byte_counter.clone(),
-                    "after_ward_seed_bytes": byte_counter.clone(),
-                    "after_window_bytes": byte_counter.clone(),
-                    "seed_compositions": { "type": "integer", "minimum": 1 }
-                }
-            }
-        }
-    })
-}
-
 /// The ixit environment block as a party declares it: a conformance run
 /// reads only `exclusive_server`, and a measured run refuses an IXIT lacking
 /// any other member, naming it.
@@ -693,143 +489,6 @@ fn environment_def() -> Value {
     })
 }
 
-/// One per-operation measurement record (shared by the results.json
-/// `measurements` block and the stress report's steps): counts, summary
-/// percentiles, and the re-checkable base64 HDR V2 histogram.
-fn operation_measurement_def() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["operation", "requests", "errors",
-                      "latency_ms_p50", "latency_ms_p90",
-                      "latency_ms_p99", "hdr_v2_base64"],
-        "properties": {
-            "operation": { "type": "string", "minLength": 1 },
-            "requests": { "type": "integer", "minimum": 0 },
-            "errors": { "type": "integer", "minimum": 0 },
-            "latency_ms_p50": { "type": "number", "minimum": 0.0 },
-            "latency_ms_p90": { "type": "number", "minimum": 0.0 },
-            "latency_ms_p99": { "type": "number", "minimum": 0.0 },
-            "hdr_v2_base64": { "type": "string", "minLength": 1 }
-        }
-    })
-}
-
-/// `stress.json` — the step-load stress report (exploration only: the
-/// maximum sustainable throughput, never a conformance record).
-#[must_use]
-pub fn stress_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("stress"),
-        "title": "CNF 2.0 stress report",
-        "description": "The step-load stress instrument's exploration artifact: geometric load steps (each with re-checkable HDR V2 records) to the maximum sustainable throughput — where the system breaks — run on a class-scale corpus, environment-bound; never a conformance record, and floor-free by design.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["corpus", "environment", "step_warmup_s", "step_hold_s",
-                      "p99_budget_ms", "error_budget", "steps",
-                      "max_sustainable_throughput_per_s", "ladder_capped",
-                      "generator_bound", "remark"],
-        "properties": {
-            "corpus": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-            "environment": environment_def(),
-            "step_warmup_s": { "type": "integer", "minimum": 0 },
-            "step_hold_s": { "type": "integer", "minimum": 1 },
-            "p99_budget_ms": { "type": "number", "exclusiveMinimum": 0.0 },
-            "error_budget": { "type": "number", "minimum": 0.0 },
-            "steps": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["rate", "offered_load_sustained", "operations",
-                                  "stable", "generator_bound"],
-                    "properties": {
-                        "rate": { "type": "number", "exclusiveMinimum": 0.0 },
-                        "offered_load_sustained": { "type": "number", "minimum": 0.0 },
-                        "operations": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": operation_measurement_def()
-                        },
-                        "stable": { "type": "boolean" },
-                        "breaches": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-                        "generator_bound": { "type": "boolean" },
-                        "resources": resources_def()
-                    }
-                }
-            },
-            "max_sustainable_throughput_per_s": { "type": "number", "minimum": 0.0 },
-            "ladder_capped": { "type": "boolean" },
-            "generator_bound": { "type": "boolean" },
-            "remark": { "type": "string", "minLength": 1 }
-        }
-    })
-}
-
-/// The published performance-class tokens, ladder order.
-fn perf_class_tokens() -> Vec<&'static str> {
-    crate::perf::PerfClass::ALL
-        .iter()
-        .map(|c| c.token())
-        .collect()
-}
-
-/// The performance cases under the performance schedule's `classes/`
-/// (conformance-by-measurement).
-#[must_use]
-pub fn performance_case_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("performance-case"),
-        "title": "CNF 2.0 performance case",
-        "description": "A kind: performance case — open-loop offered load against class thresholds; verdicts are measured (earned | not-earned), bound to the ixit environment block.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "kind", "component", "description", "test_purpose", "spec_refs", "class", "corpus", "workload", "thresholds"],
-        "properties": {
-            "id": { "type": "string", "pattern": CASE_ID_PATTERN },
-            "kind": { "const": "performance" },
-            "component": { "const": "PERFORMANCE" },
-            "description": { "type": "string", "minLength": 1 },
-            "test_purpose": { "type": "string", "minLength": 1 },
-            "spec_refs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-            "class": { "enum": ["POC", "S", "L", "R"] },
-            "corpus": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-            "workload": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["arrival_rate", "warmup", "duration", "journeys"],
-                "properties": {
-                    "arrival_rate": { "type": "string", "pattern": "^[0-9.]+/s$" },
-                    "warmup": { "type": "string", "pattern": "^PT([0-9]+H)?([0-9]+M)?([0-9]+S)?$" },
-                    "duration": { "type": "string", "pattern": "^PT([0-9]+H)?([0-9]+M)?([0-9]+S)?$" },
-                    "arrival_curve": { "enum": ["uniform", "diurnal"] },
-                    "journeys": { "type": "object", "minProperties": 1,
-                              "propertyNames": { "pattern": IDENT_PATTERN },
-                              "additionalProperties": { "type": "string", "pattern": "^[0-9.]+%$" } }
-                }
-            },
-            "thresholds": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["metric"],
-                    "properties": {
-                        "metric": { "enum": ["latency_p50", "latency_p90", "latency_p99", "error_rate", "offered_load_sustained"] },
-                        "operation": { "type": "string" },
-                        "max": { "type": "number" },
-                        "min": { "type": "number" }
-                    }
-                }
-            }
-        }
-    })
-}
-
 /// The performance schedule's `payloads.yaml` — every request body and
 /// operational template the measured instruments send.
 #[must_use]
@@ -838,7 +497,7 @@ pub fn perf_payloads_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("perf-payloads"),
         "title": "Performance schedule payload manifest",
-        "description": "Every payload the measured instruments send, keyed by the name a journey stage or the seeder uses: its file under payloads/, the operational template's wire identifier where it has one, and its provenance. No openEHR spec governs measured performance (CNF guide master03-overview.adoc §Product Scope) — our own design.",
+        "description": "Every payload a workload sends, keyed by the name a workload or the seeder reads it by: its file under payloads/, the operational template's wire identifier where it has one, the digest a reproduced payload is pinned at, and its provenance. A template's `.example` skeleton and `.invalid_twin` sit beside it under the template's key. No openEHR spec governs measured performance (CNF guide master03-overview.adoc: \"Non-functional conformance (performance, etc) is not addressed by this guide\") — our own design.",
         "type": "object",
         "minProperties": 1,
         "propertyNames": { "pattern": CORPUS_KEY_PATTERN },
@@ -849,6 +508,7 @@ pub fn perf_payloads_schema() -> Value {
             "properties": {
                 "source": { "type": "string", "minLength": 1 },
                 "template_id": { "type": "string", "minLength": 1 },
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The lowercase hex sha256 the file's bytes are pinned at, for a payload reproduced from a published source; loading refuses bytes that hash otherwise." },
                 "provenance": { "type": "string", "minLength": 1 }
             }
         }
@@ -1138,71 +798,6 @@ pub fn perf_workloads_schema() -> Value {
         "required": ["workloads"],
         "properties": {
             "workloads": { "type": "array", "items": workload }
-        }
-    })
-}
-
-/// The published journey-operation tokens, vocabulary order.
-fn perf_op_tokens() -> Vec<&'static str> {
-    crate::perf::PerfOp::ALL
-        .iter()
-        .map(|op| op.as_str())
-        .collect()
-}
-
-/// The performance schedule's `journeys.yaml` — the hospital-simulation
-/// journey vocabulary the performance workloads decompose into.
-#[must_use]
-pub fn journey_catalogue_schema() -> Value {
-    let duration_pattern = "^PT([0-9]+H)?([0-9]+M)?([0-9]+S)?$";
-    let offset = json!({
-        "oneOf": [
-            { "type": "string", "pattern": duration_pattern },
-            { "type": "object", "additionalProperties": false,
-              "required": ["uniform"],
-              "properties": { "uniform": {
-                  "type": "array", "minItems": 2, "maxItems": 2,
-                  "items": { "type": "string", "pattern": duration_pattern } } } },
-            { "type": "object", "additionalProperties": false,
-              "required": ["periodic"],
-              "properties": { "periodic": {
-                  "type": "object", "additionalProperties": false,
-                  "required": ["interval", "count"],
-                  "properties": {
-                      "interval": { "type": "string", "pattern": duration_pattern },
-                      "count": { "type": "integer", "minimum": 1 } } } } }
-        ]
-    });
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("journey-catalogue"),
-        "title": "CNF 2.0 journey catalogue",
-        "description": "The hospital-simulation vocabulary: clinical journeys as ordered, time-offset operation sequences over the closed operation vocabulary; commit/update stages name their payload in perf/payloads.yaml; each journey cites its activity-statistics derivation. No openEHR spec governs measured performance (CNF guide master03-overview.adoc §Product Scope) — our own design/extension.",
-        "type": "object",
-        "minProperties": 1,
-        "propertyNames": { "pattern": IDENT_PATTERN },
-        "additionalProperties": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["description", "derivation", "stages"],
-            "properties": {
-                "description": { "type": "string", "minLength": 1 },
-                "derivation": { "type": "string", "minLength": 1 },
-                "stages": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": ["op", "at"],
-                        "properties": {
-                            "op": { "enum": perf_op_tokens() },
-                            "template": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-                            "at": offset
-                        }
-                    }
-                }
-            }
         }
     })
 }
@@ -2870,14 +2465,10 @@ pub fn perf_compare_schema() -> Value {
 pub fn emit_all() -> Vec<(&'static str, Value)> {
     vec![
         ("statement.schema.json", statement_schema()),
-        ("results.schema.json", results_schema()),
         ("ixit.schema.json", ixit_schema()),
-        ("performance-case.schema.json", performance_case_schema()),
-        ("journey-catalogue.schema.json", journey_catalogue_schema()),
         ("perf-payloads.schema.json", perf_payloads_schema()),
         ("perf-workload.schema.json", perf_workload_schema()),
         ("perf-workloads.schema.json", perf_workloads_schema()),
-        ("stress.schema.json", stress_schema()),
         ("perf-result.schema.json", perf_result_schema()),
         ("perf-host.schema.json", perf_host_schema()),
         ("perf-compare.schema.json", perf_compare_schema()),

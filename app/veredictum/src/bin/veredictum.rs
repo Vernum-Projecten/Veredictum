@@ -37,20 +37,13 @@ use veredictum::arazzo::credential::AuthKind;
 use veredictum::arazzo::credential::{CredentialSource, Role};
 use veredictum::arazzo::terminal::{ColorChoice, ShowOptions, render, wants_color};
 use veredictum::certificate::{HONESTY_LINE, Jwks, Outcome, verify};
-use veredictum::identity::OperatorIdentity;
 use veredictum::party::version_line;
 use veredictum::perf_emulate::posture::PostureProfile;
 use veredictum::perf_result::compare::DEFAULT_TOLERANCE;
 use veredictum::perf_result::host::NetworkLeg;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
-use veredictum::pipeline::assets::{
-    perf_result_assets, performance_assets, schema_files, stress_overlay,
-};
-use veredictum::pipeline::export::{Exports, export_document, is_perf_result, show_results};
-use veredictum::pipeline::judgement::{JudgementRequest, judge};
-use veredictum::pipeline::measured::{
-    MeasuredEvent, MeasuredRequest, StressRequest, SustainedWindow, run_measured, run_stress,
-};
+use veredictum::pipeline::assets::{perf_result_assets, schema_files};
+use veredictum::pipeline::export::{Exports, export_document, show_results};
 use veredictum::pipeline::perf_compare::{
     InterleavedRequest, align_records, run_compare, run_with_baselines, write_comparison,
 };
@@ -256,153 +249,75 @@ enum Command {
         #[arg(long)]
         statement: Option<PathBuf>,
     },
-    /// Run a workload document against a live SUT and write one
-    /// `perf-result` (`--workload`), or execute the performance schedule's
-    /// class run and merge its measurement records into a results.json
-    /// (`--class`).
+    /// Run a workload document against a live server and write one
+    /// `perf-result`.
     ///
-    /// With `--workload`, the corpus is seeded (or reused with `--corpus
-    /// reuse`) before the clock, then the run takes at most ten minutes:
-    /// settle, warm-up, a scout ramp, a ladder of four plateaus at multiples
-    /// of the knee estimate, and the closing canaries. The planned duration
-    /// is printed before the first measured request. A server that answers
-    /// any exchange `429` gets no record.
-    ///
-    /// With `--class`:
-    /// A new record carries the SUT identity the server states through System
-    /// OPTIONS, read before any seeding, with `--sut-name` and `--sut-version`
-    /// filling what it does not state. It records no conformance outcome:
-    /// nothing selected a statement, so it is `statement_blind`, and the
-    /// verification pack is `not_run`. An existing file keeps its header and
-    /// gains or replaces the measured case's record.
+    /// The corpus is seeded (or reused with `--corpus reuse`) before the
+    /// clock, closed-loop and reported apart. The posture canaries then take
+    /// their first bracket, and the run after seeding takes at most ten
+    /// minutes: a 15 s settle, a 20 s warm-up, a 60 s scout ramp judged in
+    /// 2 s windows, a drain, a ladder of four plateaus at 0.5, 0.75, 0.9 and
+    /// 1.05 times the knee estimate (a fifth at 0.25 only when the lowest
+    /// fails), and the closing canaries. The planned duration is printed
+    /// before the first measured request. A server that answers any exchange
+    /// `429` gets no record, and a canary that contradicts the declared
+    /// posture refuses the run.
     Perf {
-        /// The performance schedule root, `perf/` in this repository
-        /// (workloads/, payloads.yaml, payloads/, and for `--class` the
-        /// classes/ and journeys.yaml)
+        /// The performance root, `perf/` in this repository (workloads/,
+        /// payloads.yaml, payloads/, hosts/).
         #[arg(long)]
         root: PathBuf,
-        /// The ixit topology file (JSON) — its environment block is
-        /// mandatory for a measured run.
+        /// The ixit topology file (JSON); its environment block is mandatory
+        /// for a measured run.
         #[arg(long)]
         ixit: PathBuf,
         /// The workload document to run, an embedded one under
         /// `perf/workloads/` or the evaluator's own (labelled `custom`).
-        #[arg(long, required_unless_present = "class", conflicts_with_all = ["class", "results", "hours", "sut_name", "sut_version"])]
-        workload: Option<PathBuf>,
-        /// Where `--workload` writes its `perf-result` record.
-        #[arg(
-            long,
-            requires = "workload",
-            required_unless_present = "class",
-            conflicts_with = "class"
-        )]
-        out: Option<PathBuf>,
+        #[arg(long)]
+        workload: PathBuf,
+        /// Where the `perf-result` record is written.
+        #[arg(long)]
+        out: PathBuf,
         /// The catalogue root a workload's `requires` resolve against.
-        #[arg(
-            long,
-            default_value = "catalogue",
-            requires = "workload",
-            conflicts_with = "class"
-        )]
+        #[arg(long, default_value = "catalogue")]
         catalogue: PathBuf,
         /// A statement whose claims keep the interactions it covers and
         /// drop the rest, with the drop recorded.
-        #[arg(long, requires = "workload", conflicts_with = "class")]
+        #[arg(long)]
         statement: Option<PathBuf>,
         /// Seed the workload's corpus, or reuse the stored one: a reuse is
         /// refused before the warm-up when the server's read-back counts or
         /// the stored digest differ.
-        #[arg(long, value_enum, default_value_t = CorpusArg::Seed, requires = "workload", conflicts_with = "class")]
+        #[arg(long, value_enum, default_value_t = CorpusArg::Seed)]
         corpus: CorpusArg,
         /// The stored corpus state a seeding writes and a reuse reads;
         /// defaults to the record's path with the extension `corpus.json`.
-        #[arg(long, requires = "workload", conflicts_with = "class")]
+        #[arg(long)]
         corpus_state: Option<PathBuf>,
+        /// Parallel closed-loop seeding workers.
+        #[arg(long, default_value_t = 16)]
+        seed_workers: usize,
         /// The warm-up's rate and the scout's starting rate, operations per
         /// second.
-        #[arg(long, default_value_t = veredictum::perf_emulate::run::DEFAULT_START_RATE, requires = "workload", conflicts_with = "class")]
+        #[arg(long, default_value_t = veredictum::perf_emulate::run::DEFAULT_START_RATE)]
         start_rate: f64,
         /// The scout ramp's end rate, operations per second.
-        #[arg(long, default_value_t = veredictum::perf_emulate::run::DEFAULT_SCOUT_END_RATE, requires = "workload", conflicts_with = "class")]
+        #[arg(long, default_value_t = veredictum::perf_emulate::run::DEFAULT_SCOUT_END_RATE)]
         scout_end_rate: f64,
         /// The id of the host prescription under `perf/hosts/` the run
         /// claims to have run on; the record reads the generator's measured
         /// fingerprint against it.
-        #[arg(long, requires = "workload", conflicts_with = "class")]
+        #[arg(long)]
         host_prescription: Option<String>,
         /// Where the load generator sits relative to the server.
-        #[arg(long, value_enum, default_value_t = NetworkLegArg::SameHost, requires = "workload", conflicts_with = "class")]
+        #[arg(long, value_enum, default_value_t = NetworkLegArg::SameHost)]
         network_leg: NetworkLegArg,
         /// The posture profile the run declares: `minimal`,
         /// `minimal-signed-digest`, `minimal-signed-pgp` or `clinical-default`.
         /// The canaries check it after seeding and after the last plateau,
         /// and a contradiction refuses the run.
-        #[arg(
-            long,
-            default_value = "minimal",
-            requires = "workload",
-            conflicts_with = "class"
-        )]
+        #[arg(long, default_value = "minimal")]
         posture: String,
-        /// The measured results record (`results.schema.json`) to merge the
-        /// measurement records into; created when no file exists at the path.
-        #[arg(long, required_unless_present = "workload")]
-        results: Option<PathBuf>,
-        /// The SUT name a new record carries when the server does not state
-        /// one through System OPTIONS. Unread when `--results` exists.
-        #[arg(long)]
-        sut_name: Option<String>,
-        /// The SUT version a new record carries when the server does not
-        /// state one through System OPTIONS. Unread when `--results` exists.
-        #[arg(long)]
-        sut_version: Option<String>,
-        /// Select the performance case(s) of this class (POC | S | L | R).
-        #[arg(long)]
-        class: Option<String>,
-        /// Parallel seeding workers.
-        #[arg(long, default_value_t = 16)]
-        seed_workers: usize,
-        /// The sustained-window ladder of `--class`: hours to hold the
-        /// offered load — 1 (default, the case's normative window) | 2 | 4 |
-        /// 6 | 8 | 12.
-        #[arg(long, default_value_t = 1)]
-        hours: u64,
-    },
-    /// Run the step-load STRESS instrument: geometric load steps to the
-    /// maximum sustainable throughput — where the system breaks
-    /// (exploration only; never a conformance record, and class-free by
-    /// design).
-    Stress {
-        /// The performance schedule root, `perf/` in this repository
-        /// (classes/, journeys.yaml, payloads.yaml, payloads/)
-        #[arg(long)]
-        root: PathBuf,
-        /// The ixit topology file (JSON) — its environment block is
-        /// mandatory (a throughput number without the deployment described
-        /// is meaningless).
-        #[arg(long)]
-        ixit: PathBuf,
-        /// Where to write the stress report (stress.json).
-        #[arg(long)]
-        out: PathBuf,
-        /// The class-scale corpus the stress runs on (POC | S | L | R —
-        /// the standardized corpus selector): data volume + workload mix
-        /// only; no class floor enters the stress report or chart.
-        #[arg(long, default_value = "POC")]
-        corpus_class: String,
-        /// Parallel seeding workers.
-        #[arg(long, default_value_t = 16)]
-        seed_workers: usize,
-        /// Each load step's recorded hold, seconds (short + intense by
-        /// design).
-        #[arg(long, default_value_t = 120)]
-        step_secs: u64,
-        /// Post-breach bisection refinements.
-        #[arg(long, default_value_t = 3)]
-        bisections: u32,
-        /// The climb cap (arrivals/s).
-        #[arg(long, default_value_t = 4096.0)]
-        max_rate: f64,
     },
     /// Load the performance workloads through their gates and print, for each,
     /// the expanded per-operation mix, its read:write ratio and the planned run
@@ -487,79 +402,27 @@ enum Command {
         #[arg(long)]
         out: Option<PathBuf>,
     },
-    /// Render the cross-SUT stress overlay (both systems' latency-throughput
-    /// curves on one canvas) FROM two committed stress reports —
-    /// deterministic, both directions on equal footing.
-    StressCompare {
-        /// The primary SUT's committed stress.json.
-        #[arg(long)]
-        left: PathBuf,
-        /// The primary SUT's display label.
-        #[arg(long)]
-        left_label: String,
-        /// The comparison SUT's committed stress.json.
-        #[arg(long)]
-        right: PathBuf,
-        /// The comparison SUT's display label.
-        #[arg(long)]
-        right_label: String,
-        /// Where to write the overlay SVG.
-        #[arg(long)]
-        out: PathBuf,
-    },
-    /// Render the published performance SVG assets from a committed
-    /// record, deterministically: the same record always draws the same
-    /// bytes.
+    /// Render the charts of a `perf-result` as SVG, deterministically: the
+    /// same record always draws the same bytes.
     ///
-    /// From a `perf-result`, told apart by its `family`, three charts:
-    /// `perf-saturation.svg` (p50, p95 and p99 against achieved throughput
-    /// over the scout windows and the plateaus, the knee bracket shaded, the
-    /// Universal Scalability Law fit dashed), `perf-throughput.svg` (achieved
-    /// against offered with the identity line) and `perf-operations.svg`
-    /// (each operation's latency at the knee at its judged quantile, beside
-    /// its budget). A quantile that does not resolve is marked below the
-    /// plot and never joined to its neighbours. `--root` and `--stress` do
-    /// not apply to it. From a class `results.json`, the class ladder,
-    /// latency, resource and stress charts.
+    /// Three charts: `perf-saturation.svg` (p50, p95 and p99 against achieved
+    /// throughput over the scout windows and the plateaus, the knee bracket
+    /// shaded, the Universal Scalability Law fit dashed), `perf-throughput.svg`
+    /// (achieved against offered with the identity line) and
+    /// `perf-operations.svg` (each operation's latency at the knee at its
+    /// judged quantile, beside its budget). A quantile that does not resolve
+    /// is marked below the plot and never joined to its neighbours.
     PerfAssets {
-        /// The performance schedule root, `perf/` in this repository (for the
-        /// class-ladder floors); a class `results.json` needs it.
-        #[arg(long)]
-        root: Option<PathBuf>,
-        /// The committed `perf-result.json`, or a class `results.json`
-        /// carrying the measurement records.
+        /// The committed `perf-result.json`.
         #[arg(long)]
         results: PathBuf,
         /// Output directory for the SVG files.
         #[arg(long)]
         out: PathBuf,
-        /// Also write the generated Markdown summary to this path, the
-        /// book's build-time include: the `export --markdown` view of a
-        /// `perf-result`, or the class ladder with its measured detail.
+        /// Also write the `export --markdown` view of the record to this
+        /// path, the book's build-time include.
         #[arg(long)]
         summary: Option<PathBuf>,
-        /// A committed stress report (stress.json) to render the
-        /// latency-throughput curve from, when one exists.
-        #[arg(long)]
-        stress: Option<PathBuf>,
-    },
-    /// Re-derive the measured performance-class verdicts from a statement and
-    /// a results record against the performance schedule (the pure
-    /// pipeline), and write them as `verdicts.json`.
-    Verdicts {
-        /// The party statement (`statement.json`).
-        #[arg(long)]
-        statement: PathBuf,
-        /// The party results (`results.json`).
-        #[arg(long)]
-        results: PathBuf,
-        /// The performance schedule root, `perf/` in this repository
-        /// (classes/, journeys.yaml, payloads.yaml, payloads/).
-        #[arg(long)]
-        root: PathBuf,
-        /// Output directory for verdicts.json.
-        #[arg(long)]
-        out: PathBuf,
     },
     /// Re-derive every number of a `perf-result` record from its recorded
     /// histograms, and compare the result with the record byte for byte.
@@ -808,88 +671,37 @@ fn main() -> ExitCode {
             statement,
             corpus,
             corpus_state,
+            seed_workers,
             start_rate,
             scout_end_rate,
             host_prescription,
             network_leg,
             posture,
-            results,
-            sut_name,
-            sut_version,
-            class,
-            seed_workers,
-            hours,
-        } => match (workload, out, class, results) {
-            (Some(workload), Some(out), None, None) => {
-                let posture = match PostureProfile::by_name(&posture) {
-                    Ok(profile) => profile,
-                    Err(e) => return fail(&e),
-                };
-                let corpus_state =
-                    corpus_state.unwrap_or_else(|| out.with_extension("corpus.json"));
-                perf_workload_command(&WorkloadRunRequest {
-                    settings: WorkloadSettings {
-                        root: &root,
-                        catalogue: &catalogue,
-                        workload: &workload,
-                        statement: statement.as_deref(),
-                        corpus: corpus.into(),
-                        seed_workers,
-                        start_rate,
-                        scout_end_rate,
-                        host_prescription,
-                        network_leg: network_leg.into(),
-                        posture,
-                    },
-                    ixit: &ixit,
-                    out: &out,
-                    corpus_state,
-                })
-            }
-            (None, _, Some(class), Some(results)) => perf_command(
-                &root,
-                &ixit,
-                &results,
-                OperatorIdentity {
-                    name: sut_name.as_deref(),
-                    version: sut_version.as_deref(),
+        } => {
+            let posture = match PostureProfile::by_name(&posture) {
+                Ok(profile) => profile,
+                Err(e) => return fail(&e),
+            };
+            let corpus_state = corpus_state.unwrap_or_else(|| out.with_extension("corpus.json"));
+            perf_workload_command(&WorkloadRunRequest {
+                settings: WorkloadSettings {
+                    root: &root,
+                    catalogue: &catalogue,
+                    workload: &workload,
+                    statement: statement.as_deref(),
+                    corpus: corpus.into(),
+                    seed_workers,
+                    start_rate,
+                    scout_end_rate,
+                    host_prescription,
+                    network_leg: network_leg.into(),
+                    posture,
                 },
-                &class,
-                seed_workers,
-                hours,
-            ),
-            _ => {
-                eprintln!("perf takes either --workload with --out, or --class with --results");
-                ExitCode::from(2)
-            }
-        },
-        Command::Stress {
-            root,
-            ixit,
-            out,
-            corpus_class,
-            seed_workers,
-            step_secs,
-            bisections,
-            max_rate,
-        } => stress_command(
-            &StressRequest {
-                root: &root,
                 ixit: &ixit,
-                corpus_class: &corpus_class,
-                seed_workers,
-                step_secs,
-                bisections,
-                max_rate,
-            },
-            &out,
-        ),
-        Command::PerfWorkloads {
-            root,
-            catalogue,
-            out,
-            workload,
-        } => perf_workloads_command(&root, &catalogue, out.as_deref(), workload.as_deref()),
+                out: &out,
+                corpus_state,
+            })
+        }
         Command::PerfCompare {
             results,
             ab,
@@ -914,26 +726,17 @@ fn main() -> ExitCode {
                 out.as_deref(),
             )
         }
-        Command::StressCompare {
-            left,
-            left_label,
-            right,
-            right_label,
-            out,
-        } => stress_compare_command(&left, &left_label, &right, &right_label, &out),
-        Command::PerfAssets {
+        Command::PerfWorkloads {
             root,
+            catalogue,
+            out,
+            workload,
+        } => perf_workloads_command(&root, &catalogue, out.as_deref(), workload.as_deref()),
+        Command::PerfAssets {
             results,
             out,
             summary,
-            stress,
-        } => perf_assets_command(
-            root.as_deref(),
-            &results,
-            &out,
-            summary.as_deref(),
-            stress.as_deref(),
-        ),
+        } => perf_assets_command(&results, &out, summary.as_deref()),
         Command::Verify { certificate, jwks } => verify_command(&certificate, &jwks),
         Command::Show {
             results,
@@ -946,19 +749,6 @@ fn main() -> ExitCode {
             }
             Err(e) => fail(&e),
         },
-        Command::Verdicts {
-            statement,
-            results,
-            root,
-            out,
-        } => verdicts_command(
-            &JudgementRequest {
-                statement: &statement,
-                results: &results,
-                root: &root,
-            },
-            &out,
-        ),
         Command::PerfJudge { result } => perf_judge_command(&result),
     }
 }
@@ -1087,80 +877,8 @@ fn verify_command(certificate: &Path, jwks: &Path) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn verdicts_command(request: &JudgementRequest<'_>, out: &Path) -> ExitCode {
-    let judgement = match judge(request) {
-        Ok(judgement) => judgement,
-        Err(e) => return fail(&e),
-    };
-    if let Err(code) = emit(out, &judgement.documents) {
-        return code;
-    }
-    for finding in &judgement.report.review {
-        println!("static-review: {}", finding.message);
-    }
-    println!(
-        "{} performance verdict(s), {} review finding(s)",
-        judgement.report.performance.len(),
-        judgement.report.review.len(),
-    );
-    if judgement.is_clean() {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::from(1)
-    }
-}
-
-fn perf_assets_command(
-    root: Option<&Path>,
-    results: &Path,
-    out: &Path,
-    summary: Option<&Path>,
-    stress: Option<&Path>,
-) -> ExitCode {
-    match is_perf_result(results) {
-        Ok(true) => return perf_result_assets_command(results, out, summary, root, stress),
-        Ok(false) => {}
-        Err(e) => return fail(&e),
-    }
-    let Some(root) = root else {
-        eprintln!("perf-assets: a class results.json needs --root, the performance schedule");
-        return ExitCode::from(2);
-    };
-    let assets = match performance_assets(root, results, stress) {
-        Ok(assets) => assets,
-        Err(e) => return fail(&e),
-    };
-    if let Err(code) = emit(out, &assets.files) {
-        return code;
-    }
-    if let Some(path) = summary {
-        let body = match assets.summary_markdown() {
-            Ok(body) => body,
-            Err(e) => return fail(&e),
-        };
-        if let Err(code) = emit_one(path, &body) {
-            return code;
-        }
-        println!("wrote {}", path.display());
-    }
-    ExitCode::SUCCESS
-}
-
 /// Renders the charts and summary of a `perf-result`.
-fn perf_result_assets_command(
-    results: &Path,
-    out: &Path,
-    summary: Option<&Path>,
-    root: Option<&Path>,
-    stress: Option<&Path>,
-) -> ExitCode {
-    if root.is_some() || stress.is_some() {
-        eprintln!(
-            "perf-assets: {} is a perf-result, which --root and --stress do not apply to",
-            results.display()
-        );
-        return ExitCode::from(2);
-    }
+fn perf_assets_command(results: &Path, out: &Path, summary: Option<&Path>) -> ExitCode {
     let assets = match perf_result_assets(results) {
         Ok(assets) => assets,
         Err(e) => return fail(&e),
@@ -1177,48 +895,6 @@ fn perf_result_assets_command(
     ExitCode::SUCCESS
 }
 
-fn stress_compare_command(
-    left: &Path,
-    left_label: &str,
-    right: &Path,
-    right_label: &str,
-    out: &Path,
-) -> ExitCode {
-    let svg = match stress_overlay((left_label, left), (right_label, right)) {
-        Ok(svg) => svg,
-        Err(e) => return fail(&e),
-    };
-    if let Err(code) = emit_one(out, &svg) {
-        return code;
-    }
-    println!("wrote {}", out.display());
-    ExitCode::SUCCESS
-}
-
-fn stress_command(request: &StressRequest<'_>, out: &Path) -> ExitCode {
-    let progress = |message: String| eprintln!("[stress] {message}");
-    let report = match run_stress(request, &progress) {
-        Ok(report) => report,
-        Err(e) => return fail(&e),
-    };
-    let document = match to_json_document(&report, "serialize") {
-        Ok(document) => document,
-        Err(e) => return fail(&e),
-    };
-    if let Err(code) = emit_one(out, &document) {
-        return code;
-    }
-    println!("{}", report.remark);
-    println!(
-        "wrote {} ({} steps, max sustainable {:.1}/s)",
-        out.display(),
-        report.steps.len(),
-        report.max_sustainable_throughput_per_s
-    );
-    ExitCode::SUCCESS
-}
-
-/// Prints the server's identity document on stdout.
 /// What `test` drives: a server, or a recording.
 struct TestTarget<'a> {
     /// The server's base URL, for a live run.
@@ -1615,69 +1291,6 @@ fn perf_workload_command(request: &WorkloadRunRequest<'_>) -> ExitCode {
             println!("wrote {}", request.out.display());
             ExitCode::SUCCESS
         }
-        Err(e) => fail(&e),
-    }
-}
-
-fn perf_command(
-    root: &Path,
-    ixit: &Path,
-    results: &Path,
-    sut: OperatorIdentity<'_>,
-    class_token: &str,
-    seed_workers: usize,
-    hours: u64,
-) -> ExitCode {
-    let Some(window) = SustainedWindow::hours(hours) else {
-        eprintln!("--hours must be one of 1 | 2 | 4 | 6 | 8 | 12 (got {hours})");
-        return ExitCode::from(2);
-    };
-    let request = MeasuredRequest {
-        root,
-        ixit,
-        results,
-        sut,
-        class: class_token,
-        seed_workers,
-        window,
-    };
-    let observe = |event: MeasuredEvent<'_>| match event {
-        MeasuredEvent::Progress(message) => eprintln!("[perf] {message}"),
-        MeasuredEvent::CaseStarted { case, source } => println!(
-            "case {} (class {class_token}) from {}",
-            case.id,
-            source.display()
-        ),
-        MeasuredEvent::Measured(measurement) => {
-            for op in &measurement.operations {
-                println!(
-                    "  {}: {} requests, {} errors, p50 {:.1}ms p90 {:.1}ms p99 {:.1}ms",
-                    op.operation,
-                    op.requests,
-                    op.errors,
-                    op.latency_ms_p50,
-                    op.latency_ms_p90,
-                    op.latency_ms_p99
-                );
-            }
-            println!("  {}", veredictum::perf::verdict_evidence(measurement));
-        }
-        MeasuredEvent::PrunedOrphan(case) => {
-            println!("  pruned orphaned measurement for retired case {case}");
-        }
-        MeasuredEvent::Merged(path) => {
-            println!("  measurement merged into {}", path.display());
-        }
-        MeasuredEvent::Created(path) => {
-            println!(
-                "  measurement written into the new record {}",
-                path.display()
-            );
-        }
-    };
-    match run_measured(&request, &observe) {
-        Ok(run) if run.earned_all => ExitCode::SUCCESS,
-        Ok(_) => ExitCode::from(1),
         Err(e) => fail(&e),
     }
 }

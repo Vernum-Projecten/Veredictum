@@ -1,18 +1,20 @@
-# The payload manifest of the performance schedule: every request body and
-# operational template the measured instruments send, keyed by the name a
-# journey stage or the seeder uses. `source` resolves under payloads/,
-# `template_id` is the OPT's wire identifier where the payload has one, and
-# `provenance` records where the bytes come from.
+# The payload manifest: every request body and operational template a
+# workload sends, keyed by the name a workload or the seeder reads it by.
+# `source` resolves under payloads/, `template_id` is the OPT's wire
+# identifier where the payload has one, `sha256` pins the bytes of a payload
+# reproduced from a published source, and `provenance` records where the
+# bytes come from.
 #
 # No openEHR spec governs measured performance (CNF guide
 # master03-overview.adoc §Product Scope excludes it); this tree is our own
 # design. These files are the only copy: the case-core corpus they were
 # mirrored from was deleted at the cut-over (#604).
 #
-# A journey stage that commits names a template key here; the instrument
-# reads that key's OPT and its `.example` skeleton. The other keys are the
-# scale corpus OPT (cnf.opt.blood_pressure), the Simplified-FLAT pair and
-# the demographic bodies. An entry nothing reads is a load error.
+# A workload that commits names a template key here; the instrument reads
+# that key's OPT, its `.example` skeleton and, where one exists, its
+# `.invalid_twin`, which the commit-validation canary offers. The other keys
+# are the Simplified-FLAT pair and the demographic bodies. An entry no
+# workload reads is a load error.
 cnf.ckm.breast_cancer_report:
   source: ckm/bc-breast-cancer-report.opt
   template_id: "British Columbia Cancer agency Breast Cancer Synoptic Report"
@@ -36,14 +38,6 @@ cnf.ckm.covid19_report:
 cnf.ckm.covid19_report.example:
   source: ckm/covid19-infection-report.example.json
   template_id: "openEHR confirmed COVID-19 infection report.v0"
-  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
-cnf.ckm.diphtheria_investigation:
-  source: ckm/diphtheria-case-investigation.opt
-  template_id: "Diphtheria case investigation form"
-  provenance: "openEHR CKM cid 1013.26.980 (Diphtheria case investigation form, status INITIAL, modified 2024-12-30T01:55:25+01:00) — CKM's own OPT 1.4 export vendored verbatim by scripts/vendor/ckm-templates.sh 2026-07-22; journey role: case_investigation"
-cnf.ckm.diphtheria_investigation.example:
-  source: ckm/diphtheria-case-investigation.example.json
-  template_id: "Diphtheria case investigation form"
   provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
 cnf.ckm.eprescription:
   source: ckm/eprescription-fhir.opt
@@ -117,14 +111,6 @@ cnf.ckm.sars_notification.example:
   source: ckm/sars-event-notification.example.json
   template_id: "SARS event notification"
   provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
-cnf.ckm.syphilis_investigation:
-  source: ckm/congenital-syphilis-case-investigation.opt
-  template_id: "Congenital syphilis case investigation form"
-  provenance: "openEHR CKM cid 1013.26.977 (Congenital syphilis case investigation form, status INITIAL, modified 2024-12-30T01:49:57+01:00) — CKM's own OPT 1.4 export vendored verbatim 2026-08-01 (byte-identical to the full-pack copy and to a fresh export); the LARGEST OPT the CKM publishes (5.2 MB) — the large-payload scale probe (#1462); journey role: case_investigation"
-cnf.ckm.syphilis_investigation.example:
-  source: ckm/congenital-syphilis-case-investigation.example.json
-  template_id: "Congenital syphilis case investigation form"
-  provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-08-01 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time; at ~526 KB the largest committed composition payload (the #1462 large-payload scale probe)"
 cnf.ckm.treat_registry_report:
   source: ckm/treat-registry-report.opt
   template_id: "TREAT Registry report"
@@ -145,10 +131,6 @@ cnf.ckm.vital_signs.invalid_twin:
   source: twins/vital-signs.missing-composer.json
   template_id: "Vital signs"
   provenance: "derived in this repository from ckm/vital-signs.example.json by deleting the mandatory COMPOSITION.composer member (openEHR RM UML/classes/composition.adoc §Attributes, composer 1..1) and nothing else; the invalid twin the commit-validation posture canary offers, which a server validating against the template refuses (ITS-REST specifications/responses/422.yaml)"
-cnf.opt.blood_pressure:
-  source: templates/blood_pressure.opt
-  template_id: "cnf.blood_pressure"
-  provenance: "generated by generate_content_opts.py 2026-07-22 — the AQL-corpus committed-set template carrying exactly the archetype/node ids the bp_series recipe commits (corpus/recipes/bp_series.md); validated against the SUT"
 cnf.opt.minimal_action:
   source: templates/minimal_action.opt
   template_id: "minimal_action.en.v1"
@@ -163,6 +145,3 @@ cnf.demographic.person.v1:
 cnf.demographic.person.v2:
   source: demographic/person.v2.json
   provenance: "authored 2026-07-21 from the RM demographic class model (§PERSON; §PARTY Identities_valid) — updated content state (amended identity value)"
-cnf.demographic.party_relationship.v1:
-  source: demographic/party_relationship.v1.json
-  provenance: "authored 2026-07-21 from the RM demographic class model (§PARTY_RELATIONSHIP source/target PARTY_REF) — first content state"

@@ -32,11 +32,11 @@ use thiserror::Error;
 use tokio::time::Instant;
 
 use crate::perf_emulate::http::{HttpClient, Reply, request_line};
+use crate::perf_emulate::payload::{self, FlatPayload, PackTemplate};
 use crate::perf_emulate::posture::InvalidTwin;
-use crate::perf_run::pack::{self, FlatPayload, PackTemplate};
-use crate::perf_schedule::PayloadManifest;
 use crate::workload::load::sha256_hex;
 use crate::workload::ops::{PayloadRole, WorkloadOp};
+use crate::workload::payloads::{INVALID_TWIN_SUFFIX, PayloadManifest};
 use crate::workload::wire::{
     self, Addressing, FLAT_MEDIA_TYPE, WireBody, WireRequest, stored_query_store,
 };
@@ -103,9 +103,6 @@ pub struct Payloads {
     /// entry.
     pub invalid_twin: Option<InvalidTwin>,
 }
-
-/// The manifest suffix that names a corpus template's invalid twin.
-pub const INVALID_TWIN_SUFFIX: &str = ".invalid_twin";
 
 impl Payloads {
     /// Loads the corpus templates and every stage payload of `workload`.
@@ -460,7 +457,7 @@ fn json(bytes: Vec<u8>) -> Option<WireBody> {
 /// The template of composition `index` of EHR `ehr`: a deterministic draw
 /// over the recipe's shares.
 fn template_of(recipe: &CorpusRecipe, seed: u64, ehr: u64, index: u64) -> Option<&str> {
-    let draw = crate::perf_run::fnv1a(seed, &[ehr, index]) % 1_000_000;
+    let draw = crate::perf_emulate::fnv1a(seed, &[ehr, index]) % 1_000_000;
     let mut cumulative: u64 = 0;
     let mut last = None;
     for (key, share) in &recipe.templates {
@@ -496,7 +493,7 @@ async fn create_ehr(
     counter: &Counter,
     subject: &str,
 ) -> Result<String, CorpusError> {
-    let body = pack::ehr_status_with_subject(0, Some((subject, SUBJECT_NAMESPACE)));
+    let body = payload::ehr_status_with_subject(0, (subject, SUBJECT_NAMESPACE));
     let request =
         wire::operation_request(WorkloadOp::EhrCreate, &Addressing::default(), json(body))
             .map_err(|e| CorpusError::Seeding(e.to_string()))?;
@@ -515,7 +512,8 @@ async fn commit(
     template: &PackTemplate,
     arrival: u64,
 ) -> Result<String, CorpusError> {
-    let body = pack::composition_body(template, arrival, arrival).map_err(CorpusError::Seeding)?;
+    let body =
+        payload::composition_body(template, arrival, arrival).map_err(CorpusError::Seeding)?;
     let at = Addressing {
         ehr: Some(ehr),
         ..Addressing::default()
@@ -568,7 +566,7 @@ async fn seed_worker(
             let req = wire::operation_request(
                 WorkloadOp::DirectoryCreate,
                 &at,
-                json(pack::folder_body(false)),
+                json(payload::folder_body(false)),
             )
             .map_err(|e| CorpusError::Seeding(e.to_string()))?;
             let _reply = expect(&client, &counter, &req, CREATED).await?;
@@ -579,7 +577,8 @@ async fn seed_worker(
             && request.needs.contributions
             && let Some(template) = payloads.templates.values().next()
         {
-            let body = pack::contribution_body(template, 0, index).map_err(CorpusError::Seeding)?;
+            let body =
+                payload::contribution_body(template, 0, index).map_err(CorpusError::Seeding)?;
             let at = Addressing {
                 ehr: Some(&ehr_id),
                 ..Addressing::default()
@@ -646,7 +645,7 @@ async fn prepare(
             template_id: Some(&flat.template_id),
             ..Addressing::default()
         };
-        let body = pack::flat_body(flat).map_err(CorpusError::Seeding)?;
+        let body = payload::flat_body(flat).map_err(CorpusError::Seeding)?;
         let request = wire::operation_request(
             WorkloadOp::CompositionCommitFlat,
             &at,
@@ -776,10 +775,10 @@ pub async fn seed(
     }
     let mut parties = Vec::new();
     if request.needs.parties
-        && let Some(person) = payloads.bodies.get(pack::PERSON_KEY)
+        && let Some(person) = payloads.bodies.get(payload::PERSON_KEY)
     {
         for n in 0..u64::try_from(PARTIES).unwrap_or(0) {
-            let body = pack::person_body(person, n).map_err(CorpusError::Seeding)?;
+            let body = payload::person_body(person, n).map_err(CorpusError::Seeding)?;
             let req = wire::operation_request(
                 WorkloadOp::PartyCreate,
                 &Addressing::default(),

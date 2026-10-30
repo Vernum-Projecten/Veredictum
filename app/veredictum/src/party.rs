@@ -7,9 +7,11 @@
 //! ISO/IEC 9646 splits a conformance submission into the supplier's
 //! *statement* (the ICS — Implementation Conformance Statement — declaring
 //! what is claimed, plus the `SDoC` self-declaration) and the *results* the
-//! test campaign produced. This module models both as typed, round-trippable
-//! JSON: [`Statement`] and [`Results`]. Verdicts are never asserted here —
-//! they are computed from these two documents by [`crate::verdict`].
+//! test campaign produced. This module models the statement as typed,
+//! round-trippable JSON ([`Statement`]) and the value types the results of a
+//! catalogue run and a certificate record share (the SUT identity, the
+//! instrument status). Verdicts are never asserted here; the evaluator
+//! computes them from the recorded exchanges.
 //!
 //! Unlike the schedule artifacts (which are the published norm and carry
 //! bespoke closed grammars), the party artifacts are our own interchange
@@ -180,18 +182,6 @@ pub struct RecordedTechProfile {
     pub source: Option<TechProfileSource>,
 }
 
-/// A performance claim — a performance class plus a reference to the ixit
-/// environment block the run was measured in (mandatory for a performance
-/// claim).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Performance {
-    /// The claimed performance class.
-    pub class: String,
-    /// The environment the class was demonstrated in (the ixit environment
-    /// block id / reference).
-    pub environment_ref: String,
-}
-
 /// One evidence pointer: a results document and its content digest.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Evidence {
@@ -241,9 +231,6 @@ pub struct Statement {
     /// `capabilities.yaml`.
     #[serde(default)]
     pub options: Vec<OptionTag>,
-    /// An optional performance claim.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub performance: Option<Performance>,
     /// Free-form non-functional declarations — never a verdict input.
     #[serde(default)]
     pub non_functional: BTreeMap<String, serde_json::Value>,
@@ -714,89 +701,6 @@ pub fn statement_digest(statement_text: &str) -> String {
     leading_digest(statement_text)
 }
 
-/// The party results document.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Results {
-    /// The system under test.
-    pub sut: Sut,
-    /// The runner + its self-check status.
-    pub runner: Runner,
-    /// The approval status of the instrument that produced this document,
-    /// derived from the runner's own version when it wrote the document.
-    pub instrument_status: InstrumentStatus,
-    /// The schedule release the campaign ran.
-    pub schedule_release: String,
-    /// The technology profile this results document covers, and whether it was
-    /// declared or defaulted.
-    pub tech_profile: RecordedTechProfile,
-    /// The digest of the ixit topology the run drove (provenance).
-    pub ixit_digest: String,
-    /// The digest of the party statement that selected this campaign
-    /// (provenance), so a reader holding that statement recomputes the
-    /// recorded value with `sha256sum statement.json | cut -c1-16`.
-    ///
-    /// Absent for a campaign no statement selected, and absent in a document
-    /// written before the member existed (v0.1.4 and earlier). Those two are
-    /// told apart by `selection_basis`: `statement_blind` names the first, and
-    /// anything else leaves the identity unknown, which a reader never reads
-    /// as a match.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub statement_digest: Option<String>,
-    /// What selection had to select this campaign with: the party's ICS, or
-    /// nothing.
-    ///
-    /// Absent only in a document written before the member existed (v0.1.4 and
-    /// earlier), where absence is UNKNOWN and never either basis — a reader
-    /// that defaults it to `statement` credits a blind sweep with a scope it
-    /// never had.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub selection_basis: Option<SelectionBasis>,
-    /// The per-case×format outcomes.
-    #[serde(default)]
-    pub outcomes: Vec<OutcomeRecord>,
-    /// Performance measurements — the second (measured) verdict machinery's
-    /// evidence records; each embeds its encoded HDR histograms and the ixit
-    /// environment block it was taken in.
-    #[serde(default)]
-    pub measurements: Vec<crate::perf::Measurement>,
-}
-
-impl Results {
-    /// Every outcome invariant across the document (currently: mandatory
-    /// citations on `skipped`/`not_applicable`).
-    ///
-    /// # Errors
-    /// Every [`PartyError`] found, one per offending outcome.
-    pub fn check_invariants(&self) -> Result<(), Vec<PartyError>> {
-        let errors: Vec<PartyError> = self
-            .outcomes
-            .iter()
-            .filter_map(|o| o.check_invariants().err())
-            .collect();
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
-        }
-    }
-
-    /// The provenance members that cannot both be true of one campaign, or
-    /// `None` when the document reads consistently.
-    ///
-    /// A member the document does not carry is unknown and contradicts
-    /// nothing, so a record written before these members existed reads
-    /// consistently here and is judged on the members it does carry.
-    #[must_use]
-    pub fn provenance_contradiction(&self) -> Option<ProvenanceContradiction> {
-        match (self.tech_profile.source, self.selection_basis) {
-            (Some(TechProfileSource::Declared), Some(SelectionBasis::StatementBlind)) => {
-                Some(ProvenanceContradiction::DeclaredProfileWithoutSelection)
-            }
-            _ => None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -841,265 +745,6 @@ mod tests {
     }
 
     #[test]
-    fn a_results_document_without_the_status_is_refused() {
-        let refused = serde_json::from_value::<Results>(serde_json::json!({
-            "sut": { "name": { "value": "s", "source": "operator" }, "version": { "value": "1", "source": "operator" } },
-            "runner": { "name": "veredictum", "version": "0.1.7",
-                         "verification_pack_status": "passed" },
-            "schedule_release": "CNF-2.0",
-            "tech_profile": { "its": "its-rest", "formats": ["canonical-json"] },
-            "ixit_digest": "d"
-        }))
-        .expect_err("instrument_status is required");
-        assert!(
-            refused.to_string().contains("instrument_status"),
-            "{refused}"
-        );
-    }
-
-    /// A document whose identity carries no source predates the sourced
-    /// identity and is refused, never read as either source.
-    #[test]
-    fn a_results_document_with_an_unsourced_identity_is_refused() {
-        let refused = serde_json::from_value::<Results>(serde_json::json!({
-            "sut": { "name": "s", "version": "1" },
-            "runner": { "name": "veredictum", "version": "0.1.7",
-                         "verification_pack_status": "passed" },
-            "instrument_status": "pre-approval",
-            "schedule_release": "CNF-2.0",
-            "tech_profile": { "its": "its-rest", "formats": ["canonical-json"] },
-            "ixit_digest": "d"
-        }));
-        assert!(refused.is_err(), "a bare-string identity must not parse");
-        let unknown_source = serde_json::from_value::<IdentityField>(serde_json::json!({
-            "value": "s", "source": "vendor"
-        }));
-        assert!(unknown_source.is_err(), "the source vocabulary is closed");
-    }
-
-    /// The document-level invariant collects EVERY offending outcome, so one
-    /// pass names the whole repair list instead of stopping at the first.
-    #[test]
-    fn the_document_invariant_reports_every_uncited_outcome() {
-        let document = |outcomes: serde_json::Value| -> Results {
-            serde_json::from_value(serde_json::json!({
-                "sut": { "name": { "value": "s", "source": "operator" }, "version": { "value": "1", "source": "operator" } },
-                "runner": { "name": "veredictum", "version": "0",
-                             "verification_pack_status": "passed" },
-                "instrument_status": "pre-approval",
-                "schedule_release": "CNF-2.0",
-                "tech_profile": { "its": "its-rest", "formats": ["canonical-json"] },
-                "ixit_digest": "d",
-                "outcomes": outcomes
-            }))
-            .unwrap()
-        };
-        let uncited = document(serde_json::json!([
-            { "case": "A-x", "status": "not_applicable", "rows_driven": 0, "rows_total": 1 },
-            { "case": "B-y", "status": "skipped", "rows_driven": 0, "rows_total": 1 },
-            { "case": "C-z", "status": "passed", "rows_driven": 1, "rows_total": 1 }
-        ]));
-        let errors = uncited
-            .check_invariants()
-            .expect_err("two outcomes carry no citation");
-        assert_eq!(errors.len(), 2, "{errors:?}");
-
-        let cited = document(serde_json::json!([
-            { "case": "A-x", "status": "not_applicable", "rows_driven": 0, "rows_total": 1,
-              "citation": "ITS-REST overview §HTTP status codes" },
-            { "case": "C-z", "status": "passed", "rows_driven": 1, "rows_total": 1 }
-        ]));
-        assert!(cited.check_invariants().is_ok());
-    }
-
-    /// A reader of the results document ALONE tells a party-scoped record from
-    /// a statement-blind sweep, and a document written before the member
-    /// existed reads as unknown rather than as either basis.
-    #[test]
-    fn the_recorded_selection_basis_survives_the_document() {
-        let document = |extra: &str| -> Results {
-            serde_json::from_str(&format!(
-                r#"{{
-                    "sut": {{ "name": {{ "value": "s", "source": "operator" }}, "version": {{ "value": "1", "source": "operator" }} }},
-                    "runner": {{ "name": "veredictum", "version": "0",
-                                 "verification_pack_status": "passed" }},
-                    "instrument_status": "pre-approval",
-                    "schedule_release": "CNF-2.0",
-                    "tech_profile": {{ "its": "its-rest", "formats": ["canonical-json"] }},
-                    "ixit_digest": "d"{extra}
-                }}"#
-            ))
-            .unwrap()
-        };
-        assert_eq!(
-            document(r#", "selection_basis": "statement_blind""#).selection_basis,
-            Some(SelectionBasis::StatementBlind)
-        );
-        assert_eq!(
-            document(r#", "selection_basis": "statement""#).selection_basis,
-            Some(SelectionBasis::Statement)
-        );
-        assert_eq!(
-            document("").selection_basis,
-            None,
-            "absence is unknown, never either basis"
-        );
-
-        let blind = document(r#", "selection_basis": "statement_blind""#);
-        let text = serde_json::to_string(&blind).unwrap();
-        assert!(
-            text.contains(r#""selection_basis":"statement_blind""#),
-            "{text}"
-        );
-        for basis in SelectionBasis::ALL {
-            assert_eq!(
-                serde_json::to_value(basis).unwrap(),
-                serde_json::Value::String(basis.token().to_owned())
-            );
-        }
-    }
-
-    /// A reader of the results document ALONE names the statement the
-    /// campaign was selected under, and a document that carries no digest
-    /// reads as unknown rather than as any particular claim.
-    #[test]
-    fn the_recorded_statement_digest_survives_the_document() {
-        let document = |extra: &str| -> Results {
-            serde_json::from_str(&format!(
-                r#"{{
-                    "sut": {{ "name": {{ "value": "s", "source": "operator" }}, "version": {{ "value": "1", "source": "operator" }} }},
-                    "runner": {{ "name": "veredictum", "version": "0",
-                                 "verification_pack_status": "passed" }},
-                    "instrument_status": "pre-approval",
-                    "schedule_release": "CNF-2.0",
-                    "tech_profile": {{ "its": "its-rest", "formats": ["canonical-json"] }},
-                    "ixit_digest": "d"{extra}
-                }}"#
-            ))
-            .unwrap()
-        };
-        assert_eq!(
-            document(r#", "statement_digest": "aedf8eec255f7847""#)
-                .statement_digest
-                .as_deref(),
-            Some("aedf8eec255f7847")
-        );
-        assert_eq!(
-            document("").statement_digest,
-            None,
-            "absence is unknown, never a claim"
-        );
-
-        let named = document(r#", "statement_digest": "aedf8eec255f7847""#);
-        let text = serde_json::to_string(&named).unwrap();
-        assert!(
-            text.contains(r#""statement_digest":"aedf8eec255f7847""#),
-            "{text}"
-        );
-        let blind = serde_json::to_string(&document("")).unwrap();
-        assert!(
-            !blind.contains("statement_digest"),
-            "an unnamed statement writes no member at all: {blind}"
-        );
-    }
-
-    /// A document carrying `tech_profile` as `{ its, formats }` and nothing
-    /// else, plus whatever `extra` adds to the block.
-    fn profile_document(extra: &str) -> Results {
-        serde_json::from_str(&format!(
-            r#"{{
-                "sut": {{ "name": {{ "value": "s", "source": "operator" }}, "version": {{ "value": "1", "source": "operator" }} }},
-                "runner": {{ "name": "veredictum", "version": "0",
-                             "verification_pack_status": "passed" }},
-                "instrument_status": "pre-approval",
-                "schedule_release": "CNF-2.0",
-                "tech_profile": {{
-                    "its": "its-rest", "formats": ["canonical-json"]{extra}
-                }},
-                "ixit_digest": "d"
-            }}"#
-        ))
-        .unwrap()
-    }
-
-    /// A reader of the results document ALONE tells a party's declared format
-    /// list from the fallback every format, and a document written before the
-    /// member existed reads as unknown rather than as either source.
-    #[test]
-    fn the_recorded_profile_source_survives_the_document() {
-        assert_eq!(
-            profile_document(r#", "source": "declared""#)
-                .tech_profile
-                .source,
-            Some(TechProfileSource::Declared)
-        );
-        assert_eq!(
-            profile_document(r#", "source": "defaulted""#)
-                .tech_profile
-                .source,
-            Some(TechProfileSource::Defaulted)
-        );
-        assert_eq!(
-            profile_document("").tech_profile.source,
-            None,
-            "absence is unknown, never either source"
-        );
-
-        let declared =
-            serde_json::to_string(&profile_document(r#", "source": "declared""#)).unwrap();
-        assert!(declared.contains(r#""source":"declared""#), "{declared}");
-        let unknown = serde_json::to_string(&profile_document("").tech_profile).unwrap();
-        assert!(
-            !unknown.contains("source"),
-            "an unknown source writes no member at all: {unknown}"
-        );
-        for source in TechProfileSource::ALL {
-            assert_eq!(
-                serde_json::to_value(source).unwrap(),
-                serde_json::Value::String(source.token().to_owned())
-            );
-        }
-    }
-
-    /// A campaign no statement selected had no declaration to read a profile
-    /// from, so `declared` and `statement_blind` cannot both be true of one
-    /// document.
-    #[test]
-    fn a_declared_profile_on_a_blind_campaign_contradicts_itself() {
-        let with = |source: TechProfileSource, basis: SelectionBasis| -> Results {
-            Results {
-                selection_basis: Some(basis),
-                ..profile_document(&format!(r#", "source": "{}""#, source.token()))
-            }
-        };
-        assert_eq!(
-            with(TechProfileSource::Declared, SelectionBasis::StatementBlind)
-                .provenance_contradiction(),
-            Some(ProvenanceContradiction::DeclaredProfileWithoutSelection)
-        );
-        // A statement that names no its-rest profile still selected the
-        // campaign, so `defaulted` under either basis reads consistently.
-        for (source, basis) in [
-            (TechProfileSource::Declared, SelectionBasis::Statement),
-            (TechProfileSource::Defaulted, SelectionBasis::Statement),
-            (TechProfileSource::Defaulted, SelectionBasis::StatementBlind),
-        ] {
-            assert_eq!(
-                with(source, basis).provenance_contradiction(),
-                None,
-                "{} under {} is a campaign that can happen",
-                source.token(),
-                basis.token()
-            );
-        }
-        assert_eq!(
-            profile_document("").provenance_contradiction(),
-            None,
-            "a document carrying neither member contradicts nothing"
-        );
-    }
-
-    #[test]
     fn statement_round_trips() {
         let json = serde_json::json!({
             "product": { "name": "FerroEHR", "version": "3.5.0",
@@ -1117,28 +762,5 @@ mod tests {
         let back = serde_json::to_value(&s).unwrap();
         let s2: Statement = serde_json::from_value(back).unwrap();
         assert_eq!(s2.product.name, "FerroEHR");
-    }
-
-    #[test]
-    fn results_round_trip_and_invariants() {
-        let json = serde_json::json!({
-            "sut": { "name": { "value": "ferroehr", "source": "operator" }, "version": { "value": "3.5.0", "source": "operator" } },
-            "runner": { "name": "veredictum", "version": "0.1.0",
-                         "verification_pack_status": "passed" },
-            "instrument_status": "pre-approval",
-            "schedule_release": "CNF-2.0",
-            "tech_profile": { "its": "its-rest", "formats": ["canonical-json"] },
-            "ixit_digest": "deadbeef",
-            "outcomes": [
-                { "case": "I_EHR_SERVICE.create_ehr-main", "format": "canonical-json",
-                  "status": "passed", "rows_driven": 2, "rows_total": 2 },
-                { "case": "I_ADMIN_SERVICE.list_contributions-x",
-                  "status": "not_applicable", "rows_driven": 0, "rows_total": 1,
-                  "citation": "ITS-REST admin.md §Admin API" }
-            ]
-        });
-        let r: Results = serde_json::from_value(json).unwrap();
-        assert!(r.check_invariants().is_ok());
-        assert_eq!(r.outcomes.len(), 2);
     }
 }

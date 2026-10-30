@@ -18,13 +18,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use veredictum::perf_emulate::binding::{Binding, bind};
+use veredictum::perf_emulate::client::PerfClient;
 use veredictum::perf_emulate::corpus::{
     self, CorpusError, CorpusState, Needs, Payloads, SeedRequest,
 };
 use veredictum::perf_emulate::http::HttpClient;
 use veredictum::perf_emulate::performer::{Targets, WirePerformer, read_current};
 use veredictum::perf_gen::{Call, OperationId, Outcome, Performer};
-use veredictum::perf_run::client::PerfPrincipals;
 use veredictum::workload::Workload;
 use veredictum::workload::load::{LoadContext, load_file};
 use veredictum::workload::ops::WorkloadOp;
@@ -106,8 +106,9 @@ fn sut(ehrs: Arc<AtomicU64>, compositions: Arc<AtomicU64>) -> FakeSut {
 }
 
 fn client(sut: &FakeSut) -> HttpClient {
-    let principals = PerfPrincipals::from_ixit(&ixit(&sut.base_url())).unwrap();
-    HttpClient::new(principals.primary().clone()).unwrap()
+    let ixit = ixit(&sut.base_url());
+    let principal = PerfClient::from_instance(ixit.default_instance().unwrap(), &ixit).unwrap();
+    HttpClient::new(principal).unwrap()
 }
 
 fn runtime() -> tokio::runtime::Runtime {

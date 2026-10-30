@@ -63,9 +63,9 @@ It drives a machine-readable catalogue of
 [Arazzo 1.1.0](https://spec.openapis.org/arazzo/v1.1.0.html) workflows over
 the server's own REST API, records every exchange, and computes the verdicts
 as pure functions over that recording. Anyone who holds the recording can
-judge it again and get the same bytes. One binary answers four questions:
-does it conform (`test`), what class does it sustain (`perf`), where does it
-break (`stress`), and how fast is it (`bench`).
+judge it again and get the same bytes. One binary answers two questions:
+does it conform (`test`), and how does it hold up under the traffic a
+clinical front end sends (`perf`, `perf-compare`).
 
 ### Who it is for
 
@@ -164,15 +164,14 @@ complete workflow, every input, and what to keep out of an uploaded artifact.
 
 ### Measured instruments
 
-- [`perf`](https://veredictum.eu/docs/running.html#measured-performance-stress-and-speed): earns a population-anchored performance class (POC, S, L, R) under open-loop load
-- [`stress`](https://veredictum.eu/docs/commands.html#stress): finds where a deployment breaks, as exploration that never yields a conformance record
-- [`bench`](https://veredictum.eu/docs/running.html#benchmark-a-cdr-in-one-command): comparative speed from embedded packs, with EHRbase and FerroEHR as pinned baselines
+- [`perf`](https://veredictum.eu/docs/running.html#measured-performance): offers a declared clinical traffic mix at Poisson arrival rates, walks a load ladder to the knee in at most ten minutes, and writes a record `perf-judge` re-derives byte for byte
+- [`perf-compare`](https://veredictum.eu/docs/running.html#comparing-two-cdrs-on-one-host): aligns records, and runs two CDRs (or one against itself, or against EHRbase and FerroEHR as pinned baselines) interleaved on one host
 
 ### Results and CI exports
 
 - [`export`](https://veredictum.eu/docs/commands.html#export): JUnit XML, CTRF and a Markdown summary of a results document
 - [`verify`](https://veredictum.eu/docs/trust.html#verifying-a-certificate): checks a conformance certificate, a JWS, offline against the published JWK Set
-- [`verdicts`](https://veredictum.eu/docs/trust.html#the-record-does-not-depend-on-trusting-the-operator): re-derives the measured class verdicts from the committed record
+- [`perf-judge`](https://veredictum.eu/docs/commands.html#perf-judge): re-derives every number of a `perf-result` from its histograms, byte for byte
 - [Published JSON Schemas](https://veredictum.eu/docs/commands.html#emit-schemas) for every artifact family, drift-tested
 - [Signed releases](https://veredictum.eu/docs/installation.html#from-a-release-binary) for `x86_64` and `aarch64` Linux, with SLSA provenance and a CycloneDX SBOM
 

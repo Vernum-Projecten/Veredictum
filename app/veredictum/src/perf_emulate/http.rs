@@ -14,8 +14,8 @@ use std::time::Duration;
 
 use reqwest::StatusCode;
 
+use crate::perf_emulate::client::PerfClient;
 use crate::perf_gen::{ErrorClass, FailedExchange, Outcome};
-use crate::perf_run::client::PerfClient;
 use crate::workload::wire::WireRequest;
 
 /// The per-request timeout: a minute, far past every latency budget, so an

@@ -1,29 +1,20 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The blocking SUT clients for the measurement machinery: base URL + auth
-//! resolved once per ixit instance; one connection pool per client, shared
-//! by every worker thread.
+//! The principal a measured run presents: the IXIT's default instance, its
+//! base URL, the headers it adds and its credential, resolved once.
 //!
-//! A measured run drives ONE principal per [`crate::perf::Principal`] the
-//! workload names — the party's default `sut` instance plus, when the ixit
-//! declares them, the `unauthenticated` / `readonly` boundary principals and
-//! the SMART Platform base. A principal the ixit does not declare is not a
-//! runner guess: the journeys that need it are simply not scheduled.
+//! A credential is read from the environment variables the instance names,
+//! or minted from the IXIT's SMART lane for a `bearer_mint` instance, and
+//! never from an argument. The asynchronous client of the run reads the
+//! `Authorization` value from here per request, so a minted grant is
+//! re-minted only near its expiry.
 
-use std::io::Read;
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
 
 use base64::Engine;
 
-use crate::ixit::{AuthMode, BearerMint, Instance, Ixit};
-use crate::perf::Principal;
-
-/// Per-request client timeout. A response slower than this is an error
-/// arrival recorded at the timeout latency (the SLO is 1 s — a 60 s stall
-/// is already a hard violation either way).
-pub(crate) const CLIENT_TIMEOUT: Duration = Duration::from_mins(1);
+use crate::ixit::{AuthMode, BearerMint, Environment, Instance, Ixit};
 
 /// Re-mint a lane token this many milliseconds before it expires, so no
 /// arrival can ever present one that lapses in flight.
@@ -63,10 +54,9 @@ enum Credential {
     Minted(Box<MintedGrant>),
 }
 
-/// The blocking SUT client (see the module doc).
+/// The principal of a measured run (see the module doc).
 #[derive(Clone)]
 pub struct PerfClient {
-    client: reqwest::blocking::Client,
     base_url: String,
     credential: Arc<Credential>,
     extra_headers: Vec<(String, String)>,
@@ -79,18 +69,6 @@ impl std::fmt::Debug for PerfClient {
             .finish_non_exhaustive()
     }
 }
-
-/// One wire response the client observed (status + the two id-bearing
-/// headers the bindings capture from).
-#[derive(Debug)]
-pub(crate) struct WireReply {
-    pub(crate) status: reqwest::StatusCode,
-    pub(crate) etag: Option<String>,
-    pub(crate) location: Option<String>,
-}
-
-/// A request body: content type + bytes.
-pub(crate) type RequestBody = Option<(&'static str, Vec<u8>)>;
 
 impl PerfClient {
     /// Build the client from an ixit instance (credentials resolved from
@@ -159,13 +137,7 @@ impl PerfClient {
                 Credential::Minted(Box::new(grant))
             }
         };
-        let client = reqwest::blocking::Client::builder()
-            .timeout(CLIENT_TIMEOUT)
-            .pool_max_idle_per_host(256)
-            .build()
-            .map_err(|e| format!("http client: {e}"))?;
         Ok(Self {
-            client,
             base_url: instance.base_url.trim_end_matches('/').to_owned(),
             credential: Arc::new(credential),
             extra_headers: instance.headers.clone().unwrap_or_default(),
@@ -175,20 +147,13 @@ impl PerfClient {
     /// Builds the client of a target whose credential is held in process:
     /// a stack this instrument composed itself, never the operator's.
     ///
-    /// # Errors
-    /// A message when the client cannot be built.
-    pub fn fixed(base_url: &str, authorization: Option<String>) -> Result<Self, String> {
-        let client = reqwest::blocking::Client::builder()
-            .timeout(CLIENT_TIMEOUT)
-            .pool_max_idle_per_host(256)
-            .build()
-            .map_err(|e| format!("http client: {e}"))?;
-        Ok(Self {
-            client,
+    #[must_use]
+    pub fn fixed(base_url: &str, authorization: Option<String>) -> Self {
+        Self {
             base_url: base_url.trim_end_matches('/').to_owned(),
             credential: Arc::new(Credential::Fixed(authorization)),
             extra_headers: Vec::new(),
-        })
+        }
     }
 
     /// The base URL every path is joined to.
@@ -207,90 +172,6 @@ impl PerfClient {
             Credential::Fixed(header) => Ok(header.clone()),
             Credential::Minted(grant) => grant.presentable().map(Some),
         }
-    }
-
-    /// Issue one request; `if_match` adds the concurrency-control header
-    /// (ITS-REST overview §Concurrency control).
-    pub(crate) fn request(
-        &self,
-        method: reqwest::Method,
-        path: &str,
-        body: RequestBody,
-        prefer_minimal: bool,
-        if_match: Option<&str>,
-    ) -> Result<WireReply, String> {
-        self.request_negotiated(method, path, body, prefer_minimal, if_match, None, &[])
-    }
-
-    /// The ONE request-construction path: every measured arrival — and
-    /// every seeding call — builds its headers here, so an operation can
-    /// never go on the wire two ways by code path. `accept` overrides the
-    /// exchange's default representation (the Simplified-Format reads);
-    /// `extra` carries the operation's own declared headers (e.g.
-    /// `openehr-template-id` on a FLAT commit).
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "the single request-construction seam"
-    )]
-    pub(crate) fn request_negotiated(
-        &self,
-        method: reqwest::Method,
-        path: &str,
-        body: RequestBody,
-        prefer_minimal: bool,
-        if_match: Option<&str>,
-        accept: Option<&str>,
-        extra: &[(&str, String)],
-    ) -> Result<WireReply, String> {
-        // Accept follows the exchange's native representation (ITS-REST
-        // overview §Requests and responses): canonical JSON everywhere
-        // except the ADL 1.4 template surface, whose native form is the
-        // OPT XML — a JSON-only Accept there draws a 406 from SUTs that
-        // honour strict negotiation on the returned template.
-        let accept = accept.unwrap_or(match &body {
-            Some((content_type, _)) if content_type.contains("xml") => "application/xml",
-            _ => "application/json",
-        });
-        let mut request = self
-            .client
-            .request(method, format!("{}{path}", self.base_url))
-            .header("Accept", accept);
-        if let Some(auth) = self.authorization()? {
-            request = request.header("Authorization", auth);
-        }
-        for (name, value) in extra {
-            request = request.header(*name, value);
-        }
-        for (name, value) in &self.extra_headers {
-            request = request.header(name, value);
-        }
-        if prefer_minimal {
-            request = request.header("Prefer", "return=minimal");
-        }
-        if let Some(preceding) = if_match {
-            request = request.header("If-Match", format!("\"{preceding}\""));
-        }
-        if let Some((content_type, bytes)) = body {
-            request = request.header("Content-Type", content_type).body(bytes);
-        }
-        let response = request.send().map_err(|e| format!("transport: {e}"))?;
-        let header = |name: &str| {
-            response
-                .headers()
-                .get(name)
-                .and_then(|v| v.to_str().ok())
-                .map(str::to_owned)
-        };
-        let reply = WireReply {
-            status: response.status(),
-            etag: header("etag"),
-            location: header("location"),
-        };
-        // Drain the body so the pooled connection is reusable.
-        let mut sink = Vec::new();
-        let mut reader = response;
-        let _drained = reader.read_to_end(&mut sink);
-        Ok(reply)
     }
 }
 
@@ -339,155 +220,18 @@ impl MintedGrant {
     }
 }
 
-/// The ixit instance names the measured lane's non-default principals are
-/// declared under. They are ixit DECLARATIONS, never runner guesses — a
-/// party that declares none runs the workload without the journeys that
-/// address them.
-const UNAUTHENTICATED_INSTANCE: &str = "unauthenticated";
-const READONLY_INSTANCE: &str = "readonly";
-const ADMIN_INSTANCE: &str = "admin";
-
-/// Every principal a measured window drives: the party's default `sut`
-/// instance plus the optional boundary/platform principals.
-#[derive(Debug, Clone)]
-pub struct PerfPrincipals {
-    primary: PerfClient,
-    unauthenticated: Option<PerfClient>,
-    readonly: Option<PerfClient>,
-    admin: Option<PerfClient>,
-    smart_platform: Option<PerfClient>,
-}
-
-impl PerfPrincipals {
-    /// Resolve every principal the ixit declares. The default instance is
-    /// mandatory (there is no measured run without a SUT); each optional
-    /// principal is built only when its instance is declared, and a
-    /// declared-but-unusable one (an unset credential env) fails loudly
-    /// rather than silently degrading the workload.
-    ///
-    /// # Errors
-    /// A message from the default instance's resolution, or from a declared
-    /// optional instance that cannot be built.
-    pub fn from_ixit(ixit: &Ixit) -> Result<Self, String> {
-        let primary = PerfClient::from_instance(ixit.default_instance()?, ixit)?;
-        let optional = |name: &crate::ids::InstanceName| -> Result<Option<PerfClient>, String> {
-            match ixit.instance(name) {
-                None => Ok(None),
-                Some(instance) => PerfClient::from_instance(instance, ixit)
-                    .map(Some)
-                    .map_err(|e| format!("ixit instance {name}: {e}")),
-            }
-        };
-        let named = |token: &str| -> Result<Option<PerfClient>, String> {
-            match crate::ids::InstanceName::parse(token) {
-                Ok(name) => optional(&name),
-                Err(e) => Err(e.to_string()),
-            }
-        };
-        let smart_platform = match ixit.smart.as_ref() {
-            None => None,
-            Some(lane) => optional(&lane.platform_instance)?,
-        };
-        Ok(Self {
-            primary,
-            unauthenticated: named(UNAUTHENTICATED_INSTANCE)?,
-            readonly: named(READONLY_INSTANCE)?,
-            admin: named(ADMIN_INSTANCE)?,
-            smart_platform,
-        })
-    }
-
-    /// A single-principal set (seeding, the offline harnesses).
-    #[must_use]
-    pub fn single(primary: PerfClient) -> Self {
-        Self {
-            primary,
-            unauthenticated: None,
-            readonly: None,
-            admin: None,
-            smart_platform: None,
-        }
-    }
-
-    /// Add the credential-less boundary principal.
-    #[must_use]
-    pub fn with_unauthenticated(mut self, client: PerfClient) -> Self {
-        self.unauthenticated = Some(client);
-        self
-    }
-
-    /// Add the read-only boundary principal.
-    #[must_use]
-    pub fn with_readonly(mut self, client: PerfClient) -> Self {
-        self.readonly = Some(client);
-        self
-    }
-
-    /// Add the ADMIN-role principal.
-    #[must_use]
-    pub fn with_admin(mut self, client: PerfClient) -> Self {
-        self.admin = Some(client);
-        self
-    }
-
-    /// Add the SMART Platform-base principal.
-    #[must_use]
-    pub fn with_smart_platform(mut self, client: PerfClient) -> Self {
-        self.smart_platform = Some(client);
-        self
-    }
-
-    /// The default `sut` principal — the one every provisioning call and
-    /// every ordinary journey stage drives.
-    #[must_use]
-    pub fn primary(&self) -> &PerfClient {
-        &self.primary
-    }
-
-    /// The client for one principal, or `None` when the party's ixit does
-    /// not declare its instance.
-    #[must_use]
-    pub fn client(&self, principal: Principal) -> Option<&PerfClient> {
-        match principal {
-            Principal::Primary => Some(&self.primary),
-            Principal::Unauthenticated => self.unauthenticated.as_ref(),
-            Principal::ReadOnly => self.readonly.as_ref(),
-            Principal::SmartPlatform => self.smart_platform.as_ref(),
-            Principal::Admin => self.admin.as_ref(),
-        }
-    }
-
-    /// Whether the party declares the instance a principal needs.
-    #[must_use]
-    pub fn declares(&self, principal: Principal) -> bool {
-        self.client(principal).is_some()
-    }
-}
-
-/// `W/"uid"` / `"uid"` → `uid` (the bindings' `strip: weak-quotes`
-/// capture).
-pub(crate) fn strip_weak_quotes(etag: &str) -> String {
-    etag.trim_start_matches("W/").trim_matches('"').to_owned()
-}
-
-/// The last path segment of a `Location` header (the bindings' fallback
-/// id capture on a `return=minimal` create).
-pub(crate) fn location_last_segment(location: &str) -> Option<String> {
-    location
-        .rsplit('/')
-        .next()
-        .filter(|s| !s.is_empty())
-        .map(str::to_owned)
-}
-
-/// The versioned-object part of an `OBJECT_VERSION_ID`
-/// (`uid::system::1` → `uid`).
-pub(crate) fn object_uid_of(version_uid: &str) -> String {
-    version_uid
-        .split("::")
-        .next()
-        .unwrap_or(version_uid)
-        .to_owned()
+/// The principal and the deployment a measured run needs from the IXIT: the
+/// default instance's client and the environment block.
+///
+/// # Errors
+/// A message naming the missing piece: no default instance, an unusable
+/// credential, the absent environment block, or the member it lacks.
+pub fn measured_run_context(ixit: &Ixit) -> Result<(PerfClient, Environment), String> {
+    let primary = PerfClient::from_instance(ixit.default_instance()?, ixit)?;
+    let environment = ixit
+        .measured_environment()
+        .map_err(|error| error.to_string())?;
+    Ok((primary, environment))
 }
 
 #[cfg(test)]
@@ -535,25 +279,6 @@ mod tests {
         .unwrap();
         let error = PerfClient::from_instance(ixit.default_instance().unwrap(), &ixit).unwrap_err();
         assert!(error.contains("no `smart` lane"), "{error}");
-    }
-
-    /// Only the principals the ixit declares are available; the rest cost
-    /// coverage, never correctness.
-    #[test]
-    fn principals_resolve_from_the_ixit_declarations_only() {
-        let ixit: Ixit = serde_json::from_value(serde_json::json!({
-            "instances": {
-                "sut": { "base_url": "http://stub", "auth": { "mode": "none" } },
-                "unauthenticated": { "base_url": "http://stub", "auth": { "mode": "none" } }
-            }
-        }))
-        .unwrap();
-        let principals = PerfPrincipals::from_ixit(&ixit).unwrap();
-        assert!(principals.declares(Principal::Primary));
-        assert!(principals.declares(Principal::Unauthenticated));
-        assert!(!principals.declares(Principal::ReadOnly));
-        assert!(!principals.declares(Principal::SmartPlatform));
-        assert!(principals.client(Principal::ReadOnly).is_none());
     }
 
     /// The credential env var every supported platform sets, so the two
@@ -634,64 +359,49 @@ mod tests {
         assert_eq!(header.split('.').count(), 3, "not a JWS compact token");
     }
 
-    /// The optional principals a party may declare, added one at a time.
-    /// Whatever is not added stays absent, so an undeclared principal costs
-    /// the journeys that address it and never a fabricated client.
+    /// The environment block is mandatory for a measured run, because a
+    /// throughput number without the deployment it was measured in describes
+    /// nothing.
     #[test]
-    fn the_optional_principals_are_added_one_by_one() {
-        let ixit = instance(&serde_json::json!({ "mode": "none" }));
-        let base = PerfClient::from_instance(ixit.default_instance().unwrap(), &ixit).unwrap();
-        let principals = PerfPrincipals::single(base.clone());
-        assert!(principals.declares(Principal::Primary));
-        assert!(!principals.declares(Principal::Admin));
-
-        let full = principals
-            .with_unauthenticated(base.clone())
-            .with_readonly(base.clone())
-            .with_admin(base.clone())
-            .with_smart_platform(base);
-        for principal in [
-            Principal::Primary,
-            Principal::Unauthenticated,
-            Principal::ReadOnly,
-            Principal::Admin,
-            Principal::SmartPlatform,
-        ] {
-            assert!(full.declares(principal), "{principal:?} not declared");
-        }
-    }
-
-    /// A DECLARED optional instance that cannot be built stops the run and
-    /// names the instance: silently degrading the workload would publish a
-    /// measurement of a smaller mix than the case describes.
-    #[test]
-    fn a_declared_but_unusable_optional_instance_fails_loudly() {
+    fn the_measured_run_context_requires_a_declared_environment() {
         let ixit: Ixit = serde_json::from_value(serde_json::json!({
-            "instances": {
-                "sut": { "base_url": "http://stub", "auth": { "mode": "none" } },
-                "readonly": { "base_url": "http://stub", "auth": {
-                    "mode": "bearer", "token_env": "VEREDICTUM_UNSET_CREDENTIAL_ENV" } }
-            }
+            "instances": { "sut": { "base_url": "http://stub/", "auth": { "mode": "none" } } },
+            "environment": { "hardware_class": "test-stub", "cores": 1, "memory_gb": 1,
+                              "storage_class": "ram", "topology": "in-process stub" }
         }))
         .unwrap();
-        let error = PerfPrincipals::from_ixit(&ixit)
-            .expect_err("a declared principal with no credential is a topology defect");
-        assert!(error.contains("ixit instance readonly"), "{error}");
+        let (principal, environment) = measured_run_context(&ixit).unwrap();
+        assert_eq!(principal.base_url(), "http://stub");
+        assert_eq!(environment.hardware_class, "test-stub");
+
+        let bare: Ixit = serde_json::from_value(serde_json::json!({
+            "instances": { "sut": { "base_url": "http://stub", "auth": { "mode": "none" } } }
+        }))
+        .unwrap();
+        let error = measured_run_context(&bare).expect_err("a measured run needs its environment");
+        assert!(error.contains("no environment block"), "{error}");
     }
 
+    /// A conformance-only environment block, `exclusive_server` alone, is
+    /// not enough for a measured run: the context names the first member it
+    /// lacks.
     #[test]
-    fn header_captures_match_the_bindings() {
-        assert_eq!(
-            strip_weak_quotes("W/\"abc::sys::1\""),
-            "abc::sys::1".to_owned()
-        );
-        assert_eq!(strip_weak_quotes("\"abc\""), "abc".to_owned());
-        assert_eq!(
-            location_last_segment("http://sut/ehr/42").as_deref(),
-            Some("42")
-        );
-        assert_eq!(location_last_segment(""), None);
-        assert_eq!(object_uid_of("abc::sys::3"), "abc");
-        assert_eq!(object_uid_of("bare"), "bare");
+    fn the_measured_run_context_names_the_environment_member_it_lacks() {
+        let ixit: Ixit = serde_json::from_value(serde_json::json!({
+            "instances": { "sut": { "base_url": "http://stub", "auth": { "mode": "none" } } },
+            "environment": { "exclusive_server": true }
+        }))
+        .unwrap();
+        let error = measured_run_context(&ixit).expect_err("a measured run needs hardware_class");
+        assert!(error.contains("declares no `hardware_class`"), "{error}");
+
+        let ixit: Ixit = serde_json::from_value(serde_json::json!({
+            "instances": { "sut": { "base_url": "http://stub", "auth": { "mode": "none" } } },
+            "environment": { "hardware_class": "test-stub", "cores": 1, "memory_gb": 1,
+                              "storage_class": "ram" }
+        }))
+        .unwrap();
+        let error = measured_run_context(&ixit).expect_err("a measured run needs topology");
+        assert!(error.contains("declares no `topology`"), "{error}");
     }
 }

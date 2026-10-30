@@ -30,8 +30,10 @@ use crate::arazzo::catalogue::capability_folders;
 use crate::arazzo::gates::aql::position;
 use crate::ids::{CorpusKey, QueryName};
 use crate::load::{LoadError, compile_schema, load_artifact};
-use crate::perf_schedule::{PAYLOADS_DIR, PAYLOADS_FILE, PayloadManifest};
 use crate::workload::ops::{PayloadRole, QueryTransport, StageInput};
+use crate::workload::payloads::{
+    PAYLOADS_DIR, PAYLOADS_FILE, PayloadManifest, check_reads, load_manifest,
+};
 use crate::workload::plan::{PlannedRange, RUN_LIMIT_S, planned_range};
 use crate::workload::wire::RESERVED_PARAMETERS;
 use crate::workload::{
@@ -165,14 +167,6 @@ pub struct LoadContext {
     pub vocabulary: Vocabulary,
 }
 
-static PAYLOADS_SCHEMA: LazyLock<Result<jsonschema::Validator, String>> = LazyLock::new(|| {
-    compile_schema(
-        &crate::schema::perf_payloads_schema(),
-        "perf-payloads.schema.json",
-    )
-    .map_err(|e| e.to_string())
-});
-
 static WORKLOAD_SCHEMA: LazyLock<Result<jsonschema::Validator, String>> = LazyLock::new(|| {
     compile_schema(
         &crate::schema::perf_workload_schema(),
@@ -193,12 +187,16 @@ impl LoadContext {
     ///
     /// # Errors
     /// [`LoadError`] when the payload manifest or the catalogue vocabulary
-    /// does not load.
+    /// does not load; the manifest's defects are joined into one.
     pub fn from_roots(perf_root: &Path, catalogue_root: &Path) -> Result<Self, LoadError> {
-        let validator = PAYLOADS_SCHEMA
-            .as_ref()
-            .map_err(|m| schema_defect("perf-payloads.schema.json", m))?;
-        let payloads = load_artifact(&perf_root.join(PAYLOADS_FILE), validator)?;
+        let payloads = load_manifest(perf_root).map_err(|errors| LoadError::Model {
+            path: perf_root.join(PAYLOADS_FILE),
+            message: errors
+                .iter()
+                .map(LoadError::detail)
+                .collect::<Vec<_>>()
+                .join("; "),
+        })?;
         Ok(Self {
             payloads,
             payloads_dir: perf_root.join(PAYLOADS_DIR),
@@ -343,11 +341,14 @@ pub fn payload_reads(perf_root: &Path) -> Vec<PayloadRead> {
     reads
 }
 
-/// Loads every `.yaml` file under `<perf_root>/workloads/`, in path order.
+/// Loads every `.yaml` file under `<perf_root>/workloads/`, in path order,
+/// and holds the payload manifest to what they read.
 ///
 /// # Errors
 /// [`LoadError::Io`] when the directory does not list. A refused workload is
-/// returned beside the loaded ones.
+/// returned beside the loaded ones, and a manifest carrying a key no
+/// workload reads, or lacking one a workload reads, is returned as a refusal
+/// of `payloads.yaml`.
 pub fn load_dir(
     perf_root: &Path,
     ctx: &LoadContext,
@@ -372,6 +373,14 @@ pub fn load_dir(
             Ok(workload) => loaded.push(workload),
             Err(e) => refused.push(e),
         }
+    }
+    let manifest_path = perf_root.join(PAYLOADS_FILE);
+    let errors = check_reads(&manifest_path, &ctx.payloads, &payload_reads(perf_root));
+    if !errors.is_empty() {
+        refused.push(WorkloadRefused {
+            path: manifest_path,
+            errors,
+        });
     }
     Ok((loaded, refused))
 }

@@ -535,7 +535,6 @@ makes it a legal SDoC:
 | `claims` ∎ | `capabilities`: the capability folders under `catalogue/cases/` the party claims; every workflow of a document in another folder is skipped `not-claimed` |
 | `tech_profiles` | which formats are claimed (e.g. `[its-rest: [canonical-json, canonical-xml, wt-flat]]`) |
 | `options` | one arm per option of `catalogue/capabilities.yaml`; the documents of every other arm are skipped `option-not-selected` |
-| `performance` | the claimed **volumetric class per declared environment** (`POC`/`S`/`L`/`R`, §8.14) |
 | `non_functional` | declaration-only slots (security posture beyond what the catalogue tests: encryption configuration, pseudonymisation on export) — never verdict inputs |
 | `evidence` | hash links to the results backing the claims |
 | `attestation` | signatory name/role/date + the §6.4 responsibility sentence |
@@ -554,17 +553,20 @@ skipped is not a 9646 verdict, it records ICS-driven selection. The
 recording (`recording.har`) beside it holds every exchange, so a re-judgement
 reproduces the document byte for byte.
 
-**`results.json` of a measured campaign** (`schemas/results.schema.json`):
-the SUT identity, the runner, the `ixit_digest`, and `measurements`: per
-performance case the metric values, the encoded HDR histograms and the
-`earned | not-earned` class verdict, with the mandatory environment block
-(§8.14).
+**`perf-result.json` of a measured run** (`schemas/perf-result.schema.json`):
+the target's System OPTIONS identity, the environment block, the generator's
+fingerprint and the host prescription it claims, the posture block, the
+embedded workload and corpus, and per plateau the encoded HDR histograms, with
+every derived number beside them (§8.14). A statement carries no performance
+claim; the schema refuses a `performance` member by name.
 
 **`ixit.json`** (9646 IXIT): the SUT **topology**, one or more **named
 instances** (each: base URL, auth mode and the names of the variables its
 credentials are read from) plus the **environment block** (hardware class,
 cores, memory, storage class, deployment topology — mandatory for
-performance runs, §8.14). A rows file's `declared` inputs read their values
+performance runs, §8.14) and, for a measured run, the optional `containers`
+block naming the server and database containers and the `database` the
+server-side readings query. A rows file's `declared` inputs read their values
 from it (§15.7). The shipped contract is `schemas/ixit.schema.json`.
 
 ### 8.11 ICS-driven selection and verdict computation
@@ -586,11 +588,11 @@ A pure function of (statement, IXIT, catalogue, recording):
    against the server, and a row whose failing criteria are all `should` is
    a warning and never counts against a capability. `veredictum test` exits
    `1` when a row failed (not a warning) or errored.
-5. **Measured verdicts** (the second machinery, `veredictum verdicts`): per
-   measurement, every §8.14 threshold of its performance case is re-derived
-   from the embedded histograms; a stored verdict that does not re-derive, a
-   claimed class with no measurement, and a claim with no environment
-   reference are review findings.
+5. **Measured records** (the second machinery, `veredictum perf-judge`):
+   every derived number of a `perf-result` is re-derived from its embedded
+   histograms, and a record that does not reproduce byte for byte is named
+   by the JSON pointer of each difference. A measured record earns no class
+   and enters no conformance verdict (§8.14).
 
 Any two conformant implementations of this pipeline MUST compute identical
 verdicts from the same inputs.
@@ -856,7 +858,13 @@ plateau's start and end, the top statements by total time from
 `pg_stat_statements`, and the PostgreSQL settings once per run. Each reading
 is `present` or `absent` with its reason, and a sampler failure truncates its
 series and never fails the run. The statement table is the attribution
-`aql-probe` used to provide (ruling 2).
+`aql-probe` used to provide (ruling 2). The database the readings query is
+named by the IXIT member `containers.database`; without it the database
+readings are absent with that reason. The sampler is read-only: it creates no
+extension, changes no setting and resets no statistic, so the statement table
+is the difference of two `pg_stat_statements` snapshots taken at the hold's
+start and end, and a server without the extension gets an absent reading
+rather than an instrument that alters it.
 
 #### What one pass gives up, and how the record says so
 
@@ -911,7 +919,7 @@ overlap. `--with-baselines` keeps the pinned EHRbase and FerroEHR
 compositions, each its own published deployment recipe at an immutable tag,
 and the relative index against them, interleaved the same way.
 
-The posture profiles and their bracketing canaries move from the bench
+The posture profiles and their bracketing canaries came from the bench
 instrument unchanged. A run declares one profile (`minimal`, the bare
 spec-conformant surface with validation at `template`, because the release
 puts it there: ITS-REST `specifications/responses/422.yaml`; or
@@ -991,7 +999,7 @@ its `requires` tokens must resolve to.
 
 #### What the design removes
 
-Once the replacement has landed (#891, #892), nothing offers the old surface:
+With the replacement landed (#891, #892), nothing offers the old surface:
 
 - the commands `stress`, `stress-compare`, `aql-probe`, `bench`,
   `bench-compare` and `bench-packs`, and the measured half of `verdicts` with
@@ -1078,7 +1086,7 @@ Cross-cutting rules:
   ratings per capability family — Platform (CORE/STANDARD/OPTIONS), and
   Enterprise (D/M/X, §11.11) as its chapter lands and Security (SEC-BASIC,
   §8.15) — each per tech profile, plus the measurement-machinery rating
-  (earned performance class per environment, §8.14). Every cell is computed from `results.json` +
+  (the knee and its population reading per environment, from a `perf-result`, §8.14). Every cell is computed from `results.json` +
   `catalogue/capabilities.yaml`, never hand-asserted.
 - **Validity & supersession**: a statement/certificate names the CNF schedule
   release + spec versions + tech profile + exact product version. It never
@@ -1539,7 +1547,7 @@ catalogue/
   sources/veredictum-probes.openapi.yaml   the deliberately wrong requests no released operation defines
 schemas/                               statement, results, ixit, matrix, rows,
                                        dataset, certificate payload, extension schema
-perf/                                  the performance schedule: classes, journeys, payloads (§8.14), a sibling
+perf/                                  the performance workloads, host prescriptions and payloads (§8.14), a sibling
                                        of the catalogue because a measurement is not a conformance verdict
 ```
 
@@ -2089,9 +2097,8 @@ they are this instrument's own design.
   key the foundation generates, so no private key changes hands.
   `deploy/hosted/README.md` carries the procedures.
 - The console offers connect, scope, live run, results, verdicts and the
-  certificate download. The measured instruments (perf, stress, probe, bench)
-  run from the CLI only; perf, stress and probe read the performance schedule
-  under `perf/` (§8.14), and bench carries its packs in the binary.
+  certificate download. The measured instruments (`perf`, `perf-compare`)
+  run from the CLI only and read the workloads under `perf/` (§8.14).
 
 ### 15.11 AQL conformance
 

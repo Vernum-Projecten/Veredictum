@@ -20,6 +20,7 @@
 
 use std::collections::BTreeMap;
 use std::future::Future;
+use std::process::Command;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -377,7 +378,7 @@ impl SqlReader for DockerPsql {
         let container = self.container.clone();
         let database = self.database.clone();
         let run = tokio::task::spawn_blocking(move || {
-            std::process::Command::new("docker")
+            Command::new("docker")
                 .args([
                     "exec",
                     "-e",
@@ -807,6 +808,41 @@ async fn sample_series(
         }
     }
     series
+}
+
+/// Pays the database's maintenance debt before the clock.
+///
+/// The settle phase runs `vacuumdb --all --analyze` through the declared
+/// database container, so a corpus seeded faster than autovacuum keeps up is
+/// measured with current statistics and no vacuum fires inside a plateau.
+///
+/// NOTE: no openEHR spec governs this — our own design; FerroEHR#4318 traced A/A differences to an un-analyzed clone.
+///
+/// # Errors
+/// A message when the container runtime or `vacuumdb` is unavailable or
+/// fails; the run reports it and idles out the settle phase.
+pub fn settle_maintenance(db_container: &str) -> Result<(), String> {
+    let output = Command::new("docker")
+        .args([
+            "exec",
+            db_container,
+            "vacuumdb",
+            "-U",
+            "postgres",
+            "--all",
+            "--analyze",
+        ])
+        .output()
+        .map_err(|e| format!("docker exec: {e}"))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "vacuumdb failed (exit {:?}): {}",
+            output.status.code(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        ))
+    }
 }
 
 #[cfg(test)]

@@ -247,7 +247,7 @@ impl RunHooks for LiveHooks<'_> {
             return;
         };
         let settled = tokio::task::spawn_blocking(move || {
-            crate::perf_run::resources::settle_maintenance(&db)
+            crate::perf_emulate::server::settle_maintenance(&db)
         })
         .await;
         match settled {
@@ -395,8 +395,8 @@ pub(crate) struct OpenTarget {
 pub(crate) fn open_target(ixit_path: &Path) -> Result<OpenTarget, Error> {
     use crate::identity;
     let (ixit, _text) = load_ixit(ixit_path)?;
-    let (principals, environment) =
-        crate::perf_run::window::measured_run_context(&ixit).map_err(Error::Instrument)?;
+    let (principal, environment) =
+        crate::perf_emulate::client::measured_run_context(&ixit).map_err(Error::Instrument)?;
     let instance = ixit.default_instance().map_err(Error::Instrument)?;
     let authorization = identity::authorization(&ixit, &instance.auth)?;
     let options = match crate::exec::transport::HttpTransport::new() {
@@ -420,7 +420,7 @@ pub(crate) fn open_target(ixit_path: &Path) -> Result<OpenTarget, Error> {
             AuthnMode::Bearer
         }
     };
-    let client = HttpClient::new(principals.primary().clone()).map_err(Error::Instrument)?;
+    let client = HttpClient::new(principal).map_err(Error::Instrument)?;
     Ok(OpenTarget {
         authn,
         containers: ixit.containers.clone(),
@@ -451,8 +451,8 @@ impl OpenTarget {
             }
             Err(e) => TargetOptions::Unanswered { error: e },
         };
-        let principal = crate::perf_run::client::PerfClient::fixed(&base_url, Some(authorization))
-            .map_err(Error::Instrument)?;
+        let principal =
+            crate::perf_emulate::client::PerfClient::fixed(&base_url, Some(authorization));
         Ok(Self {
             authn: AuthnMode::Basic,
             containers: None,
@@ -749,6 +749,18 @@ pub fn run_workload(
     Ok(record)
 }
 
+/// The refusal a rate-limited run gets: the measurement would record the
+/// rate limiter's ceiling, not the server's.
+#[must_use]
+pub fn rate_limited_refusal(instrument: &str) -> String {
+    format!(
+        "{instrument}: the SUT answered 429 — the measurement would record the rate limiter's \
+         ceiling, not the server's. Measurement requires the SUT's rate limiter disabled, or \
+         raised above the ladder's peak arrival rate, for the duration of the run; the switch \
+         that does that is the SUT's own. Run again once the run is unlimited."
+    )
+}
+
 /// Refuses a record in which the server answered any exchange `429`.
 ///
 /// # Errors
@@ -760,6 +772,6 @@ pub fn refuse_rate_limited(raw: &Raw) -> Result<(), Error> {
     }
     Err(Error::Instrument(format!(
         "{} ({limited} exchange(s) answered 429)",
-        crate::perf_run::rate_limited_refusal("perf")
+        rate_limited_refusal("perf")
     )))
 }

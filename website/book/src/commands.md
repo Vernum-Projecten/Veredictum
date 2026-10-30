@@ -421,26 +421,24 @@ or the claim gates; they are this instrument's own design.
 ## perf
 
 ```text
-Run a workload document against a live SUT and write one `perf-result` (`--workload`), or execute the performance schedule's class run and merge its measurement records into a results.json (`--class`).
+Run a workload document against a live server and write one `perf-result`.
 
-With `--workload`, the corpus is seeded (or reused with `--corpus reuse`) before the clock, then the run takes at most ten minutes: settle, warm-up, a scout ramp, a ladder of four plateaus at multiples of the knee estimate, and the closing canaries. The planned duration is printed before the first measured request. A server that answers any exchange `429` gets no record.
+The corpus is seeded (or reused with `--corpus reuse`) before the clock, closed-loop and reported apart. The posture canaries then take their first bracket, and the run after seeding takes at most ten minutes: a 15 s settle, a 20 s warm-up, a 60 s scout ramp judged in 2 s windows, a drain, a ladder of four plateaus at 0.5, 0.75, 0.9 and 1.05 times the knee estimate (a fifth at 0.25 only when the lowest fails), and the closing canaries. The planned duration is printed before the first measured request. A server that answers any exchange `429` gets no record, and a canary that contradicts the declared posture refuses the run.
 
-With `--class`: A new record carries the SUT identity the server states through System OPTIONS, read before any seeding, with `--sut-name` and `--sut-version` filling what it does not state. It records no conformance outcome: nothing selected a statement, so it is `statement_blind`, and the verification pack is `not_run`. An existing file keeps its header and gains or replaces the measured case's record.
-
-Usage: veredictum perf [OPTIONS] --root <ROOT> --ixit <IXIT>
+Usage: veredictum perf [OPTIONS] --root <ROOT> --ixit <IXIT> --workload <WORKLOAD> --out <OUT>
 
 Options:
       --root <ROOT>
-          The performance schedule root, `perf/` in this repository (workloads/, payloads.yaml, payloads/, and for `--class` the classes/ and journeys.yaml)
+          The performance root, `perf/` in this repository (workloads/, payloads.yaml, payloads/, hosts/)
 
       --ixit <IXIT>
-          The ixit topology file (JSON) — its environment block is mandatory for a measured run
+          The ixit topology file (JSON); its environment block is mandatory for a measured run
 
       --workload <WORKLOAD>
           The workload document to run, an embedded one under `perf/workloads/` or the evaluator's own (labelled `custom`)
 
       --out <OUT>
-          Where `--workload` writes its `perf-result` record
+          Where the `perf-result` record is written
 
       --catalogue <CATALOGUE>
           The catalogue root a workload's `requires` resolve against
@@ -461,6 +459,11 @@ Options:
 
       --corpus-state <CORPUS_STATE>
           The stored corpus state a seeding writes and a reuse reads; defaults to the record's path with the extension `corpus.json`
+
+      --seed-workers <SEED_WORKERS>
+          Parallel closed-loop seeding workers
+          
+          [default: 16]
 
       --start-rate <START_RATE>
           The warm-up's rate and the scout's starting rate, operations per second
@@ -489,28 +492,6 @@ Options:
           The posture profile the run declares: `minimal`, `minimal-signed-digest`, `minimal-signed-pgp` or `clinical-default`. The canaries check it after seeding and after the last plateau, and a contradiction refuses the run
           
           [default: minimal]
-
-      --results <RESULTS>
-          The measured results record (`results.schema.json`) to merge the measurement records into; created when no file exists at the path
-
-      --sut-name <SUT_NAME>
-          The SUT name a new record carries when the server does not state one through System OPTIONS. Unread when `--results` exists
-
-      --sut-version <SUT_VERSION>
-          The SUT version a new record carries when the server does not state one through System OPTIONS. Unread when `--results` exists
-
-      --class <CLASS>
-          Select the performance case(s) of this class (POC | S | L | R)
-
-      --seed-workers <SEED_WORKERS>
-          Parallel seeding workers
-          
-          [default: 16]
-
-      --hours <HOURS>
-          The sustained-window ladder of `--class`: hours to hold the offered load — 1 (default, the case's normative window) | 2 | 4 | 6 | 8 | 12
-          
-          [default: 1]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -543,29 +524,6 @@ cannot be checked or reproduced. Every member of it is mandatory here
 run whose IXIT lacks one stops before it sends a request, naming the member.
 A conformance run reads only `exclusive_server`, so a conformance-only IXIT
 may leave the others out.
-
-## stress
-
-```text
-Run the step-load STRESS instrument: geometric load steps to the maximum sustainable throughput — where the system breaks (exploration only; never a conformance record, and class-free by design)
-
-Usage: veredictum stress [OPTIONS] --root <ROOT> --ixit <IXIT> --out <OUT>
-
-Options:
-      --root <ROOT>                  The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
-      --ixit <IXIT>                  The ixit topology file (JSON) — its environment block is mandatory (a throughput number without the deployment described is meaningless)
-      --out <OUT>                    Where to write the stress report (stress.json)
-      --corpus-class <CORPUS_CLASS>  The class-scale corpus the stress runs on (POC | S | L | R — the standardized corpus selector): data volume + workload mix only; no class floor enters the stress report or chart [default: POC]
-      --seed-workers <SEED_WORKERS>  Parallel seeding workers [default: 16]
-      --step-secs <STEP_SECS>        Each load step's recorded hold, seconds (short + intense by design) [default: 120]
-      --bisections <BISECTIONS>      Post-breach bisection refinements [default: 3]
-      --max-rate <MAX_RATE>          The climb cap (arrivals/s) [default: 4096]
-  -h, --help                         Print help
-```
-
-Exploration only, and class-free by design: no class floor enters the stress
-report or its chart. A `stress.json` is never a conformance record, and quoting
-one as if it were is a misuse of the tool.
 
 ## perf-workloads
 
@@ -712,83 +670,28 @@ With `--result`, the records were measured apart, so their plateaus were
 offered different rates. The table still lines them up, and the ratios are
 shown as `different rates` rather than judged.
 
-## stress-compare
-
-```text
-Render the cross-SUT stress overlay (both systems' latency-throughput curves on one canvas) FROM two committed stress reports — deterministic, both directions on equal footing
-
-Usage: veredictum stress-compare --left <LEFT> --left-label <LEFT_LABEL> --right <RIGHT> --right-label <RIGHT_LABEL> --out <OUT>
-
-Options:
-      --left <LEFT>                The primary SUT's committed stress.json
-      --left-label <LEFT_LABEL>    The primary SUT's display label
-      --right <RIGHT>              The comparison SUT's committed stress.json
-      --right-label <RIGHT_LABEL>  The comparison SUT's display label
-      --out <OUT>                  Where to write the overlay SVG
-  -h, --help                       Print help
-```
-
-Deterministic, and both directions on equal footing: the two curves are drawn by
-the same code from the same kind of file, so neither side gets a rendering
-advantage.
-
 ## perf-assets
 
 ```text
-Render the published performance SVG assets from a committed record, deterministically: the same record always draws the same bytes.
+Render the charts of a `perf-result` as SVG, deterministically: the same record always draws the same bytes.
 
-From a `perf-result`, told apart by its `family`, three charts: `perf-saturation.svg` (p50, p95 and p99 against achieved throughput over the scout windows and the plateaus, the knee bracket shaded, the Universal Scalability Law fit dashed), `perf-throughput.svg` (achieved against offered with the identity line) and `perf-operations.svg` (each operation's latency at the knee at its judged quantile, beside its budget). A quantile that does not resolve is marked below the plot and never joined to its neighbours. `--root` and `--stress` do not apply to it. From a class `results.json`, the class ladder, latency, resource and stress charts.
+Three charts: `perf-saturation.svg` (p50, p95 and p99 against achieved throughput over the scout windows and the plateaus, the knee bracket shaded, the Universal Scalability Law fit dashed), `perf-throughput.svg` (achieved against offered with the identity line) and `perf-operations.svg` (each operation's latency at the knee at its judged quantile, beside its budget). A quantile that does not resolve is marked below the plot and never joined to its neighbours.
 
 Usage: veredictum perf-assets [OPTIONS] --results <RESULTS> --out <OUT>
 
 Options:
-      --root <ROOT>
-          The performance schedule root, `perf/` in this repository (for the class-ladder floors); a class `results.json` needs it
-
       --results <RESULTS>
-          The committed `perf-result.json`, or a class `results.json` carrying the measurement records
+          The committed `perf-result.json`
 
       --out <OUT>
           Output directory for the SVG files
 
       --summary <SUMMARY>
-          Also write the generated Markdown summary to this path, the book's build-time include: the `export --markdown` view of a `perf-result`, or the class ladder with its measured detail
-
-      --stress <STRESS>
-          A committed stress report (stress.json) to render the latency-throughput curve from, when one exists
+          Also write the `export --markdown` view of the record to this path, the book's build-time include
 
   -h, --help
           Print help (see a summary with '-h')
 ```
-
-## verdicts
-
-```text
-Re-derive the measured performance-class verdicts from a statement and a results record against the performance schedule (the pure pipeline), and write them as `verdicts.json`
-
-Usage: veredictum verdicts --statement <STATEMENT> --results <RESULTS> --root <ROOT> --out <OUT>
-
-Options:
-      --statement <STATEMENT>  The party statement (`statement.json`)
-      --results <RESULTS>      The party results (`results.json`)
-      --root <ROOT>            The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
-      --out <OUT>              Output directory for verdicts.json
-  -h, --help                   Print help
-```
-
-The pure step for a measured campaign. It reaches no network and reads nothing
-but its inputs, which is what makes a published verdict re-derivable by anyone
-who has the same three: the statement, the results record carrying the
-measurements, and the performance schedule under `perf/`.
-
-Each measured class verdict is re-derived from the measurement record's
-embedded histograms against its performance case, and a stored verdict that
-does not re-derive is a review finding. A claimed class with no measurement,
-or a claim with no environment reference, is a review finding too. The command
-writes `verdicts.json` and exits `1` when the review found anything.
-
-Conformance verdicts over the Arazzo catalogue are `veredictum test`'s results
-document and its exit status.
 
 ## perf-judge
 

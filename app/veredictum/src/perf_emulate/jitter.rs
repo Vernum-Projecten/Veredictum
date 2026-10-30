@@ -457,8 +457,8 @@ impl LeafConstraints {
             return;
         }
         let stream = template_key.bytes().fold(
-            crate::perf_run::fnv1a(JITTER_SEED, &[arrival]),
-            |seed, byte| crate::perf_run::fnv1a(seed, &[u64::from(byte)]),
+            crate::perf_emulate::fnv1a(JITTER_SEED, &[arrival]),
+            |seed, byte| crate::perf_emulate::fnv1a(seed, &[u64::from(byte)]),
         );
         let mut ordinal: u64 = 0;
         self.redraw(body, stream, &mut ordinal);
@@ -471,7 +471,7 @@ impl LeafConstraints {
             Value::Object(map) => {
                 let leaf = map.get("_type").and_then(Value::as_str).map(str::to_owned);
                 if leaf.as_deref() == Some("DV_QUANTITY") || leaf.as_deref() == Some("DV_COUNT") {
-                    let draw = crate::perf_run::fnv1a(stream, &[*ordinal]);
+                    let draw = crate::perf_emulate::fnv1a(stream, &[*ordinal]);
                     *ordinal = ordinal.wrapping_add(1);
                     if leaf.as_deref() == Some("DV_QUANTITY") {
                         self.redraw_quantity(map, draw);

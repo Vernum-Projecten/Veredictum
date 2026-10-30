@@ -4,11 +4,11 @@
 //! The container-runtime-coupled half of the measured instruments, driven
 //! against a real engine.
 //!
-//! Three code paths reach outside this process for their answer: the
-//! resource sampler reads the Docker Engine API's per-container stats, the
-//! disk anchor and the maintenance settling shell into the DB container, and
-//! the server-side readings read the database's sizes, settings and
-//! `pg_stat_statements` through `psql` in its container. A fake
+//! Two code paths reach outside this process for their answer: the
+//! maintenance settling shells into the DB container, and the server-side
+//! readings read the container series from the Docker Engine API and the
+//! database's sizes, settings and `pg_stat_statements` through `psql` in its
+//! container. A fake
 //! cannot establish that any of them works, because what is being checked IS
 //! the reply of another program, so this module composes a real container
 //! and reads the real answers.
@@ -33,12 +33,9 @@ use std::process::Command;
 use std::time::Duration;
 
 use veredictum::ixit::Containers;
-use veredictum::perf_emulate::server::ServerSampler;
+use veredictum::perf_emulate::server::{ServerSampler, settle_maintenance};
 use veredictum::perf_result::server::{
     ContainersReading, DatabaseReading, SettingsReading, StatementsReading,
-};
-use veredictum::perf_run::resources::{
-    ResourceSampler, SAMPLE_INTERVAL, db_volume_bytes, settle_maintenance,
 };
 
 /// The database image the container-coupled paths are read against. The
@@ -178,77 +175,18 @@ fn skip(test: &str) -> bool {
     }
 }
 
-/// The sampler's whole point is the DELTA: CPU percentage needs two
-/// readings, so a container's first tick only seeds the slot and the first
-/// emitted sample lands one interval in. The window here is held past that
-/// interval, which is the only way to read a real cpu/rss/blkio/network
-/// sample off a real engine.
+/// The settle phase shells into the DB container: the maintenance
+/// settling pays the seeding's vacuum debt before the clock, read against a
+/// real database, and names the failure when the container is not there.
 #[test]
-fn the_resource_sampler_records_a_real_container_series() {
-    if skip("the_resource_sampler_records_a_real_container_series") {
-        return;
-    }
-    let container = DbContainer::start("sampler");
-    let containers = container.containers();
-
-    // The phase stamps derive from these bounds; the sample lands one
-    // interval in, so it stamps as warmup.
-    let sampler = ResourceSampler::start(&containers, 60, 60);
-    std::thread::sleep(SAMPLE_INTERVAL + Duration::from_secs(3));
-    let (series, notes) = sampler.stop();
-
-    assert!(
-        notes.is_empty(),
-        "a reachable container still produced degradation notes: {notes:?}"
-    );
-    assert_eq!(series.len(), 2, "one series per declared container role");
-    let recorded = series
-        .iter()
-        .find(|s| !s.samples.is_empty())
-        .expect("no container produced a sample within one interval past the baseline");
-    let sample = recorded
-        .samples
-        .first()
-        .expect("the series carries a sample");
-    assert!(
-        sample.offset_s >= SAMPLE_INTERVAL.as_secs(),
-        "the first emitted sample landed before one interval: {}s",
-        sample.offset_s
-    );
-    assert!(sample.rss_bytes > 0, "a running postgres reported no RSS");
-    assert!(
-        sample.cpu_pct >= 0.0 && sample.cpu_pct.is_finite(),
-        "cpu {} is not a percentage of one core",
-        sample.cpu_pct
-    );
-    assert_eq!(sample.phase, veredictum::perf::ResourcePhase::Warmup);
-    assert!(
-        recorded.cpu_peak() >= sample.cpu_pct,
-        "the peak is below a recorded sample"
-    );
-}
-
-/// The two paths that shell into the DB container: the disk anchor reads
-/// the volume's byte total, and the maintenance settling pays the seeding's
-/// vacuum debt outside the window. Both are read against a real database,
-/// and both name the container when it is not there.
-#[test]
-fn the_disk_anchor_and_the_maintenance_settling_run_through_the_container() {
-    if skip("the_disk_anchor_and_the_maintenance_settling_run_through_the_container") {
+fn the_maintenance_settling_runs_through_the_container() {
+    if skip("the_maintenance_settling_runs_through_the_container") {
         return;
     }
     let container = DbContainer::start("anchors");
     container.wait_ready();
-
-    let bytes = db_volume_bytes(&container.name).expect("the volume has a byte total");
-    assert!(bytes > 0, "an initialized cluster occupies no bytes");
     settle_maintenance(&container.name).expect("vacuumdb --all --analyze settles a live cluster");
-
-    // The absent-container side: an anchor that cannot be probed is an
-    // absent anchor with a reason, never a fabricated number.
     let missing = "veredictum-cov-no-such-container";
-    let error = db_volume_bytes(missing).expect_err("no such container has no volume");
-    assert!(error.contains("no byte total"), "{error}");
     let error = settle_maintenance(missing).expect_err("no such container to settle");
     assert!(error.contains("vacuumdb failed"), "{error}");
 }

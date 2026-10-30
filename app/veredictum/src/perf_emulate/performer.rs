@@ -27,9 +27,9 @@ use crate::perf_emulate::corpus::{
     CREATED, CorpusState, POOL_TARGETS, Payloads, SUBJECT_NAMESPACE, object_of,
 };
 use crate::perf_emulate::http::HttpClient;
+use crate::perf_emulate::payload;
 use crate::perf_gen::pool::LeasePool;
 use crate::perf_gen::{Call, ErrorClass, FailedExchange, Outcome, Performer};
-use crate::perf_run::pack;
 use crate::workload::ops::{QueryTransport, WorkloadOp};
 use crate::workload::wire::{self, Addressing, FLAT_MEDIA_TYPE, ParamValue, WireBody, WireRequest};
 use crate::workload::{OnRefusal, ParamSource, QueryClass, Stage, Workload};
@@ -350,7 +350,7 @@ impl WirePerformer {
     fn draw(&self, stream: u64, parts: &[u64]) -> u64 {
         let mut keyed = vec![stream];
         keyed.extend_from_slice(parts);
-        crate::perf_run::fnv1a(self.seed, &keyed)
+        crate::perf_emulate::fnv1a(self.seed, &keyed)
     }
 
     fn pick<'a, T>(&self, items: &'a [T], parts: &[u64]) -> Option<&'a T> {
@@ -536,10 +536,8 @@ impl WirePerformer {
         match op {
             WorkloadOp::EhrCreate => {
                 let subject = format!("run-{}-{}", self.seed, call.arrival);
-                let body = pack::ehr_status_with_subject(
-                    call.arrival,
-                    Some((&subject, SUBJECT_NAMESPACE)),
-                );
+                let body =
+                    payload::ehr_status_with_subject(call.arrival, (&subject, SUBJECT_NAMESPACE));
                 let request = wire::operation_request(op, &Addressing::default(), json(body));
                 let (outcome, reply) = self.send(request, op, CREATED).await;
                 if let Some(id) = reply.and_then(|r| r.location_id()) {
@@ -585,9 +583,14 @@ impl WirePerformer {
             }
             WorkloadOp::EhrStatusUpdate => {
                 self.update(op, Some(&self.targets.status), |t| {
-                    Ok(pack::ehr_status_with_subject(
+                    let subject = t.subject.as_deref().ok_or_else(|| {
+                        "the EHR_STATUS target carries no subject, and an update without it \
+                         would erase the subject the EHR was created with"
+                            .to_owned()
+                    })?;
+                    Ok(payload::ehr_status_with_subject(
                         call.arrival,
-                        t.subject.as_deref().map(|s| (s, SUBJECT_NAMESPACE)),
+                        (subject, SUBJECT_NAMESPACE),
                     ))
                 })
                 .await
@@ -597,9 +600,9 @@ impl WirePerformer {
                     return Self::defect(op, "the stage's template is not loaded");
                 };
                 let body = if op == WorkloadOp::CompositionCommit {
-                    pack::composition_body(template, call.arrival, call.arrival)
+                    payload::composition_body(template, call.arrival, call.arrival)
                 } else {
-                    pack::contribution_body(template, call.arrival, call.arrival)
+                    payload::contribution_body(template, call.arrival, call.arrival)
                 };
                 let body = match body {
                     Ok(body) => body,
@@ -627,7 +630,7 @@ impl WirePerformer {
                 else {
                     return Self::defect(op, "the stage's Simplified Flat body is not loaded");
                 };
-                let body = match pack::flat_body(flat) {
+                let body = match payload::flat_body(flat) {
                     Ok(body) => body,
                     Err(e) => return Self::defect(op, &e),
                 };
@@ -666,7 +669,7 @@ impl WirePerformer {
                     ..Addressing::default()
                 };
                 let (body, expected) = if op == WorkloadOp::TagsPut {
-                    (json(pack::tags_body(call.arrival)), UPDATED)
+                    (json(payload::tags_body(call.arrival)), UPDATED)
                 } else {
                     (None, OK)
                 };
@@ -683,7 +686,7 @@ impl WirePerformer {
                     return Self::defect(op, "the stage's template is not loaded");
                 };
                 self.update(op, pool, |_| {
-                    pack::composition_body(template, call.arrival, call.arrival)
+                    payload::composition_body(template, call.arrival, call.arrival)
                 })
                 .await
             }
@@ -720,7 +723,7 @@ impl WirePerformer {
                     ehr: Some(&ehr_id),
                     ..Addressing::default()
                 };
-                let body = json(pack::folder_body(false));
+                let body = json(payload::folder_body(false));
                 self.send(wire::operation_request(op, &at, body), op, CREATED)
                     .await
                     .0
@@ -744,7 +747,7 @@ impl WirePerformer {
             }
             WorkloadOp::DirectoryUpdate => {
                 self.update(op, Some(&self.targets.directories), |_| {
-                    Ok(pack::folder_body(true))
+                    Ok(payload::folder_body(true))
                 })
                 .await
             }
@@ -770,7 +773,7 @@ impl WirePerformer {
                 else {
                     return Self::defect(op, "the stage's body is not loaded");
                 };
-                let body = match pack::person_body(person, call.arrival) {
+                let body = match payload::person_body(person, call.arrival) {
                     Ok(body) => body,
                     Err(e) => return Self::defect(op, &e),
                 };
@@ -804,7 +807,7 @@ impl WirePerformer {
                     return Self::defect(op, "the stage's body is not loaded");
                 };
                 self.update(op, Some(&self.targets.parties), |_| {
-                    pack::person_body(person, call.arrival)
+                    payload::person_body(person, call.arrival)
                 })
                 .await
             }

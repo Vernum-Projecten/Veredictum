@@ -1,18 +1,18 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The journey template pack.
+//! The payloads a workload sends.
 //!
-//! Carries the CKM OPTs + committed example skeletons the journey stages
-//! commit against, and the deterministic payload stamping that turns a
-//! committed skeleton into one arrival's body.
+//! Carries the CKM OPTs and committed example skeletons a workload commits
+//! against, and the deterministic payload stamping that turns a committed
+//! skeleton into one arrival's body.
 //!
 //! Payload ground rules: the skeletons are committed artifacts (generated
 //! once from the SUT's example endpoint and vendored byte-identical), so
 //! every SUT receives the same starting bytes. Stamping then mutates the
 //! event-context times, the composer name, and the numeric leaves whose
 //! permitted range the operational template declares
-//! ([`crate::perf_run::jitter`]), deterministically from the arrival's
+//! ([`crate::perf_emulate::jitter`]), deterministically from the arrival's
 //! planned instant and index — a stamped value is always inside the
 //! constraint the same template imposes on the committed skeleton, so
 //! variation never introduces a validation error a conformant server would
@@ -28,9 +28,8 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::perf::{AuxPayloadKind, JourneyCatalogue, PerfOp};
-use crate::perf_run::jitter::LeafConstraints;
-use crate::perf_schedule::PayloadManifest;
+use crate::perf_emulate::jitter::LeafConstraints;
+use crate::workload::payloads::PayloadManifest;
 
 /// The rotating composer pool (staff are modelled as event rates; the
 /// composer label is the only per-arrival identity).
@@ -120,165 +119,8 @@ pub struct FlatPayload {
     pub body: Value,
 }
 
-/// The committed payloads the journey stages that do NOT commit a CKM
-/// COMPOSITION carry.
-///
-/// Every one is a committed payload of the performance schedule, never one
-/// the instrument invents. A field is `Some`
-/// exactly when the catalogue names an operation that needs it (see
-/// [`crate::perf::PerfOp::aux_payload`]).
-#[derive(Debug, Clone, Default)]
-pub struct AuxPayloads {
-    /// The Simplified-FLAT commit payload, when a stage commits FLAT.
-    pub flat: Option<FlatPayload>,
-    /// `PERSON`, first content state (the create body).
-    pub person: Option<Value>,
-    /// `PERSON`, amended content state (the versioned update body).
-    pub person_amended: Option<Value>,
-    /// `PARTY_RELATIONSHIP` body, when a stage creates one.
-    pub party_relationship: Option<Value>,
-}
-
-/// The payload key of the operational template the scale corpus commits
-/// against.
-pub const SCALE_OPT_KEY: &str = "cnf.opt.blood_pressure";
-/// The operational template the Simplified-FLAT stage commits against.
-pub const FLAT_OPT_KEY: &str = "cnf.opt.minimal_action";
-/// The FLAT body the FLAT-commit stage posts.
-pub const FLAT_BODY_KEY: &str = "cnf.flat.vitals.minimal_ctx";
-/// The `PERSON` create body the demographic stage posts.
+/// The `PERSON` body the corpus seeds parties from.
 pub const PERSON_KEY: &str = "cnf.demographic.person.v1";
-/// The amended `PERSON` body the demographic update stage puts.
-pub const PERSON_AMENDED_KEY: &str = "cnf.demographic.person.v2";
-/// The `PARTY_RELATIONSHIP` body the demographic stage creates.
-pub const PARTY_RELATIONSHIP_KEY: &str = "cnf.demographic.party_relationship.v1";
-
-/// Returns the payload keys one auxiliary payload kind reads.
-#[must_use]
-pub fn aux_payload_keys(kind: AuxPayloadKind) -> &'static [&'static str] {
-    match kind {
-        AuxPayloadKind::Flat => &[FLAT_OPT_KEY, FLAT_BODY_KEY],
-        AuxPayloadKind::Person => &[PERSON_KEY, PERSON_AMENDED_KEY],
-        AuxPayloadKind::PartyRelationship => &[PARTY_RELATIONSHIP_KEY],
-    }
-}
-
-/// Returns the auxiliary payload kinds the catalogue's stages carry, in first
-/// appearance order.
-///
-/// A stage whose operation name does not parse carries none; the catalogue's
-/// own invariants refuse that name.
-#[must_use]
-pub fn needed_aux_payloads(catalogue: &JourneyCatalogue) -> Vec<AuxPayloadKind> {
-    let mut needed = Vec::new();
-    for (_, journey) in &catalogue.0 {
-        for stage in &journey.stages {
-            // NOTE: no openEHR spec governs this — our own design: an unknown
-            // operation is refused by `JourneyCatalogue::check_invariants`.
-            if let Some(kind) = PerfOp::parse(&stage.op).ok().and_then(PerfOp::aux_payload)
-                && !needed.contains(&kind)
-            {
-                needed.push(kind);
-            }
-        }
-    }
-    needed
-}
-
-/// The loaded pack: every template the journey catalogue names, plus the
-/// auxiliary payloads its non-COMPOSITION stages carry.
-#[derive(Debug, Clone)]
-pub struct JourneyPack {
-    /// Every operational template the journey catalogue names.
-    pub templates: Vec<PackTemplate>,
-    /// The payloads the non-COMPOSITION stages carry.
-    pub aux: AuxPayloads,
-}
-
-impl JourneyPack {
-    /// Loads every template the catalogue's stages name: the manifest's OPT
-    /// entry (`<key>`) and example entry (`<key>.example`), both resolved
-    /// against the payload directory.
-    ///
-    /// # Errors
-    /// A message naming the missing manifest entry, file, or field.
-    pub fn load(
-        payloads_dir: &Path,
-        manifest: &PayloadManifest,
-        catalogue: &JourneyCatalogue,
-    ) -> Result<Self, String> {
-        let mut keys: Vec<String> = Vec::new();
-        for (_, journey) in &catalogue.0 {
-            for stage in &journey.stages {
-                if let Some(template) = &stage.template
-                    && !keys.contains(template)
-                {
-                    keys.push(template.clone());
-                }
-            }
-        }
-        keys.sort();
-        let entry = |k: &str| {
-            manifest
-                .get(k)
-                .ok_or_else(|| format!("payload manifest has no entry {k}"))
-        };
-        let read = |source: &str| {
-            std::fs::read_to_string(payloads_dir.join(source))
-                .map_err(|e| format!("cannot read {source}: {e}"))
-        };
-        let read_json = |key: &str| -> Result<Value, String> {
-            serde_json::from_str(&read(&entry(key)?.source)?)
-                .map_err(|error| format!("payload {key}: {error}"))
-        };
-        let mut templates = Vec::with_capacity(keys.len());
-        for key in keys {
-            templates.push(PackTemplate::load(payloads_dir, manifest, &key)?);
-        }
-        if templates.is_empty() {
-            return Err("the journey catalogue names no templates".to_owned());
-        }
-
-        // The auxiliary payloads: loaded exactly when the catalogue names an
-        // operation that carries one, so a party's catalogue never pays for
-        // fixtures its journeys do not touch.
-        let mut aux = AuxPayloads::default();
-        for kind in needed_aux_payloads(catalogue) {
-            match kind {
-                AuxPayloadKind::Flat => {
-                    let opt_entry = entry(FLAT_OPT_KEY)?;
-                    aux.flat = Some(FlatPayload {
-                        template_id: opt_entry.template_id.clone().ok_or_else(|| {
-                            format!("manifest entry {FLAT_OPT_KEY} carries no template_id")
-                        })?,
-                        opt_xml: read(&opt_entry.source)?,
-                        body: read_json(FLAT_BODY_KEY)?,
-                    });
-                }
-                AuxPayloadKind::Person => {
-                    aux.person = Some(read_json(PERSON_KEY)?);
-                    aux.person_amended = Some(read_json(PERSON_AMENDED_KEY)?);
-                }
-                AuxPayloadKind::PartyRelationship => {
-                    aux.party_relationship = Some(read_json(PARTY_RELATIONSHIP_KEY)?);
-                }
-            }
-        }
-        Ok(Self { templates, aux })
-    }
-
-    /// Looks up a template by payload key.
-    #[must_use]
-    pub fn index_of(&self, key: &str) -> Option<usize> {
-        self.templates.iter().position(|t| t.key == key)
-    }
-
-    /// The template at a schedule-resolved index.
-    #[must_use]
-    pub fn get(&self, index: usize) -> Option<&PackTemplate> {
-        self.templates.get(index)
-    }
-}
 
 /// The deterministic simulated clock: planned offsets map onto a fixed
 /// base date, so renders are byte-identical across SUTs and runs.
@@ -378,31 +220,23 @@ pub(crate) fn contribution_body(
     serde_json::to_vec(&envelope).map_err(|e| e.to_string())
 }
 
-/// A replacement `EHR_STATUS` body: queryable + modifiable, anonymous
-/// subject, an `other_details` note stamped with the simulated clock (the
-/// admission/discharge status touch).
-pub(crate) fn ehr_status_body(offset_s: u64) -> Vec<u8> {
-    ehr_status_with_subject(offset_s, None)
-}
-
-/// An `EHR_STATUS` body as [`ehr_status_body`], whose `PARTY_SELF` subject
-/// carries an `external_ref` when `subject` names one: the `(id, namespace)`
-/// pair `GET /ehr?subject_id=…&subject_namespace=…` finds the record by
-/// (RM `ehr` §`EHR_STATUS` `subject`; RM `common` §`PARTY_SELF` and
-/// §`PARTY_PROXY` `external_ref`).
-pub(crate) fn ehr_status_with_subject(offset_s: u64, subject: Option<(&str, &str)>) -> Vec<u8> {
-    let subject = match subject {
-        Some((id, namespace)) => serde_json::json!({
-            "_type": "PARTY_SELF",
-            "external_ref": {
-                "_type": "PARTY_REF",
-                "id": { "_type": "GENERIC_ID", "value": id, "scheme": "veredictum" },
-                "namespace": namespace,
-                "type": "PERSON"
-            }
-        }),
-        None => serde_json::json!({ "_type": "PARTY_SELF" }),
-    };
+/// An `EHR_STATUS` body, queryable and modifiable, whose `PARTY_SELF`
+/// subject carries the `external_ref` the record was created with: the
+/// `(id, namespace)` pair `GET /ehr?subject_id=…&subject_namespace=…` finds
+/// it by (RM `ehr` §`EHR_STATUS` `subject`; RM `common` §`PARTY_SELF` and
+/// §`PARTY_PROXY` `external_ref`). The subject is never optional, because an
+/// update that sent a bare `PARTY_SELF` would erase it.
+pub(crate) fn ehr_status_with_subject(offset_s: u64, subject: (&str, &str)) -> Vec<u8> {
+    let (id, namespace) = subject;
+    let subject = serde_json::json!({
+        "_type": "PARTY_SELF",
+        "external_ref": {
+            "_type": "PARTY_REF",
+            "id": { "_type": "GENERIC_ID", "value": id, "scheme": "veredictum" },
+            "namespace": namespace,
+            "type": "PERSON"
+        }
+    });
     // An EHR_STATUS is an archetype root, so the ARCHETYPED block is
     // mandatory and the root archetype_node_id equals its archetype_id (RM
     // common locatable.adoc §Invariants Archetyped_valid +
@@ -483,28 +317,6 @@ pub(crate) fn person_body(person: &Value, arrival: u64) -> Result<Vec<u8>, Strin
         .and_then(|value| value.get_mut("value"))
     {
         *name = format!("{} (registration {arrival})", staff(arrival));
-    }
-    serde_json::to_vec(&body).map_err(|e| e.to_string())
-}
-
-/// A `PARTY_RELATIONSHIP` body: the committed corpus fixture with its
-/// `source` pointed at the party this journey instance just registered (RM
-/// demographic master02 §Party Relationships — the relationship names the
-/// parties it relates).
-///
-/// # Errors
-/// A serialization failure message.
-pub(crate) fn party_relationship_body(
-    relationship: &Value,
-    source_uid: &str,
-) -> Result<Vec<u8>, String> {
-    let mut body = relationship.clone();
-    if let Some(Value::String(id)) = body
-        .get_mut("source")
-        .and_then(|source| source.get_mut("id"))
-        .and_then(|id| id.get_mut("value"))
-    {
-        source_uid.clone_into(id);
     }
     serde_json::to_vec(&body).map_err(|e| e.to_string())
 }
@@ -890,9 +702,15 @@ mod tests {
 
     #[test]
     fn constructed_bodies_parse_and_carry_their_shape() {
-        let status: Value = serde_json::from_slice(&ehr_status_body(0)).unwrap();
+        let status: Value =
+            serde_json::from_slice(&ehr_status_with_subject(0, ("p-1", "org.example"))).unwrap();
         assert_eq!(status["_type"], "EHR_STATUS");
         assert_eq!(status["subject"]["_type"], "PARTY_SELF");
+        assert_eq!(status["subject"]["external_ref"]["id"]["value"], "p-1");
+        assert_eq!(
+            status["subject"]["external_ref"]["namespace"],
+            "org.example"
+        );
         let folder: Value = serde_json::from_slice(&folder_body(true)).unwrap();
         assert_eq!(folder["folders"].as_array().unwrap().len(), 2);
         // RM common LOCATABLE.Archetype_node_id_valid on every node.
