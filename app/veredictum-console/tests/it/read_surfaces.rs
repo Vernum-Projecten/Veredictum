@@ -397,3 +397,163 @@ fn the_startup_read_falls_back_to_the_documented_mounts() {
         }
     }
 }
+/// A chapter page groups `composition` into its declared BASE sections, in
+/// declared order, then the options of `capabilities.yaml` touching it; every
+/// document of the folder is listed exactly once (#868).
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn a_chapter_page_groups_composition_into_base_and_options()
+-> Result<(), Box<dyn std::error::Error>> {
+    let state = committed_state();
+    let page = read::chapter_page(&state, "composition", "")?;
+    assert_eq!(page.title.as_deref(), Some("COMPOSITION"));
+    assert_eq!(page.chapter.as_deref(), Some("EHR"));
+    let titles: Vec<&str> = page.sections.iter().map(|s| s.title.as_str()).collect();
+    assert_eq!(
+        titles.first().copied(),
+        Some("Create"),
+        "BASE opens with the first declared section: {titles:?}"
+    );
+    let declared = [
+        "Create",
+        "Read",
+        "Update",
+        "Delete",
+        "Versioning and history",
+        "Refusals",
+    ];
+    let mut order = titles.iter().map(|t| declared.iter().position(|d| d == t));
+    assert!(
+        order.all(|at| at.is_some()),
+        "only declared sections: {titles:?}"
+    );
+    let positions: Vec<usize> = titles
+        .iter()
+        .filter_map(|t| declared.iter().position(|d| d == t))
+        .collect();
+    assert!(
+        positions.windows(2).all(|w| w.first() < w.get(1)),
+        "sections keep declared order: {titles:?}"
+    );
+    let create = page.sections.first().ok_or("a Create section")?;
+    assert!(
+        create
+            .documents
+            .iter()
+            .any(|d| d.band == "composition_create"),
+        "composition_create is a Create document"
+    );
+    assert!(
+        page.unsectioned.is_empty(),
+        "every BASE document names a section"
+    );
+
+    let xml = page
+        .options
+        .iter()
+        .find(|o| o.option == "composition-xml-read")
+        .ok_or("the composition-xml-read option touches composition")?;
+    assert!(!xml.description.is_empty());
+    assert!(xml.tier.is_some() && xml.theme.is_some());
+    let arms: Vec<&str> = xml.arms.iter().map(|a| a.arm.as_str()).collect();
+    assert_eq!(
+        arms,
+        ["composition-xml-supported", "composition-xml-unsupported"]
+    );
+    assert!(
+        xml.arms
+            .iter()
+            .flat_map(|a| a.documents.iter())
+            .any(|d| d.band == "composition_read_xml")
+    );
+
+    let listing = state
+        .catalogue
+        .as_ref()
+        .as_ref()
+        .map_err(|e| format!("the committed catalogue must load: {e}"))?;
+    let folder: Vec<&str> = listing
+        .documents
+        .iter()
+        .filter(|d| d.capability == "composition" && !d.workflows.is_empty())
+        .map(|d| d.id.as_str())
+        .collect();
+    let base: Vec<&str> = page
+        .sections
+        .iter()
+        .flat_map(|s| s.documents.iter())
+        .map(|d| d.band.as_str())
+        .collect();
+    let in_options: Vec<&str> = page
+        .options
+        .iter()
+        .flat_map(|o| o.arms.iter())
+        .flat_map(|a| a.documents.iter())
+        .map(|d| d.band.as_str())
+        .collect();
+    for document in &folder {
+        let listed = base.iter().filter(|d| *d == document).count();
+        assert!(
+            listed + usize::from(in_options.contains(document)) >= 1,
+            "{document} is listed nowhere"
+        );
+        assert!(listed <= 1, "{document} is listed twice under BASE");
+        assert!(
+            !(listed == 1 && in_options.contains(document)),
+            "{document} is both BASE and OPTION"
+        );
+    }
+    Ok(())
+}
+
+/// The filter narrows every group of a chapter page alike, and a content
+/// case carries the formalism its setup uploads (#870).
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn a_chapter_page_filters_across_groups_and_badges_content()
+-> Result<(), Box<dyn std::error::Error>> {
+    let state = committed_state();
+    let all = read::chapter_page(&state, "composition", "")?;
+    let narrowed = read::chapter_page(&state, "composition", "xml")?;
+    assert!(narrowed.cases() > 0 && narrowed.cases() < all.cases());
+    let ids = narrowed
+        .sections
+        .iter()
+        .flat_map(|s| s.documents.iter())
+        .chain(
+            narrowed
+                .options
+                .iter()
+                .flat_map(|o| o.arms.iter())
+                .flat_map(|a| a.documents.iter()),
+        )
+        .flat_map(|d| d.cases.iter());
+    for case in ids {
+        assert!(
+            case.id.contains("xml"),
+            "{} does not carry the filter",
+            case.id
+        );
+    }
+
+    let content = read::chapter_page(&state, "content", "")?;
+    let badges: Vec<Option<&str>> = content
+        .sections
+        .iter()
+        .flat_map(|s| s.documents.iter())
+        .flat_map(|d| d.cases.iter())
+        .map(|c| c.formalism.as_deref())
+        .collect();
+    assert!(!badges.is_empty(), "content carries BASE cases");
+    assert!(
+        badges.iter().all(|b| *b == Some("ADL 1.4")),
+        "every content case uploads an ADL 1.4 template"
+    );
+    Ok(())
+}
