@@ -26,6 +26,7 @@ use crate::arazzo::source::Base;
 #[must_use]
 pub fn undeclared_citation() -> Citation {
     Citation {
+        development: None,
         source: "specs/openehr/ITS-REST/docs/smart_app_launch/master04-service_discovery.adoc"
             .to_owned(),
         section: "Service Discovery".to_owned(),

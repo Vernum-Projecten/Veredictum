@@ -317,14 +317,35 @@ pub fn run_catalogue(
         },
     };
     outcome.results.outline = selection.outline(&planned);
-    if !specification.is_released() {
-        relink(&mut outcome.results.rows, &repo_root, request.profile);
-    }
-    outcome.results.specification = specification;
+    name_the_text(&mut outcome.results, specification, &planned, &repo_root);
     if let Some(server) = &outcome.results.server {
         outcome.results.review = ReviewNote::review(declared_its_rest.as_deref(), server);
     }
     Ok(outcome)
+}
+
+/// Records `specification` on `results`, and under a profile other than the
+/// released one points every citation of a row at that profile's text.
+fn name_the_text(
+    results: &mut Results,
+    specification: Specification,
+    planned: &[catalogue::Planned],
+    repo_root: &Path,
+) {
+    if !specification.is_released() {
+        let citations: Vec<_> = planned
+            .iter()
+            .flat_map(|planned| planned.document.description().workflows.iter())
+            .flat_map(crate::arazzo::structure::workflow_citations)
+            .collect();
+        relink(
+            &mut results.rows,
+            repo_root,
+            specification.profile(),
+            &citations,
+        );
+    }
+    results.specification = specification;
 }
 
 #[cfg(test)]

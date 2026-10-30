@@ -1423,4 +1423,38 @@ mod tests {
         let unclaimed = system_skips(&profile(json!(["canonical-xml"])));
         assert_eq!(unclaimed, vec![Some(format_not_claimed()); 3]);
     }
+
+    #[test]
+    fn a_case_whose_cited_text_the_profile_lacks_is_skipped_with_what_is_missing() {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let document =
+            ArazzoDocument::load(&repo.join("catalogue/cases/system/system_options.arazzo.yaml"))
+                .unwrap();
+        let workflows = document.description().workflows.len();
+        let mut held = QuoteChecker::in_profile(&repo, SpecProfile::Development);
+        assert_eq!(
+            absent_text_skips(&document, "system_options", &mut held, &repo).unwrap(),
+            [],
+            "the committed snapshot holds every text the document cites"
+        );
+        let empty = assert_fs::TempDir::new().unwrap();
+        let mut lacking = QuoteChecker::in_profile(empty.path(), SpecProfile::Development);
+        let skips =
+            absent_text_skips(&document, "system_options", &mut lacking, empty.path()).unwrap();
+        assert_eq!(skips.len(), workflows, "one skip per workflow");
+        for (_, skip) in &skips {
+            assert_eq!(skip.reason, SkipReason::CitedTextAbsent);
+            let detail = skip.detail.as_deref().unwrap();
+            assert!(
+                detail.starts_with("development profile: the development specification profile has no file `specs/openehr-development/"),
+                "{detail}"
+            );
+        }
+        let mut released = QuoteChecker::new(&repo);
+        assert_eq!(
+            absent_text_skips(&document, "system_options", &mut released, &repo).unwrap(),
+            [],
+            "the release holds every text the catalogue cites"
+        );
+    }
 }

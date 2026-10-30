@@ -3,10 +3,12 @@
 
 //! The specification profile end to end: a development run of the committed
 //! catalogue against the fake SUT reads every case citation against the
-//! development snapshot, skips a case whose cited text the snapshot lacks
-//! with that reason, names the profile and the snapshot in the results and in
-//! every view, re-judges into the same bytes, and leaves the released run
-//! untouched. `validate` reports the snapshot's absences as information.
+//! development snapshot, runs a case whose citation the snapshot rewords
+//! under its development wording, names the profile and the snapshot in the
+//! results and in every view, re-judges into the same bytes, and leaves the
+//! released run untouched. `validate` reports the snapshot's absences as
+//! information. The skip of a case whose cited text the snapshot lacks is
+//! pinned by the catalogue planner's own unit test.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -20,13 +22,12 @@ use crate::fake_sut::FakeSut;
 /// Anything a run or a fixture read can fail with.
 type Fallible = Result<(), Box<dyn std::error::Error>>;
 
-/// A document whose Version Lifecycle quote the development line extended
-/// with two new lifecycle states, beside cases whose citations it keeps.
+/// A document one of whose citations the development snapshot rewords: the
+/// Version Lifecycle list gained two lifecycle states.
 const DOCUMENT: &str = "contribution_create";
 
-/// A case citing the release's list of the three version lifecycle states,
-/// which the development line no longer holds verbatim.
-const ABSENT_CASE: &str = "contribution_create/commit_contribution-incomplete_lifecycle";
+/// The case citing that list, which carries its development wording.
+const REWORDED_CASE: &str = "contribution_create/commit_contribution-incomplete_lifecycle";
 
 fn repo() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
@@ -136,34 +137,34 @@ fn a_run_without_a_profile_reads_the_development_snapshot_and_names_it_everywher
         ]
     );
 
-    let skipped = row(&results, ABSENT_CASE).ok_or("the absent case has a row")?;
-    assert_eq!(skipped.get("status"), Some(&json!("skipped")), "{skipped}");
+    let reworded = row(&results, REWORDED_CASE).ok_or("the reworded case has a row")?;
+    assert_ne!(
+        reworded.get("status"),
+        Some(&json!("skipped")),
+        "a reworded citation runs under its development wording: {reworded}"
+    );
     assert_eq!(
-        skipped.pointer("/skip/reason"),
-        Some(&json!("cited-text-absent"))
+        absent_rows(&results),
+        0,
+        "every case of the document cites text the snapshot holds"
     );
-    let detail = skipped
-        .pointer("/skip/detail")
-        .and_then(Value::as_str)
-        .ok_or("the skip names what is missing")?;
-    assert!(
-        detail.starts_with("development profile: the quote does not occur in"),
-        "{detail}"
-    );
-    assert!(
-        skipped
-            .pointer("/skip/why/link")
-            .and_then(Value::as_str)
-            .is_some_and(|link| link.contains("specifications-RM/blob/654296bb027b")),
-        "the citation links to the snapshot's commit: {skipped}"
-    );
-    let total = results
+    let links: Vec<&str> = results
         .get("rows")
         .and_then(Value::as_array)
-        .map_or(0, Vec::len);
+        .into_iter()
+        .flatten()
+        .filter_map(|row| row.pointer("/explanation/why/link").and_then(Value::as_str))
+        .collect();
+    assert!(!links.is_empty(), "the red rows carry their citations");
     assert!(
-        absent_rows(&results) > 0 && absent_rows(&results) < total,
-        "some cases of the document run under the snapshot and some are absent"
+        links.iter().all(|link| !link.contains("24058992d5fa")),
+        "no development row links to the release: {links:?}"
+    );
+    assert!(
+        links
+            .iter()
+            .any(|link| link.contains("specifications-ITS-REST/blob/9d25ea783f79")),
+        "the rows link to the snapshot's commits: {links:?}"
     );
     let stdout = String::from_utf8(output.stdout)?;
     assert!(
@@ -253,7 +254,7 @@ fn validate_reports_the_snapshot_absences_as_information() -> Fallible {
     let stdout = String::from_utf8(output.stdout)?;
     assert!(stdout.contains(", 0 finding(s)\n"), "{stdout}");
     assert!(
-        stdout.contains(&format!("[info] {ABSENT_CASE}: development profile: ")),
+        stdout.contains("(the cases citing them are skipped as cited-text-absent), 0 finding(s)"),
         "{stdout}"
     );
     assert!(

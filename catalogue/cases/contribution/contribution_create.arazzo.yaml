@@ -629,6 +629,9 @@ workflows:
       source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
       section: Version Lifecycle
       quote: "The possible values are `532|complete|`, `553|incomplete|` and `523|deleted|`."
+      development:
+        section: Version Lifecycle
+        quote: "The possible values are `532|complete|`, `553|incomplete|`, `523|deleted|`, `800|inactive|` and `801|abandoned|`."
     inputs: *ehr_input
     steps:
       - *create_ehr
@@ -1086,6 +1089,9 @@ workflows:
       source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
       section: Version Lifecycle
       quote: "The possible values are `532|complete|`, `553|incomplete|` and `523|deleted|`."
+      development:
+        section: Version Lifecycle
+        quote: "The possible values are `532|complete|`, `553|incomplete|`, `523|deleted|`, `800|inactive|` and `801|abandoned|`."
     inputs: *ehr_input
     steps:
       - *create_ehr

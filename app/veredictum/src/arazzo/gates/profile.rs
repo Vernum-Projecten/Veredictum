@@ -148,6 +148,7 @@ impl ProfileHeader {
             ),
         };
         Citation {
+            development: None,
             source: source.to_owned(),
             section: section.to_owned(),
             quote: quote.to_owned(),

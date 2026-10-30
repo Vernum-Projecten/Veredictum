@@ -97,9 +97,11 @@ and quote the sentence that assigns the value.
   every export name the profile and the snapshot. Released results alone back
   a released claim or a certificate: a development result is never mixed
   with, compared as, or counted toward a released result, a certificate or
-  the released BASE/OPTIONS tally. A case cites the same section under both
-  profiles, read against the text of the profile it runs under, and a case
-  whose cited text is absent from a profile is skipped with that reason.
+  the released BASE/OPTIONS tally. A case whose cited section differs between
+  the profiles cites the text of the profile it runs under: the citation's
+  `development` member quotes the snapshot's wording, once a first-hand
+  reading confirms the requirement is unchanged in substance. A case whose
+  cited text is absent from a profile is skipped with that reason.
   `validate` gates the catalogue against the release, with zero findings the
   only passing result.
 - Where both the docs text and the OAS are silent, no case asserts the

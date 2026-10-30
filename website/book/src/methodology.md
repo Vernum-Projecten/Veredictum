@@ -61,7 +61,10 @@ A run reads its citations against one of two profiles.
   every released claim.
 
 A case cites the same section under both profiles, and only the text it is
-checked against changes. A development run computes real verdicts against the
+checked against changes. Where the snapshot rewords a cited sentence and the
+requirement is unchanged in substance, the citation carries a `development`
+member quoting the snapshot's sentence, which the development profile reads in
+place of the released one and the released profile never reads. A development run computes real verdicts against the
 development text. A case whose cited file, section or sentence the snapshot
 lacks is skipped as `cited-text-absent`, and the skip names the profile and
 what is missing. The results, `show`, every export and the console name the

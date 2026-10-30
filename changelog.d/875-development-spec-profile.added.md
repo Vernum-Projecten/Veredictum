@@ -25,3 +25,8 @@
   as their label and a straight double quote as a backtick, and a class table
   the release names by its class is found under its package-qualified name.
   The released profile's matching is unchanged.
+- A citation in `x-veredictum-cite` may carry a `development` member, the
+  snapshot's wording of a reworded section, which the development profile
+  reads in place of `section` and `quote`. `validate --profile development`
+  refuses one the snapshot does not hold and a stale one whose released quote
+  still occurs there.

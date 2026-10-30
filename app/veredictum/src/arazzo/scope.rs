@@ -240,6 +240,7 @@ pub fn uncovered(workflow: &Workflow, inputs: &Row, coverage: &Coverage) -> Opti
 #[must_use]
 pub fn undeclared_citation() -> Citation {
     Citation {
+        development: None,
         source: "specs/openehr/ITS-REST/docs/smart_app_launch/master08-scopes.adoc".to_owned(),
         section: "Scopes".to_owned(),
         quote: "scopes are passed during the authorization request and are evaluated by the _Platform_ when issuing access tokens.".to_owned(),

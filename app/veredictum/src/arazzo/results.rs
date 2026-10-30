@@ -9,13 +9,14 @@
 //! from a clock, so re-judging a recording writes the same bytes. No openEHR
 //! spec governs the format — our own design.
 
+use std::collections::BTreeMap;
 use std::fmt;
 use std::num::NonZeroU64;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::arazzo::cite::Citation;
+use crate::arazzo::cite::{Citation, DevelopmentText};
 use crate::arazzo::rows::Row;
 use crate::arazzo::spec_profile::{DEVELOPMENT_ROOT, SpecProfile, Specification};
 use crate::arazzo::structure::Outline;
@@ -173,9 +174,42 @@ impl Why {
 ///
 /// A citation names the released path under every profile, so a row judged
 /// under another profile links to the commit that profile's text was taken
-/// from, never to the release.
-pub fn relink(rows: &mut [ResultRow], repo_root: &Path, profile: SpecProfile) {
+/// from, never to the release. Under the development profile a citation of
+/// `citations` that carries its `development` wording is shown in that
+/// wording: the case cites the text of the profile it runs under.
+pub fn relink(
+    rows: &mut [ResultRow],
+    repo_root: &Path,
+    profile: SpecProfile,
+    citations: &[Citation],
+) {
+    let reworded: BTreeMap<(&str, &str, &str), &DevelopmentText> = citations
+        .iter()
+        .filter(|_| profile == SpecProfile::Development)
+        .filter_map(|c| {
+            c.development.as_deref().map(|wording| {
+                (
+                    (c.source.as_str(), c.section.as_str(), c.quote.as_str()),
+                    wording,
+                )
+            })
+        })
+        .collect();
     let set = |why: &mut Why| {
+        let wording = reworded
+            .get(&(
+                why.source.as_str(),
+                why.section.as_str(),
+                why.quote.as_str(),
+            ))
+            .copied();
+        if let Some(wording) = wording {
+            if let Some(source) = &wording.source {
+                why.source.clone_from(source);
+            }
+            why.section.clone_from(&wording.section);
+            why.quote.clone_from(&wording.quote);
+        }
         why.link = upstream_link_in(&why.source, repo_root, profile);
     };
     for row in rows {
@@ -512,7 +546,11 @@ pub fn upstream_link(source: &str, repo_root: &Path) -> Option<String> {
 #[must_use]
 pub fn upstream_link_in(source: &str, repo_root: &Path, profile: SpecProfile) -> Option<String> {
     if profile != SpecProfile::Released {
-        let path = profile.file_of(repo_root, source)?;
+        let path = if source.starts_with(&format!("{DEVELOPMENT_ROOT}/")) {
+            source.to_owned()
+        } else {
+            profile.file_of(repo_root, source)?
+        };
         if !repo_root.join(&path).is_file() {
             return None;
         }
@@ -713,5 +751,61 @@ mod tests {
         };
         let text = row.to_string();
         assert!(text.starts_with("FAILED   ehr/w   step create-again\nWhat     Create it again.\nWhy      s, d:\n         \"q\"\nExpected status 409\nReceived status 201\nExchange PUT http://sut/ehr/1 -> 201   (recording entry 1)\nWhose    the server"), "{text}");
+    }
+
+    #[test]
+    fn a_development_row_shows_the_development_wording_of_its_citation() {
+        let source = "specs/openehr/RM/docs/common/master06-change_control_package.adoc";
+        let released_quote =
+            "The possible values are `532|complete|`, `553|incomplete|` and `523|deleted|`.";
+        let citation = Citation {
+            source: source.to_owned(),
+            section: "Version Lifecycle".to_owned(),
+            quote: released_quote.to_owned(),
+            report: None,
+            level: None,
+            development: Some(Box::new(DevelopmentText {
+                source: None,
+                section: "Version Lifecycle".to_owned(),
+                quote: "the snapshot's wording".to_owned(),
+            })),
+        };
+        let row = || ResultRow {
+            case: "c/w".to_owned(),
+            row: 0,
+            status: Status::Skipped,
+            inputs: Row::new(),
+            generated: Vec::new(),
+            skip: Some(Skip {
+                reason: SkipReason::NotClaimed,
+                why: Why::of(&citation, &root()),
+                detail: None,
+            }),
+            explanation: None,
+        };
+        let mut development = [row()];
+        relink(
+            &mut development,
+            &root(),
+            SpecProfile::Development,
+            std::slice::from_ref(&citation),
+        );
+        let why = &development[0].skip.as_ref().unwrap().why;
+        assert_eq!(why.quote, "the snapshot's wording");
+        assert_eq!(why.source, source);
+        assert!(
+            why.link
+                .as_deref()
+                .is_some_and(|l| l.contains("specifications-RM/blob/654296bb027b")),
+            "{why:?}"
+        );
+        let mut released = [row()];
+        relink(
+            &mut released,
+            &root(),
+            SpecProfile::Released,
+            std::slice::from_ref(&citation),
+        );
+        assert_eq!(released[0].skip.as_ref().unwrap().why.quote, released_quote);
     }
 }

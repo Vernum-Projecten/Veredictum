@@ -53,6 +53,8 @@ reads every case citation against the development snapshot under
 or sentence the snapshot lacks prints as an `[info]` line naming the case, and
 the profile's counts follow per component; neither is a finding, and the exit
 status stays `0` for them. A citation the snapshot refuses for any other
-reason is a `profile-citation` finding. The repository's own gate runs
+reason is a `profile-citation` finding, and so is a citation's `development`
+wording that the snapshot does not hold, or one whose released quote still
+occurs there unchanged. The repository's own gate runs
 `--profile released`, where zero findings is the only passing result, and a
 second `--profile development` pass that reports the absences.
