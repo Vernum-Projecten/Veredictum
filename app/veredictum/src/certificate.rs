@@ -40,7 +40,7 @@ use sha2::{Digest as _, Sha256};
 use thiserror::Error;
 
 use crate::arazzo::results::{Results, Status};
-use crate::party::{InstrumentStatus, Sut};
+use crate::party::{IdentityField, InstrumentStatus, Sut};
 
 /// The JWS `alg` every certificate carries: Ed25519 (RFC 8037 §3.1).
 pub const ALGORITHM: &str = "EdDSA";
@@ -346,7 +346,9 @@ pub struct RecordedRun<'a> {
     pub results: &'a [u8],
     /// The run's HAR recording, byte for byte.
     pub recording: &'a [u8],
-    /// The server's identity as the run recorded it.
+    /// The server's identity as the run recorded it. Its
+    /// `restapi_specs_version` is not read: the certificate states the
+    /// release the run's results record under `server`.
     pub sut: Sut,
     /// The catalogue root the run drove.
     pub catalogue: &'a Path,
@@ -359,7 +361,9 @@ impl CertificatePayload {
     ///
     /// The results document must be the one this engine wrote: a run judged
     /// by another engine version is refused, so the payload's instrument is
-    /// both the engine that judged and the one that issued.
+    /// both the engine that judged and the one that issued. The SUT's
+    /// `restapi_specs_version` is the one the server stated in that results
+    /// document's `server` member, and absent when it stated none.
     ///
     /// # Errors
     /// [`IssueError::Results`] when the results document does not parse,
@@ -386,7 +390,14 @@ impl CertificatePayload {
                 version: version.to_owned(),
                 status: InstrumentStatus::CURRENT,
             },
-            sut: run.sut.clone(),
+            sut: Sut {
+                restapi_specs_version: results
+                    .server
+                    .as_ref()
+                    .and_then(crate::arazzo::results::ServerIdentity::restapi_specs_version)
+                    .map(IdentityField::server),
+                ..run.sut.clone()
+            },
             base_url: results.base_url.clone(),
             document: results.document.clone(),
             catalogue: CatalogueRevision {
@@ -1542,6 +1553,46 @@ mod tests {
             SigningKey::from_pkcs8_pem(Kid::parse("k")?, b"not a key").err(),
             Some(KeyError::Unreadable)
         );
+        Ok(())
+    }
+
+    /// The release a certificate states is the one the run's results record
+    /// under `server`, whatever the caller's identity carries.
+    #[test]
+    fn the_certificate_states_the_release_the_run_recorded() -> TestResult {
+        let catalogue = repo().join("fixtures/declaration");
+        let caller = Sut {
+            restapi_specs_version: Some(IdentityField::server("9.9.9")),
+            ..sut()
+        };
+        let stated = results_text().replacen(
+            "\"rows\":",
+            r#""server": { "read": "read", "answer": { "outcome": "offered", "status": 200,
+                "options": { "restapi_specs_version": "1.0.3" } } },
+  "rows":"#,
+            1,
+        );
+        let payload = CertificatePayload::of_run(&RecordedRun {
+            results: stated.as_bytes(),
+            recording: RECORDING,
+            sut: caller.clone(),
+            catalogue: &catalogue,
+            issued_at: issued_at()?,
+        })?;
+        assert_eq!(
+            payload.sut.restapi_specs_version,
+            Some(IdentityField::server("1.0.3"))
+        );
+        assert_eq!(payload.sut.name, caller.name);
+        let silent = results_text();
+        let payload = CertificatePayload::of_run(&RecordedRun {
+            results: silent.as_bytes(),
+            recording: RECORDING,
+            sut: caller,
+            catalogue: &catalogue,
+            issued_at: issued_at()?,
+        })?;
+        assert_eq!(payload.sut.restapi_specs_version, None);
         Ok(())
     }
 

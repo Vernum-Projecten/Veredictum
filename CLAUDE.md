@@ -40,7 +40,7 @@ and the container image through the pipeline the Releasing section describes.
 | `schemas/**` | the published JSON Schemas for every artifact family (emitted, drift-guarded) |
 | `verification-pack/**` | the recorded HAR exchanges proving the evaluator re-judges them into their adjudicated results |
 | `specs/openehr/**` | the vendored released openEHR spec text: the oracle |
-| `specs/its-xml-schemas/**`, `specs/its-json-schemas/**`, `specs/rest-oas/**` | the released machine-readable bundles, the second root a citation resolves against where the docs tree carries only prose |
+| `specs/its-xml-schemas/**`, `specs/its-json-schemas/**`, `specs/rest-oas/**` | the released machine-readable bundles; each is a root a citation may name beside `specs/openehr/`, and whether an ITS-JSON schema may ground an expectation is pending #842 |
 | `upstream/<openEHR repository>/**` | proposed fixes to a released specification, one patch per `upstream-report` issue, written against the vendored commit and never applied to `specs/` |
 | `deploy/docker/**` | the container image: its `Dockerfile`, the quickstart `docker-compose.yml`, the browser-journey SUT pairs, and the hadolint configuration |
 | `deploy/hosted/**` | the hosted instrument: the posture the image carries and the box's cloud-init |

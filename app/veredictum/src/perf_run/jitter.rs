@@ -13,11 +13,11 @@
 //! The constraint shapes read here are the released AM 1.4 XML ones:
 //! `C_DV_QUANTITY` carries `list: C_QUANTITY_ITEM`, each with a `magnitude`
 //! `IntervalOfReal` and its `units`
-//! (`specs/its-xml-schemas/components/AM/Release-1.4/OpenehrProfile.xsd`
+//! (`specs/its-xml-schemas/its-xml-2.0.0-nsv2/AM/Release-1.4/OpenehrProfile.xsd`
 //! §`C_DV_QUANTITY`, §`C_QUANTITY_ITEM`), and a `DV_COUNT` node's `magnitude`
 //! attribute carries a `C_PRIMITIVE_OBJECT` whose `item` is a `C_INTEGER` with
 //! a `range: IntervalOfInteger`
-//! (`specs/its-xml-schemas/components/AM/Release-1.4/Archetype.xsd`
+//! (`specs/its-xml-schemas/its-xml-2.0.0-nsv2/AM/Release-1.4/Archetype.xsd`
 //! §`C_PRIMITIVE_OBJECT`, §`C_INTEGER`).
 //!
 //! NOTE: no openEHR spec governs measured-performance payload variation — the

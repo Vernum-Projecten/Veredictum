@@ -577,6 +577,9 @@ pub fn identity_answer(
         IdentityRead::NotOptionsDocument { status, reason } => {
             crate::identity::IdentityAnswer::NotOptionsDocument { status, reason }
         }
+        IdentityRead::InvalidStatus { status } => {
+            crate::identity::IdentityAnswer::InvalidStatus { status }
+        }
     }
 }
 

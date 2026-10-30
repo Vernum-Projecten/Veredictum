@@ -135,6 +135,13 @@ pub enum IdentityRead {
         /// Why the body is not one, in the parser's own words.
         reason: String,
     },
+    /// A status outside 100..599, which RFC 9110 §15
+    /// (<https://www.rfc-editor.org/rfc/rfc9110#section-15>) makes invalid:
+    /// no HTTP answer, so neither offered nor refused.
+    InvalidStatus {
+        /// The status code the server answered with, 600 to 999.
+        status: u16,
+    },
 }
 
 impl IdentityRead {
@@ -143,7 +150,9 @@ impl IdentityRead {
     pub fn options(&self) -> Option<&OptionsDocument> {
         match self {
             IdentityRead::Offered { options, .. } => Some(options),
-            IdentityRead::NotOffered { .. } | IdentityRead::NotOptionsDocument { .. } => None,
+            IdentityRead::NotOffered { .. }
+            | IdentityRead::NotOptionsDocument { .. }
+            | IdentityRead::InvalidStatus { .. } => None,
         }
     }
 
@@ -162,18 +171,28 @@ impl IdentityRead {
                     "the server's System OPTIONS answer (HTTP {status}) is not an Options document: {reason}"
                 )
             }
+            IdentityRead::InvalidStatus { status } => {
+                format!(
+                    "the server's System OPTIONS answer carries {status}, which is not an HTTP status"
+                )
+            }
         }
     }
 }
 
 /// Classifies one answer to the System OPTIONS request.
 ///
-/// `200` with a JSON object of the `Options` shape is offered; any status
-/// outside 2xx is not offered; any other 2xx, or a 200 whose body is not that
-/// shape, is not an `Options` document.
+/// `200` with a JSON object of the `Options` shape is offered; any other
+/// status from 100 to 599 outside 2xx is not offered; any other 2xx, or a 200
+/// whose body is not that shape, is not an `Options` document; and a status
+/// from 600 to 999, which [`StatusCode`] holds but RFC 9110 §15 makes
+/// invalid, is an invalid status.
 #[must_use]
 pub fn classify(status: StatusCode, body: &str) -> IdentityRead {
     let code = status.as_u16();
+    if !(100..=599).contains(&code) {
+        return IdentityRead::InvalidStatus { status: code };
+    }
     if !status.is_success() {
         return IdentityRead::NotOffered { status: code };
     }
@@ -475,6 +494,21 @@ mod tests {
                 "{body} must not read as an Options document"
             );
         }
+    }
+
+    /// RFC 9110 §15: a status code outside 100..599 is invalid, so a 600
+    /// is neither offered nor refused, while 599 stays an HTTP refusal.
+    #[test]
+    fn a_status_outside_the_http_range_is_an_invalid_status() {
+        for code in [600, 999] {
+            let status = StatusCode::from_u16(code).unwrap();
+            assert_eq!(
+                classify(status, "{}"),
+                IdentityRead::InvalidStatus { status: code }
+            );
+        }
+        let last = StatusCode::from_u16(599).unwrap();
+        assert_eq!(classify(last, ""), IdentityRead::NotOffered { status: 599 });
     }
 
     #[test]

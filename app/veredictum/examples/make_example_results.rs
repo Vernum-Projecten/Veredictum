@@ -105,7 +105,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ixit_digest: ixit_digest("{\"example\":true}"),
         statement_digest: Some(statement_digest("{\"example\":\"statement\"}")),
         selection_basis: Some(SelectionBasis::Statement),
-        restapi_specs_version: Some("1.1.0".to_owned()),
         outcomes: vec![
             outcome(
                 "I_EHR_SERVICE.create_ehr-main",

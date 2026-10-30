@@ -116,7 +116,7 @@ vendored snapshot `specs/openehr/CNF/` @ `33251d2a`.
 |---|---|---|---|
 | Conformance Guide | DEVELOPMENT | 0.6.0, 08-Jan-2022 (`guide/master00-amendment_record.adoc`) | Methodology sound (SUT model, the specs→runnable-tests "square", API-vs-content test split). **Assessment layer all `TBD`**: `guide/master05-assessment.adoc` §Tooling, §Test Execution Report, §Conformance Statement, §Conformance Certification. "Platform Clients" scope: bare `TBD`. |
 | Platform Conformance Test Schedule | DEVELOPMENT | 0.8.6, 24-Mar-2022 (`platform_test_schedule/master00-amendment_record.adoc`) | See chapter map below. Minimum RM pinned 1.0.2 (`master03-overview.adoc`), behind RM 1.1.0/1.2.0. |
-| Platform Profiles | DEVELOPMENT | 2022 | CORE / STANDARD / OPTIONS capability matrix (`profiles/master03-profiles.adoc`) — usable as-is; this repository's capability matrix (`artifacts/vocab/capability_matrix.yaml`) implements it verbatim. |
+| Platform Profiles | DEVELOPMENT | 2022 | CORE / STANDARD / OPTIONS capability matrix (`profiles/master03-profiles.adoc`). This repository carries no tiers: its capabilities are the folders under `catalogue/cases/`, and the behaviour the release leaves to the implementation is an option in `catalogue/capabilities.yaml`. |
 | Conformance Certificate | DEVELOPMENT | 2021 | A **fictional worked example** ("BestEHR 2.4", "ACME EHR systems LLC", dated 2017; `certificate/master03-certificate.adoc`). No issuance procedure, assessor accreditation, validity period, or revocation anywhere. The book advertises BASIC-SEC/BASIC-PRIV ratings for which no defining test cases exist. |
 
 ### 3.2 Test Schedule chapter map
@@ -1046,7 +1046,7 @@ Cross-cutting rules:
   Enterprise (D/M/X, §11.11) as its chapter lands and Security (SEC-BASIC,
   §8.15) — each per tech profile, plus the measurement-machinery rating
   (earned performance class per environment, §8.14). Every cell is computed from `results.json` +
-  the capability matrix, never hand-asserted.
+  `catalogue/capabilities.yaml`, never hand-asserted.
 - **Validity & supersession**: a statement/certificate names the CNF schedule
   release + spec versions + tech profile + exact product version. It never
   expires by clock alone; it is **superseded** when a newer schedule release
@@ -1291,7 +1291,7 @@ acceptance gate:
 
 | PR | Content | Acceptance gate |
 |---|---|---|
-| U1 | The five schedule-artifact schema families (§8.2 #1–5: case cores, bindings, vocabularies incl. the capability matrix, corpus manifest, ambiguity register — a living artifact, each carried divergence linked via `upstream_issue` to its outbound report) + the §8.13 CI workflow | Schemas validate the §8.9 pilot files; CI runs on the repo |
+| U1 | The five schedule-artifact schema families (§8.2 #1–5: case cores, bindings, vocabularies incl. the capability options (`catalogue/capabilities.yaml`), corpus manifest, ambiguity register — a living artifact, each carried divergence linked via `upstream_issue` to its outbound report) + the §8.13 CI workflow | Schemas validate the §8.9 pilot files; CI runs on the repo |
 | U2 | master06 (EHR) converted: all 21 cases as case cores + the its-rest bindings for the EHR operations + corpus manifest over the existing EHR fixtures | Generated prose semantically equivalent to the current chapter (human-reviewed diff); zero information loss against the AsciiDoc tables |
 | U3 | master07/08/09 (COMPOSITION/CONTRIBUTION/DIRECTORY) conversion + bindings | Same gate; the versioning cases (§8.9 pilot 4 shape) round-trip |
 | U4 | Content chapters (master15–17) conversion — decision tables as data + the literal grammar + generation recipes | Every existing table row preserved verbatim; grammar parses 100% of existing literals |
@@ -1321,7 +1321,7 @@ below shipped, in this order, first inside FerroEHR and then here:
 
 | WS | Workstream | Content | Done-gate |
 |---|---|---|---|
-| W1 | **Artifact schemas in Rust** | The typed model + validator (now `app/veredictum/src/`) for case cores, bindings, vocabularies (outcomes + the capability matrix), corpus manifest, ambiguity register; JSON-Schema emission so the same schemas ship upstream in U1. The §8.13 checks become `cargo nextest` guards alongside the existing coverage guard. Scope: assertion-machinery artifacts; the performance case-core schema lands with W7. | Validator rejects every seeded-defect artifact fixture; schemas byte-identical to the U1 set |
+| W1 | **Artifact schemas in Rust** | The typed model + validator (now `app/veredictum/src/`) for case cores, bindings, vocabularies (outcomes + the capability options), corpus manifest, ambiguity register; JSON-Schema emission so the same schemas ship upstream in U1. The §8.13 checks become `cargo nextest` guards alongside the existing coverage guard. Scope: assertion-machinery artifacts; the performance case-core schema lands with W7. | Validator rejects every seeded-defect artifact fixture; schemas byte-identical to the U1 set |
 | W2 | **Catalogue authoring + comparison** | The CNF 2.0 catalogue authored per the framework: official schedule cases first (the §8.9 pilot encodings generalized across master04–09/15–17), then the ECC-original designs that fill genuine gaps — each re-adjudicated to spec-text-only evidence (§11.8) before entry, keeping an `ecc-` namespace pending upstream adoption. Official CNF ids primary; `inventory/ecc-catalog.tsv` retires with the old harness. | **Comparison gate** (not reproduction): committed ECC↔CNF coverage map + comparison report — every difference from the old baseline enumerated and justified against the framework, verdict regressions on equivalent coverage explained, official-schedule coverage ≥ the old harness; cutover, old-harness retirement, and the new baseline follow a reviewed report |
 | W3 | **Data-driven executor** | The engine executes functional case cores directly from the artifact files (flow interpreter: requires-setup, parameter iteration with reset_per_row, captures, outcome mapping via bindings, typed assertions). Hand-written Rust remains only for generation recipes and genuinely non-mechanizable glue — each such exception is registered. Content decision tables execute from the data. The AQL `result_set` assertions execute under the §8.6 equivalence rules (U5 ratifies the [legislated] defaults). | ≥90% of cases run through the interpreter; every exception listed in the report; the W2 comparison report stays green |
 | W4 | **Statement / results / ixit emission** | `results.json` is emitted in the §8.10 schema (per-row outcomes, ambiguity dispositions, runner verification status); `statement.json` (ICS) + `ixit.json` (formalizing `SutDescriptor`) emitted per SUT; the Certificate/Statement/Comparison artifacts render from them; verdict computation moves to the shared pure function. | All of FerroEHR's `docs/conformance/**` artifacts regenerate from the new schemas; the honesty blocks survive; badges derive from the new results |
@@ -1371,7 +1371,7 @@ technology choice, and it is Rust:
   precisely the thing worth building once, well.
 - **Type safety enforces the framework's own laws.** The closed
   vocabularies this design lives by — outcome kinds, body/header selectors,
-  reference grammar, capability matrix — map to Rust enums and newtypes:
+  reference grammar, capability keys — map to Rust enums and newtypes:
   an outcome kind outside the taxonomy or a malformed `${…}` reference is a
   *compile-time* error in the reference implementation, not a runtime
   surprise. The verdict machineries are pure functions over typed data —

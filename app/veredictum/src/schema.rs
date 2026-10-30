@@ -320,11 +320,6 @@ pub fn results_schema() -> Value {
                 "enum": tokens(SelectionBasis::ALL),
                 "description": "What ISO/IEC 9646 test selection had to select this campaign with: `statement` when a party statement (ICS) was supplied, `statement_blind` when none was. A blind campaign is a sweep of the whole catalogue rather than a party-scoped record — nothing selected the party's option arms, extension routes, claimed capabilities or release floors, and the cases whose failure that absence would manufacture (an unselected arm of a mutually exclusive option_select branch, an extension route no released text governs) are recorded not_applicable with their citation. Absent only in a document written before the member existed, where absence is unknown and never either basis."
             },
-            "restapi_specs_version": {
-                "type": "string",
-                "minLength": 1,
-                "description": "The restapi_specs_version member the SUT's System OPTIONS manifest served during the campaign, when that exchange was driven (released OAS system.openapi.yaml Options — every member optional, so absence is normal). An independent confirmation of the statement's declared spec_versions.its_rest, never a source of truth: divergence from the declaration is a static-review finding, not a re-declaration."
-            },
             "outcomes": {
                 "type": "array",
                 "items": outcome_record_def()
@@ -1945,6 +1940,14 @@ fn identity_read_outcomes() -> Value {
                     "status": { "type": "integer", "minimum": 200, "maximum": 299 },
                     "reason": { "type": "string", "description": "Why the body is not an `Options` document, in the parser's own words." }
                 }
+            },
+            {
+                "additionalProperties": false,
+                "required": ["outcome", "status"],
+                "properties": {
+                    "outcome": { "const": "invalid_status" },
+                    "status": { "type": "integer", "minimum": 600, "maximum": 999, "description": "A three-digit code outside 100..599, which RFC 9110 §15 makes invalid." }
+                }
             }
     ])
 }
@@ -2098,7 +2101,7 @@ pub fn identity_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("identity"),
         "title": "Server identity",
-        "description": "What the server answered to `OPTIONS <base>/`, the ITS-REST System OPTIONS operation (specifications/operations/options.yaml, served on `/` by the released system.openapi.yaml). The operation says services SHOULD answer with a payload revealing details about themselves, so every outcome is an answer and none is a finding: `offered` carries the members of the `Options` document (specifications/schemas/others/Options.yaml, every member optional) the server sent, `not_offered` a status outside 2xx, and `not_options_document` a 2xx whose body is not an `Options` document.",
+        "description": "What the server answered to `OPTIONS <base>/`, the ITS-REST System OPTIONS operation (specifications/operations/options.yaml, served on `/` by the released system.openapi.yaml). The operation says services SHOULD answer with a payload revealing details about themselves, so every outcome is an answer and none is a finding: `offered` carries the members of the `Options` document (specifications/schemas/others/Options.yaml, every member optional) the server sent, `not_offered` a status from 100 to 599 outside 2xx, `not_options_document` a 2xx whose body is not an `Options` document, and `invalid_status` a code from 600 to 999, which RFC 9110 §15 makes invalid.",
         "type": "object",
         "required": ["outcome", "status"],
         "oneOf": identity_read_outcomes()
