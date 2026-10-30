@@ -37,7 +37,7 @@ are writing your own catalogue or your own harness.
 ```text
 Drive the Arazzo catalogue against a server under test, or re-judge the recording of an earlier run, and write `results.json` and the HAR recording.
 
-The whole catalogue is gated first, as `validate` gates it, and nothing runs while the gate has a finding. Every document under `cases/` runs, in path order, except the shared setups under `cases/_setup/`, which run only where a case names them in `dependsOn`. A workflow whose rows file says `server: exclusive` runs in a final phase, after every other workflow, and a re-judgement replays in the same order. Every row is printed, and a failed or errored row with its four-part explanation.
+The whole catalogue is gated first, as `validate` gates it, and nothing runs while the gate has a finding. Every document under `cases/` runs, in path order, except the shared setups under `cases/_setup/`, which run only where a case names them in `dependsOn`. A workflow whose rows file says `server: exclusive` runs in a final phase, after every other workflow, and a re-judgement replays in the same order. Every row is printed, and a failed or errored row with its four-part explanation. The run ends with the view `show` prints, coloured only when standard output is a terminal and `NO_COLOR` is unset or empty.
 
 The results record, under `server`, what the server stated through ITS-REST System OPTIONS: the run's own exchange when a workflow sent one, otherwise one read after the catalogue ran, which the recording keeps, so a re-judgement never asks the server. A member the server did not state stays absent. When the statement declares `spec_versions.its_rest` and the server states a different `restapi_specs_version`, the results carry a `review` note and the run prints it; the note changes no row and no exit status.
 
@@ -918,19 +918,38 @@ carries a clock reading the results document does not carry.
 |---|---|---|
 | passed | a bare `<testcase>` | `passed` |
 | failed | `<failure>` | `failed` |
+| advisory | `<system-out>`, no `<failure>` | `other`, with `rawStatus: advisory` |
 | errored | `<error>` | `other`, with `rawStatus: errored` |
 | skipped | `<skipped>` | `skipped` |
+
+An advisory row is a SHOULD the server did not follow, which never counts
+against the server, so no view counts it as failed and a CI that fails a job
+on a failed test does not fail it on one. Its JUnit `<testcase>` carries the
+four-part explanation in `<system-out>`, opened by a line that says it is
+advisory, and no `failures` count includes it. In CTRF it is `other`, and
+`summary.failed` excludes it.
 
 A workflow is a JUnit `<testsuite>` and a row is a `<testcase>` named
 `<case> row <n>`. The text of a `<failure>` or `<error>` is the row's
 four-part explanation, its `message` is a one-line summary, and its `type`
-says whose problem the row is (`server`, `advisory` or `instrument`). A
+says whose problem the row is (`server` or `instrument`). A
 `<skipped>` carries the skip reason and the citation that makes the case not
 apply. In CTRF, a red row's `message` is the same four-part explanation, and
 each test's `extra` carries the case id, the row, the skip reason, the
 citation and, where the citation names one, the link to its upstream report.
 The CTRF document validates against the schema the CTRF project publishes for
 `specVersion` 0.2.0.
+
+**What the Markdown summary holds.** After the count of each mark, the rows
+follow the reading of a result every view uses: `## BASE` by chapter, band and
+section in the order the catalogue declares, each band heading with its counts;
+`## RECOMMENDED` and `## OPTIONS`, one heading per option naming the arm the
+statement selected, with the cases resting on TRIAL text under OPTIONS; and
+`## Where the released spec is defective`, which lists every case resting on
+text an upstream report records, grouped by report. A failed, advisory or
+errored row is a collapsed section holding its four-part explanation, and each
+case carries its badges: the template formalism, `TRIAL`, and the reports its
+citations name. The advisory and skipped rows follow in their own tables.
 
 **Where the Markdown summary goes.** GitHub Actions sets
 `GITHUB_STEP_SUMMARY` in every job step, and `export` appends the summary to
@@ -963,6 +982,76 @@ The JUnit file is read by GitLab (`artifacts:reports:junit`), Jenkins (the
 JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
 server's response bodies verbatim, so it belongs where the operator keeps the
 run, never in a public artifact.
+
+## show
+
+```text
+Show an Arazzo results document in the terminal: one line per chapter, band and option, each with its counts and a bar.
+
+BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. RECOMMENDED and OPTIONS follow, one line per option naming its selected arm, then the cases resting on TRIAL text, and last the part of the result that rests on released text an upstream report records as defective. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! advisory and ○ skipped (grey). An advisory row is a SHOULD the server did not follow and is never shown as a failure.
+
+Exit status: `0` when the view was printed; `2` when the document cannot be read.
+
+Usage: veredictum show [OPTIONS] <RESULTS>
+
+Arguments:
+  <RESULTS>
+          The `results.json` the Arazzo evaluator wrote
+
+Options:
+      --failed
+          Expand every failed and errored row with its four-part explanation, then list the advisory rows apart
+
+      --color <COLOR>
+          When to colour the view. `auto` colours when standard output is a terminal and `NO_COLOR` is unset or empty (<https://no-color.org/>)
+
+          Possible values:
+          - auto:   Colour on a terminal unless `NO_COLOR` is set
+          - always: Always colour
+          - never:  Never colour
+          
+          [default: auto]
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+`show` reads the `results.json` the Arazzo evaluator writes and prints it in
+the terminal, so a result can be read without exporting it first.
+[`test`](#test) prints the same view when a run finishes.
+
+Each line is one group of rows, with a bar of 24 cells and the count of each
+mark. The bar gives every mark that has a row at least one cell, so a single
+failure among a thousand passes still shows. The cells differ in shape as well
+as colour: `█` passed, `▓` failed, `▒` errored, `░` advisory, `·` skipped.
+
+```text
+BASE
+  Every BASE case                           ████████████▓▓▓▓▓▓▓▓░░░░  ✓   3  ✕   2  ?   0  !   1  ○   0
+  EHR                                       ████████████▓▓▓▓▓▓▓▓░░░░  ✓   3  ✕   2  ?   0  !   1  ○   0
+    COMPOSITION                             ████████████▓▓▓▓▓▓░░░░░░  ✓   2  ✕   1  ?   0  !   1  ○   0
+    DIRECTORY                               no cases
+```
+
+The groups are the ones every view of a result uses. BASE lists each chapter
+and band in the order the catalogue declares. RECOMMENDED and OPTIONS list one
+line per option with the arm the statement selected; an option with no arm
+selected is listed once and its rows count nowhere. The cases whose citations
+rest on text the release marks TRIAL are listed under OPTIONS, never in a BASE
+count. The last part lists the options that exist only because the released
+text is defective, and every case resting on text an upstream report records,
+grouped by report, with the report's title and state from the snapshot the
+catalogue commits. Nothing is fetched while the view is printed.
+
+An advisory row is a SHOULD the server did not follow. It is counted apart
+from the failed rows, and `--failed` lists it under its own heading after the
+failed and errored rows, never among them.
+
+**Colour.** With `--color auto`, the default, the view is coloured only when
+standard output is a terminal and `NO_COLOR` is unset or empty, as
+<https://no-color.org/> asks. `--color always` and `--color never` override
+both, so `veredictum show results.json --color always | less -R` keeps the
+colour.
 
 ## verify
 

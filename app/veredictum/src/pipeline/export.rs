@@ -5,13 +5,15 @@
 //!
 //! The seam reads one `results.json` the Arazzo evaluator wrote and hands
 //! back its JUnit XML, CTRF and Markdown views, rendered by
-//! [`crate::arazzo::export`]. Where each view is written is the caller's
+//! [`crate::arazzo::export`], and its terminal view, rendered by
+//! [`crate::arazzo::terminal`]. Where each view is written is the caller's
 //! decision.
 
 use std::path::Path;
 
 use crate::arazzo::export::{ctrf, junit, markdown};
 use crate::arazzo::results::Results;
+use crate::arazzo::terminal::{ShowOptions, render};
 use crate::pipeline::{Error, read_json};
 
 /// The three views of one results document.
@@ -37,4 +39,13 @@ pub fn export_results(results: &Path) -> Result<ResultsExports, Error> {
         ctrf: ctrf(&results)?,
         markdown: markdown(&results),
     })
+}
+
+/// Reads an Arazzo results document and renders its terminal view.
+///
+/// # Errors
+/// [`Error::Read`] or [`Error::Parse`] for the results document.
+pub fn show_results(results: &Path, options: ShowOptions) -> Result<String, Error> {
+    let results: Results = read_json(results, "Arazzo results")?;
+    Ok(render(&results, options))
 }

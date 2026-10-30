@@ -156,6 +156,28 @@ impl CaseRows<'_> {
     pub fn reports(&self) -> &[NonZeroU64] {
         self.place.map(|p| p.reports.as_slice()).unwrap_or_default()
     }
+
+    /// The counts of the case's rows.
+    #[must_use]
+    pub fn tally(&self) -> Tally {
+        Tally::of(self.rows.iter().copied())
+    }
+
+    /// The mark the case reads as: the first of failed, errored, advisory
+    /// and passed that any of its rows carries, else skipped.
+    #[must_use]
+    pub fn mark(&self) -> Mark {
+        let tally = self.tally();
+        [
+            (tally.failed, Mark::Failed),
+            (tally.errored, Mark::Errored),
+            (tally.advisory, Mark::Advisory),
+            (tally.passed, Mark::Passed),
+        ]
+        .into_iter()
+        .find_map(|(count, mark)| (count > 0).then_some(mark))
+        .unwrap_or(Mark::Skipped)
+    }
 }
 
 /// One BASE section of a band.

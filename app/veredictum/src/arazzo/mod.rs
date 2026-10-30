@@ -36,3 +36,4 @@ pub mod rows;
 pub mod scope;
 pub mod source;
 pub mod structure;
+pub mod terminal;

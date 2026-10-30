@@ -200,8 +200,16 @@ fn a_passing_run_exits_zero_and_writes_its_results_and_recording() -> Fallible {
     );
     let stdout = String::from_utf8(output.stdout)?;
     assert!(
-        stdout.contains("5 row(s): 5 passed, 0 failed, 0 errored, 0 skipped"),
+        stdout.contains("5 row(s): 5 passed, 0 failed, 0 advisory, 0 errored, 0 skipped"),
         "{stdout}"
+    );
+    assert!(
+        stdout.contains("\nVeredictum results: "),
+        "the run ends with the terminal view: {stdout}"
+    );
+    assert!(
+        !stdout.contains('\u{1b}'),
+        "a pipe is not a terminal: {stdout}"
     );
     Ok(())
 }

@@ -1,17 +1,20 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The CI views of an Arazzo results document: JUnit XML, CTRF 0.2.0 and the
-//! Markdown summary. Each is pinned by a reviewed snapshot over one document
-//! that carries every status, every party a red row can belong to, a cited
-//! upstream report and text that must be escaped; the CTRF view is held to
-//! the vendored CTRF 0.2.0 schema, and every view is byte-deterministic.
+//! The views of an Arazzo results document: JUnit XML, CTRF 0.2.0, the
+//! Markdown summary and the terminal view. Each is pinned by a reviewed
+//! snapshot over one document that carries every status, every party a red
+//! row can belong to, a cited upstream report and text that must be escaped,
+//! and the Markdown and terminal views again over a document with an outline;
+//! the CTRF view is held to the vendored CTRF 0.2.0 schema, no view counts an
+//! advisory row as failed, and every view is byte-deterministic.
 
 #![expect(
     clippy::expect_used,
     reason = "test-support helpers (not `#[test]` fns, so the clippy.toml in-tests scoping does not reach them) are panic-idiomatic: a broken fixture must abort the test loudly, Book ch11"
 )]
 
+use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 
@@ -21,12 +24,17 @@ use quick_xml::{Reader, XmlVersion};
 use serde_json::Value;
 use veredictum::arazzo::document::ArazzoDocument;
 use veredictum::arazzo::evaluate::{Plan, rejudge};
-use veredictum::arazzo::export::{CTRF_SPEC_VERSION, ctrf, junit, markdown};
+use veredictum::arazzo::export::{ADVISORY_LINE, CTRF_SPEC_VERSION, ctrf, junit, markdown};
 use veredictum::arazzo::har::Har;
 use veredictum::arazzo::results::{
     Engine, ExchangeRef, Explanation, ResultRow, Results, Skip, SkipReason, Status, Whose, Why,
 };
 use veredictum::arazzo::rows::Row;
+use veredictum::arazzo::structure::{
+    ArmRef, ChapterDecl, FolderDecl, Formalism, Outline, OutlineArm, OutlineOption, OutlineReport,
+    Place, ReportState, SectionDecl, Standing, Theme, Tier,
+};
+use veredictum::arazzo::terminal::{ShowOptions, render};
 use veredictum::party::InstrumentStatus;
 use veredictum::pipeline::Error;
 use veredictum::pipeline::export::export_results;
@@ -218,7 +226,7 @@ fn every_status_maps_as_the_architecture_states() {
         [
             ("passed", "passed"),
             ("failed", "failed"),
-            ("failed", "failed"),
+            ("other", "advisory"),
             ("other", "errored"),
             ("skipped", "skipped"),
         ]
@@ -233,7 +241,7 @@ fn every_status_maps_as_the_architecture_states() {
             &summary["skipped"],
             &summary["suites"],
         ],
-        [5, 1, 2, 1, 1, 4].map(Value::from).each_ref()
+        [5, 1, 1, 2, 1, 4].map(Value::from).each_ref()
     );
 
     let xml = junit(&results).unwrap();
@@ -251,13 +259,17 @@ fn every_status_maps_as_the_architecture_states() {
                     "failure" => "failure",
                     "error" => "error",
                     "skipped" => "skipped",
+                    "system-out" => "system-out",
                     other => panic!("unexpected {other}"),
                 });
             }
             _ => {}
         }
     }
-    assert_eq!(children, ["none", "failure", "failure", "error", "skipped"]);
+    assert_eq!(
+        children,
+        ["none", "failure", "system-out", "error", "skipped"]
+    );
 }
 
 #[test]
@@ -377,4 +389,379 @@ fn without_a_summary_file_the_command_prints_the_summary() {
         String::from_utf8(output.stdout).unwrap(),
         markdown(&fixture())
     );
+}
+
+#[test]
+fn an_advisory_row_counts_as_failed_in_no_view() {
+    let results = fixture();
+    let xml = junit(&results).unwrap();
+    let mut reader = Reader::from_str(&xml);
+    let mut failures = Vec::new();
+    loop {
+        match reader.read_event().unwrap() {
+            Event::Eof => break,
+            Event::Start(e) if e.name().as_ref() == "testsuite" => {
+                let name = e.try_get_attribute("name").unwrap().unwrap();
+                let count = e.try_get_attribute("failures").unwrap().unwrap();
+                failures.push((name.value.into_owned(), count.value.into_owned()));
+            }
+            _ => {}
+        }
+    }
+    assert!(
+        failures.contains(&("ehr/etag".to_owned(), "0".to_owned())),
+        "{failures:?}"
+    );
+    assert!(
+        xml.contains("<testsuites name=\"ehr\" tests=\"5\" failures=\"1\""),
+        "{xml}"
+    );
+    assert!(xml.contains(ADVISORY_LINE), "{xml}");
+
+    let document: Value = serde_json::from_str(&ctrf(&results).unwrap()).unwrap();
+    assert_eq!(document["results"]["summary"]["failed"], 1);
+    let etag = &document["results"]["tests"][2];
+    assert_eq!(etag["extra"]["case"], "ehr/etag");
+    assert_eq!(etag["status"], "other");
+    assert_eq!(etag["rawStatus"], "advisory");
+
+    let summary = markdown(&results);
+    assert!(summary.contains("| Failed | 1 |"), "{summary}");
+    assert!(summary.contains("| Advisory | 1 |"), "{summary}");
+    assert!(summary.contains("## Advisory rows"), "{summary}");
+    assert!(
+        summary.contains(
+            "| ehr/etag row 0 | read | specs/openehr/ITS-REST/specifications/responses/409\\_EHR\\_with\\_id.yaml, description |"
+        ),
+        "{summary}"
+    );
+}
+
+fn issue(number: u64) -> NonZeroU64 {
+    NonZeroU64::new(number).expect("a report number is non-zero")
+}
+
+fn place(folder: &str, standing: Standing) -> Place {
+    Place {
+        chapter: "ehr".to_owned(),
+        folder: folder.to_owned(),
+        standing,
+        trial: false,
+        reports: Vec::new(),
+        formalism: None,
+    }
+}
+
+fn base(folder: &str, section: &str) -> Place {
+    place(
+        folder,
+        Standing::Base {
+            section: section.to_owned(),
+        },
+    )
+}
+
+fn on_arm(folder: &str, option: &str, arm: &str) -> Place {
+    place(
+        folder,
+        Standing::Option {
+            arms: vec![ArmRef {
+                option: option.to_owned(),
+                arm: arm.to_owned(),
+            }],
+        },
+    )
+}
+
+fn arm(name: &str, selected: bool, documents: &[&str]) -> OutlineArm {
+    OutlineArm {
+        arm: name.to_owned(),
+        selected,
+        documents: documents.iter().map(|d| (*d).to_owned()).collect(),
+    }
+}
+
+fn option(
+    name: &str,
+    placement: (Theme, Tier),
+    report: Option<u64>,
+    arms: Vec<OutlineArm>,
+) -> OutlineOption {
+    OutlineOption {
+        option: name.to_owned(),
+        description: format!("Whether the server supports {name}."),
+        theme: placement.0,
+        tier: placement.1,
+        report: report.and_then(NonZeroU64::new),
+        folders: vec!["composition".to_owned()],
+        arms,
+    }
+}
+
+fn section(key: &str, title: &str) -> SectionDecl {
+    SectionDecl {
+        section: key.to_owned(),
+        title: title.to_owned(),
+    }
+}
+
+fn folder(key: &str, title: &str, formalism: bool, sections: Vec<SectionDecl>) -> FolderDecl {
+    FolderDecl {
+        folder: key.to_owned(),
+        title: title.to_owned(),
+        formalism,
+        sections,
+    }
+}
+
+fn failed_row(case: &str, step: &str, whose: Whose, report: Option<u64>) -> ResultRow {
+    let mut failed = row(case, 0, Status::Failed);
+    failed.explanation = Some(red(
+        step,
+        "status 201",
+        whose,
+        Some(why("The server refuses it.", report)),
+    ));
+    failed
+}
+
+/// One catalogue run with an outline: BASE across two bands and an empty
+/// one, a band split by formalism, a TRIAL case, a reported case, a selected
+/// option, an unselected one, a recommended option whose selected arm runs
+/// nothing, a spec-boundary option and a case placed nowhere.
+fn outlined() -> Results {
+    let mut results = fixture();
+    "catalogue".clone_into(&mut results.document);
+    let mut create_failed = failed_row("composition/create", "create", Whose::Server, Some(42));
+    create_failed.row = 1;
+    let mut flat = row("flat/create", 0, Status::Skipped);
+    flat.skip = Some(Skip {
+        reason: SkipReason::OptionNotSelected,
+        why: why("The statement selects another arm.", None),
+    });
+    let mut boundary = row("ehr_status_flat/read", 0, Status::Errored);
+    boundary.explanation = Some(red(
+        "read",
+        "the body did not parse",
+        Whose::Instrument,
+        Some(why("EHR_STATUS has no flat form.", Some(352))),
+    ));
+    results.rows = vec![
+        row("composition/create", 0, Status::Passed),
+        create_failed,
+        failed_row("composition/read", "read", Whose::Advisory, None),
+        row("composition/read", 1, Status::Passed),
+        failed_row("query/stored", "validate", Whose::Server, None),
+        row("content/adl14_cardinality", 0, Status::Passed),
+        failed_row("content/adl2_cardinality", "commit", Whose::Server, None),
+        row("composition_xml/read", 0, Status::Passed),
+        flat,
+        boundary,
+        row("stray/case", 0, Status::Passed),
+    ];
+    results.outline = Some(outline());
+    results
+}
+
+/// Where [`outline`] places each case.
+fn places() -> BTreeMap<String, Place> {
+    let mut create = base("composition", "create");
+    create.reports = vec![issue(42)];
+    let mut stored = base("composition", "read");
+    stored.trial = true;
+    let mut adl14 = base("content", "structure");
+    adl14.formalism = Some(Formalism::Adl14);
+    let mut adl2 = base("content", "structure");
+    adl2.formalism = Some(Formalism::Adl2);
+    let mut boundary_place = on_arm("composition", "ehr-status-flat", "flat-served");
+    boundary_place.reports = vec![issue(352)];
+    BTreeMap::from([
+        ("composition/create".to_owned(), create),
+        ("composition/read".to_owned(), base("composition", "read")),
+        ("query/stored".to_owned(), stored),
+        ("content/adl14_cardinality".to_owned(), adl14),
+        ("content/adl2_cardinality".to_owned(), adl2),
+        (
+            "composition_xml/read".to_owned(),
+            on_arm("composition", "composition-xml-read", "xml-supported"),
+        ),
+        (
+            "flat/create".to_owned(),
+            on_arm("composition", "flat-format", "flat-supported"),
+        ),
+        ("ehr_status_flat/read".to_owned(), boundary_place),
+    ])
+}
+
+/// The outline [`outlined`] carries.
+fn outline() -> Outline {
+    Outline {
+        chapters: vec![ChapterDecl {
+            chapter: "ehr".to_owned(),
+            title: "EHR".to_owned(),
+            folders: vec![
+                folder(
+                    "composition",
+                    "COMPOSITION",
+                    false,
+                    vec![section("create", "Create"), section("read", "Read")],
+                ),
+                folder(
+                    "content",
+                    "Semantic validation",
+                    true,
+                    vec![section("structure", "Structure and cardinality")],
+                ),
+                folder(
+                    "directory",
+                    "DIRECTORY",
+                    false,
+                    vec![section("create", "Create")],
+                ),
+            ],
+        }],
+        options: vec![
+            option(
+                "composition-xml-read",
+                (Theme::CanonicalXml, Tier::Options),
+                None,
+                vec![
+                    arm("xml-supported", true, &["composition_xml"]),
+                    arm("xml-unsupported", false, &[]),
+                ],
+            ),
+            option(
+                "flat-format",
+                (Theme::SimplifiedFormats, Tier::Options),
+                None,
+                vec![
+                    arm("flat-supported", false, &["flat"]),
+                    arm("flat-unsupported", false, &[]),
+                ],
+            ),
+            option(
+                "etag-sent",
+                (Theme::LeftOpen, Tier::Recommended),
+                None,
+                vec![
+                    arm("etag-declined", true, &[]),
+                    arm("etag-supported", false, &["etag"]),
+                ],
+            ),
+            option(
+                "ehr-status-flat",
+                (Theme::SimplifiedFormats, Tier::SpecBoundary),
+                Some(352),
+                vec![
+                    arm("flat-served", true, &["ehr_status_flat"]),
+                    arm("flat-not-served", false, &[]),
+                ],
+            ),
+        ],
+        reports: vec![
+            OutlineReport {
+                report: issue(42),
+                title: "A duplicate create has no status".to_owned(),
+                state: ReportState::Open,
+            },
+            OutlineReport {
+                report: issue(352),
+                title: "EHR_STATUS has no flat form".to_owned(),
+                state: ReportState::Confirmed,
+            },
+        ],
+        cases: places(),
+    }
+}
+
+#[test]
+fn the_markdown_summary_by_base_and_options_is_pinned() {
+    let summary = markdown(&outlined());
+    assert_eq!(summary, markdown(&outlined()), "byte-deterministic");
+    insta::assert_snapshot!(summary);
+}
+
+#[test]
+fn the_terminal_view_is_pinned() {
+    let options = ShowOptions {
+        color: false,
+        failed: true,
+    };
+    let view = render(&outlined(), options);
+    assert!(!view.contains('\u{1b}'), "{view}");
+    insta::assert_snapshot!(view);
+}
+
+#[test]
+fn the_terminal_view_without_an_outline_lists_every_case_unplaced() {
+    let view = render(&fixture(), ShowOptions::default());
+    assert!(view.contains("Unplaced"), "{view}");
+    assert!(!view.contains("BASE"), "{view}");
+    assert!(!view.contains("Failed and errored rows"), "{view}");
+    insta::assert_snapshot!(view);
+}
+
+#[test]
+fn the_terminal_view_never_shows_an_advisory_row_as_a_failure() {
+    let view = render(
+        &fixture(),
+        ShowOptions {
+            color: false,
+            failed: true,
+        },
+    );
+    let (_, expanded) = view.split_once("Failed and errored rows").unwrap();
+    let (failures, advisory) = expanded.split_once("Advisory rows").unwrap();
+    assert!(!failures.contains("ehr/etag"), "{view}");
+    assert!(advisory.contains("ehr/etag"), "{view}");
+    assert!(advisory.contains(ADVISORY_LINE), "{view}");
+}
+
+fn show(results: &Path, args: &[&str], no_color: Option<&str>) -> String {
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_veredictum"));
+    command.arg("show").arg(results).args(args);
+    match no_color {
+        Some(value) => command.env("NO_COLOR", value),
+        None => command.env_remove("NO_COLOR"),
+    };
+    let output = command.output().expect("the binary runs");
+    assert!(output.status.success(), "{output:?}");
+    String::from_utf8(output.stdout).expect("the view is UTF-8")
+}
+
+#[test]
+fn the_show_command_colours_only_when_asked() {
+    let dir = assert_fs::TempDir::new().unwrap();
+    let path = dir.path().join("results.json");
+    std::fs::write(&path, outlined().to_text().unwrap()).unwrap();
+    let plain = render(&outlined(), ShowOptions::default());
+    assert_eq!(show(&path, &[], None), plain, "a pipe is not a terminal");
+    assert_eq!(show(&path, &["--color", "auto"], Some("1")), plain);
+    assert_eq!(show(&path, &["--color", "never"], None), plain);
+    let coloured = show(&path, &["--color", "always"], Some("1"));
+    assert!(coloured.contains("\u{1b}[31m"), "{coloured}");
+    assert!(coloured.contains("\u{1b}[32m"), "{coloured}");
+    assert_eq!(
+        show(&path, &["--failed", "--color", "never"], None),
+        render(
+            &outlined(),
+            ShowOptions {
+                color: false,
+                failed: true,
+            }
+        )
+    );
+}
+
+#[test]
+fn the_show_command_refuses_another_shape() {
+    let dir = assert_fs::TempDir::new().unwrap();
+    let path = dir.path().join("results.json");
+    std::fs::write(&path, "{\"outcomes\": []}").unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_veredictum"))
+        .arg("show")
+        .arg(&path)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
 }

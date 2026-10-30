@@ -9,17 +9,22 @@ veredictum 0.1.7 (pre-approval: not yet approved by the openEHR SEC), driven aga
 | Status | Rows |
 | --- | ---: |
 | Passed | 1 |
-| Failed | 2 |
+| Failed | 1 |
+| Advisory | 1 |
 | Errored | 1 |
 | Skipped | 1 |
 | Total | 5 |
 
-Only a failed row counts against the server. An errored row is one the instrument could not judge, and a skipped row was not run.
+Only a failed row counts against the server. An advisory row records a SHOULD the server did not follow and never counts against the server. An errored row is one the instrument could not judge, and a skipped row was not run.
 
-## Failed and errored rows
+## Unplaced
+
+The results carry no outline, so no case is placed in BASE or OPTIONS.
+
+- ✕ ehr/create\_twice: 1 passed, 1 failed
 
 <details>
-<summary>FAILED ehr/create_twice row 1, step create-again</summary>
+<summary>✕ failed ehr/create_twice row 1, step create-again</summary>
 
 ```text
 FAILED   ehr/create_twice   step create-again
@@ -36,10 +41,13 @@ Whose    the server: a failed row counts against the claimed capability
 
 </details>
 
+- ! ehr/etag: 1 advisory
+
 <details>
-<summary>FAILED ehr/etag row 0, step read</summary>
+<summary>! advisory ehr/etag row 0, step read: a SHOULD the server did not follow</summary>
 
 ```text
+ADVISORY: a SHOULD the server did not follow; this row never counts against the server.
 FAILED   ehr/etag   step read
 What     Create an EHR with the same ehr_id again.
 Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
@@ -53,8 +61,10 @@ Whose    advisory: the server did not follow a SHOULD; this row never counts aga
 
 </details>
 
+- ? ehr/escape: 1 errored
+
 <details>
-<summary>ERRORED ehr/escape row 0, step create &lt;first&gt; &amp; "second"</summary>
+<summary>? errored ehr/escape row 0, step create &lt;first&gt; &amp; "second"</summary>
 
 ````text
 ERRORED  ehr/escape   step create <first> & "second"
@@ -66,6 +76,16 @@ Whose    the instrument could not judge: this row does not count against the ven
 ````
 
 </details>
+
+- ○ ehr/admin\_delete: 1 skipped
+
+## Advisory rows
+
+Each is a SHOULD the server did not follow. None counts against the server.
+
+| Row | Step | Citation |
+| --- | --- | --- |
+| ehr/etag row 0 | read | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description |
 
 ## Skipped rows
 

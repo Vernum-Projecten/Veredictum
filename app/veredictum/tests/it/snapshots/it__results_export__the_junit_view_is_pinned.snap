@@ -3,7 +3,7 @@ source: app/veredictum/tests/it/results_export.rs
 expression: junit(&fixture()).unwrap()
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="ehr" tests="5" failures="2" errors="1" skipped="1">
+<testsuites name="ehr" tests="5" failures="1" errors="1" skipped="1">
   <testsuite name="ehr/create_twice" tests="2" failures="1" errors="0" skipped="0">
     <testcase name="ehr/create_twice row 0" classname="ehr/create_twice"/>
     <testcase name="ehr/create_twice row 1" classname="ehr/create_twice">
@@ -19,9 +19,10 @@ Whose    the server: a failed row counts against the claimed capability
          the cited text has a known spec gap: upstream report #42</failure>
     </testcase>
   </testsuite>
-  <testsuite name="ehr/etag" tests="1" failures="1" errors="0" skipped="0">
+  <testsuite name="ehr/etag" tests="1" failures="0" errors="0" skipped="0">
     <testcase name="ehr/etag row 0" classname="ehr/etag">
-      <failure message="step read: expected status 409, received no ETag header" type="advisory">FAILED   ehr/etag   step read
+      <system-out>ADVISORY: a SHOULD the server did not follow; this row never counts against the server.
+FAILED   ehr/etag   step read
 What     Create an EHR with the same ehr_id again.
 Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
          &quot;The server SHOULD send an ETag.&quot;
@@ -29,7 +30,7 @@ Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, d
 Expected status 409
 Received no ETag header
 Exchange PUT http://sut/ehr/3f2a -&gt; 201   (recording entry 2)
-Whose    advisory: the server did not follow a SHOULD; this row never counts against a capability</failure>
+Whose    advisory: the server did not follow a SHOULD; this row never counts against a capability</system-out>
     </testcase>
   </testsuite>
   <testsuite name="ehr/escape" tests="1" failures="0" errors="1" skipped="0">

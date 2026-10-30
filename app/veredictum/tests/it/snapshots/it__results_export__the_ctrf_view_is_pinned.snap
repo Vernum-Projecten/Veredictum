@@ -17,10 +17,10 @@ expression: ctrf(&fixture()).unwrap()
     "summary": {
       "tests": 5,
       "passed": 1,
-      "failed": 2,
+      "failed": 1,
       "skipped": 1,
       "pending": 0,
-      "other": 1,
+      "other": 2,
       "suites": 4,
       "start": 0,
       "stop": 0
@@ -74,14 +74,14 @@ expression: ctrf(&fixture()).unwrap()
       {
         "testId": "ehr/etag#0",
         "name": "ehr/etag row 0",
-        "status": "failed",
+        "status": "other",
         "duration": 0,
         "suite": [
           "ehr",
           "ehr/etag"
         ],
         "message": "FAILED   ehr/etag   step read\nWhat     Create an EHR with the same ehr_id again.\nWhy      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:\n         \"The server SHOULD send an ETag.\"\n         https://example.org/409_EHR_with_id.yaml\nExpected status 409\nReceived no ETag header\nExchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)\nWhose    advisory: the server did not follow a SHOULD; this row never counts against a capability",
-        "rawStatus": "failed",
+        "rawStatus": "advisory",
         "parameters": {
           "ehr_id": "id-0"
         },

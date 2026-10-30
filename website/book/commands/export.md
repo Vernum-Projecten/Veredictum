@@ -7,19 +7,38 @@ carries a clock reading the results document does not carry.
 |---|---|---|
 | passed | a bare `<testcase>` | `passed` |
 | failed | `<failure>` | `failed` |
+| advisory | `<system-out>`, no `<failure>` | `other`, with `rawStatus: advisory` |
 | errored | `<error>` | `other`, with `rawStatus: errored` |
 | skipped | `<skipped>` | `skipped` |
+
+An advisory row is a SHOULD the server did not follow, which never counts
+against the server, so no view counts it as failed and a CI that fails a job
+on a failed test does not fail it on one. Its JUnit `<testcase>` carries the
+four-part explanation in `<system-out>`, opened by a line that says it is
+advisory, and no `failures` count includes it. In CTRF it is `other`, and
+`summary.failed` excludes it.
 
 A workflow is a JUnit `<testsuite>` and a row is a `<testcase>` named
 `<case> row <n>`. The text of a `<failure>` or `<error>` is the row's
 four-part explanation, its `message` is a one-line summary, and its `type`
-says whose problem the row is (`server`, `advisory` or `instrument`). A
+says whose problem the row is (`server` or `instrument`). A
 `<skipped>` carries the skip reason and the citation that makes the case not
 apply. In CTRF, a red row's `message` is the same four-part explanation, and
 each test's `extra` carries the case id, the row, the skip reason, the
 citation and, where the citation names one, the link to its upstream report.
 The CTRF document validates against the schema the CTRF project publishes for
 `specVersion` 0.2.0.
+
+**What the Markdown summary holds.** After the count of each mark, the rows
+follow the reading of a result every view uses: `## BASE` by chapter, band and
+section in the order the catalogue declares, each band heading with its counts;
+`## RECOMMENDED` and `## OPTIONS`, one heading per option naming the arm the
+statement selected, with the cases resting on TRIAL text under OPTIONS; and
+`## Where the released spec is defective`, which lists every case resting on
+text an upstream report records, grouped by report. A failed, advisory or
+errored row is a collapsed section holding its four-part explanation, and each
+case carries its badges: the template formalism, `TRIAL`, and the reports its
+citations name. The advisory and skipped rows follow in their own tables.
 
 **Where the Markdown summary goes.** GitHub Actions sets
 `GITHUB_STEP_SUMMARY` in every job step, and `export` appends the summary to
