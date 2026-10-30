@@ -90,13 +90,13 @@ impl Tier {
     /// All variants, in display order (schema emission derives from this).
     pub const ALL: &[Self] = &[Self::Recommended, Self::Options, Self::SpecBoundary];
 
-    /// The heading a view prints.
+    /// The label a view prints beside an option of this tier.
     #[must_use]
     pub const fn title(self) -> &'static str {
         match self {
-            Self::Recommended => "RECOMMENDED",
-            Self::Options => "OPTIONS",
-            Self::SpecBoundary => "Where the released spec is defective",
+            Self::Recommended => "Recommended (SHOULD)",
+            Self::Options => "Optional (MAY)",
+            Self::SpecBoundary => "Spec defect",
         }
     }
 }

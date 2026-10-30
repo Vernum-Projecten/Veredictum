@@ -110,6 +110,7 @@ Whose    the server: a failed row counts against the claimed capability</failure
       <property name="eu.veredictum.band" value="COMPOSITION"/>
       <property name="eu.veredictum.capability" value="composition"/>
       <property name="eu.veredictum.option" value="composition-xml-read"/>
+      <property name="eu.veredictum.kind" value="Optional (MAY)"/>
       <property name="eu.veredictum.arm" value="xml-supported"/>
     </properties>
     <testcase name="composition_xml/read row 0" classname="composition_xml/read" time="0"/>
@@ -121,6 +122,7 @@ Whose    the server: a failed row counts against the claimed capability</failure
       <property name="eu.veredictum.band" value="COMPOSITION"/>
       <property name="eu.veredictum.capability" value="composition"/>
       <property name="eu.veredictum.option" value="flat-format"/>
+      <property name="eu.veredictum.kind" value="Optional (MAY)"/>
       <property name="eu.veredictum.arm" value="flat-supported"/>
     </properties>
     <testcase name="flat/create row 0" classname="flat/create" time="0">
@@ -132,11 +134,12 @@ Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, d
   </testsuite>
   <testsuite name="ehr_status_flat/read" tests="1" failures="0" errors="1" skipped="0" time="0">
     <properties>
-      <property name="eu.veredictum.part" value="Where the released spec is defective"/>
+      <property name="eu.veredictum.part" value="OPTIONS"/>
       <property name="eu.veredictum.chapter" value="EHR"/>
       <property name="eu.veredictum.band" value="COMPOSITION"/>
       <property name="eu.veredictum.capability" value="composition"/>
       <property name="eu.veredictum.option" value="ehr-status-flat"/>
+      <property name="eu.veredictum.kind" value="Spec defect"/>
       <property name="eu.veredictum.arm" value="flat-served"/>
       <property name="eu.veredictum.report" value="#352"/>
     </properties>

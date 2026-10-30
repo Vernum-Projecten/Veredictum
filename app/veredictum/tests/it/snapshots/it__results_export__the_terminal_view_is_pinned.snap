@@ -1,6 +1,6 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
-assertion_line: 692
+assertion_line: 741
 expression: view
 ---
 Veredictum results: catalogue
@@ -14,37 +14,24 @@ BASE
   Every BASE case                           ████████████▓▓▓▓▓▓▓▓░░░░  ✓   3  ✕   2  ?   0  !   1  ○   0
   EHR                                       ████████████▓▓▓▓▓▓▓▓░░░░  ✓   3  ✕   2  ?   0  !   1  ○   0
     COMPOSITION                             ████████████▓▓▓▓▓▓░░░░░░  ✓   2  ✕   1  ?   0  !   1  ○   0
+      ! spec defect: 1 case(s) rest on text reported in #42
     Semantic validation                     ████████████▓▓▓▓▓▓▓▓▓▓▓▓  ✓   1  ✕   1  ?   0  !   0  ○   0
     DIRECTORY                               no cases
 
-RECOMMENDED
-  Every case of the tier                    no cases
-  EHR                                       no cases
-    COMPOSITION                             no cases
-      etag-sent                             selected, nothing to run
-
 OPTIONS
-  Every case of the tier                    ████████▓▓▓▓▓▓▓▓········  ✓   1  ✕   1  ?   0  !   0  ○   1
-  EHR                                       ████████▓▓▓▓▓▓▓▓········  ✓   1  ✕   1  ?   0  !   0  ○   1
-    COMPOSITION                             ████████▓▓▓▓▓▓▓▓········  ✓   1  ✕   1  ?   0  !   0  ○   1
+  Every option case                         ██████▓▓▓▓▓▓▒▒▒▒▒▒······  ✓   1  ✕   1  ?   1  !   0  ○   1
+  EHR                                       ██████▓▓▓▓▓▓▒▒▒▒▒▒······  ✓   1  ✕   1  ?   1  !   0  ○   1
+    COMPOSITION                             ██████▓▓▓▓▓▓▒▒▒▒▒▒······  ✓   1  ✕   1  ?   1  !   0  ○   1
+      etag-sent                             selected, nothing to run
+        Recommended (SHOULD)
       composition-xml-read                  ████████████████████████  ✓   1  ✕   0  ?   0  !   0  ○   0
-        arm xml-supported (selected)
+        arm xml-supported (selected) · Optional (MAY)
       flat-format                           not selected
+        Optional (MAY)
+      ehr-status-flat                       ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
+        arm flat-served (selected) · ! Spec defect #352
       TRIAL text                            ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ✓   0  ✕   1  ?   0  !   0  ○   0
         ✕ query/stored: 1 failed [TRIAL]
-
-Where the released spec is defective
-  Every case of the tier                    ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
-  EHR                                       ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
-    COMPOSITION                             ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
-      ehr-status-flat [report #352]         ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
-        arm flat-served (selected)
-  Report #42: A duplicate create has no status (open)
-                                            ████████████▓▓▓▓▓▓▓▓▓▓▓▓  ✓   1  ✕   1  ?   0  !   0  ○   0
-    ✕ composition/create: 1 passed, 1 failed [report #42]
-  Report #352: EHR_STATUS has no flat form (confirmed)
-                                            ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
-    ? ehr_status_flat/read: 1 errored [report #352]
 
 Unplaced
   Every unplaced case                       ████████████████████████  ✓   1  ✕   0  ?   0  !   0  ○   0

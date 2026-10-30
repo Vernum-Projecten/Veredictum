@@ -303,6 +303,7 @@ expression: text
           "band": "COMPOSITION",
           "capability": "composition",
           "chapter": "EHR",
+          "kind": "Optional (MAY)",
           "option": "composition-xml-read",
           "part": "OPTIONS"
         },
@@ -336,6 +337,7 @@ expression: text
           "band": "COMPOSITION",
           "capability": "composition",
           "chapter": "EHR",
+          "kind": "Optional (MAY)",
           "option": "flat-format",
           "part": "OPTIONS"
         },
@@ -363,7 +365,7 @@ expression: text
         "duration": 0,
         "suite": [
           "catalogue",
-          "Where the released spec is defective",
+          "OPTIONS",
           "EHR",
           "COMPOSITION",
           "ehr-status-flat"
@@ -376,8 +378,9 @@ expression: text
           "band": "COMPOSITION",
           "capability": "composition",
           "chapter": "EHR",
+          "kind": "Spec defect",
           "option": "ehr-status-flat",
-          "part": "Where the released spec is defective",
+          "part": "OPTIONS",
           "report": "#352"
         },
         "parameters": {

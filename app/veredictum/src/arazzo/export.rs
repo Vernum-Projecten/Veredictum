@@ -17,6 +17,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
+use std::num::NonZeroU64;
 
 use quick_xml::Writer;
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
@@ -24,7 +25,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::arazzo::reading::{
-    CaseRows, Mark, OptionGroup, Reading, Tally, TierTree, is_advisory, read,
+    CaseRows, Mark, OptionGroup, OptionsTree, Reading, Tally, is_advisory, read,
 };
 use crate::arazzo::results::{ResultRow, Results, SkipReason, Status, Whose, Why};
 use crate::arazzo::rows::Row;
@@ -140,14 +141,10 @@ fn xml_attr(text: &str) -> String {
 }
 
 /// The part of a result a case is read under, the BASE and option tiers.
-fn part_of(outline: &Outline, place: &Place) -> &'static str {
+fn part_of(place: &Place) -> &'static str {
     match &place.standing {
-        Standing::Base { .. } if place.trial => Tier::Options.title(),
-        Standing::Base { .. } => "BASE",
-        Standing::Option { arms } => arms
-            .first()
-            .and_then(|arm| outline.option(&arm.option))
-            .map_or("OPTIONS", |option| option.tier.title()),
+        Standing::Base { .. } if !place.trial => "BASE",
+        Standing::Base { .. } | Standing::Option { .. } => "OPTIONS",
     }
 }
 
@@ -163,7 +160,7 @@ pub fn placement(outline: Option<&Outline>, case: &str) -> Vec<(&'static str, Ve
         return Vec::new();
     };
     let mut named: Vec<(&'static str, Vec<String>)> =
-        vec![("part", vec![part_of(outline, place).to_owned()])];
+        vec![("part", vec![part_of(place).to_owned()])];
     if let Some((chapter, folder)) = outline.folder(&place.folder) {
         named.push(("chapter", vec![chapter.title.clone()]));
         named.push(("band", vec![folder.title.clone()]));
@@ -181,6 +178,17 @@ pub fn placement(outline: Option<&Outline>, case: &str) -> Vec<(&'static str, Ve
         )),
         Standing::Option { arms } => {
             named.push(("option", arms.iter().map(|a| a.option.clone()).collect()));
+            named.push((
+                "kind",
+                arms.iter()
+                    .map(|a| {
+                        outline
+                            .option(&a.option)
+                            .map_or("Optional (MAY)", |o| o.tier.title())
+                            .to_owned()
+                    })
+                    .collect(),
+            ));
             named.push(("arm", arms.iter().map(|a| a.arm.clone()).collect()));
         }
     }
@@ -952,6 +960,7 @@ fn md_base(out: &mut String, outline: &Outline, reading: &Reading<'_>) {
                     count_cells(section.tally)
                 );
             }
+            md_defect_warning(out, outline, &band.reports());
             md_attention(
                 out,
                 Some(outline),
@@ -963,6 +972,42 @@ fn md_base(out: &mut String, outline: &Outline, reading: &Reading<'_>) {
                 }),
             );
         }
+    }
+}
+
+/// Writes a GitHub warning box naming the upstream reports the cases of a
+/// BASE band rest on; nothing when they rest on none.
+fn md_defect_warning(out: &mut String, outline: &Outline, reports: &[(NonZeroU64, usize)]) {
+    if reports.is_empty() {
+        return;
+    }
+    let cases: usize = reports.iter().map(|(_, n)| n).sum();
+    out.push_str(&format!(
+        "\n> [!WARNING]\n> **Spec defect.** {cases} case(s) in this band rest on released text an upstream report records as defective:\n"
+    ));
+    for (report, count) in reports {
+        let entry = outline.report(*report);
+        let _ = writeln!(
+            out,
+            "> - {} ({count} case(s))",
+            report_ref(
+                report.get(),
+                entry.map(|e| e.title.as_str()),
+                entry.map(|e| e.state.to_string())
+            )
+        );
+    }
+}
+
+/// The kind cell of an option's table row: its tier, and for a spec defect
+/// the upstream report its citation names.
+fn kind_cell(group: &OptionGroup<'_>) -> String {
+    match group.report {
+        Some(report) if group.tier == Tier::SpecBoundary => format!(
+            "**{}** [#{report}]({REPORT_BASE}{report})",
+            group.tier.title()
+        ),
+        _ => group.tier.title().to_owned(),
     }
 }
 
@@ -997,13 +1042,18 @@ fn md_option_rows(out: &mut String, options: &[OptionGroup<'_>], trial: Option<T
         };
         let _ = writeln!(
             out,
-            "| {} | {} | {counts} |",
+            "| {} | {} | {} | {counts} |",
             md_code(group.option),
+            kind_cell(group),
             arm_cell(group)
         );
     }
     if let Some(tally) = trial {
-        let _ = writeln!(out, "| TRIAL text | | {} |", count_cells(tally));
+        let _ = writeln!(
+            out,
+            "| TRIAL text | BASE on TRIAL text | | {} |",
+            count_cells(tally)
+        );
     }
 }
 
@@ -1047,9 +1097,9 @@ fn md_option_notes(out: &mut String, outline: &Outline, options: &[OptionGroup<'
 /// Writes one tier like BASE: per chapter and band a table of its options
 /// with the selected arm and the counts, what the options decide, and the
 /// rows that need attention.
-fn md_tier(out: &mut String, outline: &Outline, tree: &TierTree<'_>) {
+fn md_options(out: &mut String, outline: &Outline, tree: &OptionsTree<'_>) {
     if tree.is_empty() {
-        out.push_str("\nNo option in this part.\n");
+        out.push_str("\nNo option.\n");
         return;
     }
     for chapter in &tree.chapters {
@@ -1057,7 +1107,7 @@ fn md_tier(out: &mut String, outline: &Outline, tree: &TierTree<'_>) {
         for band in &chapter.bands {
             let _ = writeln!(
                 out,
-                "\n#### {}\n\n| Option | Selected arm | {COUNT_HEADS} |\n| --- | --- | {COUNT_ALIGN} |",
+                "\n#### {}\n\n| Option | Kind | Selected arm | {COUNT_HEADS} |\n| --- | --- | --- | {COUNT_ALIGN} |",
                 md_inline(band.title)
             );
             md_option_rows(out, &band.options, band.trial.as_ref().map(|t| t.tally));
@@ -1083,60 +1133,10 @@ fn md_tier(out: &mut String, outline: &Outline, tree: &TierTree<'_>) {
     if !tree.unanchored.is_empty() {
         let _ = writeln!(
             out,
-            "\n### Options no document tests yet\n\n| Option | Selected arm | {COUNT_HEADS} |\n| --- | --- | {COUNT_ALIGN} |"
+            "\n### Options no document tests yet\n\n| Option | Kind | Selected arm | {COUNT_HEADS} |\n| --- | --- | --- | {COUNT_ALIGN} |"
         );
         md_option_rows(out, &tree.unanchored, None);
         md_option_notes(out, outline, &tree.unanchored, false);
-    }
-}
-
-/// Writes the table of the upstream reports the result's cases rest on,
-/// with each report's cases collapsed below it.
-fn md_reports(out: &mut String, reading: &Reading<'_>) {
-    out.push_str("\n### Cases resting on reported text\n\n");
-    if reading.reports.is_empty() {
-        out.push_str("No case rests on text an upstream report records.\n");
-        return;
-    }
-    out.push_str(
-        "These cases appear in their own place above too. Each rests on released text an \
-         upstream report in this repository records as defective.\n\n",
-    );
-    let _ = writeln!(
-        out,
-        "| Report | State | {COUNT_HEADS} |\n| --- | --- | {COUNT_ALIGN} |"
-    );
-    for group in &reading.reports {
-        let report = group.report.get();
-        let title = group
-            .title
-            .map(|t| format!(": {}", md_inline(t)))
-            .unwrap_or_default();
-        let state = group
-            .state
-            .map_or_else(|| String::from("not recorded"), |s| s.to_string());
-        let _ = writeln!(
-            out,
-            "| [#{report}]({REPORT_BASE}{report}){title} | {state} | {} |",
-            count_cells(group.tally)
-        );
-    }
-    for group in &reading.reports {
-        let _ = writeln!(
-            out,
-            "\n<details>\n<summary>The {} case(s) resting on #{}</summary>\n\n| Case | Outcome |\n| --- | --- |",
-            group.cases.len(),
-            group.report
-        );
-        for case in &group.cases {
-            let _ = writeln!(
-                out,
-                "| {} | {} |",
-                md_code(case.case),
-                tally_words(case.tally())
-            );
-        }
-        out.push_str("\n</details>\n");
     }
 }
 
@@ -1150,12 +1150,7 @@ fn md_summary(out: &mut String, reading: &Reading<'_>, placed: bool) {
     if placed {
         for (part, tally) in [
             ("BASE", reading.base_total),
-            ("RECOMMENDED", reading.recommended.tally),
             ("OPTIONS", reading.options.tally),
-            (
-                "Where the released spec is defective",
-                reading.boundary.tally,
-            ),
         ] {
             let _ = writeln!(out, "| {part} | {} | {} |", count_cells(tally), tally.tests);
         }
@@ -1209,21 +1204,13 @@ pub fn markdown(results: &Results) -> String {
     if let Some(outline) = outline {
         md_base(&mut out, outline, &reading);
         out.push_str(
-            "\n## RECOMMENDED\n\nThe release asks for these with a SHOULD. A server that \
-             declines one records an advisory row, never a failed one.\n",
+            "\n## OPTIONS\n\nWhat the statement selected. Each option is labelled with its kind: \
+             **Recommended (SHOULD)**, which a server may decline with an advisory row; \
+             **Optional (MAY)**, behaviour the release leaves to the implementation; or \
+             **Spec defect**, an option only because the released text is defective. The \
+             statement selects one arm of each, and the other arms are skipped.\n",
         );
-        md_tier(&mut out, outline, &reading.recommended);
-        out.push_str(
-            "\n## OPTIONS\n\nA MAY, or behaviour the release leaves to the implementation. \
-             The statement selects one arm of each; the other arms are skipped.\n",
-        );
-        md_tier(&mut out, outline, &reading.options);
-        out.push_str(
-            "\n## Where the released spec is defective\n\nThese options exist only because \
-             the released text is defective.\n",
-        );
-        md_tier(&mut out, outline, &reading.boundary);
-        md_reports(&mut out, &reading);
+        md_options(&mut out, outline, &reading.options);
     }
     if !reading.unplaced.is_empty() {
         out.push_str("\n## Unplaced\n\n");

@@ -16,9 +16,7 @@ expression: summary
 | Part | Passed | Failed | Advisory | Errored | Skipped | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | BASE | 3 | 2 | 1 | 0 | 0 | 6 |
-| RECOMMENDED | 0 | 0 | 0 | 0 | 0 | 0 |
-| OPTIONS | 1 | 1 | 0 | 0 | 1 | 3 |
-| Where the released spec is defective | 0 | 0 | 0 | 1 | 0 | 1 |
+| OPTIONS | 1 | 1 | 0 | 1 | 1 | 4 |
 | **Every row** | **5** | **3** | **1** | **1** | **1** | **11** |
 
 > [!NOTE]
@@ -42,6 +40,10 @@ What every claimant of a capability must do. A case no option arm names is BASE.
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Create | 1 | 1 | 0 | 0 | 0 |
 | Read | 1 | 0 | 1 | 0 | 0 |
+
+> [!WARNING]
+> **Spec defect.** 1 case(s) in this band rest on released text an upstream report records as defective:
+> - [#42](https://github.com/Vernum-Projecten/Veredictum/issues/42): A duplicate create has no status (open) (1 case(s))
 
 Rows to look at (open one for its explanation):
 
@@ -112,85 +114,30 @@ Rows to look at (open one for its explanation):
 
 </details>
 
-## RECOMMENDED
+## OPTIONS
 
-The release asks for these with a SHOULD. A server that declines one records an advisory row, never a failed one.
+What the statement selected. Each option is labelled with its kind: **Recommended (SHOULD)**, which a server may decline with an advisory row; **Optional (MAY)**, behaviour the release leaves to the implementation; or **Spec defect**, an option only because the released text is defective. The statement selects one arm of each, and the other arms are skipped.
 
 ### EHR
 
 #### COMPOSITION
 
-| Option | Selected arm | Passed | Failed | Advisory | Errored | Skipped |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `etag-sent` | `etag-declined`, nothing to run | 0 | 0 | 0 | 0 | 0 |
+| Option | Kind | Selected arm | Passed | Failed | Advisory | Errored | Skipped |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `etag-sent` | Recommended (SHOULD) | `etag-declined`, nothing to run | 0 | 0 | 0 | 0 | 0 |
+| `composition-xml-read` | Optional (MAY) | `xml-supported` | 1 | 0 | 0 | 0 | 0 |
+| `flat-format` | Optional (MAY) | not selected |  | | | |  |
+| `ehr-status-flat` | **Spec defect** [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352) | `flat-served` | 0 | 0 | 0 | 1 | 0 |
+| TRIAL text | BASE on TRIAL text | | 0 | 1 | 0 | 0 | 0 |
 
 <details>
 <summary>What these options decide</summary>
 
 - **`etag-sent`** (Behaviour the release leaves open): Whether the server supports etag-sent.
-
-</details>
-
-## OPTIONS
-
-A MAY, or behaviour the release leaves to the implementation. The statement selects one arm of each; the other arms are skipped.
-
-### EHR
-
-#### COMPOSITION
-
-| Option | Selected arm | Passed | Failed | Advisory | Errored | Skipped |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `composition-xml-read` | `xml-supported` | 1 | 0 | 0 | 0 | 0 |
-| `flat-format` | not selected |  | | | |  |
-| TRIAL text | | 0 | 1 | 0 | 0 | 0 |
-
-<details>
-<summary>What these options decide</summary>
-
 - **`composition-xml-read`** (Canonical XML): Whether the server supports composition-xml-read.
 - **`flat-format`** (Simplified Formats and Web Template): Whether the server supports flat-format.
-- **TRIAL text**: BASE cases whose cited text the release marks TRIAL. They are read with the options and never count in the BASE tally.
-
-</details>
-
-Rows to look at (open one for its explanation):
-
-<details>
-<summary><b>Failed</b>: <code>query/stored</code> row 0, OPTIONS, TRIAL text</summary>
-
-| | |
-| --- | --- |
-| **Step** | `validate` |
-| **What was checked** | Create an EHR with the same ehr\_id again. |
-| **Expected** | status 409 |
-| **Received** | status 201 |
-| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
-| **Whose problem** | The server. A failed row counts against the claimed capability. |
-| **Inputs** | `ehr_id` = `"id-0"` |
-
-**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
-
-> The server refuses it.
-
-</details>
-
-## Where the released spec is defective
-
-These options exist only because the released text is defective.
-
-### EHR
-
-#### COMPOSITION
-
-| Option | Selected arm | Passed | Failed | Advisory | Errored | Skipped |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `ehr-status-flat` | `flat-served` | 0 | 0 | 0 | 1 | 0 |
-
-<details>
-<summary>What these options decide</summary>
-
 - **`ehr-status-flat`** (Simplified Formats and Web Template): Whether the server supports ehr-status-flat. Upstream report [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352): EHR\_STATUS has no flat form (confirmed).
+- **TRIAL text**: BASE cases whose cited text the release marks TRIAL. They are read with the options and never count in the BASE tally.
 
 </details>
 
@@ -216,30 +163,22 @@ Rows to look at (open one for its explanation):
 
 </details>
 
-### Cases resting on reported text
-
-These cases appear in their own place above too. Each rests on released text an upstream report in this repository records as defective.
-
-| Report | State | Passed | Failed | Advisory | Errored | Skipped |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| [#42](https://github.com/Vernum-Projecten/Veredictum/issues/42): A duplicate create has no status | open | 1 | 1 | 0 | 0 | 0 |
-| [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352): EHR\_STATUS has no flat form | confirmed | 0 | 0 | 0 | 1 | 0 |
-
 <details>
-<summary>The 1 case(s) resting on #42</summary>
+<summary><b>Failed</b>: <code>query/stored</code> row 0, OPTIONS, TRIAL text</summary>
 
-| Case | Outcome |
+| | |
 | --- | --- |
-| `composition/create` | 1 passed, 1 failed |
+| **Step** | `validate` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | status 201 |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | The server. A failed row counts against the claimed capability. |
+| **Inputs** | `ehr_id` = `"id-0"` |
 
-</details>
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
 
-<details>
-<summary>The 1 case(s) resting on #352</summary>
-
-| Case | Outcome |
-| --- | --- |
-| `ehr_status_flat/read` | 1 errored |
+> The server refuses it.
 
 </details>
 

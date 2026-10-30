@@ -17,10 +17,10 @@ use std::fmt::Write as _;
 
 use crate::arazzo::export::{ADVISORY_LINE, arm_state, option_choice, tally_words};
 use crate::arazzo::reading::{
-    CaseRows, Mark, OptionGroup, Reading, Tally, TierTree, is_advisory, read,
+    CaseRows, Mark, OptionGroup, OptionsTree, Reading, Tally, is_advisory, read,
 };
 use crate::arazzo::results::{ResultRow, Results};
-use crate::arazzo::structure::Place;
+use crate::arazzo::structure::{Place, Tier};
 
 /// The cells of every bar.
 pub const BAR_WIDTH: usize = 24;
@@ -352,37 +352,33 @@ fn placed(view: &mut View, reading: &Reading<'_>) {
         view.tally_line(2, chapter.title, chapter.tally, "no cases");
         for band in &chapter.bands {
             view.tally_line(4, band.title, band.tally, "no cases");
+            let reports = band.reports();
+            if !reports.is_empty() {
+                let cases: usize = reports.iter().map(|(_, n)| n).sum();
+                let numbers: Vec<String> = reports.iter().map(|(r, _)| format!("#{r}")).collect();
+                let warning = view.paint(
+                    Paint::Yellow,
+                    &format!(
+                        "! spec defect: {cases} case(s) rest on text reported in {}",
+                        numbers.join(", ")
+                    ),
+                );
+                view.line(&format!("      {warning}"));
+            }
         }
     }
-    view.heading("RECOMMENDED");
-    tier(view, &reading.recommended);
     view.heading("OPTIONS");
-    tier(view, &reading.options);
-    view.heading("Where the released spec is defective");
-    tier(view, &reading.boundary);
-    if reading.reports.is_empty() {
-        view.line("  No case rests on reported text.");
-    }
-    for group in &reading.reports {
-        let label = match (group.title, group.state) {
-            (Some(title), Some(state)) => format!("Report #{}: {title} ({state})", group.report),
-            _ => format!("Report #{} (not in the report snapshot)", group.report),
-        };
-        view.tally_line(2, &label, group.tally, "no rows");
-        for case in &group.cases {
-            view.case_line(4, case);
-        }
-    }
+    options(view, &reading.options);
 }
 
-/// Writes one tier the way BASE reads: chapter, band, then each option of
-/// the band with its selected arm, and the band's TRIAL text.
-fn tier(view: &mut View, tree: &TierTree<'_>) {
+/// Writes every option the way BASE reads: chapter, band, then each option
+/// of the band with its selected arm and its tier, and the band's TRIAL text.
+fn options(view: &mut View, tree: &OptionsTree<'_>) {
     if tree.is_empty() {
-        view.line("  No option in this tier.");
+        view.line("  No option.");
         return;
     }
-    view.tally_line(2, "Every case of the tier", tree.tally, "no cases");
+    view.tally_line(2, "Every option case", tree.tally, "no cases");
     for chapter in &tree.chapters {
         view.tally_line(2, chapter.title, chapter.tally, "no cases");
         for band in &chapter.bands {
@@ -409,12 +405,17 @@ fn tier(view: &mut View, tree: &TierTree<'_>) {
 /// Writes one option: its name with its counts, then which arm the
 /// statement selected.
 fn option_line(view: &mut View, indent: usize, group: &OptionGroup<'_>) {
-    let mut label = group.option.to_owned();
-    if let Some(report) = group.report {
-        let _ = write!(label, " [report #{report}]");
-    }
+    let label = group.option.to_owned();
+    let kind = match group.report {
+        Some(report) if group.tier == Tier::SpecBoundary => view.paint(
+            Paint::Yellow,
+            &format!("! {} #{report}", group.tier.title()),
+        ),
+        _ => view.paint(Paint::Grey, group.tier.title()),
+    };
     if !group.selected {
         view.tally_line(indent, &label, Tally::default(), "not selected");
+        view.line(&format!("{}{kind}", " ".repeat(indent + 2)));
         return;
     }
     let nothing = group.arms.iter().any(|a| a.selected && a.empty);
@@ -424,10 +425,12 @@ fn option_line(view: &mut View, indent: usize, group: &OptionGroup<'_>) {
         "no cases"
     };
     view.tally_line(indent, &label, group.tally, empty);
-    if !nothing {
-        let choice = view.paint(Paint::Grey, &option_choice(group));
-        view.line(&format!("{}{choice}", " ".repeat(indent + 2)));
-    }
+    let choice = if nothing {
+        String::new()
+    } else {
+        format!("{} · ", view.paint(Paint::Grey, &option_choice(group)))
+    };
+    view.line(&format!("{}{choice}{kind}", " ".repeat(indent + 2)));
 }
 
 /// Writes one expanded row: its mark, the first line of its four-part
