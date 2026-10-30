@@ -82,7 +82,7 @@ impl Theme {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Tier {
-    /// Support is a SHOULD: declining it is recorded as advisory.
+    /// Support is a SHOULD: declining it is recorded as a warning.
     Recommended,
     /// A MAY, or behaviour the release leaves to the implementation.
     Options,

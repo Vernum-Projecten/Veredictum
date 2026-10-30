@@ -7,15 +7,15 @@ carries a clock reading the results document does not carry.
 |---|---|---|
 | passed | a bare `<testcase>` | `passed` |
 | failed | `<failure>` | `failed` |
-| advisory | `<system-out>`, no `<failure>` | `other`, with `rawStatus: advisory` |
+| warning | `<system-out>`, no `<failure>` | `other`, with `rawStatus: warning` |
 | errored | `<error>` | `other`, with `rawStatus: errored` |
 | skipped | `<skipped>` | `skipped` |
 
-An advisory row is a SHOULD the server did not follow, which never counts
+A warning row is a SHOULD the server did not follow, which never counts
 against the server, so no view counts it as failed and a CI that fails a job
 on a failed test does not fail it on one. Its JUnit `<testcase>` carries the
 four-part explanation in `<system-out>`, opened by a line that says it is
-advisory, and no `failures` count includes it. In CTRF it is `other`, and
+a warning, and no `failures` count includes it. In CTRF it is `other`, and
 `summary.failed` excludes it.
 
 A workflow is a JUnit `<testsuite>` and a row is a `<testcase>` named
@@ -53,11 +53,11 @@ of its options with their kind (Recommended (SHOULD), Optional (MAY), or
 unclear) and the
 arm the statement selected, and a collapsed note on what each option decides.
 The cases resting on TRIAL text sit in their band under OPTIONS. Passed rows
-are only counted. Each failed, advisory or errored row is a collapsed block
+are only counted. Each failed, warning or errored row is a collapsed block
 whose summary names the outcome, the case and where it sits; opening it shows
 the step, what was checked, expected against received, the exchange, whose
 problem it is and the row's inputs as a table, with the cited sentence quoted
-below it. The advisory rows follow with their citations, and the skipped rows
+below it. The warning rows follow with their citations, and the skipped rows
 counted by reason with the full list collapsed. A case resting on text an
 upstream report records as unclear or contradictory is tagged `@SpecDiverge`
 where it appears, and a closing note counts those cases and links the reports

@@ -2913,7 +2913,7 @@ workflows:
     description: >-
       Uploads a valid OPT under a fresh template_id with Prefer
       return=minimal. The answer carries a Location that ends in the
-      template's path. Advisory: the release recommends the header.
+      template's path. Warning: the release recommends the header.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: Prefer minimal, identifier or full representation response

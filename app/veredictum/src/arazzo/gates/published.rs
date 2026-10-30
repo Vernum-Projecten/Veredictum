@@ -127,7 +127,7 @@ fn check_def() -> Value {
 /// A citation's `level`.
 fn level_def() -> Value {
     json!({
-        "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and advisory, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
+        "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and a warning, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
         "enum": tokens(crate::arazzo::cite::Level::ALL)
     })
 }
@@ -195,7 +195,7 @@ pub fn extensions_schema() -> Value {
             },
             "check": check_def(),
             "control": {
-                "description": "The control of a refusal workflow: a `workflowId` of the same document, or `$sourceDescriptions.<name>.<workflowId>` of a `type: arazzo` source, as Arazzo 1.1.0 `dependsOn` names a workflow; a list names one control per arm of an option the refusal runs under. A control is accepted when every row of it passed or failed only advisory criteria, and a refusal row is judged when no listed control that ran was refused and at least one ran.",
+                "description": "The control of a refusal workflow: a `workflowId` of the same document, or `$sourceDescriptions.<name>.<workflowId>` of a `type: arazzo` source, as Arazzo 1.1.0 `dependsOn` names a workflow; a list names one control per arm of an option the refusal runs under. A control is accepted when every row of it passed or failed only criteria that yield a warning, and a refusal row is judged when no listed control that ran was refused and at least one ran.",
                 "oneOf": [
                     { "type": "string", "minLength": 1 },
                     {
@@ -560,7 +560,7 @@ pub fn chapters_schema() -> Value {
                         "theme": { "enum": tokens(Theme::ALL) },
                         "tier": {
                             "enum": tokens(Tier::ALL),
-                            "description": "`recommended`: support is a SHOULD, so declining it is recorded as advisory. `options`: a MAY, or behaviour the release leaves to the implementation. `spec-boundary`: an option only because the released text is defective, recorded as an upstream report its citation names."
+                            "description": "`recommended`: support is a SHOULD, so declining it is recorded as a warning. `options`: a MAY, or behaviour the release leaves to the implementation. `spec-boundary`: an option only because the released text is defective, recorded as an upstream report its citation names."
                         }
                     }
                 }

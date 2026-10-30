@@ -167,7 +167,7 @@
         "outcome",
         "passed",
         "failed",
-        "advisory",
+        "warning",
         "errored",
         "skipped"
       ],
@@ -178,7 +178,7 @@
             "green",
             "red"
           ],
-          "description": "`green` when no row failed outside the advisory ones and no row errored, `red` otherwise."
+          "description": "`green` when no row failed outside the warning ones and no row errored, `red` otherwise."
         },
         "passed": {
           "type": "integer",
@@ -190,7 +190,7 @@
           "minimum": 0,
           "description": "Failed rows that bear on the verdict."
         },
-        "advisory": {
+        "warning": {
           "type": "integer",
           "minimum": 0,
           "description": "Failed rows whose criterion is a SHOULD, which never count against a capability."

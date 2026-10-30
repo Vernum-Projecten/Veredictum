@@ -241,9 +241,9 @@ pub struct CatalogueRevision {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
-    /// No row failed outside the advisory ones, and no row errored.
+    /// No row failed outside the warning ones, and no row errored.
     Green,
-    /// At least one row failed outside the advisory ones, or errored.
+    /// At least one row failed outside the warning ones, or errored.
     Red,
 }
 
@@ -255,7 +255,7 @@ impl Outcome {
 /// The verdict summary of the run a certificate covers.
 ///
 /// The five counts partition the rows: `failed` counts the failed rows that
-/// bear on the verdict, and `advisory` the failed rows whose criterion is a
+/// bear on the verdict, and `warning` the failed rows whose criterion is a
 /// SHOULD, which never count against a capability.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -266,8 +266,8 @@ pub struct VerdictSummary {
     pub passed: u64,
     /// Failed rows that bear on the verdict.
     pub failed: u64,
-    /// Failed rows whose criterion is advisory.
-    pub advisory: u64,
+    /// Failed rows whose criterion yields a warning.
+    pub warning: u64,
     /// Errored rows: the instrument could not judge them.
     pub errored: u64,
     /// Skipped rows, each with its reason in the results document.
@@ -282,7 +282,7 @@ impl VerdictSummary {
             outcome: Outcome::Green,
             passed: 0,
             failed: 0,
-            advisory: 0,
+            warning: 0,
             errored: 0,
             skipped: 0,
         };
@@ -292,7 +292,7 @@ impl VerdictSummary {
                 Status::Skipped => &mut summary.skipped,
                 Status::Errored => &mut summary.errored,
                 Status::Failed if crate::pipeline::arazzo_run::is_red(row) => &mut summary.failed,
-                Status::Failed => &mut summary.advisory,
+                Status::Failed => &mut summary.warning,
             };
             *count = count.saturating_add(1);
         }
@@ -1149,7 +1149,7 @@ mod tests {
     }
 
     /// A results document written by this engine, with one row in each
-    /// status and one advisory failure.
+    /// status and one warning failure.
     fn results_text() -> String {
         let why = r#"{ "source": "specs/openehr/ITS-REST/x.adoc", "section": "s", "quote": "q" }"#;
         let explanation = |whose: &str| {
@@ -1166,7 +1166,7 @@ mod tests {
   "rows": [
     {{ "case": "ehr/a", "row": 0, "status": "passed", "inputs": {{}}, "generated": [] }},
     {{ "case": "ehr/b", "row": 0, "status": "failed", "inputs": {{}}, "generated": [], "explanation": {server} }},
-    {{ "case": "ehr/c", "row": 0, "status": "failed", "inputs": {{}}, "generated": [], "explanation": {advisory} }},
+    {{ "case": "ehr/c", "row": 0, "status": "failed", "inputs": {{}}, "generated": [], "explanation": {warning} }},
     {{ "case": "ehr/d", "row": 0, "status": "errored", "inputs": {{}}, "generated": [], "explanation": {instrument} }},
     {{ "case": "ehr/e", "row": 0, "status": "skipped", "inputs": {{}}, "generated": [], "skip": {{ "reason": "not-claimed", "why": {why} }} }}
   ]
@@ -1175,7 +1175,7 @@ mod tests {
             version = env!("CARGO_PKG_VERSION"),
             status = InstrumentStatus::CURRENT.token(),
             server = explanation("server"),
-            advisory = explanation("advisory"),
+            warning = explanation("warning"),
             instrument = explanation("instrument"),
         )
     }
@@ -1267,7 +1267,7 @@ mod tests {
                 outcome: Outcome::Red,
                 passed: 1,
                 failed: 1,
-                advisory: 1,
+                warning: 1,
                 errored: 1,
                 skipped: 1,
             }

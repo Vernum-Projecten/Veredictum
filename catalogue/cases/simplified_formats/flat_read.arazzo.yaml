@@ -109,7 +109,7 @@ workflows:
       |other, and reads it back with Accept
       application/openehr.wt.flat+json. The answer carries the key
       vitals/body_temperature:0/any_event:0/symptom|other with that text.
-      The release recommends this output, so the row is advisory.
+      The release recommends this output, so the row is a warning.
     dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc

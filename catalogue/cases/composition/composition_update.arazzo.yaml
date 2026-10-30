@@ -463,7 +463,7 @@ workflows:
       body that carries the identifier under uid and none of the COMPOSITION
       attributes, and that identifier is the latest version's uid. The
       released text recommends the identifier body, so the status and body
-      criteria are advisory; a service that declines the preference leaves no
+      criteria yield a warning; a service that declines the preference leaves no
       identifier to compare, and that row is errored.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite: &identifier_only
@@ -573,7 +573,7 @@ workflows:
     description: >-
       Creates an EHR and an event COMPOSITION, then updates it. The answer
       carries both an ETag and a Last-Modified header. The rule is
-      recommended, so a row that answers without them is advisory.
+      recommended, so a row that answers without them is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
@@ -604,7 +604,7 @@ workflows:
       Creates an EHR and an event COMPOSITION, then updates it with Prefer
       return=minimal. The answer carries a Location header pointing at the
       updated resource. The rule is recommended, so a row that answers
-      otherwise is advisory.
+      otherwise is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
@@ -732,7 +732,7 @@ workflows:
       latest VERSION for the version the update created, then sends a second
       update under the superseded version. The 412 answer carries the latest
       version_uid in its ETag. The rule is recommended, so a row that answers
-      otherwise is advisory.
+      otherwise is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
@@ -826,7 +826,7 @@ workflows:
       Creates an EHR and an event COMPOSITION, then updates it with no
       If-Match header. The update is refused with 400 Bad Request, and the
       latest VERSION is still the created one. The rule is recommended, so a
-      row that answers otherwise is advisory.
+      row that answers otherwise is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md

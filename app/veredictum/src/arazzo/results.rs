@@ -104,14 +104,14 @@ pub enum Whose {
     /// The instrument could not judge: the row does not count against the
     /// vendor.
     Instrument,
-    /// The server did not follow a SHOULD: the row is failed and advisory,
+    /// The server did not follow a SHOULD: the row is failed and a warning,
     /// and never counts against a capability.
-    Advisory,
+    Warning,
 }
 
 impl Whose {
     /// All variants, in vocabulary order (schema emission derives from this).
-    pub const ALL: &[Self] = &[Self::Server, Self::Instrument, Self::Advisory];
+    pub const ALL: &[Self] = &[Self::Server, Self::Instrument, Self::Warning];
 }
 
 impl fmt::Display for Whose {
@@ -121,8 +121,8 @@ impl fmt::Display for Whose {
             Self::Instrument => {
                 "the instrument could not judge: this row does not count against the vendor"
             }
-            Self::Advisory => {
-                "advisory: the server did not follow a SHOULD; this row never counts against a capability"
+            Self::Warning => {
+                "warning: the server did not follow a SHOULD; this row never counts against a capability"
             }
         })
     }

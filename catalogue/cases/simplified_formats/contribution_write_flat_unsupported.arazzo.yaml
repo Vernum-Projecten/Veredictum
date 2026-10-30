@@ -82,7 +82,7 @@ workflows:
         successCriteria:
           - condition: $statusCode == 415
 
-  - workflowId: commit_contribution-flat_advisory
+  - workflowId: commit_contribution-flat_warning
     summary: A CONTRIBUTION sent as Simplified Flat JSON, recorded against the SHOULD to support it
     description: >-
       Creates an EHR, then commits with Content-Type application/openehr.wt.flat+json
@@ -90,7 +90,7 @@ workflows:
       Flat JSON format, the request the refusal row sends, and expects it
       created. The release recommends supporting the
       Simplified Formats, so on the arm where the service declares it does
-      not, this row records the SHOULD it declines: it is advisory and never
+      not, this row records the SHOULD it declines: it is a warning and never
       counts against the capability.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite:

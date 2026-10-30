@@ -889,7 +889,7 @@ workflows:
     description: >-
       Creates an EHR and reads it back. Both answers carry an ETag and a
       Last-Modified header. The headers are recommended, so a row that lacks
-      them is advisory.
+      them is a warning.
     x-veredictum-cite: &etag_last_modified
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: ETag and Last-Modified
@@ -930,7 +930,7 @@ workflows:
       Sends DELETE to the EHR collection, a recognized method the released
       EHR API assigns no operation on that resource. The answer is 405
       Method Not Allowed. The rule is recommended, so a row that answers
-      otherwise is advisory.
+      otherwise is a warning.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: HTTP Methods
@@ -1057,7 +1057,7 @@ workflows:
       JSON body that carries the identifier under uid and none of the EHR's
       own attributes, and that identifier addresses the created EHR. The
       released text recommends the identifier body, so the status and body
-      criteria are advisory; a service that declines the preference leaves no
+      criteria yield a warning; a service that declines the preference leaves no
       identifier to read the EHR back by, and that row is errored.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
@@ -1307,7 +1307,7 @@ workflows:
       Creates an EHR whose EHR_STATUS names a subject, with Prefer
       return=minimal. The create succeeds, the answer carries a Location
       header, and the EHR is read back by its subject. The Location rule is
-      recommended, so a row that lacks the header is advisory.
+      recommended, so a row that lacks the header is a warning.
     x-veredictum-cite: &minimal_location
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: Prefer minimal, identifier or full representation response
@@ -1353,7 +1353,7 @@ workflows:
       Creates an EHR with a client-supplied ehr_id and Prefer return=minimal.
       The create succeeds, the answer carries a Location header that names
       the ehr_id, and the EHR is read back by that ehr_id. The Location rule
-      is recommended, so a row that lacks the header is advisory.
+      is recommended, so a row that lacks the header is a warning.
     x-veredictum-cite: *minimal_location
     inputs:
       type: object
@@ -1388,7 +1388,7 @@ workflows:
       return=identifier. The answer is 201 with a JSON body that carries the
       ehr_id under uid and none of the EHR's own attributes, and the EHR is
       read back by that ehr_id. The released text recommends the identifier
-      body, so the status and body criteria are advisory.
+      body, so the status and body criteria yield a warning.
     x-veredictum-cite: *identifier_only
     inputs:
       type: object

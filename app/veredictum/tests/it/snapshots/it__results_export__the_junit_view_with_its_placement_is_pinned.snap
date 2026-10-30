@@ -38,7 +38,7 @@ Whose    the server: a failed row counts against the claimed capability
       <property name="eu.veredictum.section" value="Read"/>
     </properties>
     <testcase name="composition/read row 0" classname="composition/read" time="0">
-      <system-out>ADVISORY: a SHOULD the server did not follow; this row never counts against the server.
+      <system-out>WARNING: a SHOULD the server did not follow; this row never counts against the server.
 FAILED   composition/read   step read
 What     Create an EHR with the same ehr_id again.
 Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
@@ -47,7 +47,7 @@ Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, d
 Expected status 409
 Received status 201
 Exchange PUT http://sut/ehr/3f2a -&gt; 201   (recording entry 2)
-Whose    advisory: the server did not follow a SHOULD; this row never counts against a capability</system-out>
+Whose    warning: the server did not follow a SHOULD; this row never counts against a capability</system-out>
     </testcase>
     <testcase name="composition/read row 1" classname="composition/read" time="0"/>
   </testsuite>

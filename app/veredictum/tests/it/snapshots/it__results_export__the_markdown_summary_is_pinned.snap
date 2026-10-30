@@ -1,6 +1,6 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
-assertion_line: 192
+assertion_line: 194
 expression: markdown(&fixture())
 ---
 # Veredictum results
@@ -13,12 +13,12 @@ expression: markdown(&fixture())
 
 ## Summary
 
-| Part | Passed | Failed | Advisory | Errored | Skipped | Total |
+| Part | Passed | Failed | Warning | Errored | Skipped | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | **Every row** | **1** | **1** | **1** | **1** | **1** | **5** |
 
 > [!NOTE]
-> Only a **failed** row counts against the server. An **advisory** row is a SHOULD the server did not follow, and it never counts against the server. An **errored** row is one the instrument could not judge, and a **skipped** row was not run.
+> Only a **failed** row counts against the server. A **warning** row is a SHOULD the server did not follow, and it never counts against the server. An **errored** row is one the instrument could not judge, and a **skipped** row was not run.
 
 ## Unplaced
 
@@ -27,7 +27,7 @@ The results carry no outline, so no case is placed in BASE or OPTIONS.
 | Case | Outcome |
 | --- | --- |
 | `ehr/create_twice` | 1 passed, 1 failed |
-| `ehr/etag` | 1 advisory |
+| `ehr/etag` | 1 warning |
 | `ehr/escape` | 1 errored |
 | `ehr/admin_delete` | 1 skipped |
 
@@ -54,7 +54,7 @@ Rows to look at (open one for its explanation):
 </details>
 
 <details>
-<summary><b>Advisory</b>: <code>ehr/etag</code> row 0, unplaced</summary>
+<summary><b>Warning</b>: <code>ehr/etag</code> row 0, unplaced</summary>
 
 | | |
 | --- | --- |
@@ -63,7 +63,7 @@ Rows to look at (open one for its explanation):
 | **Expected** | status 409 |
 | **Received** | no ETag header |
 | **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
-| **Whose problem** | Advisory. The server did not follow a SHOULD, and the row never counts against it. |
+| **Whose problem** | Warning. The server did not follow a SHOULD, and the row never counts against it. |
 | **Inputs** | `ehr_id` = `"id-0"` |
 
 **Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
@@ -88,7 +88,7 @@ Rows to look at (open one for its explanation):
 
 </details>
 
-## Advisory rows
+## Warning rows
 
 Each is a SHOULD the server did not follow. None counts against the server.
 

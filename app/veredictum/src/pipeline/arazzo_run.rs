@@ -108,7 +108,7 @@ impl ArazzoRunOutcome {
     }
 
     /// The rows that bear on the verdict and are not green: every errored
-    /// row, and every failed row that is not advisory.
+    /// row, and every failed row that is not a warning.
     pub fn red_rows(&self) -> impl Iterator<Item = &ResultRow> {
         self.results.rows.iter().filter(|row| is_red(row))
     }
@@ -143,7 +143,7 @@ impl ArazzoRunOutcome {
     }
 }
 
-/// Whether `row` bears on the verdict and is not green. An advisory row,
+/// Whether `row` bears on the verdict and is not green. A warning row,
 /// a SHOULD the server did not follow, never counts against a capability.
 pub(crate) fn is_red(row: &ResultRow) -> bool {
     match row.status {
@@ -152,7 +152,7 @@ pub(crate) fn is_red(row: &ResultRow) -> bool {
         Status::Failed => row
             .explanation
             .as_ref()
-            .is_none_or(|explanation| explanation.whose != Whose::Advisory),
+            .is_none_or(|explanation| explanation.whose != Whose::Warning),
     }
 }
 
@@ -359,10 +359,10 @@ mod tests {
     }
 
     #[test]
-    fn an_advisory_row_is_the_only_failed_row_that_stays_green() {
+    fn a_warning_row_is_the_only_failed_row_that_stays_green() {
         assert!(!is_red(&row(Status::Passed, None)));
         assert!(!is_red(&row(Status::Skipped, None)));
-        assert!(!is_red(&row(Status::Failed, Some(Whose::Advisory))));
+        assert!(!is_red(&row(Status::Failed, Some(Whose::Warning))));
         assert!(is_red(&row(Status::Failed, Some(Whose::Server))));
         assert!(is_red(&row(Status::Failed, None)));
         assert!(is_red(&row(Status::Errored, Some(Whose::Instrument))));

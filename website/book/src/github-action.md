@@ -94,7 +94,7 @@ JUnit view is read by most other CI systems.
 
 | Exit status | Meaning |
 |---|---|
-| `0` | every row passed or was skipped, or failed only as advisory |
+| `0` | every row passed or was skipped, or failed only as a warning |
 | `1` | a row that counts against the server failed or errored |
 | `2` | the run could not start or finish: a usage error, a catalogue gate finding, an unreadable file, a missing credential |
 

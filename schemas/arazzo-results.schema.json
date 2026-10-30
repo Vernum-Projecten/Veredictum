@@ -216,7 +216,7 @@
                 "enum": [
                   "server",
                   "instrument",
-                  "advisory"
+                  "warning"
                 ]
               }
             }

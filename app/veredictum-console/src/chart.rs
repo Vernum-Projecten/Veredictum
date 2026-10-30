@@ -155,8 +155,8 @@ struct Colours {
     passed: &'static str,
     /// Failed.
     failed: &'static str,
-    /// Advisory.
-    advisory: &'static str,
+    /// Warning.
+    warning: &'static str,
     /// Errored.
     errored: &'static str,
     /// Skipped: the hatch ground.
@@ -183,7 +183,7 @@ impl Palette {
             Self::Light => Colours {
                 passed: "#0072B2",
                 failed: "#D55E00",
-                advisory: "#CC79A7",
+                warning: "#CC79A7",
                 errored: "#E69F00",
                 skipped: "#D9D9D9",
                 hatch: "#8C8C8C",
@@ -196,7 +196,7 @@ impl Palette {
             Self::Dark => Colours {
                 passed: "#56B4E9",
                 failed: "#E8803A",
-                advisory: "#D99BC0",
+                warning: "#D99BC0",
                 errored: "#F0B840",
                 skipped: "#4A5A62",
                 hatch: "#9AA8AE",
@@ -231,7 +231,7 @@ fn segments(tally: &Tally, colours: &Colours) -> [(u32, String); 5] {
     [
         (tally.passed, colours.passed.to_owned()),
         (tally.failed, colours.failed.to_owned()),
-        (tally.advisory, colours.advisory.to_owned()),
+        (tally.warning, colours.warning.to_owned()),
         (tally.errored, colours.errored.to_owned()),
         (tally.skipped, format!("url(#hatch-{})", colours.suffix)),
     ]
@@ -243,7 +243,7 @@ const fn column_values(tally: &Tally) -> [u32; 6] {
         tally.tests,
         tally.passed,
         tally.failed,
-        tally.advisory,
+        tally.warning,
         tally.errored,
         tally.skipped,
     ]
@@ -253,8 +253,8 @@ const fn column_values(tally: &Tally) -> [u32; 6] {
 fn summary(title: &str, tally: &Tally) -> String {
     let rows = if tally.tests == 1 { "row" } else { "rows" };
     format!(
-        "{title}: {} {rows}, {} passed, {} failed, {} advisory, {} errored, {} skipped",
-        tally.tests, tally.passed, tally.failed, tally.advisory, tally.errored, tally.skipped
+        "{title}: {} {rows}, {} passed, {} failed, {} warning, {} errored, {} skipped",
+        tally.tests, tally.passed, tally.failed, tally.warning, tally.errored, tally.skipped
     )
 }
 
@@ -292,7 +292,7 @@ fn head(out: &mut String, colours: &Colours) {
     let legend = [
         ("✓", "passed", colours.passed.to_owned()),
         ("✕", "failed", colours.failed.to_owned()),
-        ("!", "advisory", colours.advisory.to_owned()),
+        ("!", "warning", colours.warning.to_owned()),
         ("?", "errored", colours.errored.to_owned()),
         (
             "○",
@@ -877,7 +877,7 @@ mod tests {
                     "composition_read/ok",
                     0,
                     Status::Failed,
-                    Some(Whose::Advisory),
+                    Some(Whose::Warning),
                 ),
                 row("composition_read/ok", 1, Status::Skipped, None),
                 row(
@@ -890,24 +890,24 @@ mod tests {
                 row("query_aql/ok", 1, Status::Passed, None),
                 row("query_aql/ok", 2, Status::Passed, None),
                 row("xml_doc/read", 0, Status::Passed, None),
-                row("flat_doc/read", 0, Status::Failed, Some(Whose::Advisory)),
+                row("flat_doc/read", 0, Status::Failed, Some(Whose::Warning)),
                 row("gap_doc/read", 0, Status::Failed, Some(Whose::Server)),
             ],
             outline: Some(outline(NonZeroU64::new(352))),
         }
     }
 
-    /// The reading keeps an advisory row out of the failed count, puts the
+    /// The reading keeps a warning row out of the failed count, puts the
     /// TRIAL case in its OPTIONS band, and lists a group red first.
     #[expect(
         clippy::panic_in_result_fn,
         reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
     )]
     #[test]
-    fn an_advisory_row_is_never_counted_as_failed() -> Result<(), serde_json::Error> {
+    fn a_warning_row_is_never_counted_as_failed() -> Result<(), serde_json::Error> {
         let reading = reading_view(&results())?;
         assert_eq!(reading.total.failed, 3);
-        assert_eq!(reading.total.advisory, 2);
+        assert_eq!(reading.total.warning, 2);
         let band = reading
             .options
             .chapters

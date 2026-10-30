@@ -18,7 +18,7 @@
 //! as a list. A refusal with no twin in the catalogue yet names the issue
 //! that tracks one, `{ pending: <issue> }`, and is never judged. A control was
 //! accepted when the run holds a row of it and every
-//! one of its rows passed or failed only advisory criteria, so the server took
+//! one of its rows passed or failed only criteria that yield a warning, so the server took
 //! the request. A refusal row is judged when no listed control that ran was
 //! refused and at least one ran; otherwise it is recorded errored, naming the
 //! control, whatever the refusal itself received. No openEHR spec governs the
@@ -207,24 +207,24 @@ fn document_prefix(file: &Path) -> Option<&str> {
 /// How one control's rows ended in a run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ControlOutcome {
-    /// Every row passed or failed only advisory criteria.
+    /// Every row passed or failed only criteria that yield a warning.
     Accepted,
     /// Every row was skipped.
     Skipped,
-    /// A row that ran ended with this status and was not advisory.
+    /// A row that ran ended with this status and was not a warning.
     Refused(Status),
 }
 
 impl ControlOutcome {
     /// The outcome of one more row of the control.
     fn with(self, row: &ResultRow) -> Self {
-        let advisory = row
+        let warning = row
             .explanation
             .as_ref()
-            .is_some_and(|explanation| explanation.whose == Whose::Advisory);
+            .is_some_and(|explanation| explanation.whose == Whose::Warning);
         let this = match row.status {
             Status::Passed => Self::Accepted,
-            Status::Failed if advisory => Self::Accepted,
+            Status::Failed if warning => Self::Accepted,
             Status::Skipped => Self::Skipped,
             other => Self::Refused(other),
         };

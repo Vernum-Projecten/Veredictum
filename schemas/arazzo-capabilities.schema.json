@@ -153,7 +153,7 @@
             ],
             "properties": {
               "level": {
-                "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and advisory, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
+                "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and a warning, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
                 "enum": [
                   "must",
                   "should",
@@ -203,7 +203,7 @@
                   ],
                   "properties": {
                     "level": {
-                      "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and advisory, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
+                      "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and a warning, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
                       "enum": [
                         "must",
                         "should",

@@ -7,7 +7,7 @@
 //! row can belong to, a cited upstream report and text that must be escaped,
 //! and the Markdown and terminal views again over a document with an outline;
 //! the CTRF view is held to the vendored CTRF 0.2.0 schema, no view counts an
-//! advisory row as failed, and every view is byte-deterministic.
+//! warning row as failed, and every view is byte-deterministic.
 
 #![expect(
     clippy::expect_used,
@@ -25,7 +25,7 @@ use serde_json::Value;
 use veredictum::arazzo::document::ArazzoDocument;
 use veredictum::arazzo::evaluate::{Plan, rejudge};
 use veredictum::arazzo::export::{
-    ADVISORY_LINE, CTRF_SPEC_VERSION, EXTENSION_NAMESPACE, ctrf, junit, markdown,
+    CTRF_SPEC_VERSION, EXTENSION_NAMESPACE, WARNING_LINE, ctrf, junit, markdown,
 };
 use veredictum::arazzo::har::Har;
 use veredictum::arazzo::results::{
@@ -98,11 +98,11 @@ fn fixture() -> Results {
             Some(42),
         )),
     ));
-    let mut advisory = row("ehr/etag", 0, Status::Failed);
-    advisory.explanation = Some(red(
+    let mut warning = row("ehr/etag", 0, Status::Failed);
+    warning.explanation = Some(red(
         "read",
         "no ETag header",
-        Whose::Advisory,
+        Whose::Warning,
         Some(why("The server SHOULD send an ETag.", None)),
     ));
     let mut errored = row("ehr/escape", 0, Status::Errored);
@@ -132,7 +132,7 @@ fn fixture() -> Results {
         rows: vec![
             row("ehr/create_twice", 0, Status::Passed),
             failed,
-            advisory,
+            warning,
             errored,
             skipped,
         ],
@@ -228,7 +228,7 @@ fn every_status_maps_as_the_architecture_states() {
         [
             ("passed", "passed"),
             ("failed", "failed"),
-            ("other", "advisory"),
+            ("other", "warning"),
             ("other", "errored"),
             ("skipped", "skipped"),
         ]
@@ -414,7 +414,7 @@ fn without_a_summary_file_the_command_prints_the_summary() {
 }
 
 #[test]
-fn an_advisory_row_counts_as_failed_in_no_view() {
+fn a_warning_row_counts_as_failed_in_no_view() {
     let results = fixture();
     let xml = junit(&results).unwrap();
     let mut reader = Reader::from_str(&xml);
@@ -438,21 +438,21 @@ fn an_advisory_row_counts_as_failed_in_no_view() {
         xml.contains("<testsuites name=\"ehr\" tests=\"5\" failures=\"1\""),
         "{xml}"
     );
-    assert!(xml.contains(ADVISORY_LINE), "{xml}");
+    assert!(xml.contains(WARNING_LINE), "{xml}");
 
     let document: Value = serde_json::from_str(&ctrf(&results).unwrap()).unwrap();
     assert_eq!(document["results"]["summary"]["failed"], 1);
     let etag = &document["results"]["tests"][2];
     assert_eq!(etag["extra"]["eu.veredictum"]["case"], "ehr/etag");
     assert_eq!(etag["status"], "other");
-    assert_eq!(etag["rawStatus"], "advisory");
+    assert_eq!(etag["rawStatus"], "warning");
 
     let summary = markdown(&results);
     assert!(
         summary.contains("| **Every row** | **1** | **1** | **1** | **1** | **1** | **5** |"),
-        "one failed and one advisory row, counted apart: {summary}"
+        "one failed and one warning row, counted apart: {summary}"
     );
-    assert!(summary.contains("## Advisory rows"), "{summary}");
+    assert!(summary.contains("## Warning rows"), "{summary}");
     assert!(
         summary.contains(
             "| `ehr/etag row 0` | `read` | specs/openehr/ITS-REST/specifications/responses/409\\_EHR\\_with\\_id.yaml, description |"
@@ -460,7 +460,7 @@ fn an_advisory_row_counts_as_failed_in_no_view() {
         "{summary}"
     );
     assert!(
-        summary.contains("<summary><b>Advisory</b>: <code>ehr/etag</code>"),
+        summary.contains("<summary><b>Warning</b>: <code>ehr/etag</code>"),
         "{summary}"
     );
 }
@@ -577,7 +577,7 @@ fn outlined() -> Results {
     results.rows = vec![
         row("composition/create", 0, Status::Passed),
         create_failed,
-        failed_row("composition/read", "read", Whose::Advisory, None),
+        failed_row("composition/read", "read", Whose::Warning, None),
         row("composition/read", 1, Status::Passed),
         failed_row("query/stored", "validate", Whose::Server, None),
         row("content/adl14_cardinality", 0, Status::Passed),
@@ -751,7 +751,7 @@ fn the_terminal_view_without_an_outline_lists_every_case_unplaced() {
 }
 
 #[test]
-fn the_terminal_view_never_shows_an_advisory_row_as_a_failure() {
+fn the_terminal_view_never_shows_a_warning_row_as_a_failure() {
     let view = render(
         &fixture(),
         ShowOptions {
@@ -760,10 +760,10 @@ fn the_terminal_view_never_shows_an_advisory_row_as_a_failure() {
         },
     );
     let (_, expanded) = view.split_once("Failed and errored rows").unwrap();
-    let (failures, advisory) = expanded.split_once("Advisory rows").unwrap();
+    let (failures, warning) = expanded.split_once("Warning rows").unwrap();
     assert!(!failures.contains("ehr/etag"), "{view}");
-    assert!(advisory.contains("ehr/etag"), "{view}");
-    assert!(advisory.contains(ADVISORY_LINE), "{view}");
+    assert!(warning.contains("ehr/etag"), "{view}");
+    assert!(warning.contains(WARNING_LINE), "{view}");
 }
 
 fn show(results: &Path, args: &[&str], no_color: Option<&str>) -> String {

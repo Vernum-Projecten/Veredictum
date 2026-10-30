@@ -410,7 +410,7 @@ workflows:
       Creates an EHR, commits a CONTRIBUTION and retrieves it. A CONTRIBUTION
       has a unique state identifier, so the answer carries an ETag and a
       Last-Modified header. The headers are recommended, so a row that lacks
-      them is advisory.
+      them is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md

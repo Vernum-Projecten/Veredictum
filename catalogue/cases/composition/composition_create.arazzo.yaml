@@ -422,7 +422,7 @@ workflows:
       Creates an EHR, then creates an event COMPOSITION with Prefer
       return=minimal. The answer carries a Location header pointing at the
       new resource. The rule is recommended, so a row that answers otherwise
-      is advisory.
+      is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
@@ -454,7 +454,7 @@ workflows:
       return=representation and Accept application/json. The create succeeds
       with 201 or 200, and the body is the COMPOSITION, carrying the
       archetype_node_id and the category sent. The body rule is recommended,
-      so a row that answers without it is advisory.
+      so a row that answers without it is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite: &full_representation
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
@@ -493,7 +493,7 @@ workflows:
       return=identifier and Accept application/json. The body carries the
       identifier under uid and none of the COMPOSITION attributes, and that
       identifier addresses the created version. The identifier rule is
-      recommended, so a row that answers otherwise is advisory; a server
+      recommended, so a row that answers otherwise is a warning; a server
       that sends no identifier leaves the read without a version_uid, and
       the row is errored rather than failed.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
@@ -560,7 +560,7 @@ workflows:
     description: >-
       Creates an EHR, then creates an event COMPOSITION. The answer carries
       both an ETag and a Last-Modified header. The rule is recommended, so a
-      row that answers without them is advisory.
+      row that answers without them is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
@@ -594,7 +594,7 @@ workflows:
       Creates an EHR and an event COMPOSITION whose context start_time is
       2021-09-21T21:52:31.927-03:00, then retrieves the created version. The
       start_time is read back with the same offset and fractional seconds.
-      The rule is recommended, so a row that answers otherwise is advisory.
+      The rule is recommended, so a row that answers otherwise is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite: &datetime_kept
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
@@ -625,7 +625,7 @@ workflows:
       its fractional seconds with the ISO 8601 comma,
       2021-09-21T21:52:31,927-03:00, then retrieves the created version. The
       start_time is read back with the comma. The rule is recommended, so a
-      row that answers otherwise is advisory.
+      row that answers otherwise is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite: *datetime_kept
     inputs: *ehr_input
@@ -667,7 +667,7 @@ workflows:
       links, feeder_audit, other_participations or workflow_id, then retrieves
       the created version. The EVALUATION read back has none of those members,
       neither as null nor as an empty list. The rule is recommended, so a row
-      that answers otherwise is advisory.
+      that answers otherwise is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md

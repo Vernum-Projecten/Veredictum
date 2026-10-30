@@ -188,7 +188,7 @@ workflows:
     description: >-
       Creates a GROUP with Prefer return=identifier. The create is answered
       201 Created, and the body should carry only the identifier of the new
-      version; the body is a recommendation, so a row lacking it is advisory.
+      version; the body is a recommendation, so a row lacking it is a warning.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: Prefer only identifier
@@ -462,7 +462,7 @@ workflows:
       Creates a GROUP, then updates it with Prefer return=identifier. The
       update succeeds with a 2xx status, and the body should carry only the
       identifier of the new version; the body is a recommendation, so a row
-      lacking it is advisory.
+      lacking it is a warning.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: HTTP status codes
@@ -583,7 +583,7 @@ workflows:
       Creates a GROUP, then updates it with no If-Match header. The update is
       refused with 400 Bad Request and the latest version is still the created
       one. The rule is recommended, so a row that answers otherwise is
-      advisory.
+      a warning.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: If-Match and accidental overwrites
