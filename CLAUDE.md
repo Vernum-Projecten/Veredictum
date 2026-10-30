@@ -78,6 +78,16 @@ and quote the sentence that assigns the value.
   what the correct answer is), the upstream Robot suites and their data sets
   (stalled), any CDR's behaviour, and any prior harness. Where one of these
   conflicts with a released component, the released component wins.
+- **Maturity inside the release** (owner ruling 2026-10-30, #872): each
+  document's status is read from the vendored manifests, never declared. A
+  document marked DEVELOPMENT inside a release is released text and gates
+  as BASE. A case resting on TRIAL text keeps its verdict and is read with
+  the OPTIONS, outside every BASE tally. A RETIRED document is no part of
+  the release, and `validate` refuses a citation into it. The openEHR
+  development branch is no part of the oracle: a Develop column reads a
+  pinned snapshot vendored outside `specs/openehr/` by its own
+  `scripts/vendor/` script, and a Develop row only says what would change
+  against it. It is never a verdict (#875).
 - Where both the docs text and the OAS are silent, no case asserts the
   behaviour: the silence is an `upstream-report` issue here, with its patch
   under `upstream/`, and a citation that rests on defective text names that
