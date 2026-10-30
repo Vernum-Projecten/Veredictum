@@ -4800,6 +4800,9 @@
       "corpus_ehrs": 100000,
       "environment": "example 8-vCPU VM, 8 cores, 8 GiB, NVMe storage, single node",
       "derivation": "About 46 clinical documents per capita per year (consultations, discharges and ED visits from OECD Health at a Glance 2023 and Eurostat; laboratory results from RCPath; imaging from the NHS Diagnostic Imaging Dataset 2023/24; prescription items from NHS BSA PCA 2024/25) give 0.15 writes per second per 100,000 population; a peak factor of 8 (the ITU-T E.500 busy hour) and a read multiplier of 10:1 to 50:1 (OLTP-Bench and YCSB; PMC10148376) give 13 to 75 peak API arrivals per second per 100,000. The knee divided by that band is the population a deployment of this shape could serve at its peak, read only at the corpus scale and on the environment the run used."
+    },
+    "host": {
+      "state": "unclaimed"
     }
   }
 }

@@ -473,7 +473,17 @@ Options:
           [default: 4096]
 
       --host-prescription <HOST_PRESCRIPTION>
-          The host prescription the run claims to have run on
+          The id of the host prescription under `perf/hosts/` the run claims to have run on; the record reads the generator's measured fingerprint against it
+
+      --network-leg <NETWORK_LEG>
+          Where the load generator sits relative to the server
+
+          Possible values:
+          - same-host:    The generator and the server share one host
+          - same-zone:    Different hosts in one zone of one provider
+          - cross-region: Different regions
+          
+          [default: same-host]
 
       --results <RESULTS>
           The measured results record (`results.schema.json`) to merge the measurement records into; created when no file exists at the path
@@ -887,6 +897,112 @@ refused there, so a changed workload raises its version and its pin together.
 
 With `--workload` it checks one document of your own instead. A document that
 matches no pinned digest is labelled `custom`.
+
+## perf-compare
+
+```text
+Compare performance records: align committed `perf-result` files, or run two targets (`--ab`) or one target against itself (`--aa`) interleaved on one host.
+
+With `--result`, two or more records are read into one table, one column per file. Every field on which they describe different things is named above it: the workload digest, the corpus recipe, the posture, the host prescription, the generator's fingerprint and the network leg. Two records also get a ratio per plateau, operation and metric, with both values beside it; plateaus offered different rates are shown and not judged.
+
+With `--ab`, both targets are seeded from the same recipe and seed and stay resident on one host. Each gets its settle, warm-up and scout; the shared ladder is built from the larger knee estimate, so both sides are offered the same rates and holds; and on each rung the plateaus alternate in ABBA order. `--aa` runs the same interleaving with one target on both sides and attaches its floor, the largest A/A ratio per metric, to both records. A difference counts only when its ratio exceeds the tolerance and the attached floor and the two sides' 95 % intervals do not overlap. Both write `a.perf-result.json`, `b.perf-result.json`, `perf-compare.json` and `perf-compare.md` under `--out`, in about twice a single run.
+
+Exit status: `0` when the records align; `1` when any mismatch applies; `2` when a record cannot be read or a run cannot finish.
+
+Usage: veredictum perf-compare [OPTIONS]
+
+Options:
+      --result <RESULTS>
+          A committed `perf-result`. Repeat the flag once per file; at least two are needed
+
+      --ab <IXIT_A> <IXIT_B>
+          Side A's and side B's IXIT, for an interleaved A/B run
+
+      --aa <IXIT>
+          The IXIT of the one target an A/A run puts on both sides
+
+      --root <ROOT>
+          The performance root, `perf/` in this repository (workloads/, payloads.yaml, payloads/, hosts/). Needed by `--ab` and `--aa`
+
+      --workload <WORKLOAD>
+          The workload document both sides are offered. Needed by `--ab` and `--aa`
+
+      --catalogue <CATALOGUE>
+          The catalogue root a workload's `requires` resolve against
+          
+          [default: catalogue]
+
+      --statement <STATEMENT>
+          A statement whose claims keep the interactions it covers and drop the rest
+
+      --corpus <CORPUS>
+          Seed both corpora, or reuse the ones stored under `--out`
+
+          Possible values:
+          - seed:  Seed the workload's recipe before the clock
+          - reuse: Reuse the stored corpus when its read-back counts and digest match
+          
+          [default: seed]
+
+      --seed-workers <SEED_WORKERS>
+          Parallel seeding workers
+          
+          [default: 16]
+
+      --start-rate <START_RATE>
+          The warm-up's rate and the scout's starting rate, operations per second
+          
+          [default: 8]
+
+      --scout-end-rate <SCOUT_END_RATE>
+          The scout ramp's end rate, operations per second
+          
+          [default: 4096]
+
+      --host-prescription <HOST_PRESCRIPTION>
+          The id of the host prescription under `perf/hosts/` the run claims
+
+      --network-leg <NETWORK_LEG>
+          Where the load generator sits relative to the servers
+
+          Possible values:
+          - same-host:    The generator and the server share one host
+          - same-zone:    Different hosts in one zone of one provider
+          - cross-region: Different regions
+          
+          [default: same-host]
+
+      --tolerance <TOLERANCE>
+          The declared tolerance: a ratio within it either way is never a difference
+          
+          [default: 0.05]
+
+      --floor <FLOOR>
+          A `perf-result` or `perf-compare.json` carrying an A/A floor, which the ratios are judged against and an A/B run attaches to both records
+
+      --out <OUT>
+          Output directory: the comparison for `--result`, and the records, corpora and comparison for `--ab` and `--aa`
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+A single run carries sampling intervals and nothing else. Two GitHub-hosted
+runs of the same code have read up to 156 % apart, so a number from one run
+set beside a number from another says little about the two systems. An
+interleaved run puts both sides on one host in one window: each rung of the
+shared ladder runs A then B, the next rung B then A, so a drift in the host
+during the run lands on both sides.
+
+`--aa` measures what that interleaving leaves: the same target on both sides.
+Its floor, the largest ratio per metric, is attached to both records and turns
+their `between_run_noise` from `unmeasured` into the floor. Pass that record or
+its `perf-compare.json` as `--floor` to an `--ab` run, and a ratio has to clear
+the floor as well as `--tolerance` before it reads as a difference.
+
+With `--result`, the records were measured apart, so their plateaus were
+offered different rates. The table still lines them up, and the ratios are
+shown as `different rates` rather than judged.
 
 ## stress-compare
 

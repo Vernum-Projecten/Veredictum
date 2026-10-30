@@ -19,6 +19,8 @@ use crate::perf_gen::{ErrorClass, OperationId};
 use crate::perf_result::capacity::{
     Knee, Peak, PopulationReading, UslReading, fit_usl, knee, peak, population, usl_points,
 };
+use crate::perf_result::compare::AaFloor;
+use crate::perf_result::host::{HostReading, read_host};
 use crate::perf_result::quantile::{Quantile, QuantileName, quantile, u64_to_f64, us_to_ms};
 use crate::perf_result::server::ServerSummary;
 use crate::perf_result::{
@@ -58,11 +60,14 @@ impl From<Passes> for u32 {
 }
 
 /// What the record knows about the noise between runs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BetweenRunNoise {
     /// One pass measures sampling intervals only; no A/A floor is attached.
     Unmeasured,
+    /// An interleaved A/A run measured the floor: the largest ratio per
+    /// metric between two sides of one target.
+    AaFloor(AaFloor),
 }
 
 /// The latency summary of one histogram.
@@ -411,8 +416,9 @@ pub struct Derived {
     pub usl: UslReading,
     /// The population the knee could serve at its peak.
     pub population: PopulationReading,
+    /// The measured host read against the prescription the record claims.
+    pub host: HostReading,
 }
-// TODO(#890): an attached A/A floor as a second state of `between_run_noise`.
 
 /// Everything one window holds, decoded and summed over its operations.
 struct Decoded {
@@ -876,7 +882,10 @@ pub fn derive(raw: &Raw) -> Result<Derived, PerfResultError> {
     let population = population(&knee, raw.corpus.scale, &raw.environment);
     Ok(Derived {
         passes: Passes,
-        between_run_noise: BetweenRunNoise::Unmeasured,
+        between_run_noise: raw
+            .aa_floor
+            .clone()
+            .map_or(BetweenRunNoise::Unmeasured, BetweenRunNoise::AaFloor),
         scope: SCOPE.to_owned(),
         seeding: SeedingReading {
             model: raw.seeding.model,
@@ -889,5 +898,10 @@ pub fn derive(raw: &Raw) -> Result<Derived, PerfResultError> {
         peak,
         usl,
         population,
+        host: read_host(
+            raw.host_prescription.as_ref(),
+            &raw.generator.host,
+            raw.network_leg.unwrap_or_default(),
+        ),
     })
 }

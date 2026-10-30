@@ -23,6 +23,7 @@ use crate::perf_result::capacity::{Knee, PeakSource, PopulationReading, UslReadi
 use crate::perf_result::derive::{
     BetweenRunNoise, DerivedOperation, DerivedPlateau, JudgedAt, Latency, Steadiness,
 };
+use crate::perf_result::host::HostReading;
 use crate::perf_result::quantile::{Quantile, QuantileName, u64_to_f64};
 use crate::perf_result::server::{
     ContainerRole, ContainerSummary, ContainersReading, SettingsReading, StatementsReading,
@@ -233,10 +234,16 @@ fn environment_phrase(record: &PerfResult) -> String {
 
 fn host_phrase(record: &PerfResult) -> String {
     let host = &record.raw.generator.host;
-    let prescription = record.raw.host_prescription.as_deref().map_or_else(
-        || "no prescription claimed".to_owned(),
-        |p| format!("prescription {p}"),
-    );
+    let prescription = match &record.derived.host {
+        HostReading::Unclaimed => "no prescription claimed".to_owned(),
+        HostReading::Matched { prescription } => format!("prescription {prescription}, matched"),
+        HostReading::Unmatched { prescription, .. } => {
+            format!("prescription {prescription}, UNMATCHED")
+        }
+        HostReading::Unverifiable { prescription, .. } => {
+            format!("prescription {prescription}, unverifiable")
+        }
+    };
     let mut generator = format!("{} {}", host.arch, host.os);
     if let Some(n) = host.available_parallelism {
         let _ = write!(generator, ", {n} threads");
@@ -278,10 +285,14 @@ fn corpus_phrase(record: &PerfResult) -> String {
 }
 
 fn noise_phrase(record: &PerfResult) -> String {
-    match record.derived.between_run_noise {
+    match &record.derived.between_run_noise {
         BetweenRunNoise::Unmeasured => {
             "1 pass; between-run noise unmeasured, no A/A floor attached".to_owned()
         }
+        BetweenRunNoise::AaFloor(floor) => format!(
+            "1 pass; A/A floor attached, p99 within {:.3}x",
+            floor.of(crate::perf_result::compare::CompareMetric::P99)
+        ),
     }
 }
 

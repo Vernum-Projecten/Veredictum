@@ -34,6 +34,7 @@ mod env_coupled;
 mod fake_sut;
 mod identity_wire;
 mod measured_wire;
+mod perf_compare;
 mod perf_corpus;
 mod perf_driver;
 mod perf_generator;

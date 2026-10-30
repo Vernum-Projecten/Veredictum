@@ -93,7 +93,7 @@ fn spread(n: u64, low_us: u64, step_us: u64) -> Vec<u64> {
     (0..n).map(|i| low_us + i * step_us).collect()
 }
 
-fn raw(plateaus: Vec<RawPlateau>) -> Raw {
+pub(crate) fn raw(plateaus: Vec<RawPlateau>) -> Raw {
     Raw {
         instrument: Instrument::this_build(),
         target: Target {
@@ -129,6 +129,9 @@ fn raw(plateaus: Vec<RawPlateau>) -> Raw {
             workers: 8,
         },
         host_prescription: None,
+        network_leg: None,
+        interleaving: None,
+        aa_floor: None,
         posture: None,
         workload: EmbeddedWorkload {
             id: "reference".to_owned(),

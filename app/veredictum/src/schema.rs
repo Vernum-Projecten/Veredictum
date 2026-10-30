@@ -2678,7 +2678,10 @@ fn perf_result_raw_def() -> Value {
                     "workers": { "type": "integer", "minimum": 1 }
                 }
             },
-            "host_prescription": { "type": "string", "minLength": 1 },
+            "host_prescription": host_prescription_def(),
+            "network_leg": network_leg_def(),
+            "interleaving": interleaving_def(),
+            "aa_floor": aa_floor_def(),
             "posture": bench_posture_def(),
             "workload": {
                 "type": "object",
@@ -3137,10 +3140,22 @@ fn perf_result_derived_def() -> Value {
     json!({
         "type": "object",
         "additionalProperties": false,
-        "required": ["passes", "between_run_noise", "scope", "seeding", "plateaus", "knee", "usl", "population"],
+        "required": ["passes", "between_run_noise", "scope", "seeding", "plateaus", "knee", "usl", "population", "host"],
         "properties": {
             "passes": { "const": 1 },
-            "between_run_noise": { "enum": ["unmeasured"], "description": "One pass measures sampling intervals only; between-run noise needs an interleaved A/A comparison." },
+            "between_run_noise": {
+                "description": "`unmeasured` for one pass, which measures sampling intervals only; the A/A floor when an interleaved A/A comparison is attached.",
+                "oneOf": [
+                    { "const": "unmeasured" },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["aa_floor"],
+                        "properties": { "aa_floor": aa_floor_def() }
+                    }
+                ]
+            },
+            "host": host_reading_def(),
             "scope": { "const": crate::perf_result::SCOPE },
             "seeding": {
                 "type": "object",
@@ -3263,6 +3278,217 @@ pub fn perf_result_schema() -> Value {
     })
 }
 
+fn network_leg_def() -> Value {
+    json!({
+        "enum": ["same-host", "same-zone", "cross-region"],
+        "description": "Where the load generator sits relative to the server; a record naming no leg reads as same-host."
+    })
+}
+
+fn host_prescription_properties() -> Value {
+    json!({
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "The prescription's id, its file stem under perf/hosts/." },
+        "version": { "type": "integer", "minimum": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "derivation": { "type": "string", "minLength": 1, "description": "Where the prescription comes from; a field the source does not name is `unstated`." },
+        "machine_class": { "enum": ["bare_metal", "virtual_machine", "hosted_ci_runner", "unstated"] },
+        "vcpu": { "type": "integer", "minimum": 1 },
+        "memory_gib": { "type": "integer", "minimum": 1 },
+        "storage_class": { "enum": ["nvme", "ssd", "network_block", "hdd", "unstated"] },
+        "container_ceilings": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["cpus", "memory_gib"],
+            "properties": {
+                "cpus": { "type": "number", "exclusiveMinimum": 0.0 },
+                "memory_gib": { "type": "integer", "minimum": 1 }
+            }
+        },
+        "network_leg": network_leg_def(),
+        "idle": { "type": "boolean", "description": "Whether the host runs nothing but the measurement." }
+    })
+}
+
+fn host_prescription_def() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "description", "derivation", "machine_class", "vcpu", "memory_gib", "storage_class", "network_leg", "idle"],
+        "properties": host_prescription_properties()
+    })
+}
+
+/// `perf-host.schema.json`: one host prescription under `perf/hosts/`.
+#[must_use]
+pub fn perf_host_schema() -> Value {
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("perf-host"),
+        "title": "Veredictum host prescription",
+        "description": "The machine a performance record claims to have run on: machine class, vCPU, memory, storage class, container ceilings and network leg. A record embeds the prescription it claims and its derived part reads the generator's measured fingerprint against it. No openEHR specification governs performance; this is the instrument's own design.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "description", "derivation", "machine_class", "vcpu", "memory_gib", "storage_class", "network_leg", "idle"],
+        "properties": host_prescription_properties()
+    })
+}
+
+fn compare_metric_tokens() -> Vec<&'static str> {
+    crate::perf_result::compare::CompareMetric::ALL
+        .iter()
+        .map(|m| m.token())
+        .collect()
+}
+
+fn aa_floor_def() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ratios", "pairs"],
+        "description": "The A/A floor: per metric, the largest ratio of the larger side over the smaller in an interleaved run of one target against itself.",
+        "properties": {
+            "ratios": {
+                "type": "object",
+                "propertyNames": { "enum": compare_metric_tokens() },
+                "additionalProperties": { "type": "number", "minimum": 1.0 }
+            },
+            "pairs": { "type": "integer", "minimum": 0 }
+        }
+    })
+}
+
+fn slot_def() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rung", "planned_rate", "side"],
+        "properties": {
+            "rung": { "type": "integer", "minimum": 0 },
+            "planned_rate": { "type": "number", "exclusiveMinimum": 0.0 },
+            "side": { "enum": ["a", "b"] }
+        }
+    })
+}
+
+fn interleaving_def() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mode", "side", "partner", "shared_estimate", "sequence"],
+        "description": "The interleaved run this record is one side of: both sides were offered the same rates and holds, and on each rung the plateaus alternate in ABBA order.",
+        "properties": {
+            "mode": { "enum": ["aa", "ab"] },
+            "side": { "enum": ["a", "b"] },
+            "partner": { "type": "string", "minLength": 1 },
+            "shared_estimate": { "type": "number", "exclusiveMinimum": 0.0 },
+            "sequence": { "type": "array", "items": slot_def() }
+        }
+    })
+}
+
+fn host_reading_def() -> Value {
+    let id = json!({ "type": "string", "minLength": 1 });
+    let list =
+        json!({ "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } });
+    json!({
+        "type": "object",
+        "required": ["state"],
+        "description": "The generator's measured fingerprint and the record's network leg read against the host prescription the record claims.",
+        "oneOf": [
+            { "additionalProperties": false, "required": ["state"], "properties": { "state": { "const": "unclaimed" } } },
+            { "additionalProperties": false, "required": ["state", "prescription"], "properties": { "state": { "const": "matched" }, "prescription": id } },
+            { "additionalProperties": false, "required": ["state", "prescription", "mismatches"], "properties": { "state": { "const": "unmatched" }, "prescription": id, "mismatches": list } },
+            { "additionalProperties": false, "required": ["state", "prescription", "missing"], "properties": { "state": { "const": "unverifiable" }, "prescription": id, "missing": list } }
+        ]
+    })
+}
+
+/// `perf-compare.schema.json`: two or more `perf-result` records aligned,
+/// with their ratios when there are two.
+#[must_use]
+pub fn perf_compare_schema() -> Value {
+    let fields: Vec<&str> = crate::perf_result::compare::AlignField::ALL
+        .iter()
+        .map(|f| f.token())
+        .collect();
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("perf-compare"),
+        "title": "Veredictum performance comparison",
+        "description": "Two or more perf-result records aligned into one table, with every mismatch that makes their numbers describe different things named above it. Two records of one interleaved run carry ratios rung by rung, each with both values, judged against the declared tolerance and the attached A/A floor. No openEHR specification governs performance; this is the instrument's own design.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "mode", "records", "table", "tolerance"],
+        "properties": {
+            "family": { "const": "perf-compare" },
+            "mode": { "enum": ["aligned", "aa", "ab"] },
+            "records": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["label", "base_url", "fields"],
+                    "properties": {
+                        "label": { "type": "string", "minLength": 1 },
+                        "base_url": { "type": "string", "minLength": 1 },
+                        "fields": {
+                            "type": "object",
+                            "propertyNames": { "enum": fields },
+                            "additionalProperties": { "type": "string" }
+                        }
+                    }
+                }
+            },
+            "mismatches": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["field", "values"],
+                    "properties": {
+                        "field": { "enum": fields },
+                        "values": { "type": "array", "items": { "type": "string" } }
+                    }
+                }
+            },
+            "table": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["label", "cells"],
+                    "properties": {
+                        "label": { "type": "string", "minLength": 1 },
+                        "cells": { "type": "array", "items": { "type": "string" } }
+                    }
+                }
+            },
+            "tolerance": { "type": "number", "minimum": 0.0 },
+            "floor": aa_floor_def(),
+            "sequence": { "type": "array", "items": slot_def() },
+            "rows": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["rung", "planned_rate", "operation", "metric", "reading"],
+                    "properties": {
+                        "rung": { "type": "integer", "minimum": 0 },
+                        "planned_rate": { "type": "number", "exclusiveMinimum": 0.0 },
+                        "operation": { "type": "string", "minLength": 1 },
+                        "metric": { "enum": compare_metric_tokens() },
+                        "a": { "type": "number", "minimum": 0.0 },
+                        "b": { "type": "number", "minimum": 0.0 },
+                        "ratio": { "type": "number", "exclusiveMinimum": 0.0 },
+                        "overlap": { "type": "boolean" },
+                        "reading": { "enum": ["difference", "within_noise", "not_resolvable", "different_rates"] }
+                    }
+                }
+            }
+        }
+    })
+}
 /// The full published set: (file name, schema document).
 #[must_use]
 pub fn emit_all() -> Vec<(&'static str, Value)> {
@@ -3279,6 +3505,8 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
         ("bench-result.schema.json", bench_result_schema()),
         ("bench-packs.schema.json", bench_packs_schema()),
         ("perf-result.schema.json", perf_result_schema()),
+        ("perf-host.schema.json", perf_host_schema()),
+        ("perf-compare.schema.json", perf_compare_schema()),
         (
             "arazzo-extensions.schema.json",
             crate::arazzo::gates::published::extensions_schema(),

@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:perf-host:0.1.0",
+  "title": "Veredictum host prescription",
+  "description": "The machine a performance record claims to have run on: machine class, vCPU, memory, storage class, container ceilings and network leg. A record embeds the prescription it claims and its derived part reads the generator's measured fingerprint against it. No openEHR specification governs performance; this is the instrument's own design.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "version",
+    "description",
+    "derivation",
+    "machine_class",
+    "vcpu",
+    "memory_gib",
+    "storage_class",
+    "network_leg",
+    "idle"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "The prescription's id, its file stem under perf/hosts/."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "derivation": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Where the prescription comes from; a field the source does not name is `unstated`."
+    },
+    "machine_class": {
+      "enum": [
+        "bare_metal",
+        "virtual_machine",
+        "hosted_ci_runner",
+        "unstated"
+      ]
+    },
+    "vcpu": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "memory_gib": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "storage_class": {
+      "enum": [
+        "nvme",
+        "ssd",
+        "network_block",
+        "hdd",
+        "unstated"
+      ]
+    },
+    "container_ceilings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cpus",
+        "memory_gib"
+      ],
+      "properties": {
+        "cpus": {
+          "type": "number",
+          "exclusiveMinimum": 0.0
+        },
+        "memory_gib": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "network_leg": {
+      "enum": [
+        "same-host",
+        "same-zone",
+        "cross-region"
+      ],
+      "description": "Where the load generator sits relative to the server; a record naming no leg reads as same-host."
+    },
+    "idle": {
+      "type": "boolean",
+      "description": "Whether the host runs nothing but the measurement."
+    }
+  }
+}

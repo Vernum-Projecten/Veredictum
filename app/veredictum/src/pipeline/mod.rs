@@ -33,6 +33,7 @@ pub mod export;
 pub mod judgement;
 pub mod listing;
 pub mod measured;
+pub mod perf_compare;
 pub mod perf_judge;
 pub mod perf_workload;
 

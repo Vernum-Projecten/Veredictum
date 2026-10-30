@@ -16,7 +16,9 @@
 
 pub mod capacity;
 pub mod charts;
+pub mod compare;
 pub mod derive;
+pub mod host;
 pub mod judge;
 pub mod quantile;
 pub mod server;
@@ -37,7 +39,9 @@ use crate::perf::{decode_hdr_v2, encode_hdr_v2};
 use crate::perf_gen::arrivals::Rate;
 use crate::perf_gen::drive::{OperationRecord, WindowRecord};
 use crate::perf_gen::{ErrorClass, FailedExchange, OperationId};
+use crate::perf_result::compare::{AaFloor, Interleaving};
 use crate::perf_result::derive::Derived;
+use crate::perf_result::host::{HostPrescription, NetworkLeg};
 use crate::perf_result::server::{ServerReadings, SettingsReading};
 use crate::workload::CorpusScale;
 
@@ -531,9 +535,21 @@ pub struct Raw {
     pub environment: Environment,
     /// The load generator.
     pub generator: Generator,
-    /// The host prescription the run claims to have run on.
+    /// The host prescription the run claims to have run on, embedded so
+    /// the reading of the fingerprint against it re-derives offline.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub host_prescription: Option<String>,
+    pub host_prescription: Option<HostPrescription>,
+    /// Where the generator sat relative to the server; absent reads as
+    /// `same-host`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub network_leg: Option<NetworkLeg>,
+    /// The interleaved run this record is one side of.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interleaving: Option<Interleaving>,
+    /// The A/A floor attached to the record, which makes its between-run
+    /// noise measured.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aa_floor: Option<AaFloor>,
     /// The deployment posture the run declared.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub posture: Option<PostureRecord>,

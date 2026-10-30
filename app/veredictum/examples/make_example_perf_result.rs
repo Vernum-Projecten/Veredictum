@@ -476,6 +476,9 @@ fn raw() -> Fallible<Raw> {
             workers: 8,
         },
         host_prescription: None,
+        network_leg: None,
+        interleaving: None,
+        aa_floor: None,
         posture: None,
         workload: EmbeddedWorkload {
             id: "example-mix".to_owned(),

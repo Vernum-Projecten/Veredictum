@@ -310,8 +310,196 @@
           }
         },
         "host_prescription": {
-          "type": "string",
-          "minLength": 1
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "version",
+            "description",
+            "derivation",
+            "machine_class",
+            "vcpu",
+            "memory_gib",
+            "storage_class",
+            "network_leg",
+            "idle"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]*$",
+              "description": "The prescription's id, its file stem under perf/hosts/."
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1
+            },
+            "derivation": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Where the prescription comes from; a field the source does not name is `unstated`."
+            },
+            "machine_class": {
+              "enum": [
+                "bare_metal",
+                "virtual_machine",
+                "hosted_ci_runner",
+                "unstated"
+              ]
+            },
+            "vcpu": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "memory_gib": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "storage_class": {
+              "enum": [
+                "nvme",
+                "ssd",
+                "network_block",
+                "hdd",
+                "unstated"
+              ]
+            },
+            "container_ceilings": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "cpus",
+                "memory_gib"
+              ],
+              "properties": {
+                "cpus": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                "memory_gib": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "network_leg": {
+              "enum": [
+                "same-host",
+                "same-zone",
+                "cross-region"
+              ],
+              "description": "Where the load generator sits relative to the server; a record naming no leg reads as same-host."
+            },
+            "idle": {
+              "type": "boolean",
+              "description": "Whether the host runs nothing but the measurement."
+            }
+          }
+        },
+        "network_leg": {
+          "enum": [
+            "same-host",
+            "same-zone",
+            "cross-region"
+          ],
+          "description": "Where the load generator sits relative to the server; a record naming no leg reads as same-host."
+        },
+        "interleaving": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "side",
+            "partner",
+            "shared_estimate",
+            "sequence"
+          ],
+          "description": "The interleaved run this record is one side of: both sides were offered the same rates and holds, and on each rung the plateaus alternate in ABBA order.",
+          "properties": {
+            "mode": {
+              "enum": [
+                "aa",
+                "ab"
+              ]
+            },
+            "side": {
+              "enum": [
+                "a",
+                "b"
+              ]
+            },
+            "partner": {
+              "type": "string",
+              "minLength": 1
+            },
+            "shared_estimate": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "sequence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "rung",
+                  "planned_rate",
+                  "side"
+                ],
+                "properties": {
+                  "rung": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "planned_rate": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0
+                  },
+                  "side": {
+                    "enum": [
+                      "a",
+                      "b"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "aa_floor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ratios",
+            "pairs"
+          ],
+          "description": "The A/A floor: per metric, the largest ratio of the larger side over the smaller in an interleaved run of one target against itself.",
+          "properties": {
+            "ratios": {
+              "type": "object",
+              "propertyNames": {
+                "enum": [
+                  "p50",
+                  "p95",
+                  "p99",
+                  "p99_9",
+                  "achieved"
+                ]
+              },
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 1.0
+              }
+            },
+            "pairs": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
         },
         "posture": {
           "type": "object",
@@ -1494,17 +1682,146 @@
         "plateaus",
         "knee",
         "usl",
-        "population"
+        "population",
+        "host"
       ],
       "properties": {
         "passes": {
           "const": 1
         },
         "between_run_noise": {
-          "enum": [
-            "unmeasured"
+          "description": "`unmeasured` for one pass, which measures sampling intervals only; the A/A floor when an interleaved A/A comparison is attached.",
+          "oneOf": [
+            {
+              "const": "unmeasured"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "aa_floor"
+              ],
+              "properties": {
+                "aa_floor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ratios",
+                    "pairs"
+                  ],
+                  "description": "The A/A floor: per metric, the largest ratio of the larger side over the smaller in an interleaved run of one target against itself.",
+                  "properties": {
+                    "ratios": {
+                      "type": "object",
+                      "propertyNames": {
+                        "enum": [
+                          "p50",
+                          "p95",
+                          "p99",
+                          "p99_9",
+                          "achieved"
+                        ]
+                      },
+                      "additionalProperties": {
+                        "type": "number",
+                        "minimum": 1.0
+                      }
+                    },
+                    "pairs": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "host": {
+          "type": "object",
+          "required": [
+            "state"
           ],
-          "description": "One pass measures sampling intervals only; between-run noise needs an interleaved A/A comparison."
+          "description": "The generator's measured fingerprint and the record's network leg read against the host prescription the record claims.",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "required": [
+                "state"
+              ],
+              "properties": {
+                "state": {
+                  "const": "unclaimed"
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "prescription"
+              ],
+              "properties": {
+                "state": {
+                  "const": "matched"
+                },
+                "prescription": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "prescription",
+                "mismatches"
+              ],
+              "properties": {
+                "state": {
+                  "const": "unmatched"
+                },
+                "prescription": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "mismatches": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "prescription",
+                "missing"
+              ],
+              "properties": {
+                "state": {
+                  "const": "unverifiable"
+                },
+                "prescription": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "missing": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          ]
         },
         "scope": {
           "const": "A run of at most ten minutes measures steady-state capacity and says nothing about memory growth, data growth or behaviour over hours."

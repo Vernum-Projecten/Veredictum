@@ -39,6 +39,8 @@ use veredictum::bench::client::AuthKind;
 use veredictum::certificate::{HONESTY_LINE, Jwks, Outcome, verify};
 use veredictum::identity::OperatorIdentity;
 use veredictum::party::version_line;
+use veredictum::perf_result::compare::DEFAULT_TOLERANCE;
+use veredictum::perf_result::host::NetworkLeg;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
 use veredictum::pipeline::assets::{
     perf_result_assets, performance_assets, schema_files, stress_overlay,
@@ -49,8 +51,13 @@ use veredictum::pipeline::judgement::{JudgementRequest, judge};
 use veredictum::pipeline::measured::{
     MeasuredEvent, MeasuredRequest, StressRequest, SustainedWindow, run_measured, run_stress,
 };
+use veredictum::pipeline::perf_compare::{
+    InterleavedRequest, align_records, run_compare, write_comparison,
+};
 use veredictum::pipeline::perf_judge::judge_perf_result;
-use veredictum::pipeline::perf_workload::{CorpusMode, WorkloadRunRequest, run_workload};
+use veredictum::pipeline::perf_workload::{
+    CorpusMode, WorkloadRunRequest, WorkloadSettings, run_workload,
+};
 use veredictum::pipeline::{RenderedFile, ensure_parent_dir, to_json_document, write_file};
 
 /// What `--version` prints after the name: the version and the instrument's
@@ -318,9 +325,14 @@ enum Command {
         /// The scout ramp's end rate, operations per second.
         #[arg(long, default_value_t = veredictum::perf_emulate::run::DEFAULT_SCOUT_END_RATE, requires = "workload", conflicts_with = "class")]
         scout_end_rate: f64,
-        /// The host prescription the run claims to have run on.
+        /// The id of the host prescription under `perf/hosts/` the run
+        /// claims to have run on; the record reads the generator's measured
+        /// fingerprint against it.
         #[arg(long, requires = "workload", conflicts_with = "class")]
         host_prescription: Option<String>,
+        /// Where the load generator sits relative to the server.
+        #[arg(long, value_enum, default_value_t = NetworkLegArg::SameHost, requires = "workload", conflicts_with = "class")]
+        network_leg: NetworkLegArg,
         /// The measured results record (`results.schema.json`) to merge the
         /// measurement records into; created when no file exists at the path.
         #[arg(long, required_unless_present = "workload")]
@@ -483,6 +495,59 @@ enum Command {
         /// One workload document to check and summarize
         #[arg(long)]
         workload: Option<PathBuf>,
+    },
+    /// Compare performance records: align committed `perf-result` files, or
+    /// run two targets (`--ab`) or one target against itself (`--aa`)
+    /// interleaved on one host.
+    ///
+    /// With `--result`, two or more records are read into one table, one
+    /// column per file. Every field on which they describe different things
+    /// is named above it: the workload digest, the corpus recipe, the
+    /// posture, the host prescription, the generator's fingerprint and the
+    /// network leg. Two records also get a ratio per plateau, operation and
+    /// metric, with both values beside it; plateaus offered different rates
+    /// are shown and not judged.
+    ///
+    /// With `--ab`, both targets are seeded from the same recipe and seed and
+    /// stay resident on one host. Each gets its settle, warm-up and scout; the
+    /// shared ladder is built from the larger knee estimate, so both sides are
+    /// offered the same rates and holds; and on each rung the plateaus
+    /// alternate in ABBA order. `--aa` runs the same interleaving with one
+    /// target on both sides and attaches its floor, the largest A/A ratio per
+    /// metric, to both records. A difference counts only when its ratio
+    /// exceeds the tolerance and the attached floor and the two sides' 95 %
+    /// intervals do not overlap. Both write `a.perf-result.json`,
+    /// `b.perf-result.json`, `perf-compare.json` and `perf-compare.md` under
+    /// `--out`, in about twice a single run.
+    ///
+    /// Exit status: `0` when the records align; `1` when any mismatch applies;
+    /// `2` when a record cannot be read or a run cannot finish.
+    PerfCompare {
+        /// A committed `perf-result`. Repeat the flag once per file; at least
+        /// two are needed.
+        #[arg(long = "result", conflicts_with_all = ["ab", "aa"], required_unless_present_any = ["ab", "aa"])]
+        results: Vec<PathBuf>,
+        /// Side A's and side B's IXIT, for an interleaved A/B run.
+        #[arg(long, num_args = 2, value_names = ["IXIT_A", "IXIT_B"], conflicts_with = "aa")]
+        ab: Option<Vec<PathBuf>>,
+        /// The IXIT of the one target an A/A run puts on both sides.
+        #[arg(long, value_name = "IXIT")]
+        aa: Option<PathBuf>,
+        #[command(flatten)]
+        run: CompareRunArgs,
+        /// The declared tolerance: a ratio within it either way is never a
+        /// difference.
+        #[arg(long, default_value_t = DEFAULT_TOLERANCE)]
+        tolerance: f64,
+        /// A `perf-result` or `perf-compare.json` carrying an A/A floor, which
+        /// the ratios are judged against and an A/B run attaches to both
+        /// records.
+        #[arg(long)]
+        floor: Option<PathBuf>,
+        /// Output directory: the comparison for `--result`, and the records,
+        /// corpora and comparison for `--ab` and `--aa`.
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     /// Render the cross-SUT stress overlay (both systems' latency-throughput
     /// curves on one canvas) FROM two committed stress reports —
@@ -808,6 +873,7 @@ fn main() -> ExitCode {
             start_rate,
             scout_end_rate,
             host_prescription,
+            network_leg,
             results,
             sut_name,
             sut_version,
@@ -819,21 +885,21 @@ fn main() -> ExitCode {
                 let corpus_state =
                     corpus_state.unwrap_or_else(|| out.with_extension("corpus.json"));
                 perf_workload_command(&WorkloadRunRequest {
-                    root: &root,
-                    catalogue: &catalogue,
-                    workload: &workload,
-                    ixit: &ixit,
-                    statement: statement.as_deref(),
-                    out: &out,
-                    corpus: match corpus {
-                        CorpusArg::Seed => CorpusMode::Seed,
-                        CorpusArg::Reuse => CorpusMode::Reuse,
+                    settings: WorkloadSettings {
+                        root: &root,
+                        catalogue: &catalogue,
+                        workload: &workload,
+                        statement: statement.as_deref(),
+                        corpus: corpus.into(),
+                        seed_workers,
+                        start_rate,
+                        scout_end_rate,
+                        host_prescription,
+                        network_leg: network_leg.into(),
                     },
+                    ixit: &ixit,
+                    out: &out,
                     corpus_state,
-                    seed_workers,
-                    start_rate,
-                    scout_end_rate,
-                    host_prescription,
                 })
             }
             (None, _, Some(class), Some(results)) => perf_command(
@@ -909,6 +975,28 @@ fn main() -> ExitCode {
             out,
             workload,
         } => perf_workloads_command(&root, &catalogue, out.as_deref(), workload.as_deref()),
+        Command::PerfCompare {
+            results,
+            ab,
+            aa,
+            run,
+            tolerance,
+            floor,
+            out,
+        } => {
+            let invocation = match (ab.as_deref(), aa.as_deref()) {
+                (Some([a, b]), None) => CompareInvocation::Interleaved { a, b: Some(b) },
+                (None, Some(a)) => CompareInvocation::Interleaved { a, b: None },
+                _ => CompareInvocation::Records(&results),
+            };
+            perf_compare_command(
+                &invocation,
+                &run,
+                tolerance,
+                floor.as_deref(),
+                out.as_deref(),
+            )
+        }
         Command::StressCompare {
             left,
             left_label,
@@ -1530,6 +1618,155 @@ enum CorpusArg {
     Seed,
     /// Reuse the stored corpus when its read-back counts and digest match.
     Reuse,
+}
+
+impl From<CorpusArg> for CorpusMode {
+    fn from(arg: CorpusArg) -> Self {
+        match arg {
+            CorpusArg::Seed => Self::Seed,
+            CorpusArg::Reuse => Self::Reuse,
+        }
+    }
+}
+
+/// Where the load generator sits relative to the server.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+enum NetworkLegArg {
+    /// The generator and the server share one host.
+    SameHost,
+    /// Different hosts in one zone of one provider.
+    SameZone,
+    /// Different regions.
+    CrossRegion,
+}
+
+impl From<NetworkLegArg> for NetworkLeg {
+    fn from(arg: NetworkLegArg) -> Self {
+        match arg {
+            NetworkLegArg::SameHost => Self::SameHost,
+            NetworkLegArg::SameZone => Self::SameZone,
+            NetworkLegArg::CrossRegion => Self::CrossRegion,
+        }
+    }
+}
+
+/// The workload and run settings an interleaved `perf-compare` takes, each
+/// as `perf` takes it.
+#[derive(clap::Args)]
+struct CompareRunArgs {
+    /// The performance root, `perf/` in this repository (workloads/,
+    /// payloads.yaml, payloads/, hosts/). Needed by `--ab` and `--aa`.
+    #[arg(long)]
+    root: Option<PathBuf>,
+    /// The workload document both sides are offered. Needed by `--ab` and
+    /// `--aa`.
+    #[arg(long)]
+    workload: Option<PathBuf>,
+    /// The catalogue root a workload's `requires` resolve against.
+    #[arg(long, default_value = "catalogue")]
+    catalogue: PathBuf,
+    /// A statement whose claims keep the interactions it covers and drop the
+    /// rest.
+    #[arg(long)]
+    statement: Option<PathBuf>,
+    /// Seed both corpora, or reuse the ones stored under `--out`.
+    #[arg(long, value_enum, default_value_t = CorpusArg::Seed)]
+    corpus: CorpusArg,
+    /// Parallel seeding workers.
+    #[arg(long, default_value_t = 16)]
+    seed_workers: usize,
+    /// The warm-up's rate and the scout's starting rate, operations per
+    /// second.
+    #[arg(long, default_value_t = veredictum::perf_emulate::run::DEFAULT_START_RATE)]
+    start_rate: f64,
+    /// The scout ramp's end rate, operations per second.
+    #[arg(long, default_value_t = veredictum::perf_emulate::run::DEFAULT_SCOUT_END_RATE)]
+    scout_end_rate: f64,
+    /// The id of the host prescription under `perf/hosts/` the run claims.
+    #[arg(long)]
+    host_prescription: Option<String>,
+    /// Where the load generator sits relative to the servers.
+    #[arg(long, value_enum, default_value_t = NetworkLegArg::SameHost)]
+    network_leg: NetworkLegArg,
+}
+
+/// What `perf-compare` was asked to do.
+enum CompareInvocation<'a> {
+    /// Align committed records.
+    Records(&'a [PathBuf]),
+    /// Run one or two targets interleaved.
+    Interleaved {
+        /// Side A's IXIT.
+        a: &'a Path,
+        /// Side B's IXIT; absent for an A/A run.
+        b: Option<&'a Path>,
+    },
+}
+
+fn perf_compare_command(
+    invocation: &CompareInvocation<'_>,
+    run: &CompareRunArgs,
+    tolerance: f64,
+    floor: Option<&Path>,
+    out: Option<&Path>,
+) -> ExitCode {
+    if !(tolerance.is_finite() && tolerance >= 0.0) {
+        eprintln!("perf-compare: --tolerance must be a non-negative number (got {tolerance})");
+        return ExitCode::from(2);
+    }
+    let comparison = match invocation {
+        CompareInvocation::Records(paths) => {
+            let comparison = match align_records(paths, tolerance, floor) {
+                Ok(comparison) => comparison,
+                Err(e) => return fail(&e),
+            };
+            if let Some(dir) = out
+                && let Err(e) = write_comparison(&comparison, dir)
+            {
+                return fail(&e);
+            }
+            comparison
+        }
+        CompareInvocation::Interleaved { a, b } => {
+            let (Some(root), Some(workload), Some(out)) = (&run.root, &run.workload, out) else {
+                eprintln!("perf-compare: --ab and --aa need --root, --workload and --out");
+                return ExitCode::from(2);
+            };
+            let progress = |message: String| eprintln!("[perf-compare] {message}");
+            let request = InterleavedRequest {
+                settings: WorkloadSettings {
+                    root,
+                    catalogue: &run.catalogue,
+                    workload,
+                    statement: run.statement.as_deref(),
+                    corpus: run.corpus.into(),
+                    seed_workers: run.seed_workers,
+                    start_rate: run.start_rate,
+                    scout_end_rate: run.scout_end_rate,
+                    host_prescription: run.host_prescription.clone(),
+                    network_leg: run.network_leg.into(),
+                },
+                ixit_a: a,
+                ixit_b: *b,
+                out,
+                tolerance,
+                floor,
+            };
+            match run_compare(&request, &progress) {
+                Ok(done) => done.comparison,
+                Err(e) => return fail(&e),
+            }
+        }
+    };
+    print!(
+        "{}",
+        veredictum::perf_result::compare::terminal(&comparison)
+    );
+    if comparison.mismatched() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
 }
 
 fn perf_workload_command(request: &WorkloadRunRequest<'_>) -> ExitCode {

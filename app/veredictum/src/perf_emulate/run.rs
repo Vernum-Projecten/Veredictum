@@ -36,6 +36,7 @@ use crate::perf_gen::drive::{
     DriveError, DrivePlan, DriveReport, GeneratorLimits, Halt, WindowSpec, drive,
 };
 use crate::perf_gen::{Call, ErrorClass, Outcome, Performer};
+use crate::perf_result::compare::{SideName, Slot};
 use crate::perf_result::derive::{self, ScoutEstimate};
 use crate::perf_result::server::ServerReadings;
 use crate::perf_result::{
@@ -275,154 +276,307 @@ fn limits(request: &RunRequest<'_>) -> GeneratorLimits {
     }
 }
 
+/// One side of a run: its counted performer, its hooks, and what it has
+/// recorded so far.
+struct Side<'s, P, H> {
+    counted: Arc<Counted<P>>,
+    hooks: &'s H,
+    phases: Vec<PhaseRecord>,
+    began: Instant,
+    plateaus: Vec<RawPlateau>,
+    last_rate: f64,
+}
+
+impl<'s, P: Performer, H: RunHooks> Side<'s, P, H> {
+    fn new(performer: Arc<P>, hooks: &'s H, start_rate: f64) -> Self {
+        Self {
+            counted: Arc::new(Counted::new(performer)),
+            hooks,
+            phases: Vec::new(),
+            began: Instant::now(),
+            plateaus: Vec::new(),
+            last_rate: start_rate,
+        }
+    }
+
+    /// Runs the settle phase: maintenance, then idle for the rest of it.
+    async fn settle(&mut self, request: &RunRequest<'_>) {
+        self.began = Instant::now();
+        let shape = &request.shape;
+        let end = self.began + shape.settle;
+        self.hooks.progress("settle: maintenance, then idle");
+        self.hooks.settle().await;
+        sleep_until(end).await;
+        self.phases.push(phase(
+            Phase::Settle,
+            shape.settle,
+            self.began.elapsed(),
+            self.counted.take(),
+        ));
+    }
+
+    /// Runs the warm-up at the start rate, discarded.
+    async fn warm_up(&mut self, request: &RunRequest<'_>) -> Result<(), RunError> {
+        let shape = &request.shape;
+        self.hooks.progress(&format!(
+            "warm-up: {} s at {} operations/s",
+            shape.warm_up.as_secs(),
+            shape.start_rate.per_second()
+        ));
+        let warm_rate = interaction_rate(shape.start_rate.per_second(), request.binding)?;
+        let warm = DrivePlan::new(
+            request.seed,
+            request.process,
+            RateProfile::constant(warm_rate, shape.warm_up)?,
+            Vec::new(),
+            limits(request),
+        )?;
+        let at = Instant::now();
+        let _warm = joined(spawn_drive(warm, request.binding, Arc::clone(&self.counted)).await)?;
+        self.phases.push(phase(
+            Phase::WarmUp,
+            shape.warm_up,
+            at.elapsed(),
+            self.counted.take(),
+        ));
+        Ok(())
+    }
+
+    /// Runs the scout and its drain, and returns the windows with the knee
+    /// estimate they give.
+    async fn scout(
+        &mut self,
+        request: &RunRequest<'_>,
+    ) -> Result<(RawScout, ScoutEstimate), RunError> {
+        let (scout, scout_wall, drain_wall) = run_scout(request, &self.counted, self.hooks).await?;
+        self.phases.push(phase(
+            Phase::Scout,
+            request.shape.scout,
+            scout_wall,
+            self.counted.take(),
+        ));
+        self.phases.push(phase(
+            Phase::Drain,
+            request.shape.drain,
+            drain_wall,
+            Tally::default(),
+        ));
+        let windows = derive::scout_windows(
+            &scout,
+            &request.binding.qualification,
+            lag_limit_us(request),
+        )?;
+        let estimate = derive::scout_estimate(&scout, &windows);
+        self.hooks.progress(&format!(
+            "scout: knee estimate {:.1} operations/s{}",
+            estimate.rate,
+            if estimate.breached_window.is_some() {
+                ""
+            } else {
+                " (the ramp ended unbreached, a lower bound)"
+            }
+        ));
+        Ok((scout, estimate))
+    }
+
+    /// Runs one leg of plateaus, ramping in from the side's last rate.
+    async fn leg(
+        &mut self,
+        request: &RunRequest<'_>,
+        ladder: &[(f64, f64)],
+        which: Phase,
+        drain: Duration,
+    ) -> Result<(), RunError> {
+        let leg = Leg {
+            ladder,
+            first_index: self.plateaus.len(),
+            which,
+            from_rate: self.last_rate,
+            drain,
+        };
+        let plateaus =
+            run_plateaus(request, &self.counted, self.hooks, &leg, &mut self.phases).await?;
+        self.plateaus.extend(plateaus);
+        if let Some((_, rate)) = ladder.last() {
+            self.last_rate = *rate;
+        }
+        Ok(())
+    }
+
+    /// Whether the side's plateau at `index` failed its qualification.
+    fn plateau_fails(&self, request: &RunRequest<'_>, index: usize) -> Result<bool, RunError> {
+        Ok(match self.plateaus.get(index) {
+            Some(raw) => {
+                !derive::plateau(
+                    raw,
+                    &request.binding.qualification,
+                    lag_limit_us(request),
+                    &format!("/raw/plateaus/{index}"),
+                )?
+                .qualification
+                .qualified
+            }
+            None => false,
+        })
+    }
+
+    /// Runs the closing canaries and returns what the side recorded.
+    async fn close(
+        mut self,
+        request: &RunRequest<'_>,
+        scout: RawScout,
+        estimate: ScoutEstimate,
+    ) -> LadderOutcome {
+        let at = Instant::now();
+        self.hooks.progress("closing canaries");
+        self.hooks.closing().await;
+        self.phases.push(phase(
+            Phase::Closing,
+            request.shape.closing,
+            at.elapsed(),
+            self.counted.take(),
+        ));
+        LadderOutcome {
+            scout,
+            estimate,
+            plateaus: self.plateaus,
+            phases: self.phases,
+            elapsed: self.began.elapsed(),
+        }
+    }
+}
+
 /// Runs the phases after seeding against `performer`.
 ///
 /// # Errors
 /// [`RunError`] when the generator fails, a planned rate is refused, or a
 /// recorded window does not encode.
-#[expect(
-    clippy::too_many_lines,
-    reason = "the phases after seeding are one sequence, each a few lines"
-)]
 pub async fn run_after_seeding<P: Performer, H: RunHooks>(
     request: &RunRequest<'_>,
     performer: Arc<P>,
     hooks: &H,
 ) -> Result<LadderOutcome, RunError> {
     let shape = &request.shape;
-    let binding = request.binding;
-    let counted = Arc::new(Counted::new(performer));
-    let began = Instant::now();
-    let mut phases = Vec::new();
-
-    let settle_end = began + shape.settle;
-    hooks.progress("settle: maintenance, then idle");
-    hooks.settle().await;
-    sleep_until(settle_end).await;
-    phases.push(phase(
-        Phase::Settle,
-        shape.settle,
-        began.elapsed(),
-        counted.take(),
-    ));
-
-    hooks.progress(&format!(
-        "warm-up: {} s at {} operations/s",
-        shape.warm_up.as_secs(),
-        shape.start_rate.per_second()
-    ));
-    let warm_rate = interaction_rate(shape.start_rate.per_second(), binding)?;
-    let warm = DrivePlan::new(
-        request.seed,
-        request.process,
-        RateProfile::constant(warm_rate, shape.warm_up)?,
-        Vec::new(),
-        limits(request),
-    )?;
-    let at = Instant::now();
-    let _warm = joined(spawn_drive(warm, binding, Arc::clone(&counted)).await)?;
-    phases.push(phase(
-        Phase::WarmUp,
-        shape.warm_up,
-        at.elapsed(),
-        counted.take(),
-    ));
-
-    let (scout, scout_wall, drain_wall) = run_scout(request, &counted, hooks).await?;
-    phases.push(phase(Phase::Scout, shape.scout, scout_wall, counted.take()));
-    phases.push(phase(
-        Phase::Drain,
-        shape.drain,
-        drain_wall,
-        Tally::default(),
-    ));
-    let windows = derive::scout_windows(&scout, &binding.qualification, lag_limit_us(request))?;
-    let estimate = derive::scout_estimate(&scout, &windows);
-    hooks.progress(&format!(
-        "scout: knee estimate {:.1} operations/s{}",
-        estimate.rate,
-        if estimate.breached_window.is_some() {
-            ""
-        } else {
-            " (the ramp ended unbreached, a lower bound)"
-        }
-    ));
+    let mut side = Side::new(performer, hooks, shape.start_rate.per_second());
+    side.settle(request).await;
+    side.warm_up(request).await?;
+    let (scout, estimate) = side.scout(request).await?;
 
     let rate_of = |multiple: f64| (multiple, multiple * estimate.rate);
     let (lowest, higher) = LADDER
         .split_first()
         .map_or((None, &[][..]), |(l, h)| (Some(*l), h));
-    let between = Duration::from_millis(u64::from(binding.qualification.largest_budget_ms()));
-    let mut plateaus = Vec::new();
-    let mut from = shape.start_rate.per_second();
+    let between = between_legs(request);
     if let Some(lowest) = lowest {
-        let first = [rate_of(lowest)];
-        let leg = Leg {
-            ladder: &first,
-            first_index: 0,
-            which: Phase::Ladder,
-            from_rate: from,
-            drain: between,
-        };
-        plateaus.extend(run_plateaus(request, &counted, hooks, &leg, &mut phases).await?);
-        from = first[0].1;
-        let lowest_fails = match plateaus.first() {
-            Some(raw) => {
-                !derive::plateau(
-                    raw,
-                    &binding.qualification,
-                    lag_limit_us(request),
-                    "/raw/plateaus/0",
-                )?
-                .qualification
-                .qualified
-            }
-            None => false,
-        };
-        if lowest_fails {
+        side.leg(request, &[rate_of(lowest)], Phase::Ladder, between)
+            .await?;
+        if side.plateau_fails(request, 0)? {
             hooks.progress("the lowest plateau failed: the extra plateau runs next");
-            let extra = [rate_of(EXTRA_PLATEAU)];
-            let leg = Leg {
-                ladder: &extra,
-                first_index: plateaus.len(),
-                which: Phase::ExtraPlateau,
-                from_rate: shape.start_rate.per_second(),
-                drain: between,
-            };
-            plateaus.extend(run_plateaus(request, &counted, hooks, &leg, &mut phases).await?);
-            from = extra[0].1;
+            side.last_rate = shape.start_rate.per_second();
+            side.leg(
+                request,
+                &[rate_of(EXTRA_PLATEAU)],
+                Phase::ExtraPlateau,
+                between,
+            )
+            .await?;
         }
     }
     let rest: Vec<(f64, f64)> = higher.iter().map(|m| rate_of(*m)).collect();
     if !rest.is_empty() {
-        let leg = Leg {
-            ladder: &rest,
-            first_index: plateaus.len(),
-            which: Phase::Ladder,
-            from_rate: from,
-            drain: shape.drain,
-        };
-        plateaus.extend(run_plateaus(request, &counted, hooks, &leg, &mut phases).await?);
+        side.leg(request, &rest, Phase::Ladder, shape.drain).await?;
     }
-
-    let at = Instant::now();
-    hooks.progress("closing canaries");
-    hooks.closing().await;
-    phases.push(phase(
-        Phase::Closing,
-        shape.closing,
-        at.elapsed(),
-        counted.take(),
-    ));
-    Ok(LadderOutcome {
-        scout,
-        estimate,
-        plateaus,
-        phases,
-        elapsed: began.elapsed(),
-    })
+    Ok(side.close(request, scout, estimate).await)
 }
 
+/// The longest wait between two legs: the largest latency budget, past
+/// which an outstanding exchange is over every budget already.
+fn between_legs(request: &RunRequest<'_>) -> Duration {
+    Duration::from_millis(u64::from(request.binding.qualification.largest_budget_ms()))
+}
+
+/// What an interleaved run produced.
+#[derive(Debug, Clone)]
+pub struct InterleavedOutcome {
+    /// Side A's phases, scout and plateaus.
+    pub a: LadderOutcome,
+    /// Side B's.
+    pub b: LadderOutcome,
+    /// The knee estimate the shared ladder was built from: the larger of
+    /// the two sides'.
+    pub shared_estimate: f64,
+    /// The plateaus in the order they ran.
+    pub sequence: Vec<Slot>,
+}
+
+/// Returns the order of the two sides on rung `rung`: A then B on even
+/// rungs, B then A on odd ones, so the plateaus run A B B A A B B A.
+#[must_use]
+pub fn rung_order(rung: usize) -> [SideName; 2] {
+    if rung.is_multiple_of(2) {
+        [SideName::A, SideName::B]
+    } else {
+        [SideName::B, SideName::A]
+    }
+}
+
+/// Runs two targets interleaved on one host.
+///
+/// Each side settles, warms up and scouts on its own. The shared ladder is
+/// built from the larger knee estimate, so both sides are offered the same
+/// rates and holds, and on each rung the two plateaus alternate in ABBA
+/// order. There is no extra plateau: a rung that fails is read from both
+/// records as it stands. Each side closes with its own canaries.
+///
+/// # Errors
+/// [`RunError`] when the generator fails on either side, a planned rate is
+/// refused, or a recorded window does not encode.
+pub async fn run_interleaved<PA: Performer, HA: RunHooks, PB: Performer, HB: RunHooks>(
+    request: &RunRequest<'_>,
+    a: (Arc<PA>, &HA),
+    b: (Arc<PB>, &HB),
+) -> Result<InterleavedOutcome, RunError> {
+    let start = request.shape.start_rate.per_second();
+    let mut side_a = Side::new(a.0, a.1, start);
+    let mut side_b = Side::new(b.0, b.1, start);
+    side_a.settle(request).await;
+    side_a.warm_up(request).await?;
+    let (scout_a, estimate_a) = side_a.scout(request).await?;
+    side_b.settle(request).await;
+    side_b.warm_up(request).await?;
+    let (scout_b, estimate_b) = side_b.scout(request).await?;
+    let shared_estimate = estimate_a.rate.max(estimate_b.rate);
+    let between = between_legs(request);
+    let mut sequence = Vec::new();
+    for (rung, multiple) in LADDER.iter().enumerate() {
+        let planned_rate = multiple * shared_estimate;
+        let drain = if rung + 1 == LADDER.len() {
+            request.shape.drain
+        } else {
+            between
+        };
+        let ladder = [(*multiple, planned_rate)];
+        for side in rung_order(rung) {
+            match side {
+                SideName::A => side_a.leg(request, &ladder, Phase::Ladder, drain).await?,
+                SideName::B => side_b.leg(request, &ladder, Phase::Ladder, drain).await?,
+            }
+            sequence.push(Slot {
+                rung,
+                planned_rate,
+                side,
+            });
+        }
+    }
+    let a = side_a.close(request, scout_a, estimate_a).await;
+    let b = side_b.close(request, scout_b, estimate_b).await;
+    Ok(InterleavedOutcome {
+        a,
+        b,
+        shared_estimate,
+        sequence,
+    })
+}
 /// Drives the scout ramp, halting it once the server has fallen behind,
 /// and returns its windows with the ramp's and the drain's wall times.
 async fn run_scout<P: Performer, H: RunHooks>(
