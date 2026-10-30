@@ -578,6 +578,7 @@ workflows:
               quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
 
   - workflowId: update_organisation-missing_if_match
+    x-veredictum-control: update_organisation
     summary: An ORGANISATION update sent without If-Match is refused with 400
     description: >-
       Creates an ORGANISATION, then updates it with no If-Match header. The
@@ -748,6 +749,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: delete_organisation-versioned_object_uid
+    x-veredictum-control: delete_organisation
     summary: An ORGANISATION delete addressed by a versioned_object_uid is refused with 400
     description: >-
       Creates an ORGANISATION, then deletes it addressing the

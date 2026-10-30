@@ -51,6 +51,8 @@ gate guard "TODO issue refs"          "bash scripts/checks/todo-issue-refs.sh"
 gate guard "TODO refs self-test"      "bash scripts/checks/todo-issue-refs.sh --self-test"
 gate guard "report numbers"           "bash scripts/checks/report-refs.sh" gh
 gate guard "report numbers self-test" "bash scripts/checks/report-refs.sh --self-test"
+gate guard "pending numbers"          "bash scripts/checks/pending-refs.sh" gh
+gate guard "pending numbers self-test" "bash scripts/checks/pending-refs.sh --self-test"
 gate guard "changelog structure"      "bash scripts/checks/changelog-structure.sh"
 gate guard "changelog entry"          "bash scripts/checks/changelog-entry.sh"
 gate guard "changelog entry self-test" "bash scripts/checks/changelog-entry.sh --self-test"

@@ -1,0 +1,14 @@
+# The valid twin of the CONT-DV_CODED_TEXT-validate_open refusals: the same open
+# template, with a complete openEHR coded term whose value is its rubric
+# (openEHR terminology, concept 433 "event").
+workflow: dv_coded_text/dv_coded_text-validate_open-accepted
+iteration: reset_per_row
+literals: ["code_string", "terminology_id", "value", "C_CODE_PHRASE.code_list", "C_CODE_PHRASE.terminology_id"]
+recipe:
+  name: content_synthesized
+  rm_class: DV_CODED_TEXT
+  template_id: cnf.tpl.dv_coded_text_c_code_phrase
+  input: composition
+  template_input: template
+rows:
+  - {"code_string": "433", "terminology_id": "openehr", "value": "event", "C_CODE_PHRASE.code_list": null, "C_CODE_PHRASE.terminology_id": null}

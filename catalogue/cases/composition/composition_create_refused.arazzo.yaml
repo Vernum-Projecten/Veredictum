@@ -23,6 +23,9 @@ sourceDescriptions:
   - name: setup
     url: ../_setup/templates.arazzo.yaml
     type: arazzo
+  - name: composition_create
+    url: composition_create.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: create_composition-unknown_ehr
     summary: A COMPOSITION create in an EHR that does not exist is answered 404
@@ -106,6 +109,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: create_composition-unknown_template
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION that names a template the server does not hold is refused with 422
     description: >-
       Creates an EHR, then creates a COMPOSITION whose archetype_details names
@@ -243,6 +247,7 @@ workflows:
             condition: '^4[0-9][0-9]$'
 
   - workflowId: create_composition-invalid_event
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: An event COMPOSITION whose EVALUATION has no data is refused with 400
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose EVALUATION
@@ -317,6 +322,7 @@ workflows:
             condition: $statusCode == 400
 
   - workflowId: create_composition-invalid_persistent
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-persistent
     summary: A persistent COMPOSITION whose OBSERVATION has no data is refused with 400
     description: >-
       Creates an EHR, then creates a persistent COMPOSITION whose OBSERVATION
@@ -391,6 +397,7 @@ workflows:
           - *bad_request
 
   - workflowId: create_composition-cluster_no_items
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-item_tree_empty
     summary: A COMPOSITION carrying a CLUSTER with no items is refused with 400
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose ITEM_TREE holds
@@ -474,6 +481,7 @@ workflows:
           - *bad_request
 
   - workflowId: create_composition-paragraph_no_items
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION carrying a DV_PARAGRAPH with no items is refused with 400
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose ELEMENT value is
@@ -560,6 +568,7 @@ workflows:
             x-veredictum-cite: *invalid_content
 
   - workflowId: create_composition-links_empty
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose links is an empty list is refused with 400
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose root carries
@@ -644,6 +653,7 @@ workflows:
             x-veredictum-cite: *invalid_content
 
   - workflowId: create_composition-composer_identifiers_empty
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose composer has an empty identifiers list is refused with 400
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose PARTY_IDENTIFIED
@@ -729,6 +739,7 @@ workflows:
             x-veredictum-cite: *invalid_content
 
   - workflowId: create_composition-foreign_type_in_content
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose content holds a DV_TEXT is refused with 400
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose content list
@@ -811,6 +822,7 @@ workflows:
           - *bad_request
 
   - workflowId: create_composition-unknown_key_root
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION carrying a member the RM does not declare is refused with 400
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose root carries the
@@ -891,6 +903,7 @@ workflows:
           - *bad_request
 
   - workflowId: create_composition-unknown_key_nested
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose ELEMENT carries a member the RM does not declare is refused with 400
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose ELEMENT carries
@@ -971,6 +984,7 @@ workflows:
           - *bad_request
 
   - workflowId: create_composition-feeder_audit_change_type
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-feeder_audit_roundtrip
     summary: A COMPOSITION whose FEEDER_AUDIT carries change_type is refused with 400
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose FEEDER_AUDITs
@@ -1101,6 +1115,7 @@ workflows:
           - *bad_request
 
   - workflowId: create_composition-category_invalid
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose category is no composition category is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose category
@@ -1135,6 +1150,7 @@ workflows:
               quote: "The request was well-formed but was unable to be followed due to semantic errors"
 
   - workflowId: create_composition-language_invalid
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose language is no ISO 639-1 code is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose language
@@ -1164,6 +1180,7 @@ workflows:
           - *semantic_error
 
   - workflowId: create_composition-territory_invalid
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose territory is no ISO 3166-1 code is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose territory
@@ -1193,6 +1210,7 @@ workflows:
           - *semantic_error
 
   - workflowId: create_composition-setting_invalid
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose context setting is no setting code is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose EVENT_CONTEXT
@@ -1222,6 +1240,7 @@ workflows:
           - *semantic_error
 
   - workflowId: create_composition-context_location_empty
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose context location is empty is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose EVENT_CONTEXT
@@ -1304,6 +1323,7 @@ workflows:
           - *semantic_error
 
   - workflowId: create_composition-item_node_id_empty
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose ITEM_TREE has an empty archetype_node_id is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose EVALUATION data
@@ -1332,6 +1352,7 @@ workflows:
           - *semantic_error
 
   - workflowId: create_composition-root_archetype_id_mismatch
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose archetype_node_id contradicts its archetype_id is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose root
@@ -1361,6 +1382,7 @@ workflows:
           - *semantic_error
 
   - workflowId: create_composition-link_target_bad_scheme
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-links_roundtrip
     summary: A COMPOSITION whose LINK target is not an ehr URI is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose EVALUATION
@@ -1457,6 +1479,7 @@ workflows:
           - *semantic_error
 
   - workflowId: create_composition-participation_function_invalid
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose participation function is a code of another group is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose context
@@ -1543,6 +1566,7 @@ workflows:
           - *semantic_error
 
   - workflowId: create_composition-participation_mode_invalid
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose participation mode is no mode code is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose context
@@ -1572,6 +1596,7 @@ workflows:
           - *semantic_error
 
   - workflowId: create_composition-performer_relationship_invalid
+    x-veredictum-control: $sourceDescriptions.composition_create.create_composition-event
     summary: A COMPOSITION whose PARTY_RELATED performer has a relationship of another group is refused with 422
     description: >-
       Creates an EHR, then creates an event COMPOSITION whose context

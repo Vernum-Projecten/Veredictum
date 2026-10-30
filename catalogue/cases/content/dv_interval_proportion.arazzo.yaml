@@ -94,6 +94,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_proportion-validate_fraction-c_integer_list
+    x-veredictum-control: dv_interval_dv_proportion-validate_fraction-accepted
     summary: "DV_INTERVAL<DV_PROPORTION>: type C_INTEGER.list = [3] on both limits: a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -229,6 +230,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_proportion-validate_integer_fraction-c_integer_list
+    x-veredictum-control: dv_interval_dv_proportion-validate_integer_fraction-accepted
     summary: "DV_INTERVAL<DV_PROPORTION>: type C_INTEGER.list = [4] on both limits: a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -364,6 +366,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_proportion-validate_open-limits_consistent
+    x-veredictum-control: dv_interval_dv_proportion-validate_open-accepted
     summary: "DV_INTERVAL<DV_PROPORTION> open ({*}): Limits_consistent invariant: a breach of the Limits_consistent invariant is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -499,6 +502,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_proportion-validate_percentage-c_integer_list
+    x-veredictum-control: dv_interval_dv_proportion-validate_percentage-accepted
     summary: "DV_INTERVAL<DV_PROPORTION>: type C_INTEGER.list = [2] on both limits: a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -634,6 +638,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_proportion-validate_ratio-c_integer_list
+    x-veredictum-control: dv_interval_dv_proportion-validate_ratio-accepted
     summary: "DV_INTERVAL<DV_PROPORTION>: type C_INTEGER.list = [0] on both limits: a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -789,6 +794,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_proportion-validate_ratio_range-c_real_range
+    x-veredictum-control: dv_interval_dv_proportion-validate_ratio_range-accepted
     summary: "DV_INTERVAL<DV_PROPORTION>: type=[0] with per-limit C_REAL.range on numerator/denominator: a value outside the C_REAL range is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -944,6 +950,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_proportion-validate_unitary-c_integer_list
+    x-veredictum-control: dv_interval_dv_proportion-validate_unitary-accepted
     summary: "DV_INTERVAL<DV_PROPORTION>: type C_INTEGER.list = [1] on both limits: a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template

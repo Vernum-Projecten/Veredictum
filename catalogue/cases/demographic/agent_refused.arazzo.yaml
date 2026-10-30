@@ -19,8 +19,12 @@ sourceDescriptions:
   - name: demographic
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
     type: openapi
+  - name: agent
+    url: agent.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: create_agent-wrong_type
+    x-veredictum-control: $sourceDescriptions.agent.create_agent
     summary: A PERSON body on the AGENT create is refused with 400
     description: >-
       Creates an AGENT with a body whose _type is PERSON. The operation's
@@ -64,6 +68,7 @@ workflows:
               quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
 
   - workflowId: create_agent-identities_empty
+    x-veredictum-control: $sourceDescriptions.agent.create_agent
     summary: An AGENT whose identities list is empty is refused with 400
     description: >-
       Creates an AGENT whose identities list is present and empty. The
@@ -93,6 +98,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_agent-contact_addresses_empty
+    x-veredictum-control: $sourceDescriptions.agent.create_agent
     summary: An AGENT whose CONTACT has an empty addresses list is refused with 400
     description: >-
       Creates an AGENT with one CONTACT whose addresses list is present and
@@ -139,6 +145,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_agent-archetype_details_missing
+    x-veredictum-control: $sourceDescriptions.agent.create_agent
     summary: An AGENT archetype root without archetype_details is refused with 422
     description: >-
       Creates an AGENT whose archetype_node_id is the archetype id
@@ -185,6 +192,7 @@ workflows:
               quote: "is_archetype_root xor archetype_details = Void"
 
   - workflowId: update_agent-identities_empty
+    x-veredictum-control: $sourceDescriptions.agent.update_agent
     summary: An AGENT update whose identities list is empty is refused with 400
     description: >-
       Creates an AGENT, then updates it with content whose identities list is
@@ -269,6 +277,7 @@ workflows:
               quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
 
   - workflowId: update_agent-contact_addresses_empty
+    x-veredictum-control: $sourceDescriptions.agent.update_agent
     summary: An AGENT update whose CONTACT has an empty addresses list is refused with 400
     description: >-
       Creates an AGENT, then updates it with content holding one CONTACT whose
@@ -297,6 +306,7 @@ workflows:
       - *still_created
 
   - workflowId: update_agent-cluster_no_items
+    x-veredictum-control: $sourceDescriptions.agent.update_agent
     summary: An AGENT update holding a CLUSTER with no items is refused with 400
     description: >-
       Creates an AGENT, then updates it with content whose identity details
@@ -346,6 +356,7 @@ workflows:
       - *still_created
 
   - workflowId: update_agent-archetype_details_missing
+    x-veredictum-control: $sourceDescriptions.agent.update_agent
     summary: An AGENT update whose archetype root has no archetype_details is refused with 422
     description: >-
       Creates an AGENT, then updates it with content whose archetype_node_id is
@@ -373,6 +384,7 @@ workflows:
       - *still_created
 
   - workflowId: create_agent-archetype_node_id_mismatch
+    x-veredictum-control: $sourceDescriptions.agent.create_agent
     summary: An AGENT whose root archetype_node_id differs from its archetype_id is refused with 422
     description: >-
       Creates an AGENT whose archetype_details names

@@ -21,8 +21,15 @@ sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
     type: openapi
+  - name: admin_ehr_delete_all
+    url: admin_ehr_delete_all.arazzo.yaml
+    type: arazzo
+  - name: admin_ehr_delete_all_async
+    url: admin_ehr_delete_all_async.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: delete_all-malformed_id
+    x-veredictum-control: [$sourceDescriptions.admin_ehr_delete_all.delete_all-subset, $sourceDescriptions.admin_ehr_delete_all_async.delete_all-accepted]
     summary: A bulk delete naming a malformed ehr_id is refused with 400 and deletes nothing
     description: >-
       Creates an EHR, then deletes through the bulk delete with the ehr_id

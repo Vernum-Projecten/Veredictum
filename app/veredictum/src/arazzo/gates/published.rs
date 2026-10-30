@@ -13,6 +13,7 @@
 use serde_json::{Value, json};
 
 use crate::arazzo::cite::{CITE_KEY, EXCLUDED_ROOT, ORACLE_ROOTS};
+use crate::arazzo::control::CONTROL_KEY;
 use crate::arazzo::derive::DERIVE_KEY;
 use crate::arazzo::document::CHECK_KEY;
 use crate::arazzo::gates::profile::ProfileHeader;
@@ -117,7 +118,8 @@ fn check_def() -> Value {
 }
 
 /// The `x-veredictum-cite`, `x-veredictum-check`, `x-veredictum-derive`,
-/// `x-veredictum-principal` and `x-veredictum-scope` extension objects.
+/// `x-veredictum-principal`, `x-veredictum-scope` and `x-veredictum-control`
+/// extension objects.
 #[must_use]
 pub fn extensions_schema() -> Value {
     let roots: Vec<String> = ORACLE_ROOTS
@@ -127,8 +129,8 @@ pub fn extensions_schema() -> Value {
     json!({
         "$schema": DRAFT,
         "$id": urn("arazzo-extensions"),
-        "title": "The Arazzo catalogue's five specification extensions",
-        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `{SCOPE_KEY}` sits on a step only, never beside `{PRINCIPAL_KEY}`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state."),
+        "title": "The Arazzo catalogue's six specification extensions",
+        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `{SCOPE_KEY}` sits on a step only, never beside `{PRINCIPAL_KEY}`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `{CONTROL_KEY}` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state."),
         "$defs": {
             "cite": {
                 "type": "object",
@@ -163,6 +165,24 @@ pub fn extensions_schema() -> Value {
                 }
             },
             "check": check_def(),
+            "control": {
+                "description": "The control of a refusal workflow: a `workflowId` of the same document, or `$sourceDescriptions.<name>.<workflowId>` of a `type: arazzo` source, as Arazzo 1.1.0 `dependsOn` names a workflow; a list names one control per arm of an option the refusal runs under. A control is accepted when every row of it passed or failed only advisory criteria, and a refusal row is judged when no listed control that ran was refused and at least one ran.",
+                "oneOf": [
+                    { "type": "string", "minLength": 1 },
+                    {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": { "type": "string", "minLength": 1 }
+                    },
+                    {
+                        "description": "A refusal with no twin in the catalogue yet: the open issue in this repository that tracks authoring one. Such a refusal is never judged; every row of it is errored, naming the issue.",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["pending"],
+                        "properties": { "pending": { "type": "integer", "minimum": 1 } }
+                    }
+                ]
+            },
             "principal": {
                 "description": "The principal a step is sent as: `administrative` is a principal the service authorizes for its administrative operations.",
                 "enum": tokens(crate::arazzo::principal::Principal::ALL)

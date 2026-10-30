@@ -353,6 +353,7 @@ workflows:
               quote: "`409 Conflict` is returned when a resource with same identifier(s) already exists."
 
   - workflowId: commit_demographic_contribution-first_version_modification
+    x-veredictum-control: commit_demographic_contribution
     summary: A demographic member that modifies a PARTY no version precedes is refused with 400
     description: >-
       Commits a demographic CONTRIBUTION whose one member carries the
@@ -417,6 +418,7 @@ workflows:
               quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
 
   - workflowId: commit_demographic_contribution-first_version_amendment
+    x-veredictum-control: commit_demographic_contribution
     summary: A demographic member that amends a PARTY no version precedes is refused with 400
     description: >-
       Commits a demographic CONTRIBUTION whose one member carries the
@@ -478,6 +480,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: commit_demographic_contribution-cluster_no_items
+    x-veredictum-control: commit_demographic_contribution
     summary: A demographic CONTRIBUTION whose PERSON holds a CLUSTER with no items is refused with 400
     description: >-
       Commits a demographic CONTRIBUTION whose PERSON member holds a CLUSTER
@@ -543,6 +546,7 @@ workflows:
           - condition: $statusCode == 400
 
   - workflowId: commit_demographic_contribution-folder_member
+    x-veredictum-control: commit_demographic_contribution
     summary: A demographic CONTRIBUTION whose member is a FOLDER is refused with 400
     description: >-
       Commits a demographic CONTRIBUTION whose one member's data is a

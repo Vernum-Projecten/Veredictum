@@ -21,8 +21,12 @@ sourceDescriptions:
   - name: setup
     url: ../_setup/templates.arazzo.yaml
     type: arazzo
+  - name: composition_update
+    url: composition_update.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: update_composition-malformed_versioned_object_uid
+    x-veredictum-control: $sourceDescriptions.composition_update.update_composition-event
     summary: A COMPOSITION update whose uid_based_id is no UUID is refused as a client error
     description: >-
       Creates an EHR and an event COMPOSITION, then updates a COMPOSITION by a
@@ -164,6 +168,7 @@ workflows:
             condition: '^{$steps.commit.outputs.version_uid}$'
 
   - workflowId: update_composition-cluster_no_items
+    x-veredictum-control: $sourceDescriptions.composition_update.update_composition-event
     summary: A COMPOSITION update carrying a CLUSTER with no items is refused with 400 and not performed
     description: >-
       Creates an EHR and an event COMPOSITION, then updates it with a body
@@ -251,6 +256,7 @@ workflows:
       - *unchanged
 
   - workflowId: update_composition-paragraph_no_items
+    x-veredictum-control: $sourceDescriptions.composition_update.update_composition-event
     summary: A COMPOSITION update carrying a DV_PARAGRAPH with no items is refused with 400 and not performed
     description: >-
       Creates an EHR and an event COMPOSITION, then updates it with a body
@@ -339,6 +345,7 @@ workflows:
       - *unchanged
 
   - workflowId: update_composition-category_flip
+    x-veredictum-control: $sourceDescriptions.composition_update.update_composition-event
     summary: An update that turns an event COMPOSITION into a persistent one is refused with 422 and not performed
     description: >-
       Creates an EHR and an event COMPOSITION, then updates it with the same
@@ -428,6 +435,7 @@ workflows:
       - *unchanged
 
   - workflowId: update_composition-wrong_template
+    x-veredictum-control: $sourceDescriptions.composition_update.update_composition-event
     summary: An update whose COMPOSITION has another root archetype is refused with 422 and not performed
     description: >-
       Creates an EHR and an event COMPOSITION of the template
@@ -528,6 +536,7 @@ workflows:
       - *unchanged
 
   - workflowId: update_composition-audit_change_type_invalid
+    x-veredictum-control: $sourceDescriptions.composition_update.update_composition-audit_change_type
     summary: An update whose openehr-audit-details names no audit change type is refused with 422 and not performed
     description: >-
       Creates an EHR and an event COMPOSITION, then updates it with an

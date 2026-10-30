@@ -366,6 +366,7 @@ workflows:
             condition: "$[?@.key == 'beta']"
 
   - workflowId: person_tags_update-non_array_body
+    x-veredictum-control: person_tags_update-stores_tags
     summary: A PERSON tag update whose body is not an array is answered 400
     description: >-
       Tags a PERSON version with alpha and beta, then updates its tag list

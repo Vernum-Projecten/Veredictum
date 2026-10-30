@@ -100,6 +100,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_date-validate_constraint-month_validity
+    x-veredictum-control: dv_date-validate_constraint-accepted
     summary: "DV_DATE against C_DATE month/day validity constraints: a month component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DATE against C_DATE
@@ -175,6 +176,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_date-validate_constraint-day_validity
+    x-veredictum-control: dv_date-validate_constraint-accepted
     summary: "DV_DATE against C_DATE month/day validity constraints: a day component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DATE against C_DATE
@@ -305,6 +307,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_date-validate_open-iso8601
+    x-veredictum-control: dv_date-validate_open-accepted
     summary: "DV_DATE value against the openEHR ISO 8601 date grammar: a value that is not a valid ISO 8601 literal is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DATE value against
@@ -362,6 +365,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_date-validate_open-value_missing
+    x-veredictum-control: dv_date-validate_open-accepted
     summary: "DV_DATE value against the openEHR ISO 8601 date grammar: a body with no value is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_DATE value against
@@ -492,6 +496,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_date-validate_range-c_date_range
+    x-veredictum-control: dv_date-validate_range-accepted
     summary: "DV_DATE against C_DATE range constraints: a date outside the C_DATE range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_DATE against C_DATE

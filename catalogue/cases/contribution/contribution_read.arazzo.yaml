@@ -300,6 +300,7 @@ workflows:
             x-veredictum-cite: *not_found
 
   - workflowId: get_contribution-malformed_uid
+    x-veredictum-control: get_contribution
     summary: A CONTRIBUTION read whose uid is not a well-formed identifier is refused with 400
     description: >-
       Creates an EHR, then retrieves a CONTRIBUTION by the path segment

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:openehr:cnf:schema:arazzo-extensions:0.1.0",
-  "title": "The Arazzo catalogue's five specification extensions",
-  "description": "`x-veredictum-cite` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `x-veredictum-check` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `x-veredictum-derive` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `x-veredictum-principal` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `x-veredictum-scope` sits on a step only, never beside `x-veredictum-principal`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state.",
+  "title": "The Arazzo catalogue's six specification extensions",
+  "description": "`x-veredictum-cite` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `x-veredictum-check` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `x-veredictum-derive` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `x-veredictum-principal` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `x-veredictum-scope` sits on a step only, never beside `x-veredictum-principal`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `x-veredictum-control` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state.",
   "$defs": {
     "cite": {
       "type": "object",
@@ -180,6 +180,37 @@
               "enum": [
                 "oas"
               ]
+            }
+          }
+        }
+      ]
+    },
+    "control": {
+      "description": "The control of a refusal workflow: a `workflowId` of the same document, or `$sourceDescriptions.<name>.<workflowId>` of a `type: arazzo` source, as Arazzo 1.1.0 `dependsOn` names a workflow; a list names one control per arm of an option the refusal runs under. A control is accepted when every row of it passed or failed only advisory criteria, and a refusal row is judged when no listed control that ran was refused and at least one ran.",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "description": "A refusal with no twin in the catalogue yet: the open issue in this repository that tracks authoring one. Such a refusal is never judged; every row of it is errored, naming the issue.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pending"
+          ],
+          "properties": {
+            "pending": {
+              "type": "integer",
+              "minimum": 1
             }
           }
         }

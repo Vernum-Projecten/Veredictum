@@ -103,6 +103,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_multimedia-validate_media_type-c_integer_list
+    x-veredictum-control: dv_multimedia-validate_media_type-accepted
     summary: "DV_MULTIMEDIA against C_CODE_PHRASE (media_type) and C_INTEGER (size) constraints: a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_MULTIMEDIA against
@@ -180,6 +181,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_multimedia-validate_media_type-c_integer_range
+    x-veredictum-control: dv_multimedia-validate_media_type-accepted
     summary: "DV_MULTIMEDIA against C_CODE_PHRASE (media_type) and C_INTEGER (size) constraints: a value outside the C_INTEGER range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_MULTIMEDIA against
@@ -257,6 +259,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_multimedia-validate_media_type-c_code_phrase
+    x-veredictum-control: dv_multimedia-validate_media_type-accepted
     summary: "DV_MULTIMEDIA against C_CODE_PHRASE (media_type) and C_INTEGER (size) constraints: a code outside the C_CODE_PHRASE is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_MULTIMEDIA against
@@ -390,6 +393,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_multimedia-validate_open-media_type_size_missing
+    x-veredictum-control: dv_multimedia-validate_open-accepted
     summary: "DV_MULTIMEDIA with mandatory media_type/size and code-set membership: a body with no media_type and no size is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_MULTIMEDIA with
@@ -449,6 +453,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_multimedia-validate_open-size_missing
+    x-veredictum-control: dv_multimedia-validate_open-accepted
     summary: "DV_MULTIMEDIA with mandatory media_type/size and code-set membership: a body with no size is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_MULTIMEDIA with
@@ -507,6 +512,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_multimedia-validate_open-media_type_missing
+    x-veredictum-control: dv_multimedia-validate_open-accepted
     summary: "DV_MULTIMEDIA with mandatory media_type/size and code-set membership: a body with no media_type is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_MULTIMEDIA with

@@ -18,6 +18,9 @@ sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
     type: openapi
+  - name: composition_versioned
+    url: composition_versioned.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: get_versioned_composition-unknown_ehr
     summary: A VERSIONED_COMPOSITION read under an ehr_id no EHR carries is answered 404
@@ -75,6 +78,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: get_versioned_composition-malformed_versioned_object_uid
+    x-veredictum-control: $sourceDescriptions.composition_versioned.get_versioned_composition
     summary: A VERSIONED_COMPOSITION read whose versioned_object_uid is no UUID is refused as a client error
     description: >-
       Creates an EHR, then retrieves under it a VERSIONED_COMPOSITION by a
@@ -146,6 +150,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: get_versioned_composition_version-malformed_versioned_object_uid
+    x-veredictum-control: $sourceDescriptions.composition_versioned.get_versioned_composition_version-latest
     summary: A VERSION read at a time whose versioned_object_uid is no UUID is refused as a client error
     description: >-
       Creates an EHR, then retrieves under it the latest VERSION by a
@@ -209,6 +214,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: get_versioned_composition_version-by_id-malformed_versioned_object_uid
+    x-veredictum-control: $sourceDescriptions.composition_versioned.get_versioned_composition_version-by_id
     summary: A VERSION read by version_uid whose versioned_object_uid is no UUID is refused as a client error
     description: >-
       Creates an EHR, then retrieves under it a VERSION by a version_uid,
@@ -268,6 +274,7 @@ workflows:
           - condition: $statusCode == 404
 
   - workflowId: get_versioned_composition-revision_history-malformed_versioned_object_uid
+    x-veredictum-control: $sourceDescriptions.composition_versioned.get_versioned_composition-revision_history
     summary: A revision history read whose versioned_object_uid is no UUID is refused as a client error
     description: >-
       Creates an EHR, then retrieves under it a revision history by a

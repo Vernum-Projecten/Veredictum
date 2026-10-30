@@ -363,6 +363,7 @@ workflows:
             condition: "$[?@.key == 'beta']"
 
   - workflowId: group_tags_update-non_array_body
+    x-veredictum-control: group_tags_update-stores_tags
     summary: A GROUP tag update whose body is not an array is answered 400
     description: >-
       Tags a GROUP version with alpha and beta, then updates its tag list with

@@ -107,6 +107,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_ordinal-validate_constraint-c_dv_ordinal_list
+    x-veredictum-control: dv_interval_dv_ordinal-validate_constraint-accepted
     summary: "DV_INTERVAL<DV_ORDINAL> with per-limit C_DV_ORDINAL.list constraints: an ordinal outside the C_DV_ORDINAL list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_ORDINAL>
@@ -252,6 +253,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_ordinal-validate_open-symbol_missing
+    x-veredictum-control: dv_interval_dv_ordinal-validate_open-accepted
     summary: "DV_INTERVAL<DV_ORDINAL> open ({*}): symbol/value mandatory, comparable limits: no symbol is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_ORDINAL>
@@ -318,6 +320,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_ordinal-validate_open-value_missing
+    x-veredictum-control: dv_interval_dv_ordinal-validate_open-accepted
     summary: "DV_INTERVAL<DV_ORDINAL> open ({*}): symbol/value mandatory, comparable limits: no value is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_ORDINAL>
@@ -384,6 +387,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_ordinal-validate_open-limits_consistent
+    x-veredictum-control: dv_interval_dv_ordinal-validate_open-accepted
     summary: "DV_INTERVAL<DV_ORDINAL> open ({*}): symbol/value mandatory, comparable limits: a breach of the Limits_consistent invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_ORDINAL>

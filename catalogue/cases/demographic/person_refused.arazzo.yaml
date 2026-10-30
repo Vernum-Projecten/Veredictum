@@ -19,8 +19,12 @@ sourceDescriptions:
   - name: demographic
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
     type: openapi
+  - name: person
+    url: person.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: create_person-wrong_type
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: An AGENT body on the PERSON create is refused with 400
     description: >-
       Creates a PERSON with a body whose _type is AGENT. The operation's
@@ -64,6 +68,7 @@ workflows:
               quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
 
   - workflowId: create_person-identities_empty
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: A PERSON whose identities list is empty is refused with 400
     description: >-
       Creates a PERSON whose identities list is present and empty. The
@@ -93,6 +98,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_person-contact_addresses_empty
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: A PERSON whose CONTACT has an empty addresses list is refused with 400
     description: >-
       Creates a PERSON with one CONTACT whose addresses list is present and
@@ -139,6 +145,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_person-archetype_details_missing
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: A PERSON archetype root without archetype_details is refused with 422
     description: >-
       Creates a PERSON whose archetype_node_id is the archetype id
@@ -185,6 +192,7 @@ workflows:
               quote: "is_archetype_root xor archetype_details = Void"
 
   - workflowId: update_person-identities_empty
+    x-veredictum-control: $sourceDescriptions.person.update_person
     summary: A PERSON update whose identities list is empty is refused with 400
     description: >-
       Creates a PERSON, then updates it with content whose identities list is
@@ -269,6 +277,7 @@ workflows:
               quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
 
   - workflowId: update_person-contact_addresses_empty
+    x-veredictum-control: $sourceDescriptions.person.update_person
     summary: A PERSON update whose CONTACT has an empty addresses list is refused with 400
     description: >-
       Creates a PERSON, then updates it with content holding one CONTACT whose
@@ -297,6 +306,7 @@ workflows:
       - *still_created
 
   - workflowId: update_person-cluster_no_items
+    x-veredictum-control: $sourceDescriptions.person.update_person
     summary: A PERSON update holding a CLUSTER with no items is refused with 400
     description: >-
       Creates a PERSON, then updates it with content whose identity details
@@ -346,6 +356,7 @@ workflows:
       - *still_created
 
   - workflowId: update_person-archetype_details_missing
+    x-veredictum-control: $sourceDescriptions.person.update_person
     summary: A PERSON update whose archetype root has no archetype_details is refused with 422
     description: >-
       Creates a PERSON, then updates it with content whose archetype_node_id
@@ -373,6 +384,7 @@ workflows:
       - *still_created
 
   - workflowId: create_person-archetype_node_id_mismatch
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: A PERSON whose root archetype_node_id differs from its archetype_id is refused with 422
     description: >-
       Creates a PERSON whose archetype_details names
@@ -418,6 +430,7 @@ workflows:
               quote: "The request was well-formed but was unable to be followed due to semantic errors"
 
   - workflowId: update_person-archetype_node_id_mismatch
+    x-veredictum-control: $sourceDescriptions.person.update_person
     summary: A PERSON update whose root archetype_node_id differs from its archetype_id is refused with 422
     description: >-
       Creates a PERSON, then updates it with content whose archetype_details
@@ -446,6 +459,7 @@ workflows:
       - *still_created
 
   - workflowId: create_person-contacts_empty
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: A PERSON whose contacts list is empty is refused with 400
     description: >-
       Creates a PERSON whose contacts list is present and empty, which the
@@ -489,6 +503,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: update_person-contacts_empty
+    x-veredictum-control: $sourceDescriptions.person.update_person
     summary: A PERSON update whose contacts list is empty is refused with 400
     description: >-
       Creates a PERSON, then updates it with content whose contacts list is
@@ -517,6 +532,7 @@ workflows:
       - *still_created
 
   - workflowId: create_person-relationships_empty
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: A PERSON whose relationships list is empty is refused with 400
     description: >-
       Creates a PERSON whose relationships list is present and empty, which
@@ -560,6 +576,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_person-roles_empty
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: A PERSON whose roles list is empty is refused with 400
     description: >-
       Creates a PERSON whose roles list is present and empty. The published
@@ -602,6 +619,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_person-identity_details_missing
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: A PERSON whose PARTY_IDENTITY has no details is refused with 400
     description: >-
       Creates a PERSON whose one PARTY_IDENTITY carries no details. The
@@ -632,6 +650,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_person-identity_details_wrong_type
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: A PERSON whose identity details is a DV_TEXT is refused with 400
     description: >-
       Creates a PERSON whose one PARTY_IDENTITY carries a DV_TEXT as its
@@ -665,6 +684,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_person-cluster_no_items
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: A PERSON holding a CLUSTER with no items is refused with 400
     description: >-
       Creates a PERSON whose identity details hold a CLUSTER with an empty
@@ -689,6 +709,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_person-paragraph_no_items
+    x-veredictum-control: $sourceDescriptions.person.create_person
     summary: A PERSON holding a DV_PARAGRAPH with no items is refused with 400
     description: >-
       Creates a PERSON whose identity details hold an ELEMENT whose value is a
@@ -737,6 +758,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: update_person-paragraph_no_items
+    x-veredictum-control: $sourceDescriptions.person.update_person
     summary: A PERSON update holding a DV_PARAGRAPH with no items is refused with 400
     description: >-
       Creates a PERSON, then updates it with content whose identity details
@@ -766,6 +788,7 @@ workflows:
       - *still_created
 
   - workflowId: update_person-relationship_source_foreign
+    x-veredictum-control: $sourceDescriptions.person.update_person-relationship_source_self
     summary: A PERSON update holding a relationship sourced at another PERSON is refused with 422
     description: >-
       Creates two PERSONs, then updates the first with a PARTY_RELATIONSHIP

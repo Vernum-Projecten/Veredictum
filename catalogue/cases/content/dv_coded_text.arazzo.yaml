@@ -27,6 +27,7 @@ sourceDescriptions:
     type: arazzo
 workflows:
   - workflowId: dv_coded_text-validate_ext_term-code_string_terminology_id_missing
+    x-veredictum-control: { pending: 836 }
     summary: "DV_CODED_TEXT against a CONSTRAINT_REF with a constraint_binding: a body with no defining_code is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against a
@@ -88,6 +89,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_coded_text-validate_ext_term-terminology_id_missing
+    x-veredictum-control: { pending: 836 }
     summary: "DV_CODED_TEXT against a CONSTRAINT_REF with a constraint_binding: a body with no terminology_id is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against a
@@ -149,6 +151,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_coded_text-validate_ext_term-code_string_missing
+    x-veredictum-control: { pending: 836 }
     summary: "DV_CODED_TEXT against a CONSTRAINT_REF with a constraint_binding: a body with no code_string is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against a
@@ -285,6 +288,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_coded_text-validate_local_codes-c_code_phrase_terminology_id
+    x-veredictum-control: dv_coded_text-validate_local_codes-accepted
     summary: "DV_CODED_TEXT against a local-codes C_CODE_PHRASE ([ABC, OPQ] @ local): a code from another terminology than the C_CODE_PHRASE names is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against a
@@ -362,6 +366,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_coded_text-validate_local_codes-code_string_terminology_id_missing
+    x-veredictum-control: dv_coded_text-validate_local_codes-accepted
     summary: "DV_CODED_TEXT against a local-codes C_CODE_PHRASE ([ABC, OPQ] @ local): a body with no defining_code is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against a
@@ -440,6 +445,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_coded_text-validate_local_codes-terminology_id_missing
+    x-veredictum-control: dv_coded_text-validate_local_codes-accepted
     summary: "DV_CODED_TEXT against a local-codes C_CODE_PHRASE ([ABC, OPQ] @ local): a body with no terminology_id is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against a
@@ -518,6 +524,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_coded_text-validate_local_codes-code_string_missing
+    x-veredictum-control: dv_coded_text-validate_local_codes-accepted
     summary: "DV_CODED_TEXT against a local-codes C_CODE_PHRASE ([ABC, OPQ] @ local): a body with no code_string is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against a
@@ -596,6 +603,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_coded_text-validate_open-code_string_terminology_id_missing
+    x-veredictum-control: dv_coded_text-validate_open-accepted
     summary: "DV_CODED_TEXT against an open C_CODE_PHRASE: a body with no defining_code is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against an
@@ -672,6 +680,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_coded_text-validate_open-terminology_id_missing
+    x-veredictum-control: dv_coded_text-validate_open-accepted
     summary: "DV_CODED_TEXT against an open C_CODE_PHRASE: a body with no terminology_id is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against an
@@ -748,6 +757,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_coded_text-validate_open-code_string_missing
+    x-veredictum-control: dv_coded_text-validate_open-accepted
     summary: "DV_CODED_TEXT against an open C_CODE_PHRASE: a body with no code_string is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against an
@@ -822,3 +832,80 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/400.yaml
               section: "description"
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
+
+  - workflowId: dv_coded_text-validate_open-accepted
+    summary: "DV_CODED_TEXT against an open C_CODE_PHRASE: a complete coded term is created"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against an
+      open C_CODE_PHRASE). Each row carries a complete defining_code, the
+      openEHR term 433 with its rubric event as the value, which the template
+      and the RM admit, so the commit is answered 201 Created. It is the valid
+      twin of the open refusals above, on the same template.
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/dv_coded_text.adoc
+      section: "DV_CODED_TEXT Class"
+      quote: "h|*1..1* |*defining_code*: `<<_code_phrase_class,CODE_PHRASE>>`"
+    inputs:
+      type: object
+      required: [composition, template]
+      properties:
+        "code_string": { type: "string" }
+        "terminology_id": { type: "string" }
+        "value": { type: "string" }
+        "C_CODE_PHRASE.code_list": { type: "null" }
+        "C_CODE_PHRASE.terminology_id": { type: "null" }
+        composition: { type: object }
+        template: { type: string }
+    steps:
+      - stepId: upload-template
+        description: Upload the row's operational template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: $inputs.template
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."

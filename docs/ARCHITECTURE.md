@@ -492,7 +492,7 @@ Honest implications:
 ## 8. The party documents, the verdicts and the measured instruments
 
 The conformance catalogue is Arazzo 1.1.0 workflows over the released ITS-REST
-operations, and its design is §15: the layout, the three extensions, the
+operations, and its design is §15: the layout, the extensions, the
 condition profile, the gates, the results and their exports. This section
 holds what sits around it: the documents a party supplies and receives
 (§8.10), how a statement selects what runs and how verdicts are computed
@@ -1544,12 +1544,16 @@ today, beside `id-map.yaml` (every former case-core id mapped to its workflows,
   `ehr/create_ehr-same_ehr_twice-with_id`. `workflowId` matches
   `[A-Za-z0-9_\-]+`, as Arazzo recommends.
 
-### 15.4 The three extensions
+### 15.4 The extensions
 
-Arazzo has no citation object, no judges for openEHR result semantics and no
-way to take part of a string, so three specification extensions are defined,
-with a published JSON Schema. Any further extension needs a recorded reason
-on #590 first.
+Arazzo has no citation object, no judges for openEHR result semantics, no way
+to take part of a string, no way to name the credential or token a request is
+sent with, and no way to tie a refusal to the request it refuses, so six
+specification extensions are defined, with a published JSON Schema
+(`schemas/arazzo-extensions.schema.json`): `x-veredictum-cite`,
+`x-veredictum-check`, `x-veredictum-derive`, `x-veredictum-principal`,
+`x-veredictum-scope` and `x-veredictum-control`. Any further extension needs a
+recorded reason on #590 first.
 
 **`x-veredictum-cite`**, on workflows, steps and criteria:
 
@@ -1627,6 +1631,49 @@ collides with a declared output. A captured value that is not of the lexical
 form makes the row errored, never failed, because the workflow's subject is
 not the identifier's form; an `of` the response did not carry leaves the
 derived output uncaptured, so a later step that reads it is errored too.
+
+**`x-veredictum-principal`**, on a step, names the principal its request is
+sent as when that is not the run's ordinary credential; `administrative` is
+the one principal. ITS-REST `Requests_and_responses.md` §Authentication and
+authorization "does not mandate a specific authentication scheme", so the
+party supplies that credential, and a run whose party supplies none skips
+every workflow with such a step as `not-declared`.
+
+**`x-veredictum-scope`**, on a step and never beside `x-veredictum-principal`,
+names the scope set of the access token the step presents: an OAuth 2.0 scope
+value, or `$inputs.<name>` to read it per row. A row whose scope set the party
+covers with no token is skipped as `not-declared`.
+
+**`x-veredictum-control`**, on a workflow, names the control of a refusal
+workflow (#662). A refusal workflow is one with a criterion
+`$statusCode == 400` or `$statusCode == 422`. The released text gives an error
+body no shape, so the evaluator cannot read which part of a request a server
+refused, and a server that refuses a request for an unrelated reason (a
+header it cannot read, say) would pass every refusal of a defective body. The
+control is the workflow whose request is the same apart from the one defect,
+named the way `dependsOn` names a workflow: a `workflowId` of the same
+document, or `$sourceDescriptions.<name>.<workflowId>` of a `type: arazzo`
+source.
+
+```yaml
+- workflowId: update-paragraph_no_items
+  x-veredictum-control: update-other_details
+```
+
+A control is accepted in a run when the run holds a row of it and every row
+passed or failed only `should` criteria, so the server took the request. A
+refusal row whose control was not accepted in the same run is *errored*, with
+a reason naming the control, whatever the refusal itself received. A refusal
+that runs under either arm of an option names one control per arm as a list,
+and is judged when no listed control that ran was refused and at least one
+ran. A refusal with no twin in the catalogue yet names the open issue that
+tracks one, `x-veredictum-control: { pending: <issue> }`, and is never judged:
+every row of it is *errored*, naming the issue (`scripts/checks/pending-refs.sh`
+holds each number to an open issue in CI). `validate` refuses a refusal
+workflow without a control, a control on any other workflow, a `pending` that
+is not a positive integer, and a control that names no workflow, the workflow
+itself or another refusal workflow. No openEHR spec governs the extension — our own
+design.
 
 ### 15.5 A case, worked: re-creating an existing EHR
 
@@ -1715,8 +1762,11 @@ enforced by `validate` and the evaluator. Every rule stays inside what Arazzo
 6. **Missing values.** A criterion over a value that is absent from a
    readable response does not hold, so the row is *failed*. A body the
    evaluator cannot read, and an output a later step needs that an earlier
-   step never captured, make the row *errored*. `simple` compares against
-   integers, booleans and `null`.
+   step never captured, make the row *errored*, except when the step that
+   should have produced the output failed only `level: should` criteria:
+   then the row takes the advisory outcome of the first of them, naming it
+   (rule 10, #674), because the instrument did judge the exchange. `simple`
+   compares against integers, booleans and `null`.
 7. **Generated inputs.** An input of `format: uuid` with no supplied value is a
    fresh random UUID per row, recorded in the results so a replay reuses it.
 8. **Evaluation errors.** Arazzo says an evaluation error evaluates to *fail*.
@@ -1839,7 +1889,13 @@ vendor reads why a row is red without opening `results.json`.
 - **Arazzo schema**: every document validates against the official 1.1 schema
   (`https://spec.openapis.org/arazzo/1.1/schema/2026-04-15`). Where the schema
   and the prose disagree (open upstream bugs #558, #559), the prose wins and the
-  gate records the exception.
+  gate records the exception. The schema also admits only a string or a
+  Selector Object as a Payload Replacement Object `value`, while Arazzo 1.1.0
+  §Payload Replacement Object types the field `Any | {expression} | Selector
+  Object` and says "The value can be a constant, a Runtime Expression, or
+  Selector Objects to be evaluated and passed to the referenced operation or
+  workflow." The gate follows the text and admits a literal of every JSON
+  type, and the evaluator sends it with its JSON type intact (#663).
 - **Source resolution**: every `operationId` resolves in its named source, and
   every parameter, after following the operation's `$ref`s, resolves at that
   operation or is a header the profile allows.
@@ -1851,8 +1907,8 @@ vendor reads why a row is red without opening `results.json`.
   SHOULD or RECOMMENDED but no MUST, SHALL or REQUIRED needs `level: should`,
   and the reverse is refused; a quote whose only keyword is MAY or OPTIONAL is
   refused outright, because permission is never asserted.
-- **Unknown keys**: a key that is neither an Arazzo field nor one of the three
-  extensions is refused. A parser that captures extensions through a catch-all
+- **Unknown keys**: a key that is neither an Arazzo field nor one of the six
+  extensions, in the place §15.4 allows it, is refused. A parser that captures extensions through a catch-all
   map drops a misspelled key such as `succesCriteria` without an error, so the
   gate compares the parsed document with the raw one.
 - **Rows**: every rows file validates and every row binds every required input.
@@ -1864,8 +1920,10 @@ vendor reads why a row is red without opening `results.json`.
   tag, so an unconverted family does not fail the build and a converted one
   cannot silently lose coverage. A gap whose element is already covered is
   refused as stale.
-- **Identity and links**: unique case ids, resolving payload references, and
-  option tags that resolve to options in `capabilities.yaml`. A citation's
+- **Identity and links**: unique case ids, resolving payload references,
+  option tags that resolve to options in `capabilities.yaml`, and a control on
+  every refusal workflow that resolves to another workflow that is not itself
+  a refusal workflow (§15.4). A citation's
   `report:` is a positive issue number; checking that it names an
   `upstream-report` issue needs the tracker, so it runs in CI
   (`scripts/checks/report-refs.sh`, over the workflow documents and

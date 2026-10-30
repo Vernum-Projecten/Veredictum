@@ -218,7 +218,7 @@ options:
       service that declines it declares the other arm, which has no document.
     arms:
       aql-top-supported:
-        documents: [aqlc_top, aql_stored_top]
+        documents: [aqlc_top, aql_refused_top, aql_stored_top]
       aql-top-declined:
         documents: []
     x-veredictum-cite:
@@ -769,6 +769,7 @@ documents:
   aql_ehr_scope: { formats: [canonical-json] }
   aql_execute: { formats: [canonical-json] }
   aql_refused: { formats: [canonical-json] }
+  aql_refused_top: { formats: [canonical-json] }
   aql_semantics: { formats: [canonical-json] }
   aql_stored: { formats: [canonical-json] }
   aql_stored_top: { formats: [canonical-json] }
@@ -911,7 +912,7 @@ documents:
 floors:
   admin: 17
   composition: 203
-  content: 360
+  content: 361
   contribution: 69
   definition: 32
   demographic: 359

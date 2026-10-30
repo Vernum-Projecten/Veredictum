@@ -79,6 +79,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_count-validate_list-c_integer_list
+    x-veredictum-control: dv_count-validate_list-accepted
     summary: "DV_COUNT against C_INTEGER.list = [10,15,20]: a value outside the C_INTEGER list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_COUNT against
@@ -135,6 +136,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_count-validate_list-magnitude_missing
+    x-veredictum-control: dv_count-validate_list-accepted
     summary: "DV_COUNT against C_INTEGER.list = [10,15,20]: a body with no magnitude is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_COUNT against
@@ -247,6 +249,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_count-validate_open-magnitude_missing
+    x-veredictum-control: dv_count-validate_open-accepted
     summary: "DV_COUNT against an open constraint ({*}): magnitude mandatory: a body with no magnitude is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_COUNT against an open
@@ -359,6 +362,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_count-validate_range-c_integer_range
+    x-veredictum-control: dv_count-validate_range-accepted
     summary: "DV_COUNT against C_INTEGER.range = 10..20: a value outside the C_INTEGER range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_COUNT against
@@ -416,6 +420,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_count-validate_range-magnitude_missing
+    x-veredictum-control: dv_count-validate_range-accepted
     summary: "DV_COUNT against C_INTEGER.range = 10..20: a body with no magnitude is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_COUNT against

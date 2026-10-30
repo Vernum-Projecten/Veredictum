@@ -244,6 +244,7 @@ workflows:
           - *not_found
 
   - workflowId: get_directory-at_time_malformed
+    x-veredictum-control: get_directory-at_time_future
     summary: A directory read whose version_at_time is not an ISO 8601 datetime is refused with 400
     description: >-
       Creates an EHR and its directory FOLDER, then retrieves the directory
@@ -645,6 +646,7 @@ workflows:
           - *not_found
 
   - workflowId: get_directory_version-malformed_version_uid
+    x-veredictum-control: get_directory_version
     summary: A directory read whose version_uid is not an OBJECT_VERSION_ID is refused with 400
     description: >-
       Creates an EHR and its directory FOLDER, then retrieves the directory

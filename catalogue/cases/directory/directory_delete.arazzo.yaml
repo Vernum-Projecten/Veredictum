@@ -199,6 +199,7 @@ workflows:
               quote: "`200 OK` is returned when the FOLDER is successfully retrieved."
 
   - workflowId: delete_directory-missing_if_match
+    x-veredictum-control: delete_directory
     summary: A directory delete with no If-Match is refused with 400
     description: >-
       Creates an EHR and its directory FOLDER, then deletes the directory with

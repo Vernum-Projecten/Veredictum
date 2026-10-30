@@ -365,6 +365,7 @@ workflows:
             condition: '^(W/)?"{$steps.update.outputs.version_uid}"$'
 
   - workflowId: update_directory-missing_if_match
+    x-veredictum-control: update_directory
     summary: A directory update with no If-Match is refused with 400
     description: >-
       Creates an EHR and its directory FOLDER, then updates the directory
@@ -571,6 +572,7 @@ workflows:
             x-veredictum-cite: *folder_retrieved
 
   - workflowId: update_directory-name_missing
+    x-veredictum-control: update_directory
     summary: A directory update to a FOLDER with no name is refused with 400 and changes nothing
     description: >-
       Creates an EHR and its directory FOLDER, then updates the directory
@@ -608,6 +610,7 @@ workflows:
       - *get_root
 
   - workflowId: update_directory-cluster_no_items
+    x-veredictum-control: update_directory
     summary: A directory update whose details hold a CLUSTER with no items is refused with 400 and changes nothing
     description: >-
       Creates an EHR and its directory FOLDER, then updates the directory
@@ -652,6 +655,7 @@ workflows:
       - *get_root
 
   - workflowId: update_directory-paragraph_no_items
+    x-veredictum-control: update_directory
     summary: A directory update whose details hold a DV_PARAGRAPH with no items is refused with 400 and changes nothing
     description: >-
       Creates an EHR and its directory FOLDER, then updates the directory
@@ -697,6 +701,7 @@ workflows:
       - *get_root
 
   - workflowId: update_directory-archetype_id_mismatch
+    x-veredictum-control: update_directory
     summary: A directory update to a root FOLDER whose archetype_node_id differs from its archetype_id is refused with 422
     description: >-
       Creates an EHR and its directory FOLDER, then updates the directory

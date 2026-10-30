@@ -81,6 +81,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_ordinal-validate_constraint-c_dv_ordinal_list
+    x-veredictum-control: dv_ordinal-validate_constraint-accepted
     summary: "DV_ORDINAL against C_DV_ORDINAL.list = 1|[local::at0005], 2|[local::at0006]: an ordinal outside the C_DV_ORDINAL list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_ORDINAL against
@@ -195,6 +196,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_ordinal-validate_open-value_symbol_missing
+    x-veredictum-control: dv_ordinal-validate_open-accepted
     summary: "DV_ORDINAL against an open C_DV_ORDINAL ({*}): symbol/value mandatory: a body with no value and no symbol is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_ORDINAL against an
@@ -254,6 +256,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_ordinal-validate_open-symbol_missing
+    x-veredictum-control: dv_ordinal-validate_open-accepted
     summary: "DV_ORDINAL against an open C_DV_ORDINAL ({*}): symbol/value mandatory: a body with no symbol is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_ORDINAL against an
@@ -312,6 +315,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_ordinal-validate_open-value_missing
+    x-veredictum-control: dv_ordinal-validate_open-accepted
     summary: "DV_ORDINAL against an open C_DV_ORDINAL ({*}): symbol/value mandatory: a body with no value is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_ORDINAL against an

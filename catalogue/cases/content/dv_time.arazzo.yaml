@@ -103,6 +103,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_time-validate_constraint-minute_validity
+    x-veredictum-control: dv_time-validate_constraint-accepted
     summary: "DV_TIME against C_TIME minute/second/millisecond/timezone validity constraints: a minute component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_TIME against C_TIME
@@ -180,6 +181,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_time-validate_constraint-second_validity
+    x-veredictum-control: dv_time-validate_constraint-accepted
     summary: "DV_TIME against C_TIME minute/second/millisecond/timezone validity constraints: a second component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_TIME against C_TIME
@@ -257,6 +259,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_time-validate_constraint-millisecond_validity
+    x-veredictum-control: dv_time-validate_constraint-accepted
     summary: "DV_TIME against C_TIME minute/second/millisecond/timezone validity constraints: a millisecond component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_TIME against C_TIME
@@ -334,6 +337,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_time-validate_constraint-timezone_validity
+    x-veredictum-control: dv_time-validate_constraint-accepted
     summary: "DV_TIME against C_TIME minute/second/millisecond/timezone validity constraints: a timezone component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_TIME against C_TIME
@@ -466,6 +470,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_time-validate_open-iso8601
+    x-veredictum-control: dv_time-validate_open-accepted
     summary: "DV_TIME value against the openEHR ISO 8601 time grammar: a value that is not a valid ISO 8601 literal is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_TIME value against
@@ -523,6 +528,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_time-validate_open-value_missing
+    x-veredictum-control: dv_time-validate_open-accepted
     summary: "DV_TIME value against the openEHR ISO 8601 time grammar: a body with no value is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_TIME value against
@@ -653,6 +659,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_time-validate_range-c_time_range
+    x-veredictum-control: dv_time-validate_range-accepted
     summary: "DV_TIME against C_TIME range constraints (closed and open-ended): a time outside the C_TIME range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_TIME against C_TIME

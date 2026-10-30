@@ -19,8 +19,12 @@ sourceDescriptions:
   - name: demographic
     url: ../../../specs/rest-oas/demographic-validation.openapi.yaml
     type: openapi
+  - name: group
+    url: group.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: create_group-wrong_type
+    x-veredictum-control: $sourceDescriptions.group.create_group
     summary: A PERSON body on the GROUP create is refused with 400
     description: >-
       Creates a GROUP with a body whose _type is PERSON. The operation's
@@ -64,6 +68,7 @@ workflows:
               quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
 
   - workflowId: create_group-identities_empty
+    x-veredictum-control: $sourceDescriptions.group.create_group
     summary: A GROUP whose identities list is empty is refused with 400
     description: >-
       Creates a GROUP whose identities list is present and empty. The
@@ -93,6 +98,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_group-contact_addresses_empty
+    x-veredictum-control: $sourceDescriptions.group.create_group
     summary: A GROUP whose CONTACT has an empty addresses list is refused with 400
     description: >-
       Creates a GROUP with one CONTACT whose addresses list is present and
@@ -139,6 +145,7 @@ workflows:
             x-veredictum-cite: *bad_request
 
   - workflowId: create_group-archetype_details_missing
+    x-veredictum-control: $sourceDescriptions.group.create_group
     summary: A GROUP archetype root without archetype_details is refused with 422
     description: >-
       Creates a GROUP whose archetype_node_id is the archetype id
@@ -185,6 +192,7 @@ workflows:
               quote: "is_archetype_root xor archetype_details = Void"
 
   - workflowId: update_group-identities_empty
+    x-veredictum-control: $sourceDescriptions.group.update_group
     summary: A GROUP update whose identities list is empty is refused with 400
     description: >-
       Creates a GROUP, then updates it with content whose identities list is
@@ -269,6 +277,7 @@ workflows:
               quote: "If a service receives this header, and the condition evaluates to `false`, it MUST NOT perform the requested method."
 
   - workflowId: update_group-contact_addresses_empty
+    x-veredictum-control: $sourceDescriptions.group.update_group
     summary: A GROUP update whose CONTACT has an empty addresses list is refused with 400
     description: >-
       Creates a GROUP, then updates it with content holding one CONTACT whose
@@ -297,6 +306,7 @@ workflows:
       - *still_created
 
   - workflowId: update_group-cluster_no_items
+    x-veredictum-control: $sourceDescriptions.group.update_group
     summary: A GROUP update holding a CLUSTER with no items is refused with 400
     description: >-
       Creates a GROUP, then updates it with content whose identity details
@@ -346,6 +356,7 @@ workflows:
       - *still_created
 
   - workflowId: update_group-archetype_details_missing
+    x-veredictum-control: $sourceDescriptions.group.update_group
     summary: A GROUP update whose archetype root has no archetype_details is refused with 422
     description: >-
       Creates a GROUP, then updates it with content whose archetype_node_id is
@@ -373,6 +384,7 @@ workflows:
       - *still_created
 
   - workflowId: create_group-archetype_node_id_mismatch
+    x-veredictum-control: $sourceDescriptions.group.create_group
     summary: A GROUP whose root archetype_node_id differs from its archetype_id is refused with 422
     description: >-
       Creates a GROUP whose archetype_details names

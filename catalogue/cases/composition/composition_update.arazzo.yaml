@@ -819,6 +819,7 @@ workflows:
             condition: '^{$steps.commit.outputs.version_uid}$'
 
   - workflowId: update_composition-missing_if_match
+    x-veredictum-control: update_composition-event
     summary: An update sent without If-Match is refused with 400 and not performed
     description: >-
       Creates an EHR and an event COMPOSITION, then updates it with no

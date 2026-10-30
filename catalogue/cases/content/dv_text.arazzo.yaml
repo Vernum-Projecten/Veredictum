@@ -84,6 +84,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_text-validate_list-c_string_list
+    x-veredictum-control: dv_text-validate_list-accepted
     summary: "DV_TEXT against a C_STRING.list ([XYZ, OPQ]): a string outside the C_STRING list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_TEXT against a
@@ -142,6 +143,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_text-validate_list-value_missing
+    x-veredictum-control: dv_text-validate_list-accepted
     summary: "DV_TEXT against a C_STRING.list ([XYZ, OPQ]): a body with no value is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_TEXT against a
@@ -274,6 +276,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_text-validate_open-c_string_pattern
+    x-veredictum-control: dv_text-validate_open-accepted
     summary: "DV_TEXT open ({*}) and against a C_STRING.pattern: a string the C_STRING pattern does not match is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_TEXT open ({*}) and
@@ -349,6 +352,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_text-validate_open-value_missing
+    x-veredictum-control: dv_text-validate_open-accepted
     summary: "DV_TEXT open ({*}) and against a C_STRING.pattern: a body with no value is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_TEXT open ({*}) and
@@ -496,6 +500,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_text-validate_pattern-c_string_pattern
+    x-veredictum-control: dv_text-validate_pattern-accepted
     summary: "DV_TEXT against a C_STRING.pattern (CNF-[0-9]{4}): a string the C_STRING pattern does not match is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_TEXT against a
@@ -570,6 +575,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_text-validate_pattern-value_missing
+    x-veredictum-control: dv_text-validate_pattern-accepted
     summary: "DV_TEXT against a C_STRING.pattern (CNF-[0-9]{4}): a body with no value is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_TEXT against a

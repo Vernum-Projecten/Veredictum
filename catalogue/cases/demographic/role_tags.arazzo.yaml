@@ -414,6 +414,7 @@ workflows:
             condition: "$[?@.key == 'beta']"
 
   - workflowId: role_tags_update-non_array_body
+    x-veredictum-control: role_tags_update-stores_tags
     summary: A ROLE tag update whose body is not an array is answered 400
     description: >-
       Tags a ROLE version with alpha and beta, then updates its tag list with

@@ -83,6 +83,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_parsable-validate_open-value_formalism_missing
+    x-veredictum-control: dv_parsable-validate_open-accepted
     summary: "DV_PARSABLE with both mandatory fields: a body with no value and no formalism is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_PARSABLE with both
@@ -141,6 +142,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_parsable-validate_open-formalism_missing
+    x-veredictum-control: dv_parsable-validate_open-accepted
     summary: "DV_PARSABLE with both mandatory fields: a body with no formalism is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_PARSABLE with both
@@ -199,6 +201,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_parsable-validate_open-value_missing
+    x-veredictum-control: dv_parsable-validate_open-accepted
     summary: "DV_PARSABLE with both mandatory fields: a body with no value is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_PARSABLE with both
@@ -333,6 +336,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_parsable-validate_value_formalism-c_string_pattern_value
+    x-veredictum-control: dv_parsable-validate_value_formalism-accepted
     summary: "DV_PARSABLE value and formalism against per-field C_STRING constraints: a value its C_STRING pattern does not match is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PARSABLE value and
@@ -411,6 +415,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_parsable-validate_value_formalism-c_string_pattern_formalism
+    x-veredictum-control: dv_parsable-validate_value_formalism-accepted
     summary: "DV_PARSABLE value and formalism against per-field C_STRING constraints: a formalism its C_STRING pattern does not match is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PARSABLE value and
@@ -489,6 +494,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_parsable-validate_value_formalism-c_string_list_value
+    x-veredictum-control: dv_parsable-validate_value_formalism-accepted
     summary: "DV_PARSABLE value and formalism against per-field C_STRING constraints: a value outside its C_STRING list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PARSABLE value and
@@ -567,6 +573,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_parsable-validate_value_formalism-c_string_list_formalism
+    x-veredictum-control: dv_parsable-validate_value_formalism-accepted
     summary: "DV_PARSABLE value and formalism against per-field C_STRING constraints: a formalism outside its C_STRING list is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_PARSABLE value and

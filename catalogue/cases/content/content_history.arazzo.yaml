@@ -98,6 +98,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_1plus-summary_ex_mand-c_multiple_attribute_cardinality
+    x-veredictum-control: hist-events_card_1plus-summary_ex_mand-accepted
     summary: "HISTORY.events count against a 1..* cardinality with an archetype-mandated summary: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -173,6 +174,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: hist-events_card_1plus-summary_ex_mand-c_attribute_existence
+    x-veredictum-control: hist-events_card_1plus-summary_ex_mand-accepted
     summary: "HISTORY.events count against a 1..* cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -321,6 +323,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_1plus-summary_ex_opt-c_multiple_attribute_cardinality
+    x-veredictum-control: hist-events_card_1plus-summary_ex_opt-accepted
     summary: "HISTORY.events count against a 1..* cardinality, summary optional: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -471,6 +474,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_3plus-summary_ex_mand-c_multiple_attribute_cardinality
+    x-veredictum-control: hist-events_card_3plus-summary_ex_mand-accepted
     summary: "HISTORY.events count against a 3..* cardinality with an archetype-mandated summary: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -547,6 +551,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: hist-events_card_3plus-summary_ex_mand-c_attribute_existence
+    x-veredictum-control: hist-events_card_3plus-summary_ex_mand-accepted
     summary: "HISTORY.events count against a 3..* cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -696,6 +701,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_3plus-summary_ex_opt-c_multiple_attribute_cardinality
+    x-veredictum-control: hist-events_card_3plus-summary_ex_opt-accepted
     summary: "HISTORY.events count against a 3..* cardinality, summary optional: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -846,6 +852,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_3to5-summary_ex_mand-c_multiple_attribute_cardinality
+    x-veredictum-control: hist-events_card_3to5-summary_ex_mand-accepted
     summary: "HISTORY.events count against a 3..5 cardinality with an archetype-mandated summary: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -922,6 +929,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: hist-events_card_3to5-summary_ex_mand-c_attribute_existence
+    x-veredictum-control: hist-events_card_3to5-summary_ex_mand-accepted
     summary: "HISTORY.events count against a 3..5 cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -1071,6 +1079,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_3to5-summary_ex_opt-c_multiple_attribute_cardinality
+    x-veredictum-control: hist-events_card_3to5-summary_ex_opt-accepted
     summary: "HISTORY.events count against a 3..5 cardinality, summary optional: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -1221,6 +1230,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_any-summary_ex_mand-c_attribute_existence
+    x-veredictum-control: hist-events_card_any-summary_ex_mand-accepted
     summary: "HISTORY.events count under an unconstrained (0..*) cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -1371,6 +1381,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_any-summary_ex_opt-events_valid
+    x-veredictum-control: hist-events_card_any-summary_ex_opt-accepted
     summary: "HISTORY.events count under an unconstrained (0..*) cardinality, summary optional: a breach of the Events_valid invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -1521,6 +1532,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_mand-summary_ex_mand-c_multiple_attribute_cardinality
+    x-veredictum-control: hist-events_card_mand-summary_ex_mand-accepted
     summary: "HISTORY.events count against a 1..1 cardinality with an archetype-mandated summary: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -1597,6 +1609,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: hist-events_card_mand-summary_ex_mand-c_attribute_existence
+    x-veredictum-control: hist-events_card_mand-summary_ex_mand-accepted
     summary: "HISTORY.events count against a 1..1 cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -1746,6 +1759,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_mand-summary_ex_opt-c_multiple_attribute_cardinality
+    x-veredictum-control: hist-events_card_mand-summary_ex_opt-accepted
     summary: "HISTORY.events count against a 1..1 cardinality, summary optional: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -1896,6 +1910,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_opt-summary_ex_mand-c_attribute_existence
+    x-veredictum-control: hist-events_card_opt-summary_ex_mand-accepted
     summary: "HISTORY.events count against a 0..1 cardinality with an archetype-mandated summary: an attribute present or absent against its existence is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -1972,6 +1987,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: hist-events_card_opt-summary_ex_mand-c_multiple_attribute_cardinality
+    x-veredictum-control: hist-events_card_opt-summary_ex_mand-accepted
     summary: "HISTORY.events count against a 0..1 cardinality with an archetype-mandated summary: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -2121,6 +2137,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: hist-events_card_opt-summary_ex_opt-events_valid
+    x-veredictum-control: hist-events_card_opt-summary_ex_opt-accepted
     summary: "HISTORY.events count against a 0..1 cardinality, summary optional: a breach of the Events_valid invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -2196,6 +2213,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: hist-events_card_opt-summary_ex_opt-c_multiple_attribute_cardinality
+    x-veredictum-control: hist-events_card_opt-summary_ex_opt-accepted
     summary: "HISTORY.events count against a 0..1 cardinality, summary optional: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count
@@ -2345,6 +2363,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: history-events_cardinality_count6-c_multiple_attribute_cardinality
+    x-veredictum-control: history-events_cardinality_count6-accepted
     summary: "HISTORY.events count 6 against every official cardinality interval (upper-bound extension): a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (HISTORY.events count 6

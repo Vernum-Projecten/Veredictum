@@ -119,6 +119,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_date_time-validate_lower_upper_constraint-month_validity
+    x-veredictum-control: dv_interval_dv_date_time-validate_lower_upper_constraint-accepted
     summary: "DV_INTERVAL<DV_DATE_TIME> lower/upper against C_DATE_TIME per-component (month/day/hour/minute/second/millisecond/timezone) mandatory/optional/prohibited validity: a month component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -213,6 +214,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_date_time-validate_lower_upper_constraint-timezone_validity
+    x-veredictum-control: dv_interval_dv_date_time-validate_lower_upper_constraint-accepted
     summary: "DV_INTERVAL<DV_DATE_TIME> lower/upper against C_DATE_TIME per-component (month/day/hour/minute/second/millisecond/timezone) mandatory/optional/prohibited validity: a timezone component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -307,6 +309,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_date_time-validate_lower_upper_constraint-day_validity
+    x-veredictum-control: dv_interval_dv_date_time-validate_lower_upper_constraint-accepted
     summary: "DV_INTERVAL<DV_DATE_TIME> lower/upper against C_DATE_TIME per-component (month/day/hour/minute/second/millisecond/timezone) mandatory/optional/prohibited validity: a day component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -401,6 +404,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_date_time-validate_lower_upper_constraint-hour_validity
+    x-veredictum-control: dv_interval_dv_date_time-validate_lower_upper_constraint-accepted
     summary: "DV_INTERVAL<DV_DATE_TIME> lower/upper against C_DATE_TIME per-component (month/day/hour/minute/second/millisecond/timezone) mandatory/optional/prohibited validity: a hour component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -495,6 +499,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_date_time-validate_lower_upper_constraint-minute_validity
+    x-veredictum-control: dv_interval_dv_date_time-validate_lower_upper_constraint-accepted
     summary: "DV_INTERVAL<DV_DATE_TIME> lower/upper against C_DATE_TIME per-component (month/day/hour/minute/second/millisecond/timezone) mandatory/optional/prohibited validity: a minute component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -589,6 +594,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_date_time-validate_lower_upper_constraint-second_validity
+    x-veredictum-control: dv_interval_dv_date_time-validate_lower_upper_constraint-accepted
     summary: "DV_INTERVAL<DV_DATE_TIME> lower/upper against C_DATE_TIME per-component (month/day/hour/minute/second/millisecond/timezone) mandatory/optional/prohibited validity: a second component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -683,6 +689,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_date_time-validate_lower_upper_constraint-millisecond_validity
+    x-veredictum-control: dv_interval_dv_date_time-validate_lower_upper_constraint-accepted
     summary: "DV_INTERVAL<DV_DATE_TIME> lower/upper against C_DATE_TIME per-component (month/day/hour/minute/second/millisecond/timezone) mandatory/optional/prohibited validity: a millisecond component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -856,6 +863,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_date_time-validate_lower_upper_range-c_date_time_range
+    x-veredictum-control: dv_interval_dv_date_time-validate_lower_upper_range-accepted
     summary: "DV_INTERVAL<DV_DATE_TIME> lower/upper against per-bound C_DATE_TIME.range constraints: a date/time outside the C_DATE_TIME range is refused with 422"
     description: >-
       Commits the rows' content against the template
@@ -998,6 +1006,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_date_time-validate_open-iso8601
+    x-veredictum-control: dv_interval_dv_date_time-validate_open-accepted
     summary: "DV_INTERVAL<DV_DATE_TIME> open ({*}): value mandatory + ISO 8601 component validity: a value that is not a valid ISO 8601 literal is refused with 422"
     description: >-
       Commits the rows' content against the template

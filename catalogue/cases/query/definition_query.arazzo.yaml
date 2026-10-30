@@ -368,6 +368,7 @@ workflows:
               quote: "Retrieves list of all stored queries on the system matched by `qualified_query_name` as pattern."
 
   - workflowId: store-reserved_name
+    x-veredictum-control: store-no_version
     summary: Storing a query under the reserved name aql is refused with 400
     description: >-
       Stores a query under the qualified_query_name aql, which the release
@@ -395,6 +396,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: store_version-malformed_version
+    x-veredictum-control: store_version-read_back
     summary: Storing a query at a version that is not a SEMVER version is refused with 400
     description: >-
       Stores a query under a fresh name at the version v1.x, which is neither
@@ -429,6 +431,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: store_version-query_not_parsed
+    x-veredictum-control: store_version-read_back
     summary: Storing a query text the AQL grammar refuses is refused with 400
     description: >-
       Stores, at version 1.0.0 under a fresh name, a query text with no FROM

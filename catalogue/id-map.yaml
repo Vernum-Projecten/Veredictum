@@ -113,6 +113,7 @@ cases:
       - dv_coded_text/dv_coded_text-validate_open-code_string_terminology_id_missing
       - dv_coded_text/dv_coded_text-validate_open-terminology_id_missing
       - dv_coded_text/dv_coded_text-validate_open-code_string_missing
+      - dv_coded_text/dv_coded_text-validate_open-accepted
     open: >-
       2 acceptance row(s) whose DV_CODED_TEXT value is not the code's
       rubric are not carried: RM dv_coded_text.adoc says the value "must
@@ -3699,7 +3700,7 @@ cases:
       How fetch and offset relate to an AQL LIMIT is unassigned, upstream report
       #754.
   I_QUERY_SERVICE.execute_ad_hoc_query-fetch_with_top:
-    new: [aql_refused/get-fetch_with_top]
+    new: [aql_refused_top/get-fetch_with_top]
   I_QUERY_SERVICE.execute_ad_hoc_query-folder_composition_pairs:
     new: []
     open: >-

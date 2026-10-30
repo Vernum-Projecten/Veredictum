@@ -96,6 +96,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: item_tree-items_cardinality-c_multiple_attribute_cardinality
+    x-veredictum-control: item_tree-items_cardinality-accepted
     summary: "ITEM_TREE.items member count against every cardinality interval: a member count outside the cardinality is refused with 422"
     description: >-
       Commits the rows' content against the template (ITEM_TREE.items member

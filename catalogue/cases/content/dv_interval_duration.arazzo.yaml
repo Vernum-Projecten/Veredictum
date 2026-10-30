@@ -119,6 +119,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_duration-validate_constraint-years_allowed
+    x-veredictum-control: dv_interval_dv_duration-validate_constraint-accepted
     summary: "DV_INTERVAL<DV_DURATION> limits against C_DURATION component-allowed flags: a years component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_DURATION>
@@ -213,6 +214,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_duration-validate_constraint-months_allowed
+    x-veredictum-control: dv_interval_dv_duration-validate_constraint-accepted
     summary: "DV_INTERVAL<DV_DURATION> limits against C_DURATION component-allowed flags: a months component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_DURATION>
@@ -307,6 +309,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_duration-validate_constraint-weeks_allowed
+    x-veredictum-control: dv_interval_dv_duration-validate_constraint-accepted
     summary: "DV_INTERVAL<DV_DURATION> limits against C_DURATION component-allowed flags: a weeks component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_DURATION>
@@ -401,6 +404,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_duration-validate_constraint-days_allowed
+    x-veredictum-control: dv_interval_dv_duration-validate_constraint-accepted
     summary: "DV_INTERVAL<DV_DURATION> limits against C_DURATION component-allowed flags: a days component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_DURATION>
@@ -495,6 +499,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_duration-validate_constraint-hours_allowed
+    x-veredictum-control: dv_interval_dv_duration-validate_constraint-accepted
     summary: "DV_INTERVAL<DV_DURATION> limits against C_DURATION component-allowed flags: a hours component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_DURATION>
@@ -589,6 +594,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_duration-validate_constraint-minutes_allowed
+    x-veredictum-control: dv_interval_dv_duration-validate_constraint-accepted
     summary: "DV_INTERVAL<DV_DURATION> limits against C_DURATION component-allowed flags: a minutes component the duration pattern does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_DURATION>
@@ -743,6 +749,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_duration-validate_open-limits_consistent
+    x-veredictum-control: dv_interval_dv_duration-validate_open-accepted
     summary: "DV_INTERVAL<DV_DURATION> open ({*}): interval invariants: a breach of the Limits_consistent invariant is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_DURATION>
@@ -885,6 +892,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_duration-validate_range-c_duration_range
+    x-veredictum-control: dv_interval_dv_duration-validate_range-accepted
     summary: "DV_INTERVAL<DV_DURATION> limits against C_DURATION.range: a duration outside the C_DURATION range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_DURATION>

@@ -1,0 +1,85 @@
+# The ad-hoc AQL requests that use the deprecated TOP and that a service
+# refuses: fetch beside a TOP query, and TOP beside LIMIT. They sit on the arm
+# of the aql-top option whose service executes TOP, because a service that
+# declines TOP refuses either for TOP itself. Every quote is copied verbatim
+# from the named vendored file.
+arazzo: "1.1.0"
+info:
+  title: AQL execution with TOP refused
+  version: "0.1.0"
+  description: >-
+    Ad-hoc AQL requests using TOP that are refused with 400, judged where the
+    service declares that it executes TOP.
+sourceDescriptions:
+  - name: query
+    url: "../../../specs/rest-oas/query-validation.openapi.yaml"
+    type: openapi
+  - name: aql_execute
+    url: aql_execute.arazzo.yaml
+    type: arazzo
+  - name: aqlc_top
+    url: aqlc_top.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: get-fetch_with_top
+    x-veredictum-control: $sourceDescriptions.aql_execute.get-fetch
+    summary: fetch combined with a TOP query is refused with 400
+    description: >-
+      Executes, with GET, a query that parses and selects TOP 2, together with
+      the fetch parameter. fetch cannot be combined with TOP, so the request
+      is invalid input.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/query/Request.md
+      section: Common Headers and Query Parameters
+      quote: "`fetch` - used for paging: the number of rows to fetch (i.e. limit); default depends on the implementation, but cannot be combined with [AQL-top](https://specifications.openehr.org/releases/QUERY/latest/AQL.html#_top)"
+    steps:
+      - stepId: query
+        description: >-
+          Execute a TOP 2 query, which parses, with fetch 1: the fetch
+          parameter cannot be combined with TOP, which makes the request
+          invalid.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query
+        parameters:
+          - name: q
+            in: query
+            value: >-
+              SELECT TOP 2 e/ehr_id/value FROM EHR e
+          - { name: fetch, in: query, value: 1 }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 400"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the server was unable to execute the query due to invalid input, e.g. a required parameter is missing, or at least one of the parameters has an invalid syntax."
+
+  - workflowId: post-top_with_limit
+    x-veredictum-control: $sourceDescriptions.aqlc_top.paging-select_top_limits_the_rows
+    summary: A query using both TOP and LIMIT is refused with 400
+    description: >-
+      Executes, with POST, a query that parses but uses TOP and a LIMIT clause
+      together, which AQL does not allow.
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: TOP
+      quote: "It is not allowed to use `TOP` while also using `LIMIT` clause in the same query."
+    steps:
+      - stepId: query
+        description: >-
+          Execute a query, which parses, that uses TOP and LIMIT together: AQL
+          does not allow both in the same query, which makes the request
+          invalid.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT TOP 2 e/ehr_id/value FROM EHR e LIMIT 2
+        successCriteria:
+          - condition: "$statusCode == 400"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+              section: description
+              quote: "`400 Bad Request` is returned when the server was unable to execute the query due to invalid input, e.g. a required parameter is missing, or at least one of the parameters has an invalid syntax."

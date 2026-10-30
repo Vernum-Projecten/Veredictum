@@ -107,6 +107,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_date-validate_lower_upper_constraint-month_validity
+    x-veredictum-control: dv_interval_dv_date-validate_lower_upper_constraint-accepted
     summary: "DV_INTERVAL<DV_DATE> limits against C_DATE month/day component validity: a month component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_DATE>
@@ -189,6 +190,7 @@ workflows:
               quote: "`422 Unprocessable Entity` is returned when the content type and syntax is correct, could be converted to a resource, but there are semantic validation errors, such as the underlying template is not known or is not validating the supplied resource."
 
   - workflowId: dv_interval_dv_date-validate_lower_upper_constraint-day_validity
+    x-veredictum-control: dv_interval_dv_date-validate_lower_upper_constraint-accepted
     summary: "DV_INTERVAL<DV_DATE> limits against C_DATE month/day component validity: a day component its validity does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_DATE>
@@ -349,6 +351,7 @@ workflows:
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
 
   - workflowId: dv_interval_dv_date-validate_lower_upper_range-c_date_range
+    x-veredictum-control: dv_interval_dv_date-validate_lower_upper_range-accepted
     summary: "DV_INTERVAL<DV_DATE> limits against C_DATE.range: a date outside the C_DATE range is refused with 422"
     description: >-
       Commits the rows' content against the template (DV_INTERVAL<DV_DATE>

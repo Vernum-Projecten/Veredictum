@@ -22,8 +22,12 @@ sourceDescriptions:
   - name: definition
     url: ../../../specs/rest-oas/definition-validation.openapi.yaml
     type: openapi
+  - name: content_item
+    url: content_item.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: item-unmatched_member_refused-c_object_rm_type_name
+    x-veredictum-control: [$sourceDescriptions.content_item.item-type_cluster-accepted, $sourceDescriptions.content_item.item-type_element-accepted]
     summary: "An unmatched ITEM_TREE.items member is refused under the declared strict posture: a member whose RM type the template does not allow is refused with 422"
     description: >-
       Commits the rows' content against the template (An unmatched
