@@ -35,7 +35,9 @@ OPTIONS
 Unplaced
   Every unplaced case                       ████████████████████████  ✓   1  ✕   0  ?   0  !   0  ○   0
 
-Spec divergence: 2 case(s) rest on released text that is unclear or contradictory, and are tagged @SpecDiverge. Until the specification resolves it, Veredictum judges them as the linked upstream reports describe: #42, #352.
+Spec divergence: 2 case(s) rest on released text that is unclear or
+contradictory, and are tagged @SpecDiverge. Until the specification resolves
+it, Veredictum judges them as the linked upstream reports describe: #42, #352.
 
 Failed and errored rows
 

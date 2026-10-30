@@ -344,12 +344,38 @@ pub fn render(results: &Results, options: ShowOptions) -> String {
     if let Some((text, reports)) = divergence_note(&reading.spec_divergence()) {
         let numbers: Vec<String> = reports.iter().map(|r| format!("#{r}")).collect();
         view.line("");
-        view.line(&view.paint(Paint::Grey, &format!("{text} {}.", numbers.join(", "))));
+        for line in wrap(&format!("{text} {}.", numbers.join(", ")), NOTE_WIDTH) {
+            view.line(&view.paint(Paint::Grey, &line));
+        }
     }
     if options.failed {
         expanded(&mut view, results);
     }
     view.out
+}
+
+/// The column the closing note wraps at, so it reads as a few lines in an
+/// 80-column terminal and wider ones alike.
+const NOTE_WIDTH: usize = 78;
+
+/// `text` broken at spaces into lines of at most `width` characters; a word
+/// longer than `width` stands on its own line.
+fn wrap(text: &str, width: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+    let mut line = String::new();
+    for word in text.split_whitespace() {
+        if !line.is_empty() && line.chars().count() + 1 + word.chars().count() > width {
+            lines.push(std::mem::take(&mut line));
+        }
+        if !line.is_empty() {
+            line.push(' ');
+        }
+        line.push_str(word);
+    }
+    if !line.is_empty() {
+        lines.push(line);
+    }
+    lines
 }
 
 fn placed(view: &mut View, reading: &Reading<'_>) {
@@ -474,6 +500,17 @@ mod tests {
             errored,
             skipped,
         }
+    }
+
+    #[test]
+    fn the_closing_note_wraps_at_word_boundaries() {
+        let lines = wrap("one two three four five six", 9);
+        assert_eq!(lines, ["one two", "three", "four five", "six"]);
+        assert!(lines.iter().all(|l| l.chars().count() <= 9));
+        assert_eq!(
+            wrap("averyveryverylongword x", 5),
+            ["averyveryverylongword", "x"]
+        );
     }
 
     #[test]
