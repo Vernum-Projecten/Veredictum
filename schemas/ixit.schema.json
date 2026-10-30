@@ -253,7 +253,7 @@
           "minLength": 1
         }
       },
-      "description": "`exclusive_server` is all a conformance run reads. `perf` and `stress` need every other member, and refuse an IXIT lacking one, naming it."
+      "description": "`exclusive_server` is all a conformance run reads. `perf` and `perf-compare` need every other member, and refuse an IXIT lacking one, naming it."
     },
     "containers": {
       "type": "object",

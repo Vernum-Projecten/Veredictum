@@ -4,8 +4,8 @@
 //! Deterministic JSON-Schema emission for every document the instrument
 //! reads or writes.
 //!
-//! The party documents, the measured schedule and its records, the bench
-//! documents, and the Arazzo catalogue's own formats.
+//! The party documents, the performance workloads, host prescriptions and
+//! records, and the Arazzo catalogue's own formats.
 //!
 //! The published schema files are the norm; this module is their single
 //! source. Emission is byte-deterministic: fixed insertion order (via
@@ -465,7 +465,7 @@ fn declared_environment_def() -> Value {
         block.remove("required");
         block.insert(
             "description".to_owned(),
-            json!("`exclusive_server` is all a conformance run reads. `perf` and `stress` need every other member, and refuse an IXIT lacking one, naming it."),
+            json!("`exclusive_server` is all a conformance run reads. `perf` and `perf-compare` need every other member, and refuse an IXIT lacking one, naming it."),
         );
     }
     def

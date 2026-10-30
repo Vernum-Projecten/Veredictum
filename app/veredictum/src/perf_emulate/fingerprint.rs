@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The host fingerprint recorded beside every bench result.
+//! The host fingerprint recorded beside every performance record.
 //!
-//! A speed number without the machine it was taken on is not comparable, so
-//! the result carries what the standard library and the host's own procfs
+//! A latency without the machine it was taken on is not comparable, so the
+//! record carries what the standard library and the host's own procfs
 //! disclose. Every field past the target triple is OPTIONAL, because the
 //! engine reads no host beyond `std` and `/proc` and never spawns a process
 //! to learn one: a field it cannot establish is absent rather than guessed.
