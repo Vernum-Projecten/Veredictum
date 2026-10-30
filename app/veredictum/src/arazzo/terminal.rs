@@ -15,10 +15,12 @@
 use std::ffi::OsStr;
 use std::fmt::Write as _;
 
-use crate::arazzo::export::{ADVISORY_LINE, arm_state, option_choice, option_path, tally_words};
-use crate::arazzo::reading::{CaseRows, Mark, OptionGroup, Reading, Tally, is_advisory, read};
+use crate::arazzo::export::{ADVISORY_LINE, arm_state, option_choice, tally_words};
+use crate::arazzo::reading::{
+    CaseRows, Mark, OptionGroup, Reading, Tally, TierTree, is_advisory, read,
+};
 use crate::arazzo::results::{ResultRow, Results};
-use crate::arazzo::structure::{Outline, Place};
+use crate::arazzo::structure::Place;
 
 /// The cells of every bar.
 pub const BAR_WIDTH: usize = 24;
@@ -322,8 +324,8 @@ pub fn render(results: &Results, options: ShowOptions) -> String {
     ));
     view.line("");
     view.tally_line(0, "Every row", reading.total, "no rows");
-    if let Some(outline) = &results.outline {
-        placed(&mut view, outline, &reading);
+    if results.outline.is_some() {
+        placed(&mut view, &reading);
     }
     let unplaced: Vec<&CaseRows<'_>> = reading.unplaced.iter().collect();
     if !unplaced.is_empty() {
@@ -343,7 +345,7 @@ pub fn render(results: &Results, options: ShowOptions) -> String {
     view.out
 }
 
-fn placed(view: &mut View, outline: &Outline, reading: &Reading<'_>) {
+fn placed(view: &mut View, reading: &Reading<'_>) {
     view.heading("BASE");
     view.tally_line(2, "Every BASE case", reading.base_total, "no cases");
     for chapter in &reading.base {
@@ -353,15 +355,11 @@ fn placed(view: &mut View, outline: &Outline, reading: &Reading<'_>) {
         }
     }
     view.heading("RECOMMENDED");
-    tier(view, outline, &reading.recommended);
+    tier(view, &reading.recommended);
     view.heading("OPTIONS");
-    tier(view, outline, &reading.options);
-    view.tally_line(2, "TRIAL text", reading.trial.tally, "no cases");
-    for case in &reading.trial.cases {
-        view.case_line(4, case);
-    }
+    tier(view, &reading.options);
     view.heading("Where the released spec is defective");
-    tier(view, outline, &reading.boundary);
+    tier(view, &reading.boundary);
     if reading.reports.is_empty() {
         view.line("  No case rests on reported text.");
     }
@@ -377,25 +375,58 @@ fn placed(view: &mut View, outline: &Outline, reading: &Reading<'_>) {
     }
 }
 
-fn tier(view: &mut View, outline: &Outline, groups: &[OptionGroup<'_>]) {
-    if groups.is_empty() {
+/// Writes one tier the way BASE reads: chapter, band, then each option of
+/// the band with its selected arm, and the band's TRIAL text.
+fn tier(view: &mut View, tree: &TierTree<'_>) {
+    if tree.is_empty() {
         view.line("  No option in this tier.");
+        return;
     }
-    for group in groups {
-        let mut label = format!("{}: {}", option_path(outline, group), option_choice(group));
-        if let Some(report) = group.report {
-            let _ = write!(label, " [report #{report}]");
+    view.tally_line(2, "Every case of the tier", tree.tally, "no cases");
+    for chapter in &tree.chapters {
+        view.tally_line(2, chapter.title, chapter.tally, "no cases");
+        for band in &chapter.bands {
+            view.tally_line(4, band.title, band.tally, "no cases");
+            for group in &band.options {
+                option_line(view, 6, group);
+            }
+            if let Some(trial) = &band.trial {
+                view.tally_line(6, "TRIAL text", trial.tally, "no cases");
+                for case in &trial.cases {
+                    view.case_line(8, case);
+                }
+            }
         }
-        if !group.selected {
-            view.line(&format!("  {label}"));
-            continue;
+    }
+    if !tree.unanchored.is_empty() {
+        view.line("  Options no document tests yet");
+        for group in &tree.unanchored {
+            option_line(view, 4, group);
         }
-        let empty = if group.arms.iter().any(|a| a.selected && a.empty) {
-            arm_state(true, true)
-        } else {
-            "no cases"
-        };
-        view.tally_line(2, &label, group.tally, empty);
+    }
+}
+
+/// Writes one option: its name with its counts, then which arm the
+/// statement selected.
+fn option_line(view: &mut View, indent: usize, group: &OptionGroup<'_>) {
+    let mut label = group.option.to_owned();
+    if let Some(report) = group.report {
+        let _ = write!(label, " [report #{report}]");
+    }
+    if !group.selected {
+        view.tally_line(indent, &label, Tally::default(), "not selected");
+        return;
+    }
+    let nothing = group.arms.iter().any(|a| a.selected && a.empty);
+    let empty = if nothing {
+        arm_state(true, true)
+    } else {
+        "no cases"
+    };
+    view.tally_line(indent, &label, group.tally, empty);
+    if !nothing {
+        let choice = view.paint(Paint::Grey, &option_choice(group));
+        view.line(&format!("{}{choice}", " ".repeat(indent + 2)));
     }
 }
 

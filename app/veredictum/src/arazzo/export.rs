@@ -24,7 +24,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::arazzo::reading::{
-    CaseRows, Mark, OptionGroup, Reading, ReportGroup, Tally, is_advisory, read,
+    CaseRows, Mark, OptionGroup, Reading, ReportGroup, Tally, TierTree, is_advisory, read,
 };
 use crate::arazzo::results::{ResultRow, Results, SkipReason, Status, Whose, Why};
 use crate::arazzo::rows::Row;
@@ -674,13 +674,14 @@ fn report_heading(report: u64, title: Option<&str>, state: Option<String>) -> St
     }
 }
 
-/// Writes one option: its heading, what it decides, each arm, and the cases
-/// of its selected arms.
-fn md_option(out: &mut String, outline: &Outline, group: &OptionGroup<'_>) {
+/// Writes one option at heading level `level`: its heading, what it
+/// decides, each arm, and the cases of its selected arms in this band.
+fn md_option(out: &mut String, outline: &Outline, group: &OptionGroup<'_>, level: usize) {
     let _ = writeln!(
         out,
-        "\n### {}: {}\n\n{}\n\nTheme: {}.",
-        md_inline(&option_path(outline, group)),
+        "\n{} {}: {}\n\n{}\n\nTheme: {}.",
+        "#".repeat(level),
+        md_inline(group.option),
         md_inline(&option_choice(group)),
         md_inline(group.description),
         group.theme.title(),
@@ -725,13 +726,49 @@ fn md_option(out: &mut String, outline: &Outline, group: &OptionGroup<'_>) {
     }
 }
 
-/// Writes one tier of options, saying so when it holds none.
-fn md_tier(out: &mut String, outline: &Outline, groups: &[OptionGroup<'_>]) {
-    if groups.is_empty() {
+/// Writes one tier of options the way BASE reads: chapter, band, then the
+/// options of the band and its TRIAL text, each heading with its tally.
+fn md_tier(out: &mut String, outline: &Outline, tree: &TierTree<'_>) {
+    if tree.is_empty() {
         out.push_str("\nNo option in this tier.\n");
+        return;
     }
-    for group in groups {
-        md_option(out, outline, group);
+    let _ = writeln!(out, "\nEvery case of the tier: {}.", tally_marks(tree.tally));
+    for chapter in &tree.chapters {
+        let _ = writeln!(
+            out,
+            "\n### {}  {}",
+            md_inline(chapter.title),
+            tally_marks(chapter.tally)
+        );
+        for band in &chapter.bands {
+            let _ = writeln!(
+                out,
+                "\n#### {}  {}",
+                md_inline(band.title),
+                tally_marks(band.tally)
+            );
+            for group in &band.options {
+                md_option(out, outline, group, 5);
+            }
+            if let Some(trial) = &band.trial {
+                let _ = writeln!(
+                    out,
+                    "\n##### TRIAL text  {}\n\nThe release marks the text these cases cite \
+                     TRIAL, so they are read here and do not count in the BASE tally.",
+                    tally_marks(trial.tally)
+                );
+                for case in &trial.cases {
+                    md_case(out, case);
+                }
+            }
+        }
+    }
+    if !tree.unanchored.is_empty() {
+        out.push_str("\n### Options no document tests yet\n");
+        for group in &tree.unanchored {
+            md_option(out, outline, group, 4);
+        }
     }
 }
 
@@ -784,18 +821,6 @@ fn md_placed(out: &mut String, outline: &Outline, reading: &Reading<'_>) {
          the statement selects one arm of each.\n",
     );
     md_tier(out, outline, &reading.options);
-    let _ = writeln!(
-        out,
-        "\n### TRIAL text\n\nThe release marks the text these cases cite TRIAL, so they \
-         are read with the options and do not count in the BASE tally: {}.",
-        tally_marks(reading.trial.tally)
-    );
-    if reading.trial.cases.is_empty() {
-        out.push_str("\nNo case rests on TRIAL text.\n");
-    }
-    for case in &reading.trial.cases {
-        md_case(out, case);
-    }
     out.push_str(
         "\n## Where the released spec is defective\n\nThe options below exist only because \
          the released text is defective, and each report lists the cases resting on text \

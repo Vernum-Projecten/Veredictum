@@ -252,10 +252,10 @@ pub struct OptionGroup<'a> {
     pub tier: Tier,
     /// The upstream report its citation names.
     pub report: Option<NonZeroU64>,
-    /// The chapter and band it is read under: those of the first folder its
-    /// documents sit in.
+    /// The chapter of the band it is read under; `None` when no arm names
+    /// a document.
     pub chapter: Option<&'a str>,
-    /// The band.
+    /// The band: its arms hold only the cases of documents in this folder.
     pub folder: Option<&'a str>,
     /// Whether the statement selected one of its arms.
     pub selected: bool,
@@ -272,6 +272,63 @@ pub struct TrialGroup<'a> {
     pub tally: Tally,
     /// Its cases, in document order.
     pub cases: Vec<CaseRows<'a>>,
+}
+
+/// One band of a tier: the options read under one capability folder.
+#[derive(Debug, Clone)]
+pub struct OptionBand<'a> {
+    /// The capability folder.
+    pub folder: &'a str,
+    /// Its heading.
+    pub title: &'a str,
+    /// Its counts, each case once however many options name it.
+    pub tally: Tally,
+    /// Its options, by theme then name, each holding this band's cases only.
+    pub options: Vec<OptionGroup<'a>>,
+    /// The band's BASE cases resting on TRIAL text, in the OPTIONS tier.
+    pub trial: Option<TrialGroup<'a>>,
+}
+
+/// One chapter of a tier.
+#[derive(Debug, Clone)]
+pub struct OptionChapter<'a> {
+    /// The chapter key.
+    pub chapter: &'a str,
+    /// Its heading.
+    pub title: &'a str,
+    /// Its counts, each case once.
+    pub tally: Tally,
+    /// Its bands that hold an option or TRIAL text, in declared order.
+    pub bands: Vec<OptionBand<'a>>,
+}
+
+/// One tier of options, read chapter by chapter and band by band like BASE.
+#[derive(Debug, Clone)]
+pub struct TierTree<'a> {
+    /// The tier.
+    pub tier: Tier,
+    /// Its counts, each case once.
+    pub tally: Tally,
+    /// Its chapters that hold an option or TRIAL text, in declared order.
+    pub chapters: Vec<OptionChapter<'a>>,
+    /// Its options whose arms name no document yet, so no band holds them.
+    pub unanchored: Vec<OptionGroup<'a>>,
+}
+
+impl TierTree<'_> {
+    /// Whether the tier holds nothing to show.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.chapters.is_empty() && self.unanchored.is_empty()
+    }
+
+    /// Every option of the tier, band by band, then the unanchored ones.
+    pub fn options(&self) -> impl Iterator<Item = &OptionGroup<'_>> {
+        self.chapters
+            .iter()
+            .flat_map(|c| c.bands.iter().flat_map(|b| b.options.iter()))
+            .chain(self.unanchored.iter())
+    }
 }
 
 /// The cases resting on text one upstream report records as defective.
@@ -299,13 +356,15 @@ pub struct Reading<'a> {
     /// BASE, chapter by chapter.
     pub base: Vec<ChapterGroup<'a>>,
     /// The options whose support is a SHOULD.
-    pub recommended: Vec<OptionGroup<'a>>,
-    /// The options a MAY or the release's silence leaves open.
-    pub options: Vec<OptionGroup<'a>>,
-    /// The BASE cases resting on TRIAL text.
+    pub recommended: TierTree<'a>,
+    /// The options a MAY or the release's silence leaves open, with the BASE
+    /// cases resting on TRIAL text in their bands.
+    pub options: TierTree<'a>,
+    /// Every BASE case resting on TRIAL text, also read in the bands of
+    /// [`Reading::options`].
     pub trial: TrialGroup<'a>,
     /// The options that exist only because the released text is defective.
-    pub boundary: Vec<OptionGroup<'a>>,
+    pub boundary: TierTree<'a>,
     /// Every case resting on text an upstream report records, by report.
     pub reports: Vec<ReportGroup<'a>>,
     /// The cases the results place nowhere: every case, when the results
@@ -352,13 +411,13 @@ pub fn read(results: &Results) -> Reading<'_> {
             total,
             base_total: Tally::default(),
             base: Vec::new(),
-            recommended: Vec::new(),
-            options: Vec::new(),
+            recommended: TierTree::empty(Tier::Recommended),
+            options: TierTree::empty(Tier::Options),
             trial: TrialGroup {
                 tally: Tally::default(),
                 cases: Vec::new(),
             },
-            boundary: Vec::new(),
+            boundary: TierTree::empty(Tier::SpecBoundary),
             reports: Vec::new(),
             unplaced: all,
         };
@@ -395,15 +454,10 @@ pub fn read(results: &Results) -> Reading<'_> {
             .flatten()
             .flat_map(|c| c.rows.iter().copied()),
     );
-    let mut groups = option_groups(outline, &arm_cases);
-    let mut by_tier = |tier: Tier| -> Vec<OptionGroup<'_>> {
-        let (taken, kept): (Vec<_>, Vec<_>) = groups.drain(..).partition(|g| g.tier == tier);
-        groups = kept;
-        taken
-    };
-    let recommended = by_tier(Tier::Recommended);
-    let options = by_tier(Tier::Options);
-    let boundary = by_tier(Tier::SpecBoundary);
+    let groups = option_groups(outline, &arm_cases);
+    let recommended = tier_tree(outline, Tier::Recommended, &groups, &[]);
+    let options = tier_tree(outline, Tier::Options, &groups, &trial);
+    let boundary = tier_tree(outline, Tier::SpecBoundary, &groups, &[]);
     Reading {
         total,
         base_total,
@@ -486,31 +540,151 @@ fn base_chapters<'a>(
         .collect()
 }
 
+impl TierTree<'_> {
+    fn empty(tier: Tier) -> Self {
+        Self {
+            tier,
+            tally: Tally::default(),
+            chapters: Vec::new(),
+            unanchored: Vec::new(),
+        }
+    }
+}
+
+/// Counts every row of `cases` once per case, however often a case repeats.
+fn distinct_tally<'a, 'b>(cases: impl IntoIterator<Item = &'b CaseRows<'a>>) -> Tally
+where
+    'a: 'b,
+{
+    let mut seen = std::collections::BTreeSet::new();
+    let mut tally = Tally::default();
+    for case in cases {
+        if seen.insert(case.case) {
+            for row in &case.rows {
+                tally.add(row);
+            }
+        }
+    }
+    tally
+}
+
+/// Every case an option group holds.
+fn group_cases<'b, 'a>(group: &'b OptionGroup<'a>) -> impl Iterator<Item = &'b CaseRows<'a>> {
+    group.arms.iter().flat_map(|a| a.cases.iter())
+}
+
+/// The options of `tier` read chapter by chapter and band by band, with the
+/// TRIAL cases `trial` in the bands they sit in.
+fn tier_tree<'a>(
+    outline: &'a Outline,
+    tier: Tier,
+    groups: &[OptionGroup<'a>],
+    trial: &[CaseRows<'a>],
+) -> TierTree<'a> {
+    let in_tier: Vec<&OptionGroup<'a>> = groups.iter().filter(|g| g.tier == tier).collect();
+    let mut chapters = Vec::new();
+    for chapter in &outline.chapters {
+        let mut bands = Vec::new();
+        for folder in &chapter.folders {
+            let name = folder.folder.as_str();
+            let options: Vec<OptionGroup<'a>> = in_tier
+                .iter()
+                .filter(|g| g.folder == Some(name))
+                .map(|g| (*g).clone())
+                .collect();
+            let trial_cases: Vec<CaseRows<'a>> = trial
+                .iter()
+                .filter(|c| c.place.is_some_and(|p| p.folder == name))
+                .cloned()
+                .collect();
+            if options.is_empty() && trial_cases.is_empty() {
+                continue;
+            }
+            let tally = distinct_tally(
+                options
+                    .iter()
+                    .flat_map(group_cases)
+                    .chain(trial_cases.iter()),
+            );
+            bands.push(OptionBand {
+                folder: name,
+                title: &folder.title,
+                tally,
+                options,
+                trial: (!trial_cases.is_empty()).then(|| TrialGroup {
+                    tally: tally_of(&trial_cases),
+                    cases: trial_cases,
+                }),
+            });
+        }
+        if bands.is_empty() {
+            continue;
+        }
+        let tally = distinct_tally(bands.iter().flat_map(|b| {
+            b.options
+                .iter()
+                .flat_map(group_cases)
+                .chain(b.trial.iter().flat_map(|t| t.cases.iter()))
+        }));
+        chapters.push(OptionChapter {
+            chapter: &chapter.chapter,
+            title: &chapter.title,
+            tally,
+            bands,
+        });
+    }
+    let unanchored: Vec<OptionGroup<'a>> = in_tier
+        .iter()
+        .filter(|g| g.folder.is_none())
+        .map(|g| (*g).clone())
+        .collect();
+    let tally = distinct_tally(chapters.iter().flat_map(|c| {
+        c.bands.iter().flat_map(|b| {
+            b.options
+                .iter()
+                .flat_map(group_cases)
+                .chain(b.trial.iter().flat_map(|t| t.cases.iter()))
+        })
+    }));
+    TierTree {
+        tier,
+        tally,
+        chapters,
+        unanchored,
+    }
+}
+
+/// One group per option and band its documents sit in, each arm holding that
+/// band's cases only, and one group with no band per option whose arms name
+/// no document; sorted by theme, then option name.
 fn option_groups<'a>(
     outline: &'a Outline,
     arm_cases: &BTreeMap<(&str, &str), Vec<CaseRows<'a>>>,
 ) -> Vec<OptionGroup<'a>> {
-    let order: Vec<(&str, &str)> = outline
-        .chapters
-        .iter()
-        .flat_map(|c| {
-            c.folders
-                .iter()
-                .map(move |f| (c.chapter.as_str(), f.folder.as_str()))
-        })
-        .collect();
-    let mut groups: Vec<(usize, OptionGroup<'a>)> = outline
-        .options
-        .iter()
-        .map(|option| {
+    let chapter_of = |folder: &str| {
+        outline
+            .folder(folder)
+            .map(|(chapter, _)| chapter.chapter.as_str())
+    };
+    let mut groups = Vec::new();
+    for option in &outline.options {
+        let bands: Vec<Option<&'a str>> = if option.folders.is_empty() {
+            vec![None]
+        } else {
+            option.folders.iter().map(|f| Some(f.as_str())).collect()
+        };
+        for band in bands {
             let arms: Vec<ArmGroup<'a>> = option
                 .arms
                 .iter()
                 .map(|arm| {
-                    let cases = arm_cases
+                    let cases: Vec<CaseRows<'a>> = arm_cases
                         .get(&(option.option.as_str(), arm.arm.as_str()))
+                        .into_iter()
+                        .flatten()
+                        .filter(|c| band.is_none_or(|f| c.place.is_some_and(|p| p.folder == f)))
                         .cloned()
-                        .unwrap_or_default();
+                        .collect();
                     ArmGroup {
                         arm: &arm.arm,
                         selected: arm.selected,
@@ -520,40 +694,23 @@ fn option_groups<'a>(
                     }
                 })
                 .collect();
-            let tally = Tally::of(
-                arms.iter()
-                    .flat_map(|a| a.cases.iter().flat_map(|c| c.rows.iter().copied())),
-            );
-            let first = option
-                .folders
-                .first()
-                .and_then(|f| order.iter().position(|(_, folder)| folder == f));
-            let (chapter, folder) = first
-                .and_then(|at| order.get(at))
-                .map_or((None, None), |(c, f)| (Some(*c), Some(*f)));
-            (
-                first.unwrap_or(usize::MAX),
-                OptionGroup {
-                    option: &option.option,
-                    description: &option.description,
-                    theme: option.theme,
-                    tier: option.tier,
-                    report: option.report,
-                    chapter,
-                    folder,
-                    selected: arms.iter().any(|a| a.selected),
-                    tally,
-                    arms,
-                },
-            )
-        })
-        .collect();
-    groups.sort_by(|(a, x), (b, y)| {
-        a.cmp(b)
-            .then(x.theme.cmp(&y.theme))
-            .then(x.option.cmp(y.option))
-    });
-    groups.into_iter().map(|(_, group)| group).collect()
+            let tally = distinct_tally(arms.iter().flat_map(|a| a.cases.iter()));
+            groups.push(OptionGroup {
+                option: &option.option,
+                description: &option.description,
+                theme: option.theme,
+                tier: option.tier,
+                report: option.report,
+                chapter: band.and_then(chapter_of),
+                folder: band,
+                selected: arms.iter().any(|a| a.selected),
+                tally,
+                arms,
+            });
+        }
+    }
+    groups.sort_by(|x, y| x.theme.cmp(&y.theme).then(x.option.cmp(y.option)));
+    groups
 }
 
 fn report_groups<'a>(outline: &'a Outline, all: &[CaseRows<'a>]) -> Vec<ReportGroup<'a>> {
@@ -747,8 +904,21 @@ mod tests {
         let results = results();
         let reading = read(&results);
         assert!(reading.recommended.is_empty() && reading.boundary.is_empty());
-        let [option] = reading.options.as_slice() else {
+        let [chapter] = reading.options.chapters.as_slice() else {
             panic!("{:?}", reading.options)
+        };
+        let [band] = chapter.bands.as_slice() else {
+            panic!("{chapter:?}")
+        };
+        assert_eq!(band.folder, "composition");
+        assert_eq!(
+            band.trial.as_ref().map(|t| t.cases.len()),
+            Some(1),
+            "the TRIAL case is read in its band under OPTIONS"
+        );
+        assert_eq!(band.tally.tests, 2, "the option case and the TRIAL case");
+        let [option] = band.options.as_slice() else {
+            panic!("{band:?}")
         };
         assert!(option.selected);
         assert_eq!(option.folder, Some("composition"));

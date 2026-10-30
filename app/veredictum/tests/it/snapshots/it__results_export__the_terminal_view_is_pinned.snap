@@ -1,5 +1,6 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
+assertion_line: 692
 expression: view
 ---
 Veredictum results: catalogue
@@ -17,19 +18,27 @@ BASE
     DIRECTORY                               no cases
 
 RECOMMENDED
-  EHR / COMPOSITION / etag-sent: arm etag-declined (selected)
-                                            selected, nothing to run
+  Every case of the tier                    no cases
+  EHR                                       no cases
+    COMPOSITION                             no cases
+      etag-sent                             selected, nothing to run
 
 OPTIONS
-  EHR / COMPOSITION / composition-xml-read: arm xml-supported (selected)
-                                            ████████████████████████  ✓   1  ✕   0  ?   0  !   0  ○   0
-  EHR / COMPOSITION / flat-format: not selected
-  TRIAL text                                ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ✓   0  ✕   1  ?   0  !   0  ○   0
-    ✕ query/stored: 1 failed [TRIAL]
+  Every case of the tier                    ████████▓▓▓▓▓▓▓▓········  ✓   1  ✕   1  ?   0  !   0  ○   1
+  EHR                                       ████████▓▓▓▓▓▓▓▓········  ✓   1  ✕   1  ?   0  !   0  ○   1
+    COMPOSITION                             ████████▓▓▓▓▓▓▓▓········  ✓   1  ✕   1  ?   0  !   0  ○   1
+      composition-xml-read                  ████████████████████████  ✓   1  ✕   0  ?   0  !   0  ○   0
+        arm xml-supported (selected)
+      flat-format                           not selected
+      TRIAL text                            ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ✓   0  ✕   1  ?   0  !   0  ○   0
+        ✕ query/stored: 1 failed [TRIAL]
 
 Where the released spec is defective
-  EHR / COMPOSITION / ehr-status-flat: arm flat-served (selected) [report #352]
-                                            ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
+  Every case of the tier                    ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
+  EHR                                       ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
+    COMPOSITION                             ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
+      ehr-status-flat [report #352]         ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
+        arm flat-served (selected)
   Report #42: A duplicate create has no status (open)
                                             ████████████▓▓▓▓▓▓▓▓▓▓▓▓  ✓   1  ✕   1  ?   0  !   0  ○   0
     ✕ composition/create: 1 passed, 1 failed [report #42]
