@@ -16,6 +16,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::perf_gen::drive::latency_histogram;
 use crate::perf_gen::{ErrorClass, OperationId};
+use crate::perf_result::capacity::{
+    Knee, Peak, PopulationReading, UslReading, fit_usl, knee, peak, population, usl_points,
+};
 use crate::perf_result::quantile::{Quantile, QuantileName, quantile, u64_to_f64, us_to_ms};
 use crate::perf_result::{
     LoadModel, PerfResultError, Raw, RawPlateau, RawQualification, RawScout, RawWindow, SCOPE,
@@ -392,9 +395,18 @@ pub struct Derived {
     pub scout_estimate: Option<ScoutEstimate>,
     /// The plateaus, in the order they ran.
     pub plateaus: Vec<DerivedPlateau>,
+    /// The knee: a bracket, a lower bound, or below the ladder.
+    pub knee: Knee,
+    /// The highest achieved throughput, whatever its latency; absent when
+    /// nothing succeeded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peak: Option<Peak>,
+    /// The Universal Scalability Law fitted to the scout windows and the
+    /// plateaus: an explanatory model, never a verdict.
+    pub usl: UslReading,
+    /// The population the knee could serve at its peak.
+    pub population: PopulationReading,
 }
-
-// TODO(#886): the knee bracket, the peak achieved throughput, the USL fit and the population reading.
 // TODO(#890): an attached A/A floor as a second state of `between_run_noise`.
 
 /// Everything one window holds, decoded and summed over its operations.
@@ -838,7 +850,7 @@ pub fn derive(raw: &Raw) -> Result<Derived, PerfResultError> {
         }
         None => (Vec::new(), None),
     };
-    let plateaus = raw
+    let plateaus: Vec<DerivedPlateau> = raw
         .plateaus
         .iter()
         .enumerate()
@@ -852,6 +864,10 @@ pub fn derive(raw: &Raw) -> Result<Derived, PerfResultError> {
         })
         .collect::<Result<_, _>>()?;
     let seconds = u64_to_f64(raw.seeding.wall_ms) / 1_000.0;
+    let knee = knee(&plateaus);
+    let peak = peak(&plateaus, &scout);
+    let usl = fit_usl(&usl_points(&plateaus, &scout));
+    let population = population(&knee, raw.corpus.scale, &raw.environment);
     Ok(Derived {
         passes: Passes,
         between_run_noise: BetweenRunNoise::Unmeasured,
@@ -863,5 +879,9 @@ pub fn derive(raw: &Raw) -> Result<Derived, PerfResultError> {
         scout,
         scout_estimate,
         plateaus,
+        knee,
+        peak,
+        usl,
+        population,
     })
 }

@@ -22,13 +22,14 @@ use veredictum::ixit::Environment;
 use veredictum::perf_gen::arrivals::Rate;
 use veredictum::perf_gen::drive::{OperationRecord, WindowRecord, WindowSpec, latency_histogram};
 use veredictum::perf_gen::{ErrorClass, FailedExchange, OperationId};
+use veredictum::perf_result::capacity::{Knee, PeakSource, PopulationReading, UslReading};
 use veredictum::perf_result::derive::{BetweenRunNoise, JudgedAt, Steadiness};
 use veredictum::perf_result::judge::rejudge;
 use veredictum::perf_result::quantile::{Quantile, QuantileName, quantile};
 use veredictum::perf_result::{
     CorpusOrigin, CorpusRecord, EmbeddedWorkload, Generator, Instrument, LoadModel, PerfResult,
-    Phase, PhaseRecord, Raw, RawMix, RawPlateau, RawQualification, SCOPE, SeedingRecord, Target,
-    TargetOptions,
+    Phase, PhaseRecord, Raw, RawMix, RawPlateau, RawQualification, RawScout, RawScoutWindow,
+    RawWindow, SCOPE, SeedingRecord, Target, TargetOptions,
 };
 use veredictum::pipeline::perf_workload::refuse_rate_limited;
 use veredictum::workload::CorpusScale;
@@ -467,4 +468,189 @@ fn the_seeding_is_reported_apart_and_labelled_closed_loop() {
     assert_eq!(derived.seeding.requests_per_s, Some(550.0));
     let text = record().render().unwrap();
     assert!(text.contains("\"model\": \"closed_loop\""));
+}
+fn close(a: f64, b: f64) -> bool {
+    (a - b).abs() <= 1e-9 * b.abs().max(1.0)
+}
+
+/// A plateau at `rate` whose 5,000 reads all take about `latency_us`.
+fn plateau_at(rate: f64, latency_us: u64) -> RawPlateau {
+    let half = |start, end| {
+        window(
+            start,
+            end,
+            vec![("read", operation(&spread(2_500, latency_us, 2), &[]))],
+        )
+    };
+    let (first, second) = (half(5, 35), half(35, 65));
+    RawPlateau::from_halves(
+        Rate::new(rate).unwrap(),
+        Duration::from_secs(5),
+        [&first, &second],
+        None,
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_failing_plateau_below_a_qualifying_one_puts_the_knee_below_the_gap() {
+    let record = PerfResult::from_raw(raw(vec![
+        plateau_at(50.0, 5_000),
+        plateau_at(75.0, 2_000_000),
+        plateau_at(90.0, 6_000),
+        plateau_at(105.0, 3_000_000),
+    ]))
+    .unwrap();
+    let Knee::Bracket {
+        qualified_rate,
+        failing_rate,
+        ..
+    } = record.derived.knee
+    else {
+        panic!("{:?}", record.derived.knee);
+    };
+    assert_eq!((qualified_rate, failing_rate), (50.0, 75.0));
+    let peak = record.derived.peak.as_ref().unwrap();
+    assert_eq!(peak.source, PeakSource::Plateau);
+    assert!(matches!(
+        record.derived.usl,
+        UslReading::Fitted { points: 4, .. }
+    ));
+    let judgement = rejudge(&record.render().unwrap()).unwrap();
+    assert!(judgement.reproduces(), "{:?}", judgement.mismatches);
+}
+
+#[test]
+fn a_qualifying_top_plateau_reads_the_knee_as_a_lower_bound() {
+    let record = PerfResult::from_raw(raw(vec![
+        plateau_at(110.0, 5_000),
+        plateau_at(50.0, 5_000),
+        plateau_at(80.0, 5_000),
+    ]))
+    .unwrap();
+    assert!(
+        matches!(record.derived.knee, Knee::LowerBound { qualified_rate, .. } if close(qualified_rate, 110.0)),
+        "{:?}",
+        record.derived.knee
+    );
+    let PopulationReading::Read {
+        lower_bound,
+        population,
+        corpus_scale,
+        derivation,
+        arrivals_per_100k,
+        ..
+    } = &record.derived.population
+    else {
+        panic!("{:?}", record.derived.population);
+    };
+    assert!(*lower_bound);
+    assert!(close(arrivals_per_100k[0], 13.0) && close(arrivals_per_100k[1], 75.0));
+    assert!(
+        close(population[0], 110.0 / 75.0 * 100_000.0),
+        "{population:?}"
+    );
+    assert!(
+        close(population[1], 110.0 / 13.0 * 100_000.0),
+        "{population:?}"
+    );
+    assert_eq!(*corpus_scale, CorpusScale::S);
+    assert!(derivation.contains("13 to 75 peak API arrivals"));
+    assert!(matches!(
+        record.derived.usl,
+        UslReading::NotFitted { points: 3, .. }
+    ));
+}
+
+#[test]
+fn a_failing_lowest_plateau_has_no_population_reading() {
+    let record = PerfResult::from_raw(raw(vec![plateau_at(50.0, 2_000_000)])).unwrap();
+    assert!(
+        matches!(record.derived.knee, Knee::BelowLadder { failing_rate } if close(failing_rate, 50.0))
+    );
+    assert!(matches!(
+        record.derived.population,
+        PopulationReading::NotRead { .. }
+    ));
+}
+
+#[test]
+fn a_tampered_knee_or_fit_is_named_by_perf_judge() {
+    let record = PerfResult::from_raw(raw(vec![
+        plateau_at(50.0, 5_000),
+        plateau_at(75.0, 2_000_000),
+        plateau_at(90.0, 6_000),
+        plateau_at(105.0, 3_000_000),
+    ]))
+    .unwrap();
+    let mut value: Value = serde_json::from_str(&record.render().unwrap()).unwrap();
+    value["derived"]["knee"]["qualified_rate"] = Value::from(90.0);
+    value["derived"]["usl"]["alpha"] = Value::from(0.5);
+    let mut text = serde_json::to_string_pretty(&value).unwrap();
+    text.push('\n');
+    let judgement = rejudge(&text).unwrap();
+    let pointers: Vec<&str> = judgement
+        .mismatches
+        .iter()
+        .map(|m| m.pointer.as_str())
+        .collect();
+    assert_eq!(
+        pointers,
+        vec!["/derived/knee/qualified_rate", "/derived/usl/alpha"]
+    );
+}
+/// Scout windows of 2 s whose achieved throughput and mean in flight follow
+/// the USL with `alpha`, `beta` and `gamma`: `X(N)` exchanges per second,
+/// each taking `N / X(N)` seconds, so Little's law reads back `N`.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "rounded synthetic counts and latencies, all small and positive"
+)]
+fn usl_windows(alpha: f64, beta: f64, gamma: f64) -> RawScout {
+    let windows = [1.0, 2.0, 4.0, 8.0, 12.0, 16.0, 24.0, 32.0, 48.0, 64.0, 96.0]
+        .iter()
+        .enumerate()
+        .map(|(i, n)| {
+            let x = gamma * n / (1.0 + alpha * (n - 1.0) + beta * n * (n - 1.0));
+            let count = (x * 2.0).round() as u64;
+            let latency_us = (n / x * 1_000_000.0).round() as u64;
+            let start = 2 * i as u64;
+            let record = window(
+                start,
+                start + 2,
+                vec![("read", operation(&vec![latency_us; count as usize], &[]))],
+            );
+            RawScoutWindow {
+                planned_rate: Rate::new(x).unwrap(),
+                window: RawWindow::from_record(&record).unwrap(),
+            }
+        })
+        .collect();
+    RawScout {
+        start_rate: Rate::new(8.0).unwrap(),
+        end_rate: Rate::new(4_096.0).unwrap(),
+        halted_at_ms: None,
+        window_ms: 2_000,
+        windows,
+    }
+}
+
+#[test]
+fn the_usl_fit_recovers_known_alpha_and_beta_from_synthetic_windows() {
+    let (alpha, beta, gamma) = (0.03, 0.000_2, 150.0);
+    let mut synthetic = raw(Vec::new());
+    synthetic.scout = Some(usl_windows(alpha, beta, gamma));
+    let record = PerfResult::from_raw(synthetic).unwrap();
+    let UslReading::Fitted {
+        alpha: a, beta: b, ..
+    } = record.derived.usl
+    else {
+        panic!("{:?}", record.derived.usl);
+    };
+    assert!((a - alpha).abs() <= 0.05 * alpha, "alpha {a}");
+    assert!((b - beta).abs() <= 0.05 * beta, "beta {b}");
+    let judgement = rejudge(&record.render().unwrap()).unwrap();
+    assert!(judgement.reproduces(), "{:?}", judgement.mismatches);
 }

@@ -14,6 +14,7 @@
 //! schema is `perf-result.schema.json`. No openEHR specification governs
 //! this: our own design.
 
+pub mod capacity;
 pub mod derive;
 pub mod judge;
 pub mod quantile;

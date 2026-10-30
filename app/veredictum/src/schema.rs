@@ -2941,13 +2941,113 @@ fn perf_qualification_def() -> Value {
     })
 }
 
+fn perf_knee_def() -> Value {
+    let rate = json!({ "type": "number", "exclusiveMinimum": 0.0 });
+    let achieved = json!({ "type": "number", "minimum": 0.0 });
+    json!({
+        "description": "The highest offered rate whose plateau and every lower one qualify: a bracket up to the first failing plateau, a lower bound when the top plateau qualifies, or below the ladder when the lowest fails.",
+        "oneOf": [
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["bound", "qualified_rate", "achieved_per_s", "failing_rate"],
+                "properties": { "bound": { "const": "bracket" }, "qualified_rate": rate, "achieved_per_s": achieved, "failing_rate": rate }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["bound", "qualified_rate", "achieved_per_s"],
+                "properties": { "bound": { "const": "lower_bound" }, "qualified_rate": rate, "achieved_per_s": achieved }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["bound", "failing_rate"],
+                "properties": { "bound": { "const": "below_ladder" }, "failing_rate": rate }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["bound"],
+                "properties": { "bound": { "const": "no_plateau" } }
+            }
+        ]
+    })
+}
+
+fn perf_usl_def() -> Value {
+    json!({
+        "description": "The Universal Scalability Law X(N) = γN / (1 + α(N − 1) + βN(N − 1)) fitted to achieved throughput against mean in flight over the scout windows and the plateaus: an explanatory model, never a verdict. The fit is pinned arithmetic, so `perf-judge` reproduces it.",
+        "oneOf": [
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["state", "alpha", "beta", "gamma", "r_squared", "points", "iterations"],
+                "properties": {
+                    "state": { "const": "fitted" },
+                    "alpha": { "type": "number", "minimum": 0.0, "exclusiveMaximum": 1.0 },
+                    "beta": { "type": "number", "minimum": 0.0 },
+                    "gamma": { "type": "number" },
+                    "n_star": { "type": "number", "exclusiveMinimum": 0.0 },
+                    "predicted_max_per_s": { "type": "number" },
+                    "r_squared": { "type": "number" },
+                    "points": { "type": "integer", "minimum": crate::perf_result::capacity::USL_MIN_POINTS },
+                    "iterations": { "const": crate::perf_result::capacity::USL_ITERATIONS }
+                }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["state", "points", "reason"],
+                "properties": {
+                    "state": { "const": "not_fitted" },
+                    "points": { "type": "integer", "minimum": 0 },
+                    "reason": { "type": "string", "minLength": 1 }
+                }
+            }
+        ]
+    })
+}
+
+fn perf_population_def() -> Value {
+    let pair = json!({ "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "exclusiveMinimum": 0.0 } });
+    json!({
+        "description": "The population the knee could serve at its peak: the knee divided by 13 to 75 peak API arrivals per second per 100,000 population, read at the run's corpus scale and environment.",
+        "oneOf": [
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["state", "knee_rate", "lower_bound", "arrivals_per_100k", "population", "corpus_scale", "corpus_ehrs", "environment", "derivation"],
+                "properties": {
+                    "state": { "const": "read" },
+                    "knee_rate": { "type": "number", "exclusiveMinimum": 0.0 },
+                    "lower_bound": { "type": "boolean" },
+                    "arrivals_per_100k": pair.clone(),
+                    "population": pair,
+                    "corpus_scale": { "enum": tokens(crate::workload::CorpusScale::ALL) },
+                    "corpus_ehrs": { "type": "integer", "minimum": 1 },
+                    "environment": { "type": "string", "minLength": 1 },
+                    "derivation": { "const": crate::perf_result::capacity::POPULATION_DERIVATION }
+                }
+            },
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["state", "reason"],
+                "properties": { "state": { "const": "not_read" }, "reason": { "type": "string", "minLength": 1 } }
+            }
+        ]
+    })
+}
+
+#[expect(clippy::too_many_lines, reason = "one literal JSON-Schema document")]
 fn perf_result_derived_def() -> Value {
     let judged: Vec<&str> = vec!["p99", "p95", "p90", "p50", "none"];
     let ratio = json!({ "type": "number", "exclusiveMinimum": 0.0 });
     json!({
         "type": "object",
         "additionalProperties": false,
-        "required": ["passes", "between_run_noise", "scope", "seeding", "plateaus"],
+        "required": ["passes", "between_run_noise", "scope", "seeding", "plateaus", "knee", "usl", "population"],
         "properties": {
             "passes": { "const": 1 },
             "between_run_noise": { "enum": ["unmeasured"], "description": "One pass measures sampling intervals only; between-run noise needs an interleaved A/A comparison." },
@@ -2961,6 +3061,20 @@ fn perf_result_derived_def() -> Value {
                     "requests_per_s": { "type": "number", "minimum": 0.0 }
                 }
             },
+            "knee": perf_knee_def(),
+            "peak": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["achieved_per_s", "source", "index"],
+                "description": "The highest achieved throughput of the run, whatever its latency.",
+                "properties": {
+                    "achieved_per_s": { "type": "number", "exclusiveMinimum": 0.0 },
+                    "source": { "enum": ["plateau", "scout"] },
+                    "index": { "type": "integer", "minimum": 0 }
+                }
+            },
+            "usl": perf_usl_def(),
+            "population": perf_population_def(),
             "scout_estimate": {
                 "type": "object",
                 "additionalProperties": false,

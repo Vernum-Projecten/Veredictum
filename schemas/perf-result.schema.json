@@ -1137,7 +1137,10 @@
         "between_run_noise",
         "scope",
         "seeding",
-        "plateaus"
+        "plateaus",
+        "knee",
+        "usl",
+        "population"
       ],
       "properties": {
         "passes": {
@@ -1167,6 +1170,275 @@
               "minimum": 0.0
             }
           }
+        },
+        "knee": {
+          "description": "The highest offered rate whose plateau and every lower one qualify: a bracket up to the first failing plateau, a lower bound when the top plateau qualifies, or below the ladder when the lowest fails.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bound",
+                "qualified_rate",
+                "achieved_per_s",
+                "failing_rate"
+              ],
+              "properties": {
+                "bound": {
+                  "const": "bracket"
+                },
+                "qualified_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                "achieved_per_s": {
+                  "type": "number",
+                  "minimum": 0.0
+                },
+                "failing_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bound",
+                "qualified_rate",
+                "achieved_per_s"
+              ],
+              "properties": {
+                "bound": {
+                  "const": "lower_bound"
+                },
+                "qualified_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                "achieved_per_s": {
+                  "type": "number",
+                  "minimum": 0.0
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bound",
+                "failing_rate"
+              ],
+              "properties": {
+                "bound": {
+                  "const": "below_ladder"
+                },
+                "failing_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bound"
+              ],
+              "properties": {
+                "bound": {
+                  "const": "no_plateau"
+                }
+              }
+            }
+          ]
+        },
+        "peak": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "achieved_per_s",
+            "source",
+            "index"
+          ],
+          "description": "The highest achieved throughput of the run, whatever its latency.",
+          "properties": {
+            "achieved_per_s": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "source": {
+              "enum": [
+                "plateau",
+                "scout"
+              ]
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "usl": {
+          "description": "The Universal Scalability Law X(N) = γN / (1 + α(N − 1) + βN(N − 1)) fitted to achieved throughput against mean in flight over the scout windows and the plateaus: an explanatory model, never a verdict. The fit is pinned arithmetic, so `perf-judge` reproduces it.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "alpha",
+                "beta",
+                "gamma",
+                "r_squared",
+                "points",
+                "iterations"
+              ],
+              "properties": {
+                "state": {
+                  "const": "fitted"
+                },
+                "alpha": {
+                  "type": "number",
+                  "minimum": 0.0,
+                  "exclusiveMaximum": 1.0
+                },
+                "beta": {
+                  "type": "number",
+                  "minimum": 0.0
+                },
+                "gamma": {
+                  "type": "number"
+                },
+                "n_star": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                "predicted_max_per_s": {
+                  "type": "number"
+                },
+                "r_squared": {
+                  "type": "number"
+                },
+                "points": {
+                  "type": "integer",
+                  "minimum": 4
+                },
+                "iterations": {
+                  "const": 200
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "points",
+                "reason"
+              ],
+              "properties": {
+                "state": {
+                  "const": "not_fitted"
+                },
+                "points": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        },
+        "population": {
+          "description": "The population the knee could serve at its peak: the knee divided by 13 to 75 peak API arrivals per second per 100,000 population, read at the run's corpus scale and environment.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "knee_rate",
+                "lower_bound",
+                "arrivals_per_100k",
+                "population",
+                "corpus_scale",
+                "corpus_ehrs",
+                "environment",
+                "derivation"
+              ],
+              "properties": {
+                "state": {
+                  "const": "read"
+                },
+                "knee_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                "lower_bound": {
+                  "type": "boolean"
+                },
+                "arrivals_per_100k": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0
+                  }
+                },
+                "population": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0
+                  }
+                },
+                "corpus_scale": {
+                  "enum": [
+                    "POC",
+                    "S",
+                    "L",
+                    "R"
+                  ]
+                },
+                "corpus_ehrs": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "environment": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "derivation": {
+                  "const": "About 46 clinical documents per capita per year (consultations, discharges and ED visits from OECD Health at a Glance 2023 and Eurostat; laboratory results from RCPath; imaging from the NHS Diagnostic Imaging Dataset 2023/24; prescription items from NHS BSA PCA 2024/25) give 0.15 writes per second per 100,000 population; a peak factor of 8 (the ITU-T E.500 busy hour) and a read multiplier of 10:1 to 50:1 (OLTP-Bench and YCSB; PMC10148376) give 13 to 75 peak API arrivals per second per 100,000. The knee divided by that band is the population a deployment of this shape could serve at its peak, read only at the corpus scale and on the environment the run used."
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "reason"
+              ],
+              "properties": {
+                "state": {
+                  "const": "not_read"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
         },
         "scout_estimate": {
           "type": "object",
