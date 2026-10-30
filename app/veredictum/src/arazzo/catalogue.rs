@@ -33,6 +33,7 @@ use serde_json::Value;
 use crate::arazzo::capabilities::{
     CAPABILITIES_FILE, Capabilities, CapabilitiesError, SpecVersion,
 };
+use crate::arazzo::cite::{CiteError, QuoteChecker};
 use crate::arazzo::control;
 use crate::arazzo::document::{ArazzoDocument, DocumentError};
 use crate::arazzo::evaluate::{
@@ -44,6 +45,7 @@ use crate::arazzo::platform;
 use crate::arazzo::principal::{self, Principal};
 use crate::arazzo::results::{Engine, Results, ServerIdentity, Skip, SkipReason, Why};
 use crate::arazzo::rows::{self, RowsError, rows_path};
+use crate::arazzo::spec_profile::SpecProfile;
 use crate::arazzo::structure::{
     self, CHAPTERS_FILE, Chapters, Outline, Place, Placer, REPORTS_FILE, Reports, StructureError,
 };
@@ -163,6 +165,16 @@ pub enum CatalogueError {
     /// The reading structure does not load, or does not place a document.
     #[error(transparent)]
     Structure(#[from] StructureError),
+    /// A citation of a case is refused under the run's profile for a reason
+    /// other than the absence of its text.
+    #[error("`{case}`: {error}")]
+    Citation {
+        /// The case id.
+        case: String,
+        /// The refusal.
+        #[source]
+        error: CiteError,
+    },
 }
 
 /// What the party declares, which every document's plan reads.
@@ -179,6 +191,10 @@ pub struct Declarations {
     pub administrative: bool,
     /// Whether the party supplies the SMART Platform base URL.
     pub platform: bool,
+    /// The specification profile whose text the run's citations are read
+    /// against; a workflow citing text the profile lacks is skipped as
+    /// `cited-text-absent`.
+    pub profile: SpecProfile,
 }
 
 /// One document of the run, with the plan it runs under.
@@ -291,6 +307,7 @@ pub fn claimed_capabilities(
 #[must_use]
 pub fn not_claimed() -> Skip {
     Skip {
+        detail: None,
         reason: SkipReason::NotClaimed,
         why: Why {
             source: STATEMENT_SCHEMA.to_owned(),
@@ -307,6 +324,7 @@ pub fn not_claimed() -> Skip {
 #[must_use]
 pub fn format_not_claimed() -> Skip {
     Skip {
+        detail: None,
         reason: SkipReason::FormatNotClaimed,
         why: Why {
             source: STATEMENT_SCHEMA.to_owned(),
@@ -533,6 +551,55 @@ pub fn plan(
     Ok(plan)
 }
 
+/// The `cited-text-absent` skips of the workflows of `document` whose cited
+/// text the profile of `quotes` lacks.
+///
+/// `name` is the document id. Each skip carries the workflow's first such
+/// citation, with what the profile lacks.
+///
+/// A workflow's citations are its own, its steps' and its criteria's, the
+/// ones its verdict rests on. A setup it names in `dependsOn` is judged by
+/// its own citations wherever it runs as a case.
+///
+/// # Errors
+/// [`CatalogueError::Citation`] when a citation is refused for a reason
+/// other than the absence of its text, such as a source that does not parse
+/// or a document the profile states no status for.
+pub fn absent_text_skips(
+    document: &ArazzoDocument,
+    name: &str,
+    quotes: &mut QuoteChecker<'_>,
+    repo_root: &Path,
+) -> Result<Vec<(String, Skip)>, CatalogueError> {
+    let profile = quotes.profile();
+    let mut skips = Vec::new();
+    for workflow in &document.description().workflows {
+        for citation in structure::workflow_citations(workflow) {
+            match quotes.check(&citation) {
+                Ok(()) => {}
+                Err(error) if error.is_absence() => {
+                    skips.push((
+                        workflow.workflow_id.clone(),
+                        Skip {
+                            reason: SkipReason::CitedTextAbsent,
+                            why: Why::of(&citation, repo_root),
+                            detail: Some(format!("{profile} profile: {error}")),
+                        },
+                    ));
+                    break;
+                }
+                Err(error) => {
+                    return Err(CatalogueError::Citation {
+                        case: format!("{name}/{}", workflow.workflow_id),
+                        error,
+                    });
+                }
+            }
+        }
+    }
+    Ok(skips)
+}
+
 /// The documents a run drives, the capability folders the statement claims
 /// and the option arms it selects, read before any document is loaded.
 #[derive(Debug)]
@@ -684,19 +751,31 @@ impl Selection {
         declarations: &Declarations,
     ) -> Result<Vec<Planned>, CatalogueError> {
         let mut planned = Vec::new();
-        let mut structure = self
-            .chapters
-            .as_ref()
-            .map(|chapters| Placer::new(chapters, self.capabilities.as_ref(), repo_root));
+        let mut structure = self.chapters.as_ref().map(|chapters| {
+            Placer::in_profile(
+                chapters,
+                self.capabilities.as_ref(),
+                repo_root,
+                declarations.profile,
+            )
+        });
+        let mut quotes = (declarations.profile != SpecProfile::Released)
+            .then(|| QuoteChecker::in_profile(repo_root, declarations.profile));
         for found in &self.paths {
             let document = ArazzoDocument::load(&found.path)?;
-            let plan = plan(
+            let mut plan = plan(
                 &document,
                 &found.id,
                 declarations,
                 self.choice(found),
                 repo_root,
             )?;
+            if let Some(quotes) = quotes.as_mut() {
+                for (workflow, skip) in absent_text_skips(&document, &found.id, quotes, repo_root)?
+                {
+                    plan.skips.entry(workflow).or_insert(skip);
+                }
+            }
             let places = match structure.as_mut() {
                 Some(placer) => placer.place(&document, &found.id, &found.capability)?,
                 None => BTreeMap::new(),
@@ -750,6 +829,7 @@ fn results(
             version: env!("CARGO_PKG_VERSION").to_owned(),
         },
         instrument_status: crate::party::InstrumentStatus::CURRENT,
+        specification: crate::arazzo::spec_profile::Specification::Released,
         base_url,
         server: Some(server),
         review: Vec::new(),

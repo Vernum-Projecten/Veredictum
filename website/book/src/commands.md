@@ -99,6 +99,21 @@ Options:
       --rejudge <RECORDING>
           Re-judge this HAR recording instead of driving a server: every request is answered from the recording, so the results are the bytes the recorded run wrote. Pass the root, statement, IXIT and documents the recorded run was given
 
+      --profile <PROFILE>
+          The specification text the case citations are read against.
+          
+          `development` (the default): the pinned snapshot of the openEHR development line under `specs/openehr-development/`, the latest text. A case citing text the snapshot lacks is skipped as `cited-text-absent`, naming what is missing. The results name the profile and every snapshot commit, and a development result never builds a certificate and is never compared with or counted toward a released result.
+          
+          `released`: the frozen release under `specs/openehr/`. Only a released result backs a released claim or a certificate.
+          
+          The catalogue is gated against the release under either profile. A re-judgement takes the profile the recorded run was given.
+
+          Possible values:
+          - development: The pinned snapshot of the openEHR development line: the latest text
+          - released:    The frozen release: the oracle of every released claim
+          
+          [default: development]
+
   -h, --help
           Print help (see a summary with '-h')
 ```
@@ -131,6 +146,19 @@ names the server, so `{ "environment": { "exclusive_server": true } }` is a
 whole IXIT for it. The IXIT is checked against the published IXIT schema
 before anything runs, and one that fails it, such as a misspelled member,
 stops the run with exit status 2 naming the file and the violation.
+
+**Which text.** `--profile development`, the default, reads every citation
+against the pinned snapshot of the openEHR development line under
+`specs/openehr-development/`; `--profile released` reads the frozen release
+under `specs/openehr/`. A case whose cited file, section or sentence the
+snapshot lacks is skipped as `cited-text-absent`, naming the profile and what
+is missing. The results record the profile under `specification`, with the
+repository, branch and commit of every snapshot directory, and the terminal
+view, `show`, every export and the console name them. A development result
+never builds a certificate and is never compared with or counted toward a
+released result, so a certificate needs a `--profile released` run. The
+catalogue is gated against the release under either profile. Pass a
+re-judgement the profile the recorded run was given.
 
 **What the party declares.** A statement names the capabilities it claims in
 `claims.capabilities`, the field the published statement schema defines. For
@@ -360,6 +388,19 @@ Options:
       --specs <SPECS>
           The vendored openEHR spec tree; enables citation resolution and the surface gate
 
+      --profile <PROFILE>
+          The specification profile to report the case citations against, beside the gates.
+          
+          `released` (the default): the gates alone, against the frozen release. Zero findings is the only passing result.
+          
+          `development`: the gates as under `released`, then every case citation read against the snapshot under `specs/openehr-development/` beside `--specs`. A citation whose file, section or quote the snapshot lacks is printed as `[info]` and counted per component; it is never a finding. A citation refused for any other reason is a `profile-citation` finding. Needs `--specs`.
+
+          Possible values:
+          - development: The pinned snapshot of the openEHR development line: the latest text
+          - released:    The frozen release: the oracle of every released claim
+          
+          [default: released]
+
       --statement <STATEMENT>
           A submitted declaration (`statement.json`) to hold to the static review: its published schema, the capability folders it claims, the option arms it selects, and that every claimed folder holds a workflow its declarations let run.
           
@@ -417,6 +458,16 @@ nothing. A selected option arm one of whose documents needs a format the
 statement does not claim is refused (`arm-format`): the run would skip that
 document, so nothing would verify the arm. No openEHR specification governs the floors, the realization scope
 or the claim gates; they are this instrument's own design.
+
+`--profile development` keeps every gate above, against the release, and then
+reads every case citation against the development snapshot under
+`specs/openehr-development/` beside `--specs`. A citation whose file, section
+or sentence the snapshot lacks prints as an `[info]` line naming the case, and
+the profile's counts follow per component; neither is a finding, and the exit
+status stays `0` for them. A citation the snapshot refuses for any other
+reason is a `profile-citation` finding. The repository's own gate runs
+`--profile released`, where zero findings is the only passing result, and a
+second `--profile development` pass that reports the absences.
 
 ## perf
 
@@ -907,17 +958,32 @@ document and its exit status.
 ## export
 
 ```text
-Write the views of an Arazzo results document a vendor's CI shows: JUnit XML, CTRF 0.2.0 JSON and a Markdown summary, each a byte-deterministic function of the document
+Write the views of an Arazzo results document a vendor's CI shows: JUnit XML, CTRF 0.2.0 JSON and a Markdown summary, each a byte-deterministic function of the document.
+
+A result judged under the development profile names the profile and every snapshot commit in each view: a `profile` property on every JUnit suite, a `specification` member in the CTRF environment, and a `Specification` row with a warning in the Markdown summary.
 
 Usage: veredictum export [OPTIONS] --results <RESULTS>
 
 Options:
-      --results <RESULTS>            The `results.json` the Arazzo evaluator wrote
-      --junit <JUNIT>                Write the JUnit XML view here
-      --ctrf <CTRF>                  Write the CTRF JSON view here
-      --markdown <MARKDOWN>          Write the Markdown summary here. Without this flag and without a job summary file, the summary is printed to standard output
-      --step-summary <STEP_SUMMARY>  The GitHub Actions job summary file the Markdown summary is appended to. GitHub sets the variable in every job step [env: GITHUB_STEP_SUMMARY]
-  -h, --help                         Print help
+      --results <RESULTS>
+          The `results.json` the Arazzo evaluator wrote
+
+      --junit <JUNIT>
+          Write the JUnit XML view here
+
+      --ctrf <CTRF>
+          Write the CTRF JSON view here
+
+      --markdown <MARKDOWN>
+          Write the Markdown summary here. Without this flag and without a job summary file, the summary is printed to standard output
+
+      --step-summary <STEP_SUMMARY>
+          The GitHub Actions job summary file the Markdown summary is appended to. GitHub sets the variable in every job step
+          
+          [env: GITHUB_STEP_SUMMARY]
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 `export` reads the `results.json` the Arazzo evaluator writes and renders the
@@ -1023,7 +1089,7 @@ run, never in a public artifact.
 ```text
 Show an Arazzo results document in the terminal: one line per chapter, band and option, each with its counts and a bar.
 
-A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged `@SpecDiverge` and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! warning and ○ skipped (grey). A warning row is a SHOULD the server did not follow and is never shown as a failure.
+A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged `@SpecDiverge` and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! warning and ○ skipped (grey). A warning row is a SHOULD the server did not follow and is never shown as a failure. A result judged under the development profile opens with a line naming the profile and every snapshot commit, and saying it is never a released result.
 
 Exit status: `0` when the view was printed; `2` when the document cannot be read.
 

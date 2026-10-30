@@ -83,11 +83,25 @@ and quote the sentence that assigns the value.
   document marked DEVELOPMENT inside a release is released text and gates
   as BASE. A case resting on TRIAL text keeps its verdict and is read with
   the OPTIONS, outside every BASE tally. A RETIRED document is no part of
-  the release, and `validate` refuses a citation into it. The openEHR
-  development branch is no part of the oracle: a Develop column reads a
-  pinned snapshot vendored outside `specs/openehr/` by its own
-  `scripts/vendor/` script, and a Develop row only says what would change
-  against it. It is never a verdict (#875).
+  the release, and `validate` refuses a citation into it.
+- **Two specification profiles** (owner rulings 2026-10-30, #875). A run
+  picks one. `development`, the default run profile, is the latest text: a
+  pinned snapshot of each openEHR repository's development line under
+  `specs/openehr-development/`, vendored by
+  `scripts/vendor/spec-docs-development.sh` with a `PROVENANCE.md` naming
+  the commit, and the text every patch under `upstream/` is written against.
+  `released` is selectable and frozen: `specs/openehr/`, where nothing is
+  ever patched. The released profile is the oracle for released claims, and
+  the development profile for development runs. A development run computes
+  real verdicts against the development text, and its record, every view and
+  every export name the profile and the snapshot. Released results alone back
+  a released claim or a certificate: a development result is never mixed
+  with, compared as, or counted toward a released result, a certificate or
+  the released BASE/OPTIONS tally. A case cites the same section under both
+  profiles, read against the text of the profile it runs under, and a case
+  whose cited text is absent from a profile is skipped with that reason.
+  `validate` gates the catalogue against the release, with zero findings the
+  only passing result.
 - Where both the docs text and the OAS are silent, no case asserts the
   behaviour: the silence is an `upstream-report` issue here, with its patch
   under `upstream/`, and a citation that rests on defective text names that

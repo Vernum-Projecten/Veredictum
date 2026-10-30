@@ -127,6 +127,7 @@ pub fn undeclared_skips(
             (
                 workflow.workflow_id.clone(),
                 Skip {
+                    detail: None,
                     reason: SkipReason::NotDeclared,
                     why: why.clone(),
                 },

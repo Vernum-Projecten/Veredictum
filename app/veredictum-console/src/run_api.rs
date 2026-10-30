@@ -464,6 +464,9 @@ pub struct RunDraft {
     /// The deployment postures the operator declared, each absent until they
     /// declare it (#456).
     pub postures: DeclaredPostures,
+    /// The specification profile the run is judged under: the development
+    /// snapshot until the operator switches to the frozen release.
+    pub profile: veredictum::arazzo::spec_profile::SpecProfile,
 }
 
 #[cfg(feature = "ssr")]
@@ -583,6 +586,8 @@ pub struct DraftView {
     /// The deployment postures the draft declares, one line each — empty when
     /// the operator declared none.
     pub postures: Vec<String>,
+    /// The specification profile token the run is judged under.
+    pub profile: String,
 }
 
 /// The accepted claim, summarized for the overview the operator reads
@@ -754,8 +759,31 @@ pub mod read {
                 statement: draft.statement_product.clone(),
                 filter: draft.filter.clone(),
                 postures: draft.postures.summary(),
+                profile: draft.profile.token().to_owned(),
             }
         })
+    }
+
+    /// Stores the specification profile the run is judged under, from its
+    /// token.
+    ///
+    /// # Errors
+    /// The engine's refusal of a token that names no profile, "no connection
+    /// draft" when S3 has not run, or the poisoned-lock diagnostic.
+    pub fn save_profile(
+        state: &ConsoleState,
+        submitter: Submitter,
+        token: &str,
+    ) -> Result<(), String> {
+        let profile: veredictum::arazzo::spec_profile::SpecProfile = token
+            .parse()
+            .map_err(|e: veredictum::arazzo::spec_profile::UnknownProfile| e.to_string())?;
+        let mut guard = state.draft.lock().map_err(|e| e.to_string())?;
+        let draft = guard
+            .get_mut(submitter)
+            .ok_or_else(|| String::from(NO_DRAFT))?;
+        draft.profile = profile;
+        Ok(())
     }
 
     /// Stores this submitter's connection draft, replacing any prior one.
@@ -1277,6 +1305,7 @@ pub mod read {
             })
             .transpose()?;
         let spec = crate::engine::RunSpec {
+            profile: draft.profile,
             root: state.root.clone(),
             base_url: draft.base_url.clone(),
             auth: draft.auth.token(),
@@ -1621,6 +1650,7 @@ pub mod fns {
             &state,
             who,
             super::RunDraft {
+                profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
                 base_url,
                 sut_name,
                 sut_version,
@@ -1746,6 +1776,19 @@ pub mod fns {
             &postures,
         )
         .map_err(ServerFnError::new)
+    }
+
+    /// Stores the specification profile the run is judged under:
+    /// `development` (the default) or `released`.
+    ///
+    /// # Errors
+    /// The refusal of a token that names no profile, "no connection draft"
+    /// when S3 has not run, or the draft-store failure.
+    #[server]
+    pub async fn save_profile(profile: String) -> Result<(), ServerFnError> {
+        let state: crate::state::ConsoleState = leptos::prelude::expect_context();
+        let who = crate::submitter::current(&state);
+        super::read::save_profile(&state, who, &profile).map_err(ServerFnError::new)
     }
 
     /// The capability folders with the documents and workflows each holds.

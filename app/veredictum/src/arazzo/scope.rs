@@ -252,6 +252,7 @@ pub fn undeclared_citation() -> Citation {
 #[must_use]
 pub fn undeclared_skip(repo_root: &Path) -> Skip {
     Skip {
+        detail: None,
         reason: SkipReason::NotDeclared,
         why: Why::of(&undeclared_citation(), repo_root),
     }

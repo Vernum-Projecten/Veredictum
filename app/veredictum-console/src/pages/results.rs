@@ -995,14 +995,36 @@ fn results_view(results: &ResultsScreen, ctx: &Ctx) -> AnyView {
     let certificate = certificate_view(&results.certificate);
     let chart = chart_view(&results.reading, ctx);
     let rows = grouped_view(&results.reading, ctx);
+    let specification = specification_view(results);
     view! {
         {stats}
         {certificate}
         <p class="mb-3 text-sm text-ink-muted">
             "Base URL: " <span class="font-mono text-xs text-ink">{results.base_url.clone()}</span>
         </p>
+        {specification}
         {chart}
         {rows}
+    }
+    .into_any()
+}
+
+/// The specification profile the run was judged under, and for a
+/// development result the sentence that keeps it apart from a released one.
+fn specification_view(results: &ResultsScreen) -> AnyView {
+    let note = (!results.released).then(|| {
+        view! {
+            <p class="mb-3 text-sm text-ink-muted">
+                "Judged against a pinned snapshot of the openEHR development line, not the release. This is never a released result: it builds no certificate and is never compared with or counted toward one."
+            </p>
+        }
+    });
+    view! {
+        <p class="mb-1 text-sm text-ink-muted">
+            "Specification: "
+            <span class="font-mono text-xs text-ink">{results.specification.clone()}</span>
+        </p>
+        {note}
     }
     .into_any()
 }

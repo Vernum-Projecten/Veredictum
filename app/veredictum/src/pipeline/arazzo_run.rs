@@ -34,7 +34,8 @@ use crate::arazzo::evaluate::RunConfig;
 use crate::arazzo::gates::check_catalogue;
 use crate::arazzo::har::Har;
 use crate::arazzo::reading::Tally;
-use crate::arazzo::results::{ResultRow, Results, ReviewNote, Status, Whose};
+use crate::arazzo::results::{ResultRow, Results, ReviewNote, Status, Whose, relink};
+use crate::arazzo::spec_profile::{SpecProfile, Specification};
 use crate::exec::transport::HttpTransport;
 use crate::ixit::{DeclaredEnvironment, Ixit};
 use crate::pipeline::{Error, RenderedFile, load_party_json, read_json};
@@ -60,6 +61,10 @@ pub struct ArazzoRunRequest<'a> {
     pub ixit: Option<&'a Path>,
     /// Only these documents, by id; every document when empty.
     pub documents: &'a [String],
+    /// The specification profile whose text the case citations are read
+    /// against. The catalogue is gated against the release whatever the
+    /// profile.
+    pub profile: SpecProfile,
 }
 
 /// What the run is driven against.
@@ -212,6 +217,7 @@ fn read_ixit(path: &Path) -> Result<(Value, Option<DeclaredEnvironment>), Error>
 /// [`Error::Recording`] when the recording does not read,
 /// [`Error::ArazzoCatalogue`] when the catalogue cannot be planned,
 /// [`Error::ArazzoGate`] when the catalogue has a gate finding,
+/// [`Error::Snapshot`] when the development profile finds no snapshot to read,
 /// [`Error::Instrument`] when no HTTP client can be built,
 /// [`Error::Credential`] when a located credential no longer reads, or the
 /// IXIT's scoped tokens are malformed or not in the environment, and
@@ -238,6 +244,7 @@ pub fn run_catalogue(
         environment,
         administrative: false,
         platform: false,
+        profile: request.profile,
     };
     let target = match drive {
         Drive::Live {
@@ -285,6 +292,7 @@ pub fn run_catalogue(
     if !findings.is_empty() {
         return Err(Error::ArazzoGate(findings));
     }
+    let specification = Specification::of(request.profile, &repo_root)?;
     let planned = selection.load(&repo_root, &declarations)?;
     let mut outcome = match target {
         Target::Live {
@@ -309,6 +317,10 @@ pub fn run_catalogue(
         },
     };
     outcome.results.outline = selection.outline(&planned);
+    if !specification.is_released() {
+        relink(&mut outcome.results.rows, &repo_root, request.profile);
+    }
+    outcome.results.specification = specification;
     if let Some(server) = &outcome.results.server {
         outcome.results.review = ReviewNote::review(declared_its_rest.as_deref(), server);
     }

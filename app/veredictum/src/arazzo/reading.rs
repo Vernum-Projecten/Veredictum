@@ -853,6 +853,7 @@ mod tests {
                 version: "0".to_owned(),
             },
             instrument_status: crate::party::InstrumentStatus::CURRENT,
+            specification: crate::arazzo::spec_profile::Specification::Released,
             base_url: "http://sut".to_owned(),
             server: None,
             review: Vec::new(),

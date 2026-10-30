@@ -30,6 +30,7 @@ use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::published::{chapters_schema, reports_schema};
 use crate::arazzo::maturity::{Maturities, MaturityError};
 use crate::arazzo::source::split_qualified;
+use crate::arazzo::spec_profile::SpecProfile;
 
 /// The structure file under a catalogue root.
 pub const CHAPTERS_FILE: &str = "chapters.yaml";
@@ -623,10 +624,22 @@ impl<'a> Placer<'a> {
         capabilities: Option<&'a Capabilities>,
         repo_root: &Path,
     ) -> Self {
+        Self::in_profile(chapters, capabilities, repo_root, SpecProfile::Released)
+    }
+
+    /// A placer over `chapters` and `capabilities`, reading maturities from
+    /// the text `profile` reads under `repo_root`.
+    #[must_use]
+    pub fn in_profile(
+        chapters: &'a Chapters,
+        capabilities: Option<&'a Capabilities>,
+        repo_root: &Path,
+        profile: SpecProfile,
+    ) -> Self {
         Self {
             chapters,
             capabilities,
-            maturities: Maturities::new(repo_root),
+            maturities: Maturities::in_profile(repo_root, profile),
             formalisms: Formalisms::default(),
         }
     }

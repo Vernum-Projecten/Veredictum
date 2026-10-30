@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::arazzo::maturity::{Maturities, Maturity, MaturityError, SpecStatus};
+use crate::arazzo::spec_profile::SpecProfile;
 
 /// The specification-extension key a citation is carried under.
 pub const CITE_KEY: &str = "x-veredictum-cite";
@@ -324,6 +325,42 @@ pub enum CiteError {
         /// The quote that was not found.
         quote: String,
     },
+    /// The profile vendors no tree for the root the source is under.
+    #[error("the {profile} specification profile holds no tree for `{file}`")]
+    NotInProfile {
+        /// The cited source.
+        file: String,
+        /// The profile.
+        profile: SpecProfile,
+    },
+    /// The profile's tree has no file where the source maps to.
+    #[error("the {profile} specification profile has no file `{path}` for `{file}`")]
+    AbsentFromProfile {
+        /// The cited source.
+        file: String,
+        /// Where the source maps to under the profile.
+        path: String,
+        /// The profile.
+        profile: SpecProfile,
+    },
+}
+
+impl CiteError {
+    /// Whether the refusal says the cited text is absent from the text read:
+    /// no tree or no file for the source, no such section, or no such quote
+    /// in it, or a document that text retires.
+    #[must_use]
+    pub fn is_absence(&self) -> bool {
+        matches!(
+            self,
+            Self::NotInProfile { .. }
+                | Self::AbsentFromProfile { .. }
+                | Self::SectionNotFound { .. }
+                | Self::AmbiguousSection { .. }
+                | Self::QuoteNotFound { .. }
+                | Self::Retired { .. }
+        )
+    }
 }
 
 /// Reads the citation an object's extension map carries, if any.
@@ -362,6 +399,8 @@ pub fn normalize_whitespace(text: &str) -> String {
 #[derive(Debug)]
 pub struct QuoteChecker<'a> {
     repo_root: &'a Path,
+    /// The profile whose text every citation is read against.
+    profile: SpecProfile,
     texts: BTreeMap<String, Result<String, String>>,
     /// What each `(source, section)` resolved so far holds, or why it does
     /// not resolve.
@@ -404,12 +443,27 @@ impl<'a> QuoteChecker<'a> {
     /// A checker over the repository whose root is `repo_root`.
     #[must_use]
     pub fn new(repo_root: &'a Path) -> Self {
+        Self::in_profile(repo_root, SpecProfile::Released)
+    }
+
+    /// A checker over the repository whose root is `repo_root`, reading every
+    /// citation against `profile`'s text: the source names the released path,
+    /// and [`SpecProfile::path_of`] gives the file read.
+    #[must_use]
+    pub fn in_profile(repo_root: &'a Path, profile: SpecProfile) -> Self {
         Self {
             repo_root,
+            profile,
             texts: BTreeMap::new(),
             sections: BTreeMap::new(),
-            maturities: Maturities::new(repo_root),
+            maturities: Maturities::in_profile(repo_root, profile),
         }
+    }
+
+    /// The profile the checker reads.
+    #[must_use]
+    pub fn profile(&self) -> SpecProfile {
+        self.profile
     }
 
     /// Checks that `citation` names an oracle file, that its section exists
@@ -438,6 +492,21 @@ impl<'a> QuoteChecker<'a> {
         {
             return Err(CiteError::OutsideOracle(source.to_owned()));
         }
+        let Some(path) = self.profile.path_of(source) else {
+            return Err(CiteError::NotInProfile {
+                file: source.to_owned(),
+                profile: self.profile,
+            });
+        };
+        // NOTE: no openEHR spec governs this — our own design; the released profile keeps
+        // reporting a missing file as unreadable, and only another profile names the absence.
+        if self.profile != SpecProfile::Released && !self.repo_root.join(&path).is_file() {
+            return Err(CiteError::AbsentFromProfile {
+                file: source.to_owned(),
+                path,
+                profile: self.profile,
+            });
+        }
         match self.maturities.of(source) {
             Ok(Maturity::Document {
                 document,
@@ -458,7 +527,7 @@ impl<'a> QuoteChecker<'a> {
         let resolved = if let Some(resolved) = self.sections.get(&key) {
             resolved.clone()?
         } else {
-            let resolved = self.resolve(source, &citation.section);
+            let resolved = self.resolve(source, &path, &citation.section);
             self.sections.insert(key, resolved.clone());
             resolved?
         };
@@ -477,9 +546,9 @@ impl<'a> QuoteChecker<'a> {
         }
     }
 
-    /// What `section` in `source` holds.
-    fn resolve(&mut self, source: &str, section: &str) -> Result<Resolved, CiteError> {
-        let text = self.read(source)?;
+    /// What `section` in `source`, read from `path`, holds.
+    fn resolve(&mut self, source: &str, path: &str, section: &str) -> Result<Resolved, CiteError> {
+        let text = self.read(source, path)?;
         let extension = Path::new(source)
             .extension()
             .and_then(std::ffi::OsStr::to_str)
@@ -528,15 +597,21 @@ impl<'a> QuoteChecker<'a> {
         Ok(Resolved::Text(normalize_whitespace(&haystack)))
     }
 
-    fn read(&mut self, source: &str) -> Result<String, CiteError> {
-        let root = self.repo_root;
+    fn read(&mut self, source: &str, path: &str) -> Result<String, CiteError> {
+        let file = self.repo_root.join(path);
+        let antora = self.profile != SpecProfile::Released;
         let cached = self.texts.entry(source.to_owned()).or_insert_with(|| {
-            let text = std::fs::read_to_string(root.join(source)).map_err(|e| e.to_string())?;
+            let text = std::fs::read_to_string(&file).map_err(|e| e.to_string())?;
             let is_adoc = Path::new(source)
                 .extension()
                 .is_some_and(|ext| ext.eq_ignore_ascii_case("adoc"));
-            Ok(if is_adoc {
-                expand_listing_includes(&text, &root.join(source))
+            let text = if is_adoc {
+                expand_listing_includes(&text, &file)
+            } else {
+                text
+            };
+            Ok(if is_adoc && antora {
+                expand_antora_includes(&text, &file, 0)
             } else {
                 text
             })
@@ -588,6 +663,117 @@ fn expand_listing_includes(text: &str, path: &Path) -> String {
             Some(content) => out.push_str(&content),
             None => out.push_str(line),
         }
+        out.push('\n');
+    }
+    out
+}
+
+/// How deep [`expand_antora_includes`] follows a partial that includes
+/// another.
+const ANTORA_INCLUDE_DEPTH: usize = 8;
+
+/// `text` of the `AsciiDoc` page or partial at `path`, with each `include::`
+/// of an Antora partial replaced by the partial's content, the way the
+/// development branch renders it.
+///
+/// A target is an Antora resource id in the partial family:
+/// `partial$<path>`, `<module>:partial$<path>` or
+/// `<component>:<module>:partial$<path>`
+/// (<https://docs.antora.org/antora/latest/page/include-a-partial/>). A
+/// `leveloffset=+N` attribute shifts the included headings down by `N`. An
+/// include with any other attribute, one whose target names another family
+/// or a version, and one that does not read stays the directive line it is,
+/// so text it would add is never quoted from.
+fn expand_antora_includes(text: &str, path: &Path, depth: usize) -> String {
+    let mut out = String::with_capacity(text.len());
+    for line in text.lines() {
+        let included = (depth < ANTORA_INCLUDE_DEPTH)
+            .then(|| antora_include(line, path))
+            .flatten()
+            .and_then(|(target, offset)| {
+                // NOTE: no openEHR spec governs this — our own design; a partial that does not
+                // read stays its directive line, so a quote of its text is refused as not found.
+                let content = std::fs::read_to_string(&target).ok()?;
+                let expanded = expand_antora_includes(&content, &target, depth + 1);
+                Some(shift_headings(&expanded, offset))
+            });
+        match included {
+            Some(content) => out.push_str(&content),
+            None => out.push_str(line),
+        }
+        out.push('\n');
+    }
+    out
+}
+
+/// The file an `include::` line names as an Antora partial, resolved against
+/// the module of `path`, with its heading offset; `None` for any other line.
+fn antora_include(line: &str, path: &Path) -> Option<(std::path::PathBuf, usize)> {
+    let (target, attributes) = line
+        .trim_end()
+        .strip_prefix("include::")?
+        .strip_suffix(']')?
+        .split_once('[')?;
+    let offset = match attributes.trim() {
+        "" => 0,
+        other => other
+            .strip_prefix("leveloffset=+")
+            .and_then(|n| n.parse::<usize>().ok())?,
+    };
+    let (coordinates, relative) = target.split_once("partial$")?;
+    if coordinates.contains('@') || relative.is_empty() || relative.contains('{') {
+        return None;
+    }
+    let relative = Path::new(relative);
+    if !relative
+        .components()
+        .all(|c| matches!(c, Component::Normal(_)))
+    {
+        return None;
+    }
+    let parts: Vec<std::borrow::Cow<'_, str>> = path
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect();
+    let at = parts.iter().rposition(|part| part == "modules")?;
+    let own_module = parts.get(at + 1)?.to_string();
+    let component_root: std::path::PathBuf = path.components().take(at).collect();
+    let (component_root, module) = match coordinates
+        .trim_end_matches(':')
+        .split(':')
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        [""] => (component_root, own_module),
+        [module] => (component_root, (*module).to_owned()),
+        [component, module] => (
+            component_root.parent()?.join(component),
+            (*module).to_owned(),
+        ),
+        _ => return None,
+    };
+    Some((
+        component_root
+            .join("modules")
+            .join(module)
+            .join("partials")
+            .join(relative),
+        offset,
+    ))
+}
+
+/// `text` with every `AsciiDoc` heading moved `offset` levels down.
+fn shift_headings(text: &str, offset: usize) -> String {
+    if offset == 0 {
+        return text.to_owned();
+    }
+    let marks = "=".repeat(offset);
+    let mut out = String::with_capacity(text.len());
+    for line in text.lines() {
+        if line.starts_with('=') && heading(line).is_some() {
+            out.push_str(&marks);
+        }
+        out.push_str(line);
         out.push('\n');
     }
     out
@@ -1328,5 +1514,95 @@ mod tests {
                 "{seeded}"
             );
         }
+    }
+
+    #[test]
+    fn the_development_profile_reads_the_snapshot_through_its_antora_partials() {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("specs/openehr/RM/docs/common/master06-change_control_package.adoc")
+            .write_str("== Logical Deletion\n\nReleased text only.\n")
+            .unwrap();
+        let rm = "specs/openehr-development/specifications-RM/modules";
+        dir.child(format!("{rm}/common/pages/change_control_package.adoc"))
+            .write_str("= Change Control\n\n== Logical Deletion\n\ninclude::partial$deletion.adoc[]\n\n== Next\n\nelsewhere\n")
+            .unwrap();
+        dir.child(format!("{rm}/common/partials/deletion.adoc"))
+            .write_str(
+                "A deleted version is marked.\ninclude::ROOT:partial$shared.adoc[leveloffset=+1]\n",
+            )
+            .unwrap();
+        dir.child(format!("{rm}/ROOT/partials/shared.adoc"))
+            .write_str("Shared text.\n== Shifted\n\nUnder a shifted heading.\n")
+            .unwrap();
+        dir.child(format!("{rm}/ROOT/partials/classes/locatable.adoc"))
+            .write_str(
+                "=== LOCATABLE Class\n\ninclude::ROOT:partial$definitions/locatable.adoc[tag=x]\n",
+            )
+            .unwrap();
+        dir.child(format!("{rm}/ROOT/partials/definitions/locatable.adoc"))
+            .write_str("Hidden behind a tag.\n")
+            .unwrap();
+        let source = "specs/openehr/RM/docs/common/master06-change_control_package.adoc";
+        let mut released = QuoteChecker::new(dir.path());
+        let mut development = QuoteChecker::in_profile(dir.path(), SpecProfile::Development);
+        assert_eq!(
+            released.check(&cite(source, "Logical Deletion", "Released text only.")),
+            Ok(())
+        );
+        let absent = development.check(&cite(source, "Logical Deletion", "Released text only."));
+        assert!(
+            matches!(&absent, Err(e @ CiteError::QuoteNotFound { .. }) if e.is_absence()),
+            "{absent:?}"
+        );
+        assert_eq!(
+            development.check(&cite(
+                source,
+                "Logical Deletion",
+                "A deleted version is marked."
+            )),
+            Ok(())
+        );
+        assert_eq!(
+            development.check(&cite(
+                source,
+                "Logical Deletion > Shifted",
+                "Under a shifted heading."
+            )),
+            Ok(()),
+            "a leveloffset include shifts its headings under the including section"
+        );
+        assert!(
+            development
+                .check(&cite(source, "Logical Deletion", "elsewhere"))
+                .is_err(),
+            "the next heading still ends the section"
+        );
+        let class = "specs/openehr/RM/docs/UML/classes/locatable.adoc";
+        assert!(
+            development
+                .check(&cite(class, "LOCATABLE Class", "Hidden behind a tag."))
+                .is_err(),
+            "an include with a tag selects text the expansion cannot, so it is not expanded"
+        );
+        let missing = development.check(&cite(
+            "specs/openehr/RM/docs/ehr/master04-ehr_package.adoc",
+            "EHR",
+            "q",
+        ));
+        assert!(
+            matches!(&missing, Err(e @ CiteError::AbsentFromProfile { path, .. })
+                if e.is_absence() && path == "specs/openehr-development/specifications-RM/modules/ehr/pages/ehr_package.adoc"),
+            "{missing:?}"
+        );
+        let unmirrored = development.check(&cite(
+            "specs/its-xml-schemas/its-xml-1.0.2-nsv1/x.xsd",
+            "a",
+            "q",
+        ));
+        assert!(
+            matches!(&unmirrored, Err(e @ CiteError::NotInProfile { .. }) if e.is_absence()),
+            "{unmirrored:?}"
+        );
     }
 }

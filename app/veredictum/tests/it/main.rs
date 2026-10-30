@@ -39,3 +39,4 @@ mod perf_seeding;
 mod pipeline_seams;
 mod results_export;
 mod schema_drift;
+mod spec_profile;

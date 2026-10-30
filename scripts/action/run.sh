@@ -22,6 +22,7 @@
 #   IN_AUTH         none | basic | bearer, checked by the engine
 #   IN_ADMIN_AUTH   none | basic | bearer, checked by the engine
 #   IN_DOCUMENTS    document ids separated by white space (optional)
+#   IN_PROFILE      development | released, checked by the engine
 #   IN_OUT_DIR      the output directory, created when missing
 #   IN_IMAGE        the image reference; empty means the release image of the
 #                   version this action's own tree carries
@@ -94,6 +95,7 @@ main() {
   local base_url="${IN_BASE_URL:-}" out_dir="${IN_OUT_DIR:-veredictum-results}"
   local image="${IN_IMAGE:-}" pull="${IN_PULL:-true}" network="${IN_NETWORK:-host}"
   local auth="${IN_AUTH:-none}" admin_auth="${IN_ADMIN_AUTH:-none}"
+  local profile="${IN_PROFILE:-development}"
   local version="" image_id repo_digests
   local -a run_args=() test_args=()
 
@@ -175,7 +177,8 @@ main() {
 
   local code=0
   docker run "${run_args[@]}" "$image_id" test --base-url "$base_url" \
-    --auth "$auth" --admin-auth "$admin_auth" ${test_args[@]+"${test_args[@]}"} --out /work/out || code=$?
+    --auth "$auth" --admin-auth "$admin_auth" --profile "$profile" \
+    ${test_args[@]+"${test_args[@]}"} --out /work/out || code=$?
   case "$code" in
     0 | 1 | 2) ;;
     # Any other status is the container runtime's own, never the engine's.
@@ -319,6 +322,8 @@ STUB
   check "pull false does not pull" 0 '' '^pull ' IN_PULL=false
   check "documents become repeated --document flags" 0 '--document ehr --document query' '' \
     'IN_DOCUMENTS=ehr query'
+  check "no profile input runs the development profile" 0 '--profile development ' ''
+  check "the profile input reaches the engine" 0 '--profile released ' '' IN_PROFILE=released
 
   if [[ "$fails" -gt 0 ]]; then
     echo "run.sh self-test: ${fails} case(s) failed" >&2

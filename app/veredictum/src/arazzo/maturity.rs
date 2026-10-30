@@ -19,6 +19,8 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
+use crate::arazzo::spec_profile::SpecProfile;
+
 /// The status a vendored manifest gives one document of a release.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SpecStatus {
@@ -149,6 +151,7 @@ type ManifestEntries = Result<Vec<(String, Option<String>)>, MaturityError>;
 #[derive(Debug)]
 pub struct Maturities {
     repo_root: PathBuf,
+    profile: SpecProfile,
     manifests: BTreeMap<String, ManifestEntries>,
 }
 
@@ -156,8 +159,16 @@ impl Maturities {
     /// The maturities of the release vendored under `repo_root`.
     #[must_use]
     pub fn new(repo_root: &Path) -> Self {
+        Self::in_profile(repo_root, SpecProfile::Released)
+    }
+
+    /// The maturities `profile` gives the documents vendored under
+    /// `repo_root`: the release's manifests, or the development snapshot's.
+    #[must_use]
+    pub fn in_profile(repo_root: &Path, profile: SpecProfile) -> Self {
         Self {
             repo_root: repo_root.to_owned(),
+            profile,
             manifests: BTreeMap::new(),
         }
     }
@@ -260,8 +271,7 @@ impl Maturities {
     /// Where `document` of `component` states its own status.
     fn vars_path(&self, component: &str, document: &str) -> PathBuf {
         self.repo_root
-            .join("specs/openehr")
-            .join(component)
+            .join(self.profile.component_dir(component))
             .join("docs")
             .join(document)
             .join("manifest_vars.adoc")
@@ -270,18 +280,14 @@ impl Maturities {
     /// The `(id, spec_status)` entries of `component`'s manifest.
     fn manifest(&mut self, component: &str) -> Result<&[(String, Option<String>)], MaturityError> {
         let repo_root = &self.repo_root;
+        let directory = self.profile.component_dir(component);
         let entry = self
             .manifests
             .entry(component.to_owned())
             .or_insert_with(|| {
-                let path = repo_root
-                    .join("specs/openehr")
-                    .join(component)
-                    .join("manifest.json");
+                let path = repo_root.join(&directory).join("manifest.json");
                 if !path.is_file() {
-                    return Err(MaturityError::NoManifest(format!(
-                        "specs/openehr/{component}/"
-                    )));
+                    return Err(MaturityError::NoManifest(format!("{directory}/")));
                 }
                 let unreadable = |reason: String| MaturityError::Unreadable {
                     path: path.display().to_string(),

@@ -96,6 +96,14 @@ inputs:
       document.
     required: false
     default: ""
+  profile:
+    description: >-
+      The specification text the citations are read against: development (the
+      pinned snapshot of the openEHR development line, the latest text) or
+      released (the frozen release). Only a released run backs a released
+      claim or a certificate.
+    required: false
+    default: development
   out-dir:
     description: >-
       Where results.json, recording.har, junit.xml, ctrf.json and summary.md
@@ -164,6 +172,7 @@ runs:
         IN_AUTH: ${{ inputs.auth }}
         IN_ADMIN_AUTH: ${{ inputs.admin-auth }}
         IN_DOCUMENTS: ${{ inputs.documents }}
+        IN_PROFILE: ${{ inputs.profile }}
         IN_OUT_DIR: ${{ inputs.out-dir }}
         IN_IMAGE: ${{ inputs.image }}
         IN_PULL: ${{ inputs.pull }}

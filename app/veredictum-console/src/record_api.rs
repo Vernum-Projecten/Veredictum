@@ -335,6 +335,12 @@ impl ReadingView {
 pub struct ResultsScreen {
     /// The base URL the run drove.
     pub base_url: String,
+    /// The specification profile the run was judged under, with every
+    /// snapshot commit for the development profile, as the engine labels it.
+    pub specification: String,
+    /// Whether the run was judged against the released text; only such a
+    /// result backs a released claim or a certificate.
+    pub released: bool,
     /// Every row, grouped as the engine reads the results.
     pub reading: ReadingView,
     /// What happened about the run's certificate.
@@ -747,6 +753,8 @@ pub mod read {
             reading_view(&results).map_err(|e| format!("a result row did not render: {e}"))?;
         Ok(Some(ResultsScreen {
             base_url: results.base_url.clone(),
+            specification: results.specification.label(),
+            released: results.specification.is_released(),
             reading,
             certificate,
         }))

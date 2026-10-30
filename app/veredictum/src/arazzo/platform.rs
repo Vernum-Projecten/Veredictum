@@ -60,6 +60,7 @@ pub fn undeclared_skips(document: &ArazzoDocument, repo_root: &Path) -> BTreeMap
             (
                 workflow.workflow_id.clone(),
                 Skip {
+                    detail: None,
                     reason: SkipReason::NotDeclared,
                     why: why.clone(),
                 },

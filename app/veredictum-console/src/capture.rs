@@ -491,6 +491,7 @@ mod tests {
             statement: Some(String::from("my-cdr unknown")),
             filter: Some(String::from("ehr_status")),
             postures: vec![String::from("system id: cdr.example.org")],
+            profile: String::from("development"),
         });
         assert_eq!(pinned.base_url, super::PINNED_ENDPOINT);
         assert_eq!(pinned.sut_name, "my-cdr");

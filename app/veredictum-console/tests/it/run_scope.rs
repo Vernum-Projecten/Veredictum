@@ -70,6 +70,7 @@ fn the_scope_preview_counts_what_the_engine_processes() -> Result<(), Box<dyn st
     let out = scratch.path().join("scope-run");
     std::fs::create_dir_all(&out)?;
     let spec = veredictum_console::engine::RunSpec {
+        profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
         documents,
         ..engine_gate::gate_spec(ixit, port, out)
     };
@@ -130,6 +131,7 @@ fn the_draft_view_carries_no_secret() -> Result<(), Box<dyn std::error::Error>> 
         &state,
         engine_gate::gate_submitter(),
         RunDraft {
+            profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             base_url: String::from("http://cdr.example"),
             sut_name: String::from("x"),
             sut_version: String::from("y"),
@@ -202,6 +204,7 @@ fn drafted_state() -> veredictum_console::state::ConsoleState {
         out: engine_gate::repo_root().join("out"),
         catalogue: committed_listing(),
         draft: std::sync::Arc::new(std::sync::Mutex::new(engine_gate::drafts_of(RunDraft {
+            profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             base_url: String::from("http://unused"),
             sut_name: String::from("claim-gate"),
             sut_version: String::from("0.0.0-gate"),
@@ -353,6 +356,7 @@ fn a_composed_claim_selects_the_checked_capabilities() -> Result<(), Box<dyn std
         let statement_path = out.join("statement.json");
         std::fs::write(&statement_path, &document)?;
         let spec = veredictum_console::engine::RunSpec {
+            profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             statement: Some(statement_path),
             ..engine_gate::gate_spec(ixit.clone(), port, out)
         };

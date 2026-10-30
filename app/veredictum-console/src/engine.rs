@@ -91,6 +91,9 @@ pub struct RunSpec {
     pub ixit: Option<PathBuf>,
     /// Run only these documents, by id; empty runs every document.
     pub documents: Vec<String>,
+    /// The `--profile` the run is judged under: the development snapshot
+    /// unless the operator switched to the frozen release.
+    pub profile: veredictum::arazzo::spec_profile::SpecProfile,
     /// The output directory the run writes into.
     pub out_dir: PathBuf,
     /// The secret values under the variable names `test` reads
@@ -525,6 +528,8 @@ pub fn args(spec: &RunSpec) -> Vec<std::ffi::OsString> {
         spec.auth.into(),
         "--admin-auth".into(),
         spec.admin_auth.into(),
+        "--profile".into(),
+        spec.profile.token().into(),
     ];
     if let Some(statement) = &spec.statement {
         args.push("--statement".into());
@@ -653,6 +658,7 @@ mod tests {
     /// argument for argument.
     fn full_spec() -> RunSpec {
         RunSpec {
+            profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             root: "catalogue".into(),
             base_url: String::from("http://cdr.test/openehr/v1"),
             auth: "basic",
@@ -690,6 +696,8 @@ mod tests {
                 "basic",
                 "--admin-auth",
                 "bearer",
+                "--profile",
+                "development",
                 "--statement",
                 "mine/statement.json",
                 "--ixit",
@@ -710,6 +718,7 @@ mod tests {
     #[test]
     fn an_unnarrowed_run_passes_no_optional_flag() {
         let spec = RunSpec {
+            profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             statement: None,
             ixit: None,
             documents: Vec::new(),
@@ -727,6 +736,7 @@ mod tests {
     #[test]
     fn a_run_without_an_admin_credential_passes_admin_auth_none() {
         let spec = RunSpec {
+            profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             admin_auth: "none",
             credentials: Vec::new(),
             ..full_spec()

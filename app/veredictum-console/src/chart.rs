@@ -860,6 +860,7 @@ mod tests {
                 version: String::from("0"),
             },
             instrument_status: veredictum::party::InstrumentStatus::CURRENT,
+            specification: veredictum::arazzo::spec_profile::Specification::Released,
             base_url: String::from("http://sut"),
             server: None,
             review: Vec::new(),

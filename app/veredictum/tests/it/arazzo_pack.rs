@@ -56,6 +56,7 @@ fn replay(document: &ArazzoDocument, recording: &Recording) -> Results {
             plan.skips.insert(
                 workflow.workflow_id.clone(),
                 Skip {
+                    detail: None,
                     reason: SkipReason::NotClaimed,
                     why: Why {
                         source: "verification-pack/arazzo/expected.json".to_owned(),

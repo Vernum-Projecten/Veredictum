@@ -43,6 +43,75 @@
       ],
       "description": "The approval status of the instrument that wrote this document, derived from its own version: pre-approval for every 0.x version, which the openEHR SEC has not approved, and sec-approved from 1.0.0, which marks that approval."
     },
+    "specification": {
+      "type": "object",
+      "required": [
+        "profile"
+      ],
+      "description": "The specification text the run's citations were read against. `released` is the vendored release, the oracle of every released claim. `development` is a pinned snapshot of the openEHR development branch, named component by component with its repository, branch and commit; a development result builds no certificate and is never compared with or counted toward a released result. A results document without this member was judged against the release. No openEHR spec governs the profiles; they are the instrument's own design.",
+      "properties": {
+        "profile": {
+          "enum": [
+            "released",
+            "development"
+          ]
+        },
+        "snapshot": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "component",
+              "repository",
+              "branch",
+              "commit"
+            ],
+            "properties": {
+              "component": {
+                "type": "string",
+                "minLength": 1
+              },
+              "repository": {
+                "type": "string",
+                "minLength": 1
+              },
+              "branch": {
+                "type": "string",
+                "minLength": 1
+              },
+              "commit": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              }
+            }
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "profile": {
+              "const": "released"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": [
+            "snapshot"
+          ],
+          "properties": {
+            "profile": {
+              "const": "development"
+            },
+            "snapshot": true
+          }
+        }
+      ]
+    },
     "base_url": {
       "type": "string"
     },
@@ -99,7 +168,8 @@
                   "version-out-of-range",
                   "format-not-claimed",
                   "extension-not-offered",
-                  "not-declared"
+                  "not-declared",
+                  "cited-text-absent"
                 ]
               },
               "why": {
@@ -130,6 +200,11 @@
                     "minimum": 1
                   }
                 }
+              },
+              "detail": {
+                "type": "string",
+                "minLength": 1,
+                "description": "What the reason leaves to say: for `cited-text-absent`, the specification profile and what of the cited text it lacks (the file, the section or the quote)."
               }
             }
           },

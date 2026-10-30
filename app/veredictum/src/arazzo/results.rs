@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::arazzo::cite::Citation;
 use crate::arazzo::rows::Row;
+use crate::arazzo::spec_profile::{DEVELOPMENT_ROOT, SpecProfile, Specification};
 use crate::arazzo::structure::Outline;
 use crate::identity::IdentityRead;
 use crate::party::InstrumentStatus;
@@ -68,6 +69,9 @@ pub enum SkipReason {
     /// A value the case needs from the party's IXIT or statement is not
     /// declared.
     NotDeclared,
+    /// A text the case cites is absent from the specification profile the
+    /// run reads.
+    CitedTextAbsent,
 }
 
 impl SkipReason {
@@ -79,6 +83,7 @@ impl SkipReason {
         Self::FormatNotClaimed,
         Self::ExtensionNotOffered,
         Self::NotDeclared,
+        Self::CitedTextAbsent,
     ];
 }
 
@@ -91,6 +96,7 @@ impl fmt::Display for SkipReason {
             Self::FormatNotClaimed => "format-not-claimed",
             Self::ExtensionNotOffered => "extension-not-offered",
             Self::NotDeclared => "not-declared",
+            Self::CitedTextAbsent => "cited-text-absent",
         })
     }
 }
@@ -162,6 +168,26 @@ impl Why {
     }
 }
 
+/// Points every link of `rows` at the upstream file of the tree `profile`
+/// reads, or drops it when the profile holds no such file.
+///
+/// A citation names the released path under every profile, so a row judged
+/// under another profile links to the commit that profile's text was taken
+/// from, never to the release.
+pub fn relink(rows: &mut [ResultRow], repo_root: &Path, profile: SpecProfile) {
+    let set = |why: &mut Why| {
+        why.link = upstream_link_in(&why.source, repo_root, profile);
+    };
+    for row in rows {
+        if let Some(skip) = row.skip.as_mut() {
+            set(&mut skip.why);
+        }
+        if let Some(why) = row.explanation.as_mut().and_then(|e| e.why.as_mut()) {
+            set(why);
+        }
+    }
+}
+
 /// The exchange a red row was judged on.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExchangeRef {
@@ -203,6 +229,10 @@ pub struct Skip {
     pub reason: SkipReason,
     /// The citation that makes the case not apply.
     pub why: Why,
+    /// What the reason leaves to say: for `cited-text-absent`, the profile
+    /// and what of the cited text it lacks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
 }
 
 /// One row of the results.
@@ -247,6 +277,11 @@ pub struct Results {
     pub engine: Engine,
     /// The approval status of the instrument that produced the results.
     pub instrument_status: InstrumentStatus,
+    /// The specification text the run was judged against.
+    // NOTE: no openEHR spec governs this — our own design; a record that predates the profiles
+    // was judged against the release, so a record without the member reads as released.
+    #[serde(default)]
+    pub specification: Specification,
     /// The base URL the run was driven against.
     pub base_url: String,
     /// What the server stated about itself through System OPTIONS, on a
@@ -407,6 +442,9 @@ impl fmt::Display for ResultRow {
         let status = self.status.to_string();
         if let Some(skip) = &self.skip {
             writeln!(f, "{status:<8} {}   {}", self.case, skip.reason)?;
+            if let Some(detail) = &skip.detail {
+                writeln!(f, "Missing  {detail}")?;
+            }
             return write_why(f, Some(&skip.why));
         }
         let Some(why) = &self.explanation else {
@@ -461,6 +499,34 @@ fn write_why(f: &mut fmt::Formatter<'_>, why: Option<&Why>) -> fmt::Result {
 /// the provenance names neither.
 #[must_use]
 pub fn upstream_link(source: &str, repo_root: &Path) -> Option<String> {
+    upstream_link_in(source, repo_root, SpecProfile::Released)
+}
+
+/// The upstream URL of the file `profile` reads for the cited `source`, at
+/// the commit that profile's tree was taken from.
+///
+/// Under [`SpecProfile::Released`] it is [`upstream_link`]. Under another
+/// profile the source maps onto that profile's tree
+/// ([`SpecProfile::path_of`]), whose provenance names the commit; `None`
+/// when the profile holds no such file.
+#[must_use]
+pub fn upstream_link_in(source: &str, repo_root: &Path, profile: SpecProfile) -> Option<String> {
+    if profile != SpecProfile::Released {
+        let path = profile.path_of(source)?;
+        if !repo_root.join(&path).is_file() {
+            return None;
+        }
+        let (directory, inner) = path
+            .strip_prefix(DEVELOPMENT_ROOT)?
+            .strip_prefix('/')?
+            .split_once('/')?;
+        return provenance_link(
+            repo_root,
+            &format!("{DEVELOPMENT_ROOT}/{directory}"),
+            inner,
+            "",
+        );
+    }
     let (tree, inner, upstream_prefix) = if let Some(rest) = source.strip_prefix("specs/openehr/") {
         let (component, inner) = rest.split_once('/')?;
         (format!("specs/openehr/{component}"), inner, String::new())
@@ -478,9 +544,20 @@ pub fn upstream_link(source: &str, repo_root: &Path) -> Option<String> {
             "computable/OAS/".to_owned(),
         )
     };
+    provenance_link(repo_root, &tree, inner, &upstream_prefix)
+}
+
+/// The upstream URL of `inner` in the vendored `tree`, read from the tree's
+/// `PROVENANCE.md`, with `upstream_prefix` before it upstream.
+fn provenance_link(
+    repo_root: &Path,
+    tree: &str,
+    inner: &str,
+    upstream_prefix: &str,
+) -> Option<String> {
     // NOTE: no openEHR spec governs this — our own design; a tree without a
     // readable PROVENANCE.md has no upstream to link, so the link is absent.
-    let provenance = std::fs::read_to_string(repo_root.join(&tree).join("PROVENANCE.md")).ok()?;
+    let provenance = std::fs::read_to_string(repo_root.join(tree).join("PROVENANCE.md")).ok()?;
     let field = |names: &[&str]| {
         provenance.lines().find_map(|line| {
             let line = line.trim_start_matches("- ");
