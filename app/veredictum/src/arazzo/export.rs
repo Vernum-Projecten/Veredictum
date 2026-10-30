@@ -982,9 +982,10 @@ fn md_defect_warning(out: &mut String, outline: &Outline, reports: &[(NonZeroU64
         return;
     }
     let cases: usize = reports.iter().map(|(_, n)| n).sum();
-    out.push_str(&format!(
+    let _ = write!(
+        out,
         "\n> [!WARNING]\n> **Spec defect.** {cases} case(s) in this band rest on released text an upstream report records as defective:\n"
-    ));
+    );
     for (report, count) in reports {
         let entry = outline.report(*report);
         let _ = writeln!(
