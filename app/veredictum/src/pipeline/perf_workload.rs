@@ -45,7 +45,7 @@ use crate::perf_result::host::{HostPrescription, NetworkLeg, load_host_id};
 use crate::perf_result::server::{ServerReadings, SettingsReading};
 use crate::perf_result::{
     CorpusOrigin, CorpusRecord, EmbeddedWorkload, Generator, Instrument, LoadModel, PerfResult,
-    Raw, RawMix, SeedingRecord, Target, TargetOptions,
+    Raw, RawMix, SeedingRecord, Target, TargetOptions, WalkRecord,
 };
 use crate::pipeline::{Error, load_ixit, load_statement};
 use crate::workload::Claimed;
@@ -466,6 +466,7 @@ impl OpenTarget {
 
 /// A target with its corpus ready and its performer built.
 pub(crate) struct ReadyTarget {
+    pub(crate) walk: Option<WalkRecord>,
     pub(crate) state: CorpusState,
     pub(crate) seeding: SeedReport,
     pub(crate) origin: CorpusOrigin,
@@ -482,19 +483,25 @@ pub(crate) async fn ready_target(
 ) -> Result<ReadyTarget, Error> {
     let workload = &prepared.loaded.workload;
     let client = &target.client;
+    let seed_workers = workload
+        .corpus
+        .seed_workers
+        .map_or(settings.seed_workers, |n| {
+            usize::try_from(n).unwrap_or(usize::MAX)
+        });
     let (state, report, origin) = match settings.corpus {
         CorpusMode::Seed => {
             progress(format!(
                 "seeding {} (closed-loop, {} workers): {} EHRs x {} compositions",
                 target.base_url,
-                settings.seed_workers,
-                workload.corpus.scale.ehrs(),
+                seed_workers,
+                workload.corpus.ehr_count(),
                 workload.corpus.compositions_per_ehr
             ));
             let seed = SeedRequest {
                 recipe: &workload.corpus,
-                ehrs: workload.corpus.scale.ehrs(),
-                workers: settings.seed_workers,
+                ehrs: workload.corpus.ehr_count(),
+                workers: seed_workers,
                 seed: workload.seed,
                 token: format!("perf-{}", uuid::Uuid::new_v4().simple()),
                 needs: Needs::of(&prepared.binding.operations()),
@@ -527,6 +534,33 @@ pub(crate) async fn ready_target(
         wall_ms: report.wall_ms,
     };
     let targets = Targets::new(state.clone(), &current);
+    let walk = match &workload.corpus.walk {
+        Some(declared) => {
+            progress(format!(
+                "read walk (closed-loop, one worker): {} read(s) over every seeded composition",
+                declared.reads.len()
+            ));
+            let report = corpus::walk(client, &state, declared, targets.at_time())
+                .await
+                .map_err(corpus_error)?;
+            progress(format!(
+                "read walk: {} requests in {} ms, {} failed",
+                report.requests, report.wall_ms, report.failed
+            ));
+            Some(WalkRecord {
+                model: LoadModel::ClosedLoop,
+                reads: declared
+                    .reads
+                    .iter()
+                    .map(|op| op.token().to_owned())
+                    .collect(),
+                requests: report.requests,
+                failed: report.failed,
+                wall_ms: report.wall_ms,
+            })
+        }
+        None => None,
+    };
     let performer = Arc::new(WirePerformer::new(
         client.clone(),
         Arc::clone(&prepared.binding),
@@ -535,6 +569,7 @@ pub(crate) async fn ready_target(
         targets,
     ));
     Ok(ReadyTarget {
+        walk,
         state,
         seeding,
         origin,
@@ -642,10 +677,14 @@ pub(crate) fn raw_record(
         },
         seeding: SeedingRecord {
             model: LoadModel::ClosedLoop,
-            workers: u32::try_from(settings.seed_workers.max(1)).unwrap_or(u32::MAX),
+            workers: workload
+                .corpus
+                .seed_workers
+                .unwrap_or_else(|| u32::try_from(settings.seed_workers.max(1)).unwrap_or(u32::MAX)),
             requests: ready.seeding.requests,
             wall_ms: ready.seeding.wall_ms,
         },
+        walk: ready.walk.clone(),
         mix: RawMix {
             operations_per_interaction: prepared.binding.operations_per_interaction,
             dropped: prepared.binding.dropped.clone(),

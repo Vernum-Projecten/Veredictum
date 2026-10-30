@@ -190,17 +190,76 @@ impl CorpusScale {
     }
 }
 
+/// How a seeded composition's body is built from its template's example
+/// (a closed vocabulary).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitForm {
+    /// The example skeleton stamped per composition: event times, composer
+    /// and the numeric leaves the template's ranges allow.
+    #[default]
+    Stamped,
+    /// The example's bytes as they are, every time, as a harness that commits
+    /// one fixed composition does.
+    Verbatim,
+}
+
+impl CommitForm {
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "serde's skip_serializing_if passes the field by reference"
+    )]
+    fn is_stamped(&self) -> bool {
+        *self == Self::Stamped
+    }
+}
+
+/// A closed-loop walk over every seeded composition after seeding.
+///
+/// It issues the reads a single-client harness issues against each, in
+/// order, each sent after the previous answer. It is reported apart from every measured
+/// number, as seeding is, and labelled closed-loop.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Walk {
+    /// The reads issued against every composition, in order.
+    pub reads: Vec<WorkloadOp>,
+}
+
 /// The corpus a run seeds before the clock starts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CorpusRecipe {
     /// The scale, by name.
     pub scale: CorpusScale,
+    /// The EHRs to create, when a reproduced harness pins a count other than
+    /// the scale's; the scale stays the name the population reading is
+    /// stated at.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ehrs: Option<u64>,
     /// Compositions committed into each EHR.
     pub compositions_per_ehr: u32,
     /// The templates those compositions are drawn from, by payload key, with
     /// their shares.
     pub templates: BTreeMap<CorpusKey, Share>,
+    /// How each composition's body is built.
+    #[serde(default, skip_serializing_if = "CommitForm::is_stamped")]
+    pub commit: CommitForm,
+    /// The closed-loop seeding workers, when a reproduced harness pins them;
+    /// otherwise the run's `--seed-workers`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seed_workers: Option<u32>,
+    /// The closed-loop read walk after seeding.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub walk: Option<Walk>,
+}
+
+impl CorpusRecipe {
+    /// The EHRs the recipe seeds: its pinned count, or its scale's.
+    #[must_use]
+    pub fn ehr_count(&self) -> u64 {
+        self.ehrs.unwrap_or_else(|| self.scale.ehrs())
+    }
 }
 
 /// Samples per plateau a hold is sized for.
@@ -501,6 +560,11 @@ pub struct Workload {
     pub status: MixStatus,
     /// What the workload emulates, in plain words.
     pub description: String,
+    /// The published harness or benchmark the workload reproduces, when it
+    /// reproduces one. Its mix is the harness's, so the read band of the
+    /// population model does not gate it, and every rendering says so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reproduces: Option<String>,
     /// The root of every seeded draw.
     pub seed: u64,
     /// What is seeded before the clock starts.

@@ -40,7 +40,7 @@ use crate::workload::payloads::{INVALID_TWIN_SUFFIX, PayloadManifest};
 use crate::workload::wire::{
     self, Addressing, FLAT_MEDIA_TYPE, WireBody, WireRequest, stored_query_store,
 };
-use crate::workload::{CorpusRecipe, Workload};
+use crate::workload::{CommitForm, CorpusRecipe, Walk, Workload};
 
 /// The namespace every seeded subject is registered under.
 pub const SUBJECT_NAMESPACE: &str = "org.veredictum.perf";
@@ -98,6 +98,8 @@ pub struct Payloads {
     pub flats: BTreeMap<String, FlatPayload>,
     /// Bodies sent as their bytes, by payload key.
     pub bodies: BTreeMap<String, Value>,
+    /// How the corpus's compositions are built from their templates.
+    pub commit_form: CommitForm,
     /// The invalid twin the validation canary commits: the first corpus
     /// template, in key order, whose manifest carries a `<key>.invalid_twin`
     /// entry.
@@ -117,7 +119,10 @@ impl Payloads {
         payloads_dir: &Path,
         manifest: &PayloadManifest,
     ) -> Result<Self, CorpusError> {
-        let mut payloads = Self::default();
+        let mut payloads = Self {
+            commit_form: workload.corpus.commit,
+            ..Self::default()
+        };
         let mut wanted: BTreeMap<String, PayloadRole> = workload
             .corpus
             .templates
@@ -376,6 +381,70 @@ pub struct SeedReport {
     pub wall_ms: u64,
 }
 
+/// What a closed-loop read walk sent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WalkReport {
+    /// Requests sent.
+    pub requests: u64,
+    /// Requests that did not answer `200`, or did not answer at all.
+    pub failed: u64,
+    /// Wall time, milliseconds.
+    pub wall_ms: u64,
+}
+
+/// Walks every seeded composition with `walk`'s reads, one after another on
+/// one connection's worth of patience: each read is sent after the previous
+/// answer, as a single-client harness sends it.
+///
+/// A read that fails is counted and the walk goes on, because the figure a
+/// walk reports is the harness's whole-loop average and a failure is part of
+/// what the server did.
+///
+/// # Errors
+/// [`CorpusError::Seeding`] when a read cannot be built, which is a defect
+/// of the walk rather than an answer of the server.
+pub async fn walk(
+    client: &HttpClient,
+    state: &CorpusState,
+    walk: &Walk,
+    at_time: &str,
+) -> Result<WalkReport, CorpusError> {
+    let started = Instant::now();
+    let mut requests: u64 = 0;
+    let mut failed: u64 = 0;
+    for ehr in &state.listing.ehrs {
+        for composition in &ehr.compositions {
+            for op in &walk.reads {
+                let uid = match op {
+                    WorkloadOp::CompositionRead | WorkloadOp::CompositionVersionRead => {
+                        composition.version_uid.as_str()
+                    }
+                    _ => composition.object_uid(),
+                };
+                let at = Addressing {
+                    ehr: Some(&ehr.ehr_id),
+                    uid: Some(uid),
+                    object: Some(composition.object_uid()),
+                    at_time: Some(at_time),
+                    ..Addressing::default()
+                };
+                let request = wire::operation_request(*op, &at, None)
+                    .map_err(|e| CorpusError::Seeding(format!("walk: {e}")))?;
+                requests = requests.saturating_add(1);
+                match client.send(&request).await {
+                    Ok(reply) if reply.status == StatusCode::OK => {}
+                    _ => failed = failed.saturating_add(1),
+                }
+            }
+        }
+    }
+    Ok(WalkReport {
+        requests,
+        failed,
+        wall_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+    })
+}
+
 /// What the workload's operations need beyond the compositions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[expect(
@@ -511,9 +580,13 @@ async fn commit(
     ehr: &str,
     template: &PackTemplate,
     arrival: u64,
+    form: CommitForm,
 ) -> Result<String, CorpusError> {
-    let body =
-        payload::composition_body(template, arrival, arrival).map_err(CorpusError::Seeding)?;
+    let body = match form {
+        CommitForm::Stamped => payload::composition_body(template, arrival, arrival),
+        CommitForm::Verbatim => serde_json::to_vec(&template.skeleton).map_err(|e| e.to_string()),
+    }
+    .map_err(CorpusError::Seeding)?;
     let at = Addressing {
         ehr: Some(ehr),
         ..Addressing::default()
@@ -550,7 +623,15 @@ async fn seed_worker(
                 .templates
                 .get(key)
                 .ok_or_else(|| CorpusError::Payload(format!("{key} is not loaded")))?;
-            let version_uid = commit(&client, &counter, &ehr_id, template, n).await?;
+            let version_uid = commit(
+                &client,
+                &counter,
+                &ehr_id,
+                template,
+                n,
+                payloads.commit_form,
+            )
+            .await?;
             compositions.push(SeededComposition {
                 template: key.to_owned(),
                 version_uid,
@@ -637,7 +718,7 @@ async fn prepare(
     }
     let scratch = create_ehr(client, counter, &format!("{token}-scratch")).await?;
     for template in payloads.templates.values() {
-        let _uid = commit(client, counter, &scratch, template, 0).await?;
+        let _uid = commit(client, counter, &scratch, template, 0, payloads.commit_form).await?;
     }
     for flat in payloads.flats.values() {
         let at = Addressing {
@@ -766,7 +847,15 @@ pub async fn seed(
         && let (Some(first), Some(template)) = (ehrs.first(), payloads.templates.values().next())
     {
         for n in 0..u64::try_from(DELETE_RESERVE).unwrap_or(0) {
-            let version_uid = commit(client, &counter, &first.ehr_id, template, n).await?;
+            let version_uid = commit(
+                client,
+                &counter,
+                &first.ehr_id,
+                template,
+                n,
+                payloads.commit_form,
+            )
+            .await?;
             reserve.push(ReserveComposition {
                 ehr_id: first.ehr_id.clone(),
                 version_uid,

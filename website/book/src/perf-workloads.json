@@ -1,6 +1,417 @@
 {
   "workloads": [
     {
+      "id": "aql-mix",
+      "version": 1,
+      "label": "aql-mix@1",
+      "status": "provisional",
+      "file": "aql-mix.yaml",
+      "sha256": "122d18faa1f183fa8ffc5c5e6e0821c334a063a72bd0c500023d6b164dc6cba1",
+      "description": "Query speed over one population, one set of percentiles per query class rather than one blended query number: the indexed point lookup, the single-EHR scan, the value filter, the cross-EHR population filter, the population COUNT, and the ordered page a paged interface reads.",
+      "reproduces": "The aql-mix bench pack, version 1.1.0: 50 EHRs each holding the community harness's Vital signs composition 20 times, seeded on 8 workers, and six AQL classes offered open-loop at equal shares.",
+      "seed": 4706627057783240704,
+      "arrival": "poisson",
+      "sample_target": 5000,
+      "qualification": {
+        "operation_p99_ms": 1000,
+        "population_aql_p99_ms": 5000,
+        "max_error_share": "0.1%",
+        "min_achieved_share": "95%"
+      },
+      "corpus": {
+        "scale": "POC",
+        "ehrs": 50,
+        "compositions_per_ehr": 20,
+        "templates": [
+          {
+            "key": "community.vital_signs",
+            "share": "100%"
+          }
+        ]
+      },
+      "planned_run": {
+        "min_s": 255,
+        "max_s": 590,
+        "session_tail_s": 0,
+        "limit_s": 600
+      },
+      "read_write_ratio": "reads only",
+      "mean_operations_per_interaction": "1.00",
+      "interactions": [
+        {
+          "name": "aql_aggregate",
+          "share": "16.6666%",
+          "kind": "single",
+          "stages": [
+            "aql:aql_aggregate"
+          ],
+          "requires": [
+            "query"
+          ],
+          "description": "One COUNT over the population the threshold matches.",
+          "derivation": "The pack's aggregate class, at an equal sixth."
+        },
+        {
+          "name": "aql_ehr_scan",
+          "share": "16.6667%",
+          "kind": "single",
+          "stages": [
+            "aql:aql_ehr_scan"
+          ],
+          "requires": [
+            "query"
+          ],
+          "description": "Every composition in one EHR, projected by uid.",
+          "derivation": "The pack's EHR-scan class, at an equal sixth."
+        },
+        {
+          "name": "aql_filtered",
+          "share": "16.6667%",
+          "kind": "single",
+          "stages": [
+            "aql:aql_filtered"
+          ],
+          "requires": [
+            "query"
+          ],
+          "description": "A systolic threshold over one EHR's observations.",
+          "derivation": "The pack's filtered class, at an equal sixth."
+        },
+        {
+          "name": "aql_ordered_page",
+          "share": "16.6666%",
+          "kind": "single",
+          "stages": [
+            "aql:aql_ordered_page"
+          ],
+          "requires": [
+            "query"
+          ],
+          "description": "An ORDER BY over composition start time, read one page at a time.",
+          "derivation": "The pack's ordered-page class, at an equal sixth."
+        },
+        {
+          "name": "aql_point_lookup",
+          "share": "16.6667%",
+          "kind": "single",
+          "stages": [
+            "aql:aql_point_lookup"
+          ],
+          "requires": [
+            "query"
+          ],
+          "description": "One composition addressed by its uid inside one EHR.",
+          "derivation": "The pack's point-lookup class, at the equal share it gives each of six."
+        },
+        {
+          "name": "aql_population",
+          "share": "16.6667%",
+          "kind": "single",
+          "stages": [
+            "aql:aql_population"
+          ],
+          "requires": [
+            "query"
+          ],
+          "description": "The systolic threshold across the population, fetch-bounded.",
+          "derivation": "The pack's population class, at an equal sixth."
+        }
+      ],
+      "operations": [
+        {
+          "key": "aql:aql_aggregate",
+          "share_of_operations": "16.67%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "query_execute_adhoc_query_body",
+              "method": "POST",
+              "path": "/query/aql",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+            }
+          ]
+        },
+        {
+          "key": "aql:aql_ehr_scan",
+          "share_of_operations": "16.67%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "query_execute_adhoc_query_body",
+              "method": "POST",
+              "path": "/query/aql",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+            }
+          ]
+        },
+        {
+          "key": "aql:aql_filtered",
+          "share_of_operations": "16.67%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "query_execute_adhoc_query_body",
+              "method": "POST",
+              "path": "/query/aql",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+            }
+          ]
+        },
+        {
+          "key": "aql:aql_ordered_page",
+          "share_of_operations": "16.67%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "query_execute_adhoc_query_body",
+              "method": "POST",
+              "path": "/query/aql",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+            }
+          ]
+        },
+        {
+          "key": "aql:aql_point_lookup",
+          "share_of_operations": "16.67%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "query_execute_adhoc_query_body",
+              "method": "POST",
+              "path": "/query/aql",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+            },
+            {
+              "operation_id": "query_execute_adhoc_query",
+              "method": "GET",
+              "path": "/query/aql",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query.yaml (GET /query/aql, query.openapi.yaml)"
+            }
+          ]
+        },
+        {
+          "key": "aql:aql_population",
+          "share_of_operations": "16.67%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "query_execute_adhoc_query_body",
+              "method": "POST",
+              "path": "/query/aql",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+            }
+          ]
+        }
+      ],
+      "queries": [
+        {
+          "name": "aql_aggregate",
+          "share_of_operations": "16.67%",
+          "scope": "population",
+          "tier": "content",
+          "budget_ms": 5000,
+          "text": "SELECT COUNT(c/uid/value) FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2] WHERE o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude >= $systolic",
+          "parameters": {
+            "systolic": {
+              "int_range": [
+                90,
+                150
+              ]
+            }
+          },
+          "transport": [
+            {
+              "transport": "adhoc_post",
+              "share": "100%",
+              "released": {
+                "operation_id": "query_execute_adhoc_query_body",
+                "method": "POST",
+                "path": "/query/aql",
+                "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+              }
+            }
+          ],
+          "requires": [],
+          "on_refusal": "error",
+          "description": "One COUNT over the population a systolic threshold matches.",
+          "derivation": "The aql-mix bench pack's aggregate class, one row that reads every value behind it."
+        },
+        {
+          "name": "aql_ehr_scan",
+          "share_of_operations": "16.67%",
+          "scope": "single_subject",
+          "tier": "metadata",
+          "budget_ms": 1000,
+          "text": "SELECT c/uid/value FROM EHR e[ehr_id/value=$ehr_uid] CONTAINS COMPOSITION c",
+          "parameters": {
+            "ehr_uid": "ehr"
+          },
+          "transport": [
+            {
+              "transport": "adhoc_post",
+              "share": "100%",
+              "released": {
+                "operation_id": "query_execute_adhoc_query_body",
+                "method": "POST",
+                "path": "/query/aql",
+                "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+              }
+            }
+          ],
+          "requires": [],
+          "on_refusal": "error",
+          "description": "Every composition in one EHR, projected by uid.",
+          "derivation": "The aql-mix bench pack's EHR-scan class, whose cost follows how much the EHR holds."
+        },
+        {
+          "name": "aql_filtered",
+          "share_of_operations": "16.67%",
+          "scope": "single_subject",
+          "tier": "content",
+          "budget_ms": 1000,
+          "text": "SELECT c/uid/value FROM EHR e[ehr_id/value=$ehr_uid] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2] WHERE o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude >= $systolic",
+          "parameters": {
+            "ehr_uid": "ehr",
+            "systolic": {
+              "int_range": [
+                90,
+                150
+              ]
+            }
+          },
+          "transport": [
+            {
+              "transport": "adhoc_post",
+              "share": "100%",
+              "released": {
+                "operation_id": "query_execute_adhoc_query_body",
+                "method": "POST",
+                "path": "/query/aql",
+                "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+              }
+            }
+          ],
+          "requires": [],
+          "on_refusal": "error",
+          "description": "A systolic threshold over the observations of one EHR.",
+          "derivation": "The aql-mix bench pack's filtered class, the value index with a drawn threshold."
+        },
+        {
+          "name": "aql_ordered_page",
+          "share_of_operations": "16.67%",
+          "scope": "population",
+          "tier": "metadata",
+          "budget_ms": 5000,
+          "text": "SELECT c/uid/value, c/context/start_time/value FROM EHR e CONTAINS COMPOSITION c ORDER BY c/context/start_time/value DESC",
+          "parameters": {},
+          "transport": [
+            {
+              "transport": "adhoc_post",
+              "share": "100%",
+              "released": {
+                "operation_id": "query_execute_adhoc_query_body",
+                "method": "POST",
+                "path": "/query/aql",
+                "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+              }
+            }
+          ],
+          "requires": [],
+          "on_refusal": "error",
+          "description": "Compositions ordered by start time, one page at a time.",
+          "derivation": "The aql-mix bench pack's ordered-page class, the shape a paged user interface issues (QUERY AQL master03-syntax.adoc §ORDER BY)."
+        },
+        {
+          "name": "aql_point_lookup",
+          "share_of_operations": "16.67%",
+          "scope": "single_subject",
+          "tier": "metadata",
+          "budget_ms": 1000,
+          "text": "SELECT c/uid/value FROM EHR e[ehr_id/value=$ehr_uid] CONTAINS COMPOSITION c WHERE c/uid/value = $uid",
+          "parameters": {
+            "ehr_uid": "ehr",
+            "uid": "composition"
+          },
+          "transport": [
+            {
+              "transport": "adhoc_post",
+              "share": "50%",
+              "released": {
+                "operation_id": "query_execute_adhoc_query_body",
+                "method": "POST",
+                "path": "/query/aql",
+                "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+              }
+            },
+            {
+              "transport": "adhoc_get",
+              "share": "50%",
+              "released": {
+                "operation_id": "query_execute_adhoc_query",
+                "method": "GET",
+                "path": "/query/aql",
+                "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query.yaml (GET /query/aql, query.openapi.yaml)"
+              }
+            }
+          ],
+          "requires": [],
+          "on_refusal": "error",
+          "description": "One composition addressed by its own uid inside one EHR.",
+          "derivation": "The aql-mix bench pack's point-lookup class, the indexed-read floor."
+        },
+        {
+          "name": "aql_population",
+          "share_of_operations": "16.67%",
+          "scope": "population",
+          "tier": "content",
+          "budget_ms": 5000,
+          "text": "SELECT c/uid/value FROM EHR e CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.blood_pressure.v2] WHERE o/data[at0001]/events[at0006]/data[at0003]/items[at0004]/value/magnitude >= $systolic",
+          "parameters": {
+            "systolic": {
+              "int_range": [
+                90,
+                150
+              ]
+            }
+          },
+          "transport": [
+            {
+              "transport": "adhoc_post",
+              "share": "100%",
+              "released": {
+                "operation_id": "query_execute_adhoc_query_body",
+                "method": "POST",
+                "path": "/query/aql",
+                "citation": "specs/openehr/ITS-REST/specifications/operations/query_execute_adhoc_query_body.yaml (POST /query/aql, query.openapi.yaml)"
+              }
+            }
+          ],
+          "requires": [],
+          "on_refusal": "error",
+          "description": "The systolic threshold with no EHR scope, bounded by a fetch count.",
+          "derivation": "The aql-mix bench pack's population class, the cross-EHR planner."
+        }
+      ],
+      "payloads": [
+        {
+          "key": "community.vital_signs",
+          "source": "ckm/vital-signs.opt",
+          "template_id": "Vital signs",
+          "bytes": 223110,
+          "sha256": "3a0d31bd3b5dc6329e53c0d6f22fdbaece62c684136b86139d0729cff8796128",
+          "provenance": "openEHR CKM cid 1013.26.380 (Vital signs), the operational template the openEHR community's vital-signs benchmark harness uploads (https://discourse.openehr.org/t/17224); the CKM export vendored verbatim, pinned at the digest the community-vitals bench pack pinned"
+        },
+        {
+          "key": "community.vital_signs.example",
+          "source": "community/vital-signs-composition.json",
+          "template_id": "Vital signs",
+          "bytes": 22637,
+          "sha256": "468081c259c737d35d7f80403562b3f333e479d267286faf80fd7c087eaba947",
+          "provenance": "the composition attached to post 8 of the openEHR community's vital-signs benchmark thread (https://discourse.openehr.org/t/17224), vendored byte-identically: eight OBSERVATION entries under openEHR-EHR-COMPOSITION.encounter.v1, rm_version 1.0.2, template id 'Vital signs'"
+        }
+      ]
+    },
+    {
       "id": "clinical-mix",
       "version": 1,
       "label": "clinical-mix@1",
@@ -1881,6 +2292,249 @@
           "bytes": 1003,
           "sha256": "93ac5261caa16e2d107097fcedfb63b3043da4e2e486aff349f9c47c96efded3",
           "provenance": "openEHR CNF Robot corpus (vendored specs/openehr/CNF/tests/platform/robot @ the CNF pin); re-adjudicated 2026-07-21 to spec-text-only evidence"
+        }
+      ]
+    },
+    {
+      "id": "community-vitals",
+      "version": 1,
+      "label": "community-vitals@1",
+      "status": "provisional",
+      "file": "community-vitals.yaml",
+      "sha256": "482fac30fbe1a75270b427074860e9fdc6014de8e68deeda4308752002396fad",
+      "description": "The community harness's population and read walk, labelled closed-loop as the harness runs them, followed by the same seven reads at equal shares as Poisson arrivals on the load ladder, which is where latency is measured from the instant each read was due. Carried over from the community-vitals bench pack, version 1.1.0.",
+      "reproduces": "The openEHR community's vital-signs benchmark harness (https://discourse.openehr.org/t/17224): 100 EHRs, the Vital signs composition of post 8 committed 1,000 times into each on one worker, then a sequential walk of seven reads over every committed composition.",
+      "seed": 4859222839474415988,
+      "arrival": "poisson",
+      "sample_target": 5000,
+      "qualification": {
+        "operation_p99_ms": 1000,
+        "population_aql_p99_ms": 5000,
+        "max_error_share": "0.1%",
+        "min_achieved_share": "95%"
+      },
+      "corpus": {
+        "scale": "POC",
+        "ehrs": 100,
+        "compositions_per_ehr": 1000,
+        "templates": [
+          {
+            "key": "community.vital_signs",
+            "share": "100%"
+          }
+        ]
+      },
+      "planned_run": {
+        "min_s": 255,
+        "max_s": 590,
+        "session_tail_s": 0,
+        "limit_s": 600
+      },
+      "read_write_ratio": "reads only",
+      "mean_operations_per_interaction": "1.00",
+      "interactions": [
+        {
+          "name": "read_at_time",
+          "share": "14.2857%",
+          "kind": "single",
+          "stages": [
+            "composition_read_at_time"
+          ],
+          "requires": [
+            "composition"
+          ],
+          "description": "A composition at an instant, which resolves a version by time.",
+          "derivation": "The harness's second read, at an equal seventh."
+        },
+        {
+          "name": "read_latest",
+          "share": "14.2858%",
+          "kind": "single",
+          "stages": [
+            "composition_read_current"
+          ],
+          "requires": [
+            "composition"
+          ],
+          "description": "The latest version of a composition, the read a client issues most.",
+          "derivation": "The harness's first read, at the equal share its walk gives each of seven."
+        },
+        {
+          "name": "read_revision_history",
+          "share": "14.2857%",
+          "kind": "single",
+          "stages": [
+            "composition_revision_history"
+          ],
+          "requires": [
+            "composition"
+          ],
+          "description": "The revision history, which walks every version of the object.",
+          "derivation": "The harness's seventh read, at an equal seventh."
+        },
+        {
+          "name": "read_version_at_time",
+          "share": "14.2857%",
+          "kind": "single",
+          "stages": [
+            "composition_version_read_at_time"
+          ],
+          "requires": [
+            "composition"
+          ],
+          "description": "The version at an instant through the versioned object.",
+          "derivation": "The harness's fifth read, at an equal seventh."
+        },
+        {
+          "name": "read_version_by_id",
+          "share": "14.2857%",
+          "kind": "single",
+          "stages": [
+            "composition_version_read"
+          ],
+          "requires": [
+            "composition"
+          ],
+          "description": "One version by its own identifier.",
+          "derivation": "The harness's sixth read, at an equal seventh."
+        },
+        {
+          "name": "read_version_latest",
+          "share": "14.2857%",
+          "kind": "single",
+          "stages": [
+            "composition_version_read_latest"
+          ],
+          "requires": [
+            "composition"
+          ],
+          "description": "The latest version through the versioned object.",
+          "derivation": "The harness's fourth read, at an equal seventh."
+        },
+        {
+          "name": "read_versioned",
+          "share": "14.2857%",
+          "kind": "single",
+          "stages": [
+            "versioned_composition_read"
+          ],
+          "requires": [
+            "composition"
+          ],
+          "description": "The VERSIONED_COMPOSITION container itself.",
+          "derivation": "The harness's third read, at an equal seventh."
+        }
+      ],
+      "operations": [
+        {
+          "key": "composition_read_at_time",
+          "share_of_operations": "14.29%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "composition_get",
+              "method": "GET",
+              "path": "/ehr/{ehr_id}/composition/{uid_based_id}",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/composition_get.yaml (GET /ehr/{ehr_id}/composition/{uid_based_id}, ehr.openapi.yaml)"
+            }
+          ]
+        },
+        {
+          "key": "composition_read_current",
+          "share_of_operations": "14.29%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "composition_get",
+              "method": "GET",
+              "path": "/ehr/{ehr_id}/composition/{uid_based_id}",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/composition_get.yaml (GET /ehr/{ehr_id}/composition/{uid_based_id}, ehr.openapi.yaml)"
+            }
+          ]
+        },
+        {
+          "key": "composition_revision_history",
+          "share_of_operations": "14.29%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "versioned_composition_revision_history",
+              "method": "GET",
+              "path": "/ehr/{ehr_id}/versioned_composition/{versioned_object_uid}/revision_history",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/versioned_composition_revision_history.yaml (GET /ehr/{ehr_id}/versioned_composition/{versioned_object_uid}/revision_history, ehr.openapi.yaml)"
+            }
+          ]
+        },
+        {
+          "key": "composition_version_read",
+          "share_of_operations": "14.29%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "versioned_composition_version_get_by_id",
+              "method": "GET",
+              "path": "/ehr/{ehr_id}/versioned_composition/{versioned_object_uid}/version/{version_uid}",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_by_id.yaml (GET /ehr/{ehr_id}/versioned_composition/{versioned_object_uid}/version/{version_uid}, ehr.openapi.yaml)"
+            }
+          ]
+        },
+        {
+          "key": "composition_version_read_at_time",
+          "share_of_operations": "14.29%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "versioned_composition_version_get_at_time",
+              "method": "GET",
+              "path": "/ehr/{ehr_id}/versioned_composition/{versioned_object_uid}/version",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_at_time.yaml (GET /ehr/{ehr_id}/versioned_composition/{versioned_object_uid}/version, ehr.openapi.yaml)"
+            }
+          ]
+        },
+        {
+          "key": "composition_version_read_latest",
+          "share_of_operations": "14.29%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "versioned_composition_version_get_at_time",
+              "method": "GET",
+              "path": "/ehr/{ehr_id}/versioned_composition/{versioned_object_uid}/version",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/versioned_composition_version_get_at_time.yaml (GET /ehr/{ehr_id}/versioned_composition/{versioned_object_uid}/version, ehr.openapi.yaml)"
+            }
+          ]
+        },
+        {
+          "key": "versioned_composition_read",
+          "share_of_operations": "14.29%",
+          "write": false,
+          "released": [
+            {
+              "operation_id": "versioned_composition_get",
+              "method": "GET",
+              "path": "/ehr/{ehr_id}/versioned_composition/{versioned_object_uid}",
+              "citation": "specs/openehr/ITS-REST/specifications/operations/versioned_composition_get.yaml (GET /ehr/{ehr_id}/versioned_composition/{versioned_object_uid}, ehr.openapi.yaml)"
+            }
+          ]
+        }
+      ],
+      "queries": [],
+      "payloads": [
+        {
+          "key": "community.vital_signs",
+          "source": "ckm/vital-signs.opt",
+          "template_id": "Vital signs",
+          "bytes": 223110,
+          "sha256": "3a0d31bd3b5dc6329e53c0d6f22fdbaece62c684136b86139d0729cff8796128",
+          "provenance": "openEHR CKM cid 1013.26.380 (Vital signs), the operational template the openEHR community's vital-signs benchmark harness uploads (https://discourse.openehr.org/t/17224); the CKM export vendored verbatim, pinned at the digest the community-vitals bench pack pinned"
+        },
+        {
+          "key": "community.vital_signs.example",
+          "source": "community/vital-signs-composition.json",
+          "template_id": "Vital signs",
+          "bytes": 22637,
+          "sha256": "468081c259c737d35d7f80403562b3f333e479d267286faf80fd7c087eaba947",
+          "provenance": "the composition attached to post 8 of the openEHR community's vital-signs benchmark thread (https://discourse.openehr.org/t/17224), vendored byte-identically: eight OBSERVATION entries under openEHR-EHR-COMPOSITION.encounter.v1, rm_version 1.0.2, template id 'Vital signs'"
         }
       ]
     }

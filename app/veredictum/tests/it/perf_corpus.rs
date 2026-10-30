@@ -265,3 +265,115 @@ fn every_reference_operation_is_sent_and_an_optional_refusal_counted_apart() {
             .contains(&WorkloadOp::CompositionDelete)
     );
 }
+
+/// `community-vitals` reproduces the community harness: its population is
+/// 100 EHRs of 1,000 compositions seeded on one worker, its template and
+/// composition are the fixtures the harness used at their pinned digests,
+/// each composition is committed as those bytes, and the walk after seeding
+/// issues the harness's seven reads against every composition, labelled
+/// closed-loop.
+#[test]
+fn community_vitals_reproduces_the_harness_population_and_read_walk() {
+    let ctx = LoadContext::from_roots(&repo().join("perf"), &repo().join("catalogue")).unwrap();
+    let loaded = load_file(&repo().join("perf/workloads/community-vitals.yaml"), &ctx).unwrap();
+    let workload = loaded.workload;
+    assert_eq!(loaded.identity.label(), "community-vitals@1");
+    assert!(workload.reproduces.is_some());
+    let corpus_recipe = &workload.corpus;
+    assert_eq!(corpus_recipe.ehr_count(), 100);
+    assert_eq!(corpus_recipe.compositions_per_ehr, 1_000);
+    assert_eq!(corpus_recipe.seed_workers, Some(1));
+    assert_eq!(
+        corpus_recipe.commit,
+        veredictum::workload::CommitForm::Verbatim
+    );
+    let reads = &corpus_recipe.walk.as_ref().unwrap().reads;
+    assert_eq!(
+        reads.as_slice(),
+        [
+            WorkloadOp::CompositionReadCurrent,
+            WorkloadOp::CompositionReadAtTime,
+            WorkloadOp::VersionedCompositionRead,
+            WorkloadOp::CompositionVersionReadLatest,
+            WorkloadOp::CompositionVersionReadAtTime,
+            WorkloadOp::CompositionVersionRead,
+            WorkloadOp::CompositionRevisionHistory,
+        ]
+    );
+    for (key, pin) in [
+        (
+            "community.vital_signs",
+            "3a0d31bd3b5dc6329e53c0d6f22fdbaece62c684136b86139d0729cff8796128",
+        ),
+        (
+            "community.vital_signs.example",
+            "468081c259c737d35d7f80403562b3f333e479d267286faf80fd7c087eaba947",
+        ),
+    ] {
+        assert_eq!(ctx.payloads.get(key).unwrap().sha256.as_deref(), Some(pin));
+    }
+
+    // A small population of the same recipe, seeded verbatim and walked.
+    let payloads = Payloads::load(&workload, &ctx.payloads_dir, &ctx.payloads).unwrap();
+    let skeleton = payloads.templates["community.vital_signs"].skeleton.clone();
+    let sut = sut(Arc::new(AtomicU64::new(2)), Arc::new(AtomicU64::new(2_000)));
+    let request = SeedRequest {
+        recipe: &workload.corpus,
+        ehrs: 2,
+        workers: 1,
+        seed: workload.seed,
+        token: "harness".to_owned(),
+        needs: Needs::default(),
+    };
+    let (mut state, _report) = runtime()
+        .block_on(corpus::seed(
+            &client(&sut),
+            Arc::new(payloads),
+            &workload,
+            &request,
+        ))
+        .unwrap();
+    for ehr in &mut state.listing.ehrs {
+        ehr.compositions.truncate(3);
+    }
+    let commits: Vec<serde_json::Value> = sut
+        .requests()
+        .iter()
+        .filter(|r| {
+            r.method == wiremock::http::Method::POST && r.url.path().ends_with("/composition")
+        })
+        .map(|r| serde_json::from_slice(&r.body).unwrap())
+        .collect();
+    assert!(commits.len() > 1);
+    assert!(
+        commits.iter().all(|c| *c == skeleton),
+        "a commit was not verbatim"
+    );
+
+    let before = sut.requests().len();
+    let report = runtime()
+        .block_on(corpus::walk(
+            &client(&sut),
+            &state,
+            corpus_recipe.walk.as_ref().unwrap(),
+            "2026-10-30T12:00:00Z",
+        ))
+        .unwrap();
+    assert_eq!(report.requests, 2 * 3 * 7);
+    assert_eq!(report.failed, 0);
+    let walked = &sut.requests()[before..];
+    assert_eq!(walked.len(), 2 * 3 * 7);
+    let at_time = walked
+        .iter()
+        .filter(|r| {
+            r.url
+                .query()
+                .is_some_and(|q| q.contains("version_at_time="))
+        })
+        .count();
+    assert_eq!(
+        at_time,
+        2 * 3 * 2,
+        "two of the seven reads select at an instant"
+    );
+}

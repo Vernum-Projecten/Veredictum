@@ -403,7 +403,11 @@ fn the_manifest_is_deterministic_and_its_page_lists_everything() {
     assert_eq!(first, second);
     let manifest = describe_pinned(&perf, &ctx).expect("describes");
     let page = render_page(&manifest);
-    let workload = manifest.workloads.first().expect("one pinned workload");
+    let workload = manifest
+        .workloads
+        .iter()
+        .find(|w| w.id == "clinical-mix")
+        .expect("the reference workload is pinned");
     assert_eq!(
         workload.sha256,
         sha256_hex(&std::fs::read(committed()).expect("reads"))
@@ -485,4 +489,44 @@ fn the_published_workload_page_is_what_the_manifest_renders() {
         render_page(&manifest),
         "regenerate with `veredictum perf-workloads --root perf --catalogue catalogue --out website/book/src`"
     );
+}
+
+/// A closed-loop walk issues reads of one seeded composition only; a write
+/// in it is refused, naming the field.
+#[test]
+fn a_walk_that_writes_is_refused() {
+    refused_with(
+        "  compositions_per_ehr: 10\n",
+        "  compositions_per_ehr: 10\n  walk:\n    reads: [composition_read, composition_delete]\n",
+        "corpus.walk.reads",
+        "composition_delete is not a read",
+    );
+}
+
+/// A mix that leaves the read band is refused unless the document names the
+/// published harness it reproduces, and the same mix loads once it does.
+#[test]
+fn only_a_reproduction_is_exempt_from_the_read_band() {
+    let text = std::fs::read_to_string(repo().join("perf/workloads/aql-mix.yaml"))
+        .expect("the aql-mix workload");
+    let (head, rest) = text
+        .split_once("reproduces: >-")
+        .expect("aql-mix names its harness");
+    let (_, tail) = rest
+        .split_once("\ndescription:")
+        .expect("a description follows");
+    let unmarked = format!("{head}description:{tail}");
+    let dir = assert_fs::TempDir::new().expect("temp dir");
+    let path = dir.path().join("aql-mix.yaml");
+    std::fs::write(&path, &unmarked).expect("writing the document");
+    let refused = load_file(&path, &context()).expect_err("a reads-only mix is refused");
+    assert!(
+        refused
+            .errors
+            .iter()
+            .any(|e| e.to_string().contains("outside the 10:1 to 50:1 read band")),
+        "{refused}"
+    );
+    std::fs::write(&path, &text).expect("writing the document");
+    assert!(load_file(&path, &context()).is_ok());
 }

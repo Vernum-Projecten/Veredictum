@@ -310,6 +310,8 @@ pub struct Addressing<'a> {
     pub if_match: Option<&'a str>,
     /// The `openehr-template-id` header of a Simplified Flat commit.
     pub template_id: Option<&'a str>,
+    /// The `version_at_time` an at-time read selects its version by.
+    pub at_time: Option<&'a str>,
 }
 
 fn need<'v>(value: Option<&'v str>, what: &'static str) -> Result<&'v str, WireError> {
@@ -336,6 +338,7 @@ fn operation_path(op: WorkloadOp, at: &Addressing<'_>) -> Result<String, WireErr
         }
         WorkloadOp::CompositionRead
         | WorkloadOp::CompositionReadCurrent
+        | WorkloadOp::CompositionReadAtTime
         | WorkloadOp::CompositionUpdate
         | WorkloadOp::CompositionDelete => format!("/ehr/{}/composition/{}", ehr()?, uid()?),
         WorkloadOp::CompositionRevisionHistory => format!(
@@ -343,6 +346,16 @@ fn operation_path(op: WorkloadOp, at: &Addressing<'_>) -> Result<String, WireErr
             ehr()?,
             object()?
         ),
+        WorkloadOp::VersionedCompositionRead => {
+            format!("/ehr/{}/versioned_composition/{}", ehr()?, object()?)
+        }
+        WorkloadOp::CompositionVersionReadLatest | WorkloadOp::CompositionVersionReadAtTime => {
+            format!(
+                "/ehr/{}/versioned_composition/{}/version",
+                ehr()?,
+                object()?
+            )
+        }
         WorkloadOp::CompositionVersionRead => format!(
             "/ehr/{}/versioned_composition/{}/version/{}",
             ehr()?,
@@ -419,13 +432,19 @@ pub fn operation_request(
         headers.push(("openehr-template-id", template.to_owned()));
     }
     // NOTE: ITS-REST specifications/operations/definition_template_adl1.4_example_get.yaml declares `type` and `detail_level`.
-    let query = if op == WorkloadOp::TemplateExample {
-        vec![
+    // NOTE: ITS-REST specifications/parameters/query/version_at_time.yaml names the instant an at-time read selects by.
+    let query = match op {
+        WorkloadOp::TemplateExample => vec![
             ("type".to_owned(), "input".to_owned()),
             ("detail_level".to_owned(), "required".to_owned()),
-        ]
-    } else {
-        Vec::new()
+        ],
+        WorkloadOp::CompositionReadAtTime | WorkloadOp::CompositionVersionReadAtTime => {
+            vec![(
+                "version_at_time".to_owned(),
+                need(at.at_time, "version_at_time")?.to_owned(),
+            )]
+        }
+        _ => Vec::new(),
     };
     Ok(WireRequest {
         operation,

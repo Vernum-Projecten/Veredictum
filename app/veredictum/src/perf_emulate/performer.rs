@@ -109,6 +109,7 @@ pub struct Targets {
     parties: LeasePool<Arc<Versioned>>,
     deletable: Mutex<VecDeque<(String, String)>>,
     without_directory: Mutex<Vec<String>>,
+    at_time: String,
 }
 
 impl Targets {
@@ -118,7 +119,8 @@ impl Targets {
     ///
     /// `current` maps an object uid (or an `ehr_id` for a status or a
     /// directory, keyed `status:<id>` and `directory:<id>`) to the version
-    /// uid read before the clock.
+    /// uid read before the clock. Every at-time read selects at the instant
+    /// the targets were built, which every seeded version predates.
     #[must_use]
     pub fn new(state: CorpusState, current: &BTreeMap<String, String>) -> Self {
         let first = state.listing.ehrs.iter().take(POOL_TARGETS);
@@ -198,6 +200,7 @@ impl Targets {
             deletable: Mutex::new(deletable),
             without_directory: Mutex::new(without_directory),
             state,
+            at_time: jiff::Timestamp::now().to_string(),
         }
     }
 
@@ -205,6 +208,12 @@ impl Targets {
     #[must_use]
     pub fn state(&self) -> &CorpusState {
         &self.state
+    }
+
+    /// The instant every at-time read selects at.
+    #[must_use]
+    pub fn at_time(&self) -> &str {
+        &self.at_time
     }
 }
 
@@ -649,8 +658,12 @@ impl WirePerformer {
             }
             WorkloadOp::CompositionRead
             | WorkloadOp::CompositionReadCurrent
+            | WorkloadOp::CompositionReadAtTime
             | WorkloadOp::CompositionRevisionHistory
             | WorkloadOp::CompositionVersionRead
+            | WorkloadOp::VersionedCompositionRead
+            | WorkloadOp::CompositionVersionReadLatest
+            | WorkloadOp::CompositionVersionReadAtTime
             | WorkloadOp::TagsRead
             | WorkloadOp::TagsPut => {
                 let Some(composition) = composition else {
@@ -666,6 +679,7 @@ impl WirePerformer {
                     ehr: Some(&ehr.ehr_id),
                     uid: Some(uid),
                     object: Some(composition.object_uid()),
+                    at_time: Some(&self.targets.at_time),
                     ..Addressing::default()
                 };
                 let (body, expected) = if op == WorkloadOp::TagsPut {

@@ -237,6 +237,24 @@ pub struct SeedingRecord {
     pub wall_ms: u64,
 }
 
+/// The closed-loop read walk after seeding, reported apart from every
+/// measured number like the seeding it follows.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WalkRecord {
+    /// Always `closed_loop`.
+    pub model: LoadModel,
+    /// The reads issued against every composition, in order.
+    pub reads: Vec<String>,
+    /// The requests the walk sent.
+    pub requests: u64,
+    /// The requests that did not answer `200`.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub failed: u64,
+    /// The walk's wall time, milliseconds.
+    pub wall_ms: u64,
+}
+
 /// The phases of a run after seeding (a closed vocabulary).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -560,6 +578,10 @@ pub struct Raw {
     pub corpus: CorpusRecord,
     /// The seeding, or the reused corpus's read-back.
     pub seeding: SeedingRecord,
+    /// The closed-loop read walk after seeding, when the workload declares
+    /// one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub walk: Option<WalkRecord>,
     /// The mix offered.
     pub mix: RawMix,
     /// The limits every plateau and scout window was judged against.

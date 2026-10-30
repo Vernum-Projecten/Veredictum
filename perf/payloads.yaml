@@ -145,3 +145,18 @@ cnf.demographic.person.v1:
 cnf.demographic.person.v2:
   source: demographic/person.v2.json
   provenance: "authored 2026-07-21 from the RM demographic class model (§PERSON; §PARTY Identities_valid) — updated content state (amended identity value)"
+community.vital_signs:
+  source: ckm/vital-signs.opt
+  template_id: "Vital signs"
+  sha256: "3a0d31bd3b5dc6329e53c0d6f22fdbaece62c684136b86139d0729cff8796128"
+  provenance: "openEHR CKM cid 1013.26.380 (Vital signs), the operational template the openEHR community's vital-signs benchmark harness uploads (https://discourse.openehr.org/t/17224); the CKM export vendored verbatim, pinned at the digest the community-vitals bench pack pinned"
+community.vital_signs.example:
+  source: community/vital-signs-composition.json
+  template_id: "Vital signs"
+  sha256: "468081c259c737d35d7f80403562b3f333e479d267286faf80fd7c087eaba947"
+  provenance: "the composition attached to post 8 of the openEHR community's vital-signs benchmark thread (https://discourse.openehr.org/t/17224), vendored byte-identically: eight OBSERVATION entries under openEHR-EHR-COMPOSITION.encounter.v1, rm_version 1.0.2, template id 'Vital signs'"
+community.vital_signs.invalid_twin:
+  source: community/vital-signs-composition.missing-composer.json
+  template_id: "Vital signs"
+  sha256: "f0598db5ab447b371ead28cba0f841f72370dbbf93db98d5b8e477910a42688d"
+  provenance: "derived in this repository from community/vital-signs-composition.json by deleting the mandatory COMPOSITION.composer member (openEHR RM UML/classes/composition.adoc §Attributes, composer 1..1) and nothing else; the invalid twin the commit-validation canary offers"

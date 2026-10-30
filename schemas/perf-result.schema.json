@@ -791,6 +791,42 @@
             }
           }
         },
+        "walk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "reads",
+            "requests",
+            "wall_ms"
+          ],
+          "description": "The closed-loop read walk after seeding, reported apart from every measured number.",
+          "properties": {
+            "model": {
+              "const": "closed_loop"
+            },
+            "reads": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "requests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "wall_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
         "mix": {
           "type": "object",
           "additionalProperties": false,
@@ -1837,6 +1873,23 @@
               "const": "closed_loop"
             },
             "requests_per_s": {
+              "type": "number",
+              "minimum": 0.0
+            }
+          }
+        },
+        "walk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model"
+          ],
+          "description": "The closed-loop walk's whole-loop average, the figure a single-client harness reports.",
+          "properties": {
+            "model": {
+              "const": "closed_loop"
+            },
+            "mean_us_per_request": {
               "type": "number",
               "minimum": 0.0
             }

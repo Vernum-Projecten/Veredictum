@@ -30,7 +30,7 @@ use crate::arazzo::catalogue::capability_folders;
 use crate::arazzo::gates::aql::position;
 use crate::ids::{CorpusKey, QueryName};
 use crate::load::{LoadError, compile_schema, load_artifact};
-use crate::workload::ops::{PayloadRole, QueryTransport, StageInput};
+use crate::workload::ops::{PayloadRole, QueryTransport, StageInput, WorkloadOp};
 use crate::workload::payloads::{
     PAYLOADS_DIR, PAYLOADS_FILE, PayloadManifest, check_reads, load_manifest,
 };
@@ -40,6 +40,19 @@ use crate::workload::{
     ExpandedMix, InteractionShape, ParamSource, Qualification, QueryClass, QueryScope, READ_BAND,
     Share, Stage, WORKLOADS_DIR, Workload, ppm_percent,
 };
+
+/// The operations a closed-loop walk may issue: the reads that address one
+/// seeded composition.
+pub const WALK_READS: &[WorkloadOp] = &[
+    WorkloadOp::CompositionRead,
+    WorkloadOp::CompositionReadCurrent,
+    WorkloadOp::CompositionReadAtTime,
+    WorkloadOp::VersionedCompositionRead,
+    WorkloadOp::CompositionVersionReadLatest,
+    WorkloadOp::CompositionVersionReadAtTime,
+    WorkloadOp::CompositionVersionRead,
+    WorkloadOp::CompositionRevisionHistory,
+];
 
 /// The longest mean think time of a session, in milliseconds.
 pub const THINK_TIME_LIMIT_MS: u32 = 10_000;
@@ -62,12 +75,26 @@ pub struct PinnedWorkload {
 }
 
 /// The workloads this binary pins, by digest.
-pub const PINNED: &[PinnedWorkload] = &[PinnedWorkload {
-    id: "clinical-mix",
-    version: 1,
-    file: "clinical-mix.yaml",
-    sha256: "d4c0c85e6561ed6e8dc8950c9ef5e2b69a22c29c8e66a0169692ad79a57f2e40",
-}];
+pub const PINNED: &[PinnedWorkload] = &[
+    PinnedWorkload {
+        id: "aql-mix",
+        version: 1,
+        file: "aql-mix.yaml",
+        sha256: "122d18faa1f183fa8ffc5c5e6e0821c334a063a72bd0c500023d6b164dc6cba1",
+    },
+    PinnedWorkload {
+        id: "clinical-mix",
+        version: 1,
+        file: "clinical-mix.yaml",
+        sha256: "d4c0c85e6561ed6e8dc8950c9ef5e2b69a22c29c8e66a0169692ad79a57f2e40",
+    },
+    PinnedWorkload {
+        id: "community-vitals",
+        version: 1,
+        file: "community-vitals.yaml",
+        sha256: "482fac30fbe1a75270b427074860e9fdc6014de8e68deeda4308752002396fad",
+    },
+];
 
 /// What a workload document is, by its digest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -423,6 +450,10 @@ fn check_sum<'a>(
 }
 
 /// Every gate over a typed document.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one gate after another over one document, each a few lines"
+)]
 fn check(path: &Path, workload: &Workload, ctx: &LoadContext, errors: &mut Vec<LoadError>) {
     if let Some(stem) = path.file_stem().and_then(|s| s.to_str())
         && stem != workload.id.as_str()
@@ -495,8 +526,28 @@ fn check(path: &Path, workload: &Workload, ctx: &LoadContext, errors: &mut Vec<L
             );
         }
     }
+    if let Some(walk) = &workload.corpus.walk {
+        for op in &walk.reads {
+            if !WALK_READS.contains(op) {
+                defect(
+                    errors,
+                    path,
+                    "corpus.walk.reads",
+                    format!("{op} is not a read of one seeded composition"),
+                );
+            }
+        }
+    }
+    if workload.corpus.ehrs == Some(0) || workload.corpus.seed_workers == Some(0) {
+        defect(
+            errors,
+            path,
+            "corpus",
+            "ehrs and seed_workers, when given, are at least 1".to_owned(),
+        );
+    }
     let mix = workload.expansion();
-    if !mix.inside_read_band() {
+    if workload.reproduces.is_none() && !mix.inside_read_band() {
         let (reads, writes) = mix.reads_writes();
         defect(
             errors,

@@ -629,6 +629,11 @@ pub fn perf_workload_schema() -> Value {
             "version": { "type": "integer", "minimum": 1 },
             "status": { "enum": ["provisional", "ratified"] },
             "description": text,
+            "reproduces": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The published harness or benchmark the workload reproduces. Its mix is the harness's, so the population model's read band does not gate it, and every rendering says so."
+            },
             "seed": { "type": "integer", "minimum": 0 },
             "corpus": {
                 "type": "object",
@@ -636,8 +641,24 @@ pub fn perf_workload_schema() -> Value {
                 "required": ["scale", "compositions_per_ehr", "templates"],
                 "properties": {
                     "scale": { "enum": tokens(crate::workload::CorpusScale::ALL) },
+                    "ehrs": { "type": "integer", "minimum": 1, "description": "The EHRs to create when a reproduced harness pins a count other than the scale's." },
                     "compositions_per_ehr": { "type": "integer", "minimum": 1 },
-                    "templates": share_map(CORPUS_KEY_PATTERN)
+                    "templates": share_map(CORPUS_KEY_PATTERN),
+                    "commit": { "enum": ["stamped", "verbatim"], "description": "`stamped` (the default) varies event times, composer and the numeric leaves the template allows; `verbatim` commits the example as it is." },
+                    "seed_workers": { "type": "integer", "minimum": 1, "description": "The closed-loop seeding workers a reproduced harness pins." },
+                    "walk": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["reads"],
+                        "description": "A closed-loop walk after seeding: these reads against every seeded composition, each sent after the previous answer, reported apart and labelled closed-loop.",
+                        "properties": {
+                            "reads": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": { "enum": crate::workload::ops::WorkloadOp::ALL.iter().map(|op| op.token()).collect::<Vec<_>>() }
+                            }
+                        }
+                    }
                 }
             },
             "arrival": { "enum": tokens(crate::perf_gen::arrivals::ArrivalProcess::ALL) },
@@ -721,6 +742,7 @@ pub fn perf_workloads_schema() -> Value {
             "file": text,
             "sha256": sha,
             "description": text,
+            "reproduces": text,
             "seed": { "type": "integer", "minimum": 0 },
             "arrival": { "enum": tokens(crate::perf_gen::arrivals::ArrivalProcess::ALL) },
             "sample_target": { "type": "integer", "minimum": 1 },
@@ -747,7 +769,7 @@ pub fn perf_workloads_schema() -> Value {
                     "min_s": { "type": "integer" }, "max_s": { "type": "integer" },
                     "session_tail_s": { "type": "integer" }, "limit_s": { "type": "integer" }
                 })),
-            "read_write_ratio": { "type": "string", "pattern": "^[0-9]+\\.[0-9]{2}:1$" },
+            "read_write_ratio": { "type": "string", "pattern": "^([0-9]+\\.[0-9]{2}:1|reads only)$" },
             "mean_operations_per_interaction": { "type": "string", "pattern": "^[0-9]+\\.[0-9]{2}$" },
             "interactions": { "type": "array", "items": object(
                 &["name", "share", "kind", "stages", "requires", "description", "derivation"],
@@ -1691,6 +1713,19 @@ fn perf_result_raw_def() -> Value {
                     "wall_ms": { "type": "integer", "minimum": 0 }
                 }
             },
+            "walk": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["model", "reads", "requests", "wall_ms"],
+                "description": "The closed-loop read walk after seeding, reported apart from every measured number.",
+                "properties": {
+                    "model": { "const": "closed_loop" },
+                    "reads": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+                    "requests": { "type": "integer", "minimum": 0 },
+                    "failed": { "type": "integer", "minimum": 1 },
+                    "wall_ms": { "type": "integer", "minimum": 0 }
+                }
+            },
             "mix": {
                 "type": "object",
                 "additionalProperties": false,
@@ -2135,6 +2170,16 @@ fn perf_result_derived_def() -> Value {
                 "properties": {
                     "model": { "const": "closed_loop" },
                     "requests_per_s": { "type": "number", "minimum": 0.0 }
+                }
+            },
+            "walk": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["model"],
+                "description": "The closed-loop walk's whole-loop average, the figure a single-client harness reports.",
+                "properties": {
+                    "model": { "const": "closed_loop" },
+                    "mean_us_per_request": { "type": "number", "minimum": 0.0 }
                 }
             },
             "knee": perf_knee_def(),

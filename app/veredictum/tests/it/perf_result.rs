@@ -154,6 +154,7 @@ pub(crate) fn raw(plateaus: Vec<RawPlateau>) -> Raw {
             requests: 1_100,
             wall_ms: 2_000,
         },
+        walk: None,
         mix: RawMix {
             operations_per_interaction: 1.0,
             dropped: Vec::new(),

@@ -501,6 +501,7 @@ fn raw() -> Fallible<Raw> {
             requests: 1_100_412,
             wall_ms: 1_934_000,
         },
+        walk: None,
         mix: RawMix {
             operations_per_interaction: 1.0,
             dropped: Vec::new(),

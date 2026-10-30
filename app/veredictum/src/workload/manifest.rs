@@ -98,6 +98,10 @@ pub struct WorkloadDescription {
     pub sha256: String,
     /// What the workload emulates.
     pub description: String,
+    /// The published harness the workload reproduces, when it reproduces
+    /// one; the read band then does not gate its mix.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reproduces: Option<String>,
     /// The root of every seeded draw.
     pub seed: u64,
     /// The arrival process.
@@ -110,7 +114,7 @@ pub struct WorkloadDescription {
     pub corpus: CorpusDescription,
     /// The planned run after seeding.
     pub planned_run: PlanDescription,
-    /// Reads per write of the expanded mix, as `r:1`.
+    /// Reads per write of the expanded mix, as `r:1`, or `reads only`.
     pub read_write_ratio: String,
     /// Mean operations per interaction arrival, to two decimals.
     pub mean_operations_per_interaction: String,
@@ -293,6 +297,9 @@ fn percent(num: u64, den: u64) -> String {
     format!("{}.{:02}%", hundredths / 100, hundredths % 100)
 }
 
+/// The read:write ratio of a mix that writes nothing.
+pub const READS_ONLY: &str = "reads only";
+
 /// Returns `num / den` with two decimals, rounded half up.
 #[expect(
     clippy::integer_division,
@@ -419,13 +426,14 @@ pub fn describe(
             .unwrap_or_default(),
         sha256: loaded.sha256.clone(),
         description: workload.description.clone(),
+        reproduces: workload.reproduces.clone(),
         seed: workload.seed,
         arrival: workload.arrival,
         sample_target: workload.sample_target.0,
         qualification,
         corpus: CorpusDescription {
             scale: workload.corpus.scale,
-            ehrs: workload.corpus.scale.ehrs(),
+            ehrs: workload.corpus.ehr_count(),
             compositions_per_ehr: workload.corpus.compositions_per_ehr,
             templates: workload
                 .corpus
@@ -443,7 +451,11 @@ pub fn describe(
             session_tail_s: loaded.plan.session_tail_s,
             limit_s: RUN_LIMIT_S,
         },
-        read_write_ratio: format!("{}:1", decimal(reads, writes)),
+        read_write_ratio: if writes == 0 {
+            READS_ONLY.to_owned()
+        } else {
+            format!("{}:1", decimal(reads, writes))
+        },
         mean_operations_per_interaction: decimal(total, u64::from(Share::WHOLE.ppm())),
         interactions,
         operations,
@@ -555,14 +567,23 @@ pub fn summary(loaded: &LoadedWorkload) -> String {
     let total = mix.total();
     let (reads, writes) = mix.reads_writes();
     let mut out = format!(
-        "{} ({}): planned run {} to {} s after seeding (limit {RUN_LIMIT_S} s), reads:writes {}:1, {} operations per interaction\n",
+        "{} ({}): planned run {} to {} s after seeding (limit {RUN_LIMIT_S} s), reads:writes {}, {} operations per interaction\n",
         loaded.path.display(),
         loaded.identity.label(),
         loaded.plan.min_s,
         loaded.plan.max_s,
-        decimal(reads, writes),
+        if writes == 0 {
+            READS_ONLY.to_owned()
+        } else {
+            format!("{}:1", decimal(reads, writes))
+        },
         decimal(total, u64::from(Share::WHOLE.ppm())),
     );
+    if loaded.workload.reproduces.is_some() {
+        out.push_str(
+            "  reproduces a published harness, so the population read band does not gate it\n",
+        );
+    }
     for (key, entry) in &mix.operations {
         let _ = writeln!(
             out,
@@ -611,6 +632,14 @@ pub fn render_page(manifest: &Manifest) -> String {
             w.read_write_ratio,
             w.mean_operations_per_interaction,
         );
+        if let Some(source) = &w.reproduces {
+            let _ = writeln!(
+                out,
+                "- Reproduces: {}. Its mix is the harness's, so the population read band \
+                 does not gate it.",
+                escape_cell(source)
+            );
+        }
         out.push_str(
             "\n### Interactions\n\n| Interaction | Share | Stages | Source |\n|---|---|---|---|\n",
         );

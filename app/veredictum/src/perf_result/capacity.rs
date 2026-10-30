@@ -438,7 +438,12 @@ pub enum PopulationReading {
 
 /// Reads the population band of `knee` at `scale` on `environment`.
 #[must_use]
-pub fn population(knee: &Knee, scale: CorpusScale, environment: &Environment) -> PopulationReading {
+pub fn population(
+    knee: &Knee,
+    scale: CorpusScale,
+    ehrs: u64,
+    environment: &Environment,
+) -> PopulationReading {
     let Some(knee_rate) = knee.qualified_rate() else {
         return PopulationReading::NotRead {
             reason: "no plateau qualified, so the run has no knee to read".to_owned(),
@@ -451,7 +456,7 @@ pub fn population(knee: &Knee, scale: CorpusScale, environment: &Environment) ->
         arrivals_per_100k: ARRIVALS_PER_100K,
         population: [knee_rate / high * 100_000.0, knee_rate / low * 100_000.0],
         corpus_scale: scale,
-        corpus_ehrs: scale.ehrs(),
+        corpus_ehrs: ehrs,
         environment: format!(
             "{}, {} cores, {} GiB, {} storage, {}",
             environment.hardware_class,

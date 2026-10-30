@@ -374,6 +374,19 @@ pub struct ScoutEstimate {
     pub breached_window: Option<usize>,
 }
 
+/// The closed-loop walk's own reading: the whole-loop average a
+/// single-client harness reports, labelled closed-loop because the server
+/// set its pace.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WalkReading {
+    /// Always `closed_loop`.
+    pub model: LoadModel,
+    /// Wall microseconds per request; absent for no request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mean_us_per_request: Option<f64>,
+}
+
 /// The seeding's own reading, apart from every measured number.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -397,6 +410,9 @@ pub struct Derived {
     pub scope: String,
     /// The seeding, labelled closed-loop.
     pub seeding: SeedingReading,
+    /// The closed-loop walk after seeding, when the record carries one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub walk: Option<WalkReading>,
     /// The scout windows, when the run made a scout.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scout: Vec<DerivedScoutWindow>,
@@ -879,7 +895,7 @@ pub fn derive(raw: &Raw) -> Result<Derived, PerfResultError> {
     let knee = knee(&plateaus);
     let peak = peak(&plateaus, &scout);
     let usl = fit_usl(&usl_points(&plateaus, &scout));
-    let population = population(&knee, raw.corpus.scale, &raw.environment);
+    let population = population(&knee, raw.corpus.scale, raw.corpus.ehrs, &raw.environment);
     Ok(Derived {
         passes: Passes,
         between_run_noise: raw
@@ -891,6 +907,11 @@ pub fn derive(raw: &Raw) -> Result<Derived, PerfResultError> {
             model: raw.seeding.model,
             requests_per_s: (seconds > 0.0).then(|| u64_to_f64(raw.seeding.requests) / seconds),
         },
+        walk: raw.walk.as_ref().map(|w| WalkReading {
+            model: w.model,
+            mean_us_per_request: (w.requests > 0)
+                .then(|| u64_to_f64(w.wall_ms) * 1_000.0 / u64_to_f64(w.requests)),
+        }),
         scout,
         scout_estimate,
         plateaus,

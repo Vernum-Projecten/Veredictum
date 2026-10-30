@@ -33,6 +33,11 @@
       "type": "string",
       "minLength": 1
     },
+    "reproduces": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The published harness or benchmark the workload reproduces. Its mix is the harness's, so the population model's read band does not gate it, and every rendering says so."
+    },
     "seed": {
       "type": "integer",
       "minimum": 0
@@ -54,6 +59,11 @@
             "R"
           ]
         },
+        "ehrs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The EHRs to create when a reproduced harness pins a count other than the scale's."
+        },
         "compositions_per_ehr": {
           "type": "integer",
           "minimum": 1
@@ -67,6 +77,69 @@
           "additionalProperties": {
             "type": "string",
             "pattern": "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$"
+          }
+        },
+        "commit": {
+          "enum": [
+            "stamped",
+            "verbatim"
+          ],
+          "description": "`stamped` (the default) varies event times, composer and the numeric leaves the template allows; `verbatim` commits the example as it is."
+        },
+        "seed_workers": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The closed-loop seeding workers a reproduced harness pins."
+        },
+        "walk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reads"
+          ],
+          "description": "A closed-loop walk after seeding: these reads against every seeded composition, each sent after the previous answer, reported apart and labelled closed-loop.",
+          "properties": {
+            "reads": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "enum": [
+                  "ehr_create",
+                  "ehr_read",
+                  "ehr_read_by_subject",
+                  "ehr_status_read",
+                  "ehr_status_update",
+                  "composition_commit",
+                  "composition_commit_flat",
+                  "composition_read",
+                  "composition_read_current",
+                  "composition_update",
+                  "composition_delete",
+                  "composition_revision_history",
+                  "composition_version_read",
+                  "composition_read_at_time",
+                  "versioned_composition_read",
+                  "composition_version_read_latest",
+                  "composition_version_read_at_time",
+                  "directory_create",
+                  "directory_read",
+                  "directory_update",
+                  "contribution_commit",
+                  "contribution_read",
+                  "tags_put",
+                  "tags_read",
+                  "template_list",
+                  "template_get",
+                  "template_example",
+                  "template_adl2_list",
+                  "party_create",
+                  "party_read",
+                  "party_update",
+                  "system_options",
+                  "aql"
+                ]
+              }
+            }
           }
         }
       }
@@ -145,6 +218,10 @@
               "composition_delete",
               "composition_revision_history",
               "composition_version_read",
+              "composition_read_at_time",
+              "versioned_composition_read",
+              "composition_version_read_latest",
+              "composition_version_read_at_time",
               "directory_create",
               "directory_read",
               "directory_update",
@@ -208,6 +285,10 @@
                         "composition_delete",
                         "composition_revision_history",
                         "composition_version_read",
+                        "composition_read_at_time",
+                        "versioned_composition_read",
+                        "composition_version_read_latest",
+                        "composition_version_read_at_time",
                         "directory_create",
                         "directory_read",
                         "directory_update",

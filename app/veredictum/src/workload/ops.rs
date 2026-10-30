@@ -181,6 +181,24 @@ workload_ops! {
     CompositionVersionRead = "composition_version_read", "composition", false, StageInput::None,
         Some(released("ehr", "versioned_composition_version_get_by_id", "GET",
             "/ehr/{ehr_id}/versioned_composition/{versioned_object_uid}/version/{version_uid}"));
+    /// `GET /ehr/{ehr_id}/composition/{uid_based_id}?version_at_time=…` at a
+    /// versioned object uid, which answers the version extant at the instant.
+    CompositionReadAtTime = "composition_read_at_time", "composition", false, StageInput::None,
+        Some(released("ehr", "composition_get", "GET", "/ehr/{ehr_id}/composition/{uid_based_id}"));
+    /// `GET …/versioned_composition/{versioned_object_uid}`, the
+    /// `VERSIONED_COMPOSITION` container itself.
+    VersionedCompositionRead = "versioned_composition_read", "composition", false, StageInput::None,
+        Some(released("ehr", "versioned_composition_get", "GET",
+            "/ehr/{ehr_id}/versioned_composition/{versioned_object_uid}"));
+    /// `GET …/versioned_composition/{versioned_object_uid}/version`, which
+    /// answers the latest version.
+    CompositionVersionReadLatest = "composition_version_read_latest", "composition", false, StageInput::None,
+        Some(released("ehr", "versioned_composition_version_get_at_time", "GET",
+            "/ehr/{ehr_id}/versioned_composition/{versioned_object_uid}/version"));
+    /// `GET …/versioned_composition/{versioned_object_uid}/version?version_at_time=…`.
+    CompositionVersionReadAtTime = "composition_version_read_at_time", "composition", false, StageInput::None,
+        Some(released("ehr", "versioned_composition_version_get_at_time", "GET",
+            "/ehr/{ehr_id}/versioned_composition/{versioned_object_uid}/version"));
     /// `POST /ehr/{ehr_id}/directory`.
     DirectoryCreate = "directory_create", "directory", true, StageInput::None,
         Some(released("ehr", "directory_create", "POST", "/ehr/{ehr_id}/directory"));
