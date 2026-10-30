@@ -566,6 +566,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: openehr-item-tag and openehr-version-item-tag
       quote: "More than one ITEM_TAG may be associated with a single target, in which case they are uniquely identified by their `key` and `target_path` pair attributes."
+      level: may
     steps:
       - *create
       - stepId: tag
@@ -840,6 +841,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: Usage in Requests
       quote: "When used as request headers for creation or update operations (`PUT`, `POST`), the header instructs the system which ITEM_TAG list should be associated with the target VERSION or VERSIONED_OBJECT resource (depending on the header name)."
+      level: must
     steps:
       - stepId: create
         description: "Create the PERSON with both tag headers, keep its version_uid and derive the container's uid."

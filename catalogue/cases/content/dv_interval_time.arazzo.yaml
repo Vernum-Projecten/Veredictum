@@ -551,6 +551,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Intervals"
       quote: "Dates, times and date/times can also be constrained using intervals."
+      level: may
     inputs:
       type: object
       required: [composition, template]

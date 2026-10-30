@@ -471,6 +471,7 @@ workflows:
       source: specs/rest-oas/query-validation.openapi.yaml
       section: tags
       quote: "The `query-name` may include any combination of characters, matched by the pattern `[a-zA-Z0-9_.-]`."
+      level: may
     inputs:
       type: object
       properties:

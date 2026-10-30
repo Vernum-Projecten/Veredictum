@@ -1565,19 +1565,26 @@ x-veredictum-cite:
 ```
 
 An optional `level: should` marks a quote that recommends rather than
-requires (§15.6 rule 10); `must` is the default. An optional `report: <n>`
+requires, and `level: may` one that only permits (§15.6 rule 10); `must` is
+the default. An optional `report: <n>`
 names the `upstream-report` issue in this repository that records a defect or
 silence in the quoted text; that issue, with its patch under `upstream/`, is
 the whole record of the defect. This catalogue carries no ambiguity register:
 a behaviour the release leaves unassigned is either an upstream report that no
 workflow asserts, or an option in `capabilities.yaml` that a statement
 answers (#617). `section` addresses the
-element the quote must occur in. In a YAML source it
+element the quote must occur in. In a YAML or JSON source it
 is a top-level key or a JSON Pointer (RFC 6901); in a Markdown or AsciiDoc
-source it is a heading title. A criterion without its own citation inherits
+source it is a heading title. A pointer to a number, a boolean or `null`
+names a leaf with no text, so its quote is that value written as JSON and is
+matched by value: `section: /definitions/DV_PARAGRAPH/properties/items/minItems`
+with `quote: "1"` cites the released ITS-JSON schema's floor on
+DV_PARAGRAPH items. A criterion without its own citation inherits
 its step's, and a step inherits its workflow's. `validate` refuses a criterion that resolves to no citation,
 and refuses a citation whose `quote` does not occur verbatim (after whitespace
-normalization) in the named file. A file under
+normalization) in the named file. A citation names a file under
+`specs/openehr/`, `specs/rest-oas/`, `specs/its-json-schemas/` or
+`specs/its-xml-schemas/`, never the SM. A file under
 `specs/openehr/ITS-REST/specifications/` or `specs/rest-oas/` is an OAS
 citation and ranks below the docs text (hard rule 1).
 
@@ -1593,6 +1600,7 @@ when both the condition and the judge hold:
 | `equivalent` | Two RM documents are equal, ignoring a named set of server-assigned fields |
 | `signature` | `ORIGINAL_VERSION.signature` facts (RM common §Digital Signature) |
 | `schema` | The response conforms to the schema its operation declares in the `-validation` OAS for that status |
+| `json_type` | The value at a runtime expression is one of the six JSON types of RFC 8259 §3 (§15.6 rule 11) |
 
 Every other check is a standard Arazzo criterion. Field values use `jsonpath`
 or `regex`; status codes and counts use `simple`. An XML document's `xpath`
@@ -1782,12 +1790,33 @@ enforced by `validate` and the evaluator. Every rule stays inside what Arazzo
    also requires the header. Body values keep rule 6.
 10. **Requirement level.** Every citation states the level of the sentence it
     quotes: `level: must` (MUST, SHALL, REQUIRED, MUST NOT, SHALL NOT, and a
-    definition in the indicative), the default, or `level: should` (SHOULD,
-    RECOMMENDED, SHOULD NOT). Text that only permits (MAY, OPTIONAL) is never
-    asserted. A row whose failing criteria are all `should` is *failed* and
-    marked advisory: it is reported with its explanation and never counts
-    against a capability, because RFC 2119 lets an implementation ignore a
-    SHOULD for a valid reason.
+    definition in the indicative), the default, `level: should` (SHOULD,
+    RECOMMENDED, SHOULD NOT), or `level: may` (MAY, OPTIONAL). A row whose
+    failing criteria are all `should` is *failed* and marked advisory: it is
+    reported with its explanation and never counts against a capability,
+    because RFC 2119 lets an implementation ignore a SHOULD for a valid
+    reason. A `may` criterion counts like a `must` one: RFC 2119 §5 obliges an
+    implementation to interoperate with one that takes an option, so a
+    client's permission binds the server, and a choice the release leaves to
+    the server is an option in `capabilities.yaml` whose arm a statement
+    selects. The upper-case keywords decide a quote that carries any. The
+    openEHR text often writes a requirement in lower case, which RFC 2119
+    cannot read, so a quote with no upper-case keyword is read by the same
+    words in any case, with "can" as a permission: a citation that leaves the
+    default `must` while its quote says "should", "can" or "may" and nothing
+    that requires is refused until its author states the level, `should` or
+    `may` when the sentence says so, or `must` when it requires in other words
+    ("can always be written to", "will be considered").
+11. **JSON types.** No `simple`, `regex` or RFC 9535 criterion asserts the
+    JSON type of a value: a JSONPath filter selects nodes and does not test
+    them, and `regex` and `simple` read scalars. The `json_type` judge of
+    `x-veredictum-check` does, with `type` one of the six JSON types of
+    RFC 8259 §3 (`object`, `array`, `string`, `number`, `boolean`, `null`),
+    and `validate` refuses any other name. An absent value is of no type and
+    fails, while a present `null` is of the type `null`. A judge was chosen
+    over a function extension of RFC 9535, which Arazzo 1.1.0 does not define
+    and no conformant JSONPath engine would evaluate, so the profile stays
+    inside both standards.
 
 ### 15.7 Data-driven cases
 

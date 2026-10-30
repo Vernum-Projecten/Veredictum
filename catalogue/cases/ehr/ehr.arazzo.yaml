@@ -108,6 +108,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml
       section: description
       quote: "Can happen when the supplied `ehr_id` is already used by an existing EHR."
+      level: must
     inputs:
       type: object
       properties:
@@ -161,6 +162,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml
       section: description
       quote: "Can happen when the supplied `ehr_id` is already used by an existing EHR."
+      level: must
     steps:
       - stepId: create
         description: Create an EHR and ask for the full resource in the response.

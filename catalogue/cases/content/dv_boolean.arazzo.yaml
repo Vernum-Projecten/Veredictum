@@ -151,6 +151,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Constraints on Boolean"
       quote: "Boolean runtime values can be constrained to be True, False, or either, as follows:"
+      level: may
     inputs:
       type: object
       required: [composition]
@@ -268,6 +269,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Constraints on Boolean"
       quote: "Boolean runtime values can be constrained to be True, False, or either, as follows:"
+      level: may
     inputs:
       type: object
       required: [composition]

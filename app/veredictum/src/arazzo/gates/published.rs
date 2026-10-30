@@ -75,7 +75,7 @@ fn judge_def(judge: &str, required: &[&str], properties: &Value) -> Value {
     })
 }
 
-/// The `x-veredictum-check` object: one of the three judges. A string value
+/// The `x-veredictum-check` object: one of the judges. A string value
 /// starting with `$` is a runtime expression; any other value is a literal.
 fn check_def() -> Value {
     let expression_or =
@@ -103,6 +103,12 @@ fn check_def() -> Value {
                 "equals": { "type": "string" },
                 "distinct_from": { "type": "string" }
             })),
+            judge_def("json_type", &["type"], &json!({
+                "type": {
+                    "description": "The JSON type the context's value must be, one of the six of RFC 8259 §3; an absent value is of no type, and a present `null` is of the type `null`.",
+                    "enum": tokens(crate::arazzo::check::JsonType::ALL)
+                }
+            })),
             {
                 "description": "The step's response body validates against the schema its operation declares for the served status and media type. It runs only where a criterion asks for it, and that criterion cites the OAS element.",
                 "type": "object",
@@ -114,6 +120,26 @@ fn check_def() -> Value {
                 }
             }
         ]
+    })
+}
+
+/// A citation's `level`.
+fn level_def() -> Value {
+    json!({
+        "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED, `may` for MAY or OPTIONAL. A quote with no upper-case keyword is read by the same words in any other case, with \"can\" as a permission. `validate` refuses a level its quote's upper-case keywords disagree with, a stated `should` or `may` its quote does not say, and a citation that leaves the default `must` while its quote says \"should\", \"can\" or \"may\" and no requiring word; a stated `must` records that such a sentence requires in other words. A row whose failing criteria all cite `should` is failed and advisory, and never counts against a capability; a `may` criterion counts like a `must` one (RFC 2119 §5).",
+        "enum": tokens(crate::arazzo::cite::Level::ALL)
+    })
+}
+
+/// A citation inside the capabilities file: the required members, with the
+/// rest of the shape left to the `arazzo-extensions` cite definition the
+/// gate checks it by.
+fn capabilities_cite_def() -> Value {
+    json!({
+        "description": "The citation, in the `arazzo-extensions` cite shape.",
+        "type": "object",
+        "required": ["source", "section", "quote"],
+        "properties": { "level": level_def() }
     })
 }
 
@@ -144,7 +170,7 @@ pub fn extensions_schema() -> Value {
                         "not": { "pattern": format!("^{}", regex_escape_prefix(EXCLUDED_ROOT)) }
                     },
                     "section": {
-                        "description": "A top-level key or a JSON Pointer in a YAML source. In a Markdown or AsciiDoc source, the title of exactly one heading, or a path of titles joined by ` > ` in which each heading sits directly under the one before it; a title that matches more than one heading is refused.",
+                        "description": "A top-level key or a JSON Pointer in a YAML or JSON source; when the element is a number, a boolean or `null`, the quote is that value as JSON text and is matched by value. In a Markdown or AsciiDoc source, the title of exactly one heading, or a path of titles joined by ` > ` in which each heading sits directly under the one before it; a title that matches more than one heading is refused.",
                         "type": "string",
                         "minLength": 1
                     },
@@ -158,10 +184,7 @@ pub fn extensions_schema() -> Value {
                         "type": "integer",
                         "minimum": 1
                     },
-                    "level": {
-                        "description": "The requirement level of the quote: `must` (the default) for MUST, SHALL, REQUIRED or a definition, `should` for SHOULD or RECOMMENDED. `validate` refuses a level its quote's upper-case keywords disagree with, and a quote whose only keyword is MAY or OPTIONAL. A row whose failing criteria all cite `should` is failed and advisory, and never counts against a capability.",
-                        "enum": tokens(crate::arazzo::cite::Level::ALL)
-                    }
+                    "level": level_def()
                 }
             },
             "check": check_def(),
@@ -433,11 +456,7 @@ pub fn capabilities_schema() -> Value {
                                 }
                             }
                         },
-                        CITE_KEY: {
-                            "description": "The citation, in the `arazzo-extensions` cite shape.",
-                            "type": "object",
-                            "required": ["source", "section", "quote"]
-                        },
+                        CITE_KEY: capabilities_cite_def(),
                         "decides": {
                             "description": "The response branches the arms are the mutually exclusive answers to: for each operation, the statuses a service answers with one arm or another, and the released sentence that makes them alternatives. A listed status counts as covered when one arm asserts it and every arm calls the operation; every other element needs every arm. No openEHR spec governs this, our own design.",
                             "type": "array",
@@ -455,11 +474,7 @@ pub fn capabilities_schema() -> Value {
                                         "uniqueItems": true,
                                         "items": { "type": "string", "pattern": "^[1-5][0-9]{2}$" }
                                     },
-                                    CITE_KEY: {
-                                        "description": "The citation, in the `arazzo-extensions` cite shape.",
-                                        "type": "object",
-                                        "required": ["source", "section", "quote"]
-                                    }
+                                    CITE_KEY: capabilities_cite_def()
                                 }
                             }
                         }

@@ -117,6 +117,7 @@ workflows:
       quote: The logical operator `NOT` can be used in combination with `CONTAINS` to express an exclusion
         constraint, i.e. the absence of any containment relationship between a parent and potential child
         items.
+      level: may
     steps:
       - stepId: query
         description: Execute the query with POST, the identifiers of the set-up passed as query parameters.

@@ -36,6 +36,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
       section: description
       quote: "The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`."
+      level: may
     inputs:
       type: object
       properties:
@@ -62,3 +63,4 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/202.yaml
               section: description
               quote: "`202 Accepted` is returned when the requested operation has been accepted for processing, but processing has not been completed or may not have started (i.e. when requests are processed asynchronously)."
+              level: must

@@ -62,8 +62,12 @@ defects! {
         ("arazzo-missing-citation.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-citation"),
     arazzo_level_mismatch =>
         ("arazzo-level-mismatch.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-level"),
+    arazzo_level_unmarked =>
+        ("arazzo-level-unmarked.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-level"),
     arazzo_simple_string =>
         ("arazzo-simple-string.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-profile"),
+    arazzo_json_type_unknown =>
+        ("arazzo-json-type-unknown.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-profile"),
     arazzo_rows_unknown_input =>
         ("arazzo-rows-unknown-input.rows.yaml", "cases/ehr/create_ehr-with_id.rows.yaml", "arazzo-rows"),
     arazzo_rows_bad_literal =>

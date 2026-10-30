@@ -576,11 +576,11 @@ options:
         documents: [version_signature]
       version-unsigned:
         documents: []
-    # TODO(#749): the quote permits ("can be made"), and the level vocabulary has no `may` to record it.
     x-veredictum-cite:
       source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
       section: Digital Signature
       quote: "At the time of committal of a Version, a digital signature of the object can be made."
+      level: may
   admin-ehr-delete-processing:
     description: >-
       Whether the service processes an EHR delete of the Admin API
@@ -597,6 +597,7 @@ options:
       source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete.yaml
       section: description
       quote: "The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`."
+      level: may
     decides:
       - api: admin
         operation: admin_ehr_delete
@@ -605,6 +606,7 @@ options:
           source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete.yaml
           section: description
           quote: "The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`. If the deletion is processed synchronously and completes successfully, the server returns status `204 No Content`."
+          level: may
       - api: admin
         operation: admin_ehr_delete_all
         statuses: ["202", "204"]
@@ -612,6 +614,7 @@ options:
           source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
           section: description
           quote: "The server may execute this operation asynchronously (e.g. in batches), in which case returns status `202 Accepted`. If the deletion is processed synchronously and completes successfully, the server returns status `204 No Content`."
+          level: may
   admin-ehr-delete-all:
     description: >-
       Whether the service serves the bulk EHR delete of the Admin API or has
@@ -625,6 +628,7 @@ options:
       source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
       section: description
       quote: "This functionality is intended primarily for **development** or **testing** purposes and may be disabled in **production** environments, in which case server may respond with `405 Method Not Allowed`."
+      level: may
     decides:
       - api: admin
         operation: admin_ehr_delete_all
@@ -633,6 +637,7 @@ options:
           source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
           section: description
           quote: "This functionality is intended primarily for **development** or **testing** purposes and may be disabled in **production** environments, in which case server may respond with `405 Method Not Allowed`."
+          level: may
   aql-undefined-containment:
     description: >-
       Whether the service refuses a query whose CONTAINS names a pair of
@@ -664,6 +669,7 @@ options:
       source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
       section: SUM
       quote: "Input values type should be either Integer or Real, and it will also determine the return type."
+      level: should
       report: 229
   xml-namespace:
     description: >-

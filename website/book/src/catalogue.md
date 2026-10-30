@@ -52,13 +52,17 @@ example `ehr/create_ehr-same_ehr_twice-with_id`, and it is never reused.
 - **`x-veredictum-cite`** is the citation, on a workflow, a step or a
   criterion: the vendored file, the section, and the sentence quoted verbatim.
   `validate` refuses a criterion that resolves to no citation and a quote that
-  does not occur in the named file. A quote that recommends rather than
-  requires carries `level: should`, and a row that fails only such criteria
-  is advisory: it never counts against a capability.
+  does not occur in the named file. The file may also be a released ITS-JSON
+  or ITS-XML schema, and a JSON Pointer to a number, a boolean or `null` in a
+  JSON or YAML file is quoted as that value. A quote that recommends rather
+  than requires carries `level: should`, and a row that fails only such
+  criteria is advisory: it never counts against a capability. A quote that
+  only permits carries `level: may`. A quote that says "should", "can" or
+  "may" in lower case and nothing that requires needs its level stated.
 - **`x-veredictum-check`** names one of the judges a plain condition cannot
   express: `result_set` (AQL result equality), `equivalent` (two RM documents
-  equal apart from a named set of server-assigned fields), `signature` and
-  `schema`.
+  equal apart from a named set of server-assigned fields), `signature`,
+  `schema` and `json_type` (the JSON type of a value).
 - **`x-veredictum-derive`** takes part of a version identifier, such as the
   versioned object id out of a version uid, which no Arazzo expression can.
 

@@ -703,6 +703,7 @@ workflows:
       source: specs/openehr/RM/docs/UML/classes/item_tree.adoc
       section: ITEM_TREE Class
       quote: "Can include 0 or more"
+      level: may
     inputs: *ehr_input
     steps:
       - *create_ehr

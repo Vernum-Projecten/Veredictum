@@ -23,7 +23,7 @@ use roas_arazzo::v1_1::Workflow;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::arazzo::cite::{Citation, Level};
+use crate::arazzo::cite::Citation;
 use crate::arazzo::results::{Skip, SkipReason, Why};
 use crate::arazzo::rows::Row;
 
@@ -244,7 +244,7 @@ pub fn undeclared_citation() -> Citation {
         section: "Scopes".to_owned(),
         quote: "scopes are passed during the authorization request and are evaluated by the _Platform_ when issuing access tokens.".to_owned(),
         report: None,
-        level: Level::Must,
+        level: None,
     }
 }
 

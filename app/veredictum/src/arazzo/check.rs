@@ -15,6 +15,8 @@
 //!   ignore paths [`crate::exec::assertions::strip_ignored`] reads.
 //! - `signature` wraps [`crate::exec::assertions::eval_signature`], the
 //!   `ORIGINAL_VERSION.signature` facts.
+//! - `json_type` decides which of the six JSON types of RFC 8259 §3 a value
+//!   is, which no `simple`, `regex` or RFC 9535 criterion can assert.
 //!
 //! A value that is a string starting with `$` is a runtime expression and is
 //! read from the run; any other value is a literal. A judge that does not hold
@@ -98,6 +100,94 @@ pub enum Check {
         /// Which declared schema: today only the `-validation` OAS.
         against: SchemaSource,
     },
+    /// The value at a runtime expression is of one JSON type.
+    JsonType {
+        /// The runtime expression that yields the judged value.
+        context: String,
+        /// The JSON type it must be.
+        #[serde(rename = "type")]
+        json_type: JsonType,
+    },
+}
+
+/// The type of a JSON value: the four primitive and the two structured types
+/// of RFC 8259 §3.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JsonType {
+    /// An object.
+    Object,
+    /// An array.
+    Array,
+    /// A string.
+    String,
+    /// A number.
+    Number,
+    /// `true` or `false`.
+    Boolean,
+    /// `null`.
+    Null,
+}
+
+impl JsonType {
+    /// All variants, in vocabulary order (schema emission derives from this).
+    pub const ALL: &[Self] = &[
+        Self::Object,
+        Self::Array,
+        Self::String,
+        Self::Number,
+        Self::Boolean,
+        Self::Null,
+    ];
+
+    /// The type of `value`.
+    #[must_use]
+    pub fn of(value: &Value) -> Self {
+        match value {
+            Value::Object(_) => Self::Object,
+            Value::Array(_) => Self::Array,
+            Value::String(_) => Self::String,
+            Value::Number(_) => Self::Number,
+            Value::Bool(_) => Self::Boolean,
+            Value::Null => Self::Null,
+        }
+    }
+
+    /// The token a check spells.
+    #[must_use]
+    pub fn token(self) -> &'static str {
+        match self {
+            Self::Object => "object",
+            Self::Array => "array",
+            Self::String => "string",
+            Self::Number => "number",
+            Self::Boolean => "boolean",
+            Self::Null => "null",
+        }
+    }
+}
+
+/// The `json_type` judgement of the value `served` read from `context`.
+///
+/// An absent value does not hold, while a present `null` is of the type
+/// `null`.
+fn json_type_judgement(context: &Expr, served: Option<&Value>, wanted: JsonType) -> Judgement {
+    let expected = format!("{context} is a JSON {}", wanted.token());
+    match served {
+        None => Judgement {
+            holds: false,
+            expected,
+            received: format!("{context} is absent"),
+        },
+        Some(value) => {
+            let actual = JsonType::of(value);
+            Judgement {
+                holds: actual == wanted,
+                expected,
+                received: format!("{context} is a JSON {}", actual.token()),
+            }
+        }
+    }
 }
 
 /// The schema a `schema` judge validates against.
@@ -140,7 +230,7 @@ impl Check {
             Expr::parse(context)?;
         }
         match &check {
-            Self::Schema { .. } => {}
+            Self::Schema { .. } | Self::JsonType { .. } => {}
             Self::ResultSet {
                 match_mode,
                 rows,
@@ -209,7 +299,8 @@ impl Check {
         match self {
             Self::ResultSet { context, .. }
             | Self::Equivalent { context, .. }
-            | Self::Signature { context, .. } => Some(context),
+            | Self::Signature { context, .. }
+            | Self::JsonType { context, .. } => Some(context),
             Self::Schema { .. } => None,
         }
     }
@@ -225,6 +316,10 @@ impl Check {
         };
         let signing = env.signing;
         let context = Expr::parse(context)?;
+        if let Self::JsonType { json_type, .. } = self {
+            let served = scope.eval(&context)?;
+            return Ok(json_type_judgement(&context, served.as_ref(), *json_type));
+        }
         let Some(served) = scope.eval(&context)?.filter(|v| !v.is_null()) else {
             return Ok(Judgement {
                 holds: false,
@@ -309,6 +404,9 @@ impl Check {
                 )
             }
             Self::Schema { .. } => judge_schema(scope, env),
+            Self::JsonType { json_type, .. } => {
+                Ok(json_type_judgement(&context, Some(&served), *json_type))
+            }
         }
     }
 
@@ -318,6 +416,7 @@ impl Check {
             Self::Equivalent { .. } => "equivalent",
             Self::Signature { .. } => "signature",
             Self::Schema { .. } => "schema",
+            Self::JsonType { .. } => "json_type",
         }
     }
 }
@@ -650,6 +749,77 @@ mod tests {
         };
         let judged = judge_signed(&verifiable, &served, &[], Some(&digest)).unwrap();
         assert!(!judged.holds, "sig-1 is not the digest of the envelope");
+    }
+
+    fn json_type(wanted: &str) -> Value {
+        json!({ "judge": "json_type", "context": "$response.body#/v", "type": wanted })
+    }
+
+    #[test]
+    fn json_type_tells_each_of_the_six_types_apart() {
+        let values = [
+            ("object", json!({ "a": 1 })),
+            ("array", json!(["launch-ehr"])),
+            ("string", json!("launch-ehr")),
+            ("number", json!(1.5)),
+            ("boolean", json!(false)),
+            ("null", Value::Null),
+        ];
+        for (wanted, _) in &values {
+            for (actual, value) in &values {
+                let judged = judge(&json_type(wanted), &json!({ "v": value }), &[]).unwrap();
+                assert_eq!(judged.holds, wanted == actual, "{wanted} against {value}");
+                assert_eq!(
+                    judged.received,
+                    format!("$response.body#/v is a JSON {actual}")
+                );
+            }
+        }
+        assert_eq!(
+            JsonType::ALL.iter().map(|t| t.token()).collect::<Vec<_>>(),
+            values.iter().map(|(t, _)| *t).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn a_seeded_non_array_capabilities_value_is_refused() {
+        let check = json!({ "judge": "json_type", "context": "$response.body#/capabilities",
+                            "type": "array" });
+        let listed = json!({ "capabilities": ["launch-ehr", "context-openehr-ehr"] });
+        assert!(judge(&check, &listed, &[]).unwrap().holds);
+        for seeded in [
+            json!({ "capabilities": "launch-ehr context-openehr-ehr" }),
+            json!({ "capabilities": { "launch-ehr": true } }),
+            json!({ "capabilities": null }),
+            json!({}),
+        ] {
+            let judged = judge(&check, &seeded, &[]).unwrap();
+            assert!(!judged.holds, "{seeded}");
+            assert_eq!(
+                judged.expected,
+                "$response.body#/capabilities is a JSON array"
+            );
+        }
+    }
+
+    #[test]
+    fn a_seeded_unknown_json_type_is_refused() {
+        for bad in [
+            json_type("integer"),
+            json_type("Array"),
+            json_type("list"),
+            json!({ "judge": "json_type", "context": "$response.body" }),
+            json!({ "judge": "json_type", "type": "array" }),
+        ] {
+            assert!(
+                matches!(Check::parse(&bad), Err(ParseError::Check(_))),
+                "{bad}"
+            );
+        }
+        assert!(matches!(
+            Check::parse(&json!({ "judge": "json_type", "context": "$nope", "type": "array" })),
+            Err(ParseError::Expression(_))
+        ));
     }
 
     #[test]

@@ -450,14 +450,21 @@ fn write_why(f: &mut fmt::Formatter<'_>, why: Option<&Why>) -> fmt::Result {
 
 /// The upstream URL of a vendored file at the commit its tree was taken from.
 ///
-/// The tree is `specs/openehr/<component>/` or `specs/rest-oas/`, and its
-/// `PROVENANCE.md` names the source repository and the commit. `None` when
-/// the file is outside those trees or the provenance names neither.
+/// The tree is `specs/openehr/<component>/`, `specs/rest-oas/` or
+/// `specs/its-json-schemas/`, and its `PROVENANCE.md` names the source
+/// repository and the commit. `None` when the file is outside those trees or
+/// the provenance names neither.
 #[must_use]
 pub fn upstream_link(source: &str, repo_root: &Path) -> Option<String> {
     let (tree, inner, upstream_prefix) = if let Some(rest) = source.strip_prefix("specs/openehr/") {
         let (component, inner) = rest.split_once('/')?;
         (format!("specs/openehr/{component}"), inner, String::new())
+    } else if let Some(inner) = source.strip_prefix("specs/its-json-schemas/") {
+        (
+            "specs/its-json-schemas".to_owned(),
+            inner,
+            "components/".to_owned(),
+        )
     } else {
         let inner = source.strip_prefix("specs/rest-oas/")?;
         (
@@ -512,6 +519,12 @@ mod tests {
             upstream_link("specs/rest-oas/ehr-validation.openapi.yaml", &root()).as_deref(),
             Some(
                 "https://github.com/openEHR/specifications-ITS-REST/blob/24058992d5fa96e8dfbd855d9c133f328387fc09/computable/OAS/ehr-validation.openapi.yaml"
+            )
+        );
+        assert_eq!(
+            upstream_link("specs/its-json-schemas/openehr_rm_1.1.0_all.json", &root()).as_deref(),
+            Some(
+                "https://github.com/openEHR/specifications-ITS-JSON/blob/5acae056248e917a4b4c56f7e712f4fcfeb616a6/components/openehr_rm_1.1.0_all.json"
             )
         );
         assert_eq!(upstream_link("artifacts/x.yaml", &root()), None);

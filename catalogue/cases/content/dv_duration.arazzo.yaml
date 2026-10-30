@@ -118,6 +118,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Duration Constraints > Patterns"
       quote: "The use of this pattern indicates which 'slots' in an ISO duration string may be filled."
+      level: may
     inputs:
       type: object
       required: [composition, template]
@@ -200,6 +201,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Duration Constraints > Patterns"
       quote: "The use of this pattern indicates which 'slots' in an ISO duration string may be filled."
+      level: may
     inputs:
       type: object
       required: [composition, template]
@@ -282,6 +284,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Duration Constraints > Patterns"
       quote: "The use of this pattern indicates which 'slots' in an ISO duration string may be filled."
+      level: may
     inputs:
       type: object
       required: [composition, template]
@@ -364,6 +367,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Duration Constraints > Patterns"
       quote: "The use of this pattern indicates which 'slots' in an ISO duration string may be filled."
+      level: may
     inputs:
       type: object
       required: [composition, template]
@@ -446,6 +450,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Duration Constraints > Patterns"
       quote: "The use of this pattern indicates which 'slots' in an ISO duration string may be filled."
+      level: may
     inputs:
       type: object
       required: [composition, template]
@@ -528,6 +533,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Duration Constraints > Patterns"
       quote: "The use of this pattern indicates which 'slots' in an ISO duration string may be filled."
+      level: may
     inputs:
       type: object
       required: [composition, template]
@@ -692,6 +698,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Lists and Intervals"
       quote: "Durations can also be constrained by using absolute ISO 8601 duration values, or ranges of the same (including negative values), e.g.:"
+      level: may
     inputs:
       type: object
       required: [composition, template]
@@ -776,6 +783,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Duration Constraints > Patterns"
       quote: "The use of this pattern indicates which 'slots' in an ISO duration string may be filled."
+      level: may
     inputs:
       type: object
       required: [composition, template]
@@ -860,6 +868,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Duration Constraints > Patterns"
       quote: "The use of this pattern indicates which 'slots' in an ISO duration string may be filled."
+      level: may
     inputs:
       type: object
       required: [composition, template]
@@ -944,6 +953,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Lists and Intervals"
       quote: "Durations can also be constrained by using absolute ISO 8601 duration values, or ranges of the same (including negative values), e.g.:"
+      level: may
     inputs:
       type: object
       required: [composition, template]
@@ -1272,6 +1282,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Lists and Intervals"
       quote: "Durations can also be constrained by using absolute ISO 8601 duration values, or ranges of the same (including negative values), e.g.:"
+      level: may
     inputs:
       type: object
       required: [composition, template]
@@ -1348,6 +1359,7 @@ workflows:
       source: specs/openehr/AM/docs/ADL1.4/master05-cadl.adoc
       section: "Lists and Intervals"
       quote: "Durations can also be constrained by using absolute ISO 8601 duration values, or ranges of the same (including negative values), e.g.:"
+      level: may
     inputs:
       type: object
       required: [composition, template]

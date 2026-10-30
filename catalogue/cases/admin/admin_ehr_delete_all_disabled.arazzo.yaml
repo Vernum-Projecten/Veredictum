@@ -33,6 +33,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/operations/admin_ehr_delete_all.yaml
       section: description
       quote: "This functionality is intended primarily for **development** or **testing** purposes and may be disabled in **production** environments, in which case server may respond with `405 Method Not Allowed`."
+      level: may
     inputs: &ehr_input
       type: object
       properties:

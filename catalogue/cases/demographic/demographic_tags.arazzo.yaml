@@ -25,6 +25,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/operations/demographic_tags_get.yaml
       section: description
       quote: "This list can be filtered by the given one or more `tag_key`, `tag_value`, `tag_target_path` query parameters."
+      level: may
     inputs: &run_input
       type: object
       properties:
@@ -117,6 +118,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/operations/demographic_tags_get.yaml
               section: description
               quote: "This list can be filtered by the given one or more `tag_key`, `tag_value`, `tag_target_path` query parameters."
+              level: may
 
   - workflowId: demographic_tags_get-filter_value
     summary: The Demographic tag listing filtered by a key and another value is empty
@@ -129,6 +131,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/operations/demographic_tags_get.yaml
       section: description
       quote: "This list can be filtered by the given one or more `tag_key`, `tag_value`, `tag_target_path` query parameters."
+      level: may
     inputs: *run_input
     steps:
       - *create

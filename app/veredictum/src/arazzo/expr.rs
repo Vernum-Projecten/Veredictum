@@ -133,7 +133,7 @@ pub enum ParseError {
     /// A criterion type that needs a `context` has none.
     #[error("a `{0}` criterion needs a `context`")]
     MissingContext(String),
-    /// An `x-veredictum-check` value that is not one of the three judges.
+    /// An `x-veredictum-check` value that is not one of the judges.
     #[error("`x-veredictum-check` is malformed: {0}")]
     Check(String),
 }

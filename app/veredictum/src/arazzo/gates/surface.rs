@@ -27,7 +27,9 @@ use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use roas_arazzo::common::reusable::ReusableOr;
-use roas_arazzo::v1_1::{CriterionKind, CriterionType, ParameterLocation, ValueOrSelector};
+use roas_arazzo::v1_1::{
+    Criterion, CriterionKind, CriterionType, ParameterLocation, ValueOrSelector,
+};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -415,6 +417,58 @@ pub fn released_api(url: &str) -> Option<&str> {
     stem.rsplit_once('-').map(|(api, _variant)| api)
 }
 
+/// The response statuses one success criterion asserts: `N` for a `simple`
+/// `$statusCode == N`, and each code of a `regex` criterion on `$statusCode`
+/// whose pattern is a plain alternation of status codes, `^N$` or
+/// `^(N|M|…)$`. Any other criterion asserts no status, because a pattern
+/// such as `^40[09]$` names its codes only through a regex reading the gate
+/// does not attempt. No openEHR spec governs this, our own design.
+fn asserted_statuses(criterion: &Criterion) -> Vec<String> {
+    match &criterion.type_ {
+        None | Some(CriterionType::Simple(CriterionKind::Simple)) => {
+            match SimpleCondition::parse(&criterion.condition) {
+                Ok(SimpleCondition {
+                    left: Operand::Expr(Expr::StatusCode),
+                    op: CmpOp::Eq,
+                    right: Operand::Integer(status),
+                }) => vec![status.to_string()],
+                _ => Vec::new(),
+            }
+        }
+        Some(CriterionType::Simple(CriterionKind::Regex))
+            if criterion
+                .context
+                .as_deref()
+                .is_some_and(|context| matches!(Expr::parse(context), Ok(Expr::StatusCode))) =>
+        {
+            status_alternation(&criterion.condition).unwrap_or_default()
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// The status codes of a pattern that is a plain alternation of them,
+/// `^N$` or `^(N|M|…)$`, each a three-digit code from 100 to 599; `None` for
+/// any other pattern.
+fn status_alternation(pattern: &str) -> Option<Vec<String>> {
+    let inner = pattern.strip_prefix('^')?.strip_suffix('$')?;
+    let inner = match inner.strip_prefix('(') {
+        Some(grouped) => grouped.strip_suffix(')')?,
+        None if inner.contains('|') => return None,
+        None => inner,
+    };
+    inner
+        .split('|')
+        .map(|code| {
+            let mut digits = code.chars();
+            let plain = code.len() == 3
+                && digits.next().is_some_and(|d| ('1'..='5').contains(&d))
+                && digits.all(|d| d.is_ascii_digit());
+            plain.then(|| code.to_owned())
+        })
+        .collect()
+}
+
 /// Every element the documents' steps cover.
 #[must_use]
 pub fn covered<'a>(documents: impl IntoIterator<Item = &'a ArazzoDocument>) -> BTreeSet<Element> {
@@ -444,25 +498,12 @@ pub fn covered<'a>(documents: impl IntoIterator<Item = &'a ArazzoDocument>) -> B
                 api: api.clone(),
                 operation: operation.clone(),
             });
-            for criterion in &step.success_criteria {
-                let simple = matches!(
-                    criterion.type_,
-                    None | Some(CriterionType::Simple(CriterionKind::Simple))
-                );
-                if let (true, Ok(condition)) =
-                    (simple, SimpleCondition::parse(&criterion.condition))
-                    && let SimpleCondition {
-                        left: Operand::Expr(Expr::StatusCode),
-                        op: CmpOp::Eq,
-                        right: Operand::Integer(status),
-                    } = condition
-                {
-                    out.insert(Element::Response {
-                        api: api.clone(),
-                        operation: operation.clone(),
-                        status: status.to_string(),
-                    });
-                }
+            for status in step.success_criteria.iter().flat_map(asserted_statuses) {
+                out.insert(Element::Response {
+                    api: api.clone(),
+                    operation: operation.clone(),
+                    status,
+                });
             }
             let mut sent: Vec<(NegotiationHeader, String)> = Vec::new();
             for parameter in &step.parameters {
@@ -877,5 +918,76 @@ mod tests {
             None
         );
         assert_eq!(released_api("specs/rest-oas/ehr.yaml"), None);
+    }
+
+    fn criterion(value: Value) -> Criterion {
+        serde_json::from_value(value).unwrap()
+    }
+
+    fn regex_on(context: &str, pattern: &str) -> Criterion {
+        criterion(serde_json::json!({ "context": context, "type": "regex", "condition": pattern }))
+    }
+
+    #[test]
+    fn a_status_alternation_covers_each_code_it_names() {
+        assert_eq!(
+            asserted_statuses(&regex_on("$statusCode", "^(400|409)$")),
+            ["400", "409"]
+        );
+        assert_eq!(
+            asserted_statuses(&regex_on("$statusCode", "^(200|201|204)$")),
+            ["200", "201", "204"]
+        );
+    }
+
+    #[test]
+    fn a_single_code_covers_that_code() {
+        assert_eq!(
+            asserted_statuses(&criterion(
+                serde_json::json!({ "condition": "$statusCode == 404" })
+            )),
+            ["404"]
+        );
+        for pattern in ["^404$", "^(404)$"] {
+            assert_eq!(
+                asserted_statuses(&regex_on("$statusCode", pattern)),
+                ["404"],
+                "{pattern}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_seeded_regex_that_is_no_plain_alternation_covers_nothing() {
+        for pattern in [
+            "^40[09]$",
+            "^2[0-9][0-9]$",
+            "^4\\d\\d$",
+            "^400|409$",
+            "(400|409)",
+            "^(400|409)",
+            "^(400|409|)$",
+            "^(400||409)$",
+            "^((400|409))$",
+            "^(4000|409)$",
+            "^(600|409)$",
+            "^(099)$",
+            "^(40a)$",
+        ] {
+            assert!(
+                asserted_statuses(&regex_on("$statusCode", pattern)).is_empty(),
+                "{pattern}"
+            );
+        }
+        assert!(
+            asserted_statuses(&regex_on("$response.body#/status", "^(400|409)$")).is_empty(),
+            "only a pattern on $statusCode asserts a status"
+        );
+        assert!(
+            asserted_statuses(&criterion(
+                serde_json::json!({ "condition": "$statusCode != 404" })
+            ))
+            .is_empty()
+        );
     }
 }

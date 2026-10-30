@@ -1,0 +1,31 @@
+# Seeded defect: a criterion cites a sentence that only says what "can" be
+# done at the default level `must`, with no requiring word, so the citation
+# has to state its level. The source url passes through the pristine `ehr`
+# directory the overlay links.
+arazzo: 1.1.0
+info: { title: seeded defect, version: 0.1.0 }
+sourceDescriptions:
+  - name: ehr
+    url: ../ehr/../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_ehr-signature_as_must
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/ehr_get_by_id.yaml
+      section: description
+      quote: "Retrieve the EHR with the specified `ehr_id`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: get
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Digital Signature
+              quote: "At the time of committal of a Version, a digital signature of the object can be made."

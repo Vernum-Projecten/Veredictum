@@ -31,7 +31,7 @@ pub fn undeclared_citation() -> Citation {
         section: "Service Discovery".to_owned(),
         quote: "The configuration endpoint should be always available relative to the _Platform_ base URL.".to_owned(),
         report: None,
-        level: Level::Must,
+        level: Some(Level::Should),
     }
 }
 

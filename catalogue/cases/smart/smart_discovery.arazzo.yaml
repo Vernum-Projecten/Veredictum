@@ -2,9 +2,10 @@
 # base URL. SMART on openEHR is in the DEVELOPMENT state in Release-1.1.0
 # (docs/smart_app_launch/manifest_vars.adoc), so a statement may leave this
 # folder unclaimed. The released text fixes the document's path and media
-# type and the required openEHR service entry, and assigns no status code,
-# authentication or caching to the request (upstream report #758), so the
-# workflow asserts the three and nothing else. A run given no Platform base
+# type, the required openEHR service entry and the array shape of
+# `capabilities`, and assigns no status code, authentication or caching to
+# the request (upstream report #758), so the workflow asserts those and
+# nothing else. A run given no Platform base
 # URL skips it as not-declared. Every quote is copied verbatim from the named
 # vendored file.
 arazzo: 1.1.0
@@ -30,6 +31,7 @@ workflows:
       source: specs/openehr/ITS-REST/docs/smart_app_launch/master04-service_discovery.adoc
       section: Service Discovery
       quote: "The configuration endpoint should be always available relative to the _Platform_ base URL."
+      level: should
       report: 758
     steps:
       - stepId: discover
@@ -56,3 +58,12 @@ workflows:
               source: specs/openehr/ITS-REST/docs/smart_app_launch/master04-service_discovery.adoc
               section: Services
               quote: "`baseUrl`: Absolute URL to the root of the API `*(required)*`"
+          - condition: $statusCode != null
+            x-veredictum-check:
+              judge: json_type
+              context: $response.body#/capabilities
+              type: array
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/docs/smart_app_launch/master04-service_discovery.adoc
+              section: Capabilities
+              quote: "The `capabilities` section advertises supported SMART features as an array value."
