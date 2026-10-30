@@ -28,6 +28,7 @@ pub mod maturity;
 pub mod oas;
 pub mod platform;
 pub mod principal;
+pub mod reading;
 pub mod recipe;
 pub mod regex_profile;
 pub mod results;

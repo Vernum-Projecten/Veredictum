@@ -19,6 +19,7 @@ use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::arazzo::reading::Tally;
 use crate::arazzo::results::{ResultRow, Results, SkipReason, Status, Whose, Why};
 use crate::arazzo::rows::Row;
 use crate::party::InstrumentStatus;
@@ -43,39 +44,6 @@ pub enum ExportError {
     /// The CTRF document could not be serialized.
     #[error("cannot serialize the CTRF document: {0}")]
     Json(#[from] serde_json::Error),
-}
-
-/// The row counts of one group of rows, by status.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Tally {
-    /// Every row.
-    pub tests: usize,
-    /// The passed rows.
-    pub passed: usize,
-    /// The failed rows.
-    pub failed: usize,
-    /// The errored rows.
-    pub errored: usize,
-    /// The skipped rows.
-    pub skipped: usize,
-}
-
-impl Tally {
-    /// Counts `rows` by status.
-    #[must_use]
-    pub fn of<'a>(rows: impl IntoIterator<Item = &'a ResultRow>) -> Self {
-        let mut tally = Self::default();
-        for row in rows {
-            tally.tests += 1;
-            match row.status {
-                Status::Passed => tally.passed += 1,
-                Status::Failed => tally.failed += 1,
-                Status::Errored => tally.errored += 1,
-                Status::Skipped => tally.skipped += 1,
-            }
-        }
-        tally
-    }
 }
 
 /// The rows of `results` grouped by case (one group per workflow), in the

@@ -31,7 +31,7 @@ use serde_json::Value;
 use crate::arazzo::catalogue::{self, Declarations, Selection};
 use crate::arazzo::credential::{CredentialSource, CredentialedTransport, Role, ScopedSources};
 use crate::arazzo::evaluate::RunConfig;
-use crate::arazzo::export::Tally;
+use crate::arazzo::reading::Tally;
 use crate::arazzo::gates::check_catalogue;
 use crate::arazzo::har::Har;
 use crate::arazzo::results::{ResultRow, Results, ReviewNote, Status, Whose};
