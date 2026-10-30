@@ -47,8 +47,8 @@ SPDX-License-Identifier = "CC-BY-SA-3.0"
 # The XSD bundles, the ITS-JSON schemas and the ITS-REST OpenAPI documents come
 # from the specification repositories, which carry Apache-2.0 at their root.
 # (Each OAS bundle declares CC-BY-ND-3.0 in its own `info.license` stanza,
-# contradicting that grant; the contradiction is reported upstream and the files
-# are taken under the repository LICENSE — see `specs/rest-oas/PROVENANCE.md`.)
+# contradicting that grant; the files are taken under the repository LICENSE,
+# which is vendored beside them — see `specs/rest-oas/PROVENANCE.md`.)
 [[annotations]]
 path = [
   "specs/its-xml-schemas/**",

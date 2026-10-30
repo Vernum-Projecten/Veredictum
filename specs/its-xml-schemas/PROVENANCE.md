@@ -6,8 +6,8 @@ released machine-readable artifacts of ITS-XML, kept beside the docs text in
 `specs/openehr/ITS-XML/`.
 
 Source repo: https://github.com/openEHR/specifications-ITS-XML
-License: Apache-2.0 (the upstream repo's `LICENSE`; root reference copy
-`LICENSE-APACHE-2.0`)
+License: Apache-2.0. The upstream repo's `LICENSE`, the same file at both
+tags, is vendored verbatim beside this file.
 
 ## Two lineages are vendored, and they differ by NAMESPACE and by RM generation
 
@@ -47,6 +47,7 @@ Reference material for the canonical-XML wire forms the catalogue exercises.
 The instrument reads none of these files at run time. The container image
 carries the tree under `/work/specs/its-xml-schemas/`.
 
-`scripts/vendor/its-xml-schemas.sh` refreshes both lineage directories from
+`scripts/vendor/its-xml-schemas.sh` refreshes both lineage directories and the
+`LICENSE` from
 the commits in the table above, whose pins it carries; this file is
 hand-written, so a refresh that moves a pin updates it in the same change.

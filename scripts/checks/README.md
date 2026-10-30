@@ -23,12 +23,14 @@ error.
 | `ci-conclusion-complete.sh` | branch protection routes through one `conclusion` check, so no CI job may run without appearing in its `needs` | the `workflow-audit` job in `.github/workflows/ci.yml` |
 | `citation-version.sh` | `CITATION.cff` `version` and the generated `.zenodo.json` `version` are the workspace engine's `[package]` version, release candidates included | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 | `hosted-deploy-script.sh` | the hosted box's `deploy.sh` is shellcheck-clean, extracted from the `write_files` block it lives in | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
+| `vendored-trees.sh` | every vendored tree (a directory holding a `PROVENANCE.md`, and every directory under `specs/` and `specs/openehr/`) names an existing `scripts/vendor/` script that writes it, and carries the upstream `LICENSE` that script fetches | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 
-Four of these take a single file or no argument rather than the three modes
+Five of these take a single file or no argument rather than the three modes
 above: `changelog-structure.sh` reads one changelog,
 `ci-conclusion-complete.sh` reads one workflow,
-`citation-version.sh` reads the three files that carry the version, and
-`hosted-deploy-script.sh` reads one cloud-init document. The mode contract
+`citation-version.sh` reads the three files that carry the version,
+`hosted-deploy-script.sh` reads one cloud-init document, and
+`vendored-trees.sh` reads the vendored trees and `scripts/vendor/`. The mode contract
 applies to guards that scan a file set.
 
 Guards still to port with the code: the spec-citation resolver, the

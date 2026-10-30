@@ -12,7 +12,10 @@ SHA-256: `37be908409bdb2f7bffe61fa23685c7e84cbeebfafac475a1d01dbc50ff7ab9e`.
 Fetched: 2026-10-23 by `scripts/vendor/arazzo-schema.sh`, which refuses bytes
 with any other digest.
 License: Apache-2.0, the upstream repository's licence (`REUSE.toml` records
-it for this file).
+it for this file). The repository's `LICENSE` at commit
+`e9ee1c49414780441fef0c5196c52f8222357a0a` is vendored beside the schema as
+`LICENSE-Arazzo-Specification`, by the same script and pinned by its own
+SHA-256, because the dated schema URL names no commit.
 
 The file is byte-for-byte what the URL served. It is compiled into the engine,
 because the crate publishes to crates.io and may only embed files it ships.
@@ -48,7 +51,9 @@ SHA-256: `cb9bd075beb0e046076046793f96bb1ba72bd1b1d331b1fbd42ac0ea36776cf3`.
 Fetched: 2026-10-28 by `scripts/vendor/ctrf-schema.sh`, which refuses bytes
 with any other digest.
 License: MIT, the upstream repository's licence (`REUSE.toml` records it for
-this file, and `LICENSES/MIT.txt` carries the text).
+this file, and `LICENSES/MIT.txt` carries the text). The repository's `LICENSE`
+at the same commit is vendored beside the schema as `LICENSE-ctrf`, by the
+same script and pinned by its own SHA-256.
 
 The file is byte-for-byte what the URL served. The CTRF export pins
 `specVersion` 0.2.0, and its tests validate every emitted document against

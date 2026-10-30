@@ -7,8 +7,11 @@
 # tree is hand-written and names the same commits, so move both together.
 #
 # Four upstream files carry CRLF line endings. The repository's
-# `* text=auto` attribute stores them as LF, so a re-run over an unchanged pin
-# leaves `git status` clean.
+# `* text=auto` attribute stores them as LF, and the script writes them as LF,
+# so a re-run over an unchanged pin leaves `git status` clean.
+#
+# The repository's `LICENSE`, the same file at both tags, lands at the tree
+# root.
 #
 # Idempotent: wipes and re-vendors each lineage directory. Re-run after moving
 # a pin below. PROVENANCE.md is not touched.
@@ -48,12 +51,27 @@ for entry in "${LINEAGES[@]}"; do
     exit 1
   fi
 
+  # Both tags carry the same LICENSE; one copy sits at the tree root, and a
+  # pin whose LICENSE differs from the other's needs a per-lineage copy.
+  if [[ -f "$TMP/LICENSE" ]] && ! cmp -s "$TMP/LICENSE" "$src/LICENSE"; then
+    echo "error: the LICENSE at $tag differs from the other lineage's; adjudicate before vendoring" >&2
+    exit 1
+  fi
+  cp "$src/LICENSE" "$TMP/LICENSE"
+
   out="$DEST/$dir"
   if [[ -d "$out" ]]; then
     rm -r "$out"
   fi
   mkdir -p "$out"
   cp -R "$src/components/." "$out/"
+  # Write those files with the LF endings the index holds, which is also what a
+  # checkout produces; git otherwise reports the CRLF copies as modified.
+  while IFS= read -r crlf; do
+    perl -pi -e 's/\r\n/\n/g' "$crlf"
+  done < <(LC_ALL=C grep -rl $'\r' "$out" || true)
   count="$(find "$out" -type f -name '*.xsd' | wc -l | tr -d ' ')"
   echo "    $count XSDs -> specs/its-xml-schemas/$dir"
 done
+cp "$TMP/LICENSE" "$DEST/LICENSE"
+echo "    the upstream LICENSE -> specs/its-xml-schemas/LICENSE"
