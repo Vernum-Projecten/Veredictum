@@ -151,6 +151,26 @@ The SMART text does not say what a request outside its granted scopes
 receives, or which operation a scope grants (upstream report #758), so the
 catalogue carries the granted side only.
 
+**The server's identity.** `results.json` records once, under `server`, what
+the server stated about itself through the ITS-REST System OPTIONS operation
+(`OPTIONS <base>/`), in the same classified form `veredictum identify`
+prints. When a workflow of the run sent that request, `server.read` is
+`exchange` and `server.entry` names the recording entry. When none did, the
+run reads it once after the catalogue, through the ordinary principal's
+credential, and `server.read` is `read` (or `unanswered` when the request got
+no response); the recording's log keeps that read, so a re-judgement records
+the same identity and never asks the server. The release the server states is
+`server.answer.options.restapi_specs_version`, and a server that states none
+leaves it absent. The operation says services SHOULD answer, so no outcome
+here counts toward conformance.
+
+When the statement declares `spec_versions.its_rest` and the server states a
+different `restapi_specs_version`, compared as written, `results.json` carries
+a `review` note of kind `restapi-version-differs` naming both values, and the
+run prints it after the row counts. The note changes no row and no exit
+status. No openEHR specification governs this comparison; it is this
+instrument's own design.
+
 **Re-judging.** `--rejudge <RECORDING>` answers every request from the
 recording and reuses every recorded input, so `results.json` comes out
 byte-identical. Pass the root, statement, IXIT and `--document` list the

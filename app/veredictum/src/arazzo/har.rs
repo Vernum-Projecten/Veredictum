@@ -84,6 +84,12 @@ pub struct LogContext {
     /// skips the same scoped rows. No token is recorded.
     #[serde(default, skip_serializing_if = "Coverage::is_empty")]
     pub scoped: Coverage,
+    /// The System OPTIONS read the instrument made after a run that
+    /// exchanged none, so a re-judgement records the same server identity
+    /// without asking the server again. Absent when the run's own exchange
+    /// carries the answer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity: Option<crate::arazzo::results::ServerIdentity>,
 }
 
 /// The HAR `page` object: one workflow run.
@@ -297,6 +303,7 @@ impl Har {
                     administrative: false,
                     platform_url: None,
                     scoped: Coverage::default(),
+                    identity: None,
                 },
             },
         }

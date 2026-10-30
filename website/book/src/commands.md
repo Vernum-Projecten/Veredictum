@@ -39,6 +39,8 @@ Drive the Arazzo catalogue against a server under test, or re-judge the recordin
 
 The whole catalogue is gated first, as `validate` gates it, and nothing runs while the gate has a finding. Every document under `cases/` runs, in path order, except the shared setups under `cases/_setup/`, which run only where a case names them in `dependsOn`. A workflow whose rows file says `server: exclusive` runs in a final phase, after every other workflow, and a re-judgement replays in the same order. Every row is printed, and a failed or errored row with its four-part explanation.
 
+The results record, under `server`, what the server stated through ITS-REST System OPTIONS: the run's own exchange when a workflow sent one, otherwise one read after the catalogue ran, which the recording keeps, so a re-judgement never asks the server. A member the server did not state stays absent. When the statement declares `spec_versions.its_rest` and the server states a different `restapi_specs_version`, the results carry a `review` note and the run prints it; the note changes no row and no exit status.
+
 A credential is read from the environment, never from an argument: from the variables `--auth` and `--admin-auth` name, or from the file named by the same variable with `_FILE` appended. Neither credential is recorded. The recording holds the server's response bodies verbatim, so it belongs where the operator keeps the run.
 
 Exit status: `0` when every row passed or was skipped, or failed only as advisory (a SHOULD, which never counts against a capability); `1` when any other row failed or errored; `2` when the run could not start or finish: a usage error, a gate finding, an unreadable file, a missing credential, or a recording that does not replay.
@@ -253,6 +255,26 @@ a statement may leave the folder unclaimed. Two things set it apart.
 The SMART text does not say what a request outside its granted scopes
 receives, or which operation a scope grants (upstream report #758), so the
 catalogue carries the granted side only.
+
+**The server's identity.** `results.json` records once, under `server`, what
+the server stated about itself through the ITS-REST System OPTIONS operation
+(`OPTIONS <base>/`), in the same classified form `veredictum identify`
+prints. When a workflow of the run sent that request, `server.read` is
+`exchange` and `server.entry` names the recording entry. When none did, the
+run reads it once after the catalogue, through the ordinary principal's
+credential, and `server.read` is `read` (or `unanswered` when the request got
+no response); the recording's log keeps that read, so a re-judgement records
+the same identity and never asks the server. The release the server states is
+`server.answer.options.restapi_specs_version`, and a server that states none
+leaves it absent. The operation says services SHOULD answer, so no outcome
+here counts toward conformance.
+
+When the statement declares `spec_versions.its_rest` and the server states a
+different `restapi_specs_version`, compared as written, `results.json` carries
+a `review` note of kind `restapi-version-differs` naming both values, and the
+run prints it after the row counts. The note changes no row and no exit
+status. No openEHR specification governs this comparison; it is this
+instrument's own design.
 
 **Re-judging.** `--rejudge <RECORDING>` answers every request from the
 recording and reuses every recorded input, so `results.json` comes out

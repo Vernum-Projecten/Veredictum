@@ -256,6 +256,307 @@
           }
         ]
       }
+    },
+    "server": {
+      "type": "object",
+      "description": "What the server stated about itself through the ITS-REST System OPTIONS operation (specifications/operations/options.yaml, which says services SHOULD answer), on a catalogue run. `exchange` is the run's own System OPTIONS exchange at recording entry `entry`; `read` is the read the instrument made after the catalogue ran because the run exchanged none, kept in the recording's log; `unanswered` is that read failing at the transport; `not_recorded` is a re-judged recording carrying no answer. The server's `restapi_specs_version` is `answer.options.restapi_specs_version`, present only when the server stated it. Nothing here counts toward conformance.",
+      "required": [
+        "read"
+      ],
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": [
+            "read",
+            "entry",
+            "answer"
+          ],
+          "properties": {
+            "read": {
+              "const": "exchange"
+            },
+            "entry": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "answer": {
+              "type": "object",
+              "required": [
+                "outcome",
+                "status"
+              ],
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "status",
+                    "options"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "const": "offered"
+                    },
+                    "status": {
+                      "const": 200
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "description": "The members of the `Options` document the server sent; a member the schema does not name is not carried.",
+                      "properties": {
+                        "solution": {
+                          "type": "string",
+                          "description": "The product name."
+                        },
+                        "solution_version": {
+                          "type": "string",
+                          "description": "The product version."
+                        },
+                        "vendor": {
+                          "type": "string",
+                          "description": "The vendor."
+                        },
+                        "restapi_specs_version": {
+                          "type": "string",
+                          "description": "The ITS-REST release the server states it implements."
+                        },
+                        "conformance_profile": {
+                          "type": "string",
+                          "description": "The conformance profile the server states."
+                        },
+                        "endpoints": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The endpoints the server lists."
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "status"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "const": "not_offered"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": 100,
+                      "maximum": 599,
+                      "not": {
+                        "minimum": 200,
+                        "maximum": 299
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "status",
+                    "reason"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "const": "not_options_document"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": 200,
+                      "maximum": 299
+                    },
+                    "reason": {
+                      "type": "string",
+                      "description": "Why the body is not an `Options` document, in the parser's own words."
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": [
+            "read",
+            "answer"
+          ],
+          "properties": {
+            "read": {
+              "const": "read"
+            },
+            "answer": {
+              "type": "object",
+              "required": [
+                "outcome",
+                "status"
+              ],
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "status",
+                    "options"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "const": "offered"
+                    },
+                    "status": {
+                      "const": 200
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "description": "The members of the `Options` document the server sent; a member the schema does not name is not carried.",
+                      "properties": {
+                        "solution": {
+                          "type": "string",
+                          "description": "The product name."
+                        },
+                        "solution_version": {
+                          "type": "string",
+                          "description": "The product version."
+                        },
+                        "vendor": {
+                          "type": "string",
+                          "description": "The vendor."
+                        },
+                        "restapi_specs_version": {
+                          "type": "string",
+                          "description": "The ITS-REST release the server states it implements."
+                        },
+                        "conformance_profile": {
+                          "type": "string",
+                          "description": "The conformance profile the server states."
+                        },
+                        "endpoints": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The endpoints the server lists."
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "status"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "const": "not_offered"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": 100,
+                      "maximum": 599,
+                      "not": {
+                        "minimum": 200,
+                        "maximum": 299
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "status",
+                    "reason"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "const": "not_options_document"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": 200,
+                      "maximum": 299
+                    },
+                    "reason": {
+                      "type": "string",
+                      "description": "Why the body is not an `Options` document, in the parser's own words."
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": [
+            "read",
+            "error"
+          ],
+          "properties": {
+            "read": {
+              "const": "unanswered"
+            },
+            "error": {
+              "type": "string",
+              "description": "The transport's own failure."
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": [
+            "read"
+          ],
+          "properties": {
+            "read": {
+              "const": "not_recorded"
+            }
+          }
+        }
+      ]
+    },
+    "review": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The run's static review: the statement against what the server stated. No openEHR spec governs the comparison; it is the instrument's own design. A note changes no row's status and no exit status.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "declared",
+          "stated"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "restapi-version-differs"
+            ],
+            "description": "`restapi-version-differs`: the statement's `spec_versions.its_rest` differs, as text, from the `restapi_specs_version` the server stated."
+          },
+          "declared": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The value the statement declares."
+          },
+          "stated": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The value the server stated."
+          }
+        }
+      }
     }
   }
 }

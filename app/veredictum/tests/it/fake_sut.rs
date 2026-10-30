@@ -63,6 +63,20 @@ impl FakeSut {
             .block_on(self.server.received_requests())
             .unwrap_or_default()
     }
+
+    /// Splits off the System OPTIONS identity read `veredictum test` sends
+    /// after a run that exchanged none: the requests the catalogue sent, and
+    /// whether the last request received was that read (`OPTIONS /`).
+    pub(crate) fn catalogue_requests(&self) -> (Vec<wiremock::Request>, bool) {
+        let mut requests = self.requests();
+        let read = requests.last().is_some_and(|last| {
+            last.method == wiremock::http::Method::OPTIONS && last.url.path() == "/"
+        });
+        if read {
+            requests.pop();
+        }
+        (requests, read)
+    }
 }
 
 /// A port nothing is listening on: bind it, read the address, drop the

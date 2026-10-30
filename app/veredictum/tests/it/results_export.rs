@@ -117,6 +117,8 @@ fn fixture() -> Results {
         },
         instrument_status: InstrumentStatus::PreApproval,
         base_url: "http://sut/ehrbase/rest/openehr/v1".to_owned(),
+        server: None,
+        review: Vec::new(),
         rows: vec![
             row("ehr/create_twice", 0, Status::Passed),
             failed,

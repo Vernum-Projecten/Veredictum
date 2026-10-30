@@ -16,7 +16,7 @@ use std::process::{Command, Output};
 
 use base64::Engine as _;
 use serde_json::{Value, json};
-use wiremock::matchers::{any, method};
+use wiremock::matchers::{any, method, path};
 use wiremock::{Mock, ResponseTemplate};
 
 use crate::fake_sut::{FakeSut, closed_port_url};
@@ -184,7 +184,12 @@ fn a_passing_run_exits_zero_and_writes_its_results_and_recording() -> Fallible {
     let results = read_json(&out.join("results.json"))?;
     assert_eq!(statuses(&results), vec!["passed"; 5]);
     assert_eq!(results.get("document"), Some(&json!("catalogue")));
-    assert_eq!(sut.requests().len(), 5);
+    let (sent, identity_read) = sut.catalogue_requests();
+    assert_eq!(sent.len(), 5);
+    assert!(
+        identity_read,
+        "the run exchanged no System OPTIONS and read none"
+    );
     let recording = read_json(&out.join("recording.har"))?;
     assert_eq!(
         recording
@@ -280,7 +285,12 @@ fn skipped_and_advisory_rows_exit_zero() -> Fallible {
         results.pointer("/rows/0/skip/reason"),
         Some(&json!("option-not-selected"))
     );
-    assert!(sut.requests().is_empty());
+    let (sent, identity_read) = sut.catalogue_requests();
+    assert!(sent.is_empty(), "a skipped document sent a request");
+    assert!(
+        identity_read,
+        "the run exchanged no System OPTIONS and read none"
+    );
 
     let advisory = dir.path().join("advisory");
     let output = test_command(
@@ -702,9 +712,11 @@ fn a_document_needing_an_unclaimed_format_is_skipped_format_not_claimed() -> Fal
             "{row}"
         );
     }
+    let (sent, identity_read) = sut.catalogue_requests();
+    assert!(sent.is_empty(), "a skipped document sent a request");
     assert!(
-        sut.requests().is_empty(),
-        "a skipped document sent a request"
+        identity_read,
+        "the run exchanged no System OPTIONS and read none"
     );
 
     let (sut, results) = drive(&["canonical-json", "canonical-xml"], "claimed")?;
@@ -718,6 +730,236 @@ fn a_document_needing_an_unclaimed_format_is_skipped_format_not_claimed() -> Fal
     assert!(
         !sut.requests().is_empty(),
         "the claimed document sent nothing"
+    );
+    Ok(())
+}
+
+/// A fake SUT answering System OPTIONS (`OPTIONS /`) with `options`, and
+/// every other request with the `401` challenge [`AUTHENTICATION`] expects.
+fn stating(options: &Value) -> FakeSut {
+    let sut = FakeSut::start();
+    sut.mount(
+        Mock::given(method("OPTIONS"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(options.clone()))
+            .with_priority(1),
+    );
+    sut.mount(Mock::given(any()).respond_with(
+        ResponseTemplate::new(401).insert_header("WWW-Authenticate", "Bearer realm=\"cdr\""),
+    ));
+    sut
+}
+
+/// A statement selecting [`AUTHENTICATION`] and declaring `spec_versions`,
+/// written into `dir`.
+fn declaring(dir: &Path, spec_versions: &Value) -> Result<String, Box<dyn std::error::Error>> {
+    let file = dir.join("statement.json");
+    let document = json!({
+        "claims": { "capabilities": [AUTHENTICATION_CAPABILITY] },
+        "options": [AUTHENTICATION_ARM],
+        "spec_versions": spec_versions
+    });
+    std::fs::write(&file, serde_json::to_string(&document)?)?;
+    Ok(file.to_string_lossy().into_owned())
+}
+
+/// Drives [`AUTHENTICATION`] under `statement` against `sut` into `out`.
+fn drive_declared(
+    statement: &str,
+    sut: &FakeSut,
+    out: &Path,
+) -> Result<Output, Box<dyn std::error::Error>> {
+    Ok(test_command(
+        &[
+            "--document",
+            AUTHENTICATION,
+            "--statement",
+            statement,
+            "--base-url",
+            &sut.base_url(),
+            "--out",
+            &out.to_string_lossy(),
+        ],
+        &[],
+    )?)
+}
+
+/// The violations of `results` against the published results schema.
+fn results_violations(results: &Value) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let validator = jsonschema::validator_for(&veredictum::schema::arazzo_results_schema())?;
+    Ok(validator
+        .iter_errors(results)
+        .map(|error| format!("{}: {error}", error.instance_path()))
+        .collect())
+}
+
+/// A run that exchanges no System OPTIONS reads it once after the catalogue,
+/// records the server's `restapi_specs_version` in one place, and notes that
+/// it differs from the statement's `spec_versions.its_rest` without changing
+/// a row. The re-judgement asks the server nothing and writes the same bytes.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn the_stated_rest_release_is_recorded_once_and_reviewed_against_the_statement() -> Fallible {
+    let dir = assert_fs::TempDir::new()?;
+    let out = dir.path().join("run");
+    let sut = stating(&json!({ "solution": "cdr", "restapi_specs_version": "1.0.3" }));
+    let statement = declaring(dir.path(), &json!({ "its_rest": "1.1.0" }))?;
+    let output = drive_declared(&statement, &sut, &out)?;
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let results = read_json(&out.join("results.json"))?;
+    assert_eq!(statuses(&results), vec!["passed"; 5]);
+    assert_eq!(results_violations(&results)?, Vec::<String>::new());
+    assert_eq!(results.pointer("/server/read"), Some(&json!("read")));
+    assert_eq!(
+        results.pointer("/server/answer/options/restapi_specs_version"),
+        Some(&json!("1.0.3"))
+    );
+    assert_eq!(
+        results.get("review"),
+        Some(&json!([{
+            "kind": "restapi-version-differs",
+            "declared": "1.1.0",
+            "stated": "1.0.3"
+        }]))
+    );
+    let text = std::fs::read_to_string(out.join("results.json"))?;
+    assert_eq!(text.matches("restapi_specs_version").count(), 1, "{text}");
+    let stdout = String::from_utf8(output.stdout)?;
+    assert!(
+        stdout.contains("REVIEW   restapi-version-differs"),
+        "{stdout}"
+    );
+    let recording = read_json(&out.join("recording.har"))?;
+    assert_eq!(
+        recording.pointer("/log/_veredictum/identity"),
+        results.get("server")
+    );
+
+    let asked = sut.requests().len();
+    let again = dir.path().join("rejudged");
+    let rejudged = rejudge(dir.path(), AUTHENTICATION, &out, &again)?;
+    assert_eq!(rejudged.status.code(), Some(0), "{rejudged:?}");
+    assert_eq!(
+        std::fs::read(again.join("results.json"))?,
+        text.into_bytes()
+    );
+    assert_eq!(
+        sut.requests().len(),
+        asked,
+        "the re-judgement asked the server"
+    );
+    Ok(())
+}
+
+/// A server that does not state `restapi_specs_version` leaves it absent:
+/// nothing fills it in, and with nothing to compare the review notes
+/// nothing. The same holds for a server that does not offer System OPTIONS.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn an_unstated_rest_release_stays_absent_and_is_not_reviewed() -> Fallible {
+    let dir = assert_fs::TempDir::new()?;
+    let statement = declaring(dir.path(), &json!({ "its_rest": "1.1.0" }))?;
+
+    let out = dir.path().join("unstated");
+    let sut = stating(&json!({ "solution": "cdr" }));
+    let output = drive_declared(&statement, &sut, &out)?;
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let results = read_json(&out.join("results.json"))?;
+    assert_eq!(results_violations(&results)?, Vec::<String>::new());
+    assert_eq!(
+        results.pointer("/server/answer"),
+        Some(&json!({ "outcome": "offered", "status": 200, "options": { "solution": "cdr" } }))
+    );
+    assert_eq!(results.get("review"), None);
+    let again = dir.path().join("unstated-rejudged");
+    let rejudged = rejudge(dir.path(), AUTHENTICATION, &out, &again)?;
+    assert_eq!(rejudged.status.code(), Some(0), "{rejudged:?}");
+    assert_eq!(
+        std::fs::read(again.join("results.json"))?,
+        std::fs::read(out.join("results.json"))?
+    );
+
+    let out = dir.path().join("not-offered");
+    let sut = answering(
+        ResponseTemplate::new(401).insert_header("WWW-Authenticate", "Bearer realm=\"cdr\""),
+    );
+    let output = drive_declared(&statement, &sut, &out)?;
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let results = read_json(&out.join("results.json"))?;
+    assert_eq!(results_violations(&results)?, Vec::<String>::new());
+    assert_eq!(
+        results.get("server"),
+        Some(&json!({ "read": "read", "answer": { "outcome": "not_offered", "status": 401 } }))
+    );
+    assert_eq!(results.get("review"), None);
+    Ok(())
+}
+
+/// A run whose own workflows exchange System OPTIONS records the identity
+/// from that exchange, naming its recording entry, and sends no read of its
+/// own; a statement declaring the stated release gets no note.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_run_that_exchanges_system_options_records_that_exchange() -> Fallible {
+    let dir = assert_fs::TempDir::new()?;
+    let out = dir.path().join("run");
+    let sut = stating(&json!({ "restapi_specs_version": "1.0.3" }));
+    let statement = dir.path().join("statement.json");
+    std::fs::write(
+        &statement,
+        serde_json::to_string(&json!({
+            "claims": { "capabilities": ["system"] },
+            "spec_versions": { "its_rest": "1.0.3" }
+        }))?,
+    )?;
+    let output = test_command(
+        &[
+            "--document",
+            "system_options",
+            "--statement",
+            &statement.to_string_lossy(),
+            "--base-url",
+            &sut.base_url(),
+            "--out",
+            &out.to_string_lossy(),
+        ],
+        &[],
+    )?;
+    let results = read_json(&out.join("results.json"))?;
+    assert_eq!(results_violations(&results)?, Vec::<String>::new());
+    assert_eq!(results.pointer("/server/read"), Some(&json!("exchange")));
+    assert_eq!(results.pointer("/server/entry"), Some(&json!(0)));
+    assert_eq!(
+        results.pointer("/server/answer/options/restapi_specs_version"),
+        Some(&json!("1.0.3"))
+    );
+    assert_eq!(results.get("review"), None);
+    let recording = read_json(&out.join("recording.har"))?;
+    assert_eq!(recording.pointer("/log/_veredictum/identity"), None);
+    assert_eq!(
+        Some(sut.requests().len()),
+        recording
+            .pointer("/log/entries")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        "the run sent a read of its own"
+    );
+
+    let again = dir.path().join("rejudged");
+    let rejudged = rejudge(dir.path(), "system_options", &out, &again)?;
+    assert_eq!(rejudged.status.code(), output.status.code(), "{rejudged:?}");
+    assert_eq!(
+        std::fs::read(again.join("results.json"))?,
+        std::fs::read(out.join("results.json"))?
     );
     Ok(())
 }

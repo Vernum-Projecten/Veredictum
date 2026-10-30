@@ -27,6 +27,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use reqwest::StatusCode;
 use serde_json::Value;
 
 use crate::arazzo::capabilities::{
@@ -40,9 +41,10 @@ use crate::arazzo::gates::{CASES_DIR, DOCUMENT_SUFFIX};
 use crate::arazzo::har::{Har, HarTransport};
 use crate::arazzo::platform;
 use crate::arazzo::principal::{self, Principal};
-use crate::arazzo::results::{Engine, Results, Skip, SkipReason, Why};
+use crate::arazzo::results::{Engine, Results, ServerIdentity, Skip, SkipReason, Why};
 use crate::arazzo::rows::{self, RowsError, rows_path};
 use crate::exec::transport::Transport;
+use crate::identity;
 use crate::party::TechProfile;
 use crate::vocab::{FormatName, ItsName, SpecComponent};
 
@@ -646,7 +648,11 @@ impl Selection {
     }
 }
 
-fn results(base_url: String, rows: Vec<crate::arazzo::results::ResultRow>) -> Results {
+fn results(
+    base_url: String,
+    server: ServerIdentity,
+    rows: Vec<crate::arazzo::results::ResultRow>,
+) -> Results {
     Results {
         document: RUN_NAME.to_owned(),
         engine: Engine {
@@ -655,8 +661,64 @@ fn results(base_url: String, rows: Vec<crate::arazzo::results::ResultRow>) -> Re
         },
         instrument_status: crate::party::InstrumentStatus::CURRENT,
         base_url,
+        server: Some(server),
+        review: Vec::new(),
         rows,
     }
+}
+
+/// The System OPTIONS answer a recording carries: the first entry the run
+/// exchanged with `OPTIONS` on the API root that received a response, else
+/// the read the log carries.
+///
+/// A live run and its re-judgement read the same recording, so both record
+/// the same identity.
+#[must_use]
+pub fn recorded_identity(recording: &Har) -> Option<ServerIdentity> {
+    let root = format!(
+        "{}{}",
+        recording.log.veredictum.base_url.trim_end_matches('/'),
+        identity::PATH
+    );
+    let exchanged = recording
+        .log
+        .entries
+        .iter()
+        .enumerate()
+        .find_map(|(entry, exchange)| {
+            if exchange.request.method != "OPTIONS" || exchange.request.url != root {
+                return None;
+            }
+            // NOTE: no openEHR spec governs this — our own design; status 0
+            // records a transport failure, which is no answer to classify.
+            let status = StatusCode::from_u16(exchange.response.status).ok()?;
+            Some(ServerIdentity::Exchange {
+                entry,
+                answer: identity::classify(status, &exchange.response.content.text),
+            })
+        });
+    exchanged.or_else(|| recording.log.veredictum.identity.clone())
+}
+
+/// Reads the server's identity after a live run that exchanged no System
+/// OPTIONS, with the ordinary principal's credential when the run has one,
+/// and records the read in the recording's log so a re-judgement reads it
+/// back.
+fn read_identity(
+    config: &RunConfig,
+    transport: &mut dyn Transport,
+    recording: &mut Har,
+) -> ServerIdentity {
+    let read = match identity::read(transport, &config.base_url, config.authorization.as_deref()) {
+        Ok(answered) => ServerIdentity::Read {
+            answer: answered.read,
+        },
+        Err(error) => ServerIdentity::Unanswered {
+            error: error.to_string(),
+        },
+    };
+    recording.log.veredictum.identity = Some(read.clone());
+    read
 }
 
 /// The phase of a catalogue run a workflow runs in.
@@ -717,6 +779,12 @@ fn drive_order(planned: &[Planned]) -> Vec<(Phase, &Planned)> {
 /// Runs every planned document live, in [`Phase`] order, into one
 /// recording.
 ///
+/// The results record the server's identity from the recording
+/// ([`recorded_identity`]). When no workflow exchanged System OPTIONS, the
+/// run reads it once after the catalogue, through `transport` with the
+/// ordinary principal's credential, and keeps that read in the recording's
+/// log.
+///
 /// # Errors
 /// [`RunError`] when a document cannot be run at all.
 pub fn run(
@@ -742,7 +810,11 @@ pub fn run(
         rows.extend(results.rows);
         recording = evaluator.into_recording();
     }
-    Ok((results(config.base_url.clone(), rows), recording))
+    let server = match recorded_identity(&recording) {
+        Some(server) => server,
+        None => read_identity(config, transport, &mut recording),
+    };
+    Ok((results(config.base_url.clone(), server, rows), recording))
 }
 
 /// Re-judges a recording of a catalogue run without a server, replaying it
@@ -778,7 +850,12 @@ pub fn rejudge(
         replayed = evaluator.into_recording();
     }
     replayed_whole(&inputs, &transport)?;
-    Ok(results(recording.log.veredictum.base_url.clone(), rows))
+    let server = recorded_identity(recording).unwrap_or(ServerIdentity::NotRecorded);
+    Ok(results(
+        recording.log.veredictum.base_url.clone(),
+        server,
+        rows,
+    ))
 }
 
 #[cfg(test)]
@@ -786,6 +863,65 @@ mod tests {
     use super::*;
     use assert_fs::prelude::*;
     use serde_json::json;
+
+    fn exchanged(har: &mut Har, method: &str, url: &str, outcome: Result<(u16, &str), &str>) {
+        let raw = outcome
+            .ok()
+            .map(|(status, text)| crate::exec::transport::RawResponse {
+                status: StatusCode::from_u16(status).unwrap(),
+                headers: BTreeMap::new(),
+                text: text.to_owned(),
+            });
+        let page = har.begin_page(crate::arazzo::har::PageContext {
+            case: "system_options/options".to_owned(),
+            row: 0,
+            role: crate::arazzo::har::RunRole::Row,
+            inputs: rows::Row::new(),
+        });
+        har.record(&crate::arazzo::har::Recorded {
+            page: &page,
+            step: "options",
+            method,
+            url,
+            request_headers: &BTreeMap::new(),
+            query: &BTreeMap::new(),
+            body: None,
+            outcome: raw
+                .as_ref()
+                .ok_or_else(|| outcome.err().unwrap_or_default()),
+            millis: 1.0,
+        });
+    }
+
+    #[test]
+    fn the_first_answered_system_options_exchange_is_the_recorded_identity() {
+        let mut har = Har::new("http://sut/v1/");
+        assert_eq!(recorded_identity(&har), None);
+        exchanged(&mut har, "OPTIONS", "http://sut/v1/", Err("refused"));
+        exchanged(&mut har, "OPTIONS", "http://sut/v1/ehr", Ok((200, "{}")));
+        exchanged(&mut har, "GET", "http://sut/v1/", Ok((200, "{}")));
+        assert_eq!(recorded_identity(&har), None);
+        har.log.veredictum.identity = Some(ServerIdentity::Unanswered {
+            error: "refused".to_owned(),
+        });
+        assert_eq!(
+            recorded_identity(&har),
+            har.log.veredictum.identity.clone(),
+            "without an exchange, the read the log carries is the identity"
+        );
+        let stated = r#"{"restapi_specs_version":"1.0.3"}"#;
+        exchanged(&mut har, "OPTIONS", "http://sut/v1/", Ok((200, stated)));
+        exchanged(&mut har, "OPTIONS", "http://sut/v1/", Ok((404, "")));
+        let identity = recorded_identity(&har).unwrap();
+        assert_eq!(
+            identity,
+            ServerIdentity::Exchange {
+                entry: 3,
+                answer: identity::classify(StatusCode::OK, stated),
+            }
+        );
+        assert_eq!(identity.restapi_specs_version(), Some("1.0.3"));
+    }
 
     fn capabilities() -> Capabilities {
         serde_json::from_value(json!({

@@ -84,6 +84,15 @@ enum Command {
     /// workflow, and a re-judgement replays in the same order. Every row is
     /// printed, and a failed or errored row with its four-part explanation.
     ///
+    /// The results record, under `server`, what the server stated through
+    /// ITS-REST System OPTIONS: the run's own exchange when a workflow sent
+    /// one, otherwise one read after the catalogue ran, which the recording
+    /// keeps, so a re-judgement never asks the server. A member the server did
+    /// not state stays absent. When the statement declares
+    /// `spec_versions.its_rest` and the server states a different
+    /// `restapi_specs_version`, the results carry a `review` note and the run
+    /// prints it; the note changes no row and no exit status.
+    ///
     /// A credential is read from the environment, never from an argument:
     /// from the variables `--auth` and `--admin-auth` name, or from the file
     /// named by the same variable with `_FILE` appended. Neither credential is
@@ -1003,6 +1012,9 @@ fn test_command(
         "{} row(s): {} passed, {} failed, {} errored, {} skipped",
         tally.tests, tally.passed, tally.failed, tally.errored, tally.skipped
     );
+    for note in &outcome.results.review {
+        println!("{note}");
+    }
     if let Some(out) = out {
         let written = outcome.files().map_err(|e| fail(&e));
         if let Err(code) = written.and_then(|files| emit(out, &files)) {
