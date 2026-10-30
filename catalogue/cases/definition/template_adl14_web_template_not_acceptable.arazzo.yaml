@@ -575,7 +575,7 @@ workflows:
         successCriteria:
           - condition: $statusCode == 406
 
-  - workflowId: get_template-web_template_advisory
+  - workflowId: get_template-web_template_warning
     summary: A template read in the Web Template format, recorded against the SHOULD to support the Simplified Formats
     description: >-
       Uploads a valid OPT under a fresh template_id, then reads it with
@@ -583,7 +583,7 @@ workflows:
       and expects it served. The Web Template media type is one of the
       Simplified Formats. The release recommends supporting the
       Simplified Formats, so on the arm where the service declares it does
-      not, this row records the SHOULD it declines: it is advisory and never
+      not, this row records the SHOULD it declines: it is a warning and never
       counts against the capability.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md

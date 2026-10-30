@@ -120,8 +120,8 @@ expression: text
           "COMPOSITION",
           "Read"
         ],
-        "message": "FAILED   composition/read   step read\nWhat     Create an EHR with the same ehr_id again.\nWhy      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:\n         \"The server refuses it.\"\n         https://example.org/409_EHR_with_id.yaml\nExpected status 409\nReceived status 201\nExchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)\nWhose    advisory: the server did not follow a SHOULD; this row never counts against a capability",
-        "rawStatus": "advisory",
+        "message": "FAILED   composition/read   step read\nWhat     Create an EHR with the same ehr_id again.\nWhy      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:\n         \"The server refuses it.\"\n         https://example.org/409_EHR_with_id.yaml\nExpected status 409\nReceived status 201\nExchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)\nWhose    warning: the server did not follow a SHOULD; this row never counts against a capability",
+        "rawStatus": "warning",
         "type": "conformance",
         "labels": {
           "band": "COMPOSITION",
@@ -143,7 +143,7 @@ expression: text
               "quote": "The server refuses it.",
               "link": "https://example.org/409_EHR_with_id.yaml"
             },
-            "whose": "advisory"
+            "whose": "warning"
           }
         }
       },

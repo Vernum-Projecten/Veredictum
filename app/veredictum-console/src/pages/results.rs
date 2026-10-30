@@ -9,7 +9,7 @@
 //! kind. A case resting on released text an upstream report records carries
 //! the quiet `@SpecDiverge` tag, and one muted note closing the page counts
 //! those cases and links each report. By default a group
-//! lists only the rows that need attention (failed, advisory, errored), red
+//! lists only the rows that need attention (failed, warning, errored), red
 //! first, and says in its heading how many passed or were skipped;
 //! `?rows=all` lists every row. A selected row's four-part explanation and
 //! the exchange it was judged on open at the top of the page, with a link
@@ -52,7 +52,7 @@ use crate::spec_diverge::Divergence;
 /// Which rows the grouped list shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Rows {
-    /// Only the rows that need attention: failed, advisory, errored.
+    /// Only the rows that need attention: failed, warning, errored.
     Attention,
     /// Every row, passed and skipped included.
     All,
@@ -175,7 +175,7 @@ fn counts_line(tally: &Tally) -> String {
             let parts: Vec<String> = [
                 (tally.passed, "passed"),
                 (tally.failed, "failed"),
-                (tally.advisory, "advisory"),
+                (tally.warning, "warning"),
                 (tally.errored, "errored"),
                 (tally.skipped, "skipped"),
             ]
@@ -202,14 +202,12 @@ fn absent_line(prefix: &str, titles: &[&str]) -> Option<AnyView> {
     })
 }
 
-/// The chip classes of a mark, verdict semantics only: an advisory row never
+/// The chip classes of a mark, verdict semantics only: a warning row never
 /// wears the failed colour.
 fn mark_chip(mark: &str) -> &'static str {
     match mark {
         "failed" => "rounded-control bg-danger-subtle px-1.5 py-0.5 text-xs font-medium text-ink",
-        "advisory" => {
-            "rounded-control bg-advisory-subtle px-1.5 py-0.5 text-xs font-medium text-ink"
-        }
+        "warning" => "rounded-control bg-warning-subtle px-1.5 py-0.5 text-xs font-medium text-ink",
         "errored" => "rounded-control bg-warn-subtle px-1.5 py-0.5 text-xs font-medium text-ink",
         "passed" => "rounded-control bg-ok-subtle px-1.5 py-0.5 text-xs font-medium text-ink",
         _ => "rounded-control bg-sunken px-1.5 py-0.5 text-xs text-ink-muted",
@@ -370,7 +368,7 @@ fn certificate_view(notice: &CertificateNotice) -> impl IntoView + use<> {
     }
 }
 
-/// The five stat tiles: an advisory row has its own and is never failed.
+/// The five stat tiles: a warning row has its own and is never failed.
 fn stats_view(total: &Tally) -> AnyView {
     view! {
         <div class="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
@@ -387,8 +385,8 @@ fn stats_view(total: &Tally) -> AnyView {
                 hint="counts against the server"
             />
             <StatCard
-                label="Advisory"
-                value=total.advisory.to_string()
+                label="Warning"
+                value=total.warning.to_string()
                 icon=icondata_lu::LuCircleAlert
                 hint="a SHOULD not followed, never counts"
             />
@@ -1203,10 +1201,10 @@ mod tests {
         let red = Tally {
             tests: 4,
             failed: 3,
-            advisory: 1,
+            warning: 1,
             ..Tally::default()
         };
-        assert_eq!(counts_line(&red), "4 rows: 3 failed, 1 advisory");
+        assert_eq!(counts_line(&red), "4 rows: 3 failed, 1 warning");
         let one = Tally {
             tests: 1,
             passed: 1,

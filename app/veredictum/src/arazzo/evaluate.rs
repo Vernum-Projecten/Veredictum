@@ -20,9 +20,9 @@
 //!   into *fail*.
 //! - A criterion that does not hold under a `level: should` citation does
 //!   not stop the row. When every criterion that fails in a row is a
-//!   `should`, the row is *failed* and advisory: it carries its explanation
+//!   `should`, the row is *failed* and a warning: it carries its explanation
 //!   and never counts against a capability. A `level: may` criterion counts
-//!   like a `must` one ([`crate::arazzo::cite::Level::is_advisory`]).
+//!   like a `must` one ([`crate::arazzo::cite::Level::is_warning`]).
 //! - A row the caller's [`Plan`] skips is *skipped* with one reason from the
 //!   closed list and its citation.
 //!
@@ -540,8 +540,8 @@ impl<'d> Evaluator<'d> {
                 ));
             };
             if let Some(first) = seen.insert(value.to_string(), index) {
-                let whose = if aggregate.cite.level().is_advisory() {
-                    Whose::Advisory
+                let whose = if aggregate.cite.level().is_warning() {
+                    Whose::Warning
                 } else {
                     Whose::Server
                 };
@@ -715,8 +715,8 @@ impl<'d> Evaluator<'d> {
         let workflow_cite = gated_citation(workflow.extensions.as_ref());
         let mut outputs: WorkflowOutputs = BTreeMap::new();
         let mut red = None;
-        let mut advisory = None;
-        let mut advisories: BTreeMap<String, Explanation> = BTreeMap::new();
+        let mut warning = None;
+        let mut warnings: BTreeMap<String, Explanation> = BTreeMap::new();
         for step in &workflow.steps {
             let step_cite =
                 gated_citation(step.extensions.as_ref()).or_else(|| workflow_cite.clone());
@@ -732,14 +732,14 @@ impl<'d> Evaluator<'d> {
                 Ok((captured, should)) => {
                     if let Some(should) = should {
                         let explained = self.explain(step, *should);
-                        advisory.get_or_insert_with(|| explained.clone());
-                        advisories.insert(step.step_id.clone(), explained);
+                        warning.get_or_insert_with(|| explained.clone());
+                        warnings.insert(step.step_id.clone(), explained);
                     }
                     outputs.insert(step.step_id.clone(), captured);
                 }
                 Err(found) => {
                     red = Some(
-                        advised(&advisories, found.uncaptured.as_deref())
+                        warned(&warnings, found.uncaptured.as_deref())
                             .unwrap_or_else(|| self.explain(step, *found)),
                     );
                     break;
@@ -761,10 +761,9 @@ impl<'d> Evaluator<'d> {
                     }
                     Ok(None) => {}
                     Err(reason) => {
-                        if let Some(advised) =
-                            advised(&advisories, uncaptured_step(&reason).as_deref())
+                        if let Some(warned) = warned(&warnings, uncaptured_step(&reason).as_deref())
                         {
-                            red = Some(advised);
+                            red = Some(warned);
                             break;
                         }
                         red = Some(Explanation {
@@ -782,15 +781,15 @@ impl<'d> Evaluator<'d> {
             }
         }
         if red.is_none() {
-            red = advisory.map(|explanation| Explanation {
-                whose: Whose::Advisory,
+            red = warning.map(|explanation| Explanation {
+                whose: Whose::Warning,
                 ..explanation
             });
         }
         Ok(WorkflowOutcome {
             status: match &red {
                 None => Status::Passed,
-                Some(e) if matches!(e.whose, Whose::Server | Whose::Advisory) => Status::Failed,
+                Some(e) if matches!(e.whose, Whose::Server | Whose::Warning) => Status::Failed,
                 Some(_) => Status::Errored,
             },
             explanation: red,
@@ -918,7 +917,7 @@ impl<'d> Evaluator<'d> {
     /// Judges a step's criteria in order. The first `must` criterion that
     /// does not hold, or any criterion that cannot be judged, turns the row
     /// red; a `should` criterion that does not hold is returned and judging
-    /// goes on, so the row is advisory only when no `must` fails.
+    /// goes on, so the row is a warning only when no `must` fails.
     fn judge_criteria(
         &mut self,
         step: &Step,
@@ -944,7 +943,7 @@ impl<'d> Evaluator<'d> {
                     expected,
                     received,
                 }) => {
-                    let advisory = why.as_ref().is_some_and(|c| c.level().is_advisory());
+                    let warning = why.as_ref().is_some_and(|c| c.level().is_warning());
                     let red = Box::new(Red {
                         status: Status::Failed,
                         why,
@@ -953,7 +952,7 @@ impl<'d> Evaluator<'d> {
                         entry: None,
                         uncaptured: None,
                     });
-                    if !advisory {
+                    if !warning {
                         return Err(red);
                     }
                     should.get_or_insert(red);
@@ -980,12 +979,12 @@ fn uncaptured_step(error: &EvalError) -> Option<String> {
     }
 }
 
-/// The advisory outcome a row stopped by an uncaptured output of `step`
+/// The warning outcome a row stopped by an uncaptured output of `step`
 /// takes when that step failed only `level: should` criteria: the first of
 /// them, so the row names the SHOULD the server did not follow.
-fn advised(advisories: &BTreeMap<String, Explanation>, step: Option<&str>) -> Option<Explanation> {
-    advisories.get(step?).map(|explanation| Explanation {
-        whose: Whose::Advisory,
+fn warned(warnings: &BTreeMap<String, Explanation>, step: Option<&str>) -> Option<Explanation> {
+    warnings.get(step?).map(|explanation| Explanation {
+        whose: Whose::Warning,
         ..explanation.clone()
     })
 }
@@ -1729,11 +1728,11 @@ workflows:
     }
 
     #[test]
-    fn a_row_whose_only_failing_criteria_are_should_is_failed_and_advisory() {
+    fn a_row_whose_only_failing_criteria_are_should_is_failed_and_warning() {
         let row = drive_read(&[(200, "")]);
         assert_eq!(row.status, Status::Failed);
         let why = row.explanation.unwrap();
-        assert_eq!(why.whose, Whose::Advisory);
+        assert_eq!(why.whose, Whose::Warning);
         assert_eq!(why.expected, "$response.header.ETag != null");
     }
 
@@ -3056,7 +3055,7 @@ workflows:
         );
     }
 
-    const ADVISED: &str = "arazzo: 1.1.0
+    const WARNED: &str = "arazzo: 1.1.0
 info: { title: t, version: '1' }
 sourceDescriptions:
   - { name: ehr, url: ehr.yaml, type: openapi }
@@ -3079,8 +3078,8 @@ workflows:
         successCriteria: [{ condition: $statusCode == 200 }]
 ";
 
-    fn drive_advised(answers: &[(u16, &'static str)]) -> ResultRow {
-        let (dir, document) = load(ADVISED);
+    fn drive_warned(answers: &[(u16, &'static str)]) -> ResultRow {
+        let (dir, document) = load(WARNED);
         let mut transport = Scripted::new(answers);
         let (results, _) = run_document(
             &document,
@@ -3095,11 +3094,11 @@ workflows:
     }
 
     #[test]
-    fn a_row_stopped_by_an_output_its_step_withheld_under_a_should_miss_is_advisory() {
-        let row = drive_advised(&[(204, "")]);
+    fn a_row_stopped_by_an_output_its_step_withheld_under_a_should_miss_is_warning() {
+        let row = drive_warned(&[(204, "")]);
         assert_eq!(row.status, Status::Failed);
         let why = row.explanation.unwrap();
-        assert_eq!(why.whose, Whose::Advisory);
+        assert_eq!(why.whose, Whose::Warning);
         assert_eq!(why.step, "create");
         assert_eq!(why.expected, "status 201");
         assert_eq!(
@@ -3110,7 +3109,7 @@ workflows:
 
     #[test]
     fn a_row_whose_producing_step_failed_a_must_stays_failed_against_the_server() {
-        let row = drive_advised(&[(500, "")]);
+        let row = drive_warned(&[(500, "")]);
         assert_eq!(row.status, Status::Failed);
         let why = row.explanation.unwrap();
         assert_eq!(why.whose, Whose::Server);
@@ -3119,7 +3118,7 @@ workflows:
 
     #[test]
     fn a_row_missing_an_output_no_failed_criterion_explains_stays_errored() {
-        let row = drive_advised(&[(201, "")]);
+        let row = drive_warned(&[(201, "")]);
         assert_eq!(row.status, Status::Errored);
         let why = row.explanation.unwrap();
         assert_eq!(why.whose, Whose::Instrument);

@@ -47,7 +47,7 @@
   --warn-subtle: #f7e8cf;
   --danger: #bd3434; /* verdict: failed */
   --danger-subtle: #f7dede;
-  --advisory-subtle: #f5e1ec; /* verdict: failed a SHOULD only (Okabe-Ito reddish purple tint) */
+  --warning-subtle: #f5e1ec; /* verdict: failed a SHOULD only (Okabe-Ito reddish purple tint) */
   --scrim: rgb(31 42 48 / 0.4); /* the dim behind an overlay */
 }
 
@@ -75,7 +75,7 @@
   --warn-subtle: #40300f;
   --danger: #e06c6c;
   --danger-subtle: #451d1d;
-  --advisory-subtle: #3f2235;
+  --warning-subtle: #3f2235;
   /* A dark page needs a deeper dim than a light one to read as "behind". */
   --scrim: rgb(4 12 16 / 0.6);
 }
@@ -105,7 +105,7 @@
   --color-warn-subtle: var(--warn-subtle);
   --color-danger: var(--danger);
   --color-danger-subtle: var(--danger-subtle);
-  --color-advisory-subtle: var(--advisory-subtle);
+  --color-warning-subtle: var(--warning-subtle);
   /* `bg-scrim` — the ONE overlay backdrop; never a raw `bg-black/40`, which
      ignores the theme and drifts per screen. */
   --color-scrim: var(--scrim);

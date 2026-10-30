@@ -583,8 +583,8 @@ A pure function of (statement, IXIT, catalogue, recording):
    errored, never failed.
 4. **Verdicts**: a row passes iff every criterion holds. Only failed counts
    against the server, and a row whose failing criteria are all `should` is
-   advisory and never counts against a capability. `veredictum test` exits
-   `1` when a row failed (not advisory) or errored.
+   a warning and never counts against a capability. `veredictum test` exits
+   `1` when a row failed (not a warning) or errored.
 5. **Measured verdicts** (the second machinery, `veredictum verdicts`): per
    measurement, every §8.14 threshold of its performance case is re-derived
    from the embedded histograms; a stored verdict that does not re-derive, a
@@ -1776,7 +1776,7 @@ enforced by `validate` and the evaluator. Every rule stays inside what Arazzo
    evaluator cannot read, and an output a later step needs that an earlier
    step never captured, make the row *errored*, except when the step that
    should have produced the output failed only `level: should` criteria:
-   then the row takes the advisory outcome of the first of them, naming it
+   then the row takes the warning outcome of the first of them, naming it
    (rule 10, #674), because the instrument did judge the exchange. `simple`
    compares against integers, booleans and `null`.
 7. **Generated inputs.** An input of `format: uuid` with no supplied value is a
@@ -1796,7 +1796,7 @@ enforced by `validate` and the evaluator. Every rule stays inside what Arazzo
     quotes: `level: must` (MUST, SHALL, REQUIRED, MUST NOT, SHALL NOT, and a
     definition in the indicative), the default, `level: should` (SHOULD,
     RECOMMENDED, SHOULD NOT), or `level: may` (MAY, OPTIONAL). A row whose
-    failing criteria are all `should` is *failed* and marked advisory: it is
+    failing criteria are all `should` is *failed* and marked as a warning: it is
     reported with its explanation and never counts against a capability,
     because RFC 2119 lets an implementation ignore a SHOULD for a valid
     reason. A `may` criterion counts like a `must` one: RFC 2119 §5 obliges an

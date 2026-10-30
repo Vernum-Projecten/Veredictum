@@ -78,7 +78,7 @@ fn a_valid_certificate_verifies_and_prints_what_it_states() -> TestResult {
     );
     assert!(stdout.contains("ExampleCDR (server)"), "{stdout}");
     assert!(
-        stdout.contains("green: 1 passed, 0 failed, 0 advisory, 0 errored, 0 skipped"),
+        stdout.contains("green: 1 passed, 0 failed, 0 warning, 0 errored, 0 skipped"),
         "{stdout}"
     );
     assert!(stdout.contains(veredictum::certificate::HONESTY_LINE));

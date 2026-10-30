@@ -104,7 +104,7 @@
               "options",
               "spec-boundary"
             ],
-            "description": "`recommended`: support is a SHOULD, so declining it is recorded as advisory. `options`: a MAY, or behaviour the release leaves to the implementation. `spec-boundary`: an option only because the released text is defective, recorded as an upstream report its citation names."
+            "description": "`recommended`: support is a SHOULD, so declining it is recorded as a warning. `options`: a MAY, or behaviour the release leaves to the implementation. `spec-boundary`: an option only because the released text is defective, recorded as an upstream report its citation names."
           }
         }
       }

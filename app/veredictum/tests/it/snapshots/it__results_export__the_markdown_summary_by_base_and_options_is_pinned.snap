@@ -13,14 +13,14 @@ expression: summary
 
 ## Summary
 
-| Part | Passed | Failed | Advisory | Errored | Skipped | Total |
+| Part | Passed | Failed | Warning | Errored | Skipped | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | BASE | 3 | 2 | 1 | 0 | 0 | 6 |
 | OPTIONS | 1 | 1 | 0 | 1 | 1 | 4 |
 | **Every row** | **5** | **3** | **1** | **1** | **1** | **11** |
 
 > [!NOTE]
-> Only a **failed** row counts against the server. An **advisory** row is a SHOULD the server did not follow, and it never counts against the server. An **errored** row is one the instrument could not judge, and a **skipped** row was not run.
+> Only a **failed** row counts against the server. A **warning** row is a SHOULD the server did not follow, and it never counts against the server. An **errored** row is one the instrument could not judge, and a **skipped** row was not run.
 
 ## BASE
 
@@ -28,7 +28,7 @@ What every claimant of a capability must do. A case no option arm names is BASE.
 
 ### EHR
 
-| Band | Passed | Failed | Advisory | Errored | Skipped |
+| Band | Passed | Failed | Warning | Errored | Skipped |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | COMPOSITION | 2 | 1 | 1 | 0 | 0 |
 | Semantic validation | 1 | 1 | 0 | 0 | 0 |
@@ -36,7 +36,7 @@ What every claimant of a capability must do. A case no option arm names is BASE.
 
 #### COMPOSITION
 
-| Section | Passed | Failed | Advisory | Errored | Skipped |
+| Section | Passed | Failed | Warning | Errored | Skipped |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Create | 1 | 1 | 0 | 0 | 0 |
 | Read | 1 | 0 | 1 | 0 | 0 |
@@ -64,7 +64,7 @@ Rows to look at (open one for its explanation):
 </details>
 
 <details>
-<summary><b>Advisory</b>: <code>composition/read</code> row 0, BASE, Read</summary>
+<summary><b>Warning</b>: <code>composition/read</code> row 0, BASE, Read</summary>
 
 | | |
 | --- | --- |
@@ -73,7 +73,7 @@ Rows to look at (open one for its explanation):
 | **Expected** | status 409 |
 | **Received** | status 201 |
 | **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
-| **Whose problem** | Advisory. The server did not follow a SHOULD, and the row never counts against it. |
+| **Whose problem** | Warning. The server did not follow a SHOULD, and the row never counts against it. |
 | **Inputs** | `ehr_id` = `"id-0"` |
 
 **Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
@@ -84,7 +84,7 @@ Rows to look at (open one for its explanation):
 
 #### Semantic validation
 
-| Section | Passed | Failed | Advisory | Errored | Skipped |
+| Section | Passed | Failed | Warning | Errored | Skipped |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Structure and cardinality (ADL 1.4) | 1 | 0 | 0 | 0 | 0 |
 | Structure and cardinality (ADL 2) | 0 | 1 | 0 | 0 | 0 |
@@ -112,13 +112,13 @@ Rows to look at (open one for its explanation):
 
 ## OPTIONS
 
-What the statement selected. Each option is labelled with its kind: **Recommended (SHOULD)**, which a server may decline with an advisory row; **Optional (MAY)**, behaviour the release leaves to the implementation; or **Spec defect**, an option only because the released text is defective. The statement selects one arm of each, and the other arms are skipped.
+What the statement selected. Each option is labelled with its kind: **Recommended (SHOULD)**, which a server may decline with a warning row; **Optional (MAY)**, behaviour the release leaves to the implementation; or **Spec defect**, an option only because the released text is defective. The statement selects one arm of each, and the other arms are skipped.
 
 ### EHR
 
 #### COMPOSITION
 
-| Option | Kind | Selected arm | Passed | Failed | Advisory | Errored | Skipped |
+| Option | Kind | Selected arm | Passed | Failed | Warning | Errored | Skipped |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | `etag-sent` | Recommended (SHOULD) | `etag-declined`, nothing to run | 0 | 0 | 0 | 0 | 0 |
 | `composition-xml-read` | Optional (MAY) | `xml-supported` | 1 | 0 | 0 | 0 | 0 |
@@ -186,7 +186,7 @@ The outline the results carry places these cases nowhere.
 | --- | --- |
 | `stray/case` | 1 passed |
 
-## Advisory rows
+## Warning rows
 
 Each is a SHOULD the server did not follow. None counts against the server.
 

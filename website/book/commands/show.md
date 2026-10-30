@@ -5,7 +5,7 @@ the terminal, so a result can be read without exporting it first.
 Each line is one group of rows, with a bar of 24 cells and the count of each
 mark. The bar gives every mark that has a row at least one cell, so a single
 failure among a thousand passes still shows. The cells differ in shape as well
-as colour: `█` passed, `▓` failed, `▒` errored, `░` advisory, `·` skipped.
+as colour: `█` passed, `▓` failed, `▒` errored, `░` warning, `·` skipped.
 
 ```text
 BASE
@@ -27,7 +27,7 @@ cases whose citations rest on text the release marks TRIAL are listed in their
 band under OPTIONS, never in a BASE count. Report numbers come from the snapshot
 the catalogue commits; nothing is fetched while the view is printed.
 
-An advisory row is a SHOULD the server did not follow. It is counted apart
+A warning row is a SHOULD the server did not follow. It is counted apart
 from the failed rows, and `--failed` lists it under its own heading after the
 failed and errored rows, never among them.
 

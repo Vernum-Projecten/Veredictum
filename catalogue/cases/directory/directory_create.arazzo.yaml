@@ -496,7 +496,7 @@ workflows:
       Creates an EHR, then creates its directory FOLDER with Prefer
       return=identifier. The create succeeds with a 2xx status, and the body
       should carry only the uid of the FOLDER version; the body is a
-      recommendation, so a row lacking it is advisory.
+      recommendation, so a row lacking it is a warning.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: HTTP status codes
@@ -532,7 +532,7 @@ workflows:
       Creates an EHR, then creates its directory FOLDER with Prefer
       return=minimal. The answer should carry a Location header pointing at
       the new FOLDER; the header is a recommendation, so a row lacking it is
-      advisory.
+      a warning.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: Prefer minimal, identifier or full representation response

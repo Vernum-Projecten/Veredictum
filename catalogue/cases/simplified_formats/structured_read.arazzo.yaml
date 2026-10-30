@@ -115,7 +115,7 @@ workflows:
       a Body exposure, and reads it back with Accept
       application/openehr.wt.structured+json. The event in the answer
       carries no symptom and no body_exposure property. The release
-      recommends omitting empty objects, so the row is advisory.
+      recommends omitting empty objects, so the row is a warning.
     dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc

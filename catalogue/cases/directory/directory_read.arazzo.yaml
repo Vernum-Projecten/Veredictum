@@ -418,7 +418,7 @@ workflows:
       Creates an EHR and its directory FOLDER, then retrieves the directory.
       The directory FOLDER is versioned, so the answer carries an ETag and a
       Last-Modified header. The headers are recommended, so a row that lacks
-      them is advisory.
+      them is a warning.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: ETag and Last-Modified

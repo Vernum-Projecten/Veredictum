@@ -69,7 +69,7 @@ the console put in front of you.
   `option-not-selected` (an arm the statement did not pick) or `not-declared`
   (a value or principal the party did not supply). Skips are printed, never
   silent.
-- **Advisory:** a failed row whose failing criteria all quote a SHOULD. It is
+- **Warning:** a failed row whose failing criteria all quote a SHOULD. It is
   reported and never counts against a capability.
 - **Capability:** a folder under `catalogue/cases/`, the unit a statement
   claims.

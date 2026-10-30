@@ -170,7 +170,7 @@ workflows:
       Creates an EHR, updates its EHR_STATUS once, then sends a second update
       under the superseded version. The 412 answer carries the latest
       version_uid in its ETag. The rule is recommended, so a row that answers
-      otherwise is advisory.
+      otherwise is a warning.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: If-Match and accidental overwrites
@@ -254,7 +254,7 @@ workflows:
       Creates an EHR, then updates its EHR_STATUS with is_queryable false and
       no If-Match header. The update is refused with 400 Bad Request, and the
       EHR_STATUS read back is still queryable. The rule is recommended, so a
-      row that answers otherwise is advisory.
+      row that answers otherwise is a warning.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: If-Match and accidental overwrites
@@ -334,8 +334,8 @@ workflows:
       return=identifier. The answer is 200 with a JSON body that carries the
       identifier under uid and none of the EHR_STATUS attributes, and that
       identifier is the version the update created. The released text
-      recommends the identifier body, so the status and body criteria are
-      advisory; a service that declines the preference leaves no identifier
+      recommends the identifier body, so the status and body criteria yield
+      a warning; a service that declines the preference leaves no identifier
       to compare, and that row is errored.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md

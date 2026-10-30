@@ -88,14 +88,14 @@ impl Level {
     /// All variants, in vocabulary order (schema emission derives from this).
     pub const ALL: &[Self] = &[Self::Must, Self::Should, Self::May];
 
-    /// Whether a criterion citing this level only advises: a failure against
+    /// Whether a failing criterion citing this level yields a warning: a failure against
     /// a sentence that recommends never counts against a capability (RFC 2119
     /// §3). A `may` sentence is asserted like a `must` one, because RFC 2119
     /// §5 obliges an implementation to interoperate with one that takes the
     /// option, and a choice the release leaves to the server is an option a
     /// statement selects.
     #[must_use]
-    pub fn is_advisory(self) -> bool {
+    pub fn is_warning(self) -> bool {
         self == Self::Should
     }
 
@@ -792,8 +792,8 @@ mod tests {
             check_level(&at(Level::Should, signing)),
             Err(CiteError::LevelMismatch { needed: "may", .. })
         ));
-        assert!(Level::Should.is_advisory());
-        assert!(!Level::Must.is_advisory() && !Level::May.is_advisory());
+        assert!(Level::Should.is_warning());
+        assert!(!Level::Must.is_warning() && !Level::May.is_warning());
     }
 
     #[test]

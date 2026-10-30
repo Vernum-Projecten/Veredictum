@@ -448,7 +448,7 @@ workflows:
       Updates the tag list of a COMPOSITION version with Prefer
       return=representation. The answer is 200 in JSON with the list the
       update stored. The released text recommends the representation, so the
-      row is advisory.
+      row is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite: &representation
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
@@ -484,7 +484,7 @@ workflows:
       return=identifier. The identifier preference implies a non-empty body,
       so the answer is 200 or 201 rather than 204, and the tag is stored. The
       released text recommends the identifier body only, so the status
-      criterion is advisory.
+      criterion yields a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite: &identifier_should
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md

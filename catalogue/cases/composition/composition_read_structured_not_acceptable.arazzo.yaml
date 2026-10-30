@@ -198,14 +198,14 @@ workflows:
         successCriteria:
           - condition: $statusCode == 406
 
-  - workflowId: get_composition-structured_advisory
+  - workflowId: get_composition-structured_warning
     summary: A COMPOSITION read with Accept for the Simplified Structured format, recorded against the SHOULD to support it
     description: >-
       Creates an EHR, commits a COMPOSITION in canonical JSON, then retrieves
       it by its version_uid asking for the Simplified Structured JSON format, the
       request the refusal rows send, and expects it served. The release recommends supporting the
       Simplified Formats, so on the arm where the service declares it does
-      not, this row records the SHOULD it declines: it is advisory and never
+      not, this row records the SHOULD it declines: it is a warning and never
       counts against the capability.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite:

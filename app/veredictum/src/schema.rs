@@ -2170,16 +2170,16 @@ pub fn certificate_schema() -> Value {
             "verdict": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["outcome", "passed", "failed", "advisory", "errored", "skipped"],
+                "required": ["outcome", "passed", "failed", "warning", "errored", "skipped"],
                 "description": "The verdict summary. The five counts partition the rows of the results document.",
                 "properties": {
                     "outcome": {
                         "enum": tokens(crate::certificate::Outcome::ALL),
-                        "description": "`green` when no row failed outside the advisory ones and no row errored, `red` otherwise."
+                        "description": "`green` when no row failed outside the warning ones and no row errored, `red` otherwise."
                     },
                     "passed": row_count_def("Passed rows."),
                     "failed": row_count_def("Failed rows that bear on the verdict."),
-                    "advisory": row_count_def("Failed rows whose criterion is a SHOULD, which never count against a capability."),
+                    "warning": row_count_def("Failed rows whose criterion is a SHOULD, which never count against a capability."),
                     "errored": row_count_def("Rows the instrument could not judge."),
                     "skipped": row_count_def("Skipped rows, each with its reason in the results document.")
                 }

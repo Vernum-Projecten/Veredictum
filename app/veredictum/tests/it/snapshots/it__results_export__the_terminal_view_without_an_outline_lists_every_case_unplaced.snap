@@ -1,16 +1,17 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
+assertion_line: 750
 expression: view
 ---
 Veredictum results: ehr
 veredictum 0.1.7 (pre-approval: not yet approved by the openEHR SEC), driven against http://sut/ehrbase/rest/openehr/v1.
 
-✓ passed  ✕ failed  ? errored  ! advisory  ○ skipped. An advisory row is a SHOULD the server did not follow and never counts against it.
+✓ passed  ✕ failed  ? errored  ! warning  ○ skipped. A warning row is a SHOULD the server did not follow and never counts against it.
 
 Every row                                   █████▓▓▓▓▓▒▒▒▒▒░░░░░····  ✓   1  ✕   1  ?   1  !   1  ○   1
 
 Unplaced
   Every unplaced case                       █████▓▓▓▓▓▒▒▒▒▒░░░░░····  ✓   1  ✕   1  ?   1  !   1  ○   1
     ✕ ehr/create_twice: 1 passed, 1 failed
-    ! ehr/etag: 1 advisory
+    ! ehr/etag: 1 warning
     ? ehr/escape: 1 errored

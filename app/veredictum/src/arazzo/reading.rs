@@ -9,7 +9,7 @@
 //! invents its own. A case is BASE when no option arm names its document;
 //! a BASE case whose citations rest on TRIAL text is read with the options,
 //! never in a BASE tally. A row whose server did not follow a SHOULD is
-//! counted as advisory and never as failed (RFC 2119 §3, which the ITS-REST
+//! counted as a warning and never as failed (RFC 2119 §3, which the ITS-REST
 //! overview's keywords follow: there "may exist valid reasons in particular
 //! circumstances to ignore a particular item"). Every list keeps document
 //! order, so the reading is as deterministic as the results. No openEHR spec
@@ -32,7 +32,7 @@ pub struct Tally {
     pub failed: usize,
     /// The failed rows whose server did not follow a SHOULD; they never
     /// count against a capability.
-    pub advisory: usize,
+    pub warning: usize,
     /// The rows the instrument could not judge.
     pub errored: usize,
     /// The rows not run.
@@ -40,7 +40,7 @@ pub struct Tally {
 }
 
 impl Tally {
-    /// Counts `rows`, a failed advisory row as advisory.
+    /// Counts `rows`, a failed warning row as a warning.
     #[must_use]
     pub fn of<'a>(rows: impl IntoIterator<Item = &'a ResultRow>) -> Self {
         let mut tally = Self::default();
@@ -55,7 +55,7 @@ impl Tally {
         self.tests += 1;
         match row.status {
             Status::Passed => self.passed += 1,
-            Status::Failed if is_advisory(row) => self.advisory += 1,
+            Status::Failed if is_warning(row) => self.warning += 1,
             Status::Failed => self.failed += 1,
             Status::Errored => self.errored += 1,
             Status::Skipped => self.skipped += 1,
@@ -64,14 +64,14 @@ impl Tally {
 }
 
 /// Whether `row` failed only a SHOULD: failed, and its explanation says the
-/// row is advisory.
+/// row is a warning.
 #[must_use]
-pub fn is_advisory(row: &ResultRow) -> bool {
+pub fn is_warning(row: &ResultRow) -> bool {
     row.status == Status::Failed
         && row
             .explanation
             .as_ref()
-            .is_some_and(|e| e.whose == Whose::Advisory)
+            .is_some_and(|e| e.whose == Whose::Warning)
 }
 
 /// What one row reads as, the mark every view prints beside it.
@@ -82,7 +82,7 @@ pub enum Mark {
     /// Failed, counting against the server.
     Failed,
     /// Failed a SHOULD only.
-    Advisory,
+    Warning,
     /// The instrument could not judge it.
     Errored,
     /// Not run.
@@ -95,7 +95,7 @@ impl Mark {
     pub fn of(row: &ResultRow) -> Self {
         match row.status {
             Status::Passed => Self::Passed,
-            Status::Failed if is_advisory(row) => Self::Advisory,
+            Status::Failed if is_warning(row) => Self::Warning,
             Status::Failed => Self::Failed,
             Status::Errored => Self::Errored,
             Status::Skipped => Self::Skipped,
@@ -108,7 +108,7 @@ impl Mark {
         match self {
             Self::Passed => "✓",
             Self::Failed => "✕",
-            Self::Advisory => "!",
+            Self::Warning => "!",
             Self::Errored => "?",
             Self::Skipped => "○",
         }
@@ -120,7 +120,7 @@ impl Mark {
         match self {
             Self::Passed => "passed",
             Self::Failed => "failed",
-            Self::Advisory => "advisory",
+            Self::Warning => "warning",
             Self::Errored => "errored",
             Self::Skipped => "skipped",
         }
@@ -163,7 +163,7 @@ impl CaseRows<'_> {
         Tally::of(self.rows.iter().copied())
     }
 
-    /// The mark the case reads as: the first of failed, errored, advisory
+    /// The mark the case reads as: the first of failed, errored, warning
     /// and passed that any of its rows carries, else skipped.
     #[must_use]
     pub fn mark(&self) -> Mark {
@@ -171,7 +171,7 @@ impl CaseRows<'_> {
         [
             (tally.failed, Mark::Failed),
             (tally.errored, Mark::Errored),
-            (tally.advisory, Mark::Advisory),
+            (tally.warning, Mark::Warning),
             (tally.passed, Mark::Passed),
         ]
         .into_iter()
@@ -859,7 +859,7 @@ mod tests {
             rows: vec![
                 row("c/create", Status::Passed, None),
                 row("c/create", Status::Failed, Some(Whose::Server)),
-                row("c/read", Status::Failed, Some(Whose::Advisory)),
+                row("c/read", Status::Failed, Some(Whose::Warning)),
                 row("c/trial", Status::Failed, Some(Whose::Server)),
                 row("c/xml", Status::Passed, None),
                 row("c/stray", Status::Errored, Some(Whose::Instrument)),
@@ -915,13 +915,13 @@ mod tests {
     }
 
     #[test]
-    fn an_advisory_row_is_counted_apart_from_a_failed_one() {
+    fn a_warning_row_is_counted_apart_from_a_failed_one() {
         let results = results();
         let total = Tally::of(&results.rows);
         assert_eq!(total.failed, 2);
-        assert_eq!(total.advisory, 1);
+        assert_eq!(total.warning, 1);
         assert_eq!(total.tests, 6);
-        assert_eq!(Mark::of(&results.rows[2]), Mark::Advisory);
+        assert_eq!(Mark::of(&results.rows[2]), Mark::Warning);
     }
 
     #[test]
@@ -937,7 +937,7 @@ mod tests {
         let sections: Vec<&str> = band.sections.iter().map(|s| s.section).collect();
         assert_eq!(sections, ["create", "read"]);
         assert_eq!(band.tally.failed, 1, "the TRIAL case is not in the band");
-        assert_eq!(band.tally.advisory, 1);
+        assert_eq!(band.tally.warning, 1);
         assert_eq!(reading.base_total.tests, 3);
         assert_eq!(reading.trial.cases.len(), 1);
         assert_eq!(reading.trial.tally.failed, 1);
