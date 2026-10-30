@@ -1,6 +1,6 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
-assertion_line: 187
+assertion_line: 189
 expression: ctrf(&fixture()).unwrap()
 ---
 {
@@ -89,8 +89,8 @@ expression: ctrf(&fixture()).unwrap()
           "ehr",
           "ehr/etag"
         ],
-        "message": "FAILED   ehr/etag   step read\nWhat     Create an EHR with the same ehr_id again.\nWhy      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:\n         \"The server SHOULD send an ETag.\"\n         https://example.org/409_EHR_with_id.yaml\nExpected status 409\nReceived no ETag header\nExchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)\nWhose    advisory: the server did not follow a SHOULD; this row never counts against a capability",
-        "rawStatus": "advisory",
+        "message": "FAILED   ehr/etag   step read\nWhat     Create an EHR with the same ehr_id again.\nWhy      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:\n         \"The server SHOULD send an ETag.\"\n         https://example.org/409_EHR_with_id.yaml\nExpected status 409\nReceived no ETag header\nExchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)\nWhose    warning: the server did not follow a SHOULD; this row never counts against a capability",
+        "rawStatus": "warning",
         "type": "conformance",
         "parameters": {
           "ehr_id": "id-0"
@@ -105,7 +105,7 @@ expression: ctrf(&fixture()).unwrap()
               "quote": "The server SHOULD send an ETag.",
               "link": "https://example.org/409_EHR_with_id.yaml"
             },
-            "whose": "advisory"
+            "whose": "warning"
           }
         }
       },

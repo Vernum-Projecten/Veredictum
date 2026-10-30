@@ -3,7 +3,7 @@
 
 //! The `test` subcommand over the committed Arazzo catalogue, against the
 //! fake SUT: a passing, a failed and an errored run and their exit statuses,
-//! skipped and advisory rows staying green, the offline re-judgement
+//! skipped and warning rows staying green, the offline re-judgement
 //! reproducing the recorded bytes, the administrative credential sent and
 //! never recorded, and the usage and input errors that stop a run.
 //!
@@ -200,7 +200,7 @@ fn a_passing_run_exits_zero_and_writes_its_results_and_recording() -> Fallible {
     );
     let stdout = String::from_utf8(output.stdout)?;
     assert!(
-        stdout.contains("5 row(s): 5 passed, 0 failed, 0 advisory, 0 errored, 0 skipped"),
+        stdout.contains("5 row(s): 5 passed, 0 failed, 0 warning, 0 errored, 0 skipped"),
         "{stdout}"
     );
     assert!(
@@ -271,7 +271,7 @@ fn an_errored_row_exits_one_and_never_counts_as_failed() -> Fallible {
     clippy::panic_in_result_fn,
     reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
 )]
-fn skipped_and_advisory_rows_exit_zero() -> Fallible {
+fn skipped_and_warning_rows_exit_zero() -> Fallible {
     let dir = assert_fs::TempDir::new()?;
     let sut = answering(ResponseTemplate::new(404));
     let unselected = dir.path().join("unselected");
@@ -300,7 +300,7 @@ fn skipped_and_advisory_rows_exit_zero() -> Fallible {
         "the run exchanged no System OPTIONS and read none"
     );
 
-    let advisory = dir.path().join("advisory");
+    let warning = dir.path().join("warning");
     let output = test_command(
         &[
             "--document",
@@ -308,14 +308,14 @@ fn skipped_and_advisory_rows_exit_zero() -> Fallible {
             "--base-url",
             &sut.base_url(),
             "--out",
-            &advisory.to_string_lossy(),
+            &warning.to_string_lossy(),
         ],
         &[],
     )?;
     assert_eq!(output.status.code(), Some(0), "{output:?}");
-    let results = read_json(&advisory.join("results.json"))?;
+    let results = read_json(&warning.join("results.json"))?;
     assert_eq!(statuses(&results), vec!["failed"; 3]);
-    assert_eq!(whose(&results), vec!["advisory"; 3]);
+    assert_eq!(whose(&results), vec!["warning"; 3]);
     Ok(())
 }
 

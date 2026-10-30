@@ -1854,12 +1854,12 @@ cases:
   I_EHR_COMPOSITION.create_composition-datetime_comma_fraction:
     new: [composition_create/create_composition-datetime_comma_fraction]
     open: >-
-      Carried as advisory: Resources.md §Datetime format says retrieval
+      Carried as a warning: Resources.md §Datetime format says retrieval
       "SHOULD return" the values in their original format.
   I_EHR_COMPOSITION.create_composition-datetime_lexical:
     new: [composition_create/create_composition-datetime_lexical]
     open: >-
-      Carried as advisory: Resources.md §Datetime format says retrieval
+      Carried as a warning: Resources.md §Datetime format says retrieval
       "SHOULD return" the values in their original format.
   I_EHR_COMPOSITION.create_composition-deprecated_template_id:
     new: []
@@ -1940,7 +1940,7 @@ cases:
   I_EHR_COMPOSITION.create_composition-null_empty_absent:
     new: [composition_create/create_composition-null_empty_absent]
     open: >-
-      Carried as advisory on the EVALUATION: Resources.md §JSON Format says
+      Carried as a warning on the EVALUATION: Resources.md §JSON Format says
       such attributes "SHOULD be absent". At the COMPOSITION root the
       evaluator cannot tell an absent member from a null one, so the root
       members are not judged.
@@ -1974,7 +1974,7 @@ cases:
   I_EHR_COMPOSITION.create_composition-return_identifier:
     new: [composition_create/create_composition-return_identifier]
     open: >-
-      Carried as advisory on the SHOULD of Requests_and_responses.md §Prefer
+      Carried as a warning on the SHOULD of Requests_and_responses.md §Prefer
       only identifier; "never `204 No Content`" carries no key word (upstream
       report #673).
   I_EHR_COMPOSITION.create_composition-root_archetype_id_mismatch:
@@ -2160,7 +2160,7 @@ cases:
   I_EHR_COMPOSITION.update_composition-missing_if_match:
     new: [composition_update/update_composition-missing_if_match]
     open: >-
-      Carried as advisory: Requests_and_responses.md §If-Match and accidental
+      Carried as a warning: Requests_and_responses.md §If-Match and accidental
       overwrites says the service "SHOULD respond with `400 Bad Request`".
   I_EHR_COMPOSITION.update_composition-non_existent:
     new:
@@ -2180,7 +2180,7 @@ cases:
   I_EHR_COMPOSITION.update_composition-return_identifier:
     new: [composition_update/update_composition-return_identifier]
     open: >-
-      Carried as advisory on the SHOULD of Requests_and_responses.md §Prefer
+      Carried as a warning on the SHOULD of Requests_and_responses.md §Prefer
       only identifier; "never `204 No Content`" carries no key word (upstream
       report #673).
   I_EHR_COMPOSITION.update_composition-same_content:
@@ -2628,7 +2628,7 @@ cases:
   I_EHR_CONTRIBUTION.commit_contribution-last_modified:
     new: [contribution_create/commit_contribution-etag_last_modified]
     open: &contribution_last_modified >-
-      Carried as advisory: Requests_and_responses.md §ETag and Last-Modified
+      Carried as a warning: Requests_and_responses.md §ETag and Last-Modified
       says both headers "SHOULD be included", and whether a CONTRIBUTION is a
       resource with a unique state identifier is upstream report #756. The audit
       instant the header derives from is not compared.
@@ -2781,7 +2781,7 @@ cases:
       - contribution_read/get_contribution-etag_weak
       - contribution_read/get_contribution-etag_last_modified
     open: >-
-      Carried as advisory, and the uid inside the ETag is not compared:
+      Carried as a warning, and the uid inside the ETag is not compared:
       whether the SHOULD of Requests_and_responses.md §ETag and Last-Modified
       reaches a CONTRIBUTION is upstream report #756.
   I_EHR_CONTRIBUTION.get_contribution-import_contribution:
@@ -3230,7 +3230,7 @@ cases:
   I_EHR_STATUS.clear_ehr_modifiable-missing_if_match:
     new: &missing_if_match [ehr_status_update/update-missing_if_match]
     open: &missing_if_match_level >-
-      Carried as advisory: Requests_and_responses.md §If-Match and accidental
+      Carried as a warning: Requests_and_responses.md §If-Match and accidental
       overwrites says the service "SHOULD respond with `400 Bad Request`"
       when a client omits an expected If-Match.
   I_EHR_STATUS.clear_ehr_modifiable-stale_if_match:
@@ -3477,7 +3477,7 @@ cases:
   I_ITS_REST_ITEM_TAGS.composition_tags_update-prefer_identifier:
     new: [composition_tags/composition_tags_update-return_identifier]
     open: >-
-      The case expected 204. The workflow judges 200 or 201 as advisory: the
+      The case expected 204. The workflow judges 200 or 201 as a warning: the
       identifier body is a SHOULD (Requests_and_responses.md §Prefer only
       identifier, upstream report #673).
   I_ITS_REST_ITEM_TAGS.composition_tags_update-undeclared_member:
@@ -4016,7 +4016,7 @@ cases:
   SF-FLAT-reject_cardinality:
     new: [flat_commit_refused/create_composition-flat-cardinality]
     open: &sf_validation_should >-
-      Carried as advisory: master04 §Validation says implementations "SHOULD
+      Carried as a warning: master04 §Validation says implementations "SHOULD
       validate" this; the refusal code is 422, the template not validating
       the supplied resource (responses/422.yaml).
   SF-FLAT-reject_datatype_mismatch:

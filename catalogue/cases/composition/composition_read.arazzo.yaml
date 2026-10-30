@@ -227,7 +227,7 @@ workflows:
       Creates an EHR, commits a COMPOSITION and retrieves it by its
       version_uid. A COMPOSITION is a versioned resource, so the answer
       carries an ETag and a Last-Modified header. The headers are
-      recommended, so a row that lacks them is advisory.
+      recommended, so a row that lacks them is a warning.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md

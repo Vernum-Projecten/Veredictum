@@ -15,13 +15,13 @@ info:
     credential, to a service that declares it requires no authentication.
     The release recommends an authentication framework, so the create is
     expected to be refused with 401 Unauthorized, and a row that answers
-    otherwise is advisory.
+    otherwise is a warning.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
     type: openapi
 workflows:
-  - workflowId: ehr_create-invalid_credentials_advisory
+  - workflowId: ehr_create-invalid_credentials_warning
     summary: An EHR create without valid credentials, recorded against the SHOULD to authenticate
     description: >-
       Creates an EHR with an Authorization header that carries no valid
@@ -29,7 +29,7 @@ workflows:
       expects it refused with 401 Unauthorized. The release recommends an
       HTTP authentication framework, so on the arm where the service declares
       it requires none, this row records the SHOULD it declines: it is
-      advisory and never counts against the capability.
+      a warning and never counts against the capability.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: Authentication and authorization

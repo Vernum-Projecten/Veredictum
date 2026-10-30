@@ -206,7 +206,7 @@ workflows:
       Creates an EHR and its directory FOLDER, then deletes the directory with
       no If-Match header. The operation expects If-Match, so the delete should
       be answered 400 Bad Request; the refusal is a recommendation, so a row
-      lacking it is advisory.
+      lacking it is a warning.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: If-Match and accidental overwrites

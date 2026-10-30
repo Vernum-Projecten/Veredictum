@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The row counts of one group, an advisory row counted apart from a failed
+/// The row counts of one group, a warning row counted apart from a failed
 /// one, as the engine's reading counts them.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tally {
@@ -20,7 +20,7 @@ pub struct Tally {
     /// The failed rows that count against the server.
     pub failed: u32,
     /// The failed rows whose server did not follow a SHOULD.
-    pub advisory: u32,
+    pub warning: u32,
     /// The rows the instrument could not judge.
     pub errored: u32,
     /// The rows not run.
@@ -35,17 +35,17 @@ impl Tally {
             tests: self.tests.saturating_add(other.tests),
             passed: self.passed.saturating_add(other.passed),
             failed: self.failed.saturating_add(other.failed),
-            advisory: self.advisory.saturating_add(other.advisory),
+            warning: self.warning.saturating_add(other.warning),
             errored: self.errored.saturating_add(other.errored),
             skipped: self.skipped.saturating_add(other.skipped),
         }
     }
 
-    /// The rows a reader has to look at: failed, advisory and errored.
+    /// The rows a reader has to look at: failed, warning and errored.
     #[must_use]
     pub const fn attention(self) -> u32 {
         self.failed
-            .saturating_add(self.advisory)
+            .saturating_add(self.warning)
             .saturating_add(self.errored)
     }
 
@@ -58,7 +58,7 @@ impl Tally {
                 tests: 1,
                 passed: one("passed"),
                 failed: one("failed"),
-                advisory: one("advisory"),
+                warning: one("warning"),
                 errored: one("errored"),
                 skipped: one("skipped"),
             })
@@ -76,7 +76,7 @@ pub struct ResultRow {
     /// The status token (`passed` / `failed` / `errored` / `skipped`).
     pub status: String,
     /// The word of the row's mark: its status, with a failed SHOULD read as
-    /// `advisory`.
+    /// `warning`.
     pub mark: String,
     /// The glyph of the row's mark, so it reads without colour.
     pub glyph: String,
@@ -91,11 +91,11 @@ pub struct ResultRow {
 }
 
 impl ResultRow {
-    /// Whether a reader has to look at the row: it failed, is advisory, or
+    /// Whether a reader has to look at the row: it failed, is a warning, or
     /// errored.
     #[must_use]
     pub fn needs_attention(&self) -> bool {
-        matches!(self.mark.as_str(), "failed" | "advisory" | "errored")
+        matches!(self.mark.as_str(), "failed" | "warning" | "errored")
     }
 }
 
@@ -486,7 +486,7 @@ pub mod read {
             tests: count(tally.tests),
             passed: count(tally.passed),
             failed: count(tally.failed),
-            advisory: count(tally.advisory),
+            warning: count(tally.warning),
             errored: count(tally.errored),
             skipped: count(tally.skipped),
         }
@@ -508,13 +508,13 @@ pub mod read {
     }
 
     /// Where a mark sorts in a group: what counts against the server first,
-    /// then what the instrument could not judge, then advisory, passed and
+    /// then what the instrument could not judge, then warning, passed and
     /// skipped.
     const fn rank(mark: Mark) -> u8 {
         match mark {
             Mark::Failed => 0,
             Mark::Errored => 1,
-            Mark::Advisory => 2,
+            Mark::Warning => 2,
             Mark::Passed => 3,
             Mark::Skipped => 4,
         }

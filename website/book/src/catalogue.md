@@ -56,7 +56,7 @@ example `ehr/create_ehr-same_ehr_twice-with_id`, and it is never reused.
   or ITS-XML schema, and a JSON Pointer to a number, a boolean or `null` in a
   JSON or YAML file is quoted as that value. A quote that recommends rather
   than requires carries `level: should`, and a row that fails only such
-  criteria is advisory: it never counts against a capability. A quote that
+  criteria is a warning: it never counts against a capability. A quote that
   only permits carries `level: may`. A quote that says "should", "can" or
   "may" in lower case and nothing that requires needs its level stated.
 - **`x-veredictum-check`** names one of the judges a plain condition cannot

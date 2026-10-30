@@ -299,7 +299,7 @@ workflows:
       this_field_is_not_in_the_template, which names no node of the
       template's Web Template. The create is answered 422 Unprocessable
       Entity. The release recommends this validation, so the row is
-      advisory.
+      a warning.
     dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
@@ -333,7 +333,7 @@ workflows:
       from a flat document whose temperature |magnitude is the string hot
       where the template expects a DV_QUANTITY magnitude. The create is
       answered 422 Unprocessable Entity. The release recommends this
-      validation, so the row is advisory.
+      validation, so the row is a warning.
     dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
@@ -366,7 +366,7 @@ workflows:
       from a flat document that gives the Temperature, an ELEMENT the
       template allows at most once per event, a second instance
       temperature:1. The create is answered 422 Unprocessable Entity. The
-      release recommends this validation, so the row is advisory.
+      release recommends this validation, so the row is a warning.
     dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc
@@ -401,7 +401,7 @@ workflows:
       from a flat document whose Body exposure, bound to the local codes
       at0020 and at0021, is given the |code at9999. The create is answered
       422 Unprocessable Entity. The release recommends this validation, so
-      the row is advisory.
+      the row is a warning.
     dependsOn: [$sourceDescriptions.sf.upload_template-vitals]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/docs/simplified_formats/master04-basic_concepts.adoc

@@ -104,7 +104,7 @@ enum Command {
     /// so it belongs where the operator keeps the run.
     ///
     /// Exit status: `0` when every row passed or was skipped, or failed only
-    /// as advisory (a SHOULD, which never counts against a capability); `1`
+    /// as a warning (a SHOULD, which never counts against a capability); `1`
     /// when any other row failed or errored; `2` when the run could not start
     /// or finish: a usage error, a gate finding, an unreadable file, a missing
     /// credential, or a recording that does not replay.
@@ -529,7 +529,7 @@ enum Command {
     /// closing note counts the cases tagged `@SpecDiverge` and links the
     /// reports they are judged by. Every mark is a glyph as well
     /// as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow),
-    /// ! advisory and ○ skipped (grey). An advisory row is a SHOULD the
+    /// ! warning and ○ skipped (grey). A warning row is a SHOULD the
     /// server did not follow and is never shown as a failure.
     ///
     /// Exit status: `0` when the view was printed; `2` when the document
@@ -538,7 +538,7 @@ enum Command {
         /// The `results.json` the Arazzo evaluator wrote.
         results: PathBuf,
         /// Expand every failed and errored row with its four-part
-        /// explanation, then list the advisory rows apart.
+        /// explanation, then list the warning rows apart.
         #[arg(long)]
         failed: bool,
         /// When to colour the view. `auto` colours when standard output is a
@@ -897,14 +897,14 @@ fn verify_command(certificate: &Path, jwks: &Path) -> ExitCode {
     println!("document     {}", payload.document);
     println!("catalogue    {}", payload.catalogue.digest);
     println!(
-        "verdict      {}: {} passed, {} failed, {} advisory, {} errored, {} skipped",
+        "verdict      {}: {} passed, {} failed, {} warning, {} errored, {} skipped",
         match verdict.outcome {
             Outcome::Green => "green",
             Outcome::Red => "red",
         },
         verdict.passed,
         verdict.failed,
-        verdict.advisory,
+        verdict.warning,
         verdict.errored,
         verdict.skipped
     );
@@ -1086,8 +1086,8 @@ fn test_command(
     }
     let tally = outcome.tally();
     println!(
-        "{} row(s): {} passed, {} failed, {} advisory, {} errored, {} skipped",
-        tally.tests, tally.passed, tally.failed, tally.advisory, tally.errored, tally.skipped
+        "{} row(s): {} passed, {} failed, {} warning, {} errored, {} skipped",
+        tally.tests, tally.passed, tally.failed, tally.warning, tally.errored, tally.skipped
     );
     for note in &outcome.results.review {
         println!("{note}");

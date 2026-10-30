@@ -7,19 +7,17 @@
 //! proportional bar, in the reading order [`crate::arazzo::reading::read`]
 //! gives every view. Every mark is a glyph as well as a colour, so the view reads the same with
 //! colour off. Colour is plain ANSI SGR (ECMA-48 §8.3.117): passed green,
-//! failed red, errored yellow, advisory and skipped grey. Whether to use it
+//! failed red, errored yellow, warning and skipped grey. Whether to use it
 //! is the caller's decision, which [`wants_color`] makes the way
-//! <https://no-color.org/> asks. An advisory row is never shown as a failure.
+//! <https://no-color.org/> asks. A warning row is never shown as a failure.
 //! No openEHR spec governs the view — our own design.
 
 use std::ffi::OsStr;
 use std::fmt::Write as _;
 
-use crate::arazzo::export::{
-    ADVISORY_LINE, arm_state, divergence_note, option_choice, tally_words,
-};
+use crate::arazzo::export::{WARNING_LINE, arm_state, divergence_note, option_choice, tally_words};
 use crate::arazzo::reading::{
-    CaseRows, Mark, OptionGroup, OptionsTree, Reading, Tally, is_advisory, read,
+    CaseRows, Mark, OptionGroup, OptionsTree, Reading, Tally, is_warning, read,
 };
 use crate::arazzo::results::{ResultRow, Results};
 use crate::arazzo::structure::Place;
@@ -67,7 +65,7 @@ pub fn wants_color(
 pub struct ShowOptions {
     /// Whether to write ANSI colour codes.
     pub color: bool,
-    /// Whether to expand every failed and errored row, and list the advisory
+    /// Whether to expand every failed and errored row, and list the warning
     /// rows apart.
     pub failed: bool,
 }
@@ -98,7 +96,7 @@ impl Paint {
             Mark::Passed => Self::Green,
             Mark::Failed => Self::Red,
             Mark::Errored => Self::Yellow,
-            Mark::Advisory | Mark::Skipped => Self::Grey,
+            Mark::Warning | Mark::Skipped => Self::Grey,
         }
     }
 }
@@ -108,7 +106,7 @@ const ORDER: [Mark; 5] = [
     Mark::Passed,
     Mark::Failed,
     Mark::Errored,
-    Mark::Advisory,
+    Mark::Warning,
     Mark::Skipped,
 ];
 
@@ -118,7 +116,7 @@ const fn cell(mark: Mark) -> char {
         Mark::Passed => '█',
         Mark::Failed => '▓',
         Mark::Errored => '▒',
-        Mark::Advisory => '░',
+        Mark::Warning => '░',
         Mark::Skipped => '·',
     }
 }
@@ -129,7 +127,7 @@ const fn count(tally: Tally, mark: Mark) -> usize {
         Mark::Passed => tally.passed,
         Mark::Failed => tally.failed,
         Mark::Errored => tally.errored,
-        Mark::Advisory => tally.advisory,
+        Mark::Warning => tally.warning,
         Mark::Skipped => tally.skipped,
     }
 }
@@ -215,7 +213,7 @@ impl View {
 
 /// Returns how many of the [`BAR_WIDTH`] cells each mark fills.
 ///
-/// The marks are passed, failed, errored, advisory and skipped, in that
+/// The marks are passed, failed, errored, warning and skipped, in that
 /// order. Each fills cells in proportion to its count by largest remainder,
 /// and every mark that has a row fills at least one, so a single failure
 /// among thousands still shows.
@@ -295,7 +293,7 @@ fn badges(place: Option<&Place>) -> String {
 /// defective with the cases each upstream report covers, and the cases the
 /// outline places nowhere that did not pass. With
 /// [`ShowOptions::failed`], every failed and errored row follows with its
-/// four-part explanation, and the advisory rows after them, apart.
+/// four-part explanation, and the warning rows after them, apart.
 #[must_use]
 pub fn render(results: &Results, options: ShowOptions) -> String {
     let reading = read(results);
@@ -321,7 +319,7 @@ pub fn render(results: &Results, options: ShowOptions) -> String {
         })
         .collect();
     view.line(&format!(
-        "{}. An advisory row is a SHOULD the server did not follow and never counts against it.",
+        "{}. A warning row is a SHOULD the server did not follow and never counts against it.",
         legend.join("  ")
     ));
     view.line("");
@@ -471,13 +469,13 @@ fn expanded(view: &mut View, results: &Results) {
     for row in red {
         expanded_row(view, results, row, "");
     }
-    let advisory: Vec<&ResultRow> = results.rows.iter().filter(|r| is_advisory(r)).collect();
-    if advisory.is_empty() {
+    let warning: Vec<&ResultRow> = results.rows.iter().filter(|r| is_warning(r)).collect();
+    if warning.is_empty() {
         return;
     }
-    view.heading("Advisory rows");
-    for row in advisory {
-        expanded_row(view, results, row, &format!("{ADVISORY_LINE}\n"));
+    view.heading("Warning rows");
+    for row in warning {
+        expanded_row(view, results, row, &format!("{WARNING_LINE}\n"));
     }
 }
 
@@ -489,14 +487,14 @@ mod tests {
         passed: usize,
         failed: usize,
         errored: usize,
-        advisory: usize,
+        warning: usize,
         skipped: usize,
     ) -> Tally {
         Tally {
-            tests: passed + failed + errored + advisory + skipped,
+            tests: passed + failed + errored + warning + skipped,
             passed,
             failed,
-            advisory,
+            warning,
             errored,
             skipped,
         }

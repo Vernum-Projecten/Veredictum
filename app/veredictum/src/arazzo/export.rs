@@ -7,9 +7,9 @@
 //! Each view is a pure function of the results document, so it is as
 //! byte-deterministic as the document itself: rows are read in document
 //! order, workflows are grouped in the order they first appear, and nothing
-//! is read from a clock. In every view the text of a failed, advisory or
+//! is read from a clock. In every view the text of a failed, warning or
 //! errored row is its four-part explanation, the [`ResultRow`] display the
-//! evaluator prints. An advisory row records a SHOULD the server did not
+//! evaluator prints. A warning row records a SHOULD the server did not
 //! follow, and no view counts it as failed: RFC 2119 §3, whose keywords the
 //! ITS-REST overview follows, says there "may exist valid reasons in
 //! particular circumstances to ignore a particular item". No openEHR spec
@@ -24,7 +24,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::arazzo::reading::{
-    CaseRows, Mark, OptionGroup, OptionsTree, Reading, SpecDivergence, Tally, is_advisory, read,
+    CaseRows, Mark, OptionGroup, OptionsTree, Reading, SpecDivergence, Tally, is_warning, read,
 };
 use crate::arazzo::results::{ResultRow, Results, SkipReason, Status, Whose, Why};
 use crate::arazzo::rows::Row;
@@ -35,9 +35,9 @@ use crate::party::InstrumentStatus;
 /// (<https://github.com/ctrf-io/ctrf/tree/v0.2.0>).
 pub const CTRF_SPEC_VERSION: &str = "0.2.0";
 
-/// The line that opens the text of an advisory row in the JUnit view.
-pub const ADVISORY_LINE: &str =
-    "ADVISORY: a SHOULD the server did not follow; this row never counts against the server.";
+/// The line that opens the text of a warning row in the JUnit view.
+pub const WARNING_LINE: &str =
+    "WARNING: a SHOULD the server did not follow; this row never counts against the server.";
 
 /// The issue tracker an upstream report's number is resolved against.
 const REPORT_BASE: &str = concat!(env!("CARGO_PKG_REPOSITORY"), "/issues/");
@@ -86,7 +86,7 @@ const fn whose_token(whose: Whose) -> &'static str {
     match whose {
         Whose::Server => "server",
         Whose::Instrument => "instrument",
-        Whose::Advisory => "advisory",
+        Whose::Warning => "warning",
     }
 }
 
@@ -230,8 +230,8 @@ pub const EXTENSION_NAMESPACE: &str = "eu.veredictum";
 /// citation). Every `time` is 0, because the results document carries no
 /// timing.
 ///
-/// An advisory row is a passing `testcase` with no `<failure>`: its text sits
-/// in `<system-out>`, opened by [`ADVISORY_LINE`], and no `failures` count
+/// A warning row is a passing `testcase` with no `<failure>`: its text sits
+/// in `<system-out>`, opened by [`WARNING_LINE`], and no `failures` count
 /// includes it, so a CI that fails a job on a JUnit failure never fails it on
 /// a SHOULD.
 ///
@@ -306,10 +306,10 @@ fn write_testcase(writer: &mut Writer<Vec<u8>>, row: &ResultRow) -> Result<(), E
     case.push_attribute(("name", xml_attr(&test_name(row)).as_str()));
     case.push_attribute(("classname", xml_attr(&row.case).as_str()));
     case.push_attribute(("time", NO_TIME));
-    if is_advisory(row) {
+    if is_warning(row) {
         writer.write_event(Event::Start(case))?;
         writer.write_event(Event::Start(BytesStart::new("system-out")))?;
-        let text = format!("{ADVISORY_LINE}\n{row}");
+        let text = format!("{WARNING_LINE}\n{row}");
         writer.write_event(Event::Text(BytesText::new(&xml_text(&text))))?;
         writer.write_event(Event::End(BytesEnd::new("system-out")))?;
         writer.write_event(Event::End(BytesEnd::new("testcase")))?;
@@ -473,12 +473,12 @@ struct CtrfEnvironmentExtra<'a> {
 
 /// The CTRF status and raw status of a row.
 // NOTE: CTRF 0.2.0 `schema/ctrf.schema.json` closes `status` to passed, failed, skipped, pending
-// and other; an errored or advisory row is `other` and keeps its own status in `rawStatus`.
+// and other; an errored or warning row is `other` and keeps its own status in `rawStatus`.
 fn ctrf_status(row: &ResultRow) -> (&'static str, &'static str) {
     match Mark::of(row) {
         Mark::Passed => ("passed", "passed"),
         Mark::Failed => ("failed", "failed"),
-        Mark::Advisory => ("other", "advisory"),
+        Mark::Warning => ("other", "warning"),
         Mark::Errored => ("other", "errored"),
         Mark::Skipped => ("skipped", "skipped"),
     }
@@ -515,8 +515,8 @@ fn ctrf_suite(results: &Results, named: &[(&'static str, Vec<String>)], case: &s
 /// and section or option the outline reads it under. Its `labels` name where
 /// it sits, as [`placement`] gives it, and every `extra` object holds one
 /// extension under the key [`EXTENSION_NAMESPACE`], as CTRF §4.6.1 asks. *passed*, *failed* and *skipped* map to the CTRF
-/// statuses of the same name, and *errored* and *advisory* to `other`, with
-/// the row's own status in `rawStatus`. An advisory row is therefore never
+/// statuses of the same name, and *errored* and *warning* to `other`, with
+/// the row's own status in `rawStatus`. A warning row is therefore never
 /// `failed`, and `summary.failed` excludes it, so a CI that fails a job on a
 /// CTRF failure never fails it on a SHOULD; `summary.other` counts it. A red row's `message` is its four-part explanation
 /// and a skipped row's is its reason and citation; the extension carries the case
@@ -607,7 +607,7 @@ pub fn ctrf(results: &Results) -> Result<String, ExportError> {
                 failed: tally.failed,
                 skipped: tally.skipped,
                 pending: 0,
-                other: tally.errored + tally.advisory,
+                other: tally.errored + tally.warning,
                 suites: workflows(results).len(),
                 start: 0,
                 stop: 0,
@@ -678,8 +678,8 @@ fn md_code(text: &str) -> String {
 #[must_use]
 pub fn tally_marks(tally: Tally) -> String {
     format!(
-        "✓ {}  ✕ {}  ? {}  ! {} advisory  ○ {} skipped",
-        tally.passed, tally.failed, tally.errored, tally.advisory, tally.skipped
+        "✓ {}  ✕ {}  ? {}  ! {} warning  ○ {} skipped",
+        tally.passed, tally.failed, tally.errored, tally.warning, tally.skipped
     )
 }
 
@@ -689,7 +689,7 @@ pub fn tally_words(tally: Tally) -> String {
     let words: Vec<String> = [
         (tally.passed, Mark::Passed),
         (tally.failed, Mark::Failed),
-        (tally.advisory, Mark::Advisory),
+        (tally.warning, Mark::Warning),
         (tally.errored, Mark::Errored),
         (tally.skipped, Mark::Skipped),
     ]
@@ -732,7 +732,7 @@ pub fn arm_state(selected: bool, empty: bool) -> &'static str {
 }
 
 /// The column heads of every count table, after its first column(s).
-const COUNT_HEADS: &str = "Passed | Failed | Advisory | Errored | Skipped";
+const COUNT_HEADS: &str = "Passed | Failed | Warning | Errored | Skipped";
 
 /// The alignment row cells of the count columns.
 const COUNT_ALIGN: &str = "---: | ---: | ---: | ---: | ---:";
@@ -741,7 +741,7 @@ const COUNT_ALIGN: &str = "---: | ---: | ---: | ---: | ---:";
 fn count_cells(tally: Tally) -> String {
     format!(
         "{} | {} | {} | {} | {}",
-        tally.passed, tally.failed, tally.advisory, tally.errored, tally.skipped
+        tally.passed, tally.failed, tally.warning, tally.errored, tally.skipped
     )
 }
 
@@ -750,16 +750,16 @@ const fn outcome_word(mark: Mark) -> &'static str {
     match mark {
         Mark::Passed => "Passed",
         Mark::Failed => "Failed",
-        Mark::Advisory => "Advisory",
+        Mark::Warning => "Warning",
         Mark::Errored => "Errored",
         Mark::Skipped => "Skipped",
     }
 }
 
-/// Whether a row is listed with its explanation: failed, advisory or
+/// Whether a row is listed with its explanation: failed, warning or
 /// errored.
 fn needs_attention(row: &ResultRow) -> bool {
-    matches!(Mark::of(row), Mark::Failed | Mark::Advisory | Mark::Errored)
+    matches!(Mark::of(row), Mark::Failed | Mark::Warning | Mark::Errored)
 }
 
 /// The labels a case carries beside its id: its formalism, TRIAL, and the
@@ -856,8 +856,8 @@ fn md_row(out: &mut String, outline: Option<&Outline>, row: &ResultRow, place: &
             Whose::Instrument => {
                 "The instrument could not judge it. The row does not count against the server."
             }
-            Whose::Advisory => {
-                "Advisory. The server did not follow a SHOULD, and the row never counts against it."
+            Whose::Warning => {
+                "Warning. The server did not follow a SHOULD, and the row never counts against it."
             }
         };
         let _ = writeln!(out, "| **Whose problem** | {whose} |");
@@ -1158,10 +1158,10 @@ fn md_summary(out: &mut String, reading: &Reading<'_>, placed: bool) {
     let _ = writeln!(
         out,
         "| **Every row** | **{}** | **{}** | **{}** | **{}** | **{}** | **{}** |",
-        total.passed, total.failed, total.advisory, total.errored, total.skipped, total.tests
+        total.passed, total.failed, total.warning, total.errored, total.skipped, total.tests
     );
     out.push_str(
-        "\n> [!NOTE]\n> Only a **failed** row counts against the server. An **advisory** row \
+        "\n> [!NOTE]\n> Only a **failed** row counts against the server. A **warning** row \
          is a SHOULD the server did not follow, and it never counts against the server. An \
          **errored** row is one the instrument could not judge, and a **skipped** row was \
          not run.\n",
@@ -1177,13 +1177,13 @@ fn md_summary(out: &mut String, reading: &Reading<'_>, placed: bool) {
 /// sections; RECOMMENDED, OPTIONS (with the cases resting on TRIAL text) and
 /// where the released spec is defective follow the same chapters and bands,
 /// each band a table of its options with the selected arm. Only the rows that
-/// need attention are listed: each failed, advisory or errored row is a
+/// need attention are listed: each failed, warning or errored row is a
 /// collapsed block whose summary names the outcome and the case, and which
 /// opens on its explanation as a table with the cited sentence quoted. The
-/// cases resting on reported text follow by report, the advisory rows in
+/// cases resting on reported text follow by report, the warning rows in
 /// their own table with their citations, and the skipped rows counted by
 /// reason. A case the outline does not place, or every case when the results
-/// carry no outline, is listed under Unplaced. An advisory row is never
+/// carry no outline, is listed under Unplaced. A warning row is never
 /// counted as failed.
 #[must_use]
 pub fn markdown(results: &Results) -> String {
@@ -1204,7 +1204,7 @@ pub fn markdown(results: &Results) -> String {
         md_base(&mut out, outline, &reading);
         out.push_str(
             "\n## OPTIONS\n\nWhat the statement selected. Each option is labelled with its kind: \
-             **Recommended (SHOULD)**, which a server may decline with an advisory row; \
+             **Recommended (SHOULD)**, which a server may decline with a warning row; \
              **Optional (MAY)**, behaviour the release leaves to the implementation; or \
              **Spec defect**, an option only because the released text is defective. The \
              statement selects one arm of each, and the other arms are skipped.\n",
@@ -1243,7 +1243,7 @@ pub fn markdown(results: &Results) -> String {
                 .map(|case| (case, String::from("unplaced"))),
         );
     }
-    md_advisory(&mut out, results);
+    md_warning(&mut out, results);
     md_skipped(&mut out, results);
     if let Some((text, reports)) = divergence_note(&reading.spec_divergence()) {
         let links: Vec<String> = reports
@@ -1255,17 +1255,17 @@ pub fn markdown(results: &Results) -> String {
     out
 }
 
-/// Writes the table of advisory rows, when there is one.
-fn md_advisory(out: &mut String, results: &Results) {
-    let advisory: Vec<&ResultRow> = results.rows.iter().filter(|r| is_advisory(r)).collect();
-    if advisory.is_empty() {
+/// Writes the table of warning rows, when there is one.
+fn md_warning(out: &mut String, results: &Results) {
+    let warning: Vec<&ResultRow> = results.rows.iter().filter(|r| is_warning(r)).collect();
+    if warning.is_empty() {
         return;
     }
     out.push_str(
-        "\n## Advisory rows\n\nEach is a SHOULD the server did not follow. None counts \
+        "\n## Warning rows\n\nEach is a SHOULD the server did not follow. None counts \
          against the server.\n\n| Row | Step | SHOULD cited |\n| --- | --- | --- |\n",
     );
-    for row in advisory {
+    for row in warning {
         let step = row
             .explanation
             .as_ref()

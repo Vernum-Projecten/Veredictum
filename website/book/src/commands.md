@@ -43,7 +43,7 @@ The results record, under `server`, what the server stated through ITS-REST Syst
 
 A credential is read from the environment, never from an argument: from the variables `--auth` and `--admin-auth` name, or from the file named by the same variable with `_FILE` appended. Neither credential is recorded. The recording holds the server's response bodies verbatim, so it belongs where the operator keeps the run.
 
-Exit status: `0` when every row passed or was skipped, or failed only as advisory (a SHOULD, which never counts against a capability); `1` when any other row failed or errored; `2` when the run could not start or finish: a usage error, a gate finding, an unreadable file, a missing credential, or a recording that does not replay.
+Exit status: `0` when every row passed or was skipped, or failed only as a warning (a SHOULD, which never counts against a capability); `1` when any other row failed or errored; `2` when the run could not start or finish: a usage error, a gate finding, an unreadable file, a missing credential, or a recording that does not replay.
 
 Usage: veredictum test [OPTIONS]
 
@@ -929,15 +929,15 @@ carries a clock reading the results document does not carry.
 |---|---|---|
 | passed | a bare `<testcase>` | `passed` |
 | failed | `<failure>` | `failed` |
-| advisory | `<system-out>`, no `<failure>` | `other`, with `rawStatus: advisory` |
+| warning | `<system-out>`, no `<failure>` | `other`, with `rawStatus: warning` |
 | errored | `<error>` | `other`, with `rawStatus: errored` |
 | skipped | `<skipped>` | `skipped` |
 
-An advisory row is a SHOULD the server did not follow, which never counts
+A warning row is a SHOULD the server did not follow, which never counts
 against the server, so no view counts it as failed and a CI that fails a job
 on a failed test does not fail it on one. Its JUnit `<testcase>` carries the
 four-part explanation in `<system-out>`, opened by a line that says it is
-advisory, and no `failures` count includes it. In CTRF it is `other`, and
+a warning, and no `failures` count includes it. In CTRF it is `other`, and
 `summary.failed` excludes it.
 
 A workflow is a JUnit `<testsuite>` and a row is a `<testcase>` named
@@ -975,11 +975,11 @@ of its options with their kind (Recommended (SHOULD), Optional (MAY), or
 unclear) and the
 arm the statement selected, and a collapsed note on what each option decides.
 The cases resting on TRIAL text sit in their band under OPTIONS. Passed rows
-are only counted. Each failed, advisory or errored row is a collapsed block
+are only counted. Each failed, warning or errored row is a collapsed block
 whose summary names the outcome, the case and where it sits; opening it shows
 the step, what was checked, expected against received, the exchange, whose
 problem it is and the row's inputs as a table, with the cited sentence quoted
-below it. The advisory rows follow with their citations, and the skipped rows
+below it. The warning rows follow with their citations, and the skipped rows
 counted by reason with the full list collapsed. A case resting on text an
 upstream report records as unclear or contradictory is tagged `@SpecDiverge`
 where it appears, and a closing note counts those cases and links the reports
@@ -1023,7 +1023,7 @@ run, never in a public artifact.
 ```text
 Show an Arazzo results document in the terminal: one line per chapter, band and option, each with its counts and a bar.
 
-A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged `@SpecDiverge` and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! advisory and ○ skipped (grey). An advisory row is a SHOULD the server did not follow and is never shown as a failure.
+A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged `@SpecDiverge` and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! warning and ○ skipped (grey). A warning row is a SHOULD the server did not follow and is never shown as a failure.
 
 Exit status: `0` when the view was printed; `2` when the document cannot be read.
 
@@ -1035,7 +1035,7 @@ Arguments:
 
 Options:
       --failed
-          Expand every failed and errored row with its four-part explanation, then list the advisory rows apart
+          Expand every failed and errored row with its four-part explanation, then list the warning rows apart
 
       --color <COLOR>
           When to colour the view. `auto` colours when standard output is a terminal and `NO_COLOR` is unset or empty (<https://no-color.org/>)
@@ -1058,7 +1058,7 @@ the terminal, so a result can be read without exporting it first.
 Each line is one group of rows, with a bar of 24 cells and the count of each
 mark. The bar gives every mark that has a row at least one cell, so a single
 failure among a thousand passes still shows. The cells differ in shape as well
-as colour: `█` passed, `▓` failed, `▒` errored, `░` advisory, `·` skipped.
+as colour: `█` passed, `▓` failed, `▒` errored, `░` warning, `·` skipped.
 
 ```text
 BASE
@@ -1080,7 +1080,7 @@ cases whose citations rest on text the release marks TRIAL are listed in their
 band under OPTIONS, never in a BASE count. Report numbers come from the snapshot
 the catalogue commits; nothing is fetched while the view is printed.
 
-An advisory row is a SHOULD the server did not follow. It is counted apart
+A warning row is a SHOULD the server did not follow. It is counted apart
 from the failed rows, and `--failed` lists it under its own heading after the
 failed and errored rows, never among them.
 
