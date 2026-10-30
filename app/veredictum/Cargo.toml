@@ -51,6 +51,7 @@ include = [
   "src/**/*.rs",
   "src/bench/fixtures/**",
   "src/arazzo/vendor/*.json",
+  "src/arazzo/vendor/LICENSE-*",
   "Cargo.toml",
   "README.md",
   "CHANGELOG.md",

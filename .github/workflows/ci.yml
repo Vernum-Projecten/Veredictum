@@ -240,6 +240,14 @@ jobs:
       - name: Pending numbers — stub-tracker proof
         run: bash scripts/checks/pending-refs.sh --self-test
 
+      # Every vendored tree is refreshed by a script under `scripts/vendor/`
+      # and carries the upstream LICENSE that script fetches (#855).
+      - name: Every vendored tree has its vendor script and its LICENSE
+        run: bash scripts/checks/vendored-trees.sh
+
+      - name: Vendored trees — seeded-violation proof
+        run: bash scripts/checks/vendored-trees.sh --self-test
+
       # console.veredictum.eu is the official conformance instrument (#388), so
       # no reader-facing surface may call it a demo or a sandbox. The words are
       # refused as whole words, which leaves `demonstration` and the CSP
