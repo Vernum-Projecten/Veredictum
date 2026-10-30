@@ -168,6 +168,11 @@ pub struct OptionView {
     pub anchor: String,
     /// What it decides.
     pub description: String,
+    /// Its kind, as the engine labels its tier.
+    pub kind: String,
+    /// Whether it is an option of the spec-boundary tier, which carries the
+    /// `@SpecDiverge` tag in place of a kind badge.
+    pub diverges: bool,
     /// The heading of its theme.
     pub theme: String,
     /// The upstream report its citation names.
@@ -202,24 +207,25 @@ pub struct TrialView {
     pub rows: Vec<ResultRow>,
 }
 
-/// One band of an option tier: the options one capability folder holds.
+/// One band of OPTIONS: the options one capability folder holds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TierBandView {
+pub struct OptionBandView {
     /// The capability folder.
     pub folder: String,
-    /// The in-page anchor of the band, unique across tiers.
+    /// The in-page anchor of the band.
     pub anchor: String,
     /// The heading.
     pub title: String,
     /// Its counts, each case once.
     pub tally: Tally,
-    /// Its options, each arm holding this band's cases only.
+    /// Its options, Recommended, Optional, then the spec-boundary ones, each
+    /// arm holding this band's cases only.
     pub options: Vec<OptionView>,
-    /// The band's rows resting on TRIAL text, on the OPTIONS tier only.
+    /// The band's rows resting on TRIAL text.
     pub trial: Option<TrialView>,
 }
 
-impl TierBandView {
+impl OptionBandView {
     /// Whether the band belongs to this run: it holds a row, or an option
     /// of it does.
     #[must_use]
@@ -228,54 +234,53 @@ impl TierBandView {
     }
 }
 
-/// One chapter of an option tier.
+/// One chapter of OPTIONS.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TierChapterView {
+pub struct OptionChapterView {
     /// The chapter key.
     pub chapter: String,
-    /// The in-page anchor of the chapter, unique across tiers.
+    /// The in-page anchor of the chapter.
     pub anchor: String,
     /// The heading.
     pub title: String,
     /// Its counts, each case once.
     pub tally: Tally,
     /// Its bands that hold an option or TRIAL text.
-    pub bands: Vec<TierBandView>,
+    pub bands: Vec<OptionBandView>,
 }
 
-impl TierChapterView {
+impl OptionChapterView {
     /// Whether the chapter belongs to this run: one of its bands does.
     #[must_use]
     pub fn in_run(&self) -> bool {
-        self.bands.iter().any(TierBandView::in_run)
+        self.bands.iter().any(OptionBandView::in_run)
     }
 }
 
-/// One option tier, read chapter by chapter and band by band like BASE.
+/// OPTIONS: every option of the result, read chapter by chapter and band by
+/// band like BASE, each option carrying its kind.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TierView {
-    /// The in-page anchor of the tier.
+pub struct OptionsView {
+    /// The in-page anchor of the part.
     pub anchor: String,
-    /// The heading.
-    pub title: String,
     /// Its counts, each case once.
     pub tally: Tally,
     /// Its chapters that hold an option or TRIAL text.
-    pub chapters: Vec<TierChapterView>,
+    pub chapters: Vec<OptionChapterView>,
     /// Its options whose arms name no document, so no band holds them.
     pub unanchored: Vec<OptionView>,
 }
 
-impl TierView {
-    /// Whether the tier belongs to this run: one of its chapters, or one of
+impl OptionsView {
+    /// Whether the part belongs to this run: one of its chapters, or one of
     /// its options naming no document, does.
     #[must_use]
     pub fn in_run(&self) -> bool {
-        self.chapters.iter().any(TierChapterView::in_run)
+        self.chapters.iter().any(OptionChapterView::in_run)
             || self.unanchored.iter().any(OptionView::in_run)
     }
 
-    /// Every option of the tier, band by band, then the unanchored ones.
+    /// Every option, band by band, then the unanchored ones.
     pub fn options(&self) -> impl Iterator<Item = &OptionView> {
         self.chapters
             .iter()
@@ -283,29 +288,12 @@ impl TierView {
             .chain(self.unanchored.iter())
     }
 
-    /// Every TRIAL block of the tier, band by band.
+    /// Every TRIAL block, band by band.
     pub fn trials(&self) -> impl Iterator<Item = &TrialView> {
         self.chapters
             .iter()
             .flat_map(|c| c.bands.iter().filter_map(|b| b.trial.as_ref()))
     }
-}
-
-/// The rows resting on text one upstream report records as defective.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReportView {
-    /// The issue number.
-    pub report: u64,
-    /// The in-page anchor of the block.
-    pub anchor: String,
-    /// The issue title, from the committed snapshot.
-    pub title: Option<String>,
-    /// Where it stands, from the committed snapshot.
-    pub state: Option<String>,
-    /// Its counts.
-    pub tally: Tally,
-    /// Its rows, red first.
-    pub rows: Vec<ResultRow>,
 }
 
 /// The engine's reading of one results document, as the page lists it.
@@ -315,11 +303,8 @@ pub struct ReadingView {
     pub total: Tally,
     /// BASE, chapter by chapter.
     pub chapters: Vec<ChapterView>,
-    /// Recommended (SHOULD), Optional (MAY, with the TRIAL blocks) and Spec
-    /// defect, in that order.
-    pub tiers: Vec<TierView>,
-    /// The rows resting on reported text, by report.
-    pub reports: Vec<ReportView>,
+    /// OPTIONS, every option whatever its kind, with the TRIAL blocks.
+    pub options: OptionsView,
     /// The rows the results place nowhere.
     pub unplaced: Vec<ResultRow>,
 }
@@ -335,16 +320,15 @@ impl ReadingView {
             .flat_map(|c| c.bands.iter())
             .flat_map(|b| b.sections.iter())
             .flat_map(|s| s.rows.iter());
-        let tiers = self.tiers.iter().flat_map(|tier| {
-            tier.options()
-                .flat_map(|o| o.arms.iter())
-                .flat_map(|a| a.rows.iter())
-                .chain(tier.trials().flat_map(|t| t.rows.iter()))
-        });
-        base.chain(tiers).chain(self.unplaced.iter()).collect()
+        let options = self
+            .options
+            .options()
+            .flat_map(|o| o.arms.iter())
+            .flat_map(|a| a.rows.iter())
+            .chain(self.options.trials().flat_map(|t| t.rows.iter()));
+        base.chain(options).chain(self.unplaced.iter()).collect()
     }
 }
-
 /// The results screen: the base URL, the engine's reading of the rows, and
 /// the certificate notice.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -437,16 +421,16 @@ pub mod read {
     //! The ssr readers over the finished job's results and recording.
 
     use super::{
-        ArmView, BandView, CertificateNotice, ChapterView, ExchangeView, OptionView, ReadingView,
-        RecordingView, ReportView, ResultDetail, ResultRow, ResultsScreen, SectionView, Tally,
-        TierBandView, TierChapterView, TierView, TrialView,
+        ArmView, BandView, CertificateNotice, ChapterView, ExchangeView, OptionBandView,
+        OptionChapterView, OptionView, OptionsView, ReadingView, RecordingView, ResultDetail,
+        ResultRow, ResultsScreen, SectionView, Tally, TrialView,
     };
     use crate::certificates::CertificateStatus;
     use crate::engine::token;
     use crate::state::ConsoleState;
     use veredictum::arazzo::har::{Entry, Har, NameValue};
     use veredictum::arazzo::reading::{
-        CaseRows, Mark, OptionBand, OptionGroup, Tally as EngineTally, TierTree, read,
+        BandGroup, CaseRows, Mark, OptionBand, OptionGroup, OptionsTree, Tally as EngineTally, read,
     };
     use veredictum::arazzo::results::{ResultRow as EngineRow, Results, Why};
     use veredictum::arazzo::structure::{Place, Tier};
@@ -588,6 +572,8 @@ pub mod read {
             option: group.option.to_owned(),
             anchor: anchor(prefix, &["option", group.option]),
             description: group.description.to_owned(),
+            kind: group.tier.title().to_owned(),
+            diverges: group.tier == Tier::SpecBoundary,
             theme: group.theme.title().to_owned(),
             report: group.report.map(std::num::NonZeroU64::get),
             selected: group.selected,
@@ -608,14 +594,14 @@ pub mod read {
         })
     }
 
-    /// One band of a tier as the page lists it, anchored under `prefix`.
+    /// One band of OPTIONS as the page lists it, anchored under `prefix`.
     ///
     /// # Errors
     /// The status token's `serde_json` failure, verbatim.
-    fn tier_band_of(
+    fn option_band_of(
         prefix: &str,
         band: &OptionBand<'_>,
-    ) -> Result<TierBandView, serde_json::Error> {
+    ) -> Result<OptionBandView, serde_json::Error> {
         let here = anchor(prefix, &["band", band.folder]);
         let trial = band
             .trial
@@ -629,7 +615,7 @@ pub mod read {
                 })
             })
             .transpose()?;
-        Ok(TierBandView {
+        Ok(OptionBandView {
             folder: band.folder.to_owned(),
             title: band.title.to_owned(),
             tally: tally_of(&band.tally),
@@ -643,48 +629,31 @@ pub mod read {
         })
     }
 
-    /// The heading of `tier` on the results page, in the words the catalogue
-    /// uses for it.
-    #[must_use]
-    pub const fn tier_title(tier: Tier) -> &'static str {
-        match tier {
-            Tier::Recommended => "Recommended (SHOULD)",
-            Tier::Options => "Optional (MAY)",
-            Tier::SpecBoundary => "Spec defect",
-        }
-    }
-
-    /// One tier as the page lists it, chapter by chapter and band by band.
+    /// OPTIONS as the page lists it, chapter by chapter and band by band.
     ///
     /// # Errors
     /// The status token's `serde_json` failure, verbatim.
-    fn tier_of(tree: &TierTree<'_>) -> Result<TierView, serde_json::Error> {
-        let key = match tree.tier {
-            Tier::Recommended => "recommended",
-            Tier::Options => "options",
-            Tier::SpecBoundary => "boundary",
-        };
-        let prefix = anchor("tier", &[key]);
+    fn options_of(tree: &OptionsTree<'_>) -> Result<OptionsView, serde_json::Error> {
+        let prefix = String::from("options");
         let chapters = tree
             .chapters
             .iter()
             .map(|chapter| {
                 let here = anchor(&prefix, &["chapter", chapter.chapter]);
-                Ok(TierChapterView {
+                Ok(OptionChapterView {
                     chapter: chapter.chapter.to_owned(),
                     title: chapter.title.to_owned(),
                     tally: tally_of(&chapter.tally),
                     bands: chapter
                         .bands
                         .iter()
-                        .map(|band| tier_band_of(&prefix, band))
+                        .map(|band| option_band_of(&prefix, band))
                         .collect::<Result<_, _>>()?,
                     anchor: here,
                 })
             })
             .collect::<Result<Vec<_>, serde_json::Error>>()?;
-        Ok(TierView {
-            title: tier_title(tree.tier).to_owned(),
+        Ok(OptionsView {
             tally: tally_of(&tree.tally),
             chapters,
             unanchored: tree
@@ -695,6 +664,39 @@ pub mod read {
             anchor: prefix,
         })
     }
+
+    /// One BASE band as the page lists it.
+    ///
+    /// # Errors
+    /// The status token's `serde_json` failure, verbatim.
+    fn band_of(band: &BandGroup<'_>) -> Result<BandView, serde_json::Error> {
+        let sections = band
+            .sections
+            .iter()
+            .map(|section| {
+                let formalism = section.formalism.map(|f| f.label().to_owned());
+                let mut parts = vec![band.folder, section.section];
+                if let Some(label) = formalism.as_deref() {
+                    parts.push(label);
+                }
+                Ok(SectionView {
+                    anchor: anchor("section", &parts),
+                    title: section.title.to_owned(),
+                    formalism,
+                    tally: tally_of(&section.tally),
+                    rows: rows_of(&section.cases)?,
+                })
+            })
+            .collect::<Result<Vec<_>, serde_json::Error>>()?;
+        Ok(BandView {
+            folder: band.folder.to_owned(),
+            anchor: anchor("band", &[band.folder]),
+            title: band.title.to_owned(),
+            tally: tally_of(&band.tally),
+            sections,
+        })
+    }
+
     /// The engine's reading of `results`, as the page lists it.
     ///
     /// # Errors
@@ -708,33 +710,7 @@ pub mod read {
                 let bands = chapter
                     .bands
                     .iter()
-                    .map(|band| {
-                        let sections = band
-                            .sections
-                            .iter()
-                            .map(|section| {
-                                let formalism = section.formalism.map(|f| f.label().to_owned());
-                                let mut parts = vec![band.folder, section.section];
-                                if let Some(label) = formalism.as_deref() {
-                                    parts.push(label);
-                                }
-                                Ok(SectionView {
-                                    anchor: anchor("section", &parts),
-                                    title: section.title.to_owned(),
-                                    formalism,
-                                    tally: tally_of(&section.tally),
-                                    rows: rows_of(&section.cases)?,
-                                })
-                            })
-                            .collect::<Result<Vec<_>, serde_json::Error>>()?;
-                        Ok(BandView {
-                            folder: band.folder.to_owned(),
-                            anchor: anchor("band", &[band.folder]),
-                            title: band.title.to_owned(),
-                            tally: tally_of(&band.tally),
-                            sections,
-                        })
-                    })
+                    .map(band_of)
                     .collect::<Result<Vec<_>, serde_json::Error>>()?;
                 Ok(ChapterView {
                     anchor: anchor("chapter", &[chapter.chapter]),
@@ -748,30 +724,10 @@ pub mod read {
                 })
             })
             .collect::<Result<Vec<_>, serde_json::Error>>()?;
-        let tiers = vec![
-            tier_of(&reading.recommended)?,
-            tier_of(&reading.options)?,
-            tier_of(&reading.boundary)?,
-        ];
-        let reports = reading
-            .reports
-            .iter()
-            .map(|group| {
-                Ok(ReportView {
-                    report: group.report.get(),
-                    anchor: anchor("report", &[&group.report.to_string()]),
-                    title: group.title.map(str::to_owned),
-                    state: group.state.map(|s| s.to_string()),
-                    tally: tally_of(&group.tally),
-                    rows: rows_of(&group.cases)?,
-                })
-            })
-            .collect::<Result<Vec<_>, serde_json::Error>>()?;
         Ok(ReadingView {
             total: tally_of(&reading.total),
             chapters,
-            tiers,
-            reports,
+            options: options_of(&reading.options)?,
             unplaced: rows_of(&reading.unplaced)?,
         })
     }

@@ -10,6 +10,7 @@ pub mod data_table;
 pub mod empty_state;
 pub mod field;
 pub mod format_view;
+pub mod kind;
 pub mod page_header;
 pub mod stat_card;
 pub mod surface;

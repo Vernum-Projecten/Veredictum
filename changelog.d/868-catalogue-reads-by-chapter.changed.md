@@ -5,8 +5,9 @@
   page is titled with its folder's title under a "Catalogue / chapter"
   breadcrumb, folds each BASE section and each option into a block that opens
   on a click and opens by itself under a filter, and lists each case by its
-  summary with the case id beneath. Options are grouped under "Recommended
-  (SHOULD)", "Optional (MAY)" and "Spec defect", each with a line saying what
-  the tier means. A case page says where the case sits (chapter, folder, BASE
-  section or option arm and tier), and its citation's source links to the
-  released file upstream when the vendored tree records where it came from.
+  summary with the case id beneath. The options form one group with no tier
+  headings, each labelled with its kind. A case page says where the case sits
+  (chapter, folder, BASE section or option arm with its kind, and the
+  `@SpecDiverge` tag when its cited text rests on an upstream report), and its
+  citation's source links to the released file upstream when the vendored
+  tree records where it came from.

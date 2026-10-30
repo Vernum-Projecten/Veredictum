@@ -57,6 +57,7 @@ pub mod router;
 pub mod run_api;
 pub mod run_job;
 pub mod site_bundle;
+pub mod spec_diverge;
 #[cfg(feature = "ssr")]
 pub mod state;
 pub mod status_api;

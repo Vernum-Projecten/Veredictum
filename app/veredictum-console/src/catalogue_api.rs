@@ -70,6 +70,8 @@ pub struct CaseRow {
     pub band: String,
     /// The template formalism its setups upload, on a folder that badges it.
     pub formalism: Option<String>,
+    /// The upstream reports its citations name, ascending.
+    pub reports: Vec<u64>,
 }
 
 /// One document section of a capability listing.
@@ -106,54 +108,14 @@ pub struct CitationRow {
     pub link: Option<String>,
 }
 
-/// How firmly the release asks for what an option decides, as the console
-/// titles it, mapped from the engine's tier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum OptionTier {
-    /// Support is a SHOULD.
-    Recommended,
-    /// A MAY, or behaviour the release leaves to the implementation.
-    Optional,
-    /// An option only because the released text is defective.
-    SpecDefect,
-}
-
-impl OptionTier {
-    /// The heading a view prints.
-    #[must_use]
-    pub const fn title(self) -> &'static str {
-        match self {
-            Self::Recommended => "Recommended (SHOULD)",
-            Self::Optional => "Optional (MAY)",
-            Self::SpecDefect => "Spec defect",
-        }
-    }
-
-    /// The one-line explanation printed under the heading.
-    #[must_use]
-    pub const fn note(self) -> &'static str {
-        match self {
-            Self::Recommended => {
-                "The release asks for these with a SHOULD; declining one is recorded as advisory."
-            }
-            Self::Optional => {
-                "A MAY, or behaviour the release leaves to the implementation; the statement picks one arm."
-            }
-            Self::SpecDefect => {
-                "An option only because the released text is defective; each names its upstream report."
-            }
-        }
-    }
-
-    /// The in-page anchor of the tier on a chapter page.
-    #[must_use]
-    pub const fn anchor(self) -> &'static str {
-        match self {
-            Self::Recommended => "tier-recommended",
-            Self::Optional => "tier-optional",
-            Self::SpecDefect => "tier-spec-defect",
-        }
-    }
+/// What kind of option an option is, as the engine labels it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OptionKind {
+    /// The label the engine gives the tier.
+    pub label: String,
+    /// Whether it is of the spec-boundary tier, which carries the
+    /// `@SpecDiverge` tag in place of a kind badge.
+    pub diverges: bool,
 }
 
 /// One option arm a case sits on.
@@ -163,8 +125,10 @@ pub struct ArmPlace {
     pub option: String,
     /// The arm token.
     pub arm: String,
-    /// The option's tier, when the structure file places it.
-    pub tier: Option<OptionTier>,
+    /// The option's kind, when the structure file places it.
+    pub kind: Option<OptionKind>,
+    /// The upstream report the option's citation names.
+    pub report: Option<u64>,
 }
 
 /// Whether a case runs for every claimant or only under an option arm.
@@ -212,6 +176,8 @@ pub struct CaseDetail {
     /// The option arm the document tests, as `option: arm`, when an option
     /// names it.
     pub option: Option<String>,
+    /// The upstream reports the workflow's citations name, ascending.
+    pub reports: Vec<u64>,
 }
 
 /// One capability folder as the catalogue home lists it.
@@ -274,8 +240,10 @@ pub struct OptionBlock {
     pub anchor: String,
     /// The option name.
     pub option: String,
-    /// Its tier, when the structure file places it.
-    pub tier: Option<OptionTier>,
+    /// Its kind, when the structure file places it.
+    pub kind: Option<OptionKind>,
+    /// The upstream report its citation names.
+    pub report: Option<u64>,
     /// The heading of its theme, when the structure file places it.
     pub theme: Option<String>,
     /// What it decides.
@@ -301,7 +269,8 @@ pub struct ChapterPage {
     /// The BASE sections, in declared order; a section with no matching case
     /// is left out.
     pub sections: Vec<SectionBlock>,
-    /// The options touching the folder, by tier, theme and name.
+    /// The options touching the folder: Recommended, Optional, then Spec
+    /// the spec-boundary ones, each by theme and name.
     pub options: Vec<OptionBlock>,
     /// BASE cases whose document names no declared section of the folder.
     pub unsectioned: Vec<CaseRow>,
@@ -332,14 +301,15 @@ pub mod read {
     use super::{
         ArmBlock, ArmPlace, BandCard, BandRows, CaseDetail, CaseRow, CaseStanding,
         CatalogueMissing, ChapterGroup, ChapterPage, ChapterRow, CitationRow, InstrumentSummary,
-        InstrumentView, OptionBlock, OptionTier, SectionBlock, StepRow,
+        InstrumentView, OptionBlock, OptionKind, SectionBlock, StepRow,
     };
     use crate::state::ConsoleState;
     use veredictum::arazzo::capabilities::{CAPABILITIES_FILE, Capabilities};
+    use veredictum::arazzo::cite::Citation;
     use veredictum::arazzo::document::ArazzoDocument;
     use veredictum::arazzo::results::upstream_link;
     use veredictum::arazzo::structure::{
-        CHAPTERS_FILE, Chapters, Formalisms, Theme, Tier, arms_of, section_of,
+        CHAPTERS_FILE, Chapters, Formalisms, Theme, Tier, arms_of, section_of, workflow_citations,
     };
     use veredictum::pipeline::listing::ListedDocument;
 
@@ -352,14 +322,23 @@ pub mod read {
         u64::try_from(n).unwrap_or(u64::MAX)
     }
 
-    /// The console's title of the engine's tier.
+    /// The kind of an option of `tier`, labelled as the engine labels it.
     #[must_use]
-    pub const fn tier_of(tier: Tier) -> OptionTier {
-        match tier {
-            Tier::Recommended => OptionTier::Recommended,
-            Tier::Options => OptionTier::Optional,
-            Tier::SpecBoundary => OptionTier::SpecDefect,
+    pub fn kind_of(tier: Tier) -> OptionKind {
+        OptionKind {
+            label: tier.title().to_owned(),
+            diverges: tier == Tier::SpecBoundary,
         }
+    }
+
+    /// The upstream reports `citations` name, ascending, each once.
+    fn reports_of(citations: &[Citation]) -> Vec<u64> {
+        let found: std::collections::BTreeSet<u64> = citations
+            .iter()
+            .filter_map(|citation| citation.report)
+            .map(std::num::NonZeroU64::get)
+            .collect();
+        found.into_iter().collect()
     }
 
     /// Maps the startup state to the landing view.
@@ -490,6 +469,7 @@ pub mod read {
                         summary: workflow.summary.clone().unwrap_or_default(),
                         band: document.id.clone(),
                         formalism: None,
+                        reports: Vec::new(),
                     })
                     .collect(),
             })
@@ -531,9 +511,10 @@ pub mod read {
             .iter()
             .filter(|workflow| q.is_empty() || workflow.case.contains(q))
             .map(|workflow| {
-                let formalism = loaded.filter(|_| badge).and_then(|document| {
-                    let id = workflow.case.rsplit_once('/').map_or("", |(_, id)| id);
-                    let found = formalisms.of(document, document.workflow(id)?);
+                let id = workflow.case.rsplit_once('/').map_or("", |(_, id)| id);
+                let found = loaded.and_then(|document| Some((document, document.workflow(id)?)));
+                let formalism = found.filter(|_| badge).and_then(|(document, wf)| {
+                    let found = formalisms.of(document, wf);
                     let labels: Vec<&str> = found.iter().map(|f| f.label()).collect();
                     (!labels.is_empty()).then(|| labels.join(" + "))
                 });
@@ -542,13 +523,29 @@ pub mod read {
                     summary: workflow.summary.clone().unwrap_or_default(),
                     band: listed.id.clone(),
                     formalism,
+                    reports: found
+                        .map(|(_, wf)| reports_of(&workflow_citations(wf)))
+                        .unwrap_or_default(),
                 }
             })
             .collect()
     }
 
+    /// `row` resting also on the option's report `report`, as the engine
+    /// places every case of an option whose citation names one.
+    fn with_report(row: &CaseRow, report: Option<std::num::NonZeroU64>) -> CaseRow {
+        let mut row = row.clone();
+        if let Some(report) = report.map(std::num::NonZeroU64::get)
+            && !row.reports.contains(&report)
+        {
+            row.reports.push(report);
+            row.reports.sort_unstable();
+        }
+        row
+    }
+
     /// The options of `capabilities` naming a document of `by_document`,
-    /// each arm listing its cases there, ordered by tier, theme and name;
+    /// each arm listing its cases there, ordered by kind, theme and name;
     /// under a filter `q`, an option with no matching case is left out.
     fn option_blocks(
         chapters: Option<&Chapters>,
@@ -582,7 +579,7 @@ pub mod read {
                                     .iter()
                                     .filter_map(|d| by_document.get(d.as_str()))
                                     .flatten()
-                                    .cloned()
+                                    .map(|row| with_report(row, option.cite.report))
                                     .collect(),
                             })
                             .collect();
@@ -592,7 +589,8 @@ pub mod read {
                             OptionBlock {
                                 anchor: format!("option-{name}"),
                                 option: name.clone(),
-                                tier: placement.map(|(tier, _)| tier_of(tier)),
+                                kind: placement.map(|(tier, _)| kind_of(tier)),
+                                report: option.cite.report.map(std::num::NonZeroU64::get),
                                 theme: placement.map(|(_, theme)| theme.title().to_owned()),
                                 description: option.description.clone(),
                                 cases,
@@ -700,10 +698,16 @@ pub mod read {
             .as_ref()
             .and_then(|c| c.folder(&document.capability));
         let arms = arms_of(capabilities.as_ref(), &document.id);
+        // NOTE: no openEHR spec governs this — our own design; a document that does not load
+        // is a gate finding already, and its case shows with no section and no report.
+        let loaded = ArazzoDocument::load(&document.path).ok();
+        let id = workflow.case.rsplit_once('/').map_or("", |(_, id)| id);
+        let reports = loaded
+            .as_ref()
+            .and_then(|d| d.workflow(id))
+            .map(|wf| reports_of(&workflow_citations(wf)))
+            .unwrap_or_default();
         let standing = if arms.is_empty() {
-            // NOTE: no openEHR spec governs this — our own design; a document that does not load
-            // is a gate finding already, and its case shows with no section.
-            let loaded = ArazzoDocument::load(&document.path).ok();
             let section = loaded.as_ref().and_then(section_of).and_then(|key| {
                 declared.and_then(|(_, d)| d.sections.iter().find(|s| s.section == key))
             });
@@ -716,10 +720,15 @@ pub mod read {
                 arms: arms
                     .into_iter()
                     .map(|arm| ArmPlace {
-                        tier: chapters
+                        kind: chapters
                             .as_ref()
                             .and_then(|c| c.options.get(&arm.option))
-                            .map(|p| tier_of(p.tier)),
+                            .map(|p| kind_of(p.tier)),
+                        report: capabilities
+                            .as_ref()
+                            .and_then(|c| c.options.get(&arm.option))
+                            .and_then(|o| o.cite.report)
+                            .map(std::num::NonZeroU64::get),
                         option: arm.option,
                         arm: arm.arm,
                     })
@@ -762,6 +771,7 @@ pub mod read {
                 .option_arm
                 .as_ref()
                 .map(|(option, arm)| format!("{option}: {arm}")),
+            reports,
         }))
     }
 }

@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The chapter bars (#867): a result drawn as one stacked bar per band, under
-//! one shaded header per chapter or option tier.
+//! one shaded header per chapter, for BASE or for OPTIONS.
 //!
-//! Only what the run touched is drawn: a chapter, band or tier with no row
-//! (and, for an option, no selected arm) is left out and named in one line
-//! after the bars. Every bar is its own band's rows at full width, so a small
+//! Only what the run touched is drawn: a chapter or band with no row (and,
+//! for an option, no selected arm) is left out and named in one line after
+//! the bars. An option row carries its kind beside its name, an option of
+//! the spec-boundary tier the quiet `@SpecDiverge` tag in its place. Every bar is its own band's rows at full width, so a small
 //! band reads as clearly as a large one, and the count column carries the
 //! size. The SVG is a deterministic function of the reading the results page
 //! receives, rendered on the server and again, byte for byte, during
@@ -19,6 +20,7 @@
 use std::fmt::Write as _;
 
 use crate::record_api::{OptionView, ReadingView, Tally};
+use crate::spec_diverge::TAG;
 
 /// The whole width of the drawing, in user units.
 const WIDTH: u32 = 960;
@@ -29,11 +31,14 @@ const GROUP_X: u32 = 12;
 /// Where a band title starts.
 const BAND_X: u32 = 28;
 
+/// Where a row's tag starts: an option's kind or its `@SpecDiverge` tag.
+const TAG_X: u32 = 262;
+
 /// Where every bar starts.
-const BAR_X: f64 = 250.0;
+const BAR_X: f64 = 384.0;
 
 /// The width of a full bar: all of its band's rows.
-const BAR_W: f64 = 420.0;
+const BAR_W: f64 = 290.0;
 
 /// The right edge of each count column and its head: the row count, then
 /// one column per outcome in the bar's order.
@@ -51,9 +56,6 @@ const HEAD_H: u32 = 52;
 
 /// The height of a group header.
 const GROUP_H: u32 = 26;
-
-/// The height of a tier header.
-const TIER_H: u32 = 30;
 
 /// Where an indented row's title starts: an option under its band.
 const OPTION_X: u32 = 44;
@@ -76,8 +78,14 @@ const NOTE_CHARS: usize = 140;
 /// The words that open a note naming what the run left out.
 pub const NOT_IN_RUN: &str = "Not in this run:";
 
-/// The words that open the note naming the option tiers the run left out.
-pub const TIERS_NOT_IN_RUN: &str = "Tiers not in this run:";
+/// The small label a row carries after its name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Tag {
+    /// The words.
+    pub text: String,
+    /// Whether it is the `@SpecDiverge` tag, set in monospace.
+    pub mono: bool,
+}
 
 /// One bar row: a capability folder, or an option or TRIAL row indented
 /// under its folder.
@@ -93,6 +101,8 @@ pub struct Band {
     pub indent: bool,
     /// What the row reads in place of a bar when it has no row.
     pub empty: &'static str,
+    /// The label after its name, when it carries one.
+    pub tag: Option<Tag>,
 }
 
 /// One shaded group of bands: a chapter.
@@ -108,20 +118,13 @@ pub struct Group {
     pub bands: Vec<Band>,
 }
 
-/// One part of a chart: an option tier above its chapters, or the untitled
-/// whole of BASE.
+/// One part of a chart: BASE or OPTIONS, its chapters as groups.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Part {
-    /// The tier heading; `None` draws the groups with no header above them.
-    pub title: Option<String>,
-    /// Where the heading links.
-    pub href: String,
     /// The part's counts.
     pub tally: Tally,
     /// Its groups, in reading order.
     pub groups: Vec<Group>,
-    /// The titles of its chapters the run left out, in reading order.
-    pub absent: Vec<String>,
 }
 
 /// One chart: what it draws and the name a reader hears for it.
@@ -131,11 +134,8 @@ pub struct Chart {
     pub label: String,
     /// The parts, in reading order.
     pub parts: Vec<Part>,
-    /// The titles the run left out at the chart's own level: the chapters of
-    /// BASE, or the option tiers.
+    /// The titles of the chapters the run left out, in reading order.
     pub absent: Vec<String>,
-    /// The words that open the line naming [`Chart::absent`].
-    pub absent_label: &'static str,
     /// What the chart reads when it draws no part.
     pub empty: &'static str,
 }
@@ -359,6 +359,21 @@ fn bar(out: &mut String, tally: &Tally, top: u32, height: u32, colours: &Colours
     );
 }
 
+/// Writes the tag of a row on the baseline `y`.
+fn tag(out: &mut String, tag: &Tag, y: u32, colours: &Colours) {
+    let family = if tag.mono {
+        r#" font-family="ui-monospace, monospace""#
+    } else {
+        ""
+    };
+    let _ = write!(
+        out,
+        r#"<text x="{TAG_X}" y="{y}" fill="{}" font-size="10"{family}>{}</text>"#,
+        colours.muted,
+        esc(&tag.text)
+    );
+}
+
 /// Writes one band row whose top edge is `top`.
 fn band(out: &mut String, band: &Band, top: u32, colours: &Colours) {
     let baseline = top + 15;
@@ -371,6 +386,9 @@ fn band(out: &mut String, band: &Band, top: u32, colours: &Colours) {
         colours.ink,
         esc(&band.title)
     );
+    if let Some(label) = &band.tag {
+        tag(out, label, baseline, colours);
+    }
     if band.tally.tests == 0 {
         let _ = write!(
             out,
@@ -403,30 +421,6 @@ fn group_header(out: &mut String, group: &Group, top: u32, colours: &Colours) {
         top + 17,
         colours.ink,
         r#" font-weight="600""#,
-    );
-    out.push_str("</a>");
-}
-
-/// Writes one tier header whose top edge is `top`.
-fn part_header(out: &mut String, part: &Part, title: &str, top: u32, colours: &Colours) {
-    let baseline = top + 20;
-    let _ = write!(
-        out,
-        r#"<a href="{}"><title>{}</title><rect x="0" y="{top}" width="{WIDTH}" height="{TIER_H}" fill="transparent"/><line x1="0" y1="{}" x2="{WIDTH}" y2="{}" stroke="{}" stroke-width="1"/><text x="0" y="{baseline}" fill="{}" font-size="13" font-weight="700">{}</text>"#,
-        esc(&part.href),
-        esc(&summary(title, &part.tally)),
-        top + 4,
-        top + 4,
-        colours.muted,
-        colours.ink,
-        esc(title)
-    );
-    counts(
-        out,
-        &part.tally,
-        baseline,
-        colours.ink,
-        r#" font-weight="700""#,
     );
     out.push_str("</a>");
 }
@@ -466,10 +460,6 @@ pub fn render(chart: &Chart, palette: Palette) -> String {
         top += ROW_H;
     }
     for part in &chart.parts {
-        if let Some(title) = part.title.as_deref() {
-            part_header(&mut body, part, title, top, &colours);
-            top += TIER_H;
-        }
         for group in &part.groups {
             group_header(&mut body, group, top, &colours);
             top += GROUP_H;
@@ -478,9 +468,8 @@ pub fn render(chart: &Chart, palette: Palette) -> String {
                 top += ROW_H;
             }
         }
-        top = absent(&mut body, NOT_IN_RUN, &part.absent, top, &colours);
     }
-    top = absent(&mut body, chart.absent_label, &chart.absent, top, &colours);
+    top = absent(&mut body, NOT_IN_RUN, &chart.absent, top, &colours);
     let height = top.saturating_add(8);
     let mut out = String::new();
     let _ = write!(
@@ -505,7 +494,7 @@ pub fn render(chart: &Chart, palette: Palette) -> String {
 pub enum View {
     /// BASE, chapter by chapter.
     Base,
-    /// The options, tier by tier, then chapter by chapter.
+    /// OPTIONS, chapter by chapter.
     Options,
 }
 
@@ -546,6 +535,7 @@ pub fn base(reading: &ReadingView) -> Chart {
                     tally: band.tally,
                     indent: false,
                     empty: "no rows",
+                    tag: None,
                 })
                 .collect(),
         });
@@ -554,22 +544,18 @@ pub fn base(reading: &ReadingView) -> Chart {
         Vec::new()
     } else {
         vec![Part {
-            title: None,
-            href: String::from("#result-rows"),
             tally: reading
                 .chapters
                 .iter()
                 .map(|c| c.tally)
                 .fold(Tally::default(), Tally::plus),
             groups,
-            absent: Vec::new(),
         }]
     };
     Chart {
         label: String::from("BASE outcomes by chapter"),
         parts,
         absent,
-        absent_label: NOT_IN_RUN,
         empty: "No BASE row in this run.",
     }
 }
@@ -583,93 +569,96 @@ fn option_band(option: &OptionView, indent: bool) -> Band {
     } else {
         "not selected"
     };
+    let text = if option.diverges {
+        String::from(TAG)
+    } else {
+        option.kind.clone()
+    };
     Band {
         title: option.option.clone(),
         href: format!("#{}", option.anchor),
         tally: option.tally,
         indent,
         empty,
+        tag: Some(Tag {
+            text,
+            mono: option.diverges,
+        }),
     }
 }
 
-/// The OPTIONS chart: each tier the run touched above its chapters, each
-/// band followed by its options and its TRIAL row, indented, exactly as BASE
-/// reads.
+/// The OPTIONS chart: each chapter the run touched, each band followed by
+/// its options and its TRIAL row, indented, exactly as BASE reads.
 #[must_use]
 pub fn options(reading: &ReadingView) -> Chart {
-    let mut parts = Vec::new();
-    let mut absent_tiers = Vec::new();
-    for tier in &reading.tiers {
-        if !tier.in_run() {
-            absent_tiers.push(tier.title.clone());
+    let tree = &reading.options;
+    let mut absent = Vec::new();
+    let mut groups = Vec::new();
+    for chapter in &tree.chapters {
+        if !chapter.in_run() {
+            absent.push(chapter.title.clone());
             continue;
         }
-        let mut absent = Vec::new();
-        let mut groups = Vec::new();
-        for chapter in &tier.chapters {
-            if !chapter.in_run() {
-                absent.push(chapter.title.clone());
-                continue;
-            }
-            let mut bands = Vec::new();
-            for band in chapter.bands.iter().filter(|band| band.in_run()) {
+        let mut bands = Vec::new();
+        for band in chapter.bands.iter().filter(|band| band.in_run()) {
+            bands.push(Band {
+                title: band.title.clone(),
+                href: format!("#{}", band.anchor),
+                tally: band.tally,
+                indent: false,
+                empty: "no rows",
+                tag: None,
+            });
+            bands.extend(
+                band.options
+                    .iter()
+                    .filter(|option| option.in_run())
+                    .map(|option| option_band(option, true)),
+            );
+            if let Some(trial) = band.trial.as_ref().filter(|t| t.tally.tests > 0) {
                 bands.push(Band {
-                    title: band.title.clone(),
-                    href: format!("#{}", band.anchor),
-                    tally: band.tally,
-                    indent: false,
+                    title: String::from("TRIAL text"),
+                    href: format!("#{}", trial.anchor),
+                    tally: trial.tally,
+                    indent: true,
                     empty: "no rows",
+                    tag: None,
                 });
-                bands.extend(
-                    band.options
-                        .iter()
-                        .filter(|option| option.in_run())
-                        .map(|option| option_band(option, true)),
-                );
-                if let Some(trial) = band.trial.as_ref().filter(|t| t.tally.tests > 0) {
-                    bands.push(Band {
-                        title: String::from("TRIAL text"),
-                        href: format!("#{}", trial.anchor),
-                        tally: trial.tally,
-                        indent: true,
-                        empty: "no rows",
-                    });
-                }
             }
-            groups.push(Group {
-                title: chapter.title.clone(),
-                href: format!("#{}", chapter.anchor),
-                tally: chapter.tally,
-                bands,
-            });
         }
-        let unanchored: Vec<Band> = tier
-            .unanchored
-            .iter()
-            .filter(|option| option.in_run())
-            .map(|option| option_band(option, false))
-            .collect();
-        if !unanchored.is_empty() {
-            groups.push(Group {
-                title: String::from("No document yet"),
-                href: format!("#{}", tier.anchor),
-                tally: Tally::default(),
-                bands: unanchored,
-            });
-        }
-        parts.push(Part {
-            title: Some(tier.title.clone()),
-            href: format!("#{}", tier.anchor),
-            tally: tier.tally,
-            groups,
-            absent,
+        groups.push(Group {
+            title: chapter.title.clone(),
+            href: format!("#{}", chapter.anchor),
+            tally: chapter.tally,
+            bands,
         });
     }
+    let unanchored: Vec<Band> = tree
+        .unanchored
+        .iter()
+        .filter(|option| option.in_run())
+        .map(|option| option_band(option, false))
+        .collect();
+    if !unanchored.is_empty() {
+        groups.push(Group {
+            title: String::from("No document yet"),
+            href: format!("#{}", tree.anchor),
+            tally: Tally::default(),
+            bands: unanchored,
+        });
+    }
+    let parts = if groups.is_empty() {
+        Vec::new()
+    } else {
+        vec![Part {
+            tally: tree.tally,
+            groups,
+        }]
+    };
     Chart {
-        label: String::from("Option outcomes by tier and chapter"),
+        label: String::from("Option outcomes by chapter"),
         parts,
-        absent: absent_tiers,
-        absent_label: TIERS_NOT_IN_RUN,
+        absent,
         empty: "No option row in this run.",
     }
 }
@@ -694,7 +683,6 @@ mod tests {
     };
 
     use super::{Palette, base, options, render, wrap};
-    use crate::record_api::Tally;
     use crate::record_api::read::reading_view;
 
     /// One row of `case` with `status`, explained as `whose` when red.
@@ -863,7 +851,7 @@ mod tests {
 
     /// A fixed results document touching every part of the reading: two
     /// chapters with rows and one without, a band with no case, all five
-    /// marks, every tier, a TRIAL case and a reported one.
+    /// marks, every kind of option, a TRIAL case and a reported one.
     fn results() -> Results {
         Results {
             document: String::from("catalogue"),
@@ -910,7 +898,7 @@ mod tests {
     }
 
     /// The reading keeps an advisory row out of the failed count, puts the
-    /// TRIAL case on the OPTIONS tier, and lists a group red first.
+    /// TRIAL case in its OPTIONS band, and lists a group red first.
     #[expect(
         clippy::panic_in_result_fn,
         reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
@@ -920,27 +908,21 @@ mod tests {
         let reading = reading_view(&results())?;
         assert_eq!(reading.total.failed, 3);
         assert_eq!(reading.total.advisory, 2);
-        let band = reading.tiers.get(1).and_then(|t| {
-            let band = t.chapters.first()?.bands.first()?;
-            Some((
-                t.title.as_str(),
-                band.anchor.as_str(),
-                band.options
-                    .iter()
-                    .map(|o| o.option.as_str())
-                    .collect::<Vec<_>>(),
-                band.trial.as_ref().map(|x| x.tally.failed),
-            ))
-        });
+        let band = reading
+            .options
+            .chapters
+            .first()
+            .and_then(|c| c.bands.first())
+            .map(|band| {
+                (
+                    band.anchor.as_str(),
+                    band.trial.as_ref().map(|x| x.tally.failed),
+                )
+            });
         assert_eq!(
             band,
-            Some((
-                "Optional (MAY)",
-                "tier-options-band-composition",
-                vec!["xml"],
-                Some(1)
-            )),
-            "the TRIAL row sits in its band, under Optional (MAY)"
+            Some(("options-band-composition", Some(1))),
+            "the TRIAL row sits in its band, in OPTIONS"
         );
         let first = reading
             .chapters
@@ -953,6 +935,44 @@ mod tests {
             first,
             Some(("errored", vec![352])),
             "red first, report marked"
+        );
+        Ok(())
+    }
+
+    /// Every option sits in one OPTIONS tree, Recommended, Optional, then
+    /// the spec-boundary ones within its band, each labelled with the
+    /// engine's kind, the spec-boundary one marked as diverging with its
+    /// report.
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    #[test]
+    fn every_option_carries_its_kind_in_one_tree() -> Result<(), serde_json::Error> {
+        let reading = reading_view(&results())?;
+        let kinds: Vec<(&str, bool, Option<u64>)> = reading
+            .options
+            .options()
+            .map(|o| (o.option.as_str(), o.diverges, o.report))
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                ("flat", false, None),
+                ("xml", false, None),
+                ("gap", true, Some(352)),
+                ("planned", false, None),
+            ]
+        );
+        let labels: Vec<&str> = reading
+            .options
+            .options()
+            .filter(|o| !o.diverges)
+            .map(|o| o.kind.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            vec!["Recommended (SHOULD)", "Optional (MAY)", "Optional (MAY)"]
         );
         Ok(())
     }
@@ -1010,49 +1030,59 @@ mod tests {
         Ok(())
     }
 
-    /// An option tier whose options hold no row and no selected arm is named
-    /// after the bars, never drawn as an empty part.
+    /// The OPTIONS chart is one part with no tier header: each option row
+    /// carries its kind after its name, a spec-boundary one the quiet
+    /// `@SpecDiverge` tag, and an unselected option with no row is not drawn.
     #[expect(
         clippy::panic_in_result_fn,
         reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
     )]
     #[test]
-    fn a_tier_the_run_never_touched_is_named_not_drawn() -> Result<(), serde_json::Error> {
-        let mut reading = reading_view(&results())?;
-        let recommended = reading
-            .tiers
-            .first_mut()
-            .expect("the reading carries the Recommended tier");
-        for chapter in &mut recommended.chapters {
-            for band in &mut chapter.bands {
-                band.tally = Tally::default();
-                for option in &mut band.options {
-                    option.selected = false;
-                    option.tally = Tally::default();
-                }
-            }
-        }
-        let chart = options(&reading);
-        let titles: Vec<&str> = chart
+    fn the_options_chart_labels_each_option_with_its_kind() -> Result<(), serde_json::Error> {
+        let chart = options(&reading_view(&results())?);
+        assert_eq!(chart.parts.len(), 1, "OPTIONS is one part");
+        let rows: Vec<(&str, Option<&str>)> = chart
             .parts
             .iter()
-            .filter_map(|part| part.title.as_deref())
+            .flat_map(|p| p.groups.iter())
+            .flat_map(|g| g.bands.iter())
+            .map(|b| (b.title.as_str(), b.tag.as_ref().map(|t| t.text.as_str())))
             .collect();
-        assert_eq!(titles, vec!["Optional (MAY)", "Spec defect"]);
-        assert_eq!(chart.absent, vec![String::from("Recommended (SHOULD)")]);
+        assert_eq!(
+            rows,
+            vec![
+                ("COMPOSITION", None),
+                ("flat", Some("Recommended (SHOULD)")),
+                ("xml", Some("Optional (MAY)")),
+                ("gap", Some("@SpecDiverge")),
+                ("TRIAL text", None),
+            ],
+            "an unselected option with no row (planned) is not drawn"
+        );
         let svg = render(&chart, Palette::Dark);
         assert!(
-            svg.contains("Tiers not in this run: Recommended (SHOULD)"),
-            "the left-out tier is named as a tier: {svg}"
+            !svg.contains("Tiers not in this run") && !svg.contains("Spec defect"),
+            "no tier header, no tier note and no warning: {svg}"
         );
+        Ok(())
+    }
+
+    /// The BASE chart carries no warning on a band whose cases rest on
+    /// reported text.
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    #[test]
+    fn the_base_chart_tags_no_band() -> Result<(), serde_json::Error> {
+        let chart = base(&reading_view(&results())?);
         assert!(
-            !chart
+            chart
                 .parts
                 .iter()
                 .flat_map(|p| p.groups.iter())
                 .flat_map(|g| g.bands.iter())
-                .any(|b| b.title == "planned"),
-            "an unselected option with no row is not drawn"
+                .all(|b| b.tag.is_none())
         );
         Ok(())
     }
@@ -1068,7 +1098,7 @@ mod tests {
         let chart = base(&reading_view(&results())?);
         let svg = render(&chart, Palette::Light);
         let outlines = svg
-            .matches(r#"width="420" height="12" fill="none""#)
+            .matches(r#"width="290" height="12" fill="none""#)
             .count();
         assert_eq!(outlines, 3, "one full-width outline per drawn band: {svg}");
         assert!(!svg.contains("full bar"), "no scale legend is left");

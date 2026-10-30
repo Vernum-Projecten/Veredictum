@@ -11,7 +11,7 @@
 
 use std::path::Path;
 
-use veredictum_console::catalogue_api::{ArmPlace, CaseStanding, InstrumentView, OptionTier, read};
+use veredictum_console::catalogue_api::{ArmPlace, CaseStanding, InstrumentView, OptionKind, read};
 use veredictum_console::state::ConsoleState;
 
 /// The repository root, two levels above this crate (#55).
@@ -344,10 +344,14 @@ fn an_option_gated_case_names_its_arm() -> Result<(), Box<dyn std::error::Error>
             arms: vec![ArmPlace {
                 option: String::from("ehr-xml-read"),
                 arm: String::from("ehr-xml-supported"),
-                tier: Some(OptionTier::Optional),
+                kind: Some(OptionKind {
+                    label: String::from("Optional (MAY)"),
+                    diverges: false,
+                }),
+                report: None,
             }],
         },
-        "the case sits on its arm, in the tier the structure file places the option"
+        "the case sits on its arm, labelled with the kind the structure file places the option in"
     );
     Ok(())
 }
@@ -520,7 +524,7 @@ fn a_chapter_page_groups_composition_into_base_and_options()
         .find(|o| o.option == "composition-xml-read")
         .ok_or("the composition-xml-read option touches composition")?;
     assert!(!xml.description.is_empty());
-    assert!(xml.tier.is_some() && xml.theme.is_some());
+    assert!(xml.kind.is_some() && xml.theme.is_some());
     let arms: Vec<&str> = xml.arms.iter().map(|a| a.arm.as_str()).collect();
     assert_eq!(
         arms,
@@ -611,6 +615,69 @@ fn a_chapter_page_filters_across_groups_and_badges_content()
         badges.iter().all(|b| *b == Some("ADL 1.4")),
         "every content case uploads an ADL 1.4 template"
     );
+    Ok(())
+}
+
+/// A chapter page lists every option in one group, Recommended, Optional,
+/// then the spec-boundary ones naming their report, and a BASE case whose
+/// citation names a report carries it.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn a_chapter_page_labels_each_option_and_marks_reported_cases()
+-> Result<(), Box<dyn std::error::Error>> {
+    let state = committed_state();
+    let page = read::chapter_page(&state, "ehr_status", "")?;
+    let flat = page
+        .options
+        .iter()
+        .find(|o| o.option == "ehr-status-flat-write")
+        .ok_or("the ehr-status-flat-write option touches ehr_status")?;
+    assert_eq!(
+        (flat.kind.as_ref().map(|k| k.diverges), flat.report),
+        (Some(true), Some(352)),
+        "the option exists only because the released text diverges"
+    );
+    let rank = |kind: Option<&OptionKind>| match kind {
+        Some(k) if k.diverges => 2,
+        Some(k) if k.label == "Recommended (SHOULD)" => 0,
+        Some(k) if k.label == "Optional (MAY)" => 1,
+        _ => 3,
+    };
+    let ranks: Vec<u8> = page.options.iter().map(|o| rank(o.kind.as_ref())).collect();
+    assert!(
+        ranks.windows(2).all(|w| w.first() <= w.get(1)),
+        "Recommended, Optional, then the spec-boundary ones: {ranks:?}"
+    );
+    assert!(
+        flat.arms
+            .iter()
+            .flat_map(|a| a.rows.iter())
+            .all(|r| r.reports.contains(&352)),
+        "every case of the option rests on its report, as the engine places it"
+    );
+    let reported: Vec<(&str, &[u64])> = page
+        .sections
+        .iter()
+        .flat_map(|s| s.rows.iter())
+        .filter(|r| !r.reports.is_empty())
+        .map(|r| (r.id.as_str(), r.reports.as_slice()))
+        .collect();
+    assert!(
+        reported.contains(&(
+            "ehr_status_versioned/get_versioned_ehr_status-revision_history",
+            &[661][..]
+        )),
+        "the revision-history case rests on #661: {reported:?}"
+    );
+    let detail = read::case_detail(
+        &state,
+        "ehr_status_versioned/get_versioned_ehr_status-revision_history",
+    )?
+    .ok_or("the committed catalogue carries the case")?;
+    assert_eq!(detail.reports, vec![661]);
     Ok(())
 }
 

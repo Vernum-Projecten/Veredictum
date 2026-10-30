@@ -3,9 +3,12 @@
 
 //! S6 — the results surface (#61, #67, #867).
 //!
-//! The finished run's results document as the engine reads it: the counts,
-//! the chapter bars, then the rows grouped BASE chapter by chapter, then the
-//! option tiers and the rows resting on reported text. By default a group
+//! The finished run's results document as the engine reads it, in two parts:
+//! the counts and the chapter bars, then the rows grouped BASE chapter by
+//! chapter, then OPTIONS chapter by chapter, each option labelled with its
+//! kind. A case resting on released text an upstream report records carries
+//! the quiet `@SpecDiverge` tag, and one muted note closing the page counts
+//! those cases and links each report. By default a group
 //! lists only the rows that need attention (failed, advisory, errored), red
 //! first, and says in its heading how many passed or were skipped;
 //! `?rows=all` lists every row. A selected row's four-part explanation and
@@ -28,21 +31,23 @@ use leptos_meta::Title;
 use leptos_router::components::A;
 use leptos_router::hooks::use_query_map;
 
-use crate::chart::{NOT_IN_RUN, Palette, TIERS_NOT_IN_RUN, View, of, render};
+use crate::chart::{NOT_IN_RUN, Palette, View, of, render};
 use crate::components::data_table::{TABLE, TABLE_WRAP, TD, TH};
 use crate::components::empty_state::EmptyState;
 use crate::components::field::BTN_SECONDARY;
 use crate::components::format_view::{Pane, inline_error};
+use crate::components::kind::{THEME, diverge_tag, divergence_note, kind_badge};
 use crate::components::page_header::{Crumb, PageHeader};
 use crate::components::stat_card::StatCard;
 use crate::components::surface::{CARD_PAD, CARD_TITLE};
 use crate::pages::run::steps;
 use crate::record_api::fns::{fetch_result_detail, fetch_results};
 use crate::record_api::{
-    BandView, CertificateNotice, ChapterView, ExchangeView, OptionView, ReadingView, RecordingView,
-    ReportView, ResultDetail, ResultRow, ResultsScreen, SectionView, Tally, TierBandView,
-    TierChapterView, TierView,
+    BandView, CertificateNotice, ChapterView, ExchangeView, OptionBandView, OptionChapterView,
+    OptionView, OptionsView, ReadingView, RecordingView, ResultDetail, ResultRow, ResultsScreen,
+    SectionView, Tally,
 };
+use crate::spec_diverge::Divergence;
 
 /// Which rows the grouped list shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -217,8 +222,8 @@ const BADGE: &str = "ml-1.5 rounded-control border border-edge-strong px-1 py-px
 /// The counts beside a heading.
 const COUNTS: &str = "text-xs font-normal tabular-nums text-ink-muted";
 
-/// A tier heading: BASE, Recommended (SHOULD), Optional (MAY), Spec defect.
-const H_TIER: &str = "mb-3 mt-8 flex flex-wrap items-baseline gap-x-3 border-b border-edge pb-1.5 text-lg font-semibold text-ink-heading";
+/// A part heading: BASE or OPTIONS.
+const H_PART: &str = "mb-3 mt-8 flex flex-wrap items-baseline gap-x-3 border-b border-edge pb-1.5 text-lg font-semibold text-ink-heading";
 
 /// A chapter heading.
 const H_CHAPTER: &str =
@@ -447,7 +452,7 @@ fn chart_view(reading: &ReadingView, ctx: &Ctx) -> AnyView {
     };
     let title = match here.view {
         View::Base => "BASE by chapter",
-        View::Options => "Options by tier and chapter",
+        View::Options => "OPTIONS by chapter",
     };
     view! {
         <section id="outcome-chart" class=format!("{CARD_PAD} mb-6")>
@@ -457,7 +462,7 @@ fn chart_view(reading: &ReadingView, ctx: &Ctx) -> AnyView {
                     <nav aria-label="Chart part" class="flex items-center gap-1">
                         <span class="mr-1 text-xs text-ink-muted">"Chart"</span>
                         {view_link(View::Base, "BASE")}
-                        {view_link(View::Options, "Options")}
+                        {view_link(View::Options, "OPTIONS")}
                     </nav>
                     <nav aria-label="Rows listed" class="flex items-center gap-1">
                         <span class="mr-1 text-xs text-ink-muted">"Rows"</span>
@@ -477,7 +482,8 @@ fn chart_view(reading: &ReadingView, ctx: &Ctx) -> AnyView {
 }
 
 /// The badges a row carries beside its case id: the template formalism,
-/// TRIAL, and each upstream report its text rests on.
+/// TRIAL, and the `@SpecDiverge` tag when its text rests on an upstream
+/// report.
 fn badges(row: &ResultRow) -> AnyView {
     let formalism = row
         .formalism
@@ -490,17 +496,8 @@ fn badges(row: &ResultRow) -> AnyView {
             </span>
         }
     });
-    let reports = row
-        .reports
-        .iter()
-        .map(|report| {
-            view! {
-                <a href=format!("#report-{report}") class=format!("{BADGE} hover:text-accent")>
-                    {format!("report #{report}")}
-                </a>
-            }
-        })
-        .collect_view();
+    let reports = (!row.reports.is_empty())
+        .then(|| view! { <span class="ml-1.5">{diverge_tag(&row.reports)}</span> });
     view! {
         {formalism}
         {trial}
@@ -690,8 +687,8 @@ fn chapter_view(chapter: &ChapterView, ctx: &Ctx) -> AnyView {
     .into_any()
 }
 
-/// One block of rows under a heading of its own: the TRIAL rows, a report's
-/// rows, the unplaced rows.
+/// One block of rows under a heading of its own: the TRIAL rows and the
+/// unplaced rows.
 fn rows_block(
     anchor: String,
     title: String,
@@ -723,26 +720,6 @@ fn rows_block(
     .into_any()
 }
 
-/// One report's rows, with its title and state from the committed snapshot.
-fn report_view(report: &ReportView, ctx: &Ctx) -> AnyView {
-    let title = match &report.title {
-        Some(title) => format!("report #{}: {title}", report.report),
-        None => format!("report #{}", report.report),
-    };
-    let note = report
-        .state
-        .clone()
-        .map(|state| format!("Where it stands: {state}."));
-    rows_block(
-        report.anchor.clone(),
-        title,
-        note,
-        &report.tally,
-        &report.rows,
-        ctx,
-    )
-}
-
 /// What an option's arm or the option itself reads as its state.
 fn arm_state(empty: bool, selected: bool) -> &'static str {
     if empty {
@@ -754,8 +731,9 @@ fn arm_state(empty: bool, selected: bool) -> &'static str {
     }
 }
 
-/// One option under its band: its name with the arm the statement selected,
-/// its theme and counts, then its arms as one table when it lists a row.
+/// One option under its band: its name, its kind, the arm the statement
+/// selected, its theme and counts, then its arms as one table when it lists
+/// a row.
 fn option_view(option: &OptionView, ctx: &Ctx) -> AnyView {
     let arms: Vec<_> = option
         .arms
@@ -793,13 +771,7 @@ fn option_view(option: &OptionView, ctx: &Ctx) -> AnyView {
     } else {
         format!("selected: {}", chosen.join(", "))
     };
-    let report = option.report.map(|report| {
-        view! {
-            <a href=format!("#report-{report}") class=format!("{BADGE} hover:text-accent")>
-                {format!("report #{report}")}
-            </a>
-        }
-    });
+    let kind = kind_badge(&option.kind, option.diverges, option.report);
     let description = listed.then(|| {
         view! { <p class="mb-1.5 text-xs text-ink-muted">{option.description.clone()}</p> }
     });
@@ -809,9 +781,9 @@ fn option_view(option: &OptionView, ctx: &Ctx) -> AnyView {
                 <span class="font-mono" title=option.description.clone()>
                     {option.option.clone()}
                 </span>
+                {kind}
                 <span class="text-xs font-normal text-ink-muted">{selection}</span>
-                <span class=BADGE>{option.theme.clone()}</span>
-                {report}
+                <span class=THEME>{option.theme.clone()}</span>
                 <span class=COUNTS>{counts_line(&option.tally)}</span>
             </h5>
             {description}
@@ -821,8 +793,8 @@ fn option_view(option: &OptionView, ctx: &Ctx) -> AnyView {
     .into_any()
 }
 
-/// One band of a tier: its options in this run, then its TRIAL rows.
-fn tier_band_view(band: &TierBandView, ctx: &Ctx) -> AnyView {
+/// One band of OPTIONS: its options in this run, then its TRIAL rows.
+fn option_band_view(band: &OptionBandView, ctx: &Ctx) -> AnyView {
     let options = band
         .options
         .iter()
@@ -859,13 +831,13 @@ fn tier_band_view(band: &TierBandView, ctx: &Ctx) -> AnyView {
     .into_any()
 }
 
-/// One chapter of a tier with its bands in this run.
-fn tier_chapter_view(chapter: &TierChapterView, ctx: &Ctx) -> AnyView {
+/// One chapter of OPTIONS with its bands in this run.
+fn option_chapter_view(chapter: &OptionChapterView, ctx: &Ctx) -> AnyView {
     let bands = chapter
         .bands
         .iter()
         .filter(|band| band.in_run())
-        .map(|band| tier_band_view(band, ctx))
+        .map(|band| option_band_view(band, ctx))
         .collect_view();
     view! {
         <section id=chapter.anchor.clone() class="mb-5">
@@ -879,22 +851,22 @@ fn tier_chapter_view(chapter: &TierChapterView, ctx: &Ctx) -> AnyView {
     .into_any()
 }
 
-/// One option tier read like BASE: chapter, band, option, with the TRIAL
-/// rows inside their band and the options naming no document after.
-fn tier_view(tier: &TierView, ctx: &Ctx) -> AnyView {
-    let chapters = tier
+/// OPTIONS read like BASE: chapter, band, option, with the TRIAL rows
+/// inside their band and the options naming no document after.
+fn options_part_view(tree: &OptionsView, ctx: &Ctx) -> AnyView {
+    let chapters = tree
         .chapters
         .iter()
         .filter(|chapter| chapter.in_run())
-        .map(|chapter| tier_chapter_view(chapter, ctx))
+        .map(|chapter| option_chapter_view(chapter, ctx))
         .collect_view();
-    let absent: Vec<&str> = tier
+    let absent: Vec<&str> = tree
         .chapters
         .iter()
         .filter(|chapter| !chapter.in_run())
         .map(|chapter| chapter.title.as_str())
         .collect();
-    let unanchored: Vec<&OptionView> = tier
+    let unanchored: Vec<&OptionView> = tree
         .unanchored
         .iter()
         .filter(|option| option.in_run())
@@ -911,36 +883,26 @@ fn tier_view(tier: &TierView, ctx: &Ctx) -> AnyView {
             </section>
         }
     });
+    let none = (!tree.in_run()).then(|| {
+        view! {
+            <p class="mb-4 text-sm text-ink-muted">
+                "No option in this run: the statement selected none, and no option case ran."
+            </p>
+        }
+    });
     view! {
-        <section id=tier.anchor.clone() class="mb-6">
-            <h2 class=H_TIER>
-                <span>{tier.title.clone()}</span>
-                <span class=COUNTS>{counts_line(&tier.tally)}</span>
+        <section id=tree.anchor.clone() class="mb-6">
+            <h2 class=H_PART>
+                <span>"OPTIONS"</span>
+                <span class=COUNTS>{counts_line(&tree.tally)}</span>
             </h2>
+            {none}
             {chapters}
             {unanchored}
             {absent_line(NOT_IN_RUN, &absent)}
         </section>
     }
     .into_any()
-}
-
-/// The rows resting on text an upstream report records as defective,
-/// grouped by report; nothing when no row does.
-fn reports_view(reports: &[ReportView], ctx: &Ctx) -> Option<AnyView> {
-    (!reports.is_empty()).then(|| {
-        let blocks = reports
-            .iter()
-            .map(|report| report_view(report, ctx))
-            .collect_view();
-        view! {
-            <section id="reported-rows" class="mb-6">
-                <h2 class=H_TIER>"Rows resting on text reported as defective"</h2>
-                {blocks}
-            </section>
-        }
-        .into_any()
-    })
 }
 
 /// The sentence above the list saying which rows it holds.
@@ -962,6 +924,23 @@ fn listing_note(total: &Tally, rows: Rows) -> String {
     }
 }
 
+/// The tagged cases of `reading`: every listed row resting on an upstream
+/// report, and the spec-boundary options in the run with theirs.
+fn divergence(reading: &ReadingView) -> Divergence {
+    let mut found = Divergence::default();
+    for row in reading.rows() {
+        found.add(&row.case, &row.reports);
+    }
+    for option in reading
+        .options
+        .options()
+        .filter(|o| o.diverges && o.in_run())
+    {
+        found.reports.extend(option.report);
+    }
+    found
+}
+
 /// The rows, grouped as the engine reads the results.
 fn grouped_view(reading: &ReadingView, ctx: &Ctx) -> AnyView {
     let base = reading
@@ -981,19 +960,7 @@ fn grouped_view(reading: &ReadingView, ctx: &Ctx) -> AnyView {
         .filter(|chapter| chapter.tally.tests == 0)
         .map(|chapter| chapter.title.as_str())
         .collect();
-    let tiers = reading
-        .tiers
-        .iter()
-        .filter(|tier| tier.in_run())
-        .map(|tier| tier_view(tier, ctx))
-        .collect_view();
-    let absent_tiers: Vec<&str> = reading
-        .tiers
-        .iter()
-        .filter(|tier| !tier.in_run())
-        .map(|tier| tier.title.as_str())
-        .collect();
-    let reports = reports_view(&reading.reports, ctx);
+    let options = options_part_view(&reading.options, ctx);
     let unplaced = (!reading.unplaced.is_empty()).then(|| {
         rows_block(
             String::from("unplaced"),
@@ -1010,16 +977,15 @@ fn grouped_view(reading: &ReadingView, ctx: &Ctx) -> AnyView {
     view! {
         <div id="result-rows">
             <p class="mb-2 text-sm text-ink-muted">{note}</p>
-            <h2 class=H_TIER>
+            <h2 class=H_PART>
                 <span>"BASE"</span>
                 <span class=COUNTS>{counts_line(&base)}</span>
             </h2>
             {chapters}
             {absent_line(NOT_IN_RUN, &absent_chapters)}
-            {tiers}
-            {absent_line(TIERS_NOT_IN_RUN, &absent_tiers)}
-            {reports}
+            {options}
             {unplaced}
+            {divergence_note(&divergence(reading))}
         </div>
     }
     .into_any()
