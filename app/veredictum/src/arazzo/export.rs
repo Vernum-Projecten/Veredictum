@@ -794,6 +794,9 @@ fn md_row(out: &mut String, outline: Option<&Outline>, row: &ResultRow, place: &
         if case.trial {
             labels.push(String::from("TRIAL text"));
         }
+        for report in &case.reports {
+            labels.push(format!("report #{report}"));
+        }
     }
     let labels = if labels.is_empty() {
         String::new()

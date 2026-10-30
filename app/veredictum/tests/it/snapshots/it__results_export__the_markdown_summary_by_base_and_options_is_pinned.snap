@@ -1,6 +1,6 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
-assertion_line: 701
+assertion_line: 709
 expression: summary
 ---
 # Veredictum results
@@ -46,7 +46,7 @@ What every claimant of a capability must do. A case no option arm names is BASE.
 Rows to look at (open one for its explanation):
 
 <details>
-<summary><b>Failed</b>: <code>composition/create</code> row 1, BASE, Create</summary>
+<summary><b>Failed</b>: <code>composition/create</code> row 1, BASE, Create, report #42</summary>
 
 | | |
 | --- | --- |
@@ -197,7 +197,7 @@ These options exist only because the released text is defective.
 Rows to look at (open one for its explanation):
 
 <details>
-<summary><b>Errored</b>: <code>ehr_status_flat/read</code> row 0, option ehr-status-flat</summary>
+<summary><b>Errored</b>: <code>ehr_status_flat/read</code> row 0, option ehr-status-flat, report #352</summary>
 
 | | |
 | --- | --- |
