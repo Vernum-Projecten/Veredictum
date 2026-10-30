@@ -1,0 +1,40 @@
+include::partial$module_vars.adoc[]
+
+= Appendix
+
+
+== Acknowledgements
+
+=== Contributors
+
+This specification benefited from wide formal and informal input from the openEHR and wider health informatics community. The openEHR Foundation would like to recognise the following people for their contributions.
+
+* Heath Frankel, Ocean Health Systems, Australia
+* Ian McNicoll MD, FreshEHR, UK
+* Luiz Marco-Ruiz, PhD, Norwegian Centre for E-health Research, Norway
+* Sebastian Iancu, Architect, Code24, Netherlands
+* Thomas Beale, Ars Semantica UK, openEHR Foundation Management Board
+
+=== Support
+
+The work reported in this paper has been funded by the following organisations:
+
+* Code24, Netherlands
+
+=== Trademarks
+
+* 'openEHR' is a trademark of the openEHR Foundation
+* 'Java' is a registered trademark of Oracle Corporation
+* 'Microsoft' and '.Net' are trademarks of the Microsoft Corporation
+== Tools
+
+Various tools that can be used to work with archetypes and templates, including extracting 'archetype paths' for use in AQL statements, are listed on the openEHR website {modelling_tools}[modelling tools page^].
+
+== Original Source
+
+The original text of this document was taken from the {openehr_query_aql}[openEHR AQL specification^].
+
+
+:sectnums!:
+
+include::partial$amendment_record.adoc[]

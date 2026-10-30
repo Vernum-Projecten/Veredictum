@@ -1,0 +1,22 @@
+include::partial$module_vars.adoc[]
+
+= Definitions Package
+
+== Overview
+
+The `base_types.definitions` package shown below defines symbolic definitions used by the openEHR models.
+
+[.text-center]
+.base.base_types.definitions package
+image::ROOT:uml/BASE-base_types.definitions.svg[id=base_definition_types, align="center", width=65%]
+
+== Class Definitions
+
+include::ROOT:partial$classes/basic_definitions.adoc[]
+
+include::ROOT:partial$classes/openehr_definitions.adoc[]
+
+include::ROOT:partial$classes/validity_kind.adoc[]
+
+include::ROOT:partial$classes/version_status.adoc[]
+

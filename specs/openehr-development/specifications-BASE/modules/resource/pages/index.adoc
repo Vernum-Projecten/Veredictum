@@ -1,0 +1,54 @@
+include::partial$module_vars.adoc[]
+
+//
+// ============================================ Asciidoc HEADER =============================================
+//
+
+//
+// ============================================ Asciidoc PREAMBLE =============================================
+//
+
+
+= {spec_title} [.spec-status.spec-status-stable]#{spec_status}#
+
+Model for authored, translatable, versioned documents. Provides the common structure for all openEHR artefacts requiring author metadata, language support, and annotation capability. It underpins all openEHR authored artefacts - archetypes, templates, guidelines, and information model documents - providing a uniform structure for governance and translation management. The model supports multiple natural language translations of descriptions, annotations, and terminology bindings within a single artefact.
+
+== Purpose
+
+This document describes the openEHR Resource Model, a model of any 'authored resource', including identification, meta-data, annotations and translations.
+
+The intended audience includes:
+
+* Standards bodies producing health informatics standards;
+* Academic groups using openEHR;
+* Solution vendors;
+* Medical informaticians and clinicians interested in health information.
+
+== Related Documents
+
+Prerequisite documents for reading this document include:
+
+* The {openehr_overview}[openEHR Architecture Overview^].
+
+
+
+
+
+
+//
+// ============================================= Asciidoc BODY ===============================================
+//
+
+//
+// --------------------------------------------- Preface -----------------------------------------------
+//
+
+== Feedback
+
+Feedback may be provided on the {openehr_technical_list}[technical mailing list^].
+
+Issues may be raised on the {component_prs}[specifications Problem Report tracker^].
+
+To see changes made due to previously reported issues, see the {component_history}[{component} component Change Request tracker^].
+
+

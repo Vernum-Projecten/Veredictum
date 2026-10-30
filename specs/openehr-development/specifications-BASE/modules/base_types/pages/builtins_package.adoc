@@ -1,0 +1,20 @@
+include::partial$module_vars.adoc[]
+
+= Builtins Package
+
+== Overview
+
+The `BASE.base_types.builtins` package includes interface classes that provide common utility functions. It is shown below.
+
+[.text-center]
+.base.base_types.builtins Package
+image::ROOT:uml/BASE-base_types.builtins.svg[id=base_builtins, align="center", width=100%]
+
+== Class Definitions
+
+include::ROOT:partial$classes/env.adoc[]
+include::ROOT:partial$classes/locale.adoc[]
+include::ROOT:partial$classes/statistical_evaluator.adoc[]
+include::ROOT:partial$classes/math.adoc[]
+include::ROOT:partial$classes/quantity_converter.adoc[]
+

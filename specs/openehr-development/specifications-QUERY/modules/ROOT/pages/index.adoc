@@ -1,0 +1,15 @@
+= Query Languages
+
+[.spec-meta-line]
+Status: [.spec-status.spec-status-stable]#STABLE#  Release: [.release-tag]#{page-component-version}#
+
+
+Archetype Query Language (AQL): an SQL-like language for retrieving openEHR data using archetype paths as the addressing mechanism. Includes the formal specification and annotated query examples.
+
+.Specification Component Overview
+image::openehr_block_diagram.svg[openEHR Query Languages block diagram,role=block-diagram]
+
+== Specifications
+
+* xref:AQL:index.adoc[Archetype Query Language (AQL)] [.spec-status.spec-status-stable]#STABLE# — Archetype Query Language -- SQL-like language for querying EHR data using archetype paths as the addressing mechanism
+* xref:AQL_examples:index.adoc[Archetype Query Language Examples] [.spec-status.spec-status-development]#DEVELOPMENT# — AQL Examples -- Annotated examples covering common clinical data retrieval patterns

@@ -1,0 +1,17 @@
+include::partial$module_vars.adoc[]
+
+= AQL Syntax Specification
+
+The following ANTLR4 grammar expresses the AQL syntax.
+
+.Parser grammar
+[source, antlr-java]
+--------
+include::partial$grammar/AqlParser.g4[]
+--------
+
+.Lexer grammar
+[source, antlr-java]
+--------
+include::partial$grammar/AqlLexer.g4[]
+--------

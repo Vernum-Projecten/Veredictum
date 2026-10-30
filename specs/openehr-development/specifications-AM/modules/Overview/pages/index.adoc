@@ -1,0 +1,27 @@
+include::partial$module_vars.adoc[]
+
+//
+// ============================================ Asciidoc HEADER =============================================
+//
+
+//
+// ============================================ Asciidoc PREAMBLE =============================================
+//
+
+
+= {spec_title} [.spec-status.spec-status-stable]#{spec_status}#
+
+Rationale and concepts of the openEHR two-level modelling approach. Introduces archetypes, templates, and knowledge governance, and positions the AM specifications within the broader platform architecture. It describes the separation between the Reference Model, which defines stable data types, and archetypes, which capture variable clinical knowledge, explaining how this enables knowledge sharing across systems. Readers new to openEHR should start here before consulting the ADL, AOM, or OPT specifications.
+
+
+
+
+//
+// ============================================= Asciidoc BODY ===============================================
+//
+
+
+//
+// --------------------------------------------- Preface -----------------------------------------------
+//
+

@@ -1,0 +1,54 @@
+include::partial$module_vars.adoc[]
+
+//
+// ============================================ Asciidoc HEADER =============================================
+//
+
+//
+// ============================================ Asciidoc PREAMBLE =============================================
+//
+
+
+= {spec_title} [.spec-status.spec-status-stable]#{spec_status}#
+
+Primitive and structured types assumed by all openEHR specifications: Boolean, Integer, Real, String, Date, Time, DateTime, Duration, and generic containers such as List, Set, and Interval. These types are not openEHR-specific inventions but rather a formal specification of the primitive types assumed to exist in any host programming environment. BMM schemas and all other openEHR models reference foundation types as their leaf-level value types.
+
+== Purpose
+
+This document describes the openEHR Foundation Types, a collection of built-in and library types whose semantics are assumed by all other openEHR specifications.
+
+The intended audience includes:
+
+* Standards bodies producing health informatics standards;
+* Research groups using openEHR, {iso_13606}[ISO 13606^], archetypes and related technologies;
+* The open source healthcare community;
+* Solution vendors.
+
+== Related Documents
+
+Prerequisite documents for reading this document include:
+
+* The {openehr_overview}[openEHR Architecture Overview^].
+
+
+
+
+
+//
+// ============================================= Asciidoc BODY ===============================================
+//
+
+
+//
+// --------------------------------------------- Preface -----------------------------------------------
+//
+
+== Feedback
+
+Feedback may be provided on the {openehr_technical_list}[technical mailing list^].
+
+Issues may be raised on the {component_prs}[specifications Problem Report tracker^].
+
+To see changes made due to previously reported issues, see the {component_history}[{component} component Change Request tracker^].
+
+

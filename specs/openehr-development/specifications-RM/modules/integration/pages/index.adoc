@@ -1,0 +1,56 @@
+include::partial$module_vars.adoc[]
+
+//
+// ============================================ Asciidoc HEADER =============================================
+//
+
+//
+// ============================================ Asciidoc PREAMBLE =============================================
+//
+
+
+= {spec_title} [.spec-status.spec-status-stable]#{spec_status}#
+
+Structures for incorporating legacy or non-archetyped clinical content into an openEHR EHR. Provides a bridge representation enabling incremental migration of existing data from external systems. The GENERIC_ENTRY class carries data that cannot yet be expressed in archetypes, allowing legacy content to coexist with fully archetyped data in the same EHR. This approach supports phased migration strategies where systems incrementally replace legacy data representations with properly constrained archetype-based content.
+
+== Purpose
+
+This document describes the architecture of the openEHR Integration Information Model, designed for use in legacy and other integration situations.
+
+The intended audience includes:
+
+* Standards bodies producing health informatics standards;
+* Academic groups using openEHR;
+* The open source healthcare community;
+* Solution vendors;
+* Medical informaticians and clinicians interested in health information.
+* Health data managers.
+
+== Related Documents
+
+Prerequisite documents for reading this document include:
+
+* The {openehr_overview}[openEHR Architecture Overview^].
+
+
+
+
+
+//
+// ============================================= Asciidoc BODY ===============================================
+//
+
+
+//
+// --------------------------------------------- Preface -----------------------------------------------
+//
+
+== Feedback
+
+Feedback may be provided on the {openehr_rm_forum}[openEHR RM specifications forum^].
+
+Issues may be raised on the {component_prs}[specifications Problem Report tracker^].
+
+To see changes made due to previously reported issues, see the {component_history}[{component} component Change Request tracker^].
+
+

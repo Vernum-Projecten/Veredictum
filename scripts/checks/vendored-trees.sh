@@ -5,7 +5,8 @@
 # (#855).
 #
 # A vendored tree is a directory holding a `PROVENANCE.md`, and every directory
-# directly under `specs/` or `specs/openehr/` must be one. For each tree:
+# directly under `specs/`, `specs/openehr/` or `specs/openehr-development/` must
+# be one, the two containers excepted. For each tree:
 #
 # - its PROVENANCE.md names a `scripts/vendor/<name>.sh` that exists and names
 #   the tree's path or its parent's, since a script is the only way a vendored
@@ -75,11 +76,11 @@ check() { # $1: root; prints findings, returns 1 on any
     [[ -n "$tree" ]] && all+=("$tree")
   done < <(trees "$root")
 
-  for dir in "$root"/specs/*/ "$root"/specs/openehr/*/; do
+  for dir in "$root"/specs/*/ "$root"/specs/openehr/*/ "$root"/specs/openehr-development/*/; do
     [[ -d "$dir" ]] || continue
     dir="${dir#"$root"/}"
     dir="${dir%/}"
-    [[ "$dir" == "specs/openehr" ]] && continue
+    [[ "$dir" == "specs/openehr" || "$dir" == "specs/openehr-development" ]] && continue
     if [[ ! -f "$root/$dir/PROVENANCE.md" ]]; then
       echo "vendored-trees: $dir has no PROVENANCE.md" >&2
       found=1

@@ -1,0 +1,14 @@
+[cols="2,3", frame=none, grid=rows]
+|===
+2+^h|*TEMPLATE_ID*
+
+2+a|Identifier for templates. Lexical form to be determined.
+
+2+|Inherits: xref:{class_object_id}[OBJECT_ID]
+
+2+h|*Attributes*
+
+|*value*: `xref:{class_string}[String]` [1..1]
+a|The value of the id in the form defined below. +
+_Inherited from xref:{class_object_id}[OBJECT_ID]_
+|===

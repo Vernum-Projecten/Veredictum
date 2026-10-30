@@ -1,0 +1,5 @@
+include::partial$module_vars.adoc[]
+
+= Syntax Examples
+
+The following sub-sections illustrate various AQL operator syntax examples.

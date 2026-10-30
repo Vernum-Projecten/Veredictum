@@ -1,0 +1,41 @@
+include::partial$module_vars.adoc[]
+
+//
+// ============================================ Asciidoc HEADER =============================================
+//
+
+//
+// ============================================ Asciidoc PREAMBLE =============================================
+//
+
+
+= {spec_title} [.spec-status.spec-status-stable]#{spec_status}#
+
+Archetype Query Language: an SQL-inspired query language for retrieving openEHR EHR data. Uses archetype paths as the addressing mechanism and supports SELECT, FROM, WHERE, ORDER BY, and aggregation functions for clinical data retrieval. AQL queries are submitted to openEHR platforms via the Query REST API, either as ad-hoc queries or as stored named queries with bound parameters. The language provides path-based navigation through Composition and Entry structures using archetype node identifiers, enabling precise targeting of clinical data elements.
+
+== Purpose
+
+This document describes the syntax of the openEHR Archetype Query Language (AQL).
+
+
+
+
+
+//
+// ============================================= Asciidoc BODY ===============================================
+//
+
+
+//
+// --------------------------------------------- Preface -----------------------------------------------
+//
+
+== Feedback
+
+Feedback may be provided on the {openehr_technical_list}/aql[openEHR AQL forum^].
+
+Issues may be raised on the {component_prs}[specifications Problem Report tracker^].
+
+To see changes made due to previously reported issues, see the {component_history}[{component} component Change Request tracker^].
+
+

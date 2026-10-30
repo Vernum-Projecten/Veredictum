@@ -1,0 +1,13 @@
+include::partial$module_vars.adoc[]
+
+= File Formats
+
+== File-naming
+
+== Concrete Formats
+
+=== ADL
+
+=== Object-dump Formats - JSON, YAML
+
+=== XML
