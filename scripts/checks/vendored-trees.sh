@@ -44,8 +44,15 @@ exempt_reason() { # $1: tree; prints the reason when exempt
 }
 
 trees() { # $1: root; prints each vendored tree relative to the root, sorted
-  (cd "$1" && find . -name PROVENANCE.md -type f -not -path './.git/*' -not -path './target/*' \
-    -not -path '*/node_modules/*' | sed -e 's|^\./||' -e 's|/PROVENANCE.md$||' | sort)
+  # A git checkout lists only its tracked files, so local worktrees and build
+  # output under the root are never read; the self-test's scratch root is no
+  # repository and is walked instead.
+  if [[ "$(git -C "$1" rev-parse --show-toplevel 2>/dev/null)" == "$(cd "$1" && pwd -P)" ]]; then
+    git -C "$1" ls-files -- ':(glob)**/PROVENANCE.md' | sed -e 's|/PROVENANCE.md$||' | sort
+  else
+    (cd "$1" && find . -name PROVENANCE.md -type f -not -path './.git/*' -not -path './target/*' \
+      -not -path '*/node_modules/*' | sed -e 's|^\./||' -e 's|/PROVENANCE.md$||' | sort)
+  fi
 }
 
 names_tree() { # $1: script, $2: tree; true when the script names the tree
