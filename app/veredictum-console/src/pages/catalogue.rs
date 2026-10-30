@@ -197,14 +197,15 @@ const SUMMARY: &str = "flex min-h-11 cursor-pointer list-none items-center gap-2
 const FOLD: &str = "group mb-2 scroll-mt-4 rounded-card border border-edge bg-raised shadow-card";
 
 /// The disclosure chevron, turned when its `<details>` is open.
+///
+/// It is drawn with two borders rather than a glyph: some platforms render a
+/// triangle codepoint from a colour emoji font.
 fn chevron() -> AnyView {
     view! {
         <span
             aria-hidden="true"
-            class="inline-block w-3 text-xs text-ink-muted transition-transform group-open:rotate-90"
-        >
-            "▶"
-        </span>
+            class="mx-0.5 inline-block size-1.5 -rotate-45 border-r-2 border-b-2 border-ink-muted transition-transform group-open:rotate-45"
+        ></span>
     }
     .into_any()
 }
