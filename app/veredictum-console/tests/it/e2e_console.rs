@@ -1480,3 +1480,93 @@ async fn drive_to_live(h: &Harness, base_url: &str, sut_name: &str, filter: &str
     );
     address
 }
+
+/// The row links on the results page.
+const RESULT_ROW_LINKS: &str = "//td//a[starts-with(@href, '/run/results?case=')]";
+
+/// The heading of the open result detail.
+const RESULT_DETAIL_HEADING: &str = "//h2[contains(., '· row')]";
+
+/// One click on a result row opens its detail where the reader is looking
+/// (#869), and the detail reaches the catalogue case the row came from.
+///
+/// The run covers a whole capability, so the row list runs far past the first
+/// screen and the row clicked is the last one. The detail must sit inside the
+/// first screen after the click (the router scrolls a navigation to the top),
+/// and the same address loaded afresh must carry it in the server-rendered
+/// page, which is what a reader without JavaScript receives.
+///
+/// # Panics
+/// When the detail does not open, opens out of sight, or names no catalogue
+/// case.
+#[tokio::test(flavor = "multi_thread")]
+async fn e2e_a_result_row_opens_its_detail() {
+    let Some(h) = Harness::start("result-detail").await else {
+        return;
+    };
+    let Ok(port) = fixture_sut() else {
+        panic!("the fixture SUT could not bind");
+    };
+    let base_url = format!("http://127.0.0.1:{port}");
+    let sut = DrivenSut {
+        base_url: &base_url,
+        identity: ("my-cdr", "1.0.0"),
+        basic: None,
+        filter: "",
+        capability: "ehr",
+        probe_answer: "HTTP 500",
+        continue_label: "Continue anyway",
+        version_after_probe: None,
+        finish_budget: Duration::from_mins(3),
+    };
+    drive_wizard(&h, &sut, None).await;
+    h.goto("/run/results").await;
+    h.wait_xpath("//h1[contains(., 'Results')]").await;
+    h.wait_xpath(RESULT_ROW_LINKS).await;
+    let rows = h
+        .driver
+        .find_all(By::XPath(RESULT_ROW_LINKS))
+        .await
+        .expect("the result row links");
+    assert!(rows.len() > 30, "the run must fill more than one screen");
+    let last = rows.last().expect("a result row");
+    let href = last
+        .attr("href")
+        .await
+        .expect("the row link's href")
+        .expect("a row link carries an href");
+    last.scroll_into_view()
+        .await
+        .expect("scroll to the last row");
+    last.click().await.expect("open the last row");
+    h.wait_url_contains("row=").await;
+    let address = h.current_path().await;
+    assert!(
+        address.contains("&row=") && !address.contains("&amp;"),
+        "the row link must carry its row as a query parameter: {address}"
+    );
+    let detail = h.wait_xpath(RESULT_DETAIL_HEADING).await;
+    let rect = detail.rect().await.expect("the detail's position");
+    assert!(
+        rect.y < f64::from(VIEWPORT.1),
+        "the detail must open inside the first screen, not {}px down the page {}",
+        rect.y,
+        h.evidence("detail-out-of-sight").await
+    );
+    h.wait_xpath("//body[contains(., 'The wire')]").await;
+
+    h.goto_unhydrated(&href).await;
+    h.wait_xpath(RESULT_DETAIL_HEADING).await;
+    h.wait_hydrated().await;
+    h.wait_css("a#result-catalogue-case")
+        .await
+        .click()
+        .await
+        .expect("open the catalogue case");
+    h.wait_url_contains("/catalogue/").await;
+    h.wait_xpath("//h2[normalize-space()='Spec citation']")
+        .await;
+
+    h.assert_console_clean(&[]).await;
+    h.finish().await;
+}
