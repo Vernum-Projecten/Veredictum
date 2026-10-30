@@ -1,15 +1,17 @@
-# fetch beside a stored query that uses the deprecated TOP, on the arm of the
-# aql-top option whose service executes TOP: a service that declines TOP
-# refuses to store the query, so the case is judged only where TOP is
-# declared. The query is stored under a fresh qualified_query_name through the
-# DEFINITION API. Every quote is copied verbatim from the named vendored file.
+# fetch beside a stored query that uses the deprecated TOP, judged for every
+# claimant of the query capability. QUERY/docs/AQL/master03-syntax.adoc § TOP:
+# "*Deprecated*: Starting with Release 1.1.0, the use of `TOP` modifier is
+# deprecated in favour of the `LIMIT` clause combined with `ORDER BY`", yet
+# § SELECT keeps it in the grammar ("optionally followed by `TOP` (deprecated
+# - see <<TOP, below>>)") and nothing lets a service refuse it. The query is
+# stored under a fresh qualified_query_name through the DEFINITION API. Every
+# quote is copied verbatim from the named vendored file.
 arazzo: "1.1.0"
 info:
   title: Stored AQL execution with TOP
   version: "0.1.0"
   description: >-
-    The fetch parameter beside a stored query whose text uses TOP, judged
-    where the service declares that it executes TOP.
+    The fetch parameter beside a stored query whose text uses TOP.
 sourceDescriptions:
   - name: query
     url: "../../../specs/rest-oas/query-validation.openapi.yaml"

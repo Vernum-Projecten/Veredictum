@@ -1,0 +1,45 @@
+# A request that lacks valid authentication credentials, sent to a service
+# that declares it requires no authentication: the `authentication-not-required`
+# arm of the `authentication` option, whose other arm is
+# `authentication_required.arazzo.yaml`. The release recommends an HTTP
+# authentication framework, so the one row here records the SHOULD the service
+# declines and never counts against the capability. The request carries an
+# Authorization header no service issues, which the step sets over the run's
+# own credential. Every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: A request without valid credentials, recorded against the SHOULD to authenticate
+  version: 0.1.0
+  description: >-
+    An EHR create sent with an Authorization header that carries no valid
+    credential, to a service that declares it requires no authentication.
+    The release recommends an authentication framework, so the create is
+    expected to be refused with 401 Unauthorized, and a row that answers
+    otherwise is advisory.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: ehr_create-invalid_credentials_advisory
+    summary: An EHR create without valid credentials, recorded against the SHOULD to authenticate
+    description: >-
+      Creates an EHR with an Authorization header that carries no valid
+      credential, the request the refusal rows of the other arm send, and
+      expects it refused with 401 Unauthorized. The release recommends an
+      HTTP authentication framework, so on the arm where the service declares
+      it requires none, this row records the SHOULD it declines: it is
+      advisory and never counts against the capability.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Authentication and authorization
+      quote: "Services SHOULD implement and support an HTTP Authentication and Authorization framework"
+      level: should
+    steps:
+      - stepId: create
+        description: Create an EHR with an invalid credential.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Authorization, in: header, value: Bearer veredictum-invalid-credential }
+        successCriteria:
+          - condition: $statusCode == 401

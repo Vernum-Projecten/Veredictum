@@ -550,7 +550,8 @@ workflows:
     x-veredictum-cite: *refused
     inputs: *run_inputs
     steps:
-      - stepId: upload
+      - &upload
+        stepId: upload
         description: Upload the template under a fresh template_id.
         operationId: $sourceDescriptions.definition.definition_template_adl1.4_upload
         parameters:
@@ -573,3 +574,30 @@ workflows:
           - { name: Accept, in: header, value: application/openehr.wt+json }
         successCriteria:
           - condition: $statusCode == 406
+
+  - workflowId: get_template-web_template_advisory
+    summary: A template read in the Web Template format, recorded against the SHOULD to support the Simplified Formats
+    description: >-
+      Uploads a valid OPT under a fresh template_id, then reads it with
+      Accept application/openehr.wt+json, the request the refusal row sends,
+      and expects it served. The Web Template media type is one of the
+      Simplified Formats. The release recommends supporting the
+      Simplified Formats, so on the arm where the service declares it does
+      not, this row records the SHOULD it declines: it is advisory and never
+      counts against the capability.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Additionally, the **Simplified Formats** format SHOULD be supported"
+      level: should
+    inputs: *run_inputs
+    steps:
+      - *upload
+      - stepId: read
+        description: Read the template with Accept application/openehr.wt+json.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_get
+        parameters:
+          - { name: template_id, in: path, value: "vdef-{$inputs.run}" }
+          - { name: Accept, in: header, value: application/openehr.wt+json }
+        successCriteria:
+          - condition: $statusCode == 200

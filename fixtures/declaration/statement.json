@@ -57,7 +57,6 @@
     "composition-structured-supported",
     "composition-xml-write-accepted",
     "query-ehr-scope-filters",
-    "aql-top-supported",
     "aql-terminology-supported",
     "composition-flat-write-accepted",
     "composition-structured-write-accepted",

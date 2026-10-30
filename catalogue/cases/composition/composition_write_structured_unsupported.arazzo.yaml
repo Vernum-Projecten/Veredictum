@@ -189,3 +189,33 @@ workflows:
           - context: $response.body#/uid/value
             type: regex
             condition: '^{$steps.commit.outputs.version_uid}$'
+
+  - workflowId: create_composition-structured_advisory
+    summary: A COMPOSITION sent in the Simplified Structured JSON format, recorded against the SHOULD to support it
+    description: >-
+      Creates an EHR, then creates a valid COMPOSITION of the template
+      minimal_evaluation.en.v1 sent in the Simplified Structured JSON format, the
+      request the refusal rows send, and expects it created. The release recommends supporting the
+      Simplified Formats, so on the arm where the service declares it does
+      not, this row records the SHOULD it declines: it is advisory and never
+      counts against the capability.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Additionally, the **Simplified Formats** format SHOULD be supported"
+      level: should
+    inputs: *ehr_input
+    steps:
+      - *create_ehr
+      - stepId: create
+        description: Create the COMPOSITION from the Simplified Structured JSON format.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_evaluation.en.v1 }
+        requestBody:
+          contentType: application/openehr.wt.structured+json
+          payload: *simplified
+        successCriteria:
+          - condition: $statusCode == 201
