@@ -35,6 +35,7 @@ mod fake_sut;
 mod identity_wire;
 mod measured_wire;
 mod perf_driver;
+mod perf_generator;
 mod perf_seeding;
 mod pipeline_seams;
 mod results_export;
