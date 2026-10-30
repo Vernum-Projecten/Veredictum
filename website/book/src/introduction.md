@@ -9,8 +9,9 @@ the openEHR specification that server implements.
 
 It executes a machine-readable catalogue of 1673 spec-cited test cases against
 the server's own wire, records every exchange, and computes verdicts as pure
-functions over what it recorded. Functional conformance, measured performance,
-step-load stress and the comparative-speed benchmark come from the one tool.
+functions over what it recorded. Functional conformance and measured
+performance, a single run or two servers compared on one host, come from the
+one tool.
 This repository publishes the instrument and no results about anybody's
 product.
 
@@ -43,20 +44,17 @@ Both are pre-1.0. The 0.x line publishes working releases and makes no
 API-stability claim yet; every claim a release does make is checked, signed
 and reproducible, which is the stability that matters for a verdict.
 
-## Four questions, one command surface
+## Two questions, one command surface
 
 | Question | Commands |
 |---|---|
 | **Does it conform?** | `validate` checks the catalogue itself before any server is involved; zero findings is the only passing result. `test` drives the cases your statement selects against the server over its own REST wire, records every exchange as HAR, judges each row and writes `results.json`; `--rejudge` reproduces those results from the recording alone. `export` renders the results for a CI system. |
-| **What class does it sustain?** | `perf` seeds the population-scale corpus and holds a class's offered load for the sustained window, open-loop, merging the measured record into the results. |
-| **Where does it break?** | `stress` steps load up to the maximum sustainable throughput; `stress-compare` overlays two committed stress reports. Both are exploration and never produce a conformance record; a `perf --workload` record carries the per-plateau container, database-size and `pg_stat_statements` readings beside its numbers. |
-| **How fast is it?** | `bench` runs an embedded benchmark pack against any reachable CDR from a base URL and credentials; `bench-compare` aligns committed results into one table; `bench-packs` writes the byte-deterministic description of what every pack runs. Comparative speed only, never a conformance verdict. |
+| **How does it hold up under clinical traffic?** | `perf` offers a declared workload as Poisson arrivals, walks a load ladder to the knee in at most ten minutes after seeding, and writes a `perf-result` whose every number `perf-judge` re-derives. `perf-compare` aligns records, and runs two CDRs, or one against itself, interleaved on one host. `perf-workloads` checks a workload document without a server. A performance record earns no class and is never a conformance verdict. |
 
-More subcommands serve the records themselves: `verdicts` re-derives the
-measured class verdicts, `verify` checks a conformance certificate,
-`emit-schemas` writes the published JSON Schemas, `perf-assets` renders the
-published charts from committed artifacts, and `identify` asks a server who it
-is. `veredictum --help` is the authoritative list, and the
+More subcommands serve the records themselves: `show` prints a results
+document or a `perf-result` in the terminal, `verify` checks a conformance
+certificate, `emit-schemas` writes the published JSON Schemas, `perf-assets`
+draws the charts of a `perf-result`, and `identify` asks a server who it is. `veredictum --help` is the authoritative list, and the
 [command reference](commands.md) is generated from it.
 
 A certificate is a JWS (RFC 7515) signed with Ed25519, and its payload names
@@ -95,7 +93,7 @@ disagrees with the catalogue.
 | **15 capability folders** | EHR, EHR status, composition, content, contribution, directory, item tags, query, definition, demographic, admin, security, simplified formats, SMART, system. A statement claims folders |
 | **The options** | `catalogue/capabilities.yaml`: the behaviours the release leaves to the implementation, each an option with its arms; a party's statement picks one arm of each, and the documents of every other arm are skipped |
 | **The id map** | `catalogue/id-map.yaml`: every case id of the former case-core catalogue, mapped to the workflows that carry it or to the reason none does |
-| **The performance schedule** | `perf/`: the four measured-workload class cases, the journey catalogue and the payloads `perf` and `stress` send, kept apart from the conformance catalogue |
+| **The performance workloads** | `perf/`: the workload documents `perf` offers, the host prescriptions a record may claim and the payloads it sends, kept apart from the conformance catalogue |
 | **The published schemas** | `schemas/`: JSON Schema for every artifact family, emitted by the instrument and drift-tested, so you can author against the format |
 | **The verification pack** | `verification-pack/arazzo/`: recorded HAR exchanges with their adjudicated results. The evaluator re-judges every recording and must reproduce every row, so no harness, this one included, is trusted on its word |
 | **The specification oracle** | `specs/openehr/`: the released specification text, vendored verbatim, plus the released XSD, JSON Schema and OpenAPI bundles a citation resolves against |

@@ -19,31 +19,33 @@ If that check fails, do not run the file.
 
 ## What each command reaches
 
-- **`bench`** sends HTTP requests to the base URL you give it, and writes into
-  the `--out` directory you give it. Nothing else. The packs are compiled into
-  the binary, so it fetches nothing; the credential is read from an
-  environment variable and never rides argv; there is no telemetry and no
-  other network destination. With `--with-baselines` it additionally drives
-  your local `docker` CLI to pull and run the two pinned reference images
-  (from ghcr.io and Docker Hub) on loopback ports, and removes them when done.
+- **`perf`** sends requests to the base URL your IXIT names, creates the
+  corpus it measures on that server, and writes the record where `--out`
+  says. With a `containers` block in the IXIT it also reads the named
+  containers' statistics from the Docker Engine API, and runs read-only
+  queries and one `vacuumdb --analyze` in the database container. The
+  credential is read from the environment variables the IXIT names, and
+  there is no telemetry and no other network destination.
+- **`perf-compare`** with `--ab` or `--aa` does what `perf` does for each
+  side. With `--with-baselines` it also drives your local `docker` CLI to pull
+  and run the two pinned reference images (from ghcr.io and Docker Hub) on
+  loopback ports, and removes them with their volumes when done.
 - **`test`** sends requests to the base URL you give it,
   reads the catalogue and the vendored specs, and writes into `--out`. It
   creates and deletes data on the target, which is why you point it at a test
   system. With `--rejudge` it sends nothing at all.
-- **`validate`, `verdicts`, `export`, `verify`, `bench-compare`, the
-  asset renderer** are offline: they read the paths you pass and write where you
+- **`validate`, `export`, `show`, `verify`, `perf-judge`, `perf-compare
+  --result`, `perf-workloads`, `perf-assets`** are offline: they read the paths you pass and write where you
   say. No network at all.
 - **The console image** binds loopback by default, has no login, and reaches
   a CDR only through the runs you start in it.
 
-`bench` warns once when a credential would ride plain `http` to a host that is
-not loopback.
-
 ## The record does not depend on trusting the operator
 
 A conformance run's recording carries the exchanges its results are
-re-judged from (`veredictum test --rejudge`), and a bench record embeds the histograms
-its summary is re-derived from, so both are checkable after the fact.
+re-judged from (`veredictum test --rejudge`), and a performance record embeds
+the histograms every number is re-derived from (`veredictum perf-judge`), so
+both are checkable after the fact.
 
 ## Verifying a certificate
 

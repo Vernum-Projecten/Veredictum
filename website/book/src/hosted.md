@@ -6,8 +6,8 @@
 conformance instrument. It drives the catalogue against the endpoint you name,
 records every exchange, and computes the verdicts, so you read the full
 results and verdicts for your own server. It runs functional conformance only:
-the measured instruments (`perf`, `stress` and `bench`) are run locally with
-the CLI. Nothing a run produces is published, and the repository
+measured performance (`perf` and `perf-compare`) is run locally with the
+CLI. Nothing a run produces is published, and the repository
 keeps no list of results.
 
 What a hosted run establishes is that the judgement was made by an instrument
@@ -87,8 +87,8 @@ one that matters when somebody wants to audit how a verdict was produced.
 ## One measurement caveat
 
 The hosted instrument performs functional conformance runs only. The measured
-instruments (`perf`, `stress` and the comparative `bench`) are run locally
-with the CLI, and the hosted console exposes none of them. A latency
+instruments (`perf` and `perf-compare`) are run locally with the CLI, and
+the hosted console exposes none of them. A latency
 measured from a fixed origin in Falkenstein carries the network path to
 wherever the system under test lives, and distance is not a property of the
 database being graded. Measured runs are driven by the operator, on hardware
