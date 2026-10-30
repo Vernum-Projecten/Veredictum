@@ -126,6 +126,7 @@ fn fixture() -> Results {
             errored,
             skipped,
         ],
+        outline: None,
     }
 }
 

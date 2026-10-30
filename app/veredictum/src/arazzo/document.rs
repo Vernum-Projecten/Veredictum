@@ -33,6 +33,7 @@ use crate::arazzo::gates::Gate;
 use crate::arazzo::gates::profile::{ProfileHeader, RegexBreach, lint_regex};
 use crate::arazzo::principal::{PRINCIPAL_KEY, PrincipalError, principal_of};
 use crate::arazzo::scope::{SCOPE_KEY, ScopeError, scope_of};
+use crate::arazzo::structure::SECTION_KEY;
 use crate::arazzo::source::{
     DeclaredParameter, Operation, OperationIndex, ParameterError, ParameterIn, ParameterIndex,
     SourceError, split_qualified,
@@ -949,6 +950,7 @@ fn extension_keys(value: &Value, at: &mut Vec<String>, findings: &mut Vec<Findin
                         CONTROL_KEY => is_workflow(at),
                         CHECK_KEY => is_criterion(at),
                         DERIVE_KEY | PRINCIPAL_KEY | SCOPE_KEY => is_step(at),
+                        SECTION_KEY => matches!(at.as_slice(), [i] if i == "info"),
                         _ => false,
                     };
                     if !allowed {

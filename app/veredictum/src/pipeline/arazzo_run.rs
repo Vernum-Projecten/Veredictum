@@ -308,6 +308,7 @@ pub fn run_catalogue(
             recording: None,
         },
     };
+    outcome.results.outline = selection.outline(&planned);
     if let Some(server) = &outcome.results.server {
         outcome.results.review = ReviewNote::review(declared_its_rest.as_deref(), server);
     }

@@ -22,6 +22,7 @@ use crate::arazzo::gates::surface::NegotiationHeader;
 use crate::arazzo::principal::PRINCIPAL_KEY;
 use crate::arazzo::recipe::{ContentClass, SynthesizedClass};
 use crate::arazzo::scope::SCOPE_KEY;
+use crate::arazzo::structure::{ReportState, SECTION_KEY, Theme, Tier};
 use crate::vocab::{FormatName, Iteration, SpecComponent};
 
 /// `MAJOR.MINOR.PATCH`, the form of a release version an `applies` range
@@ -155,8 +156,8 @@ pub fn extensions_schema() -> Value {
     json!({
         "$schema": DRAFT,
         "$id": urn("arazzo-extensions"),
-        "title": "The Arazzo catalogue's six specification extensions",
-        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `{SCOPE_KEY}` sits on a step only, never beside `{PRINCIPAL_KEY}`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `{CONTROL_KEY}` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, which no schema can state."),
+        "title": "The Arazzo catalogue's seven specification extensions",
+        "description": format!("`{CITE_KEY}` sits on a workflow, a step or a criterion; a criterion without one inherits its step's, and a step its workflow's. `{CHECK_KEY}` sits on a criterion only, for the judgements no standard Arazzo criterion can express. `{DERIVE_KEY}` sits on a step only, and names new step outputs, each one function of BASE OBJECT_VERSION_ID applied to one of the step's own outputs; `validate` also refuses an `of` the step does not declare and a derived name that collides with a declared output. `{PRINCIPAL_KEY}` sits on a step only, and names the principal the step is sent as instead of the run's ordinary credential; a run whose party supplies no credential for that principal skips every workflow with such a step with the reason `not-declared`. `{SCOPE_KEY}` sits on a step only, never beside `{PRINCIPAL_KEY}`, and names the scope set of the access token the step presents; a row whose scope set the party's IXIT covers with no token is skipped with the reason `not-declared`. `{CONTROL_KEY}` sits on a workflow only, and every refusal workflow, one with a criterion `$statusCode == 400` or `$statusCode == 422`, carries one: it names the workflow whose request is the same apart from the one defect, and a refusal row whose control was not accepted in the same run is errored; `validate` refuses a control on any other workflow and one that names no workflow, the workflow itself or another refusal workflow. `{SECTION_KEY}` sits on a document's `info` only, and names the BASE section of its capability folder that `catalogue/chapters.yaml` declares. `validate` also checks that a citation's quote occurs, after whitespace normalization, inside the named section of the named vendored file, and that the file belongs to no document the release marks RETIRED, which no schema can state."),
         "$defs": {
             "cite": {
                 "type": "object",
@@ -186,6 +187,11 @@ pub fn extensions_schema() -> Value {
                     },
                     "level": level_def()
                 }
+            },
+            "section": {
+                "description": "The BASE section of its capability folder a document belongs to, by the key `catalogue/chapters.yaml` declares.",
+                "type": "string",
+                "pattern": KEY_PATTERN
             },
             "check": check_def(),
             "control": {
@@ -477,6 +483,117 @@ pub fn capabilities_schema() -> Value {
                                     CITE_KEY: capabilities_cite_def()
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// The kebab-case key a chapter, a section or an option carries.
+const KEY_PATTERN: &str = "^[a-z0-9]+(-[a-z0-9]+)*$";
+
+/// The structure file: the chapters, their capability folders, each folder's
+/// BASE sections, and the theme and tier of every option.
+#[must_use]
+pub fn chapters_schema() -> Value {
+    let title = || json!({ "type": "string", "minLength": 1 });
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("arazzo-chapters"),
+        "title": "The reading structure of the Arazzo catalogue",
+        "description": format!("Lives at `catalogue/chapters.yaml`. Every view of a result groups its rows by it: the chapters in reading order, the capability folders of each chapter as its bands, and each folder's BASE sections in reading order. A document named by no arm of `capabilities.yaml` is BASE and names one section of its folder with `{SECTION_KEY}` on its `info`; a document an arm names is OPTION and names none. `options` gives every option of `capabilities.yaml` its theme and tier. `validate` refuses a folder in no chapter or in two, a BASE document with no section or an unknown one, a section no document uses, an OPTION document with a section, an option with no placement, and a `spec-boundary` option whose citation names no `report`. No openEHR spec governs this; it is the instrument's own design."),
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["chapters", "options"],
+        "properties": {
+            "chapters": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["chapter", "title", "folders"],
+                    "properties": {
+                        "chapter": { "type": "string", "pattern": KEY_PATTERN },
+                        "title": title(),
+                        "folders": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": ["folder", "title", "sections"],
+                                "properties": {
+                                    "folder": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+                                    "title": title(),
+                                    "formalism": {
+                                        "type": "boolean",
+                                        "description": "Whether the views badge each case of the folder with the template formalism (ADL 1.4 or ADL 2) its setups upload. `validate` refuses a case of such a folder that uploads no template, or templates of both formalisms."
+                                    },
+                                    "sections": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": ["section", "title"],
+                                            "properties": {
+                                                "section": { "type": "string", "pattern": KEY_PATTERN },
+                                                "title": title()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "options": {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["theme", "tier"],
+                    "properties": {
+                        "theme": { "enum": tokens(Theme::ALL) },
+                        "tier": {
+                            "enum": tokens(Tier::ALL),
+                            "description": "`recommended`: support is a SHOULD, so declining it is recorded as advisory. `options`: a MAY, or behaviour the release leaves to the implementation. `spec-boundary`: an option only because the released text is defective, recorded as an upstream report its citation names."
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// The report snapshot: the title and state of every upstream report a
+/// citation of the catalogue names.
+#[must_use]
+pub fn reports_schema() -> Value {
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("arazzo-reports"),
+        "title": "The upstream reports the Arazzo catalogue cites",
+        "description": "Lives at `catalogue/reports.yaml`: the committed snapshot of every `upstream-report` issue a `report` of the catalogue's citations names, keyed by issue number, so a view of a result names a report's title and state without asking the tracker. `validate` refuses a cited report the snapshot lacks and an entry no citation names; `scripts/checks/report-refs.sh` holds each entry to the tracker. No openEHR spec governs this; it is the instrument's own design.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reports"],
+        "properties": {
+            "reports": {
+                "type": "object",
+                "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+                "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["title", "state"],
+                    "properties": {
+                        "title": { "type": "string", "minLength": 1 },
+                        "state": {
+                            "enum": tokens(ReportState::ALL),
+                            "description": "`open`: not yet re-verified. `confirmed`: open and carrying `upstream-confirmed`. `closed`: closed as the standing outbound record."
                         }
                     }
                 }

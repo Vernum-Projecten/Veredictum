@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:arazzo-reports:0.1.0",
+  "title": "The upstream reports the Arazzo catalogue cites",
+  "description": "Lives at `catalogue/reports.yaml`: the committed snapshot of every `upstream-report` issue a `report` of the catalogue's citations names, keyed by issue number, so a view of a result names a report's title and state without asking the tracker. `validate` refuses a cited report the snapshot lacks and an entry no citation names; `scripts/checks/report-refs.sh` holds each entry to the tracker. No openEHR spec governs this; it is the instrument's own design.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reports"
+  ],
+  "properties": {
+    "reports": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[1-9][0-9]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "state"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "enum": [
+              "open",
+              "confirmed",
+              "closed"
+            ],
+            "description": "`open`: not yet re-verified. `confirmed`: open and carrying `upstream-confirmed`. `closed`: closed as the standing outbound record."
+          }
+        }
+      }
+    }
+  }
+}

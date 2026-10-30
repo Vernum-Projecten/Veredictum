@@ -10,6 +10,7 @@
 //! is sorted, so two runs over one tree print the same bytes.
 
 pub mod aql;
+pub mod chapters;
 pub mod folders;
 pub mod profile;
 pub mod published;
@@ -65,6 +66,9 @@ pub enum Gate {
     /// A capability folder whose `extension-only` marking disagrees with the
     /// sources its steps call.
     Realization,
+    /// A document, folder, section, option or report the reading structure
+    /// does not place, or places twice.
+    Structure,
 }
 
 impl Gate {
@@ -85,6 +89,7 @@ impl Gate {
             Self::Aql => "arazzo-aql",
             Self::Floor => "arazzo-floor",
             Self::Realization => "arazzo-realization-scope",
+            Self::Structure => "arazzo-structure",
         }
     }
 }
@@ -103,7 +108,7 @@ pub struct GateFinding {
 }
 
 impl GateFinding {
-    fn new(
+    pub(crate) fn new(
         gate: Gate,
         file: &Path,
         location: impl Into<String>,
@@ -210,6 +215,16 @@ pub fn check_catalogue(catalogue_root: &Path, spec_root: Option<&Path>) -> Vec<G
         repo_root.as_deref(),
         &mut findings,
     );
+    let loaded: BTreeMap<&str, &ArazzoDocument> = documents
+        .iter()
+        .map(|(id, located)| (id.as_str(), &located.document))
+        .collect();
+    findings.extend(chapters::check(
+        catalogue_root,
+        &loaded,
+        capabilities.as_ref(),
+        repo_root.as_deref(),
+    ));
     if let Some(specs) = spec_root {
         check_surface(
             &workflows,
