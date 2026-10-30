@@ -6,6 +6,7 @@ arazzo: 1.1.0
 info:
   title: Bulk EHR load
   version: 0.1.0
+  x-veredictum-section: bulk-load
   description: >-
     Creating a population of EHRs with one COMPOSITION each, and reading each
     COMPOSITION back from its own EHR.

@@ -15,6 +15,7 @@ arazzo: 1.1.0
 info:
   title: 'AQL conformance: TOP'
   version: 0.1.0
+  x-veredictum-section: aql-conformance-corpus
   description: The deprecated TOP modifier, which the released grammar still defines.
 sourceDescriptions:
   - name: query

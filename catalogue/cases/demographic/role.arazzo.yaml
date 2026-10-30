@@ -8,6 +8,7 @@ arazzo: 1.1.0
 info:
   title: Role lifecycle
   version: 0.1.0
+  x-veredictum-section: parties
   description: >-
     Creating, reading, updating and deleting a ROLE in canonical JSON. The
     ROLE is an archetype root named role v1 and is updated to role v2. The

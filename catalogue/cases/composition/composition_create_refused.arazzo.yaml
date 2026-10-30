@@ -9,6 +9,7 @@ arazzo: 1.1.0
 info:
   title: COMPOSITION create refusals
   version: 0.1.0
+  x-veredictum-section: refusals
   description: >-
     The COMPOSITION creates that are refused. A body the published ITS-JSON
     schema (openehr_rm_1.1.0_all.json) refuses is syntactically invalid

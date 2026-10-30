@@ -10,6 +10,7 @@ arazzo: 1.1.0
 info:
   title: Directory update
   version: 0.1.0
+  x-veredictum-section: update
   description: >-
     Updating the directory FOLDER of an EHR in canonical JSON, preconditioned
     on the version_uid of its latest version in If-Match. The directory is

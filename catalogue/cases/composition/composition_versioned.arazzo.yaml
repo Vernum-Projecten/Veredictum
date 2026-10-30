@@ -9,6 +9,7 @@ arazzo: 1.1.0
 info:
   title: VERSIONED_COMPOSITION read
   version: 0.1.0
+  x-veredictum-section: versioning-and-history
   description: >-
     Reading the VERSIONED_COMPOSITION of a committed COMPOSITION, the VERSION
     extant at a time or addressed by version_uid, and the revision history,

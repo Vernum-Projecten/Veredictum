@@ -10,6 +10,7 @@ arazzo: "1.1.0"
 info:
   title: AQL execution with TOP refused
   version: "0.1.0"
+  x-veredictum-section: refusals
   description: >-
     Ad-hoc AQL requests using TOP that are refused with 400.
 sourceDescriptions:

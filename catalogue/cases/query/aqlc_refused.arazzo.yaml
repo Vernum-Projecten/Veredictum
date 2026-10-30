@@ -9,6 +9,7 @@ arazzo: 1.1.0
 info:
   title: 'AQL conformance: refusals'
   version: 0.1.0
+  x-veredictum-section: refusals
   description: The aql-conformance queries the released AQL grammar or prose makes invalid, each refused
     with 400.
 sourceDescriptions:

@@ -9,6 +9,7 @@ arazzo: 1.1.0
 info:
   title: 'AQL conformance: ORDER BY'
   version: 0.1.0
+  x-veredictum-section: aql-conformance-corpus
   description: The ORDER BY cases of the aql-conformance corpus whose answer the released AQL text assigns.
 sourceDescriptions:
   - name: query

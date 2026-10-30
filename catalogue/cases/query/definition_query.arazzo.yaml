@@ -8,6 +8,7 @@ arazzo: "1.1.0"
 info:
   title: Stored query definitions
   version: "0.1.0"
+  x-veredictum-section: stored-queries
   description: >-
     Storing, reading and listing AQL query definitions through the
     DEFINITION API.

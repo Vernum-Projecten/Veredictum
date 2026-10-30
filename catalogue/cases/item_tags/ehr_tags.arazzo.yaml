@@ -7,6 +7,7 @@ arazzo: 1.1.0
 info:
   title: EHR tags
   version: 0.1.0
+  x-veredictum-section: ehr-tags
   description: >-
     The listing of every ITEM_TAG whose target is within one EHR: the tags of
     COMPOSITION and EHR_STATUS versions, the listing's reach limited to its

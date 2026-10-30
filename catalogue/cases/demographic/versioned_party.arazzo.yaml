@@ -7,6 +7,7 @@ arazzo: 1.1.0
 info:
   title: VERSIONED_PARTY
   version: 0.1.0
+  x-veredictum-section: versioned-party
   description: >-
     Reading the VERSIONED_PARTY container of a PERSON and its versions in
     canonical JSON. The PERSON is created as person v1 and updated to person

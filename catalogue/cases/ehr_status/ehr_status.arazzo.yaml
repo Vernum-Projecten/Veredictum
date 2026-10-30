@@ -7,6 +7,7 @@ arazzo: 1.1.0
 info:
   title: EHR_STATUS read
   version: 0.1.0
+  x-veredictum-section: read
   description: >-
     Reading an EHR's EHR_STATUS: the latest version, the version extant at a
     time, the version a version_uid addresses, the refusals of those reads,

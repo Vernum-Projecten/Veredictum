@@ -8,6 +8,7 @@ arazzo: 1.1.0
 info:
   title: Content validation, DV CODED TEXT
   version: 0.1.0
+  x-veredictum-section: data-types
   description: >-
     Commits DV_CODED_TEXT content against templates that constrain it.
     Content the template and the RM admit is created (201). A body the

@@ -10,6 +10,7 @@ arazzo: 1.1.0
 info:
   title: COMPOSITION update refusals
   version: 0.1.0
+  x-veredictum-section: refusals
   description: >-
     The COMPOSITION updates a service refuses with 400, 422 or another client
     error, each followed by a read of the latest VERSION, which is still the

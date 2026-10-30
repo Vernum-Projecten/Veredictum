@@ -9,6 +9,7 @@ arazzo: 1.1.0
 info:
   title: 'AQL conformance: paging'
   version: 0.1.0
+  x-veredictum-section: aql-conformance-corpus
   description: The LIMIT and OFFSET cases of the aql-conformance corpus whose answer the released AQL
     text assigns.
 sourceDescriptions:

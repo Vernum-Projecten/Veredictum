@@ -12,6 +12,7 @@ arazzo: 1.1.0
 info:
   title: SMART on openEHR service discovery
   version: 0.1.0
+  x-veredictum-section: discovery
   description: >-
     Reading the SMART configuration document a SMART on openEHR Platform
     serves relative to its base URL.
