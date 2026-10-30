@@ -20,13 +20,13 @@ use crate::fake_sut::FakeSut;
 /// Anything a run or a fixture read can fail with.
 type Fallible = Result<(), Box<dyn std::error::Error>>;
 
-/// A document whose `DV_QUANTITY` class-table quotes the development branch
-/// rewrote, beside cases whose citations it keeps.
-const DOCUMENT: &str = "dv_quantity";
+/// A document whose Version Lifecycle quote the development line extended
+/// with two new lifecycle states, beside cases whose citations it keeps.
+const DOCUMENT: &str = "contribution_create";
 
-/// A case citing a `DV_QUANTITY` class-table row the snapshot no longer holds
-/// verbatim.
-const ABSENT_CASE: &str = "dv_quantity/dv_quantity-validate_open-magnitude_missing";
+/// A case citing the release's list of the three version lifecycle states,
+/// which the development line no longer holds verbatim.
+const ABSENT_CASE: &str = "contribution_create/commit_contribution-incomplete_lifecycle";
 
 fn repo() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))

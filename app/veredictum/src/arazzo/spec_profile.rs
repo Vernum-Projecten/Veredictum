@@ -106,6 +106,11 @@ impl SpecProfile {
     }
 }
 
+/// The package prefix the released AM class tables carry in their file names
+/// (`org.openehr.am.aom14.c_object.adoc`), which the Antora partials drop
+/// (`aom14.c_object.adoc`).
+const AM_PACKAGE_PREFIX: &str = "org.openehr.am.";
+
 /// Where the development line's Antora layout keeps the document a released
 /// path names, given relative to its component's directory.
 ///
@@ -113,8 +118,9 @@ impl SpecProfile {
 /// and a class table as `docs/UML/classes/<class>.adoc`; the Antora
 /// component keeps them as `modules/<doc>/pages/<name>.adoc` and
 /// `modules/ROOT/partials/classes/<class>.adoc`
-/// (<https://docs.antora.org/antora/latest/standard-directories/>). Any other
-/// path is kept as it is.
+/// (<https://docs.antora.org/antora/latest/standard-directories/>), an AM
+/// class without its `org.openehr.am.` package prefix. Any other path is
+/// kept as it is.
 #[must_use]
 pub fn antora_path(inner: &str) -> String {
     let Some(docs) = inner.strip_prefix("docs/") else {
@@ -131,6 +137,7 @@ pub fn antora_path(inner: &str) -> String {
             && let Some(class) = file.strip_prefix("classes/")
             && !class.contains('/')
         {
+            let class = class.strip_prefix(AM_PACKAGE_PREFIX).unwrap_or(class);
             return format!("modules/ROOT/partials/classes/{class}");
         }
         return inner.to_owned();
@@ -426,6 +433,13 @@ mod tests {
                 .as_deref(),
             Some(
                 "specs/openehr-development/specifications-RM/modules/ROOT/partials/classes/locatable.adoc"
+            )
+        );
+        assert_eq!(
+            dev.path_of("specs/openehr/AM/docs/UML/classes/org.openehr.am.aom14.c_object.adoc")
+                .as_deref(),
+            Some(
+                "specs/openehr-development/specifications-AM/modules/ROOT/partials/classes/aom14.c_object.adoc"
             )
         );
         assert_eq!(

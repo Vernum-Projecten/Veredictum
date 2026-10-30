@@ -532,7 +532,14 @@ impl<'a> QuoteChecker<'a> {
             resolved?
         };
         let found = match &resolved {
-            Resolved::Text(haystack) => haystack.contains(&normalize_whitespace(&citation.quote)),
+            Resolved::Text(haystack) => {
+                let quote = normalize_whitespace(&citation.quote);
+                if self.profile == SpecProfile::Released {
+                    haystack.contains(&quote)
+                } else {
+                    haystack.contains(&rendered_text(&quote))
+                }
+            }
             Resolved::Leaf(leaf) => leaf_matches(leaf, &citation.quote),
         };
         if found {
@@ -594,7 +601,14 @@ impl<'a> QuoteChecker<'a> {
                 },
             })?
         };
-        Ok(Resolved::Text(normalize_whitespace(&haystack)))
+        let haystack = normalize_whitespace(&haystack);
+        // NOTE: no openEHR spec governs this — our own design; only a non-released profile
+        // reads the text as rendered, so the released profile's matching stays as strict as it was.
+        Ok(Resolved::Text(if self.profile == SpecProfile::Released {
+            haystack
+        } else {
+            rendered_text(&haystack)
+        }))
     }
 
     fn read(&mut self, source: &str, path: &str) -> Result<String, CiteError> {
@@ -666,6 +680,76 @@ fn expand_listing_includes(text: &str, path: &Path) -> String {
         out.push('\n');
     }
     out
+}
+
+/// `text` as its `AsciiDoc` markup renders it, so a quote taken from one
+/// markup of a sentence matches another markup of the same visible sentence.
+///
+/// The rules, and nothing else:
+///
+/// - `link:<target>[<label>]` and `link:<target>[<label>^]` become `<label>`
+///   (<https://docs.asciidoctor.org/asciidoc/latest/macros/link-macro/>,
+///   where `^` opens the link in a new window);
+/// - `xref:<target>[<label>]` becomes `<label>`
+///   (<https://docs.antora.org/antora/latest/page/xref/>);
+/// - `<<id,label>>` becomes `label`
+///   (<https://docs.asciidoctor.org/asciidoc/latest/macros/xref/>);
+/// - a straight double quote `"` becomes a backtick, so `"word"` and
+///   `` `word` `` read as the same emphasis.
+///
+/// A macro with an empty label, a target holding whitespace, a label
+/// holding `[`, or a `<<id>>` with no label is kept as written, because its
+/// rendering would need the target's own title. No word is ever changed:
+/// only macro syntax around a label and the two delimiter characters are.
+#[must_use]
+pub fn rendered_text(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while !rest.is_empty() {
+        if let Some((label, after)) = macro_label(rest, out.chars().next_back()) {
+            out.push_str(label);
+            rest = after;
+            continue;
+        }
+        let mut chars = rest.chars();
+        if let Some(c) = chars.next() {
+            out.push(if c == '"' { '`' } else { c });
+        }
+        rest = chars.as_str();
+    }
+    out
+}
+
+/// The label of the cross-reference or link macro `rest` starts with, and
+/// the text after the macro; `None` when `rest` starts with none, or with one
+/// [`rendered_text`] keeps as written. `before` is the character before
+/// `rest`: a macro name only starts a macro after a non-alphanumeric one.
+fn macro_label(rest: &str, before: Option<char>) -> Option<(&str, &str)> {
+    if let Some(inner) = rest.strip_prefix("<<") {
+        let (body, after) = inner.split_once(">>")?;
+        let (id, label) = body.split_once(',')?;
+        let label = label.trim();
+        if id.is_empty() || label.is_empty() || body.contains('<') {
+            return None;
+        }
+        return Some((label, after));
+    }
+    if before.is_some_and(char::is_alphanumeric) {
+        return None;
+    }
+    let macro_body = rest
+        .strip_prefix("link:")
+        .or_else(|| rest.strip_prefix("xref:"))?;
+    let (target, tail) = macro_body.split_once('[')?;
+    if target.is_empty() || target.chars().any(char::is_whitespace) {
+        return None;
+    }
+    let (label, after) = tail.split_once(']')?;
+    let label = label.strip_suffix('^').unwrap_or(label);
+    if label.is_empty() || label.contains('[') {
+        return None;
+    }
+    Some((label, after))
 }
 
 /// How deep [`expand_antora_includes`] follows a partial that includes
@@ -1603,6 +1687,115 @@ mod tests {
         assert!(
             matches!(&unmirrored, Err(e @ CiteError::NotInProfile { .. }) if e.is_absence()),
             "{unmirrored:?}"
+        );
+    }
+
+    #[test]
+    fn a_link_macro_renders_as_its_label() {
+        assert_eq!(
+            rendered_text(
+                "`link:/releases/BASE/{base_release}/foundation_types.html#_real_class[Real^]`"
+            ),
+            "`Real`"
+        );
+        assert_eq!(
+            rendered_text("see link:https://x.org/a[the page] now"),
+            "see the page now"
+        );
+    }
+
+    #[test]
+    fn an_xref_macro_renders_as_its_label() {
+        assert_eq!(
+            rendered_text(
+                "|*data*: `xref:{class_history}[HISTORY]<xref:{class_item_structure}[ITEM_STRUCTURE]>`"
+            ),
+            "|*data*: `HISTORY<ITEM_STRUCTURE>`"
+        );
+    }
+
+    #[test]
+    fn a_labelled_cross_reference_renders_as_its_label() {
+        assert_eq!(
+            rendered_text("<<_code_phrase_class,CODE_PHRASE>>"),
+            "CODE_PHRASE"
+        );
+        assert_eq!(rendered_text("<<a, spaced label >>"), "spaced label");
+    }
+
+    #[test]
+    fn the_three_markups_of_one_reference_render_alike() {
+        let release = "|*defining_code*: `<<_code_phrase_class,CODE_PHRASE>>`";
+        let development = "|*defining_code*: `xref:{class_code_phrase}[CODE_PHRASE]`";
+        let linked = "|*defining_code*: `link:/releases/RM/{rm_release}/x.html#_c[CODE_PHRASE^]`";
+        assert_eq!(rendered_text(release), rendered_text(development));
+        assert_eq!(rendered_text(linked), rendered_text(development));
+    }
+
+    #[test]
+    fn a_double_quote_and_a_backtick_are_the_same_emphasis() {
+        assert_eq!(
+            rendered_text(r#"the code for "deleted""#),
+            rendered_text("the code for `deleted`")
+        );
+        assert_eq!(
+            rendered_text(r#"say "deleted" twice"#),
+            "say `deleted` twice"
+        );
+    }
+
+    #[test]
+    fn what_a_rendering_needs_the_target_for_is_kept_as_written() {
+        for kept in [
+            "<<_code_phrase_class>>",
+            "xref:{class_x}[]",
+            "link:a b[label]",
+            "text with no macro, 1..1 and [brackets]",
+            "unlink:x[y]",
+            "<<,label>>",
+        ] {
+            assert_eq!(rendered_text(kept), kept, "{kept}");
+        }
+    }
+
+    #[test]
+    fn a_different_sentence_never_renders_alike() {
+        let differ = |a: &str, b: &str| assert_ne!(rendered_text(a), rendered_text(b), "{a} | {b}");
+        differ(
+            "h|*1..1* |*magnitude*: `link:/r/x.html#_real_class[Real^]`",
+            "h|*0..1* |*magnitude*: `xref:{class_real}[Real]`",
+        );
+        differ(
+            "|*data*: `xref:{class_history}[HISTORY]`",
+            "|*data*: `xref:{class_history}[EVENT]`",
+        );
+        differ("<<_x,DV_TEXT>>", "<<_x,DV_CODED_TEXT>>");
+        differ(r#"the code for "deleted""#, "the code for `inactive`");
+        differ(
+            "The possible values are complete",
+            "The possible values are incomplete",
+        );
+    }
+
+    #[test]
+    fn the_released_profile_never_reads_the_rendered_text() {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        let source = "specs/openehr/RM/docs/common/master06-change_control_package.adoc";
+        dir.child(source)
+            .write_str("== Logical Deletion\n\nthe code for `deleted`\n")
+            .unwrap();
+        dir.child("specs/openehr-development/specifications-RM/modules/common/pages/change_control_package.adoc")
+            .write_str("== Logical Deletion\n\nthe code for `deleted`\n")
+            .unwrap();
+        let quote = cite(source, "Logical Deletion", r#"the code for "deleted""#);
+        assert!(matches!(
+            QuoteChecker::new(dir.path()).check(&quote),
+            Err(CiteError::QuoteNotFound { .. })
+        ));
+        assert_eq!(
+            QuoteChecker::in_profile(dir.path(), SpecProfile::Development).check(&quote),
+            Ok(())
         );
     }
 }
