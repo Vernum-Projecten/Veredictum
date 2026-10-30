@@ -96,12 +96,16 @@ log. Credentials are never recorded (`[not recorded]` stands in for every
   text only.
 - **Only the RELEASED spec components are the oracle.** Adjudicate against
   RM / BASE / AM / QUERY / TERM / ITS-XML / ITS-REST **docs text**,
-  with one ordered supplement: **the vendored released OAS** is part of the
+  with two ordered supplements. The first, **the vendored released OAS**, is part of the
   release's own specification artifacts (the ITS-REST overview
   `Specifications.md` presents them as its computable artifacts) and grounds
   an expectation **where the docs text is SILENT**. It loses to the docs text
   on any conflict, and an OAS-only ground is always cited AS the OAS, by file
-  and element, never passed off as docs text. NEVER treat as authority: the
+  and element, never passed off as docs text. **The ITS-JSON schemas** are the
+  second ordered supplement (owner ruling, #842): DEVELOPMENT in their
+  manifest, they ground an expectation only where every released component is
+  silent on the canonical JSON form, lose to any released text, and are cited
+  AS ITS-JSON by file and JSON Pointer. NEVER treat as authority: the
   CNF Platform Conformance Test Schedule (openEHR CNF never released stable;
   it says which behaviour to test, not the correct answer), or the Robot
   suites and data sets (stalled and in places broken). Where any of these
