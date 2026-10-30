@@ -15,6 +15,7 @@ arazzo: 1.1.0
 info:
   title: SMART on openEHR resource scopes
   version: 0.1.0
+  x-veredictum-section: resource-scopes
   description: >-
     Reading the ADL 1.4 template list with access tokens whose SMART
     resource scope grants read access to every template.

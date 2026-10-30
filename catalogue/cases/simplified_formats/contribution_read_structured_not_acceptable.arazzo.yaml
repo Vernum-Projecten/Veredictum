@@ -36,7 +36,8 @@ workflows:
       properties:
         ehr_id: { type: string, format: uuid }
     steps:
-      - stepId: create-ehr
+      - &create_ehr
+        stepId: create-ehr
         description: Create the EHR with the client-supplied ehr_id.
         operationId: $sourceDescriptions.ehr.ehr_create_with_id
         parameters:
@@ -47,7 +48,8 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
               section: description
               quote: "`201 Created` is returned when the EHR has been successfully created,"
-      - stepId: commit
+      - &commit
+        stepId: commit
         description: Commit a CONTRIBUTION whose one member creates a COMPOSITION, keeping its uid and the version_uid it references.
         operationId: $sourceDescriptions.ehr.contribution_create
         parameters:
@@ -127,3 +129,35 @@ workflows:
           - { name: Accept, in: header, value: application/openehr.wt.structured+json }
         successCriteria:
           - condition: $statusCode == 406
+
+  - workflowId: get_contribution-structured_advisory
+    summary: A CONTRIBUTION read with Accept Simplified Structured JSON, recorded against the SHOULD to support it
+    description: >-
+      Creates an EHR and commits a CONTRIBUTION in canonical JSON, then
+      retrieves it with Accept application/openehr.wt.structured+json, the request the
+      refusal row sends, and expects it served. The release recommends supporting the
+      Simplified Formats, so on the arm where the service declares it does
+      not, this row records the SHOULD it declines: it is advisory and never
+      counts against the capability.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Additionally, the **Simplified Formats** format SHOULD be supported"
+      level: should
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create_ehr
+      - *commit
+      - stepId: read
+        description: Retrieve the CONTRIBUTION by its uid with Accept application/openehr.wt.structured+json.
+        operationId: $sourceDescriptions.ehr.contribution_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: contribution_uid, in: path, value: $steps.commit.outputs.contribution_uid }
+          - { name: Accept, in: header, value: application/openehr.wt.structured+json }
+        successCriteria:
+          - condition: $statusCode == 200

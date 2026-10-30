@@ -10,6 +10,7 @@ arazzo: 1.1.0
 info:
   title: COMPOSITION read by versioned_object_uid
   version: 0.1.0
+  x-veredictum-section: read
   description: >-
     Reading a COMPOSITION in canonical JSON by the versioned_object_uid of
     its container, with and without a version_at_time, the agreement of that

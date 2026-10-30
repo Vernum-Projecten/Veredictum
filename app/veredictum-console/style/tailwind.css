@@ -47,6 +47,7 @@
   --warn-subtle: #f7e8cf;
   --danger: #bd3434; /* verdict: failed */
   --danger-subtle: #f7dede;
+  --advisory-subtle: #f5e1ec; /* verdict: failed a SHOULD only (Okabe-Ito reddish purple tint) */
   --scrim: rgb(31 42 48 / 0.4); /* the dim behind an overlay */
 }
 
@@ -74,6 +75,7 @@
   --warn-subtle: #40300f;
   --danger: #e06c6c;
   --danger-subtle: #451d1d;
+  --advisory-subtle: #3f2235;
   /* A dark page needs a deeper dim than a light one to read as "behind". */
   --scrim: rgb(4 12 16 / 0.6);
 }
@@ -103,6 +105,7 @@
   --color-warn-subtle: var(--warn-subtle);
   --color-danger: var(--danger);
   --color-danger-subtle: var(--danger-subtle);
+  --color-advisory-subtle: var(--advisory-subtle);
   /* `bg-scrim` — the ONE overlay backdrop; never a raw `bg-black/40`, which
      ignores the theme and drifts per screen. */
   --color-scrim: var(--scrim);
@@ -127,6 +130,41 @@
   ::placeholder {
     color: var(--ink-faint);
   }
+}
+
+/* ── The chapter bars ───────────────────────────────────────────────────────
+   The results chart is drawn twice on the server, once per theme, because
+   its colours are baked into the SVG so the same drawing can leave the
+   console as an image. The theme class picks which one shows. */
+.chart-dark {
+  display: none;
+}
+.dark .chart-light {
+  display: none;
+}
+.dark .chart-dark {
+  display: block;
+}
+
+/* ── The opened result row ─────────────────────────────────────────────────
+   The row whose detail is open, and the row "Back to the row" lands on (the
+   URL fragment), wear the accent tint and a left accent edge, so a reader
+   returning to the list sees which row they opened. The tint is mixed from the
+   accent so link text keeps its contrast in both themes. Both rules are CSS:
+   the landing is a full load, so the browser itself sets `:target`. */
+.result-line {
+  scroll-margin-top: 6rem;
+}
+.result-line.result-row-selected > td,
+.result-line:target > td {
+  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.result-line.result-row-selected > td:first-child,
+.result-line:target > td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+#detail {
+  scroll-margin-top: 1rem;
 }
 
 /* ── Documentation capture mode ────────────────────────────────────────────

@@ -9,6 +9,7 @@ arazzo: 1.1.0
 info:
   title: ADL 1.4 templates
   version: 0.1.0
+  x-veredictum-section: adl-1-4-templates
   description: >-
     Uploading, listing and reading ADL 1.4 operational templates, and
     generating example data from one, through the DEFINITION API.

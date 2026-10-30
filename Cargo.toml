@@ -52,12 +52,16 @@ veredictum = { path = "app/veredictum" }
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Backtraces name a file:line for this crate's own code; dependency debuginfo
-# is never read here and dominates the target tree's size.
+# is never read here and dominates the target tree's size. Dependencies are
+# optimized because the test suite parses the whole catalogue many times, and
+# unoptimized YAML parsing made one `validate` five times slower
+# (https://doc.rust-lang.org/cargo/reference/profiles.html#overrides).
 [profile.dev]
 debug = "line-tables-only"
 
 [profile.dev.package."*"]
 debug = false
+opt-level = 2
 
 # Integer overflow FAILS LOUDLY rather than wrapping into a wrong measured or
 # judged value. An instrument that quietly reports a wrong number is worse than

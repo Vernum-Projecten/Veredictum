@@ -6,6 +6,7 @@ arazzo: 1.1.0
 info:
   title: EHR tags as XML
   version: 0.1.0
+  x-veredictum-section: ehr-tags
   description: >-
     The EHR-wide ITEM_TAG listing asked for as canonical XML, which no
     published XSD declares, so the service refuses it whatever formats it

@@ -6,6 +6,7 @@ arazzo: 1.1.0
 info:
   title: EHR create and read
   version: 0.1.0
+  x-veredictum-section: create-and-read
   description: >-
     Creating an EHR with a server-assigned or a client-supplied ehr_id,
     reading it back by id and by subject, and the refusals the released

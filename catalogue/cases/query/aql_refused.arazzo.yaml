@@ -6,6 +6,7 @@ arazzo: "1.1.0"
 info:
   title: AQL execution refused
   version: "0.1.0"
+  x-veredictum-section: refusals
   description: >-
     Ad-hoc AQL requests that are refused with 400, or 415 for the wrong media
     type.

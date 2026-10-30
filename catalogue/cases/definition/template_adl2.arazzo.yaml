@@ -6,6 +6,7 @@ arazzo: 1.1.0
 info:
   title: ADL 2 templates
   version: 0.1.0
+  x-veredictum-section: adl-2-templates
   description: >-
     Listing ADL 2 operational templates, reading one that does not exist and
     refusing an upload that does not parse, through the DEFINITION API.

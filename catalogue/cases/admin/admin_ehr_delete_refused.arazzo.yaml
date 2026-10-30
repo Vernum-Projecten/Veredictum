@@ -10,6 +10,7 @@ arazzo: 1.1.0
 info:
   title: Admin EHR delete refused
   version: 0.1.0
+  x-veredictum-section: refusals
   description: >-
     Deleting one EHR with DELETE /admin/ehr/{ehr_id} under an ehr_id no
     EHR carries.

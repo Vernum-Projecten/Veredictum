@@ -7,6 +7,7 @@ arazzo: 1.1.0
 info:
   title: Demographic tags
   version: 0.1.0
+  x-veredictum-section: item-tags
   description: >-
     Listing the ITEM_TAGs of the Demographic space. Each workflow tags with a
     key unique to its run, so the listing is judged on that key alone.

@@ -1,0 +1,164 @@
+---
+source: app/veredictum/tests/it/results_export.rs
+assertion_line: 714
+expression: junit(&outlined()).unwrap()
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="catalogue" tests="11" failures="3" errors="1" time="0">
+  <testsuite name="composition/create" tests="2" failures="1" errors="0" skipped="0" time="0">
+    <properties>
+      <property name="eu.veredictum.part" value="BASE"/>
+      <property name="eu.veredictum.chapter" value="EHR"/>
+      <property name="eu.veredictum.band" value="COMPOSITION"/>
+      <property name="eu.veredictum.capability" value="composition"/>
+      <property name="eu.veredictum.section" value="Create"/>
+      <property name="eu.veredictum.tag" value="@SpecDiverge"/>
+      <property name="eu.veredictum.report" value="#42"/>
+    </properties>
+    <testcase name="composition/create row 0" classname="composition/create" time="0"/>
+    <testcase name="composition/create row 1" classname="composition/create" time="0">
+      <failure message="step create: expected status 409, received status 201" type="server">FAILED   composition/create   step create
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         &quot;The server refuses it.&quot;
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received status 201
+Exchange PUT http://sut/ehr/3f2a -&gt; 201   (recording entry 2)
+Whose    the server: a failed row counts against the claimed capability
+         the cited text has a known spec gap: upstream report #42</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="composition/read" tests="2" failures="0" errors="0" skipped="0" time="0">
+    <properties>
+      <property name="eu.veredictum.part" value="BASE"/>
+      <property name="eu.veredictum.chapter" value="EHR"/>
+      <property name="eu.veredictum.band" value="COMPOSITION"/>
+      <property name="eu.veredictum.capability" value="composition"/>
+      <property name="eu.veredictum.section" value="Read"/>
+    </properties>
+    <testcase name="composition/read row 0" classname="composition/read" time="0">
+      <system-out>ADVISORY: a SHOULD the server did not follow; this row never counts against the server.
+FAILED   composition/read   step read
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         &quot;The server refuses it.&quot;
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received status 201
+Exchange PUT http://sut/ehr/3f2a -&gt; 201   (recording entry 2)
+Whose    advisory: the server did not follow a SHOULD; this row never counts against a capability</system-out>
+    </testcase>
+    <testcase name="composition/read row 1" classname="composition/read" time="0"/>
+  </testsuite>
+  <testsuite name="query/stored" tests="1" failures="1" errors="0" skipped="0" time="0">
+    <properties>
+      <property name="eu.veredictum.part" value="OPTIONS"/>
+      <property name="eu.veredictum.chapter" value="EHR"/>
+      <property name="eu.veredictum.band" value="COMPOSITION"/>
+      <property name="eu.veredictum.capability" value="composition"/>
+      <property name="eu.veredictum.section" value="Read"/>
+      <property name="eu.veredictum.trial" value="true"/>
+    </properties>
+    <testcase name="query/stored row 0" classname="query/stored" time="0">
+      <failure message="step validate: expected status 409, received status 201" type="server">FAILED   query/stored   step validate
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         &quot;The server refuses it.&quot;
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received status 201
+Exchange PUT http://sut/ehr/3f2a -&gt; 201   (recording entry 2)
+Whose    the server: a failed row counts against the claimed capability</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="content/adl14_cardinality" tests="1" failures="0" errors="0" skipped="0" time="0">
+    <properties>
+      <property name="eu.veredictum.part" value="BASE"/>
+      <property name="eu.veredictum.chapter" value="EHR"/>
+      <property name="eu.veredictum.band" value="Semantic validation"/>
+      <property name="eu.veredictum.capability" value="content"/>
+      <property name="eu.veredictum.section" value="Structure and cardinality"/>
+      <property name="eu.veredictum.formalism" value="ADL 1.4"/>
+    </properties>
+    <testcase name="content/adl14_cardinality row 0" classname="content/adl14_cardinality" time="0"/>
+  </testsuite>
+  <testsuite name="content/adl2_cardinality" tests="1" failures="1" errors="0" skipped="0" time="0">
+    <properties>
+      <property name="eu.veredictum.part" value="BASE"/>
+      <property name="eu.veredictum.chapter" value="EHR"/>
+      <property name="eu.veredictum.band" value="Semantic validation"/>
+      <property name="eu.veredictum.capability" value="content"/>
+      <property name="eu.veredictum.section" value="Structure and cardinality"/>
+      <property name="eu.veredictum.formalism" value="ADL 2"/>
+    </properties>
+    <testcase name="content/adl2_cardinality row 0" classname="content/adl2_cardinality" time="0">
+      <failure message="step commit: expected status 409, received status 201" type="server">FAILED   content/adl2_cardinality   step commit
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         &quot;The server refuses it.&quot;
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received status 201
+Exchange PUT http://sut/ehr/3f2a -&gt; 201   (recording entry 2)
+Whose    the server: a failed row counts against the claimed capability</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="composition_xml/read" tests="1" failures="0" errors="0" skipped="0" time="0">
+    <properties>
+      <property name="eu.veredictum.part" value="OPTIONS"/>
+      <property name="eu.veredictum.chapter" value="EHR"/>
+      <property name="eu.veredictum.band" value="COMPOSITION"/>
+      <property name="eu.veredictum.capability" value="composition"/>
+      <property name="eu.veredictum.option" value="composition-xml-read"/>
+      <property name="eu.veredictum.kind" value="Optional (MAY)"/>
+      <property name="eu.veredictum.arm" value="xml-supported"/>
+    </properties>
+    <testcase name="composition_xml/read row 0" classname="composition_xml/read" time="0"/>
+  </testsuite>
+  <testsuite name="flat/create" tests="1" failures="0" errors="0" skipped="1" time="0">
+    <properties>
+      <property name="eu.veredictum.part" value="OPTIONS"/>
+      <property name="eu.veredictum.chapter" value="EHR"/>
+      <property name="eu.veredictum.band" value="COMPOSITION"/>
+      <property name="eu.veredictum.capability" value="composition"/>
+      <property name="eu.veredictum.option" value="flat-format"/>
+      <property name="eu.veredictum.kind" value="Optional (MAY)"/>
+      <property name="eu.veredictum.arm" value="flat-supported"/>
+    </properties>
+    <testcase name="flat/create row 0" classname="flat/create" time="0">
+      <skipped message="option-not-selected: specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description">SKIPPED  flat/create   option-not-selected
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         &quot;The statement selects another arm.&quot;
+         https://example.org/409_EHR_with_id.yaml</skipped>
+    </testcase>
+  </testsuite>
+  <testsuite name="ehr_status_flat/read" tests="1" failures="0" errors="1" skipped="0" time="0">
+    <properties>
+      <property name="eu.veredictum.part" value="OPTIONS"/>
+      <property name="eu.veredictum.chapter" value="EHR"/>
+      <property name="eu.veredictum.band" value="COMPOSITION"/>
+      <property name="eu.veredictum.capability" value="composition"/>
+      <property name="eu.veredictum.option" value="ehr-status-flat"/>
+      <property name="eu.veredictum.kind" value="@SpecDiverge"/>
+      <property name="eu.veredictum.arm" value="flat-served"/>
+      <property name="eu.veredictum.tag" value="@SpecDiverge"/>
+      <property name="eu.veredictum.report" value="#352"/>
+    </properties>
+    <testcase name="ehr_status_flat/read row 0" classname="ehr_status_flat/read" time="0">
+      <error message="step read: expected status 409, received the body did not parse" type="instrument">ERRORED  ehr_status_flat/read   step read
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         &quot;EHR_STATUS has no flat form.&quot;
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received the body did not parse
+Exchange PUT http://sut/ehr/3f2a -&gt; 201   (recording entry 2)
+Whose    the instrument could not judge: this row does not count against the vendor
+         the cited text has a known spec gap: upstream report #352</error>
+    </testcase>
+  </testsuite>
+  <testsuite name="stray/case" tests="1" failures="0" errors="0" skipped="0" time="0">
+    <testcase name="stray/case row 0" classname="stray/case" time="0"/>
+  </testsuite>
+</testsuites>

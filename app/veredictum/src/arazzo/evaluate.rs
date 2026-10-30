@@ -336,6 +336,7 @@ impl<'d> Evaluator<'d> {
             server: None,
             review: Vec::new(),
             rows,
+            outline: None,
         })
     }
 

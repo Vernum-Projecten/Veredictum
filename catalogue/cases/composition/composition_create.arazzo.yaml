@@ -8,6 +8,7 @@ arazzo: 1.1.0
 info:
   title: COMPOSITION create
   version: 0.1.0
+  x-veredictum-section: create
   description: >-
     Creating the first version of an event and a persistent COMPOSITION, the
     minimal, identifier and representation preferences of the create, the

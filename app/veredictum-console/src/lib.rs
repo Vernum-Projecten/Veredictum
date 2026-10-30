@@ -39,6 +39,7 @@ pub mod arg_refusal;
 pub mod capture;
 pub mod catalogue_api;
 pub mod certificates;
+pub mod chart;
 pub mod components;
 #[cfg(feature = "ssr")]
 pub mod engine;
@@ -56,6 +57,7 @@ pub mod router;
 pub mod run_api;
 pub mod run_job;
 pub mod site_bundle;
+pub mod spec_diverge;
 #[cfg(feature = "ssr")]
 pub mod state;
 pub mod status_api;

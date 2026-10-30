@@ -9,6 +9,7 @@ arazzo: 1.1.0
 info:
   title: CONTRIBUTION create
   version: 0.1.0
+  x-veredictum-section: create
   description: >-
     Committing a CONTRIBUTION in canonical JSON. Every member and every
     envelope audit is the commit DTO the released OAS declares

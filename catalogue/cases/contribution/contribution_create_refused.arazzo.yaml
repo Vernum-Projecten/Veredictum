@@ -10,6 +10,7 @@ arazzo: 1.1.0
 info:
   title: CONTRIBUTION create refusals
   version: 0.1.0
+  x-veredictum-section: refusals
   description: >-
     The CONTRIBUTION commits that are refused. A body the released commit DTO
     (schemas/ehr/NewContribution.yaml and the schemas it names) or the

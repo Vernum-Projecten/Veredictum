@@ -116,6 +116,12 @@ server. Pass the statement, IXIT and `--document` list the recorded run was
 given; a replay that does not line up with the recording is refused rather
 than judged.
 
+The command re-judges the recording of a whole run. The recordings in the
+verification pack (`verification-pack/arazzo/`) are slices of one or two
+workflows each, so the command refuses them. They are re-judged by the test
+suite instead (`cargo nextest run -p veredictum arazzo_pack`), which plans every
+workflow outside a slice as skipped and requires every adjudicated verdict back.
+
 ## The container image
 
 The image carries the catalogue and runs the same subcommand. Mount a

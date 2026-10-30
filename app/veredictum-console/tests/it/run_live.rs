@@ -471,9 +471,10 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
     let results = veredictum_console::record_api::read::results_screen(&state, who)
         .map_err(|e| format!("results: {e}"))?
         .ok_or("a finished run must yield a results screen")?;
-    assert!(!results.rows.is_empty());
+    let rows = results.reading.rows();
+    assert!(!rows.is_empty());
     assert_eq!(results.base_url, format!("http://127.0.0.1:{port}"));
-    let first = results.rows.first().ok_or("rows checked non-empty")?;
+    let first = *rows.first().ok_or("rows checked non-empty")?;
     assert!(
         matches!(first.status.as_str(), "failed" | "errored"),
         "red rows must sort first against a 500-only SUT: {first:?}"

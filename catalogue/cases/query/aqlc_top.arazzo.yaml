@@ -1,4 +1,10 @@
-# The deprecated TOP modifier, on the arm of the aql-top option that serves it. Each workflow carries one case of the AQL conformance corpus
+# The deprecated TOP modifier, judged for every claimant of the query
+# capability. QUERY/docs/AQL/master03-syntax.adoc § TOP: "*Deprecated*:
+# Starting with Release 1.1.0, the use of `TOP` modifier is deprecated in
+# favour of the `LIMIT` clause combined with `ORDER BY`", yet § SELECT keeps
+# it in the grammar ("optionally followed by `TOP` (deprecated - see <<TOP,
+# below>>)") and nothing lets a service refuse it. Each workflow carries one
+# case of the AQL conformance corpus
 # (github.com/Cadasto/aql-conformance at 28749a482a23), named in its
 # description; catalogue/id-map.yaml maps every case of the corpus. The case's
 # own data is committed by the set-up it names in
@@ -9,7 +15,8 @@ arazzo: 1.1.0
 info:
   title: 'AQL conformance: TOP'
   version: 0.1.0
-  description: The deprecated TOP modifier, on the arm of the aql-top option that serves it.
+  x-veredictum-section: aql-conformance-corpus
+  description: The deprecated TOP modifier, which the released grammar still defines.
 sourceDescriptions:
   - name: query
     url: ../../../specs/rest-oas/query-validation.openapi.yaml

@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:arazzo-chapters:0.1.0",
+  "title": "The reading structure of the Arazzo catalogue",
+  "description": "Lives at `catalogue/chapters.yaml`. Every view of a result groups its rows by it: the chapters in reading order, the capability folders of each chapter as its bands, and each folder's BASE sections in reading order. A document named by no arm of `capabilities.yaml` is BASE and names one section of its folder with `x-veredictum-section` on its `info`; a document an arm names is OPTION and names none. `options` gives every option of `capabilities.yaml` its theme and tier. `validate` refuses a folder in no chapter or in two, a BASE document with no section or an unknown one, a section no document uses, an OPTION document with a section, an option with no placement, and a `spec-boundary` option whose citation names no `report`. No openEHR spec governs this; it is the instrument's own design.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "chapters",
+    "options"
+  ],
+  "properties": {
+    "chapters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chapter",
+          "title",
+          "folders"
+        ],
+        "properties": {
+          "chapter": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "folders": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "folder",
+                "title",
+                "sections"
+              ],
+              "properties": {
+                "folder": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "formalism": {
+                  "type": "boolean",
+                  "description": "Whether the views badge each case of the folder with the template formalism (ADL 1.4 or ADL 2) its setups upload. `validate` refuses a case of such a folder that uploads no template, or templates of both formalisms."
+                },
+                "sections": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "section",
+                      "title"
+                    ],
+                    "properties": {
+                      "section": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "theme",
+          "tier"
+        ],
+        "properties": {
+          "theme": {
+            "enum": [
+              "canonical-xml",
+              "simplified-formats",
+              "left-open"
+            ]
+          },
+          "tier": {
+            "enum": [
+              "recommended",
+              "options",
+              "spec-boundary"
+            ],
+            "description": "`recommended`: support is a SHOULD, so declining it is recorded as advisory. `options`: a MAY, or behaviour the release leaves to the implementation. `spec-boundary`: an option only because the released text is defective, recorded as an upstream report its citation names."
+          }
+        }
+      }
+    }
+  }
+}

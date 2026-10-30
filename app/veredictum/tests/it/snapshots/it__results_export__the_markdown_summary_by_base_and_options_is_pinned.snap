@@ -1,0 +1,216 @@
+---
+source: app/veredictum/tests/it/results_export.rs
+assertion_line: 709
+expression: summary
+---
+# Veredictum results
+
+| | |
+| --- | --- |
+| **Server** | http://sut/ehrbase/rest/openehr/v1 |
+| **Instrument** | veredictum 0.1.7, pre-approval: not yet approved by the openEHR SEC |
+| **Document** | `catalogue` |
+
+## Summary
+
+| Part | Passed | Failed | Advisory | Errored | Skipped | Total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| BASE | 3 | 2 | 1 | 0 | 0 | 6 |
+| OPTIONS | 1 | 1 | 0 | 1 | 1 | 4 |
+| **Every row** | **5** | **3** | **1** | **1** | **1** | **11** |
+
+> [!NOTE]
+> Only a **failed** row counts against the server. An **advisory** row is a SHOULD the server did not follow, and it never counts against the server. An **errored** row is one the instrument could not judge, and a **skipped** row was not run.
+
+## BASE
+
+What every claimant of a capability must do. A case no option arm names is BASE.
+
+### EHR
+
+| Band | Passed | Failed | Advisory | Errored | Skipped |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| COMPOSITION | 2 | 1 | 1 | 0 | 0 |
+| Semantic validation | 1 | 1 | 0 | 0 | 0 |
+| DIRECTORY | 0 | 0 | 0 | 0 | 0 |
+
+#### COMPOSITION
+
+| Section | Passed | Failed | Advisory | Errored | Skipped |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Create | 1 | 1 | 0 | 0 | 0 |
+| Read | 1 | 0 | 1 | 0 | 0 |
+
+Rows to look at (open one for its explanation):
+
+<details>
+<summary><b>Failed</b>: <code>composition/create</code> row 1, BASE, Create, @SpecDiverge</summary>
+
+| | |
+| --- | --- |
+| **Step** | `create` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | status 201 |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | The server. A failed row counts against the claimed capability. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+| **Upstream report** | [#42](https://github.com/Vernum-Projecten/Veredictum/issues/42): A duplicate create has no status (open) |
+
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
+
+> The server refuses it.
+
+</details>
+
+<details>
+<summary><b>Advisory</b>: <code>composition/read</code> row 0, BASE, Read</summary>
+
+| | |
+| --- | --- |
+| **Step** | `read` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | status 201 |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | Advisory. The server did not follow a SHOULD, and the row never counts against it. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
+
+> The server refuses it.
+
+</details>
+
+#### Semantic validation
+
+| Section | Passed | Failed | Advisory | Errored | Skipped |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Structure and cardinality (ADL 1.4) | 1 | 0 | 0 | 0 | 0 |
+| Structure and cardinality (ADL 2) | 0 | 1 | 0 | 0 | 0 |
+
+Rows to look at (open one for its explanation):
+
+<details>
+<summary><b>Failed</b>: <code>content/adl2_cardinality</code> row 0, BASE, Structure and cardinality, ADL 2</summary>
+
+| | |
+| --- | --- |
+| **Step** | `commit` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | status 201 |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | The server. A failed row counts against the claimed capability. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
+
+> The server refuses it.
+
+</details>
+
+## OPTIONS
+
+What the statement selected. Each option is labelled with its kind: **Recommended (SHOULD)**, which a server may decline with an advisory row; **Optional (MAY)**, behaviour the release leaves to the implementation; or **Spec defect**, an option only because the released text is defective. The statement selects one arm of each, and the other arms are skipped.
+
+### EHR
+
+#### COMPOSITION
+
+| Option | Kind | Selected arm | Passed | Failed | Advisory | Errored | Skipped |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `etag-sent` | Recommended (SHOULD) | `etag-declined`, nothing to run | 0 | 0 | 0 | 0 | 0 |
+| `composition-xml-read` | Optional (MAY) | `xml-supported` | 1 | 0 | 0 | 0 | 0 |
+| `flat-format` | Optional (MAY) | not selected |  | | | |  |
+| `ehr-status-flat` | `@SpecDiverge` | `flat-served` | 0 | 0 | 0 | 1 | 0 |
+| TRIAL text | BASE on TRIAL text | | 0 | 1 | 0 | 0 | 0 |
+
+<details>
+<summary>What these options decide</summary>
+
+- **`etag-sent`** (Behaviour the release leaves open): Whether the server supports etag-sent.
+- **`composition-xml-read`** (Canonical XML): Whether the server supports composition-xml-read.
+- **`flat-format`** (Simplified Formats and Web Template): Whether the server supports flat-format.
+- **`ehr-status-flat`** (Simplified Formats and Web Template): Whether the server supports ehr-status-flat. Upstream report [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352): EHR\_STATUS has no flat form (confirmed).
+- **TRIAL text**: BASE cases whose cited text the release marks TRIAL. They are read with the options and never count in the BASE tally.
+
+</details>
+
+Rows to look at (open one for its explanation):
+
+<details>
+<summary><b>Errored</b>: <code>ehr_status_flat/read</code> row 0, option ehr-status-flat, @SpecDiverge</summary>
+
+| | |
+| --- | --- |
+| **Step** | `read` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | the body did not parse |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | The instrument could not judge it. The row does not count against the server. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+| **Upstream report** | [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352): EHR\_STATUS has no flat form (confirmed) |
+
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
+
+> EHR\_STATUS has no flat form.
+
+</details>
+
+<details>
+<summary><b>Failed</b>: <code>query/stored</code> row 0, OPTIONS, TRIAL text</summary>
+
+| | |
+| --- | --- |
+| **Step** | `validate` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | status 201 |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | The server. A failed row counts against the claimed capability. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
+
+> The server refuses it.
+
+</details>
+
+## Unplaced
+
+The outline the results carry places these cases nowhere.
+
+| Case | Outcome |
+| --- | --- |
+| `stray/case` | 1 passed |
+
+## Advisory rows
+
+Each is a SHOULD the server did not follow. None counts against the server.
+
+| Row | Step | SHOULD cited |
+| --- | --- | --- |
+| `composition/read row 0` | `read` | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description |
+
+## Skipped rows
+
+A skipped row was not run, for the reason given. It never counts for or against the server.
+
+| Reason | Citation | Rows |
+| --- | --- | ---: |
+| option-not-selected | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description | 1 |
+
+<details>
+<summary>Every skipped row (1)</summary>
+
+| Row | Reason |
+| --- | --- |
+| `flat/create row 0` | option-not-selected |
+
+</details>
+
+---
+
+Spec divergence: 2 case(s) rest on released text that is unclear or contradictory, and are tagged @SpecDiverge. Until the specification resolves it, Veredictum judges them as the linked upstream reports describe: [#42](https://github.com/Vernum-Projecten/Veredictum/issues/42), [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352).

@@ -37,7 +37,8 @@ workflows:
       properties:
         ehr_id: { type: string, format: uuid }
     steps:
-      - stepId: create-ehr
+      - &create_ehr
+        stepId: create-ehr
         description: Create the EHR with the client-supplied ehr_id.
         operationId: $sourceDescriptions.ehr.ehr_create_with_id
         parameters:
@@ -58,7 +59,7 @@ workflows:
           - { name: Accept, in: header, value: application/json }
         requestBody:
           contentType: application/openehr.wt.flat+json
-          payload:
+          payload: &simplified_contribution
             versions:
               - lifecycle_state:
                   _type: DV_CODED_TEXT
@@ -80,3 +81,39 @@ workflows:
             audit: *creation_audit
         successCriteria:
           - condition: $statusCode == 415
+
+  - workflowId: commit_contribution-flat_advisory
+    summary: A CONTRIBUTION sent as Simplified Flat JSON, recorded against the SHOULD to support it
+    description: >-
+      Creates an EHR, then commits with Content-Type application/openehr.wt.flat+json
+      a CONTRIBUTION whose member data is a COMPOSITION in the Simplified
+      Flat JSON format, the request the refusal row sends, and expects it
+      created. The release recommends supporting the
+      Simplified Formats, so on the arm where the service declares it does
+      not, this row records the SHOULD it declines: it is advisory and never
+      counts against the capability.
+    dependsOn: [$sourceDescriptions.setup.upload_template-minimal_evaluation]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Additionally, the **Simplified Formats** format SHOULD be supported"
+      level: should
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create_ehr
+      - stepId: commit
+        description: Commit the CONTRIBUTION in the Simplified Flat JSON format.
+        operationId: $sourceDescriptions.ehr.contribution_create
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: openehr-template-id, in: header, value: minimal_evaluation.en.v1 }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/openehr.wt.flat+json
+          payload: *simplified_contribution
+        successCriteria:
+          - condition: $statusCode == 201

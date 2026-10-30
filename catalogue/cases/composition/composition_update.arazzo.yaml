@@ -10,6 +10,7 @@ arazzo: 1.1.0
 info:
   title: COMPOSITION update
   version: 0.1.0
+  x-veredictum-section: update
   description: >-
     Updating a COMPOSITION by its versioned_object_uid under the If-Match
     precondition: the new version it commits and that version's commit

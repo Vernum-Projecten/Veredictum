@@ -6,6 +6,7 @@ arazzo: 1.1.0
 info:
   title: Committal headers on EHR create
   version: 0.1.0
+  x-veredictum-section: committal-headers
   description: >-
     Creating an EHR with openehr-audit-details and reading the committed
     EHR_STATUS version's audit back.

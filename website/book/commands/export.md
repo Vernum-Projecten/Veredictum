@@ -7,19 +7,62 @@ carries a clock reading the results document does not carry.
 |---|---|---|
 | passed | a bare `<testcase>` | `passed` |
 | failed | `<failure>` | `failed` |
+| advisory | `<system-out>`, no `<failure>` | `other`, with `rawStatus: advisory` |
 | errored | `<error>` | `other`, with `rawStatus: errored` |
 | skipped | `<skipped>` | `skipped` |
+
+An advisory row is a SHOULD the server did not follow, which never counts
+against the server, so no view counts it as failed and a CI that fails a job
+on a failed test does not fail it on one. Its JUnit `<testcase>` carries the
+four-part explanation in `<system-out>`, opened by a line that says it is
+advisory, and no `failures` count includes it. In CTRF it is `other`, and
+`summary.failed` excludes it.
 
 A workflow is a JUnit `<testsuite>` and a row is a `<testcase>` named
 `<case> row <n>`. The text of a `<failure>` or `<error>` is the row's
 four-part explanation, its `message` is a one-line summary, and its `type`
-says whose problem the row is (`server`, `advisory` or `instrument`). A
+says whose problem the row is (`server` or `instrument`). A
 `<skipped>` carries the skip reason and the citation that makes the case not
-apply. In CTRF, a red row's `message` is the same four-part explanation, and
-each test's `extra` carries the case id, the row, the skip reason, the
-citation and, where the citation names one, the link to its upstream report.
-The CTRF document validates against the schema the CTRF project publishes for
-`specVersion` 0.2.0.
+apply. A suite whose case the results place carries `<properties>` naming the
+part, chapter, band, capability, section or option and arm, formalism, TRIAL
+mark and upstream reports, each property named `eu.veredictum.<name>`. Every
+`time` is `0`, because the results document carries no timing.
+
+JUnit XML has no single owner, so the view is held to the two schemas the tools
+that read it publish: the document to the Jenkins xUnit plugin's `junit-10.xsd`,
+which defines the `<testsuites>` root, and each `<testsuite>` to Apache Maven
+Surefire's test report schema. Both are vendored, and a CI gate validates the
+pinned views against them with `xmllint`.
+
+In CTRF, every test has `type` `conformance`, a `suite` path of the document
+then the part, chapter, band and section or option it is read under, and
+`labels` naming where it sits. A red row's `message` is the same four-part
+explanation. Everything CTRF does not define sits in `extra` under the one
+namespaced key `eu.veredictum`, as CTRF §4.6.1 asks: the case id, the row, the
+skip reason, the citation and, where the citation names one, the link to its
+upstream report. The CTRF document validates against the schema the CTRF
+project publishes for `specVersion` 0.2.0, its latest release.
+
+**What the Markdown summary holds.** It is written for a person reading it on
+GitHub, in two parts. A table names the server and the instrument, and a
+summary table counts the rows of BASE and OPTIONS. `## BASE` follows chapter by
+chapter, each chapter a table of its bands and each band a table of its
+sections. `## OPTIONS` follows the same chapters and bands, each band a table
+of its options with their kind (Recommended (SHOULD), Optional (MAY), or
+`@SpecDiverge` for an option that exists only because the released text is
+unclear) and the
+arm the statement selected, and a collapsed note on what each option decides.
+The cases resting on TRIAL text sit in their band under OPTIONS. Passed rows
+are only counted. Each failed, advisory or errored row is a collapsed block
+whose summary names the outcome, the case and where it sits; opening it shows
+the step, what was checked, expected against received, the exchange, whose
+problem it is and the row's inputs as a table, with the cited sentence quoted
+below it. The advisory rows follow with their citations, and the skipped rows
+counted by reason with the full list collapsed. A case resting on text an
+upstream report records as unclear or contradictory is tagged `@SpecDiverge`
+where it appears, and a closing note counts those cases and links the reports
+they are judged by. JUnit carries the tag as the `eu.veredictum.tag` property
+and CTRF in the test's standard `tags`.
 
 **Where the Markdown summary goes.** GitHub Actions sets
 `GITHUB_STEP_SUMMARY` in every job step, and `export` appends the summary to

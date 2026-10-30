@@ -423,10 +423,17 @@ async fn e2e_sidebar_reaches_a_case_detail() {
 
     chapter.click().await.expect("open the chapter");
     h.wait_url_contains(&chapter_href).await;
-    h.wait_css("table tbody tr").await;
+    // Sections fold closed by default: the native <details> opens on a click
+    // with no script, and only then is a case link in sight.
+    h.wait_css("details > summary").await;
     h.capture("chapter-light").await;
 
-    h.wait_css("table tbody tr td a")
+    h.wait_css("details > summary")
+        .await
+        .click()
+        .await
+        .expect("open the first section");
+    h.wait_css("details[open] li a")
         .await
         .click()
         .await
@@ -452,7 +459,7 @@ async fn e2e_sidebar_reaches_a_case_detail() {
     h.capture("case-dark").await;
     h.goto(&chapter_href).await;
     h.wait_css("html.dark").await;
-    h.wait_css("table tbody tr").await;
+    h.wait_css("details > summary").await;
     tokio::time::sleep(THEME_SETTLE).await;
     h.capture("chapter-dark").await;
     h.goto("/catalogue").await;
@@ -1479,4 +1486,147 @@ async fn drive_to_live(h: &Harness, base_url: &str, sut_name: &str, filter: &str
         "the live link must carry the run's id: {address}"
     );
     address
+}
+
+/// The row links on the results page.
+const RESULT_ROW_LINKS: &str = "//td//a[starts-with(@href, '/run/results?case=')]";
+
+/// The heading of the open result detail.
+const RESULT_DETAIL_HEADING: &str = "//h2[contains(., '· row')]";
+
+/// One click on a result row opens its detail where the reader is looking
+/// (#869), "Back to the row" lands on that row again, marked as the one
+/// opened (#867), and the detail reaches the catalogue case the row came
+/// from.
+///
+/// The run covers a whole capability, so the row list runs far past the first
+/// screen and the row clicked is the last one. The detail must sit inside the
+/// first screen after the click (the router scrolls a navigation to the top),
+/// and the same address loaded afresh must carry it in the server-rendered
+/// page, which is what a reader without JavaScript receives.
+///
+/// # Panics
+/// When the detail does not open, opens out of sight, leads back to anything
+/// but the marked row, or names no catalogue case.
+#[tokio::test(flavor = "multi_thread")]
+async fn e2e_a_result_row_opens_its_detail() {
+    let Some(h) = Harness::start("result-detail").await else {
+        return;
+    };
+    let Ok(port) = fixture_sut() else {
+        panic!("the fixture SUT could not bind");
+    };
+    let base_url = format!("http://127.0.0.1:{port}");
+    let sut = DrivenSut {
+        base_url: &base_url,
+        identity: ("my-cdr", "1.0.0"),
+        basic: None,
+        filter: "",
+        capability: "ehr",
+        probe_answer: "HTTP 500",
+        continue_label: "Continue anyway",
+        version_after_probe: None,
+        finish_budget: Duration::from_mins(3),
+    };
+    drive_wizard(&h, &sut, None).await;
+    h.goto("/run/results").await;
+    h.wait_xpath("//h1[contains(., 'Results')]").await;
+    h.wait_xpath(RESULT_ROW_LINKS).await;
+    let rows = h
+        .driver
+        .find_all(By::XPath(RESULT_ROW_LINKS))
+        .await
+        .expect("the result row links");
+    assert!(rows.len() > 30, "the run must fill more than one screen");
+    let last = rows.last().expect("a result row");
+    let href = last
+        .attr("href")
+        .await
+        .expect("the row link's href")
+        .expect("a row link carries an href");
+    last.scroll_into_view()
+        .await
+        .expect("scroll to the last row");
+    last.click().await.expect("open the last row");
+    h.wait_url_contains("row=").await;
+    let address = h.current_path().await;
+    assert!(
+        address.contains("&row=") && !address.contains("&amp;"),
+        "the row link must carry its row as a query parameter: {address}"
+    );
+    let detail = h.wait_xpath(RESULT_DETAIL_HEADING).await;
+    let rect = detail.rect().await.expect("the detail's position");
+    assert!(
+        rect.y < f64::from(VIEWPORT.1),
+        "the detail must open inside the first screen, not {}px down the page {}",
+        rect.y,
+        h.evidence("detail-out-of-sight").await
+    );
+    h.wait_xpath("//body[contains(., 'The wire')]").await;
+
+    go_back_to_the_row(&h, &href).await;
+
+    h.goto_unhydrated(&href).await;
+    h.wait_xpath(RESULT_DETAIL_HEADING).await;
+    h.wait_hydrated().await;
+    h.wait_css("a#result-catalogue-case")
+        .await
+        .click()
+        .await
+        .expect("open the catalogue case");
+    h.wait_url_contains("/catalogue/").await;
+    h.wait_xpath("//h2[normalize-space()='Spec citation']")
+        .await;
+
+    h.assert_console_clean(&[]).await;
+    h.finish().await;
+}
+
+/// Follows the open detail's "Back to the row" (#867): the address it lands
+/// on names the row's anchor as its fragment and no longer selects a row, and
+/// the row there is marked as the one opened. `href` is the row link the
+/// detail was opened from.
+///
+/// # Panics
+/// When the way back lands anywhere else, or the row is not marked.
+async fn go_back_to_the_row(h: &Harness, href: &str) {
+    let query = href
+        .split_once('?')
+        .map(|(_, query)| query.split('#').next().unwrap_or_default())
+        .unwrap_or_default();
+    let param = |name: &str| {
+        query
+            .split('&')
+            .find_map(|pair| pair.strip_prefix(&format!("{name}=")))
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let anchor = format!("row-{}-{}", param("case"), param("row"));
+    h.wait_css("a#result-back")
+        .await
+        .click()
+        .await
+        .expect("go back to the row");
+    h.wait_url_contains(&format!("#{anchor}")).await;
+    let landed = h.driver.current_url().await.expect("current url");
+    assert_eq!(
+        landed.fragment(),
+        Some(anchor.as_str()),
+        "the way back must name the row's anchor: {landed}"
+    );
+    assert!(
+        !landed.query().unwrap_or_default().contains("case="),
+        "the way back closes the detail: {landed}"
+    );
+    let edge = h
+        .wait_xpath(&format!("//tr[@id='{anchor}']/td[1]"))
+        .await
+        .css_value("box-shadow")
+        .await
+        .expect("read the row's edge");
+    assert!(
+        edge.contains("inset"),
+        "the row landed on must be marked as the one opened, not `{edge}` {}",
+        h.evidence("row-not-marked").await
+    );
 }

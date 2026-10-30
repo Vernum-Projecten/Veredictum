@@ -37,6 +37,7 @@ use crate::arazzo::source::{
     DeclaredParameter, Operation, OperationIndex, ParameterError, ParameterIn, ParameterIndex,
     SourceError, split_qualified,
 };
+use crate::arazzo::structure::SECTION_KEY;
 
 /// Every workflow of one `type: arazzo` source, by id, with whether it is a
 /// refusal workflow.
@@ -949,6 +950,7 @@ fn extension_keys(value: &Value, at: &mut Vec<String>, findings: &mut Vec<Findin
                         CONTROL_KEY => is_workflow(at),
                         CHECK_KEY => is_criterion(at),
                         DERIVE_KEY | PRINCIPAL_KEY | SCOPE_KEY => is_step(at),
+                        SECTION_KEY => matches!(at.as_slice(), [i] if i == "info"),
                         _ => false,
                     };
                     if !allowed {

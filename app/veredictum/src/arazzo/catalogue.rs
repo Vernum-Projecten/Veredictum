@@ -44,6 +44,9 @@ use crate::arazzo::platform;
 use crate::arazzo::principal::{self, Principal};
 use crate::arazzo::results::{Engine, Results, ServerIdentity, Skip, SkipReason, Why};
 use crate::arazzo::rows::{self, RowsError, rows_path};
+use crate::arazzo::structure::{
+    self, CHAPTERS_FILE, Chapters, Outline, Place, Placer, REPORTS_FILE, Reports, StructureError,
+};
 use crate::exec::transport::Transport;
 use crate::identity;
 use crate::party::TechProfile;
@@ -157,6 +160,9 @@ pub enum CatalogueError {
     /// The statement's `tech_profiles` is not a list of technology profiles.
     #[error("the statement's `tech_profiles` is not a list of technology profiles: {0}")]
     TechProfilesShape(String),
+    /// The reading structure does not load, or does not place a document.
+    #[error(transparent)]
+    Structure(#[from] StructureError),
 }
 
 /// What the party declares, which every document's plan reads.
@@ -186,6 +192,9 @@ pub struct Planned {
     pub document: ArazzoDocument,
     /// What the declarations decide about its workflows.
     pub plan: Plan,
+    /// Where each of its workflows sits in the reading structure, by
+    /// workflow id; empty when the catalogue declares no structure.
+    pub places: BTreeMap<String, Place>,
 }
 
 /// One document of the catalogue, found by its path.
@@ -534,6 +543,9 @@ pub struct Selection {
     claimed: Option<BTreeSet<String>>,
     versions: BTreeMap<SpecComponent, SpecVersion>,
     formats: Option<BTreeSet<FormatName>>,
+    chapters: Option<Chapters>,
+    reports: Option<Reports>,
+    folder_of: BTreeMap<String, String>,
 }
 
 impl Selection {
@@ -604,6 +616,10 @@ impl Selection {
         only: &[String],
     ) -> Result<Self, CatalogueError> {
         let mut paths = document_paths(root)?;
+        let folder_of: BTreeMap<String, String> = paths
+            .iter()
+            .map(|found| (found.id.clone(), found.capability.clone()))
+            .collect();
         let known: BTreeSet<&str> = paths.iter().map(|found| found.id.as_str()).collect();
         if let Some(unknown) = only.iter().find(|id| !known.contains(id.as_str())) {
             return Err(CatalogueError::UnknownDocument(unknown.clone()));
@@ -632,6 +648,18 @@ impl Selection {
             .unwrap_or_default();
         let versions = declared_versions(statement, &ranged)?;
         let formats = claimed_formats(statement)?;
+        let chapters_file = root.join(CHAPTERS_FILE);
+        let chapters = if chapters_file.is_file() {
+            Some(Chapters::load(&chapters_file)?)
+        } else {
+            None
+        };
+        let reports_file = root.join(REPORTS_FILE);
+        let reports = if reports_file.is_file() {
+            Some(Reports::load(&reports_file)?)
+        } else {
+            None
+        };
         Ok(Self {
             paths,
             capabilities,
@@ -639,6 +667,9 @@ impl Selection {
             claimed,
             versions,
             formats,
+            chapters,
+            reports,
+            folder_of,
         })
     }
 
@@ -653,6 +684,10 @@ impl Selection {
         declarations: &Declarations,
     ) -> Result<Vec<Planned>, CatalogueError> {
         let mut planned = Vec::new();
+        let mut structure = self
+            .chapters
+            .as_ref()
+            .map(|chapters| Placer::new(chapters, self.capabilities.as_ref(), repo_root));
         for found in &self.paths {
             let document = ArazzoDocument::load(&found.path)?;
             let plan = plan(
@@ -662,14 +697,44 @@ impl Selection {
                 self.choice(found),
                 repo_root,
             )?;
+            let places = match structure.as_mut() {
+                Some(placer) => placer.place(&document, &found.id, &found.capability)?,
+                None => BTreeMap::new(),
+            };
             planned.push(Planned {
                 name: found.id.clone(),
                 capability: found.capability.clone(),
                 document,
                 plan,
+                places,
             });
         }
         Ok(planned)
+    }
+
+    /// The reading structure the results of `planned` carry: the declared
+    /// chapters, every option with the arms the statement selects, every
+    /// recorded report, and where each planned case sits; `None` when the
+    /// catalogue declares no structure.
+    #[must_use]
+    pub fn outline(&self, planned: &[Planned]) -> Option<Outline> {
+        let chapters = self.chapters.as_ref()?;
+        let cases = planned
+            .iter()
+            .flat_map(|document| {
+                document.places.iter().map(|(workflow, place)| {
+                    (format!("{}/{workflow}", document.name), place.clone())
+                })
+            })
+            .collect();
+        Some(structure::outline(
+            chapters,
+            self.capabilities.as_ref(),
+            self.reports.as_ref(),
+            &self.folder_of,
+            &self.selected,
+            cases,
+        ))
     }
 }
 
@@ -689,6 +754,7 @@ fn results(
         server: Some(server),
         review: Vec::new(),
         rows,
+        outline: None,
     }
 }
 

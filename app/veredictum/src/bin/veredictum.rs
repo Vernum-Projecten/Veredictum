@@ -26,6 +26,7 @@
               diagnostics; only library crates are restricted to `tracing`"
 )]
 
+use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::LazyLock;
@@ -33,6 +34,7 @@ use std::sync::LazyLock;
 use clap::{Parser, Subcommand};
 
 use veredictum::arazzo::credential::{CredentialSource, Role};
+use veredictum::arazzo::terminal::{ColorChoice, ShowOptions, render, wants_color};
 use veredictum::bench::client::AuthKind;
 use veredictum::certificate::{HONESTY_LINE, Jwks, Outcome, verify};
 use veredictum::identity::OperatorIdentity;
@@ -40,7 +42,7 @@ use veredictum::party::version_line;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
 use veredictum::pipeline::assets::{performance_assets, schema_files, stress_overlay};
 use veredictum::pipeline::bench::{BenchRequest, compare_bench, describe_packs, run_bench};
-use veredictum::pipeline::export::export_results;
+use veredictum::pipeline::export::{export_results, show_results};
 use veredictum::pipeline::judgement::{JudgementRequest, judge};
 use veredictum::pipeline::measured::{
     MeasuredEvent, MeasuredRequest, ProbeRequest, StressRequest, SustainedWindow, run_aql_probe,
@@ -83,6 +85,8 @@ enum Command {
     /// file says `server: exclusive` runs in a final phase, after every other
     /// workflow, and a re-judgement replays in the same order. Every row is
     /// printed, and a failed or errored row with its four-part explanation.
+    /// The run ends with the view `show` prints, coloured only when standard
+    /// output is a terminal and `NO_COLOR` is unset or empty.
     ///
     /// The results record, under `server`, what the server stated through
     /// ITS-REST System OPTIONS: the run's own exchange when a workflow sent
@@ -513,6 +517,35 @@ enum Command {
         #[arg(long, env = "GITHUB_STEP_SUMMARY", hide_env_values = true)]
         step_summary: Option<PathBuf>,
     },
+    /// Show an Arazzo results document in the terminal: one line per chapter,
+    /// band and option, each with its counts and a bar.
+    ///
+    /// A result reads in two parts. BASE comes first, chapter by chapter and
+    /// band by band, in the order the catalogue declares. OPTIONS follows by
+    /// the same chapters and bands, one line per option naming its selected
+    /// arm and its kind (Recommended (SHOULD), Optional (MAY), or
+    /// `@SpecDiverge` for an option that exists only because the released text
+    /// is unclear), with the cases resting on TRIAL text in their band. A
+    /// closing note counts the cases tagged `@SpecDiverge` and links the
+    /// reports they are judged by. Every mark is a glyph as well
+    /// as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow),
+    /// ! advisory and ○ skipped (grey). An advisory row is a SHOULD the
+    /// server did not follow and is never shown as a failure.
+    ///
+    /// Exit status: `0` when the view was printed; `2` when the document
+    /// cannot be read.
+    Show {
+        /// The `results.json` the Arazzo evaluator wrote.
+        results: PathBuf,
+        /// Expand every failed and errored row with its four-part
+        /// explanation, then list the advisory rows apart.
+        #[arg(long)]
+        failed: bool,
+        /// When to colour the view. `auto` colours when standard output is a
+        /// terminal and `NO_COLOR` is unset or empty (<https://no-color.org/>).
+        #[arg(long, value_enum, default_value_t = ColorArg::Auto)]
+        color: ColorArg,
+    },
     /// Verify a conformance certificate offline against a JWK Set, and print
     /// what it states.
     ///
@@ -538,6 +571,38 @@ enum Command {
         #[arg(long)]
         jwks: PathBuf,
     },
+}
+
+/// When `show` colours its view.
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum ColorArg {
+    /// Colour on a terminal unless `NO_COLOR` is set.
+    Auto,
+    /// Always colour.
+    Always,
+    /// Never colour.
+    Never,
+}
+
+impl From<ColorArg> for ColorChoice {
+    fn from(arg: ColorArg) -> Self {
+        match arg {
+            ColorArg::Auto => Self::Auto,
+            ColorArg::Always => Self::Always,
+            ColorArg::Never => Self::Never,
+        }
+    }
+}
+
+/// The terminal view's options for `choice`, read against this process's
+/// standard output and environment.
+fn show_options(choice: ColorChoice, failed: bool) -> ShowOptions {
+    let color = wants_color(
+        choice,
+        std::io::stdout().is_terminal(),
+        std::env::var_os("NO_COLOR").as_deref(),
+    );
+    ShowOptions { color, failed }
 }
 
 /// Report a seam's failure and stop with the runner-error code.
@@ -734,6 +799,17 @@ fn main() -> ExitCode {
             stress,
         } => perf_assets_command(&root, &results, &out, summary.as_deref(), stress.as_deref()),
         Command::Verify { certificate, jwks } => verify_command(&certificate, &jwks),
+        Command::Show {
+            results,
+            failed,
+            color,
+        } => match show_results(&results, show_options(color.into(), failed)) {
+            Ok(view) => {
+                print!("{view}");
+                ExitCode::SUCCESS
+            }
+            Err(e) => fail(&e),
+        },
         Command::Verdicts {
             statement,
             results,
@@ -1010,12 +1086,17 @@ fn test_command(
     }
     let tally = outcome.tally();
     println!(
-        "{} row(s): {} passed, {} failed, {} errored, {} skipped",
-        tally.tests, tally.passed, tally.failed, tally.errored, tally.skipped
+        "{} row(s): {} passed, {} failed, {} advisory, {} errored, {} skipped",
+        tally.tests, tally.passed, tally.failed, tally.advisory, tally.errored, tally.skipped
     );
     for note in &outcome.results.review {
         println!("{note}");
     }
+    println!();
+    print!(
+        "{}",
+        render(&outcome.results, show_options(ColorChoice::Auto, false))
+    );
     if let Some(out) = out {
         let written = outcome.files().map_err(|e| fail(&e));
         if let Err(code) = written.and_then(|files| emit(out, &files)) {

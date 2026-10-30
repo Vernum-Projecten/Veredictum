@@ -211,20 +211,6 @@ options:
       section: About the ehr_id parameter
       quote: "The `ehr_id` parameter SHOULD be supplied by clients when executing single EHR queries and MAY be used by the underlying backend to perform routing, optimizations or similar."
       level: should
-  aql-top:
-    description: >-
-      Whether the service executes the deprecated TOP modifier. Release 1.1.0
-      deprecates TOP and announces its removal in a future major release, so a
-      service that declines it declares the other arm, which has no document.
-    arms:
-      aql-top-supported:
-        documents: [aqlc_top, aql_refused_top, aql_stored_top]
-      aql-top-declined:
-        documents: []
-    x-veredictum-cite:
-      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
-      section: TOP
-      quote: "The `TOP` will be removed in a future major release of AQL specification."
   aql-terminology:
     description: >-
       Whether the service resolves a TERMINOLOGY() call against an external
@@ -558,7 +544,7 @@ options:
       authentication-required:
         documents: [authentication_required]
       authentication-not-required:
-        documents: []
+        documents: [authentication_not_required]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: Authentication and authorization
@@ -917,18 +903,18 @@ documents:
 # change that adds workflows raises the floor in the same change.
 floors:
   admin: 17
-  composition: 203
+  composition: 207
   content: 361
   contribution: 69
-  definition: 32
+  definition: 33
   demographic: 359
   directory: 85
   ehr: 48
   ehr_status: 76
   item_tags: 71
   query: 194
-  security: 10
-  simplified_formats: 133
+  security: 11
+  simplified_formats: 137
   smart: 2
   system: 3
 # The capability folders verified only over the routes of the sources under

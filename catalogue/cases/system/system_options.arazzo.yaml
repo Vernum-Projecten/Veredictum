@@ -8,6 +8,7 @@ arazzo: 1.1.0
 info:
   title: System OPTIONS
   version: 0.1.0
+  x-veredictum-section: options
   description: >-
     The options and conformance information a service gives for OPTIONS on
     its API base path.

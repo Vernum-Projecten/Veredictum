@@ -7,6 +7,7 @@ arazzo: 1.1.0
 info:
   title: EHR_STATUS tags
   version: 0.1.0
+  x-veredictum-section: ehr-status-tags
   description: >-
     The ITEM_TAG lists of an EHR_STATUS version, addressed by its
     version_uid, and of the VERSIONED_EHR_STATUS container, addressed by its

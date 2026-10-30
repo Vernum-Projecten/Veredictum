@@ -6,6 +6,7 @@ arazzo: 1.1.0
 info:
   title: Demographic tags as XML
   version: 0.1.0
+  x-veredictum-section: item-tags
   description: >-
     The ITEM_TAG listing of the Demographic space asked for as canonical XML,
     which no published XSD declares, so the service refuses it whatever

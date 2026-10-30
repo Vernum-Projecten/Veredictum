@@ -11,7 +11,7 @@
 
 use std::path::Path;
 
-use veredictum_console::catalogue_api::{InstrumentView, read};
+use veredictum_console::catalogue_api::{ArmPlace, CaseStanding, InstrumentView, OptionKind, read};
 use veredictum_console::state::ConsoleState;
 
 /// The repository root, two levels above this crate (#55).
@@ -275,12 +275,38 @@ fn a_case_detail_is_the_workflow() -> Result<(), Box<dyn std::error::Error>> {
     );
     assert!(!detail.description.is_empty());
     assert!(
-        detail
-            .citation
-            .as_deref()
-            .is_some_and(|citation| citation.contains("409_EHR_with_id.yaml")),
+        detail.citation.as_ref().is_some_and(|citation| citation
+            .source
+            .contains("409_EHR_with_id.yaml")
+            && !citation.section.is_empty()
+            && !citation.quote.is_empty()),
         "every expectation cites the section it comes from: {:?}",
         detail.citation
+    );
+    // The vendored ITS-REST tree records its upstream, so the source links to
+    // the released file at the pinned commit.
+    assert!(
+        detail
+            .citation
+            .as_ref()
+            .and_then(|c| c.link.as_deref())
+            .is_some_and(|link| {
+                link.starts_with("https://github.com/openEHR/specifications-ITS-REST/blob/")
+                    && link.ends_with("/409_EHR_with_id.yaml")
+            }),
+        "the citation links upstream: {:?}",
+        detail.citation
+    );
+    assert_eq!(detail.chapter_key.as_deref(), Some("ehr"));
+    assert_eq!(detail.chapter_title.as_deref(), Some("EHR"));
+    assert_eq!(detail.band_title.as_deref(), Some("EHR"));
+    assert_eq!(
+        detail.standing,
+        CaseStanding::Base {
+            section: Some(String::from("create-and-read")),
+            title: Some(String::from("Create and read")),
+        },
+        "the case is BASE under its declared section"
     );
     assert!(
         detail.steps.len() >= 2,
@@ -311,6 +337,21 @@ fn an_option_gated_case_names_its_arm() -> Result<(), Box<dyn std::error::Error>
     assert_eq!(
         detail.option.as_deref(),
         Some("ehr-xml-read: ehr-xml-supported")
+    );
+    assert_eq!(
+        detail.standing,
+        CaseStanding::Option {
+            arms: vec![ArmPlace {
+                option: String::from("ehr-xml-read"),
+                arm: String::from("ehr-xml-supported"),
+                kind: Some(OptionKind {
+                    label: String::from("Optional (MAY)"),
+                    diverges: false,
+                }),
+                report: None,
+            }],
+        },
+        "the case sits on its arm, labelled with the kind the structure file places the option in"
     );
     Ok(())
 }
@@ -396,4 +437,341 @@ fn the_startup_read_falls_back_to_the_documented_mounts() {
             assert_eq!(summary.root, "catalogue");
         }
     }
+}
+/// Every section counts its rows, and every row is a summarised workflow of
+/// the document it names.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+fn assert_sections_list_workflows(
+    sections: &[veredictum_console::catalogue_api::SectionBlock],
+) -> Result<(), Box<dyn std::error::Error>> {
+    for section in sections {
+        assert_eq!(
+            section.cases,
+            u64::try_from(section.rows.len())?,
+            "a section's count is its rows"
+        );
+        for row in &section.rows {
+            assert!(
+                row.id.starts_with(&format!("{}/", row.band)),
+                "{} is not a workflow of {}",
+                row.id,
+                row.band
+            );
+            assert!(!row.summary.is_empty(), "{} has no summary", row.id);
+        }
+    }
+    Ok(())
+}
+
+/// A chapter page groups `composition` into its declared BASE sections, in
+/// declared order, then the options of `capabilities.yaml` touching it; every
+/// document of the folder is listed exactly once (#868).
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn a_chapter_page_groups_composition_into_base_and_options()
+-> Result<(), Box<dyn std::error::Error>> {
+    let state = committed_state();
+    let page = read::chapter_page(&state, "composition", "")?;
+    assert_eq!(page.title.as_deref(), Some("COMPOSITION"));
+    assert_eq!(page.chapter.as_deref(), Some("EHR"));
+    let titles: Vec<&str> = page.sections.iter().map(|s| s.title.as_str()).collect();
+    assert_eq!(
+        titles.first().copied(),
+        Some("Create"),
+        "BASE opens with the first declared section: {titles:?}"
+    );
+    let declared = [
+        "Create",
+        "Read",
+        "Update",
+        "Delete",
+        "Versioning and history",
+        "Refusals",
+    ];
+    let mut order = titles.iter().map(|t| declared.iter().position(|d| d == t));
+    assert!(
+        order.all(|at| at.is_some()),
+        "only declared sections: {titles:?}"
+    );
+    let positions: Vec<usize> = titles
+        .iter()
+        .filter_map(|t| declared.iter().position(|d| d == t))
+        .collect();
+    assert!(
+        positions.windows(2).all(|w| w.first() < w.get(1)),
+        "sections keep declared order: {titles:?}"
+    );
+    let create = page.sections.first().ok_or("a Create section")?;
+    assert!(
+        create.rows.iter().any(|r| r.band == "composition_create"),
+        "composition_create is a Create document"
+    );
+    assert_sections_list_workflows(&page.sections)?;
+    assert!(
+        page.unsectioned.is_empty(),
+        "every BASE document names a section"
+    );
+
+    let xml = page
+        .options
+        .iter()
+        .find(|o| o.option == "composition-xml-read")
+        .ok_or("the composition-xml-read option touches composition")?;
+    assert!(!xml.description.is_empty());
+    assert!(xml.kind.is_some() && xml.theme.is_some());
+    let arms: Vec<&str> = xml.arms.iter().map(|a| a.arm.as_str()).collect();
+    assert_eq!(
+        arms,
+        ["composition-xml-supported", "composition-xml-unsupported"]
+    );
+    assert!(
+        xml.arms
+            .iter()
+            .flat_map(|a| a.rows.iter())
+            .any(|r| r.band == "composition_read_xml")
+    );
+
+    let listing = state
+        .catalogue
+        .as_ref()
+        .as_ref()
+        .map_err(|e| format!("the committed catalogue must load: {e}"))?;
+    let folder: Vec<&str> = listing
+        .documents
+        .iter()
+        .filter(|d| d.capability == "composition" && !d.workflows.is_empty())
+        .map(|d| d.id.as_str())
+        .collect();
+    let in_options: Vec<&str> = page
+        .options
+        .iter()
+        .flat_map(|o| o.arms.iter())
+        .flat_map(|a| a.rows.iter())
+        .map(|r| r.band.as_str())
+        .collect();
+    for document in &folder {
+        // The sections a document's cases are listed under: one at most.
+        let listed = page
+            .sections
+            .iter()
+            .filter(|s| s.rows.iter().any(|r| r.band == *document))
+            .count();
+        assert!(
+            listed + usize::from(in_options.contains(document)) >= 1,
+            "{document} is listed nowhere"
+        );
+        assert!(listed <= 1, "{document} is listed twice under BASE");
+        assert!(
+            !(listed == 1 && in_options.contains(document)),
+            "{document} is both BASE and OPTION"
+        );
+    }
+    Ok(())
+}
+
+/// The filter narrows every group of a chapter page alike, and a content
+/// case carries the formalism its setup uploads (#870).
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn a_chapter_page_filters_across_groups_and_badges_content()
+-> Result<(), Box<dyn std::error::Error>> {
+    let state = committed_state();
+    let all = read::chapter_page(&state, "composition", "")?;
+    let narrowed = read::chapter_page(&state, "composition", "xml")?;
+    assert!(narrowed.cases() > 0 && narrowed.cases() < all.cases());
+    let ids = narrowed.sections.iter().flat_map(|s| s.rows.iter()).chain(
+        narrowed
+            .options
+            .iter()
+            .flat_map(|o| o.arms.iter())
+            .flat_map(|a| a.rows.iter()),
+    );
+    for case in ids {
+        assert!(
+            case.id.contains("xml"),
+            "{} does not carry the filter",
+            case.id
+        );
+    }
+
+    let content = read::chapter_page(&state, "content", "")?;
+    let badges: Vec<Option<&str>> = content
+        .sections
+        .iter()
+        .flat_map(|s| s.rows.iter())
+        .map(|c| c.formalism.as_deref())
+        .collect();
+    assert!(!badges.is_empty(), "content carries BASE cases");
+    assert!(
+        badges.iter().all(|b| *b == Some("ADL 1.4")),
+        "every content case uploads an ADL 1.4 template"
+    );
+    Ok(())
+}
+
+/// A chapter page lists every option in one group, Recommended, Optional,
+/// then the spec-boundary ones naming their report, and a BASE case whose
+/// citation names a report carries it.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn a_chapter_page_labels_each_option_and_marks_reported_cases()
+-> Result<(), Box<dyn std::error::Error>> {
+    let state = committed_state();
+    let page = read::chapter_page(&state, "ehr_status", "")?;
+    let flat = page
+        .options
+        .iter()
+        .find(|o| o.option == "ehr-status-flat-write")
+        .ok_or("the ehr-status-flat-write option touches ehr_status")?;
+    assert_eq!(
+        (flat.kind.as_ref().map(|k| k.diverges), flat.report),
+        (Some(true), Some(352)),
+        "the option exists only because the released text diverges"
+    );
+    let rank = |kind: Option<&OptionKind>| match kind {
+        Some(k) if k.diverges => 2,
+        Some(k) if k.label == "Recommended (SHOULD)" => 0,
+        Some(k) if k.label == "Optional (MAY)" => 1,
+        _ => 3,
+    };
+    let ranks: Vec<u8> = page.options.iter().map(|o| rank(o.kind.as_ref())).collect();
+    assert!(
+        ranks.windows(2).all(|w| w.first() <= w.get(1)),
+        "Recommended, Optional, then the spec-boundary ones: {ranks:?}"
+    );
+    assert!(
+        flat.arms
+            .iter()
+            .flat_map(|a| a.rows.iter())
+            .all(|r| r.reports.contains(&352)),
+        "every case of the option rests on its report, as the engine places it"
+    );
+    let reported: Vec<(&str, &[u64])> = page
+        .sections
+        .iter()
+        .flat_map(|s| s.rows.iter())
+        .filter(|r| !r.reports.is_empty())
+        .map(|r| (r.id.as_str(), r.reports.as_slice()))
+        .collect();
+    assert!(
+        reported.contains(&(
+            "ehr_status_versioned/get_versioned_ehr_status-revision_history",
+            &[661][..]
+        )),
+        "the revision-history case rests on #661: {reported:?}"
+    );
+    let detail = read::case_detail(
+        &state,
+        "ehr_status_versioned/get_versioned_ehr_status-revision_history",
+    )?
+    .ok_or("the committed catalogue carries the case")?;
+    assert_eq!(detail.reports, vec![661]);
+    Ok(())
+}
+
+/// One chapter of the home as `(key, title, [(folder, title)])`.
+type HomeShape<'a> = (&'a str, &'a str, Vec<(&'a str, &'a str)>);
+
+/// The catalogue home reads by chapter: the chapters and their folders in the
+/// order `chapters.yaml` declares, each folder under its declared title, and
+/// the counts partitioning the listing into BASE and option cases (#868).
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn the_catalogue_home_groups_folders_by_chapter() -> Result<(), Box<dyn std::error::Error>> {
+    use veredictum::arazzo::structure::{CHAPTERS_FILE, Chapters};
+
+    let state = committed_state();
+    let groups = read::catalogue_home(&state)?;
+    let declared = Chapters::load(&state.root.join(CHAPTERS_FILE))?;
+    let listing = state
+        .catalogue
+        .as_ref()
+        .as_ref()
+        .map_err(|e| format!("the committed catalogue must load: {e}"))?;
+    let listed = listing.capabilities();
+
+    let expected: Vec<HomeShape<'_>> = declared
+        .chapters
+        .iter()
+        .map(|chapter| {
+            let folders: Vec<(&str, &str)> = chapter
+                .folders
+                .iter()
+                .filter(|f| listed.contains_key(f.folder.as_str()))
+                .map(|f| (f.folder.as_str(), f.title.as_str()))
+                .collect();
+            (chapter.chapter.as_str(), chapter.title.as_str(), folders)
+        })
+        .filter(|(_, _, folders)| !folders.is_empty())
+        .collect();
+    let actual: Vec<HomeShape<'_>> = groups
+        .iter()
+        .map(|group| {
+            let folders = group
+                .bands
+                .iter()
+                .map(|b| (b.folder.as_str(), b.title.as_str()))
+                .collect();
+            (group.key.as_str(), group.title.as_str(), folders)
+        })
+        .collect();
+    assert_eq!(
+        actual, expected,
+        "the home keeps the declared chapter and folder order and titles, and every committed folder is declared"
+    );
+    assert_eq!(
+        groups.first().map(|g| g.key.as_str()),
+        Some("ehr"),
+        "the home opens with the first declared chapter"
+    );
+
+    let mut total = 0_u64;
+    for group in &groups {
+        let sum: u64 = group.bands.iter().map(|b| b.cases).sum();
+        assert_eq!(
+            group.cases, sum,
+            "{}: a chapter counts its folders",
+            group.key
+        );
+        for band in &group.bands {
+            assert_eq!(
+                band.base + band.options,
+                band.cases,
+                "{}: BASE and option cases partition the folder",
+                band.folder
+            );
+        }
+        total += group.cases;
+    }
+    assert_eq!(
+        total,
+        u64::try_from(listing.workflows().count())?,
+        "the chapters partition the listed workflows"
+    );
+    let composition = groups
+        .iter()
+        .flat_map(|g| g.bands.iter())
+        .find(|b| b.folder == "composition")
+        .ok_or("composition is a committed folder")?;
+    assert_eq!(composition.title, "COMPOSITION");
+    assert!(
+        composition.base > 0 && composition.options > 0,
+        "composition carries BASE cases and option cases: {composition:?}"
+    );
+    Ok(())
 }

@@ -1739,6 +1739,7 @@ fn arazzo_why_def() -> Value {
 /// `arazzo-results.schema.json` — the results of one Arazzo document's run,
 /// or of a catalogue run over every document.
 #[must_use]
+#[expect(clippy::too_many_lines, reason = "one literal JSON-Schema document")]
 pub fn arazzo_results_schema() -> Value {
     json!({
         "$schema": DRAFT,
@@ -1820,6 +1821,7 @@ pub fn arazzo_results_schema() -> Value {
                 }
             },
             "server": arazzo_server_def(),
+            "outline": arazzo_outline_def(),
             "review": {
                 "type": "array",
                 "minItems": 1,
@@ -1835,6 +1837,159 @@ pub fn arazzo_results_schema() -> Value {
                         },
                         "declared": { "type": "string", "minLength": 1, "description": "The value the statement declares." },
                         "stated": { "type": "string", "minLength": 1, "description": "The value the server stated." }
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// The `outline` member of the Arazzo results: the reading structure every
+/// view groups the rows by, read from `catalogue/chapters.yaml`,
+/// `capabilities.yaml` and `catalogue/reports.yaml` when the run was planned.
+#[expect(clippy::too_many_lines, reason = "one literal JSON-Schema document")]
+fn arazzo_outline_def() -> Value {
+    use crate::arazzo::structure::{Formalism, ReportState, Theme, Tier};
+    let text = || json!({ "type": "string", "minLength": 1 });
+    let key = || json!({ "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" });
+    let report = || json!({ "type": "integer", "minimum": 1 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["chapters", "options", "cases"],
+        "description": "The reading structure the catalogue declares, so every view groups the rows without reading the catalogue: the chapters with their capability folders and each folder's BASE sections in reading order, every option with its theme, its tier and the arms the statement selected, the upstream reports the catalogue cites, and where each case sits. A case is BASE when no option arm names its document, and OPTION otherwise. No openEHR spec governs the structure; it is the instrument's own design.",
+        "properties": {
+            "chapters": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["chapter", "title", "folders"],
+                    "properties": {
+                        "chapter": key(),
+                        "title": text(),
+                        "folders": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": ["folder", "title", "sections"],
+                                "properties": {
+                                    "folder": text(),
+                                    "title": text(),
+                                    "formalism": { "type": "boolean" },
+                                    "sections": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": ["section", "title"],
+                                            "properties": { "section": key(), "title": text() }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "options": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["option", "description", "theme", "tier", "folders", "arms"],
+                    "properties": {
+                        "option": text(),
+                        "description": text(),
+                        "theme": { "enum": tokens(Theme::ALL) },
+                        "tier": {
+                            "enum": tokens(Tier::ALL),
+                            "description": "`recommended`: support is a SHOULD. `options`: a MAY, or behaviour the release leaves to the implementation. `spec-boundary`: an option only because the released text is defective, recorded in the upstream report `report` names."
+                        },
+                        "report": report(),
+                        "folders": { "type": "array", "items": text() },
+                        "arms": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": ["arm", "selected", "documents"],
+                                "properties": {
+                                    "arm": text(),
+                                    "selected": { "type": "boolean" },
+                                    "documents": { "type": "array", "items": text() }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "reports": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["report", "title", "state"],
+                    "properties": {
+                        "report": report(),
+                        "title": text(),
+                        "state": { "enum": tokens(ReportState::ALL) }
+                    }
+                }
+            },
+            "cases": {
+                "type": "object",
+                "propertyNames": { "pattern": crate::arazzo::gates::published::CASE_ID_PATTERN },
+                "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["chapter", "folder", "standing"],
+                    "properties": {
+                        "chapter": key(),
+                        "folder": text(),
+                        "standing": {
+                            "oneOf": [
+                                {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["kind", "section"],
+                                    "properties": { "kind": { "const": "base" }, "section": key() }
+                                },
+                                {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["kind", "arms"],
+                                    "properties": {
+                                        "kind": { "const": "option" },
+                                        "arms": {
+                                            "type": "array",
+                                            "minItems": 1,
+                                            "items": {
+                                                "type": "object",
+                                                "additionalProperties": false,
+                                                "required": ["option", "arm"],
+                                                "properties": { "option": text(), "arm": text() }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "trial": {
+                            "const": true,
+                            "description": "Present when a citation of the case rests on a document the vendored release marks TRIAL; every view reads such a case with the options."
+                        },
+                        "reports": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": report(),
+                            "description": "The upstream reports the case's citations, or the option arm it runs on, name."
+                        },
+                        "formalism": {
+                            "enum": tokens(Formalism::ALL),
+                            "description": "The template formalism the case's setups upload, on a folder that badges it."
+                        }
                     }
                 }
             }
@@ -2141,6 +2296,14 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
         (
             "arazzo-capabilities.schema.json",
             crate::arazzo::gates::published::capabilities_schema(),
+        ),
+        (
+            "arazzo-chapters.schema.json",
+            crate::arazzo::gates::published::chapters_schema(),
+        ),
+        (
+            "arazzo-reports.schema.json",
+            crate::arazzo::gates::published::reports_schema(),
         ),
         ("arazzo-results.schema.json", arazzo_results_schema()),
         ("certificate.schema.json", certificate_schema()),

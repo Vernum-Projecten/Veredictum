@@ -9,6 +9,7 @@ arazzo: 1.1.0
 info:
   title: COMPOSITION tags
   version: 0.1.0
+  x-veredictum-section: composition-tags
   description: >-
     The ITEM_TAG list associated with a COMPOSITION version, addressed by its
     version_uid: reading it, replacing it, deleting by key, the identity of a

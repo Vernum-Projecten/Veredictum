@@ -9,6 +9,7 @@ arazzo: "1.1.0"
 info:
   title: Stored AQL execution
   version: "0.1.0"
+  x-veredictum-section: stored-queries
   description: >-
     Executing a stored AQL query by name and by version, with GET and POST.
 sourceDescriptions:

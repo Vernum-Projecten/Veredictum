@@ -9,6 +9,7 @@ arazzo: 1.1.0
 info:
   title: VERSIONED_COMPOSITION read refusals
   version: 0.1.0
+  x-veredictum-section: refusals
   description: >-
     The four VERSIONED_COMPOSITION reads addressed to an ehr_id no EHR
     carries or to a versioned_object_uid no container carries, answered

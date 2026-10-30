@@ -58,6 +58,14 @@ given. Use it to check that a runner fix changes the verdict on the recorded
 exchange, and nothing else: a replay that does not line up with the recording
 is refused rather than judged.
 
+The refusal also covers the verification pack under `verification-pack/arazzo/`
+(#877). Its recordings are slices cut from runs, one or two workflows each, so
+they line up with no document as a whole and `test --rejudge` refuses them. The
+pack is re-judged by its own test, `cargo nextest run -p veredictum arazzo_pack`,
+which plans every workflow outside a slice as skipped and requires every
+adjudicated verdict back. Use the CLI on a whole run's recording, never on a
+pack slice.
+
 The recording carries response bodies verbatim, so it is operator-controlled
 output and belongs where the run's own record is stored, never in a shared
 log. Credentials are never recorded (`[not recorded]` stands in for every

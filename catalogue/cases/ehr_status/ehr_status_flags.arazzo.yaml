@@ -7,6 +7,7 @@ arazzo: 1.1.0
 info:
   title: EHR_STATUS flags
   version: 0.1.0
+  x-veredictum-section: flags
   description: >-
     Clearing and setting the is_queryable and is_modifiable flags of an
     EHR's EHR_STATUS with a conditional update, and reading the flags back.

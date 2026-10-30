@@ -1,0 +1,97 @@
+---
+source: app/veredictum/tests/it/results_export.rs
+assertion_line: 741
+expression: view
+---
+Veredictum results: catalogue
+veredictum 0.1.7 (pre-approval: not yet approved by the openEHR SEC), driven against http://sut/ehrbase/rest/openehr/v1.
+
+✓ passed  ✕ failed  ? errored  ! advisory  ○ skipped. An advisory row is a SHOULD the server did not follow and never counts against it.
+
+Every row                                   ███████████▓▓▓▓▓▓▓▒▒░░··  ✓   5  ✕   3  ?   1  !   1  ○   1
+
+BASE
+  Every BASE case                           ████████████▓▓▓▓▓▓▓▓░░░░  ✓   3  ✕   2  ?   0  !   1  ○   0
+  EHR                                       ████████████▓▓▓▓▓▓▓▓░░░░  ✓   3  ✕   2  ?   0  !   1  ○   0
+    COMPOSITION                             ████████████▓▓▓▓▓▓░░░░░░  ✓   2  ✕   1  ?   0  !   1  ○   0
+    Semantic validation                     ████████████▓▓▓▓▓▓▓▓▓▓▓▓  ✓   1  ✕   1  ?   0  !   0  ○   0
+    DIRECTORY                               no cases
+
+OPTIONS
+  Every option case                         ██████▓▓▓▓▓▓▒▒▒▒▒▒······  ✓   1  ✕   1  ?   1  !   0  ○   1
+  EHR                                       ██████▓▓▓▓▓▓▒▒▒▒▒▒······  ✓   1  ✕   1  ?   1  !   0  ○   1
+    COMPOSITION                             ██████▓▓▓▓▓▓▒▒▒▒▒▒······  ✓   1  ✕   1  ?   1  !   0  ○   1
+      etag-sent                             selected, nothing to run
+        Recommended (SHOULD)
+      composition-xml-read                  ████████████████████████  ✓   1  ✕   0  ?   0  !   0  ○   0
+        arm xml-supported (selected) · Optional (MAY)
+      flat-format                           not selected
+        Optional (MAY)
+      ehr-status-flat                       ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
+        arm flat-served (selected) · @SpecDiverge
+      TRIAL text                            ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ✓   0  ✕   1  ?   0  !   0  ○   0
+        ✕ query/stored: 1 failed [TRIAL]
+
+Unplaced
+  Every unplaced case                       ████████████████████████  ✓   1  ✕   0  ?   0  !   0  ○   0
+
+Spec divergence: 2 case(s) rest on released text that is unclear or
+contradictory, and are tagged @SpecDiverge. Until the specification resolves
+it, Veredictum judges them as the linked upstream reports describe: #42, #352.
+
+Failed and errored rows
+
+✕ FAILED   composition/create   step create [report #42]
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         "The server refuses it."
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received status 201
+Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
+Whose    the server: a failed row counts against the claimed capability
+         the cited text has a known spec gap: upstream report #42
+
+✕ FAILED   query/stored   step validate [TRIAL]
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         "The server refuses it."
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received status 201
+Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
+Whose    the server: a failed row counts against the claimed capability
+
+✕ FAILED   content/adl2_cardinality   step commit [ADL 2]
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         "The server refuses it."
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received status 201
+Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
+Whose    the server: a failed row counts against the claimed capability
+
+? ERRORED  ehr_status_flat/read   step read [report #352]
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         "EHR_STATUS has no flat form."
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received the body did not parse
+Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
+Whose    the instrument could not judge: this row does not count against the vendor
+         the cited text has a known spec gap: upstream report #352
+
+Advisory rows
+
+ADVISORY: a SHOULD the server did not follow; this row never counts against the server.
+! FAILED   composition/read   step read
+What     Create an EHR with the same ehr_id again.
+Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
+         "The server refuses it."
+         https://example.org/409_EHR_with_id.yaml
+Expected status 409
+Received status 201
+Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
+Whose    advisory: the server did not follow a SHOULD; this row never counts against a capability

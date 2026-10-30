@@ -5,6 +5,7 @@ arazzo: "1.1.0"
 info:
   title: AQL execution
   version: "0.1.0"
+  x-veredictum-section: ad-hoc-aql-execution
   description: >-
     The ad-hoc AQL GET and POST: offset and fetch, an EHR with no
     COMPOSITION, and the RESULT_SET schema, Content-Type, ETag and Location of

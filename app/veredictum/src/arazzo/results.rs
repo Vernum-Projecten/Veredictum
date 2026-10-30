@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::arazzo::cite::Citation;
 use crate::arazzo::rows::Row;
+use crate::arazzo::structure::Outline;
 use crate::identity::IdentityRead;
 use crate::party::InstrumentStatus;
 
@@ -258,6 +259,10 @@ pub struct Results {
     pub review: Vec<ReviewNote>,
     /// Every row, in document order.
     pub rows: Vec<ResultRow>,
+    /// The reading structure the catalogue declares, with where each case
+    /// sits; absent when the catalogue declares none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outline: Option<Outline>,
 }
 
 impl Results {

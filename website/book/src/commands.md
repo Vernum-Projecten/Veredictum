@@ -37,7 +37,7 @@ are writing your own catalogue or your own harness.
 ```text
 Drive the Arazzo catalogue against a server under test, or re-judge the recording of an earlier run, and write `results.json` and the HAR recording.
 
-The whole catalogue is gated first, as `validate` gates it, and nothing runs while the gate has a finding. Every document under `cases/` runs, in path order, except the shared setups under `cases/_setup/`, which run only where a case names them in `dependsOn`. A workflow whose rows file says `server: exclusive` runs in a final phase, after every other workflow, and a re-judgement replays in the same order. Every row is printed, and a failed or errored row with its four-part explanation.
+The whole catalogue is gated first, as `validate` gates it, and nothing runs while the gate has a finding. Every document under `cases/` runs, in path order, except the shared setups under `cases/_setup/`, which run only where a case names them in `dependsOn`. A workflow whose rows file says `server: exclusive` runs in a final phase, after every other workflow, and a re-judgement replays in the same order. Every row is printed, and a failed or errored row with its four-part explanation. The run ends with the view `show` prints, coloured only when standard output is a terminal and `NO_COLOR` is unset or empty.
 
 The results record, under `server`, what the server stated through ITS-REST System OPTIONS: the run's own exchange when a workflow sent one, otherwise one read after the catalogue ran, which the recording keeps, so a re-judgement never asks the server. A member the server did not state stays absent. When the statement declares `spec_versions.its_rest` and the server states a different `restapi_specs_version`, the results carry a `review` note and the run prints it; the note changes no row and no exit status.
 
@@ -393,6 +393,17 @@ its end and a format the document never sends in `Accept` or `Content-Type`.
 A capability document that sends `application/json`, itself or through a
 setup it names in `dependsOn`, and does not state `canonical-json` is refused
 too.
+
+`chapters.yaml` is the reading structure every view of a result follows: it
+places each capability folder in one chapter and declares each folder's BASE
+sections. A document no option arm names is BASE and names its section with
+`x-veredictum-section` on its `info`; a document an arm names is OPTION and
+names none. A folder in no chapter or in two, a BASE document with no section
+or an unknown one, a section no document uses, an OPTION document with a
+section, an option with no theme and tier, a spec-boundary option whose
+citation names no report, and a `reports.yaml` out of step with the reports
+the citations name are refused (`arazzo-structure`). A citation into a
+document the release marks RETIRED is refused (`arazzo-citation`).
 
 Supplying `--statement` adds the static review of that one declaration: it is
 held to the published statement schema, which requires at least one claimed
@@ -918,19 +929,62 @@ carries a clock reading the results document does not carry.
 |---|---|---|
 | passed | a bare `<testcase>` | `passed` |
 | failed | `<failure>` | `failed` |
+| advisory | `<system-out>`, no `<failure>` | `other`, with `rawStatus: advisory` |
 | errored | `<error>` | `other`, with `rawStatus: errored` |
 | skipped | `<skipped>` | `skipped` |
+
+An advisory row is a SHOULD the server did not follow, which never counts
+against the server, so no view counts it as failed and a CI that fails a job
+on a failed test does not fail it on one. Its JUnit `<testcase>` carries the
+four-part explanation in `<system-out>`, opened by a line that says it is
+advisory, and no `failures` count includes it. In CTRF it is `other`, and
+`summary.failed` excludes it.
 
 A workflow is a JUnit `<testsuite>` and a row is a `<testcase>` named
 `<case> row <n>`. The text of a `<failure>` or `<error>` is the row's
 four-part explanation, its `message` is a one-line summary, and its `type`
-says whose problem the row is (`server`, `advisory` or `instrument`). A
+says whose problem the row is (`server` or `instrument`). A
 `<skipped>` carries the skip reason and the citation that makes the case not
-apply. In CTRF, a red row's `message` is the same four-part explanation, and
-each test's `extra` carries the case id, the row, the skip reason, the
-citation and, where the citation names one, the link to its upstream report.
-The CTRF document validates against the schema the CTRF project publishes for
-`specVersion` 0.2.0.
+apply. A suite whose case the results place carries `<properties>` naming the
+part, chapter, band, capability, section or option and arm, formalism, TRIAL
+mark and upstream reports, each property named `eu.veredictum.<name>`. Every
+`time` is `0`, because the results document carries no timing.
+
+JUnit XML has no single owner, so the view is held to the two schemas the tools
+that read it publish: the document to the Jenkins xUnit plugin's `junit-10.xsd`,
+which defines the `<testsuites>` root, and each `<testsuite>` to Apache Maven
+Surefire's test report schema. Both are vendored, and a CI gate validates the
+pinned views against them with `xmllint`.
+
+In CTRF, every test has `type` `conformance`, a `suite` path of the document
+then the part, chapter, band and section or option it is read under, and
+`labels` naming where it sits. A red row's `message` is the same four-part
+explanation. Everything CTRF does not define sits in `extra` under the one
+namespaced key `eu.veredictum`, as CTRF §4.6.1 asks: the case id, the row, the
+skip reason, the citation and, where the citation names one, the link to its
+upstream report. The CTRF document validates against the schema the CTRF
+project publishes for `specVersion` 0.2.0, its latest release.
+
+**What the Markdown summary holds.** It is written for a person reading it on
+GitHub, in two parts. A table names the server and the instrument, and a
+summary table counts the rows of BASE and OPTIONS. `## BASE` follows chapter by
+chapter, each chapter a table of its bands and each band a table of its
+sections. `## OPTIONS` follows the same chapters and bands, each band a table
+of its options with their kind (Recommended (SHOULD), Optional (MAY), or
+`@SpecDiverge` for an option that exists only because the released text is
+unclear) and the
+arm the statement selected, and a collapsed note on what each option decides.
+The cases resting on TRIAL text sit in their band under OPTIONS. Passed rows
+are only counted. Each failed, advisory or errored row is a collapsed block
+whose summary names the outcome, the case and where it sits; opening it shows
+the step, what was checked, expected against received, the exchange, whose
+problem it is and the row's inputs as a table, with the cited sentence quoted
+below it. The advisory rows follow with their citations, and the skipped rows
+counted by reason with the full list collapsed. A case resting on text an
+upstream report records as unclear or contradictory is tagged `@SpecDiverge`
+where it appears, and a closing note counts those cases and links the reports
+they are judged by. JUnit carries the tag as the `eu.veredictum.tag` property
+and CTRF in the test's standard `tags`.
 
 **Where the Markdown summary goes.** GitHub Actions sets
 `GITHUB_STEP_SUMMARY` in every job step, and `export` appends the summary to
@@ -963,6 +1017,78 @@ The JUnit file is read by GitLab (`artifacts:reports:junit`), Jenkins (the
 JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
 server's response bodies verbatim, so it belongs where the operator keeps the
 run, never in a public artifact.
+
+## show
+
+```text
+Show an Arazzo results document in the terminal: one line per chapter, band and option, each with its counts and a bar.
+
+A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged `@SpecDiverge` and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! advisory and ○ skipped (grey). An advisory row is a SHOULD the server did not follow and is never shown as a failure.
+
+Exit status: `0` when the view was printed; `2` when the document cannot be read.
+
+Usage: veredictum show [OPTIONS] <RESULTS>
+
+Arguments:
+  <RESULTS>
+          The `results.json` the Arazzo evaluator wrote
+
+Options:
+      --failed
+          Expand every failed and errored row with its four-part explanation, then list the advisory rows apart
+
+      --color <COLOR>
+          When to colour the view. `auto` colours when standard output is a terminal and `NO_COLOR` is unset or empty (<https://no-color.org/>)
+
+          Possible values:
+          - auto:   Colour on a terminal unless `NO_COLOR` is set
+          - always: Always colour
+          - never:  Never colour
+          
+          [default: auto]
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+`show` reads the `results.json` the Arazzo evaluator writes and prints it in
+the terminal, so a result can be read without exporting it first.
+[`test`](#test) prints the same view when a run finishes.
+
+Each line is one group of rows, with a bar of 24 cells and the count of each
+mark. The bar gives every mark that has a row at least one cell, so a single
+failure among a thousand passes still shows. The cells differ in shape as well
+as colour: `█` passed, `▓` failed, `▒` errored, `░` advisory, `·` skipped.
+
+```text
+BASE
+  Every BASE case                           ████████████▓▓▓▓▓▓▓▓░░░░  ✓   3  ✕   2  ?   0  !   1  ○   0
+  EHR                                       ████████████▓▓▓▓▓▓▓▓░░░░  ✓   3  ✕   2  ?   0  !   1  ○   0
+    COMPOSITION                             ████████████▓▓▓▓▓▓░░░░░░  ✓   2  ✕   1  ?   0  !   1  ○   0
+    DIRECTORY                               no cases
+```
+
+A result reads in two parts, the ones every view uses. BASE lists each chapter
+and band in the order the catalogue declares. OPTIONS lists the same chapters
+and bands, one line per option with the arm the statement selected and its
+kind: Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option
+that exists only because the released text is unclear or contradictory. A
+closing note counts the cases tagged `@SpecDiverge` and names the upstream
+reports they are judged by.
+An option with no arm selected is listed once and its rows count nowhere. The
+cases whose citations rest on text the release marks TRIAL are listed in their
+band under OPTIONS, never in a BASE count. Report numbers come from the snapshot
+the catalogue commits; nothing is fetched while the view is printed.
+
+An advisory row is a SHOULD the server did not follow. It is counted apart
+from the failed rows, and `--failed` lists it under its own heading after the
+failed and errored rows, never among them.
+
+**Colour.** With `--color auto`, the default, the view is coloured only when
+standard output is a terminal and `NO_COLOR` is unset or empty, as
+<https://no-color.org/> asks. `--color always` and `--color never` override
+both, so `veredictum show results.json --color always | less -R` keeps the
+colour.
 
 ## verify
 

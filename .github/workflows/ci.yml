@@ -248,6 +248,19 @@ jobs:
       - name: Vendored trees — seeded-violation proof
         run: bash scripts/checks/vendored-trees.sh --self-test
 
+      # JUnit XML has no single owner, so the export is held to the schemas
+      # the tools that read it publish: Jenkins xUnit junit-10 for the
+      # document and Apache Maven Surefire for each testsuite. xmllint
+      # validates them; libxml2-utils carries it.
+      - name: Install xmllint
+        run: sudo apt-get install -y --no-install-recommends libxml2-utils
+
+      - name: The pinned JUnit views hold to the published JUnit XML schemas
+        run: bash scripts/checks/junit-schema.sh
+
+      - name: JUnit schemas — seeded-violation proof
+        run: bash scripts/checks/junit-schema.sh --self-test
+
       # console.veredictum.eu is the official conformance instrument (#388), so
       # no reader-facing surface may call it a demo or a sandbox. The words are
       # refused as whole words, which leaves `demonstration` and the CSP

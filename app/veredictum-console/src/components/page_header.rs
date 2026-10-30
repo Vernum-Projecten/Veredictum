@@ -48,6 +48,10 @@ pub fn PageHeader(
     /// One-line description under the title.
     #[prop(optional, into)]
     subtitle: Option<String>,
+    /// A machine key the title stands for (a folder name, a case id), shown
+    /// small and monospace under the title.
+    #[prop(optional, into)]
+    tag: Option<String>,
     /// Ancestor breadcrumbs, root first.
     #[prop(optional)]
     crumbs: Vec<Crumb>,
@@ -91,6 +95,10 @@ pub fn PageHeader(
                 <h1 class="text-xl font-semibold text-ink-heading">{move || title.get()}</h1>
                 <div class="flex items-center gap-2">{children.map(|c| c())}</div>
             </div>
+            {tag
+                .map(|t| {
+                    view! { <p class="mt-0.5 font-mono text-xs text-ink-muted">{t}</p> }
+                })}
             {subtitle
                 .map(|s| {
                     view! { <p class="mt-1 text-sm text-ink-muted">{s}</p> }

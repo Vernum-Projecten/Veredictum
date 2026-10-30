@@ -17,6 +17,8 @@ use std::path::{Component, Path};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::arazzo::maturity::{Maturities, Maturity, MaturityError, SpecStatus};
+
 /// The specification-extension key a citation is carried under.
 pub const CITE_KEY: &str = "x-veredictum-cite";
 
@@ -301,6 +303,17 @@ pub enum CiteError {
         /// The quote.
         quote: String,
     },
+    /// The source belongs to a document the release has retired.
+    #[error("`{file}` belongs to `{document}`, which the release marks RETIRED")]
+    Retired {
+        /// The cited source.
+        file: String,
+        /// The retired document.
+        document: String,
+    },
+    /// The release states no status for the document the source belongs to.
+    #[error("the cited text has no release status: {0}")]
+    NoStatus(String),
     /// The quote does not occur in the named element or section.
     #[error("the quote does not occur in `{file}` `{section}`: \"{quote}\"")]
     QuoteNotFound {
@@ -353,6 +366,8 @@ pub struct QuoteChecker<'a> {
     /// What each `(source, section)` resolved so far holds, or why it does
     /// not resolve.
     sections: BTreeMap<(String, String), Result<Resolved, CiteError>>,
+    /// The status the release gives each cited document.
+    maturities: Maturities,
 }
 
 /// What a cited section holds.
@@ -393,6 +408,7 @@ impl<'a> QuoteChecker<'a> {
             repo_root,
             texts: BTreeMap::new(),
             sections: BTreeMap::new(),
+            maturities: Maturities::new(repo_root),
         }
     }
 
@@ -421,6 +437,22 @@ impl<'a> QuoteChecker<'a> {
             || source.starts_with(EXCLUDED_ROOT)
         {
             return Err(CiteError::OutsideOracle(source.to_owned()));
+        }
+        match self.maturities.of(source) {
+            Ok(Maturity::Document {
+                document,
+                status: SpecStatus::Retired,
+                ..
+            }) => {
+                return Err(CiteError::Retired {
+                    file: source.to_owned(),
+                    document,
+                });
+            }
+            // NOTE: no openEHR spec governs this — our own design; a tree without the vendored
+            // manifests has no status to judge, and the committed tree always carries them.
+            Ok(_) | Err(MaturityError::NoManifest(_)) => {}
+            Err(error) => return Err(CiteError::NoStatus(error.to_string())),
         }
         let key = (source.to_owned(), citation.section.clone());
         let resolved = if let Some(resolved) = self.sections.get(&key) {
@@ -1071,6 +1103,30 @@ mod tests {
             checker.check(&cite("specs/its-xml-schemas/missing.xsd", "x", "y")),
             Err(CiteError::Unreadable { .. })
         ));
+    }
+
+    #[test]
+    fn a_citation_into_retired_text_is_refused_and_released_text_is_not() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut checker = QuoteChecker::new(&root);
+        let retired = cite(
+            "specs/openehr/ITS-REST/docs/simplified_data_template/master01-preface.adoc",
+            "Purpose",
+            "This document describes a 'simplified template' (ST) format",
+        );
+        assert_eq!(
+            checker.check(&retired),
+            Err(CiteError::Retired {
+                file: retired.source.clone(),
+                document: "simplified_data_template".to_owned(),
+            })
+        );
+        let released = cite(
+            "specs/openehr/ITS-REST/specifications/docs/overview/Resources.md",
+            "Data representation",
+            "Additionally, the **Simplified Formats** format SHOULD be supported",
+        );
+        assert_eq!(checker.check(&released), Ok(()));
     }
 
     #[test]

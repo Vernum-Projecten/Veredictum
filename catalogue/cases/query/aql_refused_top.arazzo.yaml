@@ -1,15 +1,18 @@
 # The ad-hoc AQL requests that use the deprecated TOP and that a service
-# refuses: fetch beside a TOP query, and TOP beside LIMIT. They sit on the arm
-# of the aql-top option whose service executes TOP, because a service that
-# declines TOP refuses either for TOP itself. Every quote is copied verbatim
-# from the named vendored file.
+# refuses: fetch beside a TOP query, and TOP beside LIMIT. They run for every
+# claimant of the query capability. QUERY/docs/AQL/master03-syntax.adoc § TOP:
+# "*Deprecated*: Starting with Release 1.1.0, the use of `TOP` modifier is
+# deprecated in favour of the `LIMIT` clause combined with `ORDER BY`", yet
+# § SELECT keeps it in the grammar ("optionally followed by `TOP` (deprecated
+# - see <<TOP, below>>)") and nothing lets a service refuse TOP itself. Every
+# quote is copied verbatim from the named vendored file.
 arazzo: "1.1.0"
 info:
   title: AQL execution with TOP refused
   version: "0.1.0"
+  x-veredictum-section: refusals
   description: >-
-    Ad-hoc AQL requests using TOP that are refused with 400, judged where the
-    service declares that it executes TOP.
+    Ad-hoc AQL requests using TOP that are refused with 400.
 sourceDescriptions:
   - name: query
     url: "../../../specs/rest-oas/query-validation.openapi.yaml"

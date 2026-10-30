@@ -89,6 +89,33 @@ defects! {
         ("arazzo-floor-below.arazzo.yaml", "cases/system/system_options.arazzo.yaml", "arazzo-floor"),
     arazzo_extension_only_unmarked =>
         ("arazzo-extension-only-unmarked.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-realization-scope"),
+    // The reading structure: a folder in no chapter or in two, a BASE
+    // document with no section or an unknown one, a section nothing uses,
+    // an OPTION document with a section, an option with no theme, a spec
+    // boundary naming no report, and a report snapshot out of step with the
+    // citations. A citation into RETIRED text is the citation gate's.
+    structure_folder_in_no_chapter =>
+        ("structure-folder-in-no-chapter.arazzo.yaml", "cases/zz/zz-defect.arazzo.yaml", "arazzo-structure"),
+    structure_folder_twice =>
+        ("structure-folder-twice.chapters.yaml", "chapters.yaml", "arazzo-structure"),
+    structure_base_without_section =>
+        ("structure-base-without-section.arazzo.yaml", "cases/system/system_options.arazzo.yaml", "arazzo-structure"),
+    structure_unknown_section =>
+        ("structure-unknown-section.arazzo.yaml", "cases/system/system_options.arazzo.yaml", "arazzo-structure"),
+    structure_unused_section =>
+        ("structure-unused-section.chapters.yaml", "chapters.yaml", "arazzo-structure"),
+    structure_option_with_section =>
+        ("structure-option-with-section.arazzo.yaml", "cases/security/version_signature.arazzo.yaml", "arazzo-structure"),
+    structure_option_unplaced =>
+        ("structure-option-unplaced.chapters.yaml", "chapters.yaml", "arazzo-structure"),
+    structure_boundary_without_report =>
+        ("structure-boundary-without-report.chapters.yaml", "chapters.yaml", "arazzo-structure"),
+    structure_report_missing =>
+        ("structure-report-missing.reports.yaml", "reports.yaml", "arazzo-structure"),
+    structure_report_uncited =>
+        ("structure-report-uncited.reports.yaml", "reports.yaml", "arazzo-structure"),
+    citation_retired =>
+        ("citation-retired.arazzo.yaml", "cases/system/system_options.arazzo.yaml", "arazzo-citation"),
     statement_claim_incomplete =>
         ("statement-claim-incomplete.json", "--statement", "claim-completeness"),
     statement_arm_format_unclaimed =>

@@ -5,6 +5,7 @@ arazzo: 1.1.0
 info:
   title: Anonymous EHR
   version: 0.1.0
+  x-veredictum-section: anonymous-ehrs
   description: >-
     An EHR created with no EHR_STATUS, whose default subject is a PARTY_SELF
     with no identity, holds a committed COMPOSITION that an ad-hoc query over
