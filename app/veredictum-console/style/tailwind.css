@@ -47,6 +47,7 @@
   --warn-subtle: #f7e8cf;
   --danger: #bd3434; /* verdict: failed */
   --danger-subtle: #f7dede;
+  --advisory-subtle: #f5e1ec; /* verdict: failed a SHOULD only (Okabe-Ito reddish purple tint) */
   --scrim: rgb(31 42 48 / 0.4); /* the dim behind an overlay */
 }
 
@@ -74,6 +75,7 @@
   --warn-subtle: #40300f;
   --danger: #e06c6c;
   --danger-subtle: #451d1d;
+  --advisory-subtle: #3f2235;
   /* A dark page needs a deeper dim than a light one to read as "behind". */
   --scrim: rgb(4 12 16 / 0.6);
 }
@@ -103,6 +105,7 @@
   --color-warn-subtle: var(--warn-subtle);
   --color-danger: var(--danger);
   --color-danger-subtle: var(--danger-subtle);
+  --color-advisory-subtle: var(--advisory-subtle);
   /* `bg-scrim` — the ONE overlay backdrop; never a raw `bg-black/40`, which
      ignores the theme and drifts per screen. */
   --color-scrim: var(--scrim);
@@ -127,6 +130,20 @@
   ::placeholder {
     color: var(--ink-faint);
   }
+}
+
+/* ── The chapter bars ───────────────────────────────────────────────────────
+   The results chart is drawn twice on the server, once per theme, because
+   its colours are baked into the SVG so the same drawing can leave the
+   console as an image. The theme class picks which one shows. */
+.chart-dark {
+  display: none;
+}
+.dark .chart-light {
+  display: none;
+}
+.dark .chart-dark {
+  display: block;
 }
 
 /* ── Documentation capture mode ────────────────────────────────────────────

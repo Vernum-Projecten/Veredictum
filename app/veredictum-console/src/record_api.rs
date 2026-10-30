@@ -9,7 +9,40 @@
 
 use serde::{Deserialize, Serialize};
 
-/// One results row for the table.
+/// The row counts of one group, an advisory row counted apart from a failed
+/// one, as the engine's reading counts them.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Tally {
+    /// Every row.
+    pub tests: u32,
+    /// The passed rows.
+    pub passed: u32,
+    /// The failed rows that count against the server.
+    pub failed: u32,
+    /// The failed rows whose server did not follow a SHOULD.
+    pub advisory: u32,
+    /// The rows the instrument could not judge.
+    pub errored: u32,
+    /// The rows not run.
+    pub skipped: u32,
+}
+
+impl Tally {
+    /// The sum of `self` and `other`, saturating.
+    #[must_use]
+    pub const fn plus(self, other: Self) -> Self {
+        Self {
+            tests: self.tests.saturating_add(other.tests),
+            passed: self.passed.saturating_add(other.passed),
+            failed: self.failed.saturating_add(other.failed),
+            advisory: self.advisory.saturating_add(other.advisory),
+            errored: self.errored.saturating_add(other.errored),
+            skipped: self.skipped.saturating_add(other.skipped),
+        }
+    }
+}
+
+/// One results row as every group lists it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResultRow {
     /// The case id, `<document>/<workflowId>`.
@@ -18,19 +51,193 @@ pub struct ResultRow {
     pub row: u32,
     /// The status token (`passed` / `failed` / `errored` / `skipped`).
     pub status: String,
+    /// The word of the row's mark: its status, with a failed SHOULD read as
+    /// `advisory`.
+    pub mark: String,
+    /// The glyph of the row's mark, so it reads without colour.
+    pub glyph: String,
     /// What a red row received, or why a skipped row was not run.
     pub reason: Option<String>,
+    /// The template formalism badge, on a case of a formalism folder.
+    pub formalism: Option<String>,
+    /// Whether the case rests on TRIAL text.
+    pub trial: bool,
+    /// The upstream reports the case rests on.
+    pub reports: Vec<u64>,
 }
 
-/// The results screen: the base URL, the tallies, and the rows red-first.
+/// One BASE section of a band.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SectionView {
+    /// The in-page anchor of the section.
+    pub anchor: String,
+    /// The heading.
+    pub title: String,
+    /// The formalism the section's cases share, when its band splits by it.
+    pub formalism: Option<String>,
+    /// Its counts.
+    pub tally: Tally,
+    /// Its rows, red first.
+    pub rows: Vec<ResultRow>,
+}
+
+/// One band: the BASE rows of one capability folder.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BandView {
+    /// The capability folder.
+    pub folder: String,
+    /// The in-page anchor of the band.
+    pub anchor: String,
+    /// The heading.
+    pub title: String,
+    /// Its counts.
+    pub tally: Tally,
+    /// Its sections, in declared order.
+    pub sections: Vec<SectionView>,
+}
+
+/// One BASE chapter.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChapterView {
+    /// The in-page anchor of the chapter.
+    pub anchor: String,
+    /// The heading.
+    pub title: String,
+    /// The catalogue page of the chapter's first folder.
+    pub href: String,
+    /// Its counts.
+    pub tally: Tally,
+    /// Every band, those with no case included.
+    pub bands: Vec<BandView>,
+}
+
+/// One arm of an option.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArmView {
+    /// The arm token.
+    pub arm: String,
+    /// Whether the statement selected it.
+    pub selected: bool,
+    /// Whether the catalogue names no document for it.
+    pub empty: bool,
+    /// Its counts.
+    pub tally: Tally,
+    /// Its rows, red first.
+    pub rows: Vec<ResultRow>,
+}
+
+/// One option.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OptionView {
+    /// The option name.
+    pub option: String,
+    /// The in-page anchor of the option.
+    pub anchor: String,
+    /// What it decides.
+    pub description: String,
+    /// The heading of its theme.
+    pub theme: String,
+    /// The upstream report its citation names.
+    pub report: Option<u64>,
+    /// Whether the statement selected one of its arms.
+    pub selected: bool,
+    /// Its counts.
+    pub tally: Tally,
+    /// Its arms.
+    pub arms: Vec<ArmView>,
+}
+
+/// The BASE rows resting on TRIAL text, read with the options.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TrialView {
+    /// The in-page anchor of the block.
+    pub anchor: String,
+    /// The heading.
+    pub title: String,
+    /// Its counts.
+    pub tally: Tally,
+    /// Its rows, red first.
+    pub rows: Vec<ResultRow>,
+}
+
+/// One option tier.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TierView {
+    /// The in-page anchor of the tier.
+    pub anchor: String,
+    /// The heading.
+    pub title: String,
+    /// Its counts, the TRIAL block included.
+    pub tally: Tally,
+    /// Its options.
+    pub options: Vec<OptionView>,
+    /// The TRIAL-grounded BASE rows, on the OPTIONS tier only.
+    pub trial: Option<TrialView>,
+}
+
+/// The rows resting on text one upstream report records as defective.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReportView {
+    /// The issue number.
+    pub report: u64,
+    /// The in-page anchor of the block.
+    pub anchor: String,
+    /// The issue title, from the committed snapshot.
+    pub title: Option<String>,
+    /// Where it stands, from the committed snapshot.
+    pub state: Option<String>,
+    /// Its counts.
+    pub tally: Tally,
+    /// Its rows, red first.
+    pub rows: Vec<ResultRow>,
+}
+
+/// The engine's reading of one results document, as the page lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReadingView {
+    /// Every row, counted once.
+    pub total: Tally,
+    /// BASE, chapter by chapter.
+    pub chapters: Vec<ChapterView>,
+    /// RECOMMENDED, OPTIONS (with the TRIAL block) and the spec boundary,
+    /// in that order.
+    pub tiers: Vec<TierView>,
+    /// The rows resting on reported text, by report.
+    pub reports: Vec<ReportView>,
+    /// The rows the results place nowhere.
+    pub unplaced: Vec<ResultRow>,
+}
+
+impl ReadingView {
+    /// Every row once, in reading order: BASE, the options, the TRIAL
+    /// block, the unplaced rows.
+    #[must_use]
+    pub fn rows(&self) -> Vec<&ResultRow> {
+        let base = self
+            .chapters
+            .iter()
+            .flat_map(|c| c.bands.iter())
+            .flat_map(|b| b.sections.iter())
+            .flat_map(|s| s.rows.iter());
+        let tiers = self.tiers.iter().flat_map(|tier| {
+            tier.options
+                .iter()
+                .flat_map(|o| o.arms.iter())
+                .flat_map(|a| a.rows.iter())
+                .chain(tier.trial.iter().flat_map(|t| t.rows.iter()))
+        });
+        base.chain(tiers).chain(self.unplaced.iter()).collect()
+    }
+}
+
+/// The results screen: the base URL, the engine's reading of the rows, and
+/// the certificate notice.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResultsScreen {
     /// The base URL the run drove.
     pub base_url: String,
-    /// passed / failed / errored / skipped counts.
-    pub tallies: (u64, u64, u64, u64),
-    /// Every row, failures and errors first.
-    pub rows: Vec<ResultRow>,
+    /// Every row, grouped as the engine reads the results.
+    pub reading: ReadingView,
     /// What happened about the run's certificate.
     pub certificate: CertificateNotice,
 }
@@ -87,6 +294,9 @@ pub struct ResultDetail {
     pub row: ResultRow,
     /// The workflow's summary, from the catalogue.
     pub summary: Option<String>,
+    /// The catalogue page of the case the row came from, when the catalogue
+    /// carries it.
+    pub catalogue: Option<String>,
     /// The step the row went red at.
     pub step: Option<String>,
     /// What was checked.
@@ -112,13 +322,17 @@ pub mod read {
     //! The ssr readers over the finished job's results and recording.
 
     use super::{
-        CertificateNotice, ExchangeView, RecordingView, ResultDetail, ResultRow, ResultsScreen,
+        ArmView, BandView, CertificateNotice, ChapterView, ExchangeView, OptionView, ReadingView,
+        RecordingView, ReportView, ResultDetail, ResultRow, ResultsScreen, SectionView, Tally,
+        TierView, TrialView,
     };
     use crate::certificates::CertificateStatus;
     use crate::engine::token;
     use crate::state::ConsoleState;
     use veredictum::arazzo::har::{Entry, Har, NameValue};
+    use veredictum::arazzo::reading::{CaseRows, Mark, OptionGroup, Tally as EngineTally, read};
     use veredictum::arazzo::results::{ResultRow as EngineRow, Results, Why};
+    use veredictum::arazzo::structure::{Place, Tier};
 
     /// This submitter's most recent finished run's results document, through
     /// the published lib.
@@ -157,46 +371,243 @@ pub mod read {
         Ok(Some((results, path, certificate)))
     }
 
-    /// A row index as the wire's fixed-size integer.
+    /// A count as the wire's fixed-size integer.
     ///
-    /// NOTE: no openEHR spec governs this — our own design; a row index fits
+    /// NOTE: no openEHR spec governs this — our own design; a row count fits
     /// in `u32` on every catalogue, and saturating keeps `as` out.
-    fn index(n: usize) -> u32 {
+    fn count(n: usize) -> u32 {
         u32::try_from(n).unwrap_or(u32::MAX)
     }
 
-    /// Maps one engine row to its table row.
+    /// The engine's tally on the wire.
+    fn tally_of(tally: &EngineTally) -> Tally {
+        Tally {
+            tests: count(tally.tests),
+            passed: count(tally.passed),
+            failed: count(tally.failed),
+            advisory: count(tally.advisory),
+            errored: count(tally.errored),
+            skipped: count(tally.skipped),
+        }
+    }
+
+    /// An in-page anchor: `prefix` and `parts` joined by `-`, every character
+    /// outside `[a-z0-9]` read as `-`.
+    #[must_use]
+    pub fn anchor(prefix: &str, parts: &[&str]) -> String {
+        let mut out = String::from(prefix);
+        for part in parts {
+            out.push('-');
+            out.extend(part.chars().map(|c| {
+                let c = c.to_ascii_lowercase();
+                if c.is_ascii_alphanumeric() { c } else { '-' }
+            }));
+        }
+        out
+    }
+
+    /// Where a mark sorts in a group: what counts against the server first,
+    /// then what the instrument could not judge, then advisory, passed and
+    /// skipped.
+    const fn rank(mark: Mark) -> u8 {
+        match mark {
+            Mark::Failed => 0,
+            Mark::Errored => 1,
+            Mark::Advisory => 2,
+            Mark::Passed => 3,
+            Mark::Skipped => 4,
+        }
+    }
+
+    /// Maps one engine row, placed at `place`, to its listed row.
     ///
     /// # Errors
     /// The status token's `serde_json` failure, verbatim.
-    fn row_of(row: &EngineRow) -> Result<ResultRow, serde_json::Error> {
+    fn row_of(row: &EngineRow, place: Option<&Place>) -> Result<ResultRow, serde_json::Error> {
         let reason = match (&row.explanation, &row.skip) {
             (Some(explanation), _) => Some(explanation.received.clone()),
             (None, Some(skip)) => Some(skip.reason.to_string()),
             (None, None) => None,
         };
+        let mark = Mark::of(row);
         Ok(ResultRow {
             case: row.case.clone(),
-            row: index(row.row),
+            row: count(row.row),
             status: token(&row.status)?,
+            mark: mark.word().to_owned(),
+            glyph: mark.glyph().to_owned(),
             reason,
+            formalism: place
+                .and_then(|p| p.formalism)
+                .map(|f| f.label().to_owned()),
+            trial: place.is_some_and(|p| p.trial),
+            reports: place
+                .map(|p| p.reports.iter().map(|r| r.get()).collect())
+                .unwrap_or_default(),
         })
     }
 
-    /// The red-first ordering: failures, then errors, then the rest, id-tied.
-    fn red_first(rows: &mut [ResultRow]) {
-        rows.sort_by(|a, b| {
-            let rank = |status: &str| match status {
-                "failed" => 0_u8,
-                "errored" => 1,
-                "passed" => 2,
-                _ => 3,
-            };
-            rank(&a.status)
-                .cmp(&rank(&b.status))
-                .then_with(|| a.case.cmp(&b.case))
-                .then_with(|| a.row.cmp(&b.row))
-        });
+    /// The rows of `cases`, red first, document order kept within a mark.
+    ///
+    /// # Errors
+    /// The status token's `serde_json` failure, verbatim.
+    fn rows_of(cases: &[CaseRows<'_>]) -> Result<Vec<ResultRow>, serde_json::Error> {
+        let mut rows: Vec<(u8, ResultRow)> = Vec::new();
+        for case in cases {
+            for row in &case.rows {
+                rows.push((rank(Mark::of(row)), row_of(row, case.place)?));
+            }
+        }
+        rows.sort_by_key(|(rank, _)| *rank);
+        Ok(rows.into_iter().map(|(_, row)| row).collect())
+    }
+
+    /// One option as the page lists it.
+    ///
+    /// # Errors
+    /// The status token's `serde_json` failure, verbatim.
+    fn option_of(group: &OptionGroup<'_>) -> Result<OptionView, serde_json::Error> {
+        Ok(OptionView {
+            option: group.option.to_owned(),
+            anchor: anchor("option", &[group.option]),
+            description: group.description.to_owned(),
+            theme: group.theme.title().to_owned(),
+            report: group.report.map(std::num::NonZeroU64::get),
+            selected: group.selected,
+            tally: tally_of(&group.tally),
+            arms: group
+                .arms
+                .iter()
+                .map(|arm| {
+                    Ok(ArmView {
+                        arm: arm.arm.to_owned(),
+                        selected: arm.selected,
+                        empty: arm.empty,
+                        tally: tally_of(&arm.tally),
+                        rows: rows_of(&arm.cases)?,
+                    })
+                })
+                .collect::<Result<_, serde_json::Error>>()?,
+        })
+    }
+
+    /// One tier as the page lists it.
+    ///
+    /// # Errors
+    /// The status token's `serde_json` failure, verbatim.
+    fn tier_of(
+        tier: Tier,
+        groups: &[OptionGroup<'_>],
+        trial: Option<TrialView>,
+    ) -> Result<TierView, serde_json::Error> {
+        let options = groups
+            .iter()
+            .map(option_of)
+            .collect::<Result<Vec<_>, _>>()?;
+        let tally = options
+            .iter()
+            .map(|o| o.tally)
+            .chain(trial.iter().map(|t| t.tally))
+            .fold(Tally::default(), Tally::plus);
+        let key = match tier {
+            Tier::Recommended => "recommended",
+            Tier::Options => "options",
+            Tier::SpecBoundary => "boundary",
+        };
+        Ok(TierView {
+            anchor: anchor("tier", &[key]),
+            title: tier.title().to_owned(),
+            tally,
+            options,
+            trial,
+        })
+    }
+
+    /// The engine's reading of `results`, as the page lists it.
+    ///
+    /// # Errors
+    /// The status token's `serde_json` failure, verbatim.
+    pub fn reading_view(results: &Results) -> Result<ReadingView, serde_json::Error> {
+        let reading = read(results);
+        let chapters = reading
+            .base
+            .iter()
+            .map(|chapter| {
+                let bands = chapter
+                    .bands
+                    .iter()
+                    .map(|band| {
+                        let sections = band
+                            .sections
+                            .iter()
+                            .map(|section| {
+                                let formalism = section.formalism.map(|f| f.label().to_owned());
+                                let mut parts = vec![band.folder, section.section];
+                                if let Some(label) = formalism.as_deref() {
+                                    parts.push(label);
+                                }
+                                Ok(SectionView {
+                                    anchor: anchor("section", &parts),
+                                    title: section.title.to_owned(),
+                                    formalism,
+                                    tally: tally_of(&section.tally),
+                                    rows: rows_of(&section.cases)?,
+                                })
+                            })
+                            .collect::<Result<Vec<_>, serde_json::Error>>()?;
+                        Ok(BandView {
+                            folder: band.folder.to_owned(),
+                            anchor: anchor("band", &[band.folder]),
+                            title: band.title.to_owned(),
+                            tally: tally_of(&band.tally),
+                            sections,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, serde_json::Error>>()?;
+                Ok(ChapterView {
+                    anchor: anchor("chapter", &[chapter.chapter]),
+                    title: chapter.title.to_owned(),
+                    href: bands.first().map_or_else(
+                        || String::from("/catalogue"),
+                        |b| format!("/catalogue/{}", b.folder),
+                    ),
+                    tally: tally_of(&chapter.tally),
+                    bands,
+                })
+            })
+            .collect::<Result<Vec<_>, serde_json::Error>>()?;
+        let trial = TrialView {
+            anchor: String::from("trial"),
+            title: String::from("Resting on TRIAL text"),
+            tally: tally_of(&reading.trial.tally),
+            rows: rows_of(&reading.trial.cases)?,
+        };
+        let tiers = vec![
+            tier_of(Tier::Recommended, &reading.recommended, None)?,
+            tier_of(Tier::Options, &reading.options, Some(trial))?,
+            tier_of(Tier::SpecBoundary, &reading.boundary, None)?,
+        ];
+        let reports = reading
+            .reports
+            .iter()
+            .map(|group| {
+                Ok(ReportView {
+                    report: group.report.get(),
+                    anchor: anchor("report", &[&group.report.to_string()]),
+                    title: group.title.map(str::to_owned),
+                    state: group.state.map(|s| s.to_string()),
+                    tally: tally_of(&group.tally),
+                    rows: rows_of(&group.cases)?,
+                })
+            })
+            .collect::<Result<Vec<_>, serde_json::Error>>()?;
+        Ok(ReadingView {
+            total: tally_of(&reading.total),
+            chapters,
+            tiers,
+            reports,
+            unplaced: rows_of(&reading.unplaced)?,
+        })
     }
 
     /// The results screen, or `Ok(None)` before a finished run.
@@ -210,17 +621,11 @@ pub mod read {
         let Some((results, _, certificate)) = finished_results(state, submitter)? else {
             return Ok(None);
         };
-        let mut rows: Vec<ResultRow> = results
-            .rows
-            .iter()
-            .map(row_of)
-            .collect::<Result<Vec<ResultRow>, serde_json::Error>>()
-            .map_err(|e| format!("a result row did not render: {e}"))?;
-        red_first(&mut rows);
+        let reading =
+            reading_view(&results).map_err(|e| format!("a result row did not render: {e}"))?;
         Ok(Some(ResultsScreen {
             base_url: results.base_url.clone(),
-            tallies: crate::run_job::tally(&results),
-            rows,
+            reading,
             certificate,
         }))
     }
@@ -239,7 +644,7 @@ pub mod read {
     pub fn exchange_of(entry: usize, recorded: &Entry) -> ExchangeView {
         let text = |body: &str| (!body.is_empty()).then(|| body.to_owned());
         ExchangeView {
-            entry: index(entry),
+            entry: count(entry),
             request_line: format!("{} {}", recorded.request.method, recorded.request.url),
             request_headers: header_lines(&recorded.request.headers),
             request_body: recorded
@@ -301,20 +706,23 @@ pub mod read {
         let Some(found) = results
             .rows
             .iter()
-            .find(|held| held.case == case && index(held.row) == row)
+            .find(|held| held.case == case && count(held.row) == row)
         else {
             return Ok(None);
         };
-        let summary = state.catalogue.as_ref().as_ref().ok().and_then(|listing| {
+        let listed = state.catalogue.as_ref().as_ref().ok().and_then(|listing| {
             listing
                 .workflows()
                 .find(|(_, workflow)| workflow.case == case)
-                .and_then(|(_, workflow)| workflow.summary.clone())
         });
+        let place = results.outline.as_ref().and_then(|o| o.place(case));
         let explanation = found.explanation.as_ref();
         Ok(Some(ResultDetail {
-            row: row_of(found).map_err(|e| format!("a result row did not render: {e}"))?,
-            summary,
+            row: row_of(found, place).map_err(|e| format!("a result row did not render: {e}"))?,
+            summary: listed.and_then(|(_, workflow)| workflow.summary.clone()),
+            catalogue: listed.map(|(document, workflow)| {
+                format!("/catalogue/{}/{}", document.capability, workflow.case)
+            }),
             step: explanation.map(|e| e.step.clone()),
             what: explanation.map(|e| e.what.clone()),
             why: explanation.and_then(|e| e.why.as_ref()).map(why_line),

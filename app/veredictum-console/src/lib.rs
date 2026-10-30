@@ -39,6 +39,7 @@ pub mod arg_refusal;
 pub mod capture;
 pub mod catalogue_api;
 pub mod certificates;
+pub mod chart;
 pub mod components;
 #[cfg(feature = "ssr")]
 pub mod engine;

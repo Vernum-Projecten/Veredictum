@@ -123,6 +123,10 @@ ssr = [
 ]
 
 [dev-dependencies]
+# The chapter bars' SVG is pinned by snapshot (#867), on the engine's own pin,
+# reviewed before acceptance. Without the default `colors` feature, which
+# only colours a diff on a terminal.
+insta = { version = "1.49.0", default-features = false }
 # Scratch directories for the engine gate test's out trees and fixture ixit.
 assert_fs = "1"
 # The browser journeys (#69): a Rust-native WebDriver client over headless
