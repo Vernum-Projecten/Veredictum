@@ -378,6 +378,24 @@
                       "description": "Why the body is not an `Options` document, in the parser's own words."
                     }
                   }
+                },
+                {
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "status"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "const": "invalid_status"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": 600,
+                      "maximum": 999,
+                      "description": "A three-digit code outside 100..599, which RFC 9110 §15 makes invalid."
+                    }
+                  }
                 }
               ]
             }
@@ -490,6 +508,24 @@
                     "reason": {
                       "type": "string",
                       "description": "Why the body is not an `Options` document, in the parser's own words."
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "status"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "const": "invalid_status"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": 600,
+                      "maximum": 999,
+                      "description": "A three-digit code outside 100..599, which RFC 9110 §15 makes invalid."
                     }
                   }
                 }

@@ -45,6 +45,11 @@ pub enum IdentityAnswer {
         /// Why, in the engine's words.
         reason: String,
     },
+    /// A code from 600 to 999, which RFC 9110 §15 makes invalid.
+    InvalidStatus {
+        /// The status code.
+        status: u16,
+    },
     /// The read did not complete; the field is the diagnostic, verbatim.
     Unread {
         /// The diagnostic.
@@ -77,7 +82,10 @@ impl IdentityAnswer {
     pub fn stated(&self) -> Option<&StatedIdentity> {
         match self {
             Self::Stated(identity) => Some(identity),
-            Self::NotOffered { .. } | Self::NotOptionsDocument { .. } | Self::Unread { .. } => None,
+            Self::NotOffered { .. }
+            | Self::NotOptionsDocument { .. }
+            | Self::InvalidStatus { .. }
+            | Self::Unread { .. } => None,
         }
     }
 
@@ -117,6 +125,9 @@ impl IdentityAnswer {
             )),
             Self::NotOptionsDocument { status, reason } => Some(format!(
                 "The server's System OPTIONS answer (HTTP {status}) is not an Options document ({reason}), so the name and version are the operator's."
+            )),
+            Self::InvalidStatus { status } => Some(format!(
+                "The server's System OPTIONS answer carries {status}, which is not an HTTP status, so the name and version are the operator's."
             )),
             Self::Unread { error } => Some(format!(
                 "The server's identity could not be read ({error}), so the name and version are the operator's."
@@ -234,6 +245,7 @@ mod tests {
                 status: 200,
                 reason: String::from("not JSON"),
             },
+            IdentityAnswer::InvalidStatus { status: 600 },
             IdentityAnswer::Unread {
                 error: String::from("no engine"),
             },

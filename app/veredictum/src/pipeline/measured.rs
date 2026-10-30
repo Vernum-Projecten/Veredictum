@@ -413,14 +413,11 @@ pub fn run_aql_probe(
 /// technology profile is the defaulted one a campaign nothing selected
 /// records. The verification pack is `not_run`, the schedule release is the
 /// instrument's own [`SCHEDULE_RELEASE`], and the server's
-/// `restapi_specs_version` is recorded only when it stated one.
+/// `restapi_specs_version` is recorded once, in `sut`, only when it stated
+/// one.
 #[must_use]
 pub fn new_measured_record(sut: Sut, ixit_text: &str) -> Results {
     Results {
-        restapi_specs_version: sut
-            .restapi_specs_version
-            .as_ref()
-            .map(|field| field.value.clone()),
         sut,
         runner: Runner {
             name: env!("CARGO_PKG_NAME").to_owned(),
@@ -1219,11 +1216,16 @@ mod tests {
             blind.tech_profile.source,
             Some(TechProfileSource::Defaulted)
         );
-        assert_eq!(blind.restapi_specs_version, None);
+        assert_eq!(blind.sut.restapi_specs_version, None);
         assert_eq!(blind.provenance_contradiction(), None);
 
         sut.restapi_specs_version = Some(crate::party::IdentityField::server("1.0.3"));
         let stated = new_measured_record(sut, "{}");
-        assert_eq!(stated.restapi_specs_version.as_deref(), Some("1.0.3"));
+        assert_eq!(
+            stated.sut.restapi_specs_version,
+            Some(crate::party::IdentityField::server("1.0.3"))
+        );
+        let text = serde_json::to_string(&stated).unwrap();
+        assert_eq!(text.matches("restapi_specs_version").count(), 1, "{text}");
     }
 }

@@ -477,7 +477,8 @@ impl RunDraft {
 
     /// The identity a run over this draft records, each field with who
     /// supplied it; a field neither side supplied is the operator's blank,
-    /// which a certificate refuses.
+    /// which a certificate refuses. The REST release is left absent: the run's
+    /// own results record it under `server`, and a certificate reads it there.
     #[must_use]
     pub fn recorded_sut(&self) -> veredictum::party::Sut {
         use veredictum::party::IdentityField;
@@ -494,9 +495,7 @@ impl RunDraft {
             vendor: stated
                 .and_then(crate::identity::IdentityAnswer::vendor)
                 .map(IdentityField::server),
-            restapi_specs_version: stated
-                .and_then(crate::identity::IdentityAnswer::restapi_specs_version)
-                .map(IdentityField::server),
+            restapi_specs_version: None,
         }
     }
 }

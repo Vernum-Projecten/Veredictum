@@ -196,12 +196,12 @@ ENV LEPTOS_OUTPUT_NAME=veredictum-console \
 # does in the repository.
 COPY catalogue/ /work/catalogue/
 COPY specs/openehr/ /work/specs/openehr/
-# The SECOND root a citation resolves against. `validate` derives it from the
-# specs root's PARENT (`bundle_root`: `/work/specs/openehr` to `/work/specs`),
-# so these three have to sit beside the docs tree rather than inside it. Without
-# them every citation that can only resolve against a released machine-readable
-# bundle becomes a finding, and the catalogue in the image fails its own gate.
-# 0.8 MB compressed for all three, measured.
+# The released machine-readable bundles. A citation names a repository-relative
+# path under `specs/openehr/`, `specs/rest-oas/`, `specs/its-json-schemas/` or
+# `specs/its-xml-schemas/`, and `validate` resolves it against the specs root's
+# grandparent (`/work/specs/openehr` to `/work`), so these three sit beside the
+# docs tree. Without one, a citation into it becomes a finding and the catalogue
+# in the image fails its own gate. 0.8 MB compressed for all three, measured.
 COPY specs/its-xml-schemas/ /work/specs/its-xml-schemas/
 COPY specs/its-json-schemas/ /work/specs/its-json-schemas/
 COPY specs/rest-oas/ /work/specs/rest-oas/

@@ -276,6 +276,7 @@ fn every_printed_identity_document_validates_against_its_schema() -> Fallible {
             ResponseTemplate::new(200).set_body_json(json!({ "solution_version": 2 })),
         ),
         ("not_options_document", ResponseTemplate::new(204)),
+        ("invalid_status", ResponseTemplate::new(600)),
     ];
     for (outcome, answer) in answers {
         let sut = serving(answer);
@@ -293,6 +294,11 @@ fn every_printed_identity_document_validates_against_its_schema() -> Fallible {
     assert!(
         !validator.is_valid(&invalid),
         "the schema refuses an offered document outside 200"
+    );
+    let refused = json!({ "outcome": "not_offered", "status": 600 });
+    assert!(
+        !validator.is_valid(&refused),
+        "the schema refuses a not-offered answer outside 100..599"
     );
     Ok(())
 }

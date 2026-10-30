@@ -200,9 +200,10 @@ enum Command {
     ///
     /// Sends `OPTIONS <base>/` with `Accept: application/json`. The document's
     /// `outcome` is `offered` (a 200 `Options` document), `not_offered` (any
-    /// status outside 2xx, which the operation's SHOULD permits) or
-    /// `not_options_document` (a 2xx that is not that document). Nothing is
-    /// judged and nothing counts toward conformance.
+    /// other status from 100 to 599 outside 2xx, which the operation's SHOULD
+    /// permits), `not_options_document` (a 2xx that is not that document) or
+    /// `invalid_status` (a code from 600 to 999, which RFC 9110 §15 makes
+    /// invalid). Nothing is judged and nothing counts toward conformance.
     Identify {
         /// The server's base URL, up to and including the openEHR REST base.
         #[arg(long)]

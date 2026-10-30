@@ -100,15 +100,17 @@ impl SpecVersions {
     }
 }
 
-/// The verdict-bearing claims (the ICS core): the capabilities and the
-/// profile tiers the supplier asserts.
+/// The verdict-bearing claims (the ICS core): the capabilities the supplier
+/// asserts, and any profile tier tokens it lists.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Claims {
     /// Verdict-bearing capability names, each the name of a capability
     /// folder under the catalogue's `cases/` (for example `ehr`).
     #[serde(default)]
     pub capabilities: Vec<CapabilityName>,
-    /// The profile tiers claimed (e.g. `CORE`, `STANDARD`, `SEC-BASIC`).
+    /// The profile tier tokens listed (e.g. `CORE`, `SEC-BASIC`), from the
+    /// [`Tier`] vocabulary. The catalogue assigns no capability to a tier, so
+    /// no selection, gate or verdict reads them.
     #[serde(default)]
     pub profiles: Vec<Tier>,
 }
@@ -749,16 +751,6 @@ pub struct Results {
     /// never had.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selection_basis: Option<SelectionBasis>,
-    /// The `restapi_specs_version` the SUT's own System OPTIONS manifest
-    /// served during the campaign, when that exchange was driven (released
-    /// OAS `system.openapi.yaml` `Options` — every member optional, so
-    /// absence is normal). An independent CONFIRMATION of the statement's
-    /// declared `spec_versions.its_rest`, never a source of truth: no
-    /// `required` list binds it and a server could dodge every release-dated
-    /// MUST by under-advertising — a divergence from the declaration is a
-    /// static-review finding, not a re-declaration.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub restapi_specs_version: Option<String>,
     /// The per-case×format outcomes.
     #[serde(default)]
     pub outcomes: Vec<OutcomeRecord>,

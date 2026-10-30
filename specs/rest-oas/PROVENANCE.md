@@ -15,13 +15,12 @@ All **21** OpenAPI 3.0 bundles are vendored verbatim: **7 API groups** ×
 - **Groups:** `admin`, `definition`, `demographic`, `ehr`, `overview`,
   `query`, `system`.
 - **Variants:**
-  - `-codegen.openapi.yaml` — authored **for code generation** → the `emit-rest`
-    input (settled: the vendored OAS is the codegen input, never served).
+  - `-codegen.openapi.yaml` — authored upstream for code generation.
   - `-html.openapi.yaml` — for documentation rendering (Redocly).
-  - `-validation.openapi.yaml` — for request/response validation.
+  - `-validation.openapi.yaml` — for request/response validation. The
+    catalogue's Arazzo documents name these as their source descriptions,
+    and their citations quote them.
 
 These are hand-authored, self-contained bundles (openEHR authors the OAS by
-hand and publishes these variants); they are the **source of truth** for the
-REST contract. Our generator runs spec→code (OAS → Rust), never code→OAS —
-`ferroehr-rest` may additionally emit its own OAS via `utoipa` purely as a CI
-drift-check against these files.
+hand and publishes these variants). The instrument reads them; it generates no
+code from them and emits no OAS of its own.

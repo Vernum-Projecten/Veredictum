@@ -487,7 +487,7 @@ mod tests {
 
     /// An operational template declaring one temperature range, in the AM 1.4
     /// XML shape the CKM exports use
-    /// (`specs/its-xml-schemas/components/AM/Release-1.4/OpenehrProfile.xsd`
+    /// (`specs/its-xml-schemas/its-xml-2.0.0-nsv2/AM/Release-1.4/OpenehrProfile.xsd`
     /// §`C_DV_QUANTITY`).
     const CELSIUS_OPT: &str = "<template xmlns=\"http://schemas.openehr.org/v1\" \
          xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\

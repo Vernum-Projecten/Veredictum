@@ -308,7 +308,7 @@ in this pipeline, which a generic runner ignores.
 ```text
 Read a server's identity from the ITS-REST System OPTIONS operation and print it as one JSON document.
 
-Sends `OPTIONS <base>/` with `Accept: application/json`. The document's `outcome` is `offered` (a 200 `Options` document), `not_offered` (any status outside 2xx, which the operation's SHOULD permits) or `not_options_document` (a 2xx that is not that document). Nothing is judged and nothing counts toward conformance.
+Sends `OPTIONS <base>/` with `Accept: application/json`. The document's `outcome` is `offered` (a 200 `Options` document), `not_offered` (any other status from 100 to 599 outside 2xx, which the operation's SHOULD permits), `not_options_document` (a 2xx that is not that document) or `invalid_status` (a code from 600 to 999, which RFC 9110 §15 makes invalid). Nothing is judged and nothing counts toward conformance.
 
 Usage: veredictum identify [OPTIONS] --base-url <BASE_URL>
 
@@ -341,9 +341,10 @@ credential `--auth` names is not supplied. It reads the credential exactly as
 Run it before `test` to see which product and version a run against the same
 base URL is about to grade.
 
-The document it prints has an `outcome` of `offered`, `not_offered` or
-`not_options_document`, and `schemas/identity.schema.json` describes it, so a
-script reading it has a schema to validate against.
+The document it prints has an `outcome` of `offered`, `not_offered`,
+`not_options_document` or `invalid_status`, and
+`schemas/identity.schema.json` describes it, so a script reading it has a
+schema to validate against.
 
 ## validate
 

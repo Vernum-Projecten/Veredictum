@@ -58,8 +58,8 @@ pub enum Family {
     Security,
 }
 
-/// A family-scoped profile tier. Each tier knows its family so a
-/// capability-matrix row declaring a foreign tier is a typed error.
+/// A family-scoped profile tier token, the vocabulary of a statement's
+/// `claims.profiles`. Each tier knows its family.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Tier {
     /// Platform CORE: the capabilities every conformant CDR must serve.

@@ -1,8 +1,9 @@
 # Vendored ITS-XML schemas (provenance)
 
 XSD schemas from `openEHR/specifications-ITS-XML`, vendored **verbatim** (the
-upstream `components/` trees). They are released machine-readable artifacts
-of ITS-XML, kept beside the docs text in `specs/openehr/ITS-XML/`.
+upstream `components/` tree of each tag, one directory per lineage). They are
+released machine-readable artifacts of ITS-XML, kept beside the docs text in
+`specs/openehr/ITS-XML/`.
 
 Source repo: https://github.com/openEHR/specifications-ITS-XML
 License: Apache-2.0 (the upstream repo's `LICENSE`; root reference copy
@@ -20,7 +21,6 @@ vendored as the upstream `components/` tree, verbatim:
 |---|---|---|---|
 | `its-xml-1.0.2-nsv1/` | tag `Release-1.0.2v2` @ `f7a937778bf9ea43b01b0f9d8a616e47f35017c1` | `http://schemas.openehr.org/v1` | The STABLE pre-2.0.0 bundle: flat `ALL/` (11 XSDs) + `AOM2/` (6 XSDs + examples). |
 | `its-xml-2.0.0-nsv2/` | tag `Release-2.0.0v2` @ `de8b37ba6c9a5e126623a063cafba3b58ebf1107` (also repo HEAD at vendoring) | `http://schemas.openehr.org/v2` | The 2.0.0 release (TRIAL upstream): full `components/`, with RM (1.0.2/1.0.3/1.0.4/1.1.0/latest), BASE (1.1.0/1.2.0/latest), AM (1.4/latest), OET (1.0.1/latest), QUERY/latest (70 XSDs). |
-| `components/` | as `its-xml-2.0.0-nsv2/` | `http://schemas.openehr.org/v2` | The same 70 XSDs, byte-identical, without the per-release `README.adoc` files. Code comments under `app/veredictum/src/perf_run/` cite their paths here. |
 
 Fetched: 2026-07-04. (The `openEHR/v1/Template` namespace in the OET/Template
 schemas is the separate template-document namespace, not the RM namespace.)
@@ -47,5 +47,6 @@ Reference material for the canonical-XML wire forms the catalogue exercises.
 The instrument reads none of these files at run time. The container image
 carries the tree under `/work/specs/its-xml-schemas/`.
 
-No script under `scripts/vendor/` refreshes this tree; a refresh re-fetches the
-two tags above and rewrites this file by hand.
+`scripts/vendor/its-xml-schemas.sh` refreshes both lineage directories from
+the commits in the table above, whose pins it carries; this file is
+hand-written, so a refresh that moves a pin updates it in the same change.
