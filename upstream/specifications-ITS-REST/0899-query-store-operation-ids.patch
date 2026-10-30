@@ -1,0 +1,20 @@
+diff --git a/specifications/operations/definition_query_store.yaml b/specifications/operations/definition_query_store.yaml
+index 2c09bcd..1752863 100644
+--- a/specifications/operations/definition_query_store.yaml
++++ b/specifications/operations/definition_query_store.yaml
+@@ -1,4 +1,4 @@
+-operationId: definition_query_store.yaml
++operationId: definition_query_store
+ summary: Store a query
+ description: |
+   Stores a new query, or updates an existing query on the system.
+diff --git a/specifications/operations/definition_query_version_store.yaml b/specifications/operations/definition_query_version_store.yaml
+index 847fa9c..b8f5180 100644
+--- a/specifications/operations/definition_query_version_store.yaml
++++ b/specifications/operations/definition_query_version_store.yaml
+@@ -1,4 +1,4 @@
+-operationId: definition_query_version_store.yaml
++operationId: definition_query_version_store
+ summary: Store a query version
+ description: |
+   Stores a query, at a specified `version`, on the system.
