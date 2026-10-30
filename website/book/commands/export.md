@@ -47,10 +47,10 @@ project publishes for `specVersion` 0.2.0, its latest release.
 GitHub, in two parts. A table names the server and the instrument, and a
 summary table counts the rows of BASE and OPTIONS. `## BASE` follows chapter by
 chapter, each chapter a table of its bands and each band a table of its
-sections; a band whose cases rest on released text an upstream report records
-as defective carries a warning box naming the reports. `## OPTIONS` follows the
-same chapters and bands, each band a table of its options with their kind
-(Recommended (SHOULD), Optional (MAY), or Spec defect with its report) and the
+sections. `## OPTIONS` follows the same chapters and bands, each band a table
+of its options with their kind (Recommended (SHOULD), Optional (MAY), or
+`@SpecDiverge` for an option that exists only because the released text is
+unclear) and the
 arm the statement selected, and a collapsed note on what each option decides.
 The cases resting on TRIAL text sit in their band under OPTIONS. Passed rows
 are only counted. Each failed, advisory or errored row is a collapsed block
@@ -58,7 +58,11 @@ whose summary names the outcome, the case and where it sits; opening it shows
 the step, what was checked, expected against received, the exchange, whose
 problem it is and the row's inputs as a table, with the cited sentence quoted
 below it. The advisory rows follow with their citations, and the skipped rows
-counted by reason with the full list collapsed.
+counted by reason with the full list collapsed. A case resting on text an
+upstream report records as unclear or contradictory is tagged `@SpecDiverge`
+where it appears, and a closing note counts those cases and links the reports
+they are judged by. JUnit carries the tag as the `eu.veredictum.tag` property
+and CTRF in the test's standard `tags`.
 
 **Where the Markdown summary goes.** GitHub Actions sets
 `GITHUB_STEP_SUMMARY` in every job step, and `export` appends the summary to

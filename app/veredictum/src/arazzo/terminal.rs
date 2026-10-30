@@ -15,12 +15,14 @@
 use std::ffi::OsStr;
 use std::fmt::Write as _;
 
-use crate::arazzo::export::{ADVISORY_LINE, arm_state, option_choice, tally_words};
+use crate::arazzo::export::{
+    ADVISORY_LINE, arm_state, divergence_note, option_choice, tally_words,
+};
 use crate::arazzo::reading::{
     CaseRows, Mark, OptionGroup, OptionsTree, Reading, Tally, is_advisory, read,
 };
 use crate::arazzo::results::{ResultRow, Results};
-use crate::arazzo::structure::{Place, Tier};
+use crate::arazzo::structure::Place;
 
 /// The cells of every bar.
 pub const BAR_WIDTH: usize = 24;
@@ -339,6 +341,11 @@ pub fn render(results: &Results, options: ShowOptions) -> String {
             view.case_line(4, case);
         }
     }
+    if let Some((text, reports)) = divergence_note(&reading.spec_divergence()) {
+        let numbers: Vec<String> = reports.iter().map(|r| format!("#{r}")).collect();
+        view.line("");
+        view.line(&view.paint(Paint::Grey, &format!("{text} {}.", numbers.join(", "))));
+    }
     if options.failed {
         expanded(&mut view, results);
     }
@@ -352,19 +359,6 @@ fn placed(view: &mut View, reading: &Reading<'_>) {
         view.tally_line(2, chapter.title, chapter.tally, "no cases");
         for band in &chapter.bands {
             view.tally_line(4, band.title, band.tally, "no cases");
-            let reports = band.reports();
-            if !reports.is_empty() {
-                let cases: usize = reports.iter().map(|(_, n)| n).sum();
-                let numbers: Vec<String> = reports.iter().map(|(r, _)| format!("#{r}")).collect();
-                let warning = view.paint(
-                    Paint::Yellow,
-                    &format!(
-                        "! spec defect: {cases} case(s) rest on text reported in {}",
-                        numbers.join(", ")
-                    ),
-                );
-                view.line(&format!("      {warning}"));
-            }
         }
     }
     view.heading("OPTIONS");
@@ -406,13 +400,7 @@ fn options(view: &mut View, tree: &OptionsTree<'_>) {
 /// statement selected.
 fn option_line(view: &mut View, indent: usize, group: &OptionGroup<'_>) {
     let label = group.option.to_owned();
-    let kind = match group.report {
-        Some(report) if group.tier == Tier::SpecBoundary => view.paint(
-            Paint::Yellow,
-            &format!("! {} #{report}", group.tier.title()),
-        ),
-        _ => view.paint(Paint::Grey, group.tier.title()),
-    };
+    let kind = view.paint(Paint::Grey, group.tier.title());
     if !group.selected {
         view.tally_line(indent, &label, Tally::default(), "not selected");
         view.line(&format!("{}{kind}", " ".repeat(indent + 2)));

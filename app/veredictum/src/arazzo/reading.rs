@@ -398,6 +398,33 @@ pub struct Reading<'a> {
     pub unplaced: Vec<CaseRows<'a>>,
 }
 
+/// The cases of a result that rest on released text an upstream report
+/// records, tagged with [`crate::arazzo::structure::SPEC_DIVERGE_TAG`].
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SpecDivergence {
+    /// How many distinct cases rest on such text.
+    pub cases: usize,
+    /// The reports they rest on, ascending.
+    pub reports: Vec<NonZeroU64>,
+}
+
+impl Reading<'_> {
+    /// The cases of the result that rest on text an upstream report records.
+    #[must_use]
+    pub fn spec_divergence(&self) -> SpecDivergence {
+        let mut cases = std::collections::BTreeSet::new();
+        let mut reports = std::collections::BTreeSet::new();
+        for group in &self.reports {
+            reports.insert(group.report);
+            cases.extend(group.cases.iter().map(|c| c.case));
+        }
+        SpecDivergence {
+            cases: cases.len(),
+            reports: reports.into_iter().collect(),
+        }
+    }
+}
+
 /// The rows of `results` grouped by case, in the order each case first
 /// appears, each case's rows in document order.
 #[must_use]

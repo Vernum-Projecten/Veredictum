@@ -969,10 +969,10 @@ project publishes for `specVersion` 0.2.0, its latest release.
 GitHub, in two parts. A table names the server and the instrument, and a
 summary table counts the rows of BASE and OPTIONS. `## BASE` follows chapter by
 chapter, each chapter a table of its bands and each band a table of its
-sections; a band whose cases rest on released text an upstream report records
-as defective carries a warning box naming the reports. `## OPTIONS` follows the
-same chapters and bands, each band a table of its options with their kind
-(Recommended (SHOULD), Optional (MAY), or Spec defect with its report) and the
+sections. `## OPTIONS` follows the same chapters and bands, each band a table
+of its options with their kind (Recommended (SHOULD), Optional (MAY), or
+`@SpecDiverge` for an option that exists only because the released text is
+unclear) and the
 arm the statement selected, and a collapsed note on what each option decides.
 The cases resting on TRIAL text sit in their band under OPTIONS. Passed rows
 are only counted. Each failed, advisory or errored row is a collapsed block
@@ -980,7 +980,11 @@ whose summary names the outcome, the case and where it sits; opening it shows
 the step, what was checked, expected against received, the exchange, whose
 problem it is and the row's inputs as a table, with the cited sentence quoted
 below it. The advisory rows follow with their citations, and the skipped rows
-counted by reason with the full list collapsed.
+counted by reason with the full list collapsed. A case resting on text an
+upstream report records as unclear or contradictory is tagged `@SpecDiverge`
+where it appears, and a closing note counts those cases and links the reports
+they are judged by. JUnit carries the tag as the `eu.veredictum.tag` property
+and CTRF in the test's standard `tags`.
 
 **Where the Markdown summary goes.** GitHub Actions sets
 `GITHUB_STEP_SUMMARY` in every job step, and `export` appends the summary to
@@ -1019,7 +1023,7 @@ run, never in a public artifact.
 ```text
 Show an Arazzo results document in the terminal: one line per chapter, band and option, each with its counts and a bar.
 
-A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares; a band whose cases rest on released text an upstream report records as defective carries a spec-defect warning. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY) or Spec defect with its report), with the cases resting on TRIAL text in their band. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! advisory and ○ skipped (grey). An advisory row is a SHOULD the server did not follow and is never shown as a failure.
+A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or @SpecDiverge for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged @SpecDiverge and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! advisory and ○ skipped (grey). An advisory row is a SHOULD the server did not follow and is never shown as a failure.
 
 Exit status: `0` when the view was printed; `2` when the document cannot be read.
 
@@ -1065,11 +1069,12 @@ BASE
 ```
 
 A result reads in two parts, the ones every view uses. BASE lists each chapter
-and band in the order the catalogue declares; a band whose cases rest on
-released text an upstream report records as defective carries a yellow
-`! spec defect` line naming the reports. OPTIONS lists the same chapters and
-bands, one line per option with the arm the statement selected and its kind:
-Recommended (SHOULD), Optional (MAY), or Spec defect with its report number.
+and band in the order the catalogue declares. OPTIONS lists the same chapters
+and bands, one line per option with the arm the statement selected and its
+kind: Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option
+that exists only because the released text is unclear or contradictory. A
+closing note counts the cases tagged `@SpecDiverge` and names the upstream
+reports they are judged by.
 An option with no arm selected is listed once and its rows count nowhere. The
 cases whose citations rest on text the release marks TRIAL are listed in their
 band under OPTIONS, never in a BASE count. Report numbers come from the snapshot

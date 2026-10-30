@@ -40,6 +40,11 @@ pub const REPORTS_FILE: &str = "reports.yaml";
 /// The `info` extension naming a BASE document's section.
 pub const SECTION_KEY: &str = "x-veredictum-section";
 
+/// The tag every view puts on a case resting on released text an upstream
+/// report records as unclear or contradictory, and on an option that exists
+/// only because of such text.
+pub const SPEC_DIVERGE_TAG: &str = "@SpecDiverge";
+
 /// The ITS-REST operation that uploads an ADL 1.4 operational template.
 pub const ADL14_UPLOAD: &str = "definition_template_adl1.4_upload";
 
@@ -96,7 +101,7 @@ impl Tier {
         match self {
             Self::Recommended => "Recommended (SHOULD)",
             Self::Options => "Optional (MAY)",
-            Self::SpecBoundary => "Spec defect",
+            Self::SpecBoundary => SPEC_DIVERGE_TAG,
         }
     }
 }

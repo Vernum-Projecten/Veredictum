@@ -16,11 +16,12 @@ BASE
 ```
 
 A result reads in two parts, the ones every view uses. BASE lists each chapter
-and band in the order the catalogue declares; a band whose cases rest on
-released text an upstream report records as defective carries a yellow
-`! spec defect` line naming the reports. OPTIONS lists the same chapters and
-bands, one line per option with the arm the statement selected and its kind:
-Recommended (SHOULD), Optional (MAY), or Spec defect with its report number.
+and band in the order the catalogue declares. OPTIONS lists the same chapters
+and bands, one line per option with the arm the statement selected and its
+kind: Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option
+that exists only because the released text is unclear or contradictory. A
+closing note counts the cases tagged `@SpecDiverge` and names the upstream
+reports they are judged by.
 An option with no arm selected is listed once and its rows count nowhere. The
 cases whose citations rest on text the release marks TRIAL are listed in their
 band under OPTIONS, never in a BASE count. Report numbers come from the snapshot

@@ -41,14 +41,10 @@ What every claimant of a capability must do. A case no option arm names is BASE.
 | Create | 1 | 1 | 0 | 0 | 0 |
 | Read | 1 | 0 | 1 | 0 | 0 |
 
-> [!WARNING]
-> **Spec defect.** 1 case(s) in this band rest on released text an upstream report records as defective:
-> - [#42](https://github.com/Vernum-Projecten/Veredictum/issues/42): A duplicate create has no status (open) (1 case(s))
-
 Rows to look at (open one for its explanation):
 
 <details>
-<summary><b>Failed</b>: <code>composition/create</code> row 1, BASE, Create, report #42</summary>
+<summary><b>Failed</b>: <code>composition/create</code> row 1, BASE, Create, @SpecDiverge</summary>
 
 | | |
 | --- | --- |
@@ -127,7 +123,7 @@ What the statement selected. Each option is labelled with its kind: **Recommende
 | `etag-sent` | Recommended (SHOULD) | `etag-declined`, nothing to run | 0 | 0 | 0 | 0 | 0 |
 | `composition-xml-read` | Optional (MAY) | `xml-supported` | 1 | 0 | 0 | 0 | 0 |
 | `flat-format` | Optional (MAY) | not selected |  | | | |  |
-| `ehr-status-flat` | **Spec defect** [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352) | `flat-served` | 0 | 0 | 0 | 1 | 0 |
+| `ehr-status-flat` | `@SpecDiverge` | `flat-served` | 0 | 0 | 0 | 1 | 0 |
 | TRIAL text | BASE on TRIAL text | | 0 | 1 | 0 | 0 | 0 |
 
 <details>
@@ -144,7 +140,7 @@ What the statement selected. Each option is labelled with its kind: **Recommende
 Rows to look at (open one for its explanation):
 
 <details>
-<summary><b>Errored</b>: <code>ehr_status_flat/read</code> row 0, option ehr-status-flat, report #352</summary>
+<summary><b>Errored</b>: <code>ehr_status_flat/read</code> row 0, option ehr-status-flat, @SpecDiverge</summary>
 
 | | |
 | --- | --- |
@@ -214,3 +210,7 @@ A skipped row was not run, for the reason given. It never counts for or against 
 | `flat/create row 0` | option-not-selected |
 
 </details>
+
+---
+
+Spec divergence: 2 case(s) rest on released text that is unclear or contradictory, and are tagged @SpecDiverge. Until the specification resolves it, Veredictum judges them as the linked upstream reports describe: [#42](https://github.com/Vernum-Projecten/Veredictum/issues/42), [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352).

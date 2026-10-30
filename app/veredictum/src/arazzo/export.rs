@@ -17,7 +17,6 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
-use std::num::NonZeroU64;
 
 use quick_xml::Writer;
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
@@ -25,11 +24,11 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::arazzo::reading::{
-    CaseRows, Mark, OptionGroup, OptionsTree, Reading, Tally, is_advisory, read,
+    CaseRows, Mark, OptionGroup, OptionsTree, Reading, SpecDivergence, Tally, is_advisory, read,
 };
 use crate::arazzo::results::{ResultRow, Results, SkipReason, Status, Whose, Why};
 use crate::arazzo::rows::Row;
-use crate::arazzo::structure::{Outline, Place, Standing, Tier};
+use crate::arazzo::structure::{Outline, Place, SPEC_DIVERGE_TAG, Standing, Tier};
 use crate::party::InstrumentStatus;
 
 /// The CTRF specification version the CTRF view is written to
@@ -197,6 +196,9 @@ pub fn placement(outline: Option<&Outline>, case: &str) -> Vec<(&'static str, Ve
     }
     if place.trial {
         named.push(("trial", vec![String::from("true")]));
+    }
+    if !place.reports.is_empty() {
+        named.push(("tag", vec![SPEC_DIVERGE_TAG.to_owned()]));
     }
     if !place.reports.is_empty() {
         named.push((
@@ -410,6 +412,8 @@ struct CtrfTest<'a> {
     raw_status: &'static str,
     #[serde(rename = "type")]
     kind: &'static str,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    tags: Vec<String>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     labels: BTreeMap<&'static str, CtrfLabel>,
     parameters: &'a Row,
@@ -534,8 +538,14 @@ pub fn ctrf(results: &Results) -> Result<String, ExportError> {
             let (status, raw_status) = ctrf_status(row);
             let named = placement(results.outline.as_ref(), &row.case);
             let suite = ctrf_suite(results, &named, &row.case);
+            let tags: Vec<String> = named
+                .iter()
+                .filter(|(name, _)| *name == "tag")
+                .flat_map(|(_, values)| values.iter().cloned())
+                .collect();
             let labels = named
                 .into_iter()
+                .filter(|(name, _)| *name != "tag")
                 .map(|(name, mut values)| {
                     let value = if values.len() == 1 {
                         CtrfLabel::One(values.remove(0))
@@ -554,6 +564,7 @@ pub fn ctrf(results: &Results) -> Result<String, ExportError> {
                 message: (row.status != Status::Passed).then(|| row.to_string()),
                 raw_status,
                 kind: "conformance",
+                tags,
                 labels,
                 parameters: &row.inputs,
                 extra: Extra {
@@ -761,8 +772,8 @@ fn case_labels(case: &CaseRows<'_>) -> Vec<String> {
     if case.trial() {
         labels.push(String::from("TRIAL text"));
     }
-    for report in case.reports() {
-        labels.push(format!("report #{report}"));
+    if !case.reports().is_empty() {
+        labels.push(SPEC_DIVERGE_TAG.to_owned());
     }
     labels
 }
@@ -798,8 +809,8 @@ fn row_labels(outline: Option<&Outline>, case: &str) -> String {
         if place.trial {
             labels.push(String::from("TRIAL text"));
         }
-        for report in &place.reports {
-            labels.push(format!("report #{report}"));
+        if !place.reports.is_empty() {
+            labels.push(SPEC_DIVERGE_TAG.to_owned());
         }
     }
     if labels.is_empty() {
@@ -960,7 +971,6 @@ fn md_base(out: &mut String, outline: &Outline, reading: &Reading<'_>) {
                     count_cells(section.tally)
                 );
             }
-            md_defect_warning(out, outline, &band.reports());
             md_attention(
                 out,
                 Some(outline),
@@ -975,41 +985,29 @@ fn md_base(out: &mut String, outline: &Outline, reading: &Reading<'_>) {
     }
 }
 
-/// Writes a GitHub warning box naming the upstream reports the cases of a
-/// BASE band rest on; nothing when they rest on none.
-fn md_defect_warning(out: &mut String, outline: &Outline, reports: &[(NonZeroU64, usize)]) {
-    if reports.is_empty() {
-        return;
-    }
-    let cases: usize = reports.iter().map(|(_, n)| n).sum();
-    let _ = write!(
-        out,
-        "\n> [!WARNING]\n> **Spec defect.** {cases} case(s) in this band rest on released text an upstream report records as defective:\n"
-    );
-    for (report, count) in reports {
-        let entry = outline.report(*report);
-        let _ = writeln!(
-            out,
-            "> - {} ({count} case(s))",
-            report_ref(
-                report.get(),
-                entry.map(|e| e.title.as_str()),
-                entry.map(|e| e.state.to_string())
-            )
-        );
+/// The kind cell of an option's table row: its tier, and the tag for an
+/// option that exists only because the released text diverges.
+fn kind_cell(group: &OptionGroup<'_>) -> String {
+    if group.tier == Tier::SpecBoundary {
+        format!("`{SPEC_DIVERGE_TAG}`")
+    } else {
+        group.tier.title().to_owned()
     }
 }
 
-/// The kind cell of an option's table row: its tier, and for a spec defect
-/// the upstream report its citation names.
-fn kind_cell(group: &OptionGroup<'_>) -> String {
-    match group.report {
-        Some(report) if group.tier == Tier::SpecBoundary => format!(
-            "**{}** [#{report}]({REPORT_BASE}{report})",
-            group.tier.title()
-        ),
-        _ => group.tier.title().to_owned(),
-    }
+/// The note that closes a view when cases rest on diverging text: how many,
+/// their tag, and the reports they are judged by; empty when none does.
+#[must_use]
+pub fn divergence_note(divergence: &SpecDivergence) -> Option<(String, Vec<u64>)> {
+    (divergence.cases > 0).then(|| {
+        (
+            format!(
+                "Spec divergence: {} case(s) rest on released text that is unclear or contradictory, and are tagged {SPEC_DIVERGE_TAG}. Until the specification resolves it, Veredictum judges them as the linked upstream reports describe:",
+                divergence.cases
+            ),
+            divergence.reports.iter().map(|r| r.get()).collect(),
+        )
+    })
 }
 
 /// The arm cell of an option's table row.
@@ -1247,6 +1245,13 @@ pub fn markdown(results: &Results) -> String {
     }
     md_advisory(&mut out, results);
     md_skipped(&mut out, results);
+    if let Some((text, reports)) = divergence_note(&reading.spec_divergence()) {
+        let links: Vec<String> = reports
+            .iter()
+            .map(|r| format!("[#{r}]({REPORT_BASE}{r})"))
+            .collect();
+        let _ = writeln!(out, "\n---\n\n{} {}.", md_inline(&text), links.join(", "));
+    }
     out
 }
 

@@ -14,7 +14,6 @@ BASE
   Every BASE case                           ████████████▓▓▓▓▓▓▓▓░░░░  ✓   3  ✕   2  ?   0  !   1  ○   0
   EHR                                       ████████████▓▓▓▓▓▓▓▓░░░░  ✓   3  ✕   2  ?   0  !   1  ○   0
     COMPOSITION                             ████████████▓▓▓▓▓▓░░░░░░  ✓   2  ✕   1  ?   0  !   1  ○   0
-      ! spec defect: 1 case(s) rest on text reported in #42
     Semantic validation                     ████████████▓▓▓▓▓▓▓▓▓▓▓▓  ✓   1  ✕   1  ?   0  !   0  ○   0
     DIRECTORY                               no cases
 
@@ -29,12 +28,14 @@ OPTIONS
       flat-format                           not selected
         Optional (MAY)
       ehr-status-flat                       ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ✓   0  ✕   0  ?   1  !   0  ○   0
-        arm flat-served (selected) · ! Spec defect #352
+        arm flat-served (selected) · @SpecDiverge
       TRIAL text                            ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ✓   0  ✕   1  ?   0  !   0  ○   0
         ✕ query/stored: 1 failed [TRIAL]
 
 Unplaced
   Every unplaced case                       ████████████████████████  ✓   1  ✕   0  ?   0  !   0  ○   0
+
+Spec divergence: 2 case(s) rest on released text that is unclear or contradictory, and are tagged @SpecDiverge. Until the specification resolves it, Veredictum judges them as the linked upstream reports describe: #42, #352.
 
 Failed and errored rows
 

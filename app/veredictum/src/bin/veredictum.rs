@@ -521,12 +521,13 @@ enum Command {
     /// band and option, each with its counts and a bar.
     ///
     /// A result reads in two parts. BASE comes first, chapter by chapter and
-    /// band by band, in the order the catalogue declares; a band whose cases
-    /// rest on released text an upstream report records as defective carries
-    /// a spec-defect warning. OPTIONS follows by the same chapters and bands,
-    /// one line per option naming its selected arm and its kind (Recommended
-    /// (SHOULD), Optional (MAY) or Spec defect with its report), with the
-    /// cases resting on TRIAL text in their band. Every mark is a glyph as well
+    /// band by band, in the order the catalogue declares. OPTIONS follows by
+    /// the same chapters and bands, one line per option naming its selected
+    /// arm and its kind (Recommended (SHOULD), Optional (MAY), or
+    /// @SpecDiverge for an option that exists only because the released text
+    /// is unclear), with the cases resting on TRIAL text in their band. A
+    /// closing note counts the cases tagged @SpecDiverge and links the
+    /// reports they are judged by. Every mark is a glyph as well
     /// as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow),
     /// ! advisory and ○ skipped (grey). An advisory row is a SHOULD the
     /// server did not follow and is never shown as a failure.
