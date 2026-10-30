@@ -791,3 +791,130 @@ pub fn outline(
         cases,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert_fs::prelude::*;
+
+    const CITE: &str = "x-veredictum-cite: { source: specs/rest-oas/ehr-validation.openapi.yaml, section: openapi, quote: x }";
+
+    fn capabilities(documents: &str) -> Capabilities {
+        let value = serde_json::json!({
+            "options": {
+                "o": {
+                    "description": "d",
+                    "arms": { "a": { "documents": serde_json::from_str::<serde_json::Value>(documents).unwrap() }, "b": { "documents": [] } },
+                    "x-veredictum-cite": { "source": "specs/openehr/x.md", "section": "s", "quote": "q" }
+                }
+            }
+        });
+        serde_json::from_value(value).unwrap()
+    }
+
+    fn chapters() -> Chapters {
+        Chapters {
+            chapters: vec![ChapterDecl {
+                chapter: "ehr".to_owned(),
+                title: "EHR".to_owned(),
+                folders: vec![FolderDecl {
+                    folder: "ehr".to_owned(),
+                    title: "EHR".to_owned(),
+                    formalism: false,
+                    sections: vec![SectionDecl {
+                        section: "create".to_owned(),
+                        title: "Create".to_owned(),
+                    }],
+                }],
+            }],
+            options: BTreeMap::from([(
+                "o".to_owned(),
+                OptionPlacement {
+                    theme: Theme::LeftOpen,
+                    tier: Tier::Options,
+                },
+            )]),
+        }
+    }
+
+    #[test]
+    fn naming_a_document_in_an_arm_moves_it_from_base_to_option() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child("specs/rest-oas/ehr.yaml")
+            .write_str("openapi: 3.0.3\npaths:\n  /ehr:\n    post:\n      operationId: ehr_create\n")
+            .unwrap();
+        dir.child("specs/openehr/ITS-REST/manifest.json")
+            .write_str(r#"{ "specifications": [{ "id": "REST_OAS_files", "spec_status": "STABLE" }] }"#)
+            .unwrap();
+        let file = dir.child("cases/ehr/doc.arazzo.yaml");
+        file.write_str(&format!(
+            "arazzo: 1.1.0\ninfo: {{ title: t, version: '1', {SECTION_KEY}: create }}\nsourceDescriptions:\n  - {{ name: ehr, url: ../../specs/rest-oas/ehr.yaml, type: openapi }}\nworkflows:\n  - workflowId: w\n    {CITE}\n    steps:\n      - stepId: s\n        operationId: $sourceDescriptions.ehr.ehr_create\n        successCriteria:\n          - condition: $statusCode == 201\n"
+        ))
+        .unwrap();
+        let document = ArazzoDocument::load(file.path()).unwrap();
+        let chapters = chapters();
+        let unarmed = capabilities("[]");
+        let base = Placer::new(&chapters, Some(&unarmed), dir.path())
+            .place(&document, "doc", "ehr")
+            .unwrap();
+        assert_eq!(
+            base.get("w").map(|p| &p.standing),
+            Some(&Standing::Base {
+                section: "create".to_owned()
+            })
+        );
+        let armed = capabilities(r#"["doc"]"#);
+        let option = Placer::new(&chapters, Some(&armed), dir.path())
+            .place(&document, "doc", "ehr")
+            .unwrap();
+        assert_eq!(
+            option.get("w").map(|p| &p.standing),
+            Some(&Standing::Option {
+                arms: vec![ArmRef {
+                    option: "o".to_owned(),
+                    arm: "a".to_owned()
+                }]
+            })
+        );
+        assert!(
+            Placer::new(&chapters, Some(&unarmed), dir.path())
+                .place(&document, "doc", "nowhere")
+                .is_err(),
+            "a folder in no chapter cannot be placed"
+        );
+    }
+
+    #[test]
+    fn the_committed_catalogue_places_every_case_with_its_trial_and_formalism() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let catalogue = root.join("catalogue");
+        let chapters = Chapters::load(&catalogue.join(CHAPTERS_FILE)).unwrap();
+        let capabilities =
+            Capabilities::load(&catalogue.join(crate::arazzo::capabilities::CAPABILITIES_FILE))
+                .unwrap();
+        let mut placer = Placer::new(&chapters, Some(&capabilities), &root);
+        let place = |placer: &mut Placer<'_>, folder: &str, id: &str| {
+            let path = catalogue.join(format!("cases/{folder}/{id}.arazzo.yaml"));
+            placer
+                .place(&ArazzoDocument::load(&path).unwrap(), id, folder)
+                .unwrap()
+        };
+        let stored = place(&mut placer, "query", "definition_query");
+        assert!(stored.values().any(|p| p.trial), "the stored-query OAS is TRIAL");
+        let top = place(&mut placer, "query", "aqlc_top");
+        assert!(top.values().all(Place::is_base), "TOP is BASE");
+        let content = place(&mut placer, "content", "dv_count");
+        assert!(
+            content.values().all(|p| p.formalism == Some(Formalism::Adl14)),
+            "every content case uploads an ADL 1.4 template"
+        );
+        let unmatched = place(&mut placer, "content", "content_item_unmatched_refused");
+        assert!(
+            unmatched
+                .values()
+                .all(|p| p.reports.iter().any(|r| r.get() == 307)),
+            "an option resting on a reported text carries its report"
+        );
+    }
+}
+

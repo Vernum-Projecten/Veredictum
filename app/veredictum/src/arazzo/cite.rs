@@ -1106,6 +1106,30 @@ mod tests {
     }
 
     #[test]
+    fn a_citation_into_retired_text_is_refused_and_released_text_is_not() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut checker = QuoteChecker::new(&root);
+        let retired = cite(
+            "specs/openehr/ITS-REST/docs/simplified_data_template/master01-preface.adoc",
+            "Purpose",
+            "This document describes a 'simplified template' (ST) format",
+        );
+        assert_eq!(
+            checker.check(&retired),
+            Err(CiteError::Retired {
+                file: retired.source.clone(),
+                document: "simplified_data_template".to_owned(),
+            })
+        );
+        let released = cite(
+            "specs/openehr/ITS-REST/specifications/docs/overview/Resources.md",
+            "Data representation",
+            "Additionally, the **Simplified Formats** format SHOULD be supported",
+        );
+        assert_eq!(checker.check(&released), Ok(()));
+    }
+
+    #[test]
     fn a_malformed_extension_is_refused() {
         let mut ext = BTreeMap::new();
         ext.insert(

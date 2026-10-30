@@ -1,0 +1,22 @@
+# Seeded defect: a snapshot entry no citation names.
+# The committed snapshot of the upstream-report issues the catalogue's
+# citations name through `report:`, keyed by issue number. The views read it
+# so a result names a report's title and state without asking the tracker,
+# and scripts/checks/report-refs.sh holds it to the tracker. `state` is
+# `closed` for a closed issue, `confirmed` for an open one labelled
+# `upstream-confirmed`, and `open` otherwise.
+# No openEHR spec governs this — our own design.
+reports:
+  161: { title: "AQL never assigns a behaviour to a containment pair the RM defines no relationship for", state: confirmed }
+  229: { title: "AQL leaves SUM and AVG over an input type outside their declared set unassigned", state: closed }
+  307: { title: "AM never states whether a data node matching no constraint node is invalid", state: open }
+  352: { title: "ITS-REST declares the Simplified Formats for EHR_STATUS, FOLDER and the PARTY kinds, which the Simplified Formats specification never maps", state: open }
+  661: { title: "RM: REVISION_HISTORY.items is most-recent-first in the class purpose and most-recent-last everywhere else", state: open }
+  673: { title: "ITS-REST: return=identifier is a SHOULD in one section and \"never 204\" with no keyword in another", state: open }
+  721: { title: "Simplified Formats: the RM mapping tables name RM attributes and types the RM does not have", state: open }
+  724: { title: "ITS-JSON: DV_URI and DV_EHR_URI require no value, and DV_INTERVAL limits are untyped objects", state: confirmed }
+  735: { title: "ITS-REST: the bulk EHR delete declares its ehr_id subset as one UUID and templates it into the path", state: open }
+  758: { title: "SMART on openEHR: the discovery example and scope grammar contradict each other, and no scope maps to an operation", state: open }
+  759: { title: "ITS-REST: the Simplified Formats and canonical XML chapters require what they leave undefined", state: open }
+  771: { title: "AQL: AND and OR precedence, regex node predicates, LIKE escapes, basic-format dates, whole-value comparisons and supertype paths are unassigned", state: open }
+  99999: { title: "A report no citation names", state: open }

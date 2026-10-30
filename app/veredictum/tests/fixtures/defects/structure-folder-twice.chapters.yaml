@@ -1,0 +1,183 @@
+# Seeded defect: the capability folder `system` listed in two chapters.
+# How the views group the catalogue. `chapters` lists the chapters in the
+# order they are shown, each capability folder under exactly one chapter, and
+# each folder's sections in order: every document that no arm of
+# capabilities.yaml names (a BASE document) carries one of its folder's
+# section keys as `x-veredictum-section` on its `info`, and a document an arm
+# names carries none. `options` gives every option of capabilities.yaml its
+# theme and its tier: `recommended` where support is a SHOULD, `options` where
+# the release leaves the behaviour to the implementation, `spec-boundary`
+# where the option exists only because the released text is defective. `formalism`
+# marks the folder whose views badge each row ADL 1.4 or ADL 2.
+# No openEHR spec governs this — our own design.
+chapters:
+  - chapter: ehr
+    title: EHR
+    folders:
+      - folder: ehr
+        title: EHR
+        sections:
+          - { section: create-and-read, title: Create and read }
+          - { section: committal-headers, title: Committal headers }
+          - { section: bulk-load, title: Bulk load }
+      - folder: ehr_status
+        title: EHR_STATUS
+        sections:
+          - { section: read, title: Read }
+          - { section: update, title: Update }
+          - { section: versioning-and-history, title: Versioning and history }
+          - { section: flags, title: Flags }
+      - folder: composition
+        title: COMPOSITION
+        sections:
+          - { section: create, title: Create }
+          - { section: read, title: Read }
+          - { section: update, title: Update }
+          - { section: delete, title: Delete }
+          - { section: versioning-and-history, title: Versioning and history }
+          - { section: refusals, title: Refusals }
+      - folder: directory
+        title: DIRECTORY
+        sections:
+          - { section: create, title: Create }
+          - { section: read, title: Read }
+          - { section: update, title: Update }
+          - { section: delete, title: Delete }
+          - { section: refusals, title: Refusals }
+      - folder: contribution
+        title: CONTRIBUTION
+        sections:
+          - { section: create, title: Create }
+          - { section: read, title: Read }
+          - { section: refusals, title: Refusals }
+      - folder: item_tags
+        title: Item tags
+        sections:
+          - { section: ehr-tags, title: EHR tags }
+          - { section: ehr-status-tags, title: EHR_STATUS tags }
+          - { section: composition-tags, title: COMPOSITION tags }
+  - chapter: definitions
+    title: Definitions
+    folders:
+      - folder: definition
+        title: Templates
+        sections:
+          - { section: adl-1-4-templates, title: ADL 1.4 templates }
+          - { section: adl-2-templates, title: ADL 2 templates }
+  - chapter: query
+    title: Query
+    folders:
+      - folder: query
+        title: AQL and stored queries
+        sections:
+          - { section: ad-hoc-aql-execution, title: Ad-hoc AQL execution }
+          - { section: aql-semantics, title: AQL semantics }
+          - { section: aql-conformance-corpus, title: AQL conformance corpus }
+          - { section: stored-queries, title: Stored queries }
+          - { section: refusals, title: Refusals }
+  - chapter: demographic
+    title: Demographic
+    folders:
+      - folder: demographic
+        title: Demographic
+        sections:
+          - { section: parties, title: Parties }
+          - { section: versioned-party, title: Versioned party }
+          - { section: demographic-contribution, title: Demographic CONTRIBUTION }
+          - { section: item-tags, title: Item tags }
+          - { section: refusals, title: Refusals }
+  - chapter: content-validation
+    title: Content validation
+    folders:
+      - folder: content
+        title: Content validation
+        formalism: true
+        sections:
+          - { section: structure-and-cardinality, title: Structure and cardinality }
+          - { section: data-types, title: Data types }
+          - { section: interval-data-types, title: Interval data types }
+  - chapter: simplified-formats
+    title: Simplified formats
+    folders:
+      - folder: simplified_formats
+        title: Simplified formats
+        sections: []
+  - chapter: admin
+    title: Admin
+    folders:
+      - folder: admin
+        title: Admin
+        sections:
+          - { section: refusals, title: Refusals }
+  - chapter: security-and-privacy
+    title: Security and privacy
+    folders:
+      - folder: security
+        title: Security
+        sections:
+          - { section: anonymous-ehrs, title: Anonymous EHRs }
+  - chapter: smart-on-openehr
+    title: SMART on openEHR
+    folders:
+      - folder: smart
+        title: SMART
+        sections:
+          - { section: discovery, title: Discovery }
+          - { section: resource-scopes, title: Resource scopes }
+  - chapter: system-again
+    title: System again
+    folders:
+      - folder: system
+        title: System
+        sections: []
+  - chapter: system
+    title: System
+    folders:
+      - folder: system
+        title: System
+        sections:
+          - { section: options, title: OPTIONS }
+options:
+  ehr-xml-read: { theme: canonical-xml, tier: options }
+  ehr-xml-write: { theme: canonical-xml, tier: options }
+  ehr-status-xml-read: { theme: canonical-xml, tier: options }
+  ehr-status-xml-write: { theme: canonical-xml, tier: options }
+  ehr-status-flat-write: { theme: simplified-formats, tier: spec-boundary }
+  ehr-status-structured-write: { theme: simplified-formats, tier: spec-boundary }
+  ehr-status-flat-read: { theme: simplified-formats, tier: spec-boundary }
+  ehr-status-structured-read: { theme: simplified-formats, tier: spec-boundary }
+  composition-xml-read: { theme: canonical-xml, tier: options }
+  composition-flat-read: { theme: simplified-formats, tier: recommended }
+  composition-structured-read: { theme: simplified-formats, tier: recommended }
+  composition-xml-write: { theme: canonical-xml, tier: options }
+  query-ehr-scope: { theme: left-open, tier: options }
+  aql-terminology: { theme: left-open, tier: options }
+  composition-flat-write: { theme: simplified-formats, tier: recommended }
+  composition-structured-write: { theme: simplified-formats, tier: recommended }
+  content-unmatched-member: { theme: left-open, tier: spec-boundary }
+  template-web-template: { theme: simplified-formats, tier: recommended }
+  contribution-xml-read: { theme: canonical-xml, tier: options }
+  contribution-xml-write: { theme: canonical-xml, tier: options }
+  directory-xml-read: { theme: canonical-xml, tier: options }
+  directory-xml-write: { theme: canonical-xml, tier: options }
+  party-xml-read: { theme: canonical-xml, tier: options }
+  versioned-party-xml-read: { theme: canonical-xml, tier: options }
+  party-xml-write: { theme: canonical-xml, tier: options }
+  demographic-contribution-xml-read: { theme: canonical-xml, tier: options }
+  demographic-contribution-xml-write: { theme: canonical-xml, tier: options }
+  contribution-flat-write: { theme: simplified-formats, tier: recommended }
+  contribution-structured-write: { theme: simplified-formats, tier: recommended }
+  contribution-flat-read: { theme: simplified-formats, tier: recommended }
+  contribution-structured-read: { theme: simplified-formats, tier: recommended }
+  simplified-deprecated-write: { theme: simplified-formats, tier: options }
+  simplified-deprecated-read: { theme: simplified-formats, tier: options }
+  simplified-legacy-write: { theme: simplified-formats, tier: options }
+  simplified-legacy-read: { theme: simplified-formats, tier: options }
+  authentication: { theme: left-open, tier: recommended }
+  version-signing: { theme: left-open, tier: options }
+  admin-ehr-delete-processing: { theme: left-open, tier: options }
+  admin-ehr-delete-all: { theme: left-open, tier: options }
+  aql-undefined-containment: { theme: left-open, tier: spec-boundary }
+  aql-nonnumeric-aggregate: { theme: left-open, tier: spec-boundary }
+  xml-namespace: { theme: canonical-xml, tier: spec-boundary }
+  terminology-binding-unresolvable: { theme: left-open, tier: options }
