@@ -1,12 +1,13 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
+assertion_line: 182
 expression: junit(&fixture()).unwrap()
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="ehr" tests="5" failures="1" errors="1" skipped="1">
-  <testsuite name="ehr/create_twice" tests="2" failures="1" errors="0" skipped="0">
-    <testcase name="ehr/create_twice row 0" classname="ehr/create_twice"/>
-    <testcase name="ehr/create_twice row 1" classname="ehr/create_twice">
+<testsuites name="ehr" tests="5" failures="1" errors="1" time="0">
+  <testsuite name="ehr/create_twice" tests="2" failures="1" errors="0" skipped="0" time="0">
+    <testcase name="ehr/create_twice row 0" classname="ehr/create_twice" time="0"/>
+    <testcase name="ehr/create_twice row 1" classname="ehr/create_twice" time="0">
       <failure message="step create-again: expected status 409, received status 201" type="server">FAILED   ehr/create_twice   step create-again
 What     Create an EHR with the same ehr_id again.
 Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
@@ -19,8 +20,8 @@ Whose    the server: a failed row counts against the claimed capability
          the cited text has a known spec gap: upstream report #42</failure>
     </testcase>
   </testsuite>
-  <testsuite name="ehr/etag" tests="1" failures="0" errors="0" skipped="0">
-    <testcase name="ehr/etag row 0" classname="ehr/etag">
+  <testsuite name="ehr/etag" tests="1" failures="0" errors="0" skipped="0" time="0">
+    <testcase name="ehr/etag row 0" classname="ehr/etag" time="0">
       <system-out>ADVISORY: a SHOULD the server did not follow; this row never counts against the server.
 FAILED   ehr/etag   step read
 What     Create an EHR with the same ehr_id again.
@@ -33,8 +34,8 @@ Exchange PUT http://sut/ehr/3f2a -&gt; 201   (recording entry 2)
 Whose    advisory: the server did not follow a SHOULD; this row never counts against a capability</system-out>
     </testcase>
   </testsuite>
-  <testsuite name="ehr/escape" tests="1" failures="0" errors="1" skipped="0">
-    <testcase name="ehr/escape row 0" classname="ehr/escape">
+  <testsuite name="ehr/escape" tests="1" failures="0" errors="1" skipped="0" time="0">
+    <testcase name="ehr/escape row 0" classname="ehr/escape" time="0">
       <error message="step create &lt;first&gt; &amp; &quot;second&quot;: expected status 409, received the body | did not parse: ```�" type="instrument">ERRORED  ehr/escape   step create &lt;first&gt; &amp; &quot;second&quot;
 What     Create an EHR with the same ehr_id again.
 Why      (no citation resolved)
@@ -43,8 +44,8 @@ Received the body | did not parse: ```�
 Whose    the instrument could not judge: this row does not count against the vendor</error>
     </testcase>
   </testsuite>
-  <testsuite name="ehr/admin_delete" tests="1" failures="0" errors="0" skipped="1">
-    <testcase name="ehr/admin_delete row 0" classname="ehr/admin_delete">
+  <testsuite name="ehr/admin_delete" tests="1" failures="0" errors="0" skipped="1" time="0">
+    <testcase name="ehr/admin_delete row 0" classname="ehr/admin_delete" time="0">
       <skipped message="not-declared: specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description">SKIPPED  ehr/admin_delete   not-declared
 Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
          &quot;The administrative principal is not declared.&quot;

@@ -28,7 +28,7 @@ use crate::arazzo::reading::{
 };
 use crate::arazzo::results::{ResultRow, Results, SkipReason, Status, Whose, Why};
 use crate::arazzo::rows::Row;
-use crate::arazzo::structure::Outline;
+use crate::arazzo::structure::{Outline, Place, Standing, Tier};
 use crate::party::InstrumentStatus;
 
 /// The CTRF specification version the CTRF view is written to
@@ -139,15 +139,86 @@ fn xml_attr(text: &str) -> String {
     xml_text(text).replace(['\r', '\n', '\t'], " ")
 }
 
+/// The part of a result a case is read under, the BASE and option tiers.
+fn part_of(outline: &Outline, place: &Place) -> &'static str {
+    match &place.standing {
+        Standing::Base { .. } if place.trial => Tier::Options.title(),
+        Standing::Base { .. } => "BASE",
+        Standing::Option { arms } => arms
+            .first()
+            .and_then(|arm| outline.option(&arm.option))
+            .map_or("OPTIONS", |option| option.tier.title()),
+    }
+}
+
+/// Where a case sits, as named values every machine-readable view carries.
+///
+/// The values are the part, chapter, band and capability, the section of a BASE case or the
+/// options and arms of an OPTION case, its formalism, a TRIAL mark and the
+/// upstream reports its citations name. Empty for a case the outline does
+/// not place.
+#[must_use]
+pub fn placement(outline: Option<&Outline>, case: &str) -> Vec<(&'static str, Vec<String>)> {
+    let Some((outline, place)) = outline.and_then(|o| o.place(case).map(|p| (o, p))) else {
+        return Vec::new();
+    };
+    let mut named: Vec<(&'static str, Vec<String>)> =
+        vec![("part", vec![part_of(outline, place).to_owned()])];
+    if let Some((chapter, folder)) = outline.folder(&place.folder) {
+        named.push(("chapter", vec![chapter.title.clone()]));
+        named.push(("band", vec![folder.title.clone()]));
+    }
+    named.push(("capability", vec![place.folder.clone()]));
+    match &place.standing {
+        Standing::Base { section } => named.push((
+            "section",
+            vec![
+                outline
+                    .section_title(&place.folder, section)
+                    .unwrap_or(section)
+                    .to_owned(),
+            ],
+        )),
+        Standing::Option { arms } => {
+            named.push(("option", arms.iter().map(|a| a.option.clone()).collect()));
+            named.push(("arm", arms.iter().map(|a| a.arm.clone()).collect()));
+        }
+    }
+    if let Some(formalism) = place.formalism {
+        named.push(("formalism", vec![formalism.label().to_owned()]));
+    }
+    if place.trial {
+        named.push(("trial", vec![String::from("true")]));
+    }
+    if !place.reports.is_empty() {
+        named.push((
+            "report",
+            place.reports.iter().map(|r| format!("#{r}")).collect(),
+        ));
+    }
+    named
+}
+
+/// The namespace every name Veredictum adds to a JUnit `<property>` or a
+/// CTRF `extra` object carries.
+pub const EXTENSION_NAMESPACE: &str = "eu.veredictum";
+
 /// Writes the JUnit XML view of `results`.
 ///
+/// No single body owns JUnit XML, so the view is held to the two schemas the
+/// tools that read it publish: each `testsuite` to Apache Maven Surefire's
+/// test report schema, and the document to the Jenkins xUnit plugin's
+/// junit-10 schema, which adds the `testsuites` root.
+///
 /// The document is one `testsuites` named after the Arazzo document, one
-/// `testsuite` per workflow and one `testcase` per row. A failed row carries
-/// a `<failure>`, an errored row an `<error>` and a skipped row a
-/// `<skipped>`; the element's `message` is a one-line summary, its `type`
-/// says whose problem a red row is, and its text is the row's four-part
-/// explanation (for a skipped row, its reason and citation). The view
-/// carries no timing, because the results document carries none.
+/// `testsuite` per workflow and one `testcase` per row. A suite of a placed
+/// case carries `<properties>` naming where it sits, each property named
+/// `eu.veredictum.<name>`. A failed row carries a `<failure>`, an errored row
+/// an `<error>` and a skipped row a `<skipped>`; the element's `message` is a
+/// one-line summary, its `type` says whose problem a red row is, and its text
+/// is the row's four-part explanation (for a skipped row, its reason and
+/// citation). Every `time` is 0, because the results document carries no
+/// timing.
 ///
 /// An advisory row is a passing `testcase` with no `<failure>`: its text sits
 /// in `<system-out>`, opened by [`ADVISORY_LINE`], and no `failures` count
@@ -163,13 +234,34 @@ pub fn junit(results: &Results) -> Result<String, ExportError> {
     let total = Tally::of(&results.rows);
     let mut suites = BytesStart::new("testsuites");
     suites.push_attribute(("name", xml_attr(&results.document).as_str()));
-    push_tally(&mut suites, total);
+    // NOTE: the Jenkins xUnit junit-10 schema gives `testsuites` no `skipped` attribute, so the
+    // root counts tests, failures and errors only; each `testsuite` carries its skips.
+    for (name, count) in [
+        ("tests", total.tests),
+        ("failures", total.failed),
+        ("errors", total.errored),
+    ] {
+        suites.push_attribute((name, count.to_string().as_str()));
+    }
+    suites.push_attribute(("time", NO_TIME));
     writer.write_event(Event::Start(suites))?;
     for (case, rows) in workflows(results) {
         let mut suite = BytesStart::new("testsuite");
         suite.push_attribute(("name", xml_attr(case).as_str()));
         push_tally(&mut suite, Tally::of(rows.iter().copied()));
+        suite.push_attribute(("time", NO_TIME));
         writer.write_event(Event::Start(suite))?;
+        let named = placement(results.outline.as_ref(), case);
+        if !named.is_empty() {
+            writer.write_event(Event::Start(BytesStart::new("properties")))?;
+            for (name, values) in named {
+                let mut property = BytesStart::new("property");
+                property.push_attribute(("name", format!("{EXTENSION_NAMESPACE}.{name}").as_str()));
+                property.push_attribute(("value", xml_attr(&values.join(", ")).as_str()));
+                writer.write_event(Event::Empty(property))?;
+            }
+            writer.write_event(Event::End(BytesEnd::new("properties")))?;
+        }
         for row in rows {
             write_testcase(&mut writer, row)?;
         }
@@ -193,11 +285,17 @@ fn push_tally(element: &mut BytesStart<'_>, tally: Tally) {
     }
 }
 
+/// The `time` every JUnit element carries.
+// NOTE: the Surefire schema makes `testcase/@time` required, and the results document carries no
+// clock reading, so every time is 0 rather than an invented duration (no openEHR spec governs it).
+const NO_TIME: &str = "0";
+
 /// Writes one row as a `testcase`.
 fn write_testcase(writer: &mut Writer<Vec<u8>>, row: &ResultRow) -> Result<(), ExportError> {
     let mut case = BytesStart::new("testcase");
     case.push_attribute(("name", xml_attr(&test_name(row)).as_str()));
     case.push_attribute(("classname", xml_attr(&row.case).as_str()));
+    case.push_attribute(("time", NO_TIME));
     if is_advisory(row) {
         writer.write_event(Event::Start(case))?;
         writer.write_event(Event::Start(BytesStart::new("system-out")))?;
@@ -251,12 +349,22 @@ struct CtrfResults<'a> {
     environment: CtrfEnvironment<'a>,
 }
 
+/// A CTRF `extra` object holding Veredictum's one extension, under its
+/// namespaced key.
+// NOTE: CTRF 0.2.0 `spec/ctrf.md` §4.6.1: extension keys "SHOULD be namespaced" and a producer
+// "SHOULD group related extension data under a single extension key".
+#[derive(Debug, Serialize)]
+struct Extra<T> {
+    #[serde(rename = "eu.veredictum")]
+    veredictum: T,
+}
+
 /// The CTRF `tool` object.
 #[derive(Debug, Serialize)]
 struct CtrfTool<'a> {
     name: &'a str,
     version: &'a str,
-    extra: CtrfToolExtra,
+    extra: Extra<CtrfToolExtra>,
 }
 
 /// The tool's own metadata.
@@ -288,12 +396,26 @@ struct CtrfTest<'a> {
     name: String,
     status: &'static str,
     duration: u64,
-    suite: [&'a str; 2],
+    suite: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<String>,
     raw_status: &'static str,
+    #[serde(rename = "type")]
+    kind: &'static str,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    labels: BTreeMap<&'static str, CtrfLabel>,
     parameters: &'a Row,
-    extra: CtrfTestExtra<'a>,
+    extra: Extra<CtrfTestExtra<'a>>,
+}
+
+/// One CTRF label value: a string, or a list of strings.
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+enum CtrfLabel {
+    /// One value.
+    One(String),
+    /// Several values.
+    Many(Vec<String>),
 }
 
 /// The Veredictum fields of one test.
@@ -327,7 +449,7 @@ struct CtrfCitation<'a> {
 #[serde(rename_all = "camelCase")]
 struct CtrfEnvironment<'a> {
     report_name: &'a str,
-    extra: CtrfEnvironmentExtra<'a>,
+    extra: Extra<CtrfEnvironmentExtra<'a>>,
 }
 
 /// The run's own environment fields.
@@ -350,15 +472,42 @@ fn ctrf_status(row: &ResultRow) -> (&'static str, &'static str) {
     }
 }
 
+/// The CTRF `suite` path of a case: the document, then the part, chapter,
+/// band and section or option it is read under, or the case id when the
+/// outline does not place it.
+fn ctrf_suite(results: &Results, named: &[(&'static str, Vec<String>)], case: &str) -> Vec<String> {
+    let value = |name: &str| {
+        named
+            .iter()
+            .find(|(n, _)| *n == name)
+            .and_then(|(_, values)| values.first().cloned())
+    };
+    let path: Vec<String> = ["part", "chapter", "band"]
+        .into_iter()
+        .filter_map(value)
+        .chain(value("section").or_else(|| value("option")))
+        .collect();
+    let mut suite = vec![results.document.clone()];
+    if path.is_empty() {
+        suite.push(case.to_owned());
+    } else {
+        suite.extend(path);
+    }
+    suite
+}
+
 /// Writes the CTRF 0.2.0 view of `results`.
 ///
-/// One test per row, named `<case> row <n>` and filed under the suite
-/// `[<document>, <case>]`. *passed*, *failed* and *skipped* map to the CTRF
+/// One test per row, named `<case> row <n>`, of `type` `conformance`, and
+/// filed under the `suite` path of the document, then the part, chapter, band
+/// and section or option the outline reads it under. Its `labels` name where
+/// it sits, as [`placement`] gives it, and every `extra` object holds one
+/// extension under the key [`EXTENSION_NAMESPACE`], as CTRF §4.6.1 asks. *passed*, *failed* and *skipped* map to the CTRF
 /// statuses of the same name, and *errored* and *advisory* to `other`, with
 /// the row's own status in `rawStatus`. An advisory row is therefore never
 /// `failed`, and `summary.failed` excludes it, so a CI that fails a job on a
 /// CTRF failure never fails it on a SHOULD; `summary.other` counts it. A red row's `message` is its four-part explanation
-/// and a skipped row's is its reason and citation; `extra` carries the case
+/// and a skipped row's is its reason and citation; the extension carries the case
 /// id, the row, the skip reason, the citation, the upstream report link and
 /// whose problem a red row is. The row's inputs are the test's `parameters`.
 /// The results document carries no timing, so every duration and the run's
@@ -375,27 +524,44 @@ pub fn ctrf(results: &Results) -> Result<String, ExportError> {
         .map(|row| {
             let why = citation(row);
             let (status, raw_status) = ctrf_status(row);
+            let named = placement(results.outline.as_ref(), &row.case);
+            let suite = ctrf_suite(results, &named, &row.case);
+            let labels = named
+                .into_iter()
+                .map(|(name, mut values)| {
+                    let value = if values.len() == 1 {
+                        CtrfLabel::One(values.remove(0))
+                    } else {
+                        CtrfLabel::Many(values)
+                    };
+                    (name, value)
+                })
+                .collect();
             CtrfTest {
                 test_id: format!("{}#{}", row.case, row.row),
                 name: test_name(row),
                 status,
                 duration: 0,
-                suite: [results.document.as_str(), row.case.as_str()],
+                suite,
                 message: (row.status != Status::Passed).then(|| row.to_string()),
                 raw_status,
+                kind: "conformance",
+                labels,
                 parameters: &row.inputs,
-                extra: CtrfTestExtra {
-                    case: &row.case,
-                    row: row.row,
-                    skip_reason: row.skip.as_ref().map(|skip| skip.reason),
-                    citation: why.map(|why| CtrfCitation {
-                        source: &why.source,
-                        section: &why.section,
-                        quote: &why.quote,
-                        link: why.link.as_deref(),
-                    }),
-                    report: report_link(why),
-                    whose: row.explanation.as_ref().map(|e| whose_token(e.whose)),
+                extra: Extra {
+                    veredictum: CtrfTestExtra {
+                        case: &row.case,
+                        row: row.row,
+                        skip_reason: row.skip.as_ref().map(|skip| skip.reason),
+                        citation: why.map(|why| CtrfCitation {
+                            source: &why.source,
+                            section: &why.section,
+                            quote: &why.quote,
+                            link: why.link.as_deref(),
+                        }),
+                        report: report_link(why),
+                        whose: row.explanation.as_ref().map(|e| whose_token(e.whose)),
+                    },
                 },
             }
         })
@@ -410,8 +576,10 @@ pub fn ctrf(results: &Results) -> Result<String, ExportError> {
             tool: CtrfTool {
                 name: &results.engine.name,
                 version: &results.engine.version,
-                extra: CtrfToolExtra {
-                    instrument_status: results.instrument_status,
+                extra: Extra {
+                    veredictum: CtrfToolExtra {
+                        instrument_status: results.instrument_status,
+                    },
                 },
             },
             summary: CtrfSummary {
@@ -428,8 +596,10 @@ pub fn ctrf(results: &Results) -> Result<String, ExportError> {
             tests,
             environment: CtrfEnvironment {
                 report_name: &results.document,
-                extra: CtrfEnvironmentExtra {
-                    base_url: &results.base_url,
+                extra: Extra {
+                    veredictum: CtrfEnvironmentExtra {
+                        base_url: &results.base_url,
+                    },
                 },
             },
         },

@@ -24,7 +24,9 @@ use quick_xml::{Reader, XmlVersion};
 use serde_json::Value;
 use veredictum::arazzo::document::ArazzoDocument;
 use veredictum::arazzo::evaluate::{Plan, rejudge};
-use veredictum::arazzo::export::{ADVISORY_LINE, CTRF_SPEC_VERSION, ctrf, junit, markdown};
+use veredictum::arazzo::export::{
+    ADVISORY_LINE, CTRF_SPEC_VERSION, EXTENSION_NAMESPACE, ctrf, junit, markdown,
+};
 use veredictum::arazzo::har::Har;
 use veredictum::arazzo::results::{
     Engine, ExchangeRef, Explanation, ResultRow, Results, Skip, SkipReason, Status, Whose, Why,
@@ -288,7 +290,7 @@ fn a_red_row_carries_its_four_part_explanation_in_every_view() {
         Some(explanation.as_str())
     );
     assert_eq!(
-        document["results"]["tests"][1]["extra"]["report"].as_str(),
+        document["results"]["tests"][1]["extra"]["eu.veredictum"]["report"].as_str(),
         Some(concat!(env!("CARGO_PKG_REPOSITORY"), "/issues/42"))
     );
 
@@ -441,7 +443,7 @@ fn an_advisory_row_counts_as_failed_in_no_view() {
     let document: Value = serde_json::from_str(&ctrf(&results).unwrap()).unwrap();
     assert_eq!(document["results"]["summary"]["failed"], 1);
     let etag = &document["results"]["tests"][2];
-    assert_eq!(etag["extra"]["case"], "ehr/etag");
+    assert_eq!(etag["extra"]["eu.veredictum"]["case"], "ehr/etag");
     assert_eq!(etag["status"], "other");
     assert_eq!(etag["rawStatus"], "advisory");
 
@@ -705,6 +707,27 @@ fn the_markdown_summary_by_base_and_options_is_pinned() {
     let summary = markdown(&outlined());
     assert_eq!(summary, markdown(&outlined()), "byte-deterministic");
     insta::assert_snapshot!(summary);
+}
+
+#[test]
+fn the_junit_view_with_its_placement_is_pinned() {
+    insta::assert_snapshot!(junit(&outlined()).unwrap());
+}
+
+#[test]
+fn the_ctrf_view_with_its_placement_is_pinned_and_holds_to_the_schema() {
+    let text = ctrf(&outlined()).unwrap();
+    assert_ctrf_valid(&text);
+    let document: Value = serde_json::from_str(&text).unwrap();
+    for test in document["results"]["tests"].as_array().unwrap() {
+        let extra = test["extra"].as_object().unwrap();
+        assert_eq!(
+            extra.keys().collect::<Vec<_>>(),
+            [EXTENSION_NAMESPACE],
+            "every extension sits under the one namespaced key"
+        );
+    }
+    insta::assert_snapshot!(text);
 }
 
 #[test]

@@ -117,6 +117,22 @@ precedence = "override"
 SPDX-FileCopyrightText = "2024 Matthew Poulton-White"
 SPDX-License-Identifier = "MIT"
 
+# ── The vendored JUnit XML schemas ──────────────────────────────────────────
+# The schemas the JUnit export is validated against: Apache Maven Surefire's
+# test report schema (Apache-2.0) and the Jenkins xUnit plugin's junit-10
+# schema (MIT, the text in its own header).
+[[annotations]]
+path = ["app/veredictum/src/arazzo/vendor/surefire-test-report-3.6.1.xsd", "app/veredictum/src/arazzo/vendor/LICENSE-maven-surefire"]
+precedence = "override"
+SPDX-FileCopyrightText = "The Apache Software Foundation"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["app/veredictum/src/arazzo/vendor/junit-10-xunit-3.1.7.xsd", "app/veredictum/src/arazzo/vendor/LICENSE-xunit-plugin"]
+precedence = "override"
+SPDX-FileCopyrightText = "2014 Gregory Boissinot"
+SPDX-License-Identifier = "MIT"
+
 # ── One vendored file whose NAME contains a newline character ───────────────
 # A file in the vendored CNF suite is tracked with a literal U+000A inside its
 # filename — an upstream defect, and not something this repository may rename,

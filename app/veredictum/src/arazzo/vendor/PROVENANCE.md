@@ -58,3 +58,31 @@ same script and pinned by its own SHA-256.
 The file is byte-for-byte what the URL served. The CTRF export pins
 `specVersion` 0.2.0, and its tests validate every emitted document against
 this schema.
+
+## JUnit XML schemas
+
+JUnit XML has no single owner. The export is held to the two schemas the tools
+that read it publish, both fetched by `scripts/vendor/junit-schemas.sh`, which
+refuses bytes with any other digest.
+
+`surefire-test-report-3.6.1.xsd` is Apache Maven Surefire's test report
+schema, which defines one `<testsuite>`.
+Source: <https://raw.githubusercontent.com/apache/maven-surefire/5bf0dcf034365f13dc7fdc7a2776e936e636bc52/maven-surefire-plugin/src/site/resources/xsd/surefire-test-report.xsd>,
+the commit the `surefire-3.6.1` tag names; the same bytes Apache publishes at
+<https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd>.
+SHA-256: `f612ebfbd7cb285ac1af2fa9c103f2b83080feffffc6b3dfcc5ab6673d14f052`.
+License: Apache-2.0. The repository's `LICENSE` at the same commit is vendored
+as `LICENSE-maven-surefire`, pinned by its own SHA-256.
+
+`junit-10-xunit-3.1.7.xsd` is the Jenkins xUnit plugin's `junit-10.xsd`, which
+defines the `<testsuites>` root that wraps several suites.
+Source: <https://raw.githubusercontent.com/jenkinsci/xunit-plugin/5fbba4002e02a66032804c5cace4cf51b20491cf/src/main/resources/org/jenkinsci/plugins/xunit/types/model/xsd/junit-10.xsd>,
+the commit the `xunit-3.1.7` release tag names.
+SHA-256: `a1a816f58d1bf95ebabf371994df0b9246dee66ea9572fbec4f9296f1b2c0ff6`.
+License: MIT. The upstream repository has no licence file; the schema's own
+header comment carries the MIT text, and the vendor script copies it out of the
+fetched bytes into `LICENSE-xunit-plugin`.
+
+Both files are byte-for-byte what the URLs served. `scripts/checks/junit-schema.sh`
+validates every pinned JUnit view against them: the whole document against the
+xUnit schema, and each `<testsuite>` against the Surefire schema.

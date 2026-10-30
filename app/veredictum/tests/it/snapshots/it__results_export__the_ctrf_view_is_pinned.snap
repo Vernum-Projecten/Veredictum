@@ -1,5 +1,6 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
+assertion_line: 187
 expression: ctrf(&fixture()).unwrap()
 ---
 {
@@ -11,7 +12,9 @@ expression: ctrf(&fixture()).unwrap()
       "name": "veredictum",
       "version": "0.1.7",
       "extra": {
-        "instrumentStatus": "pre-approval"
+        "eu.veredictum": {
+          "instrumentStatus": "pre-approval"
+        }
       }
     },
     "summary": {
@@ -36,12 +39,15 @@ expression: ctrf(&fixture()).unwrap()
           "ehr/create_twice"
         ],
         "rawStatus": "passed",
+        "type": "conformance",
         "parameters": {
           "ehr_id": "id-0"
         },
         "extra": {
-          "case": "ehr/create_twice",
-          "row": 0
+          "eu.veredictum": {
+            "case": "ehr/create_twice",
+            "row": 0
+          }
         }
       },
       {
@@ -55,20 +61,23 @@ expression: ctrf(&fixture()).unwrap()
         ],
         "message": "FAILED   ehr/create_twice   step create-again\nWhat     Create an EHR with the same ehr_id again.\nWhy      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:\n         \"Can happen when the supplied `ehr_id` is already used by an existing EHR.\"\n         https://example.org/409_EHR_with_id.yaml\nExpected status 409\nReceived status 201\nExchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)\nWhose    the server: a failed row counts against the claimed capability\n         the cited text has a known spec gap: upstream report #42",
         "rawStatus": "failed",
+        "type": "conformance",
         "parameters": {
           "ehr_id": "id-1"
         },
         "extra": {
-          "case": "ehr/create_twice",
-          "row": 1,
-          "citation": {
-            "source": "specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml",
-            "section": "description",
-            "quote": "Can happen when the supplied `ehr_id` is already used by an existing EHR.",
-            "link": "https://example.org/409_EHR_with_id.yaml"
-          },
-          "report": "https://github.com/Vernum-Projecten/Veredictum/issues/42",
-          "whose": "server"
+          "eu.veredictum": {
+            "case": "ehr/create_twice",
+            "row": 1,
+            "citation": {
+              "source": "specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml",
+              "section": "description",
+              "quote": "Can happen when the supplied `ehr_id` is already used by an existing EHR.",
+              "link": "https://example.org/409_EHR_with_id.yaml"
+            },
+            "report": "https://github.com/Vernum-Projecten/Veredictum/issues/42",
+            "whose": "server"
+          }
         }
       },
       {
@@ -82,19 +91,22 @@ expression: ctrf(&fixture()).unwrap()
         ],
         "message": "FAILED   ehr/etag   step read\nWhat     Create an EHR with the same ehr_id again.\nWhy      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:\n         \"The server SHOULD send an ETag.\"\n         https://example.org/409_EHR_with_id.yaml\nExpected status 409\nReceived no ETag header\nExchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)\nWhose    advisory: the server did not follow a SHOULD; this row never counts against a capability",
         "rawStatus": "advisory",
+        "type": "conformance",
         "parameters": {
           "ehr_id": "id-0"
         },
         "extra": {
-          "case": "ehr/etag",
-          "row": 0,
-          "citation": {
-            "source": "specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml",
-            "section": "description",
-            "quote": "The server SHOULD send an ETag.",
-            "link": "https://example.org/409_EHR_with_id.yaml"
-          },
-          "whose": "advisory"
+          "eu.veredictum": {
+            "case": "ehr/etag",
+            "row": 0,
+            "citation": {
+              "source": "specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml",
+              "section": "description",
+              "quote": "The server SHOULD send an ETag.",
+              "link": "https://example.org/409_EHR_with_id.yaml"
+            },
+            "whose": "advisory"
+          }
         }
       },
       {
@@ -108,13 +120,16 @@ expression: ctrf(&fixture()).unwrap()
         ],
         "message": "ERRORED  ehr/escape   step create <first> & \"second\"\nWhat     Create an EHR with the same ehr_id again.\nWhy      (no citation resolved)\nExpected status 409\nReceived the body | did not parse: ```\u0001\nWhose    the instrument could not judge: this row does not count against the vendor",
         "rawStatus": "errored",
+        "type": "conformance",
         "parameters": {
           "ehr_id": "id-0"
         },
         "extra": {
-          "case": "ehr/escape",
-          "row": 0,
-          "whose": "instrument"
+          "eu.veredictum": {
+            "case": "ehr/escape",
+            "row": 0,
+            "whose": "instrument"
+          }
         }
       },
       {
@@ -128,18 +143,21 @@ expression: ctrf(&fixture()).unwrap()
         ],
         "message": "SKIPPED  ehr/admin_delete   not-declared\nWhy      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:\n         \"The administrative principal is not declared.\"\n         https://example.org/409_EHR_with_id.yaml",
         "rawStatus": "skipped",
+        "type": "conformance",
         "parameters": {
           "ehr_id": "id-0"
         },
         "extra": {
-          "case": "ehr/admin_delete",
-          "row": 0,
-          "skipReason": "not-declared",
-          "citation": {
-            "source": "specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml",
-            "section": "description",
-            "quote": "The administrative principal is not declared.",
-            "link": "https://example.org/409_EHR_with_id.yaml"
+          "eu.veredictum": {
+            "case": "ehr/admin_delete",
+            "row": 0,
+            "skipReason": "not-declared",
+            "citation": {
+              "source": "specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml",
+              "section": "description",
+              "quote": "The administrative principal is not declared.",
+              "link": "https://example.org/409_EHR_with_id.yaml"
+            }
           }
         }
       }
@@ -147,7 +165,9 @@ expression: ctrf(&fixture()).unwrap()
     "environment": {
       "reportName": "ehr",
       "extra": {
-        "baseUrl": "http://sut/ehrbase/rest/openehr/v1"
+        "eu.veredictum": {
+          "baseUrl": "http://sut/ehrbase/rest/openehr/v1"
+        }
       }
     }
   }

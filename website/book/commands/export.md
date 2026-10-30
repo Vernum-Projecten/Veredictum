@@ -23,11 +23,25 @@ A workflow is a JUnit `<testsuite>` and a row is a `<testcase>` named
 four-part explanation, its `message` is a one-line summary, and its `type`
 says whose problem the row is (`server` or `instrument`). A
 `<skipped>` carries the skip reason and the citation that makes the case not
-apply. In CTRF, a red row's `message` is the same four-part explanation, and
-each test's `extra` carries the case id, the row, the skip reason, the
-citation and, where the citation names one, the link to its upstream report.
-The CTRF document validates against the schema the CTRF project publishes for
-`specVersion` 0.2.0.
+apply. A suite whose case the results place carries `<properties>` naming the
+part, chapter, band, capability, section or option and arm, formalism, TRIAL
+mark and upstream reports, each property named `eu.veredictum.<name>`. Every
+`time` is `0`, because the results document carries no timing.
+
+JUnit XML has no single owner, so the view is held to the two schemas the tools
+that read it publish: the document to the Jenkins xUnit plugin's `junit-10.xsd`,
+which defines the `<testsuites>` root, and each `<testsuite>` to Apache Maven
+Surefire's test report schema. Both are vendored, and a CI gate validates the
+pinned views against them with `xmllint`.
+
+In CTRF, every test has `type` `conformance`, a `suite` path of the document
+then the part, chapter, band and section or option it is read under, and
+`labels` naming where it sits. A red row's `message` is the same four-part
+explanation. Everything CTRF does not define sits in `extra` under the one
+namespaced key `eu.veredictum`, as CTRF §4.6.1 asks: the case id, the row, the
+skip reason, the citation and, where the citation names one, the link to its
+upstream report. The CTRF document validates against the schema the CTRF
+project publishes for `specVersion` 0.2.0, its latest release.
 
 **What the Markdown summary holds.** It is written for a person reading it on
 GitHub. A table names the server and the instrument, and a summary table
