@@ -172,8 +172,18 @@ impl PerfClient {
         })
     }
 
+    /// The base URL every path is joined to.
+    pub(crate) fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    /// The headers the IXIT instance adds to every request.
+    pub(crate) fn extra_headers(&self) -> &[(String, String)] {
+        &self.extra_headers
+    }
+
     /// The `Authorization` header this arrival presents.
-    fn authorization(&self) -> Result<Option<String>, String> {
+    pub(crate) fn authorization(&self) -> Result<Option<String>, String> {
         match self.credential.as_ref() {
             Credential::Fixed(header) => Ok(header.clone()),
             Credential::Minted(grant) => grant.presentable().map(Some),

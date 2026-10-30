@@ -5,7 +5,9 @@
 //!
 //! Every function here is pure over the raw part, so [`derive()`] run twice on
 //! one record gives the same bytes, and the judge reproduces a record by
-//! running it again.
+//! running it again. The run itself calls [`plateau`] and [`scout_estimate`]
+//! to decide its own next phase, so the decision a run took and the one its
+//! record re-derives are the same computation.
 
 use std::collections::BTreeMap;
 
@@ -15,12 +17,18 @@ use serde::{Deserialize, Serialize};
 use crate::perf_gen::drive::latency_histogram;
 use crate::perf_gen::{ErrorClass, OperationId};
 use crate::perf_result::quantile::{Quantile, QuantileName, quantile, u64_to_f64, us_to_ms};
-use crate::perf_result::{PerfResultError, Raw, RawWindow, SCOPE, decode};
+use crate::perf_result::{
+    LoadModel, PerfResultError, Raw, RawPlateau, RawQualification, RawScout, RawWindow, SCOPE,
+    decode, is_zero,
+};
 
 /// The half-to-half ratio band outside which a plateau is unsteady.
 const STEADY_LOW: f64 = 0.8;
 /// The upper end of the steady band.
 const STEADY_HIGH: f64 = 1.25;
+
+/// Millionths in a whole.
+const PPM: u128 = 1_000_000;
 
 /// The number of passes a single run makes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -130,6 +138,18 @@ impl JudgedAt {
         .find(|(name, _)| latency.get(*name).is_resolved())
         .map_or(Self::None, |(_, judged)| judged)
     }
+
+    /// The quantile this names, or `None` when nothing resolves.
+    #[must_use]
+    pub fn quantile(self) -> Option<QuantileName> {
+        match self {
+            Self::P99 => Some(QuantileName::P99),
+            Self::P95 => Some(QuantileName::P95),
+            Self::P90 => Some(QuantileName::P90),
+            Self::P50 => Some(QuantileName::P50),
+            Self::None => None,
+        }
+    }
 }
 
 /// One operation within a plateau.
@@ -140,6 +160,9 @@ pub struct DerivedOperation {
     pub requests: u64,
     /// The exchanges that succeeded.
     pub succeeded: u64,
+    /// Refusals of an optional operation, counted apart from errors.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub refused: u64,
     /// Failed exchanges by class.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub errors: BTreeMap<ErrorClass, u64>,
@@ -152,6 +175,8 @@ pub struct DerivedOperation {
     pub latency: Latency,
     /// The quantile the operation is judged at.
     pub judged_at: JudgedAt,
+    /// The latency budget at that quantile, milliseconds.
+    pub budget_ms: u32,
 }
 
 /// Whether a plateau held still across its two halves.
@@ -192,15 +217,28 @@ pub struct Throughput {
     pub requests: u64,
     /// The exchanges that succeeded.
     pub succeeded: u64,
+    /// Refusals of an optional operation, counted apart from errors.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub refused: u64,
     /// Failed exchanges by class.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub errors: BTreeMap<ErrorClass, u64>,
     /// Failed over all exchanges; absent with no exchange.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error_share: Option<f64>,
-    /// Mean exchanges in flight by Little's law: offered rate times the mean
-    /// latency of every exchange.
+    /// Mean exchanges in flight by Little's law: the rate of the timed
+    /// exchanges times their mean latency.
     pub mean_in_flight: f64,
+}
+
+impl Throughput {
+    /// The failed exchanges: every request neither succeeded nor refused.
+    #[must_use]
+    pub fn failed(&self) -> u64 {
+        self.requests
+            .saturating_sub(self.succeeded)
+            .saturating_sub(self.refused)
+    }
 }
 
 /// The generator's own reading of a window or plateau.
@@ -220,11 +258,58 @@ pub struct GeneratorReading {
     pub generator_bound: bool,
 }
 
+/// One criterion a plateau or scout window fell short of (a closed
+/// vocabulary).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "criterion", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Shortfall {
+    /// Nothing was sent, so nothing qualifies.
+    NoExchanges,
+    /// The successes fell below the lowest achieved share of the answered
+    /// exchanges.
+    Achieved {
+        /// Successes over the exchanges not refused.
+        share: f64,
+    },
+    /// The failures rose above the highest error share.
+    ErrorShare {
+        /// Failures over every exchange.
+        share: f64,
+    },
+    /// An operation exceeded its budget at the quantile it is judged at.
+    Latency {
+        /// The operation.
+        operation: OperationId,
+        /// The quantile it was judged at.
+        judged_at: JudgedAt,
+        /// Its value, milliseconds.
+        value_ms: f64,
+        /// The budget, milliseconds.
+        budget_ms: u32,
+    },
+    /// The generator, not the server, failed to hold the rate.
+    GeneratorBound,
+    /// A saturated generator stopped inside it.
+    Stopped,
+}
+
+/// The qualification of one plateau or scout window.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Qualification {
+    /// Whether every criterion held.
+    pub qualified: bool,
+    /// Each criterion that did not, in a fixed order: exchanges, achieved,
+    /// errors, latency by operation, generator, stop.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shortfalls: Vec<Shortfall>,
+}
+
 /// One plateau, derived.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DerivedPlateau {
-    /// The planned arrival rate, per second.
+    /// The planned operation arrival rate, per second.
     pub planned_rate: f64,
     /// The hold, seconds.
     pub hold_s: f64,
@@ -241,6 +326,8 @@ pub struct DerivedPlateau {
     pub generator: GeneratorReading,
     /// Whether a saturated generator stopped inside the plateau.
     pub stopped: bool,
+    /// The plateau's qualification.
+    pub qualification: Qualification,
 }
 
 /// One scout window, derived.
@@ -249,7 +336,7 @@ pub struct DerivedPlateau {
 pub struct DerivedScoutWindow {
     /// The window's first offset, milliseconds.
     pub start_ms: u64,
-    /// The planned rate at its midpoint, per second.
+    /// The planned operation rate at its midpoint, per second.
     pub planned_rate: f64,
     /// Throughput and errors in the window.
     pub throughput: Throughput,
@@ -257,6 +344,32 @@ pub struct DerivedScoutWindow {
     pub latency: Latency,
     /// The generator's reading.
     pub generator: GeneratorReading,
+    /// The window's qualification, judged like a plateau's.
+    pub qualification: Qualification,
+}
+
+/// The knee estimate K̂ the scout gives, which sets the ladder's rates.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScoutEstimate {
+    /// K̂: the planned operation rate of the first breaching window at its
+    /// midpoint, or the ramp's end rate when no window breached.
+    pub rate: f64,
+    /// The first breaching window; absent when the ramp ended unbreached,
+    /// so K̂ is a lower bound.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub breached_window: Option<usize>,
+}
+
+/// The seeding's own reading, apart from every measured number.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SeedingReading {
+    /// Always `closed_loop`: the server set the seeding's pace.
+    pub model: LoadModel,
+    /// Requests per second of seeding wall time; absent for no wall time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requests_per_s: Option<f64>,
 }
 
 /// The derived part of a record.
@@ -269,9 +382,14 @@ pub struct Derived {
     pub between_run_noise: BetweenRunNoise,
     /// What a single run cannot show.
     pub scope: String,
+    /// The seeding, labelled closed-loop.
+    pub seeding: SeedingReading,
     /// The scout windows, when the run made a scout.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scout: Vec<DerivedScoutWindow>,
+    /// The knee estimate, when the run made a scout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scout_estimate: Option<ScoutEstimate>,
     /// The plateaus, in the order they ran.
     pub plateaus: Vec<DerivedPlateau>,
 }
@@ -291,6 +409,25 @@ struct DecodedOperation {
     ok: Histogram<u64>,
     failed: Histogram<u64>,
     errors: BTreeMap<ErrorClass, u64>,
+    refused: u64,
+}
+
+impl DecodedOperation {
+    fn empty() -> Result<Self, PerfResultError> {
+        Ok(Self {
+            ok: empty()?,
+            failed: empty()?,
+            errors: BTreeMap::new(),
+            refused: 0,
+        })
+    }
+
+    fn requests(&self) -> u64 {
+        self.ok
+            .len()
+            .saturating_add(self.failed.len())
+            .saturating_add(self.refused)
+    }
 }
 
 fn empty() -> Result<Histogram<u64>, PerfResultError> {
@@ -346,10 +483,34 @@ fn decode_window(window: &RawWindow, at: &str) -> Result<Decoded, PerfResultErro
                 ok,
                 failed,
                 errors: op.errors.clone(),
+                refused: op.refused,
             },
         );
     }
     Ok(decoded)
+}
+
+/// Sums decoded windows per operation.
+fn merge_operations<'a>(
+    windows: impl IntoIterator<Item = &'a Decoded>,
+    at: &str,
+) -> Result<BTreeMap<OperationId, DecodedOperation>, PerfResultError> {
+    let mut operations: BTreeMap<OperationId, DecodedOperation> = BTreeMap::new();
+    for window in windows {
+        for (id, op) in &window.per_operation {
+            let merged = match operations.entry(id.clone()) {
+                std::collections::btree_map::Entry::Occupied(slot) => slot.into_mut(),
+                std::collections::btree_map::Entry::Vacant(slot) => {
+                    slot.insert(DecodedOperation::empty()?)
+                }
+            };
+            add(&mut merged.ok, &op.ok, at)?;
+            add(&mut merged.failed, &op.failed, at)?;
+            add_counts(&mut merged.errors, &op.errors);
+            merged.refused = merged.refused.saturating_add(op.refused);
+        }
+    }
+    Ok(operations)
 }
 
 /// `numerator / denominator`, absent for a zero denominator.
@@ -369,14 +530,24 @@ fn sum_us(histogram: &Histogram<u64>) -> u128 {
         .sum()
 }
 
-fn throughput(
-    ok: &Histogram<u64>,
-    failed: &Histogram<u64>,
-    errors: &BTreeMap<ErrorClass, u64>,
-    seconds: f64,
-) -> Throughput {
-    let succeeded = ok.len();
-    let requests = succeeded.saturating_add(failed.len());
+/// The throughput of the operations `ops` over `seconds`.
+fn throughput(ops: &BTreeMap<OperationId, DecodedOperation>, seconds: f64) -> Throughput {
+    let mut succeeded: u64 = 0;
+    let mut failed: u64 = 0;
+    let mut refused: u64 = 0;
+    let mut total_us: u128 = 0;
+    let mut errors = BTreeMap::new();
+    for op in ops.values() {
+        succeeded = succeeded.saturating_add(op.ok.len());
+        failed = failed.saturating_add(op.failed.len());
+        refused = refused.saturating_add(op.refused);
+        total_us = total_us
+            .saturating_add(sum_us(&op.ok))
+            .saturating_add(sum_us(&op.failed));
+        add_counts(&mut errors, &op.errors);
+    }
+    let timed = succeeded.saturating_add(failed);
+    let requests = timed.saturating_add(refused);
     let per_s = |count: u64| {
         if seconds > 0.0 {
             u64_to_f64(count) / seconds
@@ -384,10 +555,9 @@ fn throughput(
             0.0
         }
     };
-    let total_us = sum_us(ok).saturating_add(sum_us(failed));
-    let mean_s = if requests > 0 {
+    let mean_s = if timed > 0 {
         let total = u64::try_from(total_us).unwrap_or(u64::MAX);
-        u64_to_f64(total) / u64_to_f64(requests) / 1_000_000.0
+        u64_to_f64(total) / u64_to_f64(timed) / 1_000_000.0
     } else {
         0.0
     };
@@ -396,9 +566,10 @@ fn throughput(
         achieved_per_s: per_s(succeeded),
         requests,
         succeeded,
-        errors: errors.clone(),
-        error_share: share(failed.len(), requests),
-        mean_in_flight: per_s(requests) * mean_s,
+        refused,
+        errors,
+        error_share: share(failed, requests),
+        mean_in_flight: per_s(timed) * mean_s,
     }
 }
 
@@ -455,64 +626,126 @@ fn compare_halves(first: &Histogram<u64>, second: &Histogram<u64>) -> HalfCompar
     }
 }
 
-fn derive_plateau(raw: &Raw, index: usize) -> Result<DerivedPlateau, PerfResultError> {
-    let at = format!("/raw/plateaus/{index}");
-    let plateau = raw
-        .plateaus
-        .get(index)
-        .ok_or_else(|| PerfResultError::Inconsistent {
-            at: at.clone(),
-            message: "no such plateau".to_owned(),
-        })?;
-    let [first_raw, second_raw] = &plateau.halves;
-    let first = decode_window(first_raw, &format!("{at}/halves/0"))?;
-    let second = decode_window(second_raw, &format!("{at}/halves/1"))?;
-
-    let mut ok = empty()?;
-    let mut failed = empty()?;
-    let mut lag = empty()?;
-    let mut errors = BTreeMap::new();
-    let mut operations: BTreeMap<OperationId, DecodedOperation> = BTreeMap::new();
-    for half in [&first, &second] {
-        add(&mut ok, &half.all_ok, &at)?;
-        add(&mut failed, &half.all_failed, &at)?;
-        add(&mut lag, &half.lag, &at)?;
-        for (id, op) in &half.per_operation {
-            add_counts(&mut errors, &op.errors);
-            let merged = match operations.entry(id.clone()) {
-                std::collections::btree_map::Entry::Occupied(slot) => slot.into_mut(),
-                std::collections::btree_map::Entry::Vacant(slot) => slot.insert(DecodedOperation {
-                    ok: empty()?,
-                    failed: empty()?,
-                    errors: BTreeMap::new(),
-                }),
-            };
-            add(&mut merged.ok, &op.ok, &at)?;
-            add(&mut merged.failed, &op.failed, &at)?;
-            add_counts(&mut merged.errors, &op.errors);
-        }
-    }
-    let hold_s = u64_to_f64(plateau.hold_ms) / 1_000.0;
-    let throughput = throughput(&ok, &failed, &errors, hold_s);
-    let operations = operations
+/// The per-operation numbers of a plateau or a window.
+fn operations(
+    decoded: BTreeMap<OperationId, DecodedOperation>,
+    total_requests: u64,
+    q: &RawQualification,
+) -> BTreeMap<OperationId, DerivedOperation> {
+    decoded
         .into_iter()
         .map(|(id, op)| {
-            let requests = op.ok.len().saturating_add(op.failed.len());
+            let requests = op.requests();
             let latency = Latency::of(&op.ok);
             let judged_at = JudgedAt::of(&latency);
+            let budget_ms = q.budget_ms(&id);
             let derived = DerivedOperation {
                 requests,
                 succeeded: op.ok.len(),
+                refused: op.refused,
                 error_share: share(op.failed.len(), requests),
                 errors: op.errors,
-                share: share(requests, throughput.requests).unwrap_or(0.0),
+                share: share(requests, total_requests).unwrap_or(0.0),
                 latency,
                 judged_at,
+                budget_ms,
             };
             (id, derived)
         })
-        .collect();
+        .collect()
+}
+
+/// Judges a plateau or a window against the run's limits.
+///
+/// The share criteria are integer comparisons in millionths. A refusal
+/// counted apart is neither a success nor a failure, so the achieved share
+/// is taken over the exchanges not refused. An operation whose latency
+/// resolves no quantile is judged on its errors alone.
+#[must_use]
+pub fn qualify(
+    throughput: &Throughput,
+    operations: &BTreeMap<OperationId, DerivedOperation>,
+    generator: &GeneratorReading,
+    stopped: bool,
+    q: &RawQualification,
+) -> Qualification {
+    let mut shortfalls = Vec::new();
+    let answered = throughput.requests.saturating_sub(throughput.refused);
+    if throughput.requests == 0 {
+        shortfalls.push(Shortfall::NoExchanges);
+    }
+    if answered > 0
+        && u128::from(throughput.succeeded) * PPM
+            < u128::from(q.min_achieved_ppm) * u128::from(answered)
+    {
+        shortfalls.push(Shortfall::Achieved {
+            share: share(throughput.succeeded, answered).unwrap_or(0.0),
+        });
+    }
+    let failed = throughput.failed();
+    if u128::from(failed) * PPM > u128::from(q.max_error_ppm) * u128::from(throughput.requests) {
+        shortfalls.push(Shortfall::ErrorShare {
+            share: share(failed, throughput.requests).unwrap_or(0.0),
+        });
+    }
+    for (id, op) in operations {
+        let Some(name) = op.judged_at.quantile() else {
+            continue;
+        };
+        if let Some(value_ms) = op.latency.get(name).value_ms()
+            && value_ms > f64::from(op.budget_ms)
+        {
+            shortfalls.push(Shortfall::Latency {
+                operation: id.clone(),
+                judged_at: op.judged_at,
+                value_ms,
+                budget_ms: op.budget_ms,
+            });
+        }
+    }
+    if generator.generator_bound {
+        shortfalls.push(Shortfall::GeneratorBound);
+    }
+    if stopped {
+        shortfalls.push(Shortfall::Stopped);
+    }
+    Qualification {
+        qualified: shortfalls.is_empty(),
+        shortfalls,
+    }
+}
+
+/// Derives one plateau of a run judged against `q`.
+///
+/// `at` is the plateau's JSON pointer, named in every error.
+///
+/// # Errors
+/// [`PerfResultError::Histogram`] for a histogram that does not decode or
+/// add, and [`PerfResultError::Inconsistent`] for error counts that
+/// disagree with their failed histogram.
+pub fn plateau(
+    plateau: &RawPlateau,
+    q: &RawQualification,
+    lag_limit_us: u64,
+    at: &str,
+) -> Result<DerivedPlateau, PerfResultError> {
+    let [first_raw, second_raw] = &plateau.halves;
+    let first = decode_window(first_raw, &format!("{at}/halves/0"))?;
+    let second = decode_window(second_raw, &format!("{at}/halves/1"))?;
+    let mut ok = empty()?;
+    let mut lag = empty()?;
+    for half in [&first, &second] {
+        add(&mut ok, &half.all_ok, at)?;
+        add(&mut lag, &half.lag, at)?;
+    }
+    let decoded = merge_operations([&first, &second], at)?;
+    let hold_s = u64_to_f64(plateau.hold_ms) / 1_000.0;
+    let throughput = throughput(&decoded, hold_s);
+    let operations = operations(decoded, throughput.requests, q);
     let budget_exhausted = first_raw.budget_exhausted || second_raw.budget_exhausted;
+    let generator = generator_reading(&lag, budget_exhausted, lag_limit_us);
+    let stopped = plateau.stopped_at_ms.is_some();
+    let qualification = qualify(&throughput, &operations, &generator, stopped, q);
     Ok(DerivedPlateau {
         planned_rate: plateau.planned_rate.per_second(),
         hold_s,
@@ -520,38 +753,73 @@ fn derive_plateau(raw: &Raw, index: usize) -> Result<DerivedPlateau, PerfResultE
         throughput,
         operations,
         halves: compare_halves(&first.all_ok, &second.all_ok),
-        generator: generator_reading(&lag, budget_exhausted, raw.generator.lag_limit_us),
-        stopped: plateau.stopped_at_ms.is_some(),
+        generator,
+        stopped,
+        qualification,
     })
 }
 
-fn derive_scout_window(raw: &Raw, index: usize) -> Result<DerivedScoutWindow, PerfResultError> {
-    let at = format!("/raw/scout/windows/{index}");
-    let scout = raw
-        .scout
-        .as_ref()
-        .and_then(|s| s.windows.get(index))
-        .ok_or_else(|| PerfResultError::Inconsistent {
-            at: at.clone(),
-            message: "no such scout window".to_owned(),
-        })?;
-    let decoded = decode_window(&scout.window, &format!("{at}/window"))?;
-    let mut errors = BTreeMap::new();
-    for op in decoded.per_operation.values() {
-        add_counts(&mut errors, &op.errors);
+/// Derives every window of a scout judged against `q`.
+///
+/// # Errors
+/// As [`plateau`].
+pub fn scout_windows(
+    scout: &RawScout,
+    q: &RawQualification,
+    lag_limit_us: u64,
+) -> Result<Vec<DerivedScoutWindow>, PerfResultError> {
+    let mut derived = Vec::with_capacity(scout.windows.len());
+    for (index, window) in scout.windows.iter().enumerate() {
+        let at = format!("/raw/scout/windows/{index}/window");
+        let decoded = decode_window(&window.window, &at)?;
+        let seconds =
+            u64_to_f64(window.window.end_ms.saturating_sub(window.window.start_ms)) / 1_000.0;
+        let latency = Latency::of(&decoded.all_ok);
+        let generator =
+            generator_reading(&decoded.lag, window.window.budget_exhausted, lag_limit_us);
+        let per_operation = decoded.per_operation;
+        let throughput = throughput(&per_operation, seconds);
+        let operations = operations(per_operation, throughput.requests, q);
+        let qualification = qualify(&throughput, &operations, &generator, false, q);
+        derived.push(DerivedScoutWindow {
+            start_ms: window.window.start_ms,
+            planned_rate: window.planned_rate.per_second(),
+            throughput,
+            latency,
+            generator,
+            qualification,
+        });
     }
-    let seconds = u64_to_f64(scout.window.end_ms.saturating_sub(scout.window.start_ms)) / 1_000.0;
-    Ok(DerivedScoutWindow {
-        start_ms: scout.window.start_ms,
-        planned_rate: scout.planned_rate.per_second(),
-        throughput: throughput(&decoded.all_ok, &decoded.all_failed, &errors, seconds),
-        latency: Latency::of(&decoded.all_ok),
-        generator: generator_reading(
-            &decoded.lag,
-            scout.window.budget_exhausted,
-            raw.generator.lag_limit_us,
-        ),
-    })
+    Ok(derived)
+}
+
+/// The knee estimate a scout gives: the first window that fails its
+/// qualification, or that the run halted in or before, gives K̂ at its
+/// midpoint rate; a ramp that ends unbreached gives its end rate.
+#[must_use]
+pub fn scout_estimate(scout: &RawScout, windows: &[DerivedScoutWindow]) -> ScoutEstimate {
+    let halted = |index: usize| {
+        scout.halted_at_ms.is_some_and(|halt| {
+            scout
+                .windows
+                .get(index)
+                .is_some_and(|w| w.window.end_ms > halt)
+        })
+    };
+    let breach = windows
+        .iter()
+        .enumerate()
+        .find(|(index, window)| !window.qualification.qualified || halted(*index));
+    match breach {
+        Some((index, window)) => ScoutEstimate {
+            rate: window.planned_rate,
+            breached_window: Some(index),
+        },
+        None => ScoutEstimate {
+            rate: scout.end_rate.per_second(),
+            breached_window: None,
+        },
+    }
 }
 
 /// Derives every number of a record from its raw part.
@@ -561,16 +829,39 @@ fn derive_scout_window(raw: &Raw, index: usize) -> Result<DerivedScoutWindow, Pe
 /// add, and [`PerfResultError::Inconsistent`] for error counts that
 /// disagree with their failed histogram, each naming the JSON pointer.
 pub fn derive(raw: &Raw) -> Result<Derived, PerfResultError> {
-    let scout_windows = raw.scout.as_ref().map_or(0, |s| s.windows.len());
+    let lag_limit = raw.generator.lag_limit_us;
+    let (scout, scout_estimate) = match &raw.scout {
+        Some(scout) => {
+            let windows = scout_windows(scout, &raw.qualification, lag_limit)?;
+            let estimate = scout_estimate(scout, &windows);
+            (windows, Some(estimate))
+        }
+        None => (Vec::new(), None),
+    };
+    let plateaus = raw
+        .plateaus
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            plateau(
+                p,
+                &raw.qualification,
+                lag_limit,
+                &format!("/raw/plateaus/{i}"),
+            )
+        })
+        .collect::<Result<_, _>>()?;
+    let seconds = u64_to_f64(raw.seeding.wall_ms) / 1_000.0;
     Ok(Derived {
         passes: Passes,
         between_run_noise: BetweenRunNoise::Unmeasured,
         scope: SCOPE.to_owned(),
-        scout: (0..scout_windows)
-            .map(|i| derive_scout_window(raw, i))
-            .collect::<Result<_, _>>()?,
-        plateaus: (0..raw.plateaus.len())
-            .map(|i| derive_plateau(raw, i))
-            .collect::<Result<_, _>>()?,
+        seeding: SeedingReading {
+            model: raw.seeding.model,
+            requests_per_s: (seconds > 0.0).then(|| u64_to_f64(raw.seeding.requests) / seconds),
+        },
+        scout,
+        scout_estimate,
+        plateaus,
     })
 }

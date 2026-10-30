@@ -65,6 +65,7 @@ pub(crate) fn fnv1a(seed: u64, parts: &[u64]) -> u64 {
 /// an enabled limiter WILL bite, and the resulting numbers would be a
 /// configuration artefact wearing a measurement's clothes. Both instruments
 /// consult this before writing a record and refuse rather than publish one.
+// TODO(#892): this latch goes with the class run and the stress ladder; `perf --workload` refuses from its own record.
 static RATE_LIMITED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Records that the SUT rate-limited an arrival.

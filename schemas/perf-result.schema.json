@@ -24,6 +24,9 @@
         "generator",
         "workload",
         "corpus",
+        "seeding",
+        "mix",
+        "qualification",
         "seed",
         "plateaus"
       ],
@@ -494,6 +497,7 @@
           "additionalProperties": false,
           "required": [
             "id",
+            "label",
             "version",
             "sha256",
             "document"
@@ -502,6 +506,11 @@
             "id": {
               "type": "string",
               "minLength": 1
+            },
+            "label": {
+              "type": "string",
+              "pattern": "^(custom|[a-z0-9][a-z0-9-]*@[0-9]+)$",
+              "description": "`<id>@<version>` for a workload the instrument pins by digest, `custom` for any other document."
             },
             "version": {
               "type": "string",
@@ -524,7 +533,10 @@
           "required": [
             "scale",
             "recipe_sha256",
-            "digest"
+            "digest",
+            "origin",
+            "ehrs",
+            "compositions"
           ],
           "properties": {
             "scale": {
@@ -543,7 +555,130 @@
             "digest": {
               "type": "string",
               "pattern": "^sha256:[0-9a-f]{64}$",
-              "description": "The digest of the seeded corpus as read back."
+              "description": "The digest of the seeded corpus listing."
+            },
+            "origin": {
+              "enum": [
+                "seeded",
+                "reused"
+              ]
+            },
+            "ehrs": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The EHRs the server held when the clock started, as read back."
+            },
+            "compositions": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The compositions the server held when the clock started, as read back."
+            }
+          }
+        },
+        "seeding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "workers",
+            "requests",
+            "wall_ms"
+          ],
+          "description": "The seeding before the clock, a closed-loop bulk load reported apart from every measured number.",
+          "properties": {
+            "model": {
+              "const": "closed_loop"
+            },
+            "workers": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "requests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "wall_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "mix": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "operations_per_interaction"
+          ],
+          "properties": {
+            "operations_per_interaction": {
+              "type": "number",
+              "exclusiveMinimum": 0.0,
+              "description": "Planned rates count operation arrivals per second; the generator draws interactions at the rate divided by this."
+            },
+            "dropped": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "interaction",
+                  "share",
+                  "missing"
+                ],
+                "properties": {
+                  "interaction": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "share": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "missing": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "qualification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "default_budget_ms",
+            "max_error_ppm",
+            "min_achieved_ppm"
+          ],
+          "properties": {
+            "default_budget_ms": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "budgets_ms": {
+              "type": "object",
+              "propertyNames": {
+                "pattern": "^\\S+$"
+              },
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "max_error_ppm": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "min_achieved_ppm": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
             }
           }
         },
@@ -551,14 +686,104 @@
           "type": "integer",
           "minimum": 0
         },
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "phase",
+              "planned_ms",
+              "wall_ms",
+              "exchanges"
+            ],
+            "properties": {
+              "phase": {
+                "enum": [
+                  "settle",
+                  "warm_up",
+                  "scout",
+                  "drain",
+                  "ladder",
+                  "extra_plateau",
+                  "closing"
+                ]
+              },
+              "planned_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "wall_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "exchanges": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "errors": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "timeout": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "transport": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "rate_limited": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "client_error": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "server_error": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "unexpected_status": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "unfinished": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "no_target": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
         "scout": {
           "type": "object",
           "additionalProperties": false,
           "required": [
+            "start_rate",
+            "end_rate",
             "window_ms",
             "windows"
           ],
           "properties": {
+            "start_rate": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "end_rate": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "halted_at_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
             "window_ms": {
               "type": "integer",
               "minimum": 1
@@ -651,8 +876,17 @@
                                 "unfinished": {
                                   "type": "integer",
                                   "minimum": 1
+                                },
+                                "no_target": {
+                                  "type": "integer",
+                                  "minimum": 1
                                 }
                               }
+                            },
+                            "refused": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "description": "Refusals of an optional operation the workload counts apart from errors (`on_refusal: count_apart`)."
                             }
                           }
                         }
@@ -785,8 +1019,17 @@
                               "unfinished": {
                                 "type": "integer",
                                 "minimum": 1
+                              },
+                              "no_target": {
+                                "type": "integer",
+                                "minimum": 1
                               }
                             }
+                          },
+                          "refused": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Refusals of an optional operation the workload counts apart from errors (`on_refusal: count_apart`)."
                           }
                         }
                       }
@@ -816,6 +1059,33 @@
               "stopped_at_ms": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "multiple": {
+                "type": "number",
+                "exclusiveMinimum": 0.0,
+                "description": "The planned rate as a multiple of the scout's knee estimate."
+              },
+              "server": {
+                "description": "The server-side readings over the hold: context that never bears on qualification.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "state",
+                      "reason"
+                    ],
+                    "properties": {
+                      "state": {
+                        "const": "absent"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                ]
               },
               "failed_exchanges": {
                 "type": "object",
@@ -866,6 +1136,7 @@
         "passes",
         "between_run_noise",
         "scope",
+        "seeding",
         "plateaus"
       ],
       "properties": {
@@ -880,6 +1151,40 @@
         },
         "scope": {
           "const": "A run of at most ten minutes measures steady-state capacity and says nothing about memory growth, data growth or behaviour over hours."
+        },
+        "seeding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model"
+          ],
+          "properties": {
+            "model": {
+              "const": "closed_loop"
+            },
+            "requests_per_s": {
+              "type": "number",
+              "minimum": 0.0
+            }
+          }
+        },
+        "scout_estimate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rate"
+          ],
+          "description": "K̂, the knee estimate the ladder's rates are multiples of: the midpoint rate of the first breaching scout window, or the ramp's end rate as a lower bound when no window breached.",
+          "properties": {
+            "rate": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "breached_window": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
         },
         "scout": {
           "type": "array",
@@ -929,6 +1234,11 @@
                     "type": "integer",
                     "minimum": 0
                   },
+                  "refused": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Refusals counted apart from errors."
+                  },
                   "errors": {
                     "type": "object",
                     "additionalProperties": false,
@@ -960,6 +1270,10 @@
                       "unfinished": {
                         "type": "integer",
                         "minimum": 1
+                      },
+                      "no_target": {
+                        "type": "integer",
+                        "minimum": 1
                       }
                     }
                   },
@@ -971,7 +1285,7 @@
                   "mean_in_flight": {
                     "type": "number",
                     "minimum": 0.0,
-                    "description": "Little's law: the offered rate times the mean latency of every exchange."
+                    "description": "Little's law: the rate of the timed exchanges times their mean latency."
                   }
                 }
               },
@@ -1346,6 +1660,121 @@
                     "description": "The lag p99 exceeded the generator's limit while the in-flight budget never ran out: the generator, not the server, failed to hold the rate."
                   }
                 }
+              },
+              "qualification": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "qualified"
+                ],
+                "description": "A plateau qualifies when its successes are at least the achieved share of the exchanges not refused, its errors at most the error share, every operation within its budget at its judged quantile, and the generator neither bound nor stopped.",
+                "properties": {
+                  "qualified": {
+                    "type": "boolean"
+                  },
+                  "shortfalls": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "criterion"
+                      ],
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "no_exchanges"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "share"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "achieved"
+                            },
+                            "share": {
+                              "type": "number",
+                              "minimum": 0.0,
+                              "maximum": 1.0
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "share"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "error_share"
+                            },
+                            "share": {
+                              "type": "number",
+                              "minimum": 0.0,
+                              "maximum": 1.0
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "operation",
+                            "judged_at",
+                            "value_ms",
+                            "budget_ms"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "latency"
+                            },
+                            "operation": {
+                              "type": "string",
+                              "pattern": "^\\S+$"
+                            },
+                            "judged_at": {
+                              "enum": [
+                                "p99",
+                                "p95",
+                                "p90",
+                                "p50",
+                                "none"
+                              ]
+                            },
+                            "value_ms": {
+                              "type": "number",
+                              "minimum": 0.0
+                            },
+                            "budget_ms": {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "generator_bound"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "stopped"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
               }
             }
           }
@@ -1363,7 +1792,8 @@
               "operations",
               "halves",
               "generator",
-              "stopped"
+              "stopped",
+              "qualification"
             ],
             "properties": {
               "planned_rate": {
@@ -1401,6 +1831,11 @@
                     "type": "integer",
                     "minimum": 0
                   },
+                  "refused": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Refusals counted apart from errors."
+                  },
                   "errors": {
                     "type": "object",
                     "additionalProperties": false,
@@ -1432,6 +1867,10 @@
                       "unfinished": {
                         "type": "integer",
                         "minimum": 1
+                      },
+                      "no_target": {
+                        "type": "integer",
+                        "minimum": 1
                       }
                     }
                   },
@@ -1443,7 +1882,7 @@
                   "mean_in_flight": {
                     "type": "number",
                     "minimum": 0.0,
-                    "description": "Little's law: the offered rate times the mean latency of every exchange."
+                    "description": "Little's law: the rate of the timed exchanges times their mean latency."
                   }
                 }
               },
@@ -1807,7 +2246,8 @@
                     "succeeded",
                     "share",
                     "latency",
-                    "judged_at"
+                    "judged_at",
+                    "budget_ms"
                   ],
                   "properties": {
                     "requests": {
@@ -1817,6 +2257,15 @@
                     "succeeded": {
                       "type": "integer",
                       "minimum": 0
+                    },
+                    "refused": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "budget_ms": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "The latency budget at the judged quantile."
                     },
                     "errors": {
                       "type": "object",
@@ -1847,6 +2296,10 @@
                           "minimum": 1
                         },
                         "unfinished": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "no_target": {
                           "type": "integer",
                           "minimum": 1
                         }
@@ -2274,6 +2727,121 @@
               },
               "stopped": {
                 "type": "boolean"
+              },
+              "qualification": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "qualified"
+                ],
+                "description": "A plateau qualifies when its successes are at least the achieved share of the exchanges not refused, its errors at most the error share, every operation within its budget at its judged quantile, and the generator neither bound nor stopped.",
+                "properties": {
+                  "qualified": {
+                    "type": "boolean"
+                  },
+                  "shortfalls": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "criterion"
+                      ],
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "no_exchanges"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "share"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "achieved"
+                            },
+                            "share": {
+                              "type": "number",
+                              "minimum": 0.0,
+                              "maximum": 1.0
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "share"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "error_share"
+                            },
+                            "share": {
+                              "type": "number",
+                              "minimum": 0.0,
+                              "maximum": 1.0
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "required": [
+                            "operation",
+                            "judged_at",
+                            "value_ms",
+                            "budget_ms"
+                          ],
+                          "properties": {
+                            "criterion": {
+                              "const": "latency"
+                            },
+                            "operation": {
+                              "type": "string",
+                              "pattern": "^\\S+$"
+                            },
+                            "judged_at": {
+                              "enum": [
+                                "p99",
+                                "p95",
+                                "p90",
+                                "p50",
+                                "none"
+                              ]
+                            },
+                            "value_ms": {
+                              "type": "number",
+                              "minimum": 0.0
+                            },
+                            "budget_ms": {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "generator_bound"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "criterion": {
+                              "const": "stopped"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
               }
             }
           }

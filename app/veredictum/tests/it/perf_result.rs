@@ -26,9 +26,12 @@ use veredictum::perf_result::derive::{BetweenRunNoise, JudgedAt, Steadiness};
 use veredictum::perf_result::judge::rejudge;
 use veredictum::perf_result::quantile::{Quantile, QuantileName, quantile};
 use veredictum::perf_result::{
-    CorpusRecord, CorpusScale, EmbeddedWorkload, Generator, Instrument, PerfResult, Raw,
-    RawPlateau, SCOPE, Target, TargetOptions,
+    CorpusOrigin, CorpusRecord, EmbeddedWorkload, Generator, Instrument, LoadModel, PerfResult,
+    Phase, PhaseRecord, Raw, RawMix, RawPlateau, RawQualification, SCOPE, SeedingRecord, Target,
+    TargetOptions,
 };
+use veredictum::pipeline::perf_workload::refuse_rate_limited;
+use veredictum::workload::CorpusScale;
 
 fn op(name: &str) -> OperationId {
     OperationId::new(name).unwrap()
@@ -57,6 +60,7 @@ fn operation(ok_us: &[u64], failures: &[(ErrorClass, u64)]) -> OperationRecord {
         failed,
         errors,
         samples,
+        refused: 0,
     }
 }
 
@@ -126,6 +130,7 @@ fn raw(plateaus: Vec<RawPlateau>) -> Raw {
         posture: None,
         workload: EmbeddedWorkload {
             id: "reference".to_owned(),
+            label: "custom".to_owned(),
             version: "1".to_owned(),
             sha256: format!("sha256:{}", "0".repeat(64)),
             document: "id: reference\n".to_owned(),
@@ -134,8 +139,28 @@ fn raw(plateaus: Vec<RawPlateau>) -> Raw {
             scale: CorpusScale::S,
             recipe_sha256: format!("sha256:{}", "1".repeat(64)),
             digest: format!("sha256:{}", "2".repeat(64)),
+            origin: CorpusOrigin::Seeded,
+            ehrs: 100,
+            compositions: 1_000,
+        },
+        seeding: SeedingRecord {
+            model: LoadModel::ClosedLoop,
+            workers: 4,
+            requests: 1_100,
+            wall_ms: 2_000,
+        },
+        mix: RawMix {
+            operations_per_interaction: 1.0,
+            dropped: Vec::new(),
+        },
+        qualification: RawQualification {
+            default_budget_ms: 1_000,
+            budgets_ms: BTreeMap::new(),
+            max_error_ppm: 1_000,
+            min_achieved_ppm: 950_000,
         },
         seed: 42,
+        phases: Vec::new(),
         scout: None,
         plateaus,
     }
@@ -385,4 +410,61 @@ fn perf_judge_exits_1_naming_a_tampered_field() {
 
     std::fs::write(&path, "{}").unwrap();
     assert_eq!(perf_judge(&path).status.code(), Some(2));
+}
+#[test]
+fn a_rate_limited_exchange_refuses_its_own_record_only() {
+    let clean = raw(vec![ladder_plateau()]);
+    assert!(refuse_rate_limited(&clean).is_ok());
+    let mut limited = raw(vec![ladder_plateau()]);
+    limited.phases.push(PhaseRecord {
+        phase: Phase::WarmUp,
+        planned_ms: 20_000,
+        wall_ms: 20_000,
+        exchanges: 160,
+        errors: BTreeMap::from([(ErrorClass::RateLimited, 1)]),
+    });
+    assert_eq!(limited.rate_limited(), 1);
+    let refusal = refuse_rate_limited(&limited).unwrap_err().to_string();
+    assert!(refusal.contains("429"), "{refusal}");
+    assert!(
+        refuse_rate_limited(&clean).is_ok(),
+        "a second record in the same process is judged on its own exchanges"
+    );
+}
+
+#[test]
+fn a_refusal_counted_apart_is_neither_a_success_nor_an_error() {
+    let mut refused = operation(&spread(100, 5_000, 4), &[]);
+    refused.refused = 40;
+    let first = window(5, 35, vec![("aql:optional", refused.clone())]);
+    let second = window(35, 65, vec![("aql:optional", refused)]);
+    let plateau = RawPlateau::from_halves(
+        Rate::new(10.0).unwrap(),
+        Duration::from_secs(5),
+        [&first, &second],
+        None,
+    )
+    .unwrap();
+    let record = PerfResult::from_raw(raw(vec![plateau])).unwrap();
+    let derived = &record.derived.plateaus[0];
+    assert_eq!(derived.throughput.refused, 80);
+    assert_eq!(derived.throughput.requests, 280);
+    assert_eq!(derived.throughput.error_share, Some(0.0));
+    assert_eq!(derived.operations[&op("aql:optional")].refused, 80);
+    assert!(
+        derived.qualification.qualified,
+        "{:?}",
+        derived.qualification
+    );
+    let judgement = rejudge(&record.render().unwrap()).unwrap();
+    assert!(judgement.reproduces(), "{:?}", judgement.mismatches);
+}
+
+#[test]
+fn the_seeding_is_reported_apart_and_labelled_closed_loop() {
+    let derived = record().derived;
+    assert_eq!(derived.seeding.model, LoadModel::ClosedLoop);
+    assert_eq!(derived.seeding.requests_per_s, Some(550.0));
+    let text = record().render().unwrap();
+    assert!(text.contains("\"model\": \"closed_loop\""));
 }

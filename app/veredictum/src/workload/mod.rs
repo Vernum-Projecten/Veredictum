@@ -31,6 +31,7 @@ use std::fmt;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::ids::{CorpusKey, InteractionName, QueryName, WorkloadId};
+use crate::perf_gen::arrivals::ArrivalProcess;
 use crate::workload::ops::{QueryTransport, WorkloadOp};
 
 /// The directory under the performance root that holds the workloads.
@@ -148,7 +149,7 @@ pub enum MixStatus {
 }
 
 /// The corpus scales, by name: no longer classes, only sizes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum CorpusScale {
     /// 10,000 EHRs.
     #[serde(rename = "POC")]
@@ -162,6 +163,9 @@ pub enum CorpusScale {
 }
 
 impl CorpusScale {
+    /// Every scale, smallest first.
+    pub const ALL: &[CorpusScale] = &[Self::Poc, Self::S, Self::L, Self::R];
+
     /// Returns the number of EHRs the scale seeds.
     #[must_use]
     pub fn ehrs(self) -> u64 {
@@ -196,17 +200,6 @@ pub struct CorpusRecipe {
     /// The templates those compositions are drawn from, by payload key, with
     /// their shares.
     pub templates: BTreeMap<CorpusKey, Share>,
-}
-
-/// How interaction arrivals are spaced.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ArrivalProcess {
-    /// Exponential gaps: a Poisson process.
-    #[default]
-    Poisson,
-    /// Even gaps, kept only as a labelled comparison.
-    Uniform,
 }
 
 /// Samples per plateau a hold is sized for.

@@ -421,18 +421,59 @@ or the claim gates; they are this instrument's own design.
 ## perf
 
 ```text
-Execute the performance schedule's open-loop measured run(s) against a live SUT and merge the §8.10 measurement records into a results.json (conformance-by-measurement), creating it when `--results` names no file.
+Run a workload document against a live SUT and write one `perf-result` (`--workload`), or execute the performance schedule's class run and merge its measurement records into a results.json (`--class`).
 
-A new record carries the SUT identity the server states through System OPTIONS, read before any seeding, with `--sut-name` and `--sut-version` filling what it does not state. It records no conformance outcome: nothing selected a statement, so it is `statement_blind`, and the verification pack is `not_run`. An existing file keeps its header and gains or replaces the measured case's record.
+With `--workload`, the corpus is seeded (or reused with `--corpus reuse`) before the clock, then the run takes at most ten minutes: settle, warm-up, a scout ramp, a ladder of four plateaus at multiples of the knee estimate, and the closing canaries. The planned duration is printed before the first measured request. A server that answers any exchange `429` gets no record.
 
-Usage: veredictum perf [OPTIONS] --root <ROOT> --ixit <IXIT> --results <RESULTS> --class <CLASS>
+With `--class`: A new record carries the SUT identity the server states through System OPTIONS, read before any seeding, with `--sut-name` and `--sut-version` filling what it does not state. It records no conformance outcome: nothing selected a statement, so it is `statement_blind`, and the verification pack is `not_run`. An existing file keeps its header and gains or replaces the measured case's record.
+
+Usage: veredictum perf [OPTIONS] --root <ROOT> --ixit <IXIT>
 
 Options:
       --root <ROOT>
-          The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
+          The performance schedule root, `perf/` in this repository (workloads/, payloads.yaml, payloads/, and for `--class` the classes/ and journeys.yaml)
 
       --ixit <IXIT>
           The ixit topology file (JSON) — its environment block is mandatory for a measured run
+
+      --workload <WORKLOAD>
+          The workload document to run, an embedded one under `perf/workloads/` or the evaluator's own (labelled `custom`)
+
+      --out <OUT>
+          Where `--workload` writes its `perf-result` record
+
+      --catalogue <CATALOGUE>
+          The catalogue root a workload's `requires` resolve against
+          
+          [default: catalogue]
+
+      --statement <STATEMENT>
+          A statement whose claims keep the interactions it covers and drop the rest, with the drop recorded
+
+      --corpus <CORPUS>
+          Seed the workload's corpus, or reuse the stored one: a reuse is refused before the warm-up when the server's read-back counts or the stored digest differ
+
+          Possible values:
+          - seed:  Seed the workload's recipe before the clock
+          - reuse: Reuse the stored corpus when its read-back counts and digest match
+          
+          [default: seed]
+
+      --corpus-state <CORPUS_STATE>
+          The stored corpus state a seeding writes and a reuse reads; defaults to the record's path with the extension `corpus.json`
+
+      --start-rate <START_RATE>
+          The warm-up's rate and the scout's starting rate, operations per second
+          
+          [default: 8]
+
+      --scout-end-rate <SCOUT_END_RATE>
+          The scout ramp's end rate, operations per second
+          
+          [default: 4096]
+
+      --host-prescription <HOST_PRESCRIPTION>
+          The host prescription the run claims to have run on
 
       --results <RESULTS>
           The measured results record (`results.schema.json`) to merge the measurement records into; created when no file exists at the path
@@ -452,7 +493,7 @@ Options:
           [default: 16]
 
       --hours <HOURS>
-          The sustained-window ladder: hours to hold the offered load — 1 (default, the case's normative window) | 2 | 4 | 6 | 8 | 12. A longer window is a STRICTER demonstration and persists like any measured run; nothing shorter than the case exists
+          The sustained-window ladder of `--class`: hours to hold the offered load — 1 (default, the case's normative window) | 2 | 4 | 6 | 8 | 12
           
           [default: 1]
 

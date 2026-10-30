@@ -1041,12 +1041,12 @@ pub fn perf_workload_schema() -> Value {
                 "additionalProperties": false,
                 "required": ["scale", "compositions_per_ehr", "templates"],
                 "properties": {
-                    "scale": { "enum": ["POC", "S", "L", "R"] },
+                    "scale": { "enum": tokens(crate::workload::CorpusScale::ALL) },
                     "compositions_per_ehr": { "type": "integer", "minimum": 1 },
                     "templates": share_map(CORPUS_KEY_PATTERN)
                 }
             },
-            "arrival": { "enum": ["poisson", "uniform"] },
+            "arrival": { "enum": tokens(crate::perf_gen::arrivals::ArrivalProcess::ALL) },
             "sample_target": { "type": "integer", "minimum": 1 },
             "qualification": {
                 "type": "object",
@@ -1128,7 +1128,7 @@ pub fn perf_workloads_schema() -> Value {
             "sha256": sha,
             "description": text,
             "seed": { "type": "integer", "minimum": 0 },
-            "arrival": { "enum": ["poisson", "uniform"] },
+            "arrival": { "enum": tokens(crate::perf_gen::arrivals::ArrivalProcess::ALL) },
             "sample_target": { "type": "integer", "minimum": 1 },
             "qualification": object(
                 &["operation_p99_ms", "population_aql_p99_ms", "max_error_share", "min_achieved_share"],
@@ -1141,7 +1141,7 @@ pub fn perf_workloads_schema() -> Value {
             "corpus": object(
                 &["scale", "ehrs", "compositions_per_ehr", "templates"],
                 json!({
-                    "scale": { "enum": ["POC", "S", "L", "R"] },
+                    "scale": { "enum": tokens(crate::workload::CorpusScale::ALL) },
                     "ehrs": { "type": "integer" },
                     "compositions_per_ehr": { "type": "integer" },
                     "templates": { "type": "array", "items": object(&["key", "share"],
@@ -2633,7 +2633,8 @@ fn perf_raw_window_def() -> Value {
                     "properties": {
                         "ok_hdr": hdr,
                         "failed_hdr": hdr,
-                        "errors": perf_error_counts_def()
+                        "errors": perf_error_counts_def(),
+                        "refused": { "type": "integer", "minimum": 1, "description": "Refusals of an optional operation the workload counts apart from errors (`on_refusal: count_apart`)." }
                     }
                 }
             },
@@ -2656,9 +2657,10 @@ fn perf_throughput_def() -> Value {
             "achieved_per_s": rate,
             "requests": { "type": "integer", "minimum": 0 },
             "succeeded": { "type": "integer", "minimum": 0 },
+            "refused": { "type": "integer", "minimum": 1, "description": "Refusals counted apart from errors." },
             "errors": perf_error_counts_def(),
             "error_share": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
-            "mean_in_flight": { "type": "number", "minimum": 0.0, "description": "Little's law: the offered rate times the mean latency of every exchange." }
+            "mean_in_flight": { "type": "number", "minimum": 0.0, "description": "Little's law: the rate of the timed exchanges times their mean latency." }
         }
     })
 }
@@ -2683,7 +2685,7 @@ fn perf_result_raw_def() -> Value {
     json!({
         "type": "object",
         "additionalProperties": false,
-        "required": ["instrument", "target", "environment", "generator", "workload", "corpus", "seed", "plateaus"],
+        "required": ["instrument", "target", "environment", "generator", "workload", "corpus", "seeding", "mix", "qualification", "seed", "plateaus"],
         "properties": {
             "instrument": {
                 "type": "object",
@@ -2747,9 +2749,10 @@ fn perf_result_raw_def() -> Value {
             "workload": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["id", "version", "sha256", "document"],
+                "required": ["id", "label", "version", "sha256", "document"],
                 "properties": {
                     "id": { "type": "string", "minLength": 1 },
+                    "label": { "type": "string", "pattern": "^(custom|[a-z0-9][a-z0-9-]*@[0-9]+)$", "description": "`<id>@<version>` for a workload the instrument pins by digest, `custom` for any other document." },
                     "version": { "type": "string", "minLength": 1 },
                     "sha256": sha256_def("The digest of `document`."),
                     "document": { "type": "string", "minLength": 1 }
@@ -2758,19 +2761,84 @@ fn perf_result_raw_def() -> Value {
             "corpus": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["scale", "recipe_sha256", "digest"],
+                "required": ["scale", "recipe_sha256", "digest", "origin", "ehrs", "compositions"],
                 "properties": {
-                    "scale": { "enum": tokens(crate::perf_result::CorpusScale::ALL) },
+                    "scale": { "enum": tokens(crate::workload::CorpusScale::ALL) },
                     "recipe_sha256": sha256_def("The digest of the recipe the corpus was seeded from."),
-                    "digest": sha256_def("The digest of the seeded corpus as read back.")
+                    "digest": sha256_def("The digest of the seeded corpus listing."),
+                    "origin": { "enum": ["seeded", "reused"] },
+                    "ehrs": { "type": "integer", "minimum": 0, "description": "The EHRs the server held when the clock started, as read back." },
+                    "compositions": { "type": "integer", "minimum": 0, "description": "The compositions the server held when the clock started, as read back." }
+                }
+            },
+            "seeding": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["model", "workers", "requests", "wall_ms"],
+                "description": "The seeding before the clock, a closed-loop bulk load reported apart from every measured number.",
+                "properties": {
+                    "model": { "const": "closed_loop" },
+                    "workers": { "type": "integer", "minimum": 1 },
+                    "requests": { "type": "integer", "minimum": 0 },
+                    "wall_ms": { "type": "integer", "minimum": 0 }
+                }
+            },
+            "mix": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["operations_per_interaction"],
+                "properties": {
+                    "operations_per_interaction": { "type": "number", "exclusiveMinimum": 0.0, "description": "Planned rates count operation arrivals per second; the generator draws interactions at the rate divided by this." },
+                    "dropped": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["interaction", "share", "missing"],
+                            "properties": {
+                                "interaction": { "type": "string", "minLength": 1 },
+                                "share": { "type": "string", "minLength": 1 },
+                                "missing": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+                            }
+                        }
+                    }
+                }
+            },
+            "qualification": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["default_budget_ms", "max_error_ppm", "min_achieved_ppm"],
+                "properties": {
+                    "default_budget_ms": { "type": "integer", "minimum": 1 },
+                    "budgets_ms": { "type": "object", "propertyNames": { "pattern": "^\\S+$" }, "additionalProperties": { "type": "integer", "minimum": 1 } },
+                    "max_error_ppm": { "type": "integer", "minimum": 0, "maximum": 1_000_000 },
+                    "min_achieved_ppm": { "type": "integer", "minimum": 0, "maximum": 1_000_000 }
                 }
             },
             "seed": { "type": "integer", "minimum": 0 },
+            "phases": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["phase", "planned_ms", "wall_ms", "exchanges"],
+                    "properties": {
+                        "phase": { "enum": ["settle", "warm_up", "scout", "drain", "ladder", "extra_plateau", "closing"] },
+                        "planned_ms": { "type": "integer", "minimum": 0 },
+                        "wall_ms": { "type": "integer", "minimum": 0 },
+                        "exchanges": { "type": "integer", "minimum": 0 },
+                        "errors": perf_error_counts_def()
+                    }
+                }
+            },
             "scout": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["window_ms", "windows"],
+                "required": ["start_rate", "end_rate", "window_ms", "windows"],
                 "properties": {
+                    "start_rate": rate,
+                    "end_rate": rate,
+                    "halted_at_ms": { "type": "integer", "minimum": 0 },
                     "window_ms": { "type": "integer", "minimum": 1 },
                     "windows": {
                         "type": "array",
@@ -2795,6 +2863,18 @@ fn perf_result_raw_def() -> Value {
                         "hold_ms": { "type": "integer", "minimum": 1 },
                         "halves": { "type": "array", "minItems": 2, "maxItems": 2, "items": perf_raw_window_def() },
                         "stopped_at_ms": { "type": "integer", "minimum": 0 },
+                        "multiple": { "type": "number", "exclusiveMinimum": 0.0, "description": "The planned rate as a multiple of the scout's knee estimate." },
+                        "server": {
+                            "description": "The server-side readings over the hold: context that never bears on qualification.",
+                            "oneOf": [
+                                {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["state", "reason"],
+                                    "properties": { "state": { "const": "absent" }, "reason": { "type": "string", "minLength": 1 } }
+                                }
+                            ]
+                        },
                         "failed_exchanges": {
                             "type": "object",
                             "propertyNames": { "pattern": "^\\S+$" },
@@ -2822,17 +2902,75 @@ fn perf_result_raw_def() -> Value {
     })
 }
 
+fn perf_qualification_def() -> Value {
+    let judged: Vec<&str> = vec!["p99", "p95", "p90", "p50", "none"];
+    let share = json!({ "type": "number", "minimum": 0.0, "maximum": 1.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["qualified"],
+        "description": "A plateau qualifies when its successes are at least the achieved share of the exchanges not refused, its errors at most the error share, every operation within its budget at its judged quantile, and the generator neither bound nor stopped.",
+        "properties": {
+            "qualified": { "type": "boolean" },
+            "shortfalls": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["criterion"],
+                    "oneOf": [
+                        { "additionalProperties": false, "properties": { "criterion": { "const": "no_exchanges" } } },
+                        { "additionalProperties": false, "required": ["share"], "properties": { "criterion": { "const": "achieved" }, "share": share } },
+                        { "additionalProperties": false, "required": ["share"], "properties": { "criterion": { "const": "error_share" }, "share": share } },
+                        {
+                            "additionalProperties": false,
+                            "required": ["operation", "judged_at", "value_ms", "budget_ms"],
+                            "properties": {
+                                "criterion": { "const": "latency" },
+                                "operation": { "type": "string", "pattern": "^\\S+$" },
+                                "judged_at": { "enum": judged },
+                                "value_ms": { "type": "number", "minimum": 0.0 },
+                                "budget_ms": { "type": "integer", "minimum": 1 }
+                            }
+                        },
+                        { "additionalProperties": false, "properties": { "criterion": { "const": "generator_bound" } } },
+                        { "additionalProperties": false, "properties": { "criterion": { "const": "stopped" } } }
+                    ]
+                }
+            }
+        }
+    })
+}
+
 fn perf_result_derived_def() -> Value {
     let judged: Vec<&str> = vec!["p99", "p95", "p90", "p50", "none"];
     let ratio = json!({ "type": "number", "exclusiveMinimum": 0.0 });
     json!({
         "type": "object",
         "additionalProperties": false,
-        "required": ["passes", "between_run_noise", "scope", "plateaus"],
+        "required": ["passes", "between_run_noise", "scope", "seeding", "plateaus"],
         "properties": {
             "passes": { "const": 1 },
             "between_run_noise": { "enum": ["unmeasured"], "description": "One pass measures sampling intervals only; between-run noise needs an interleaved A/A comparison." },
             "scope": { "const": crate::perf_result::SCOPE },
+            "seeding": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["model"],
+                "properties": {
+                    "model": { "const": "closed_loop" },
+                    "requests_per_s": { "type": "number", "minimum": 0.0 }
+                }
+            },
+            "scout_estimate": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["rate"],
+                "description": "K̂, the knee estimate the ladder's rates are multiples of: the midpoint rate of the first breaching scout window, or the ramp's end rate as a lower bound when no window breached.",
+                "properties": {
+                    "rate": { "type": "number", "exclusiveMinimum": 0.0 },
+                    "breached_window": { "type": "integer", "minimum": 0 }
+                }
+            },
             "scout": {
                 "type": "array",
                 "items": {
@@ -2844,7 +2982,8 @@ fn perf_result_derived_def() -> Value {
                         "planned_rate": { "type": "number", "exclusiveMinimum": 0.0 },
                         "throughput": perf_throughput_def(),
                         "latency": perf_latency_def(),
-                        "generator": perf_generator_reading_def()
+                        "generator": perf_generator_reading_def(),
+                        "qualification": perf_qualification_def()
                     }
                 }
             },
@@ -2853,7 +2992,7 @@ fn perf_result_derived_def() -> Value {
                 "items": {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": ["planned_rate", "hold_s", "throughput", "latency", "operations", "halves", "generator", "stopped"],
+                    "required": ["planned_rate", "hold_s", "throughput", "latency", "operations", "halves", "generator", "stopped", "qualification"],
                     "properties": {
                         "planned_rate": { "type": "number", "exclusiveMinimum": 0.0 },
                         "hold_s": { "type": "number", "exclusiveMinimum": 0.0 },
@@ -2865,10 +3004,12 @@ fn perf_result_derived_def() -> Value {
                             "additionalProperties": {
                                 "type": "object",
                                 "additionalProperties": false,
-                                "required": ["requests", "succeeded", "share", "latency", "judged_at"],
+                                "required": ["requests", "succeeded", "share", "latency", "judged_at", "budget_ms"],
                                 "properties": {
                                     "requests": { "type": "integer", "minimum": 0 },
                                     "succeeded": { "type": "integer", "minimum": 0 },
+                                    "refused": { "type": "integer", "minimum": 1 },
+                                    "budget_ms": { "type": "integer", "minimum": 1, "description": "The latency budget at the judged quantile." },
                                     "errors": perf_error_counts_def(),
                                     "error_share": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
                                     "share": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
@@ -2888,7 +3029,8 @@ fn perf_result_derived_def() -> Value {
                             }
                         },
                         "generator": perf_generator_reading_def(),
-                        "stopped": { "type": "boolean" }
+                        "stopped": { "type": "boolean" },
+                        "qualification": perf_qualification_def()
                     }
                 }
             }

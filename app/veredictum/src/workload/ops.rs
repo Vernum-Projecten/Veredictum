@@ -435,6 +435,7 @@ mod tests {
             assert_routed(&transport.released());
         }
         assert_routed(&STORED_QUERY_STORE);
+        assert_routed(&crate::workload::wire::TEMPLATE_UPLOAD);
     }
 
     /// Tokens round-trip, and an unknown token is refused by name.

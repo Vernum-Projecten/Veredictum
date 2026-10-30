@@ -284,6 +284,65 @@ pub fn load_file(path: &Path, ctx: &LoadContext) -> Result<LoadedWorkload, Workl
     })
 }
 
+/// One payload key a workload document reads.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PayloadRead {
+    /// The key.
+    pub key: String,
+    /// How it is read.
+    pub role: PayloadRole,
+    /// The workload that reads it, for a diagnostic.
+    pub reader: String,
+}
+
+/// Returns every payload key the workload documents under
+/// `<perf_root>/workloads/` read: their corpus templates and the payloads of
+/// their stages.
+///
+/// A document that does not load contributes nothing here.
+// NOTE: no openEHR spec governs this — our own design; `load_file` reports a defective document by name, so this read only needs the sound ones.
+#[must_use]
+pub fn payload_reads(perf_root: &Path) -> Vec<PayloadRead> {
+    let Ok(validator) = WORKLOAD_SCHEMA.as_ref() else {
+        return Vec::new();
+    };
+    let Ok(entries) = std::fs::read_dir(perf_root.join(WORKLOADS_DIR)) else {
+        return Vec::new();
+    };
+    let mut paths: Vec<PathBuf> = entries
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|e| e == "yaml"))
+        .collect();
+    paths.sort();
+    let mut reads = Vec::new();
+    for path in paths {
+        let Ok(workload) = load_artifact::<Workload>(&path, validator) else {
+            continue;
+        };
+        let reader = format!("workload {}", workload.id);
+        for key in workload.corpus.templates.keys() {
+            reads.push(PayloadRead {
+                key: key.to_string(),
+                role: PayloadRole::Template,
+                reader: reader.clone(),
+            });
+        }
+        for interaction in workload.interactions.values() {
+            for stage in interaction.stages() {
+                if let (Some(key), StageInput::Payload(role)) = (&stage.payload, stage.op.input()) {
+                    reads.push(PayloadRead {
+                        key: key.to_string(),
+                        role,
+                        reader: reader.clone(),
+                    });
+                }
+            }
+        }
+    }
+    reads
+}
+
 /// Loads every `.yaml` file under `<perf_root>/workloads/`, in path order.
 ///
 /// # Errors

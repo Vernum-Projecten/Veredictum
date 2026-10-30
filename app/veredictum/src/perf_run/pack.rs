@@ -62,6 +62,48 @@ pub struct PackTemplate {
     pub constraints: LeafConstraints,
 }
 
+impl PackTemplate {
+    /// Loads the template a payload key names: the manifest's OPT entry
+    /// (`<key>`) and example entry (`<key>.example`), both resolved against
+    /// the payload directory.
+    ///
+    /// # Errors
+    /// A message naming the missing manifest entry, file, or field.
+    pub fn load(
+        payloads_dir: &Path,
+        manifest: &PayloadManifest,
+        key: &str,
+    ) -> Result<Self, String> {
+        let entry = |k: &str| {
+            manifest
+                .get(k)
+                .ok_or_else(|| format!("payload manifest has no entry {k}"))
+        };
+        let read = |source: &str| {
+            std::fs::read_to_string(payloads_dir.join(source))
+                .map_err(|e| format!("cannot read {source}: {e}"))
+        };
+        let opt_entry = entry(key)?;
+        let example_entry = entry(&format!("{key}.example"))?;
+        let template_id = opt_entry
+            .template_id
+            .clone()
+            .ok_or_else(|| format!("manifest entry {key} carries no template_id"))?;
+        let opt_xml = read(&opt_entry.source)?;
+        let skeleton: Value = serde_json::from_str(&read(&example_entry.source)?)
+            .map_err(|e| format!("example skeleton {key}: {e}"))?;
+        let constraints = LeafConstraints::from_opt(&opt_xml)
+            .map_err(|e| format!("operational template {key}: {e}"))?;
+        Ok(Self {
+            key: key.to_owned(),
+            template_id,
+            opt_xml,
+            skeleton,
+            constraints,
+        })
+    }
+}
+
 /// The Simplified-FLAT payload one journey stage commits.
 ///
 /// Carries the OPT that
@@ -191,24 +233,7 @@ impl JourneyPack {
         };
         let mut templates = Vec::with_capacity(keys.len());
         for key in keys {
-            let opt_entry = entry(&key)?;
-            let example_entry = entry(&format!("{key}.example"))?;
-            let template_id = opt_entry
-                .template_id
-                .clone()
-                .ok_or_else(|| format!("manifest entry {key} carries no template_id"))?;
-            let opt_xml = read(&opt_entry.source)?;
-            let skeleton: Value = serde_json::from_str(&read(&example_entry.source)?)
-                .map_err(|e| format!("example skeleton {key}: {e}"))?;
-            let constraints = LeafConstraints::from_opt(&opt_xml)
-                .map_err(|e| format!("operational template {key}: {e}"))?;
-            templates.push(PackTemplate {
-                key,
-                template_id,
-                opt_xml,
-                skeleton,
-                constraints,
-            });
+            templates.push(PackTemplate::load(payloads_dir, manifest, &key)?);
         }
         if templates.is_empty() {
             return Err("the journey catalogue names no templates".to_owned());
@@ -357,6 +382,27 @@ pub(crate) fn contribution_body(
 /// subject, an `other_details` note stamped with the simulated clock (the
 /// admission/discharge status touch).
 pub(crate) fn ehr_status_body(offset_s: u64) -> Vec<u8> {
+    ehr_status_with_subject(offset_s, None)
+}
+
+/// An `EHR_STATUS` body as [`ehr_status_body`], whose `PARTY_SELF` subject
+/// carries an `external_ref` when `subject` names one: the `(id, namespace)`
+/// pair `GET /ehr?subject_id=…&subject_namespace=…` finds the record by
+/// (RM `ehr` §`EHR_STATUS` `subject`; RM `common` §`PARTY_SELF` and
+/// §`PARTY_PROXY` `external_ref`).
+pub(crate) fn ehr_status_with_subject(offset_s: u64, subject: Option<(&str, &str)>) -> Vec<u8> {
+    let subject = match subject {
+        Some((id, namespace)) => serde_json::json!({
+            "_type": "PARTY_SELF",
+            "external_ref": {
+                "_type": "PARTY_REF",
+                "id": { "_type": "GENERIC_ID", "value": id, "scheme": "veredictum" },
+                "namespace": namespace,
+                "type": "PERSON"
+            }
+        }),
+        None => serde_json::json!({ "_type": "PARTY_SELF" }),
+    };
     // An EHR_STATUS is an archetype root, so the ARCHETYPED block is
     // mandatory and the root archetype_node_id equals its archetype_id (RM
     // common locatable.adoc §Invariants Archetyped_valid +
@@ -372,7 +418,7 @@ pub(crate) fn ehr_status_body(offset_s: u64) -> Vec<u8> {
                                "value": "openEHR-EHR-EHR_STATUS.generic.v1" },
             "rm_version": "1.1.0"
         },
-        "subject": { "_type": "PARTY_SELF" },
+        "subject": subject,
         "is_queryable": true,
         "is_modifiable": true,
         "other_details": {

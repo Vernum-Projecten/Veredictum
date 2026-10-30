@@ -796,6 +796,19 @@ refuses a workload whose upper bound exceeds 600 s, so a session-heavy
 workload pays for its tail in the gate rather than at run time. There is no
 quick profile and no repetition of the ladder (ruling 8).
 
+Rates are operation arrivals per second; the generator draws interactions at
+the rate divided by the mix's operations per interaction. The warm-up holds
+8/s and the scout ramps from 8/s to 4,096/s, both settable per run. The scout
+stops early once the exchanges in flight exceed twice the planned rate times
+the largest latency budget, because by Little's law the mean latency is then
+past twice the budget and the rest of the ramp would only bury the server.
+The 0.5 plateau runs first and alone. When it fails, the extra plateau runs
+next, before a higher plateau can leave its backlog behind, and the 0.75, 0.9
+and 1.05 plateaus then run as one continuous profile, so sessions carry
+across their boundaries. Between these legs the run waits at most the largest
+latency budget for outstanding exchanges; an exchange still out by then is
+over every budget already.
+
 **The 5,000-sample argument.** The binomial order-statistic interval puts a
 distribution-free 95 % confidence interval on a quantile from the ranks
 `np ± 1.96 √(np(1 − p))` (Le Boudec, *Performance Evaluation of Computer and

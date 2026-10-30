@@ -252,6 +252,11 @@ pub enum ArrivalProcess {
     Uniform,
 }
 
+impl ArrivalProcess {
+    /// Every process, in serialization order.
+    pub const ALL: &[ArrivalProcess] = &[ArrivalProcess::Poisson, ArrivalProcess::Uniform];
+}
+
 /// A profile or rate the generator refuses.
 #[derive(Debug, Clone, PartialEq, Error)]
 pub enum ProfileError {

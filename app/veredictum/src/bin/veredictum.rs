@@ -49,6 +49,7 @@ use veredictum::pipeline::measured::{
     run_measured, run_stress,
 };
 use veredictum::pipeline::perf_judge::judge_perf_result;
+use veredictum::pipeline::perf_workload::{CorpusMode, WorkloadRunRequest, run_workload};
 use veredictum::pipeline::{RenderedFile, ensure_parent_dir, to_json_document, write_file};
 
 /// What `--version` prints after the name: the version and the instrument's
@@ -247,11 +248,19 @@ enum Command {
         #[arg(long)]
         statement: Option<PathBuf>,
     },
-    /// Execute the performance schedule's open-loop measured run(s) against
-    /// a live SUT and merge the §8.10 measurement records into a results.json
-    /// (conformance-by-measurement), creating it when `--results` names no
-    /// file.
+    /// Run a workload document against a live SUT and write one
+    /// `perf-result` (`--workload`), or execute the performance schedule's
+    /// class run and merge its measurement records into a results.json
+    /// (`--class`).
     ///
+    /// With `--workload`, the corpus is seeded (or reused with `--corpus
+    /// reuse`) before the clock, then the run takes at most ten minutes:
+    /// settle, warm-up, a scout ramp, a ladder of four plateaus at multiples
+    /// of the knee estimate, and the closing canaries. The planned duration
+    /// is printed before the first measured request. A server that answers
+    /// any exchange `429` gets no record.
+    ///
+    /// With `--class`:
     /// A new record carries the SUT identity the server states through System
     /// OPTIONS, read before any seeding, with `--sut-name` and `--sut-version`
     /// filling what it does not state. It records no conformance outcome:
@@ -260,17 +269,61 @@ enum Command {
     /// gains or replaces the measured case's record.
     Perf {
         /// The performance schedule root, `perf/` in this repository
-        /// (classes/, journeys.yaml, payloads.yaml, payloads/)
+        /// (workloads/, payloads.yaml, payloads/, and for `--class` the
+        /// classes/ and journeys.yaml)
         #[arg(long)]
         root: PathBuf,
         /// The ixit topology file (JSON) — its environment block is
         /// mandatory for a measured run.
         #[arg(long)]
         ixit: PathBuf,
+        /// The workload document to run, an embedded one under
+        /// `perf/workloads/` or the evaluator's own (labelled `custom`).
+        #[arg(long, required_unless_present = "class", conflicts_with_all = ["class", "results", "hours", "sut_name", "sut_version"])]
+        workload: Option<PathBuf>,
+        /// Where `--workload` writes its `perf-result` record.
+        #[arg(
+            long,
+            requires = "workload",
+            required_unless_present = "class",
+            conflicts_with = "class"
+        )]
+        out: Option<PathBuf>,
+        /// The catalogue root a workload's `requires` resolve against.
+        #[arg(
+            long,
+            default_value = "catalogue",
+            requires = "workload",
+            conflicts_with = "class"
+        )]
+        catalogue: PathBuf,
+        /// A statement whose claims keep the interactions it covers and
+        /// drop the rest, with the drop recorded.
+        #[arg(long, requires = "workload", conflicts_with = "class")]
+        statement: Option<PathBuf>,
+        /// Seed the workload's corpus, or reuse the stored one: a reuse is
+        /// refused before the warm-up when the server's read-back counts or
+        /// the stored digest differ.
+        #[arg(long, value_enum, default_value_t = CorpusArg::Seed, requires = "workload", conflicts_with = "class")]
+        corpus: CorpusArg,
+        /// The stored corpus state a seeding writes and a reuse reads;
+        /// defaults to the record's path with the extension `corpus.json`.
+        #[arg(long, requires = "workload", conflicts_with = "class")]
+        corpus_state: Option<PathBuf>,
+        /// The warm-up's rate and the scout's starting rate, operations per
+        /// second.
+        #[arg(long, default_value_t = veredictum::perf_emulate::run::DEFAULT_START_RATE, requires = "workload", conflicts_with = "class")]
+        start_rate: f64,
+        /// The scout ramp's end rate, operations per second.
+        #[arg(long, default_value_t = veredictum::perf_emulate::run::DEFAULT_SCOUT_END_RATE, requires = "workload", conflicts_with = "class")]
+        scout_end_rate: f64,
+        /// The host prescription the run claims to have run on.
+        #[arg(long, requires = "workload", conflicts_with = "class")]
+        host_prescription: Option<String>,
         /// The measured results record (`results.schema.json`) to merge the
         /// measurement records into; created when no file exists at the path.
-        #[arg(long)]
-        results: PathBuf,
+        #[arg(long, required_unless_present = "workload")]
+        results: Option<PathBuf>,
         /// The SUT name a new record carries when the server does not state
         /// one through System OPTIONS. Unread when `--results` exists.
         #[arg(long)]
@@ -281,14 +334,13 @@ enum Command {
         sut_version: Option<String>,
         /// Select the performance case(s) of this class (POC | S | L | R).
         #[arg(long)]
-        class: String,
+        class: Option<String>,
         /// Parallel seeding workers.
         #[arg(long, default_value_t = 16)]
         seed_workers: usize,
-        /// The sustained-window ladder: hours to hold the offered load —
-        /// 1 (default, the case's normative window) | 2 | 4 | 6 | 8 | 12.
-        /// A longer window is a STRICTER demonstration and persists like
-        /// any measured run; nothing shorter than the case exists.
+        /// The sustained-window ladder of `--class`: hours to hold the
+        /// offered load — 1 (default, the case's normative window) | 2 | 4 |
+        /// 6 | 8 | 12.
         #[arg(long, default_value_t = 1)]
         hours: u64,
     },
@@ -742,24 +794,60 @@ fn main() -> ExitCode {
         Command::Perf {
             root,
             ixit,
+            workload,
+            out,
+            catalogue,
+            statement,
+            corpus,
+            corpus_state,
+            start_rate,
+            scout_end_rate,
+            host_prescription,
             results,
             sut_name,
             sut_version,
             class,
             seed_workers,
             hours,
-        } => perf_command(
-            &root,
-            &ixit,
-            &results,
-            OperatorIdentity {
-                name: sut_name.as_deref(),
-                version: sut_version.as_deref(),
-            },
-            &class,
-            seed_workers,
-            hours,
-        ),
+        } => match (workload, out, class, results) {
+            (Some(workload), Some(out), None, None) => {
+                let corpus_state =
+                    corpus_state.unwrap_or_else(|| out.with_extension("corpus.json"));
+                perf_workload_command(&WorkloadRunRequest {
+                    root: &root,
+                    catalogue: &catalogue,
+                    workload: &workload,
+                    ixit: &ixit,
+                    statement: statement.as_deref(),
+                    out: &out,
+                    corpus: match corpus {
+                        CorpusArg::Seed => CorpusMode::Seed,
+                        CorpusArg::Reuse => CorpusMode::Reuse,
+                    },
+                    corpus_state,
+                    seed_workers,
+                    start_rate,
+                    scout_end_rate,
+                    host_prescription,
+                })
+            }
+            (None, _, Some(class), Some(results)) => perf_command(
+                &root,
+                &ixit,
+                &results,
+                OperatorIdentity {
+                    name: sut_name.as_deref(),
+                    version: sut_version.as_deref(),
+                },
+                &class,
+                seed_workers,
+                hours,
+            ),
+            _ => {
+                eprintln!("perf takes either --workload with --out, or --class with --results");
+                ExitCode::from(2)
+            }
+        },
         Command::Stress {
             root,
             ixit,
@@ -1416,6 +1504,41 @@ fn probe_command(request: &ProbeRequest<'_>, out: &Path) -> ExitCode {
     }
     println!("wrote {} ({} probes)", out.display(), report.probes.len());
     ExitCode::SUCCESS
+}
+
+/// How `perf --workload` gets its corpus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+enum CorpusArg {
+    /// Seed the workload's recipe before the clock.
+    Seed,
+    /// Reuse the stored corpus when its read-back counts and digest match.
+    Reuse,
+}
+
+fn perf_workload_command(request: &WorkloadRunRequest<'_>) -> ExitCode {
+    let progress = |message: String| eprintln!("[perf] {message}");
+    match run_workload(request, &progress) {
+        Ok(record) => {
+            for (plateau, raw) in record.derived.plateaus.iter().zip(&record.raw.plateaus) {
+                println!(
+                    "  plateau {:.1}/s ({}): achieved {:.1}/s, p99 {}, errors {:.4}",
+                    plateau.planned_rate,
+                    raw.multiple
+                        .map_or_else(String::new, |m| format!("{m} x K")),
+                    plateau.throughput.achieved_per_s,
+                    plateau
+                        .latency
+                        .p99
+                        .value_ms()
+                        .map_or_else(|| "not resolvable".to_owned(), |v| format!("{v:.1} ms")),
+                    plateau.throughput.error_share.unwrap_or(0.0)
+                );
+            }
+            println!("wrote {}", request.out.display());
+            ExitCode::SUCCESS
+        }
+        Err(e) => fail(&e),
+    }
 }
 
 fn perf_command(

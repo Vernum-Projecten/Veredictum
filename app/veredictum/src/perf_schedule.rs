@@ -265,9 +265,11 @@ fn check_relations(schedule: &PerfSchedule, errors: &mut Vec<LoadError>) {
     if let Some((path, manifest)) = &schedule.payloads {
         check_sources(&schedule.payloads_dir(), path, manifest, errors);
         let catalogue = schedule.journeys.as_ref().map(|(_, c)| c);
+        let workload_reads = crate::workload::load::payload_reads(&schedule.root);
         check_payload_keys(
             catalogue,
             !schedule.cases.is_empty(),
+            &workload_reads,
             path,
             manifest,
             errors,
@@ -325,6 +327,7 @@ enum Role {
 fn check_payload_keys(
     catalogue: Option<&JourneyCatalogue>,
     has_cases: bool,
+    workload_reads: &[crate::workload::load::PayloadRead],
     manifest_path: &Path,
     manifest: &PayloadManifest,
     errors: &mut Vec<LoadError>,
@@ -357,6 +360,35 @@ fn check_payload_keys(
                     Role::Bytes
                 };
                 needed.insert((*key).to_owned(), (role, format!("the {kind:?} stage")));
+            }
+        }
+    }
+    // TODO(#891): this check moves to the workload loader when `journeys.yaml` is retired.
+    for read in workload_reads {
+        use crate::workload::ops::PayloadRole;
+        match read.role {
+            PayloadRole::Template => {
+                needed.insert(read.key.clone(), (Role::Template, read.reader.clone()));
+                needed.insert(
+                    format!("{}.example", read.key),
+                    (Role::Bytes, read.reader.clone()),
+                );
+            }
+            PayloadRole::Flat => {
+                needed.insert(read.key.clone(), (Role::Template, read.reader.clone()));
+                let template_id = manifest.get(&read.key).and_then(|e| e.template_id.clone());
+                for (key, entry) in &manifest.0 {
+                    if Path::new(&entry.source)
+                        .extension()
+                        .is_some_and(|x| x.eq_ignore_ascii_case("opt"))
+                        && entry.template_id == template_id
+                    {
+                        needed.insert(key.to_string(), (Role::Template, read.reader.clone()));
+                    }
+                }
+            }
+            PayloadRole::Body => {
+                needed.insert(read.key.clone(), (Role::Bytes, read.reader.clone()));
             }
         }
     }
@@ -537,6 +569,39 @@ mod tests {
             );
         }
         assert_eq!(errors.len(), 5, "{errors:?}");
+    }
+
+    /// A payload only a workload document reads is read, and the same entry
+    /// is refused once no workload reads it.
+    #[test]
+    fn a_workload_only_payload_is_not_refused() {
+        let dir = staged();
+        let manifest = dir.path().join(PAYLOADS_FILE);
+        let mut text = std::fs::read_to_string(&manifest).expect("the manifest");
+        text.push_str(
+            "cnf.flat.workload_only:\n  source: flat/vitals.minimal_ctx.json\n  \
+             template_id: \"minimal_action.en.v1\"\n  provenance: p\n",
+        );
+        std::fs::write(&manifest, text).expect("rewriting the manifest");
+        let workload = dir.path().join("workloads/clinical-mix.yaml");
+        let document = std::fs::read_to_string(&workload).expect("the workload");
+        let document = document.replace(
+            "payload: cnf.flat.vitals.minimal_ctx",
+            "payload: cnf.flat.workload_only",
+        );
+        std::fs::write(&workload, document).expect("rewriting the workload");
+        let loaded = load(dir.path()).expect("the schemas compile");
+        assert_eq!(messages(&loaded), Vec::<String>::new());
+
+        std::fs::remove_file(&workload).expect("removing the workload");
+        let loaded = load(dir.path()).expect("the schemas compile");
+        let errors = messages(&loaded);
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.contains("cnf.flat.workload_only is a payload no journey stage")),
+            "{errors:?}"
+        );
     }
 
     /// Two cases with one id are refused against the second file, and a case

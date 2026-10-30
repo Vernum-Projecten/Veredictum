@@ -264,6 +264,10 @@ pub enum ErrorClass {
     /// Still unanswered when the drain ended; its latency is recorded as the
     /// time it had waited by then, a lower bound.
     Unfinished,
+    /// The instrument had nothing to address: an update or delete found no
+    /// free target. A defect of the run, never of the server, and it still
+    /// counts against the plateau so a starved run cannot qualify.
+    NoTarget,
 }
 
 impl ErrorClass {
@@ -276,6 +280,7 @@ impl ErrorClass {
         ErrorClass::ServerError,
         ErrorClass::UnexpectedStatus,
         ErrorClass::Unfinished,
+        ErrorClass::NoTarget,
     ];
 
     /// The class of an answer whose status the operation did not expect.
@@ -303,6 +308,7 @@ impl ErrorClass {
             Self::ServerError => "server_error",
             Self::UnexpectedStatus => "unexpected_status",
             Self::Unfinished => "unfinished",
+            Self::NoTarget => "no_target",
         }
     }
 }
@@ -376,6 +382,10 @@ pub enum Outcome {
         /// The evidence, when the performer kept it.
         exchange: Option<FailedExchange>,
     },
+    /// The server refused an operation the release leaves optional, and the
+    /// workload counts that refusal apart from errors: neither a success nor
+    /// a failure, and no latency is recorded for it.
+    Refused,
 }
 
 /// One request the generator asks a [`Performer`] to send.

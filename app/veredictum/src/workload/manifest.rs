@@ -18,14 +18,15 @@ use serde::Serialize;
 
 use crate::ids::CorpusKey;
 use crate::load::LoadError;
+use crate::perf_gen::arrivals::ArrivalProcess;
 use crate::workload::load::{
     LoadContext, LoadedWorkload, PINNED, WorkloadIdentity, WorkloadRefused, load_dir, sha256_hex,
 };
 use crate::workload::ops::{PayloadRole, ReleasedOperation, StageInput};
 use crate::workload::plan::RUN_LIMIT_S;
 use crate::workload::{
-    ArrivalProcess, CorpusScale, InteractionShape, MixStatus, OnRefusal, ParamSource,
-    Qualification, QueryScope, QueryTier, Share, WORKLOADS_DIR,
+    CorpusScale, InteractionShape, MixStatus, OnRefusal, ParamSource, Qualification, QueryScope,
+    QueryTier, Share, WORKLOADS_DIR,
 };
 
 /// The file name the manifest is written under.

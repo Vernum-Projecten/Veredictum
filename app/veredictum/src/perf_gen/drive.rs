@@ -99,6 +99,34 @@ impl Default for GeneratorLimits {
     }
 }
 
+/// A handle that stops a drive's dispatching from outside it.
+///
+/// Setting it is final: the dispatcher sends no arrival intended after the
+/// moment it sees the handle set, sessions in progress send no further
+/// stage, and the drive ends with [`Stop::Halted`]. A clone shares the one
+/// flag.
+#[derive(Debug, Clone, Default)]
+pub struct Halt(Arc<AtomicBool>);
+
+impl Halt {
+    /// A handle that is not set.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets the handle.
+    pub fn set(&self) {
+        self.0.store(true, Ordering::Release);
+    }
+
+    /// Whether the handle is set.
+    #[must_use]
+    pub fn is_set(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+}
+
 /// Everything one drive needs besides the mix and the performer.
 #[derive(Debug, Clone)]
 pub struct DrivePlan {
@@ -107,6 +135,7 @@ pub struct DrivePlan {
     profile: RateProfile,
     windows: Vec<WindowSpec>,
     limits: GeneratorLimits,
+    halt: Option<Halt>,
 }
 
 impl DrivePlan {
@@ -153,7 +182,15 @@ impl DrivePlan {
             profile,
             windows,
             limits,
+            halt: None,
         })
+    }
+
+    /// The plan with a [`Halt`] handle the dispatcher watches.
+    #[must_use]
+    pub fn with_halt(mut self, halt: Halt) -> Self {
+        self.halt = Some(halt);
+        self
     }
 
     /// The seed every draw derives from.
@@ -198,6 +235,8 @@ pub struct OperationRecord {
     pub errors: BTreeMap<ErrorClass, u64>,
     /// The first failed exchanges, at most the limit's count.
     pub samples: Vec<FailedExchange>,
+    /// Refusals counted apart from errors ([`Outcome::Refused`]).
+    pub refused: u64,
 }
 
 impl OperationRecord {
@@ -207,6 +246,7 @@ impl OperationRecord {
             failed: latency_histogram()?,
             errors: BTreeMap::new(),
             samples: Vec::new(),
+            refused: 0,
         })
     }
 }
@@ -260,6 +300,23 @@ pub enum Stop {
         /// The offset from the profile's start at which the run stopped.
         at: Duration,
     },
+    /// The plan's [`Halt`] handle was set, and the driver stopped
+    /// dispatching at this offset.
+    Halted {
+        /// The offset from the profile's start at which the run stopped.
+        at: Duration,
+    },
+}
+
+impl Stop {
+    /// The offset at which dispatching stopped early, if it did.
+    #[must_use]
+    pub fn stopped_at(self) -> Option<Duration> {
+        match self {
+            Stop::Completed => None,
+            Stop::Saturated { at } | Stop::Halted { at } => Some(at),
+        }
+    }
 }
 
 /// The outcome of one drive.
@@ -319,6 +376,8 @@ struct Shared {
     truncated: AtomicU64,
     aborted: AtomicBool,
     abort_at: Mutex<Option<Instant>>,
+    halt: Option<Halt>,
+    halted_at: Mutex<Option<Instant>>,
 }
 
 impl Shared {
@@ -339,7 +398,18 @@ impl Shared {
     }
 
     fn aborted(&self) -> bool {
-        self.aborted.load(Ordering::Acquire)
+        self.aborted.load(Ordering::Acquire) || self.halt.as_ref().is_some_and(Halt::is_set)
+    }
+
+    /// Notes the first moment the dispatcher saw the halt handle set.
+    fn note_halt(&self, at: Instant) {
+        let mut slot = self
+            .halted_at
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if slot.is_none() {
+            *slot = Some(at);
+        }
     }
 
     fn trip_abort(&self, at: Instant) {
@@ -434,6 +504,7 @@ impl Shared {
             };
             match outcome {
                 Outcome::Success => record.ok.saturating_record(latency),
+                Outcome::Refused => record.refused = record.refused.saturating_add(1),
                 Outcome::Failure { class, exchange } => {
                     record.failed.saturating_record(latency);
                     let count = record.errors.entry(class).or_insert(0);
@@ -576,6 +647,10 @@ async fn drain(
 /// # Errors
 /// [`DriveError::PerformerPanicked`] when a performer task panics, and
 /// [`DriveError::Histogram`] if a histogram cannot be built.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one dispatch loop with its drain and its stop reading"
+)]
 pub async fn drive<P: Performer>(
     plan: &DrivePlan,
     mix: &Mix,
@@ -605,6 +680,8 @@ pub async fn drive<P: Performer>(
         truncated: AtomicU64::new(0),
         aborted: AtomicBool::new(false),
         abort_at: Mutex::new(None),
+        halt: plan.halt.clone(),
+        halted_at: Mutex::new(None),
     });
     let mix = Arc::new(mix.clone());
 
@@ -618,6 +695,10 @@ pub async fn drive<P: Performer>(
         let intended = start.checked_add(arrival.at).unwrap_or(end);
         if Instant::now() < intended {
             sleep_until(intended).await;
+        }
+        if shared.halt.as_ref().is_some_and(Halt::is_set) {
+            shared.note_halt(Instant::now());
+            break;
         }
         let Some(permit) = shared.acquire(intended).await else {
             break;
@@ -639,7 +720,12 @@ pub async fn drive<P: Performer>(
         .abort_at
         .lock()
         .unwrap_or_else(PoisonError::into_inner);
+    let halted = *shared
+        .halted_at
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
     let deadline = stopped
+        .or(halted)
         .unwrap_or(end)
         .max(Instant::now())
         .checked_add(plan.limits.drain)
@@ -654,11 +740,14 @@ pub async fn drive<P: Performer>(
             .lock()
             .unwrap_or_else(PoisonError::into_inner),
     );
-    let stop = match stopped {
-        Some(at) => Stop::Saturated {
+    let stop = match (stopped, halted) {
+        (Some(at), _) => Stop::Saturated {
             at: at.saturating_duration_since(start),
         },
-        None => Stop::Completed,
+        (None, Some(at)) => Stop::Halted {
+            at: at.saturating_duration_since(start),
+        },
+        (None, None) => Stop::Completed,
     };
     Ok(DriveReport {
         windows,

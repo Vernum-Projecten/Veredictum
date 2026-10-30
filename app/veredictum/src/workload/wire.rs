@@ -125,6 +125,12 @@ pub enum WireError {
     /// The URL does not form.
     #[error("the URL does not form: {0}")]
     Url(String),
+    /// The operation needs an address the caller left unset.
+    #[error("the request needs its {0}")]
+    Unaddressed(&'static str),
+    /// The token is built by its own builder.
+    #[error("{0} is not built by operation_request")]
+    NotAnOperation(&'static str),
 }
 
 /// Returns the qualified name a stored query class is registered under.
@@ -284,4 +290,194 @@ pub fn stored_query_store(name: &QueryName, class: &QueryClass) -> WireRequest {
             bytes: class.text.clone().into_bytes(),
         }),
     }
+}
+/// What an operation's request addresses beyond its operation.
+///
+/// Each field binds one path variable or header of the released operation;
+/// an operation that needs a field the caller leaves unset is refused with
+/// [`WireError::Unaddressed`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Addressing<'a> {
+    /// The `ehr_id` path variable.
+    pub ehr: Option<&'a str>,
+    /// The `uid_based_id`, `contribution_uid` or `template_id` the
+    /// operation addresses: a version uid, a versioned object uid, a
+    /// contribution uid, a party uid or a template id.
+    pub uid: Option<&'a str>,
+    /// The `versioned_object_uid` path variable.
+    pub object: Option<&'a str>,
+    /// The preceding version uid an update sends as `If-Match`.
+    pub if_match: Option<&'a str>,
+    /// The `openehr-template-id` header of a Simplified Flat commit.
+    pub template_id: Option<&'a str>,
+}
+
+fn need<'v>(value: Option<&'v str>, what: &'static str) -> Result<&'v str, WireError> {
+    value.ok_or(WireError::Unaddressed(what))
+}
+
+/// The `Content-Type` of a Simplified Flat composition.
+pub const FLAT_MEDIA_TYPE: &str = "application/openehr.wt.flat+json";
+
+/// Returns the path of one operation of the workload vocabulary.
+fn operation_path(op: WorkloadOp, at: &Addressing<'_>) -> Result<String, WireError> {
+    let ehr = || need(at.ehr, "ehr_id");
+    let uid = || need(at.uid, "uid");
+    let object = || need(at.object, "versioned_object_uid");
+    let encoded = |value: &str| urlencoding::encode(value).into_owned();
+    Ok(match op {
+        WorkloadOp::EhrCreate => "/ehr".to_owned(),
+        WorkloadOp::EhrRead => format!("/ehr/{}", ehr()?),
+        WorkloadOp::EhrStatusRead | WorkloadOp::EhrStatusUpdate => {
+            format!("/ehr/{}/ehr_status", ehr()?)
+        }
+        WorkloadOp::CompositionCommit | WorkloadOp::CompositionCommitFlat => {
+            format!("/ehr/{}/composition", ehr()?)
+        }
+        WorkloadOp::CompositionRead
+        | WorkloadOp::CompositionReadCurrent
+        | WorkloadOp::CompositionUpdate
+        | WorkloadOp::CompositionDelete => format!("/ehr/{}/composition/{}", ehr()?, uid()?),
+        WorkloadOp::CompositionRevisionHistory => format!(
+            "/ehr/{}/versioned_composition/{}/revision_history",
+            ehr()?,
+            object()?
+        ),
+        WorkloadOp::CompositionVersionRead => format!(
+            "/ehr/{}/versioned_composition/{}/version/{}",
+            ehr()?,
+            object()?,
+            uid()?
+        ),
+        WorkloadOp::DirectoryCreate | WorkloadOp::DirectoryRead | WorkloadOp::DirectoryUpdate => {
+            format!("/ehr/{}/directory", ehr()?)
+        }
+        WorkloadOp::ContributionCommit => format!("/ehr/{}/contribution", ehr()?),
+        WorkloadOp::ContributionRead => format!("/ehr/{}/contribution/{}", ehr()?, uid()?),
+        WorkloadOp::TagsPut | WorkloadOp::TagsRead => {
+            format!("/ehr/{}/composition/{}/tags", ehr()?, uid()?)
+        }
+        WorkloadOp::TemplateList => "/definition/template/adl1.4".to_owned(),
+        WorkloadOp::TemplateGet => format!("/definition/template/adl1.4/{}", encoded(uid()?)),
+        WorkloadOp::TemplateExample => {
+            format!("/definition/template/adl1.4/{}/example", encoded(uid()?))
+        }
+        WorkloadOp::TemplateAdl2List => "/definition/template/adl2".to_owned(),
+        WorkloadOp::PartyCreate => "/demographic/person".to_owned(),
+        WorkloadOp::PartyRead | WorkloadOp::PartyUpdate => {
+            format!("/demographic/person/{}", uid()?)
+        }
+        WorkloadOp::SystemOptions => "/".to_owned(),
+        WorkloadOp::EhrReadBySubject | WorkloadOp::Aql => {
+            return Err(WireError::NotAnOperation(op.token()));
+        }
+    })
+}
+
+/// Builds the request of one operation of the workload vocabulary.
+///
+/// Writes send `Prefer: return=minimal`, so a create answers in the created
+/// family with its identifying `ETag` and `Location` (ITS-REST
+/// `docs/overview/Requests_and_responses.md` §Prefer), and an update of a
+/// versioned object sends its preceding version uid as `If-Match`
+/// (§Concurrency control). The ADL 1.4 template is read in its native OPT
+/// XML form, everything else in canonical JSON.
+///
+/// # Errors
+/// [`WireError::Unaddressed`] when the operation needs an address the
+/// caller left unset, and [`WireError::NotAnOperation`] for the subject
+/// lookup and `aql`, which [`ehr_read_by_subject`] and [`query_execute`]
+/// build.
+pub fn operation_request(
+    op: WorkloadOp,
+    at: &Addressing<'_>,
+    body: Option<WireBody>,
+) -> Result<WireRequest, WireError> {
+    let operation = op.released().ok_or(WireError::NotAnOperation(op.token()))?;
+    let path = operation_path(op, at)?;
+    let accept = if op == WorkloadOp::TemplateGet {
+        "application/xml"
+    } else {
+        "application/json"
+    };
+    let mut headers = vec![("Accept", accept.to_owned())];
+    if op.is_write() {
+        headers.push(("Prefer", "return=minimal".to_owned()));
+    }
+    if matches!(
+        op,
+        WorkloadOp::EhrStatusUpdate
+            | WorkloadOp::CompositionUpdate
+            | WorkloadOp::DirectoryUpdate
+            | WorkloadOp::PartyUpdate
+    ) {
+        let preceding = need(at.if_match, "If-Match")?;
+        headers.push(("If-Match", format!("\"{preceding}\"")));
+    }
+    if op == WorkloadOp::CompositionCommitFlat {
+        let template = need(at.template_id, "openehr-template-id")?;
+        headers.push(("openehr-template-id", template.to_owned()));
+    }
+    // NOTE: ITS-REST specifications/operations/definition_template_adl1.4_example_get.yaml declares `type` and `detail_level`.
+    let query = if op == WorkloadOp::TemplateExample {
+        vec![
+            ("type".to_owned(), "input".to_owned()),
+            ("detail_level".to_owned(), "required".to_owned()),
+        ]
+    } else {
+        Vec::new()
+    };
+    Ok(WireRequest {
+        operation,
+        path,
+        query,
+        headers,
+        body,
+    })
+}
+
+/// The released operation that uploads an ADL 1.4 operational template.
+pub const TEMPLATE_UPLOAD: ReleasedOperation = ReleasedOperation {
+    api: "definition",
+    operation_id: "definition_template_adl1.4_upload",
+    method: "POST",
+    path: "/definition/template/adl1.4",
+};
+
+/// Builds the upload of an operational template:
+/// `POST /definition/template/adl1.4` with the OPT XML (ITS-REST
+/// `specifications/operations/definition_template_adl1.4_upload.yaml`).
+#[must_use]
+pub fn template_upload(opt_xml: &str) -> WireRequest {
+    WireRequest {
+        operation: TEMPLATE_UPLOAD,
+        path: TEMPLATE_UPLOAD.path.to_owned(),
+        query: Vec::new(),
+        headers: vec![("Accept", "application/json".to_owned())],
+        body: Some(WireBody {
+            content_type: "application/xml",
+            bytes: opt_xml.as_bytes().to_vec(),
+        }),
+    }
+}
+
+/// Builds an ad-hoc `POST /query/aql` of a fixed AQL text with no
+/// parameters (ITS-REST
+/// `specifications/operations/query_execute_adhoc_query_body.yaml`).
+///
+/// # Errors
+/// [`WireError::Body`] when the body does not serialize.
+pub fn adhoc_text(text: &str) -> Result<WireRequest, WireError> {
+    let parameters = BTreeMap::new();
+    Ok(WireRequest {
+        operation: QueryTransport::AdhocPost.released(),
+        path: QueryTransport::AdhocPost.released().path.to_owned(),
+        query: Vec::new(),
+        headers: vec![("Accept", "application/json".to_owned())],
+        body: Some(json_body(&AdhocBody {
+            q: text,
+            fetch: None,
+            query_parameters: &parameters,
+        })?),
+    })
 }

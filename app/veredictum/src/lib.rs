@@ -40,6 +40,7 @@ pub mod model;
 pub mod party;
 pub mod perf;
 pub mod perf_assets;
+pub mod perf_emulate;
 pub mod perf_gen;
 pub mod perf_result;
 pub mod perf_run;

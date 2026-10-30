@@ -34,6 +34,7 @@ use crate::perf_gen::arrivals::Rate;
 use crate::perf_gen::drive::{OperationRecord, WindowRecord};
 use crate::perf_gen::{ErrorClass, FailedExchange, OperationId};
 use crate::perf_result::derive::Derived;
+use crate::workload::CorpusScale;
 
 /// The sentence every record carries about what one run cannot show.
 pub const SCOPE: &str = "A run of at most ten minutes measures steady-state capacity and says \
@@ -153,42 +154,15 @@ pub struct Generator {
 pub struct EmbeddedWorkload {
     /// The workload's id.
     pub id: String,
+    /// `<id>@<version>` for a workload the instrument pins by digest,
+    /// `custom` for any other document.
+    pub label: String,
     /// The workload's version.
     pub version: String,
     /// `sha256:` and the hex digest of `document`.
     pub sha256: String,
     /// The workload document's text.
     pub document: String,
-}
-
-/// The corpus scale names (a closed vocabulary).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CorpusScale {
-    /// Proof-of-concept volumes.
-    #[serde(rename = "POC")]
-    Poc,
-    /// Small deployment volumes.
-    S,
-    /// Large deployment volumes.
-    L,
-    /// Regional deployment volumes.
-    R,
-}
-
-impl CorpusScale {
-    /// Every scale, smallest first.
-    pub const ALL: &[CorpusScale] = &[Self::Poc, Self::S, Self::L, Self::R];
-
-    /// The serialized token.
-    #[must_use]
-    pub fn token(self) -> &'static str {
-        match self {
-            Self::Poc => "POC",
-            Self::S => "S",
-            Self::L => "L",
-            Self::R => "R",
-        }
-    }
 }
 
 /// The corpus the run measured against.
@@ -201,6 +175,170 @@ pub struct CorpusRecord {
     pub recipe_sha256: String,
     /// `sha256:` digest of the seeded corpus as read back.
     pub digest: String,
+    /// Whether this run seeded the corpus or reused a stored one.
+    pub origin: CorpusOrigin,
+    /// The EHRs the server held when the clock started, as read back.
+    pub ehrs: u64,
+    /// The compositions the server held when the clock started, as read
+    /// back.
+    pub compositions: u64,
+}
+
+/// Where a run's corpus came from (a closed vocabulary).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CorpusOrigin {
+    /// Seeded by this run before the clock started.
+    Seeded,
+    /// A stored corpus whose read-back counts and digest matched.
+    Reused,
+}
+
+/// How a load was offered (a closed vocabulary).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoadModel {
+    /// Each worker sends its next request after the previous answer, so the
+    /// server sets the pace: a bulk load, never a latency measurement.
+    ClosedLoop,
+}
+
+/// The seeding before the clock: a closed-loop bulk load, reported apart
+/// from every measured number.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SeedingRecord {
+    /// Always `closed_loop`.
+    pub model: LoadModel,
+    /// The concurrent workers.
+    pub workers: u32,
+    /// The requests the seeding sent, the read-back included.
+    pub requests: u64,
+    /// The seeding's wall time, milliseconds.
+    pub wall_ms: u64,
+}
+
+/// The phases of a run after seeding (a closed vocabulary).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Phase {
+    /// Maintenance where the IXIT declares containers, then idle.
+    Settle,
+    /// The start rate, discarded.
+    WarmUp,
+    /// The exponential ramp judged in windows.
+    Scout,
+    /// The wait for the scout's outstanding exchanges.
+    Drain,
+    /// The plateaus at the ladder's multiples of the knee estimate.
+    Ladder,
+    /// The extra plateau, run when the ladder's lowest plateau fails.
+    ExtraPlateau,
+    /// The closing canaries.
+    Closing,
+}
+
+/// One phase's planned and measured wall time, and every exchange it sent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PhaseRecord {
+    /// The phase.
+    pub phase: Phase,
+    /// The longest the plan gave it, milliseconds.
+    pub planned_ms: u64,
+    /// What it took, milliseconds.
+    pub wall_ms: u64,
+    /// The exchanges sent in the phase, windowed or not.
+    pub exchanges: u64,
+    /// The failed ones by class, windowed or not.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub errors: BTreeMap<ErrorClass, u64>,
+}
+
+/// The qualification limits the run was judged against, from its workload.
+///
+/// Shares are integers in millionths, so the judgement is integer
+/// arithmetic and its re-derivation cannot drift.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RawQualification {
+    /// The budget of an operation the map does not name, milliseconds.
+    pub default_budget_ms: u32,
+    /// The budget per operation, milliseconds, where it differs from the
+    /// default (a population AQL class).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub budgets_ms: BTreeMap<OperationId, u32>,
+    /// The highest error share a plateau may carry, in millionths.
+    pub max_error_ppm: u32,
+    /// The lowest achieved share of the offered rate, in millionths.
+    pub min_achieved_ppm: u32,
+}
+
+impl RawQualification {
+    /// The budget of `operation`, milliseconds.
+    #[must_use]
+    pub fn budget_ms(&self, operation: &OperationId) -> u32 {
+        self.budgets_ms
+            .get(operation)
+            .copied()
+            .unwrap_or(self.default_budget_ms)
+    }
+
+    /// The largest budget of any operation, milliseconds.
+    #[must_use]
+    pub fn largest_budget_ms(&self) -> u32 {
+        self.budgets_ms
+            .values()
+            .copied()
+            .fold(self.default_budget_ms, u32::max)
+    }
+}
+
+/// One interaction a statement dropped from the mix.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DroppedInteractionRecord {
+    /// The interaction.
+    pub interaction: String,
+    /// Its share before the drop, as the workload spells it.
+    pub share: String,
+    /// The folders and option arms the statement does not claim.
+    pub missing: Vec<String>,
+}
+
+/// The mix the run offered.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RawMix {
+    /// Operation arrivals per interaction arrival: planned rates count
+    /// operation arrivals per second, and the generator draws interactions
+    /// at the rate divided by this.
+    pub operations_per_interaction: f64,
+    /// The interactions a statement dropped, with what each misses.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dropped: Vec<DroppedInteractionRecord>,
+}
+
+/// The server-side readings of one plateau: context that never bears on
+/// its qualification.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ServerReadings {
+    /// No reading was taken.
+    Absent {
+        /// Why not.
+        reason: String,
+    },
+}
+
+// TODO(#887): a `present` state carrying the container series, the database sizes and the statement table.
+
+impl Default for ServerReadings {
+    fn default() -> Self {
+        Self::Absent {
+            reason: "the run declared no server-side sampler".to_owned(),
+        }
+    }
 }
 
 /// One operation's evidence in one window.
@@ -215,6 +353,17 @@ pub struct RawOperation {
     /// Failed exchanges by class, summing to the failed histogram's count.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub errors: BTreeMap<ErrorClass, u64>,
+    /// Refusals of an optional operation, counted apart from errors.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub refused: u64,
+}
+
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde's skip_serializing_if passes the field by reference"
+)]
+pub(crate) fn is_zero(n: &u64) -> bool {
+    *n == 0
 }
 
 impl RawOperation {
@@ -232,6 +381,7 @@ impl RawOperation {
             ok_hdr: encode(&record.ok)?,
             failed_hdr,
             errors: record.errors.clone(),
+            refused: record.refused,
         })
     }
 }
@@ -300,6 +450,12 @@ pub struct RawPlateau {
     /// [`FAILED_EXCHANGES_PER_OPERATION`] each.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub failed_exchanges: BTreeMap<OperationId, Vec<FailedExchange>>,
+    /// The planned rate as a multiple of the scout's knee estimate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub multiple: Option<f64>,
+    /// The server-side readings over the hold.
+    #[serde(default)]
+    pub server: ServerReadings,
 }
 
 /// How many failed exchanges a plateau keeps per operation.
@@ -337,6 +493,8 @@ impl RawPlateau {
             ],
             stopped_at_ms: stopped_at.map(millis),
             failed_exchanges,
+            multiple: None,
+            server: ServerReadings::default(),
         })
     }
 }
@@ -355,6 +513,14 @@ pub struct RawScoutWindow {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RawScout {
+    /// The planned operation rate at the ramp's start, per second.
+    pub start_rate: Rate,
+    /// The planned operation rate at the ramp's end, per second.
+    pub end_rate: Rate,
+    /// The offset from the ramp's start at which the run halted it because
+    /// the server had fallen behind, milliseconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub halted_at_ms: Option<u64>,
     /// The length of each window, milliseconds.
     pub window_ms: u64,
     /// The windows, in time order.
@@ -383,8 +549,17 @@ pub struct Raw {
     pub workload: EmbeddedWorkload,
     /// The corpus measured against.
     pub corpus: CorpusRecord,
+    /// The seeding, or the reused corpus's read-back.
+    pub seeding: SeedingRecord,
+    /// The mix offered.
+    pub mix: RawMix,
+    /// The limits every plateau and scout window was judged against.
+    pub qualification: RawQualification,
     /// The seed every draw derived from.
     pub seed: u64,
+    /// The phases after seeding, in the order they ran.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub phases: Vec<PhaseRecord>,
     /// The scout ramp, when the run made one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scout: Option<RawScout>,
@@ -422,8 +597,31 @@ pub enum PerfResultError {
     Serialize(String),
 }
 
+impl Raw {
+    /// The exchanges the server answered `429 Too Many Requests`, over every
+    /// phase and every window of this record.
+    #[must_use]
+    pub fn rate_limited(&self) -> u64 {
+        let in_phases = self
+            .phases
+            .iter()
+            .filter_map(|p| p.errors.get(&ErrorClass::RateLimited))
+            .fold(0, |sum: u64, n| sum.saturating_add(*n));
+        let windows = self
+            .scout
+            .iter()
+            .flat_map(|s| s.windows.iter().map(|w| &w.window))
+            .chain(self.plateaus.iter().flat_map(|p| p.halves.iter()));
+        let in_windows = windows
+            .flat_map(|w| w.operations.values())
+            .filter_map(|op| op.errors.get(&ErrorClass::RateLimited))
+            .fold(0, |sum: u64, n| sum.saturating_add(*n));
+        in_phases.max(in_windows)
+    }
+}
+
 /// Whole milliseconds in `duration`, saturating.
-fn millis(duration: Duration) -> u64 {
+pub(crate) fn millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
 
