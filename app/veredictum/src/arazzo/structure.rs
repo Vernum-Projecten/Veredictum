@@ -841,10 +841,14 @@ mod tests {
     fn naming_a_document_in_an_arm_moves_it_from_base_to_option() {
         let dir = assert_fs::TempDir::new().unwrap();
         dir.child("specs/rest-oas/ehr.yaml")
-            .write_str("openapi: 3.0.3\npaths:\n  /ehr:\n    post:\n      operationId: ehr_create\n")
+            .write_str(
+                "openapi: 3.0.3\npaths:\n  /ehr:\n    post:\n      operationId: ehr_create\n",
+            )
             .unwrap();
         dir.child("specs/openehr/ITS-REST/manifest.json")
-            .write_str(r#"{ "specifications": [{ "id": "REST_OAS_files", "spec_status": "STABLE" }] }"#)
+            .write_str(
+                r#"{ "specifications": [{ "id": "REST_OAS_files", "spec_status": "STABLE" }] }"#,
+            )
             .unwrap();
         let file = dir.child("cases/ehr/doc.arazzo.yaml");
         file.write_str(&format!(
@@ -900,12 +904,17 @@ mod tests {
                 .unwrap()
         };
         let stored = place(&mut placer, "query", "definition_query");
-        assert!(stored.values().any(|p| p.trial), "the stored-query OAS is TRIAL");
+        assert!(
+            stored.values().any(|p| p.trial),
+            "the stored-query OAS is TRIAL"
+        );
         let top = place(&mut placer, "query", "aqlc_top");
         assert!(top.values().all(Place::is_base), "TOP is BASE");
         let content = place(&mut placer, "content", "dv_count");
         assert!(
-            content.values().all(|p| p.formalism == Some(Formalism::Adl14)),
+            content
+                .values()
+                .all(|p| p.formalism == Some(Formalism::Adl14)),
             "every content case uploads an ADL 1.4 template"
         );
         let unmatched = place(&mut placer, "content", "content_item_unmatched_refused");
@@ -917,4 +926,3 @@ mod tests {
         );
     }
 }
-
