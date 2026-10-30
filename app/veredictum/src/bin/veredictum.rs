@@ -48,6 +48,7 @@ use veredictum::pipeline::measured::{
     MeasuredEvent, MeasuredRequest, ProbeRequest, StressRequest, SustainedWindow, run_aql_probe,
     run_measured, run_stress,
 };
+use veredictum::pipeline::perf_judge::judge_perf_result;
 use veredictum::pipeline::{RenderedFile, ensure_parent_dir, to_json_document, write_file};
 
 /// What `--version` prints after the name: the version and the instrument's
@@ -495,6 +496,25 @@ enum Command {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Re-derive every number of a `perf-result` record from its recorded
+    /// histograms, and compare the result with the record byte for byte.
+    ///
+    /// The record is checked against `perf-result.schema.json`, its `derived`
+    /// part is computed again from its `raw` part, and every derived field
+    /// that differs is printed with its JSON pointer, the recorded value and
+    /// the re-derived one. The file must also equal the canonical rendering of
+    /// the re-derived record, so a number written in a different form counts
+    /// as a difference.
+    ///
+    /// Exit status: `0` when the record reproduces byte for byte; `1` when a
+    /// derived field differs or the file is not in canonical form; `2` when the
+    /// file cannot be read, is not JSON, breaks the schema, or its raw part
+    /// does not re-derive.
+    PerfJudge {
+        /// The record (`perf-result.json`).
+        #[arg(long)]
+        result: PathBuf,
+    },
     /// Write the views of an Arazzo results document a vendor's CI shows:
     /// JUnit XML, CTRF 0.2.0 JSON and a Markdown summary, each a
     /// byte-deterministic function of the document.
@@ -823,7 +843,44 @@ fn main() -> ExitCode {
             },
             &out,
         ),
+        Command::PerfJudge { result } => perf_judge_command(&result),
     }
+}
+
+fn perf_judge_command(path: &Path) -> ExitCode {
+    let judgement = match judge_perf_result(path) {
+        Ok(judgement) => judgement,
+        Err(e) => return fail(&e),
+    };
+    let absent = || "absent".to_owned();
+    for mismatch in &judgement.mismatches {
+        println!(
+            "{}: recorded {}, re-derived {}",
+            mismatch.pointer,
+            mismatch.recorded.clone().unwrap_or_else(absent),
+            mismatch.rederived.clone().unwrap_or_else(absent),
+        );
+    }
+    if judgement.reproduces() {
+        println!(
+            "perf-judge: {} reproduces byte for byte (recorded by veredictum {})",
+            path.display(),
+            judgement.recorded_version
+        );
+        return ExitCode::SUCCESS;
+    }
+    if !judgement.canonical {
+        println!(
+            "perf-judge: {} is not the canonical rendering of its re-derived record",
+            path.display()
+        );
+    }
+    println!(
+        "perf-judge: {} does not reproduce: {} derived field(s) differ",
+        path.display(),
+        judgement.mismatches.len()
+    );
+    ExitCode::from(1)
 }
 
 fn emit_schemas_command(out: &Path) -> ExitCode {

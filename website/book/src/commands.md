@@ -904,6 +904,25 @@ writes `verdicts.json` and exits `1` when the review found anything.
 Conformance verdicts over the Arazzo catalogue are `veredictum test`'s results
 document and its exit status.
 
+## perf-judge
+
+```text
+Re-derive every number of a `perf-result` record from its recorded histograms, and compare the result with the record byte for byte.
+
+The record is checked against `perf-result.schema.json`, its `derived` part is computed again from its `raw` part, and every derived field that differs is printed with its JSON pointer, the recorded value and the re-derived one. The file must also equal the canonical rendering of the re-derived record, so a number written in a different form counts as a difference.
+
+Exit status: `0` when the record reproduces byte for byte; `1` when a derived field differs or the file is not in canonical form; `2` when the file cannot be read, is not JSON, breaks the schema, or its raw part does not re-derive.
+
+Usage: veredictum perf-judge --result <RESULT>
+
+Options:
+      --result <RESULT>
+          The record (`perf-result.json`)
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
 ## export
 
 ```text

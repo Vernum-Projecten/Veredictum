@@ -2263,6 +2263,372 @@ pub fn identity_schema() -> Value {
     })
 }
 
+/// One quantile of a `perf-result`: resolved with its interval, or not
+/// resolvable.
+fn perf_quantile_def() -> Value {
+    let ms = json!({ "type": "number", "minimum": 0.0 });
+    let rank = json!({ "type": "integer", "minimum": 1 });
+    json!({
+        "type": "object",
+        "required": ["state"],
+        "oneOf": [
+            {
+                "additionalProperties": false,
+                "required": ["state", "value_ms", "rank", "low_ms", "low_rank", "high_ms", "high_rank"],
+                "properties": {
+                    "state": { "const": "resolved" },
+                    "value_ms": ms, "rank": rank,
+                    "low_ms": ms, "low_rank": rank,
+                    "high_ms": ms, "high_rank": rank
+                }
+            },
+            {
+                "additionalProperties": false,
+                "required": ["state", "samples_above"],
+                "properties": {
+                    "state": { "const": "not_resolvable" },
+                    "samples_above": { "type": "integer", "minimum": 0, "description": "Fewer than 10 samples lie above the quantile, so it is not reported." }
+                }
+            }
+        ]
+    })
+}
+
+fn perf_error_counts_def() -> Value {
+    let mut properties = serde_json::Map::new();
+    for class in crate::perf_gen::ErrorClass::ALL {
+        let _replaced = properties.insert(
+            class.token().to_owned(),
+            json!({ "type": "integer", "minimum": 1 }),
+        );
+    }
+    json!({ "type": "object", "additionalProperties": false, "properties": properties })
+}
+
+fn perf_latency_def() -> Value {
+    let q = perf_quantile_def();
+    let mut properties = serde_json::Map::new();
+    for name in crate::perf_result::quantile::QuantileName::ALL {
+        let _replaced = properties.insert(name.token().to_owned(), q.clone());
+    }
+    let _replaced = properties.insert(
+        "max_ms".to_owned(),
+        json!({ "type": "number", "minimum": 0.0 }),
+    );
+    let required: Vec<&str> = crate::perf_result::quantile::QuantileName::ALL
+        .iter()
+        .map(|n| n.token())
+        .collect();
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": required,
+        "properties": properties
+    })
+}
+
+fn perf_raw_window_def() -> Value {
+    let hdr = json!({ "type": "string", "minLength": 1, "description": "The standard HdrHistogram V2 serialization, base64, values in microseconds." });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["start_ms", "end_ms", "operations", "lag_hdr", "in_flight", "budget_wait_ms", "budget_exhausted"],
+        "properties": {
+            "start_ms": { "type": "integer", "minimum": 0 },
+            "end_ms": { "type": "integer", "minimum": 1 },
+            "operations": {
+                "type": "object",
+                "propertyNames": { "pattern": "^\\S+$" },
+                "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["ok_hdr"],
+                    "properties": {
+                        "ok_hdr": hdr,
+                        "failed_hdr": hdr,
+                        "errors": perf_error_counts_def()
+                    }
+                }
+            },
+            "lag_hdr": hdr,
+            "in_flight": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+            "budget_wait_ms": { "type": "integer", "minimum": 0 },
+            "budget_exhausted": { "type": "boolean" }
+        }
+    })
+}
+
+fn perf_throughput_def() -> Value {
+    let rate = json!({ "type": "number", "minimum": 0.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["offered_per_s", "achieved_per_s", "requests", "succeeded", "mean_in_flight"],
+        "properties": {
+            "offered_per_s": rate,
+            "achieved_per_s": rate,
+            "requests": { "type": "integer", "minimum": 0 },
+            "succeeded": { "type": "integer", "minimum": 0 },
+            "errors": perf_error_counts_def(),
+            "error_share": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "mean_in_flight": { "type": "number", "minimum": 0.0, "description": "Little's law: the offered rate times the mean latency of every exchange." }
+        }
+    })
+}
+
+fn perf_generator_reading_def() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["budget_exhausted", "generator_bound"],
+        "properties": {
+            "lag_p99_ms": { "type": "number", "minimum": 0.0 },
+            "lag_max_ms": { "type": "number", "minimum": 0.0 },
+            "budget_exhausted": { "type": "boolean" },
+            "generator_bound": { "type": "boolean", "description": "The lag p99 exceeded the generator's limit while the in-flight budget never ran out: the generator, not the server, failed to hold the rate." }
+        }
+    })
+}
+
+#[expect(clippy::too_many_lines, reason = "one literal JSON-Schema document")]
+fn perf_result_raw_def() -> Value {
+    let rate = json!({ "type": "number", "exclusiveMinimum": 0.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["instrument", "target", "environment", "generator", "workload", "corpus", "seed", "plateaus"],
+        "properties": {
+            "instrument": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "version"],
+                "properties": {
+                    "name": { "type": "string", "minLength": 1 },
+                    "version": { "type": "string", "minLength": 1 }
+                }
+            },
+            "target": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["base_url", "options"],
+                "properties": {
+                    "base_url": { "type": "string", "minLength": 1 },
+                    "options": {
+                        "type": "object",
+                        "required": ["read"],
+                        "description": "The answer to ITS-REST System OPTIONS (specifications/operations/options.yaml), or the transport failure that prevented one.",
+                        "oneOf": [
+                            {
+                                "additionalProperties": false,
+                                "required": ["read", "answer"],
+                                "properties": { "read": { "const": "answered" }, "answer": identity_read_def() }
+                            },
+                            {
+                                "additionalProperties": false,
+                                "required": ["read", "error"],
+                                "properties": { "read": { "const": "unanswered" }, "error": { "type": "string" } }
+                            }
+                        ]
+                    }
+                }
+            },
+            "environment": environment_def(),
+            "generator": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["host", "in_flight_budget", "lag_limit_us", "workers"],
+                "properties": {
+                    "host": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["arch", "os"],
+                        "properties": {
+                            "arch": { "type": "string", "minLength": 1 },
+                            "os": { "type": "string", "minLength": 1 },
+                            "available_parallelism": { "type": "integer", "minimum": 1 },
+                            "cpu_model": { "type": "string", "minLength": 1 },
+                            "total_memory_bytes": { "type": "integer", "minimum": 1 }
+                        }
+                    },
+                    "in_flight_budget": { "type": "integer", "minimum": 1 },
+                    "lag_limit_us": { "type": "integer", "minimum": 0 },
+                    "workers": { "type": "integer", "minimum": 1 }
+                }
+            },
+            "host_prescription": { "type": "string", "minLength": 1 },
+            "posture": bench_posture_def(),
+            "workload": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "version", "sha256", "document"],
+                "properties": {
+                    "id": { "type": "string", "minLength": 1 },
+                    "version": { "type": "string", "minLength": 1 },
+                    "sha256": sha256_def("The digest of `document`."),
+                    "document": { "type": "string", "minLength": 1 }
+                }
+            },
+            "corpus": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["scale", "recipe_sha256", "digest"],
+                "properties": {
+                    "scale": { "enum": tokens(crate::perf_result::CorpusScale::ALL) },
+                    "recipe_sha256": sha256_def("The digest of the recipe the corpus was seeded from."),
+                    "digest": sha256_def("The digest of the seeded corpus as read back.")
+                }
+            },
+            "seed": { "type": "integer", "minimum": 0 },
+            "scout": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["window_ms", "windows"],
+                "properties": {
+                    "window_ms": { "type": "integer", "minimum": 1 },
+                    "windows": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["planned_rate", "window"],
+                            "properties": { "planned_rate": rate, "window": perf_raw_window_def() }
+                        }
+                    }
+                }
+            },
+            "plateaus": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["planned_rate", "ramp_in_ms", "hold_ms", "halves"],
+                    "properties": {
+                        "planned_rate": rate,
+                        "ramp_in_ms": { "type": "integer", "minimum": 0 },
+                        "hold_ms": { "type": "integer", "minimum": 1 },
+                        "halves": { "type": "array", "minItems": 2, "maxItems": 2, "items": perf_raw_window_def() },
+                        "stopped_at_ms": { "type": "integer", "minimum": 0 },
+                        "failed_exchanges": {
+                            "type": "object",
+                            "propertyNames": { "pattern": "^\\S+$" },
+                            "additionalProperties": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": crate::perf_result::FAILED_EXCHANGES_PER_OPERATION,
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["request_line", "body", "truncated"],
+                                    "properties": {
+                                        "status": { "type": "integer", "minimum": 100, "maximum": 999 },
+                                        "request_line": { "type": "string", "maxLength": crate::perf_gen::REQUEST_LINE_LIMIT },
+                                        "body": { "type": "string" },
+                                        "truncated": { "type": "boolean" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
+fn perf_result_derived_def() -> Value {
+    let judged: Vec<&str> = vec!["p99", "p95", "p90", "p50", "none"];
+    let ratio = json!({ "type": "number", "exclusiveMinimum": 0.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["passes", "between_run_noise", "scope", "plateaus"],
+        "properties": {
+            "passes": { "const": 1 },
+            "between_run_noise": { "enum": ["unmeasured"], "description": "One pass measures sampling intervals only; between-run noise needs an interleaved A/A comparison." },
+            "scope": { "const": crate::perf_result::SCOPE },
+            "scout": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["start_ms", "planned_rate", "throughput", "latency", "generator"],
+                    "properties": {
+                        "start_ms": { "type": "integer", "minimum": 0 },
+                        "planned_rate": { "type": "number", "exclusiveMinimum": 0.0 },
+                        "throughput": perf_throughput_def(),
+                        "latency": perf_latency_def(),
+                        "generator": perf_generator_reading_def()
+                    }
+                }
+            },
+            "plateaus": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["planned_rate", "hold_s", "throughput", "latency", "operations", "halves", "generator", "stopped"],
+                    "properties": {
+                        "planned_rate": { "type": "number", "exclusiveMinimum": 0.0 },
+                        "hold_s": { "type": "number", "exclusiveMinimum": 0.0 },
+                        "throughput": perf_throughput_def(),
+                        "latency": perf_latency_def(),
+                        "operations": {
+                            "type": "object",
+                            "propertyNames": { "pattern": "^\\S+$" },
+                            "additionalProperties": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": ["requests", "succeeded", "share", "latency", "judged_at"],
+                                "properties": {
+                                    "requests": { "type": "integer", "minimum": 0 },
+                                    "succeeded": { "type": "integer", "minimum": 0 },
+                                    "errors": perf_error_counts_def(),
+                                    "error_share": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+                                    "share": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+                                    "latency": perf_latency_def(),
+                                    "judged_at": { "enum": judged, "description": "The highest of p99, p95, p90 and p50 that resolves." }
+                                }
+                            }
+                        },
+                        "halves": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["steadiness"],
+                            "properties": {
+                                "p50_ratio": ratio,
+                                "p95_ratio": ratio,
+                                "steadiness": { "enum": ["steady", "unsteady", "not_measurable"], "description": "Unsteady when the second half's overall p50 or p95 over the first's lies outside 0.8 to 1.25." }
+                            }
+                        },
+                        "generator": perf_generator_reading_def(),
+                        "stopped": { "type": "boolean" }
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// `perf-result.schema.json`: one performance run's record, its evidence
+/// and every number derived from it.
+#[must_use]
+pub fn perf_result_schema() -> Value {
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("perf-result"),
+        "title": "Veredictum performance result",
+        "description": "One performance run against one server: the `raw` evidence (the target's System OPTIONS answer, the environment, the generator, the embedded workload and corpus, the seed, the scout windows and per plateau the encoded HDR histograms per hold half and operation) and the `derived` numbers, which `veredictum perf-judge` recomputes from `raw` byte for byte. Percentiles come from summed histograms, never an average of percentiles. No openEHR specification governs performance; this is the instrument's own design.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "raw", "derived"],
+        "properties": {
+            "family": { "const": "perf-result" },
+            "raw": perf_result_raw_def(),
+            "derived": perf_result_derived_def()
+        }
+    })
+}
+
 /// The full published set: (file name, schema document).
 #[must_use]
 pub fn emit_all() -> Vec<(&'static str, Value)> {
@@ -2277,6 +2643,7 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
         ("aql-probe.schema.json", aql_probe_schema()),
         ("bench-result.schema.json", bench_result_schema()),
         ("bench-packs.schema.json", bench_packs_schema()),
+        ("perf-result.schema.json", perf_result_schema()),
         (
             "arazzo-extensions.schema.json",
             crate::arazzo::gates::published::extensions_schema(),
