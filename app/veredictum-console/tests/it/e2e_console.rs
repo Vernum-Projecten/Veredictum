@@ -423,10 +423,17 @@ async fn e2e_sidebar_reaches_a_case_detail() {
 
     chapter.click().await.expect("open the chapter");
     h.wait_url_contains(&chapter_href).await;
-    h.wait_css("table tbody tr").await;
+    // Sections fold closed by default: the native <details> opens on a click
+    // with no script, and only then is a case link in sight.
+    h.wait_css("details > summary").await;
     h.capture("chapter-light").await;
 
-    h.wait_css("table tbody tr td a")
+    h.wait_css("details > summary")
+        .await
+        .click()
+        .await
+        .expect("open the first section");
+    h.wait_css("details[open] li a")
         .await
         .click()
         .await
@@ -452,7 +459,7 @@ async fn e2e_sidebar_reaches_a_case_detail() {
     h.capture("case-dark").await;
     h.goto(&chapter_href).await;
     h.wait_css("html.dark").await;
-    h.wait_css("table tbody tr").await;
+    h.wait_css("details > summary").await;
     tokio::time::sleep(THEME_SETTLE).await;
     h.capture("chapter-dark").await;
     h.goto("/catalogue").await;

@@ -93,6 +93,12 @@ async fn the_catalogue_endpoints_answer_what_their_readers_read()
         read::chapter_rows(&state)?
     );
     assert_eq!(
+        fns::fetch_catalogue_home()
+            .await
+            .map_err(|e| e.to_string())?,
+        read::catalogue_home(&state)?
+    );
+    assert_eq!(
         fns::fetch_chapter_bands(String::from("ehr"), String::from("create_ehr"))
             .await
             .map_err(|e| e.to_string())?,

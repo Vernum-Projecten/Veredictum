@@ -3,10 +3,12 @@
 
 //! S2 — the catalogue explorer (#61, #64).
 //!
-//! Capability folders → BASE sections and options → one workflow in full,
-//! read through the published lib's catalogue listing and structure files. Filter, search and page state live in the URL, so a view is
-//! shareable, refresh-safe and works without WASM loaded
-//! (<https://book.leptos.dev/router/20_form.html>).
+//! Chapters → capability folders → BASE sections and options → one workflow
+//! in full, read through the published lib's catalogue listing and structure
+//! files. The filter lives in the URL, so a view is shareable, refresh-safe
+//! and works without WASM loaded
+//! (<https://book.leptos.dev/router/20_form.html>). Sections fold with native
+//! `<details>`, which needs no script at all.
 
 use leptos::prelude::{
     AddAnyAttr, AnyView, AriaAttributes, ClassAttribute, CollectView, ElementChild, Get,
@@ -17,8 +19,11 @@ use leptos_meta::Title;
 use leptos_router::components::{A, Form};
 use leptos_router::hooks::{use_params_map, use_query_map};
 
-use crate::catalogue_api::fns::{fetch_case_detail, fetch_chapter_page, fetch_chapters};
-use crate::catalogue_api::{ArmBlock, BandRows, CaseDetail, ChapterPage, OptionBlock};
+use crate::catalogue_api::fns::{fetch_case_detail, fetch_catalogue_home, fetch_chapter_page};
+use crate::catalogue_api::{
+    ArmBlock, BandCard, CaseDetail, CaseRow, CaseStanding, ChapterGroup, ChapterPage, CitationRow,
+    OptionBlock, OptionTier,
+};
 use crate::components::data_table::{TABLE, TABLE_WRAP, TD, TH};
 use crate::components::empty_state::EmptyState;
 use crate::components::field::INPUT;
@@ -40,70 +45,102 @@ fn query_q() -> Memo<String> {
     Memo::new(move |_| query.with(|q| q.get("q").unwrap_or_default()))
 }
 
-/// One labeled fact list on the case card; an empty list says so instead of
-/// vanishing.
-fn fact_list(label: &'static str, values: Vec<String>) -> impl IntoView + use<> {
-    let body = if values.is_empty() {
-        view! { <p class="text-sm text-ink-faint">"none"</p> }.into_any()
+/// A case count as a reader says it.
+fn cases_label(cases: u64) -> String {
+    if cases == 1 {
+        String::from("1 case")
     } else {
-        values
-            .into_iter()
-            .map(|value| view! { <li class="font-mono text-xs text-ink">{value}</li> })
-            .collect_view()
-            .into_any()
-    };
-    view! {
-        <div>
-            <h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                {label}
-            </h3>
-            <ul class="space-y-0.5">{body}</ul>
-        </div>
+        format!("{cases} cases")
     }
 }
 
-/// The capability folder list.
+/// The small badge classes beside a heading or a case id.
+const BADGE: &str = "ml-1.5 rounded-control border border-edge-strong px-1 py-px font-sans text-[10px] font-medium uppercase tracking-wide text-ink-muted";
+
+/// The anchor of a chapter on the catalogue home.
+fn chapter_anchor(key: &str) -> String {
+    format!("chapter-{key}")
+}
+
+/// One folder card on the catalogue home.
+fn band_card(card: BandCard) -> AnyView {
+    let href = format!("/catalogue/{}", card.folder);
+    let split = format!("{} BASE · {} in options", card.base, card.options);
+    view! {
+        <A
+            href=href
+            attr:class="flex flex-col gap-1 rounded-card border border-edge bg-raised p-4 shadow-card transition-colors hover:border-accent"
+        >
+            <span class="flex items-baseline justify-between gap-3">
+                <span class="font-semibold text-ink-heading">{card.title}</span>
+                <span class="shrink-0 tabular-nums text-sm text-ink-muted">
+                    {cases_label(card.cases)}
+                </span>
+            </span>
+            <span class="font-mono text-xs text-ink-muted">{card.folder}</span>
+            <span class="mt-1 tabular-nums text-xs text-ink-muted">{split}</span>
+        </A>
+    }
+    .into_any()
+}
+
+/// One chapter on the catalogue home: its heading, then its folders.
+///
+/// A chapter spans as many columns of the home grid as it has folders, up
+/// to three, so the one-folder chapters share a row instead of each taking
+/// a full line.
+fn chapter_group(group: ChapterGroup) -> AnyView {
+    let (span, inner) = match group.bands.len() {
+        0 | 1 => ("min-w-0", "grid grid-cols-1 gap-3"),
+        2 => (
+            "min-w-0 sm:col-span-2",
+            "grid grid-cols-1 gap-3 sm:grid-cols-2",
+        ),
+        _ => (
+            "min-w-0 col-span-full",
+            "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3",
+        ),
+    };
+    let cards = group.bands.into_iter().map(band_card).collect_view();
+    view! {
+        <section id=chapter_anchor(&group.key) class=format!("{span} scroll-mt-4")>
+            <h2 class="mb-3 flex items-baseline gap-2 border-b border-edge pb-1.5 text-base font-semibold text-ink-heading">
+                {group.title}
+                <span class="tabular-nums text-sm font-normal text-ink-muted">
+                    {cases_label(group.cases)}
+                </span>
+            </h2>
+            <div class=inner>{cards}</div>
+        </section>
+    }
+    .into_any()
+}
+
+/// The catalogue home: every chapter in reading order, each folder a card.
 #[expect(
     clippy::must_use_candidate,
     reason = "a Leptos component is mounted by the framework, never consumed as a value"
 )]
 #[component]
 pub fn Catalogue() -> impl IntoView {
-    let rows = Resource::new(|| (), |()| fetch_chapters());
+    let home = Resource::new(|| (), |()| fetch_catalogue_home());
 
     view! {
         <Title text="Catalogue · Veredictum console" />
         <PageHeader
             title="Catalogue"
-            subtitle="Every capability folder, every workflow, and the citations each expectation stands on."
+            subtitle="Every chapter and capability, every workflow, and the citations each expectation stands on."
         />
         <Suspense fallback=|| {
             view! { <p class="text-sm text-ink-muted">"Reading the catalogue…"</p> }
         }>
             {move || Suspend::new(async move {
-                match rows.await {
-                    Ok(chapters) => {
+                match home.await {
+                    Ok(groups) => {
+                        let chapters = groups.into_iter().map(chapter_group).collect_view();
                         view! {
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                {chapters
-                                    .into_iter()
-                                    .map(|chapter| {
-                                        let href = format!("/catalogue/{}", chapter.key);
-                                        view! {
-                                            <A
-                                                href=href
-                                                attr:class="flex items-center justify-between rounded-card border border-edge bg-raised p-4 shadow-card transition-colors hover:border-accent"
-                                            >
-                                                <span class="font-mono text-sm text-ink">
-                                                    {chapter.key}
-                                                </span>
-                                                <span class="tabular-nums text-sm text-ink-muted">
-                                                    {format!("{} cases", chapter.cases)}
-                                                </span>
-                                            </A>
-                                        }
-                                    })
-                                    .collect_view()}
+                            <div class="grid grid-cols-1 gap-x-3 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
+                                {chapters}
                             </div>
                         }
                             .into_any()
@@ -115,162 +152,159 @@ pub fn Catalogue() -> impl IntoView {
     }
 }
 
-/// The small badge classes beside a heading or a case id.
-const BADGE: &str = "ml-1.5 rounded-control border border-edge-strong px-1 py-px text-[10px] font-medium uppercase tracking-wide text-ink-muted";
-
-/// A case count as a reader says it.
-fn cases_label(cases: u64) -> String {
-    if cases == 1 {
-        String::from("1 case")
+/// One case in a section or an arm: the summary first, the id beneath.
+fn case_item(folder: &str, row: &CaseRow) -> AnyView {
+    let href = format!("/catalogue/{folder}/{}", row.id);
+    let summary = if row.summary.is_empty() {
+        row.id.clone()
     } else {
-        format!("{cases} cases")
-    }
-}
-
-/// The table rows of one document: its header row, then one row per case.
-fn document_rows(folder: &str, document: &BandRows) -> AnyView {
-    let rows = document
-        .cases
-        .iter()
-        .map(|row| {
-            let href = format!("/catalogue/{folder}/{}", row.id);
-            let id = row.id.clone();
-            let badge = row
-                .formalism
-                .clone()
-                .map(|label| view! { <span class=BADGE>{label}</span> });
-            view! {
-                <tr class="hover:bg-sunken">
-                    <td class=TD>
-                        <A href=href attr:class="font-mono text-xs text-accent hover:underline">
-                            {id}
-                        </A>
-                        {badge}
-                    </td>
-                    <td class=TD>
-                        <span class="line-clamp-2 text-sm">{row.summary.clone()}</span>
-                    </td>
-                </tr>
-            }
-        })
-        .collect_view();
-    let heading = format!(
-        "{} · {}",
-        document.band,
-        cases_label(u64::try_from(document.cases.len()).unwrap_or(u64::MAX))
-    );
+        row.summary.clone()
+    };
+    let formalism = row.formalism.clone();
+    let id = row.id.clone();
     view! {
-        <tbody>
-            <tr>
-                <th
-                    colspan="2"
-                    class="bg-sunken px-3 py-1.5 text-left text-xs font-semibold text-ink-heading"
-                >
-                    {heading}
-                </th>
-            </tr>
-            {rows}
-        </tbody>
+        <li>
+            <A href=href attr:class="group/case block px-4 py-2 hover:bg-sunken">
+                <span class="block text-sm text-ink group-hover/case:text-accent">
+                    {summary.clone()}
+                </span>
+                <span class="mt-0.5 block font-mono [overflow-wrap:anywhere] text-[11px] text-ink-muted">
+                    {id.clone()}
+                    {formalism.clone().map(|label| view! { <span class=BADGE>{label}</span> })}
+                </span>
+            </A>
+        </li>
     }
     .into_any()
 }
 
-/// A table of documents with their cases.
-fn documents_table(folder: &str, documents: &[BandRows]) -> AnyView {
-    let bodies = documents
-        .iter()
-        .map(|document| document_rows(folder, document))
-        .collect_view();
+/// A list of cases.
+fn case_list(folder: &str, rows: &[CaseRow]) -> AnyView {
+    let items = rows.iter().map(|row| case_item(folder, row)).collect_view();
+    view! { <ul class="divide-y divide-edge">{items}</ul> }.into_any()
+}
+
+/// The summary classes of a folding section.
+const SUMMARY: &str = "flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-card px-4 py-2 hover:bg-sunken [&::-webkit-details-marker]:hidden";
+
+/// The folding card a section or an option renders in.
+const FOLD: &str = "group mb-2 scroll-mt-4 rounded-card border border-edge bg-raised shadow-card";
+
+/// The disclosure chevron, turned when its `<details>` is open.
+fn chevron() -> AnyView {
     view! {
-        <div class=TABLE_WRAP>
-            <table class=TABLE>
-                <thead>
-                    <tr>
-                        <th class=TH>"Case id"</th>
-                        <th class=TH>"Summary"</th>
-                    </tr>
-                </thead>
-                {bodies}
-            </table>
-        </div>
+        <span
+            aria-hidden="true"
+            class="inline-block w-3 text-xs text-ink-muted transition-transform group-open:rotate-90"
+        >
+            "▶"
+        </span>
+    }
+    .into_any()
+}
+
+/// One BASE section, folded unless the filter is active.
+fn section_fold(
+    folder: &str,
+    anchor: String,
+    title: String,
+    rows: &[CaseRow],
+    open: bool,
+) -> AnyView {
+    let cases = cases_label(u64::try_from(rows.len()).unwrap_or(u64::MAX));
+    let list = case_list(folder, rows);
+    view! {
+        <details id=anchor open=open class=FOLD>
+            <summary class=SUMMARY>
+                {chevron()} <span class="font-medium text-ink-heading">{title}</span>
+                <span class="ml-auto tabular-nums text-sm text-ink-muted">{cases}</span>
+            </summary>
+            <div class="border-t border-edge">{list}</div>
+        </details>
     }
     .into_any()
 }
 
 /// The options of a page in runs of one tier each, in the page's order,
 /// which the reader sorts by tier first.
-fn tier_runs(options: &[OptionBlock]) -> Vec<(String, Vec<&OptionBlock>)> {
-    let mut runs: Vec<(String, Vec<&OptionBlock>)> = Vec::new();
+fn tier_runs(options: &[OptionBlock]) -> Vec<(Option<OptionTier>, Vec<&OptionBlock>)> {
+    let mut runs: Vec<(Option<OptionTier>, Vec<&OptionBlock>)> = Vec::new();
     for option in options {
-        let tier = option
-            .tier
-            .clone()
-            .unwrap_or_else(|| String::from("Placed in no tier"));
         match runs.last_mut() {
-            Some((current, members)) if *current == tier => members.push(option),
-            _ => runs.push((tier, vec![option])),
+            Some((current, members)) if *current == option.tier => members.push(option),
+            _ => runs.push((option.tier, vec![option])),
         }
     }
     runs
 }
 
-/// The in-page anchor of a tier heading on a chapter page.
-fn tier_anchor(tier: &str) -> String {
-    let slug: String = tier
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() {
-                c.to_ascii_lowercase()
-            } else {
-                '-'
-            }
-        })
-        .collect();
-    format!("tier-{slug}")
+/// The heading, explanation and anchor of a tier run.
+fn tier_heading(tier: Option<OptionTier>) -> (&'static str, Option<&'static str>, &'static str) {
+    tier.map_or(("Placed in no tier", None, "tier-none"), |tier| {
+        (tier.title(), Some(tier.note()), tier.anchor())
+    })
+}
+
+/// What an empty options part says: under a filter, nothing matched; with
+/// none, no option names a document of the folder.
+const fn no_options_copy(filtering: bool) -> &'static str {
+    if filtering {
+        "No option case matches."
+    } else {
+        "No option touches this folder."
+    }
 }
 
 /// The table of contents: every section and option with its case count.
-fn contents_view(page: &ChapterPage) -> AnyView {
-    let entry = |anchor: &str, label: String, cases: u64| {
+fn contents_view(page: &ChapterPage, filtering: bool) -> AnyView {
+    let entry = |anchor: &str, label: String, mono: bool, cases: u64| {
+        let class = if mono {
+            "font-mono text-xs text-accent hover:underline"
+        } else {
+            "text-accent hover:underline"
+        };
         view! {
-            <li>
-                <a href=format!("#{anchor}") class="text-accent hover:underline">
+            <li class="flex items-baseline gap-2">
+                <a href=format!("#{anchor}") class=class>
                     {label}
                 </a>
-                <span class="ml-1 tabular-nums text-ink-muted">{cases_label(cases)}</span>
+                <span class="shrink-0 tabular-nums text-xs text-ink-muted">{cases}</span>
             </li>
         }
     };
     let sections = page
         .sections
         .iter()
-        .map(|s| entry(&s.anchor, s.title.clone(), s.cases))
+        .map(|s| entry(&s.anchor, s.title.clone(), false, s.cases))
         .collect_view();
     let others = (!page.unsectioned.is_empty()).then(|| {
-        let cases = page
-            .unsectioned
-            .iter()
-            .map(|d| u64::try_from(d.cases.len()).unwrap_or(u64::MAX))
-            .fold(0, u64::saturating_add);
-        entry("section-other", String::from("Other BASE documents"), cases)
+        let cases = u64::try_from(page.unsectioned.len()).unwrap_or(u64::MAX);
+        entry(
+            "section-other",
+            String::from("Other BASE cases"),
+            false,
+            cases,
+        )
     });
+    let no_base = (page.sections.is_empty() && page.unsectioned.is_empty())
+        .then(|| view! { <li class="text-ink-muted">"No BASE case matches."</li> });
     let options = tier_runs(&page.options)
         .into_iter()
         .map(|(tier, members)| {
             let entries = members
                 .into_iter()
-                .map(|o| entry(&o.anchor, o.option.clone(), o.cases))
+                .map(|o| entry(&o.anchor, o.option.clone(), true, o.cases))
                 .collect_view();
-            let href = format!("#{}", tier_anchor(&tier));
+            let (title, _, anchor) = tier_heading(tier);
             view! {
-                <li class="pt-1">
+                <li class="pt-1.5 first:pt-0">
                     <a
-                        href=href
-                        class="text-xs font-semibold uppercase tracking-wide text-ink-muted hover:underline"
+                        href=format!("#{anchor}")
+                        class="text-xs font-semibold text-ink-muted hover:underline"
                     >
-                        {tier}
+                        {title}
                     </a>
-                    <ul class="space-y-0.5">{entries}</ul>
+                    <ul class="mt-0.5 space-y-0.5">{entries}</ul>
                 </li>
             }
         })
@@ -278,22 +312,22 @@ fn contents_view(page: &ChapterPage) -> AnyView {
     let no_options = page
         .options
         .is_empty()
-        .then(|| view! { <li class="text-ink-muted">"No option touches this folder."</li> });
+        .then(|| view! { <li class="text-ink-muted">{no_options_copy(filtering)}</li> });
     view! {
-        <nav aria-label="On this page" class=format!("{CARD_PAD} mb-4")>
-            <div class="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+        <nav aria-label="On this page" class=format!("{CARD_PAD} mb-6")>
+            <div class="grid grid-cols-1 gap-x-8 gap-y-4 text-sm md:grid-cols-2">
                 <div>
                     <h2 class=CARD_TITLE>
                         <a href="#base" class="hover:underline">
                             "BASE"
                         </a>
                     </h2>
-                    <ul class="space-y-0.5">{sections} {others}</ul>
+                    <ul class="space-y-0.5">{sections} {others} {no_base}</ul>
                 </div>
                 <div>
                     <h2 class=CARD_TITLE>
                         <a href="#options" class="hover:underline">
-                            "OPTIONS"
+                            "Options"
                         </a>
                     </h2>
                     <ul class="space-y-0.5">{options} {no_options}</ul>
@@ -304,107 +338,130 @@ fn contents_view(page: &ChapterPage) -> AnyView {
     .into_any()
 }
 
-/// The BASE part: one anchored section per declared section.
-fn base_view(page: &ChapterPage) -> AnyView {
+/// The BASE part: one folding section per declared section.
+fn base_view(page: &ChapterPage, open: bool) -> AnyView {
     let folder = page.folder.clone();
     let sections = page
         .sections
         .iter()
         .map(|section| {
-            let table = documents_table(&folder, &section.documents);
-            view! {
-                <section id=section.anchor.clone() class="mb-5">
-                    <h3 class="mb-2 text-sm font-semibold text-ink-heading">
-                        {section.title.clone()}
-                        <span class="ml-2 font-normal text-ink-muted">
-                            {cases_label(section.cases)}
-                        </span>
-                    </h3>
-                    {table}
-                </section>
-            }
+            section_fold(
+                &folder,
+                section.anchor.clone(),
+                section.title.clone(),
+                &section.rows,
+                open,
+            )
         })
         .collect_view();
     let others = (!page.unsectioned.is_empty()).then(|| {
-        let table = documents_table(&folder, &page.unsectioned);
-        view! {
-            <section id="section-other" class="mb-5">
-                <h3 class="mb-2 text-sm font-semibold text-ink-heading">"Other BASE documents"</h3>
-                {table}
-            </section>
-        }
+        section_fold(
+            &folder,
+            String::from("section-other"),
+            String::from("Other BASE cases"),
+            &page.unsectioned,
+            open,
+        )
     });
     let empty = (page.sections.is_empty() && page.unsectioned.is_empty())
         .then(|| view! { <p class="mb-4 text-sm text-ink-muted">"No BASE case matches."</p> });
     view! {
-        <h2 id="base" class="mb-3 text-lg font-semibold text-ink-heading">
-            "BASE"
-        </h2>
-        {sections}
-        {others}
-        {empty}
+        <section class="mb-8">
+            <h2 id="base" class="scroll-mt-4 text-lg font-semibold text-ink-heading">
+                "BASE"
+            </h2>
+            <p class="mb-3 text-sm text-ink-muted">
+                "Every claimant of this capability runs these, section by section."
+            </p>
+            {sections}
+            {others}
+            {empty}
+        </section>
     }
     .into_any()
 }
 
-/// One arm of an option, as a card listing its documents.
+/// One arm of an option: its token, then its cases as a compact list.
 fn arm_view(folder: &str, arm: &ArmBlock) -> AnyView {
     let body = if arm.empty {
-        view! { <p class="text-sm text-ink-muted">"nothing to run"</p> }.into_any()
-    } else if arm.documents.is_empty() {
-        view! { <p class="text-sm text-ink-muted">"No case of this arm in this folder."</p> }
-            .into_any()
+        view! { <p class="px-4 py-2 text-sm text-ink-muted">"nothing to run"</p> }.into_any()
+    } else if arm.rows.is_empty() {
+        view! { <p class="px-4 py-2 text-sm text-ink-muted">"No case of this arm in this folder."</p> }
+        .into_any()
     } else {
-        documents_table(folder, &arm.documents)
+        case_list(folder, &arm.rows)
     };
+    let count = (!arm.rows.is_empty()).then(|| {
+        view! {
+            <span class="ml-auto font-sans font-normal tabular-nums text-ink-muted">
+                {cases_label(u64::try_from(arm.rows.len()).unwrap_or(u64::MAX))}
+            </span>
+        }
+    });
     view! {
-        <div class="min-w-0">
-            <h4 class="mb-1 font-mono text-xs font-semibold text-ink-heading">{arm.arm.clone()}</h4>
+        <div class="min-w-0 overflow-hidden rounded-card border border-edge">
+            <h4 class="flex items-baseline gap-2 border-b border-edge bg-sunken px-4 py-1.5 font-mono text-xs font-semibold text-ink-heading">
+                {arm.arm.clone()} {count}
+            </h4>
             {body}
         </div>
     }
     .into_any()
 }
 
-/// The OPTIONS part: one block per option, its arms side by side.
-fn options_view(page: &ChapterPage) -> AnyView {
+/// One option, folded unless the filter is active, its arms side by side.
+fn option_fold(folder: &str, option: &OptionBlock, open: bool) -> AnyView {
+    let theme = option
+        .theme
+        .clone()
+        .map(|theme| view! { <span class=BADGE>{theme}</span> });
+    let arms = option
+        .arms
+        .iter()
+        .map(|arm| arm_view(folder, arm))
+        .collect_view();
+    view! {
+        <details id=option.anchor.clone() open=open class=FOLD>
+            <summary class=SUMMARY>
+                {chevron()}
+                <span class="font-mono text-sm font-medium text-ink-heading">
+                    {option.option.clone()}
+                </span> {theme}
+                <span class="ml-auto shrink-0 tabular-nums text-sm text-ink-muted">
+                    {cases_label(option.cases)}
+                </span>
+            </summary>
+            <div class="border-t border-edge px-4 py-3">
+                <p class="mb-3 text-sm text-ink">{option.description.clone()}</p>
+                <div class="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">{arms}</div>
+            </div>
+        </details>
+    }
+    .into_any()
+}
+
+/// The options part: one titled run per tier, each option folding.
+fn options_view(page: &ChapterPage, open: bool) -> AnyView {
     let folder = page.folder.clone();
-    let option_block = |option: &OptionBlock| {
-        let theme = option
-            .theme
-            .clone()
-            .map(|theme| view! { <span class=BADGE>{theme}</span> });
-        let arms = option
-            .arms
-            .iter()
-            .map(|arm| arm_view(&folder, arm))
-            .collect_view();
-        view! {
-            <section id=option.anchor.clone() class=format!("{CARD_PAD} mb-4")>
-                <h4 class="text-sm font-semibold text-ink-heading">
-                    <span class="font-mono">{option.option.clone()}</span>
-                    {theme}
-                    <span class="ml-2 font-normal text-ink-muted">{cases_label(option.cases)}</span>
-                </h4>
-                <p class="mb-3 mt-1 text-sm text-ink-muted">{option.description.clone()}</p>
-                <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">{arms}</div>
-            </section>
-        }
-    };
     let tiers = tier_runs(&page.options)
         .into_iter()
         .map(|(tier, members)| {
             let cases = members.iter().map(|o| o.cases).fold(0, u64::saturating_add);
-            let blocks = members.into_iter().map(option_block).collect_view();
-            let id = tier_anchor(&tier);
+            let blocks = members
+                .into_iter()
+                .map(|o| option_fold(&folder, o, open))
+                .collect_view();
+            let (title, note, anchor) = tier_heading(tier);
+            let note = note.map(|note| view! { <p class="mb-2 text-sm text-ink-muted">{note}</p> });
             view! {
-                <section id=id class="mb-4">
-                    <h3 class="mb-2 text-base font-semibold text-ink-heading">
-                        {tier}
-                        <span class="ml-2 text-sm font-normal text-ink-muted">
+                <section id=anchor class="mb-6 scroll-mt-4">
+                    <h3 class="flex items-baseline gap-2 text-base font-semibold text-ink-heading">
+                        {title}
+                        <span class="text-sm font-normal tabular-nums text-ink-muted">
                             {cases_label(cases)}
                         </span>
                     </h3>
+                    {note}
                     {blocks}
                 </section>
             }
@@ -413,19 +470,22 @@ fn options_view(page: &ChapterPage) -> AnyView {
     let empty = page
         .options
         .is_empty()
-        .then(|| view! { <p class="text-sm text-ink-muted">"No option touches this folder."</p> });
+        .then(|| view! { <p class="text-sm text-ink-muted">{no_options_copy(open)}</p> });
     view! {
-        <h2 id="options" class="mb-3 mt-6 text-lg font-semibold text-ink-heading">
-            "OPTIONS"
-        </h2>
-        {tiers}
-        {empty}
+        <section>
+            <h2 id="options" class="mb-3 scroll-mt-4 text-lg font-semibold text-ink-heading">
+                "Options"
+            </h2>
+            {tiers}
+            {empty}
+        </section>
     }
     .into_any()
 }
 
-/// The loaded chapter page: contents, BASE, OPTIONS.
-fn chapter_page_view(page: &ChapterPage) -> AnyView {
+/// The loaded chapter page: contents, BASE, options. Every fold opens while
+/// a filter is active, so each match is in sight.
+fn chapter_page_view(page: &ChapterPage, q: &str) -> AnyView {
     if page.cases() == 0 {
         return view! {
             <EmptyState
@@ -436,13 +496,50 @@ fn chapter_page_view(page: &ChapterPage) -> AnyView {
         }
         .into_any();
     }
-    let contents = contents_view(page);
-    let base = base_view(page);
-    let options = options_view(page);
+    let open = !q.is_empty();
+    let matched = open.then(|| {
+        let line = format!("{} match “{q}”.", cases_label(page.cases()));
+        view! {
+            <p class="mb-4 text-sm text-ink-muted">
+                {line} " "
+                <A
+                    href=format!("/catalogue/{}", page.folder)
+                    attr:class="text-accent hover:underline"
+                >
+                    "Clear the filter"
+                </A>
+            </p>
+        }
+    });
+    let contents = contents_view(page, open);
+    let base = base_view(page, open);
+    let options = options_view(page, open);
     view! {
+        {matched}
         {contents}
         {base}
         {options}
+    }
+    .into_any()
+}
+
+/// The chapter page's header: the band title with its chapter as context.
+fn chapter_header(page: &ChapterPage) -> AnyView {
+    let mut crumbs = vec![Crumb::new("Catalogue", "/catalogue")];
+    if let (Some(title), Some(key)) = (&page.chapter, &page.chapter_key) {
+        crumbs.push(Crumb::new(
+            title.clone(),
+            format!("/catalogue#{}", chapter_anchor(key)),
+        ));
+    }
+    let title = page.title.clone().unwrap_or_else(|| page.folder.clone());
+    view! {
+        <PageHeader
+            title=title
+            tag=page.folder.clone()
+            subtitle="BASE behaviour section by section, then every option that touches this folder, one small isolated workflow per behaviour."
+            crumbs=crumbs
+        />
     }
     .into_any()
 }
@@ -465,11 +562,26 @@ pub fn Chapter() -> impl IntoView {
 
     view! {
         <Title text=move || format!("{} · Catalogue · Veredictum console", chapter.get()) />
-        <PageHeader
-            title=chapter
-            subtitle="BASE behaviour section by section, then every option that touches this folder, one small isolated workflow per behaviour."
-            crumbs=vec![Crumb::new("Catalogue", "/catalogue")]
-        />
+        <Transition fallback=move || {
+            view! {
+                <PageHeader title=chapter crumbs=vec![Crumb::new("Catalogue", "/catalogue")] />
+            }
+        }>
+            {move || Suspend::new(async move {
+                match page.await {
+                    Ok(page) => chapter_header(&page),
+                    Err(_) => {
+                        view! {
+                            <PageHeader
+                                title=chapter.get()
+                                crumbs=vec![Crumb::new("Catalogue", "/catalogue")]
+                            />
+                        }
+                            .into_any()
+                    }
+                }
+            })}
+        </Transition>
         <div class="mb-4 flex flex-wrap items-center gap-3">
             <Form method="GET" action="">
                 <div class="flex items-center gap-2">
@@ -478,6 +590,7 @@ pub fn Chapter() -> impl IntoView {
                         name="q"
                         value=move || q.get()
                         placeholder="Filter by case id…"
+                        aria-label="Filter by case id"
                         class=INPUT
                     />
                     <button type="submit" class="text-sm text-accent hover:underline">
@@ -492,8 +605,9 @@ pub fn Chapter() -> impl IntoView {
             view! { <p class="text-sm text-ink-muted">"Reading the chapter…"</p> }
         }>
             {move || Suspend::new(async move {
+                let filter = q.get();
                 match page.await {
-                    Ok(page) => chapter_page_view(&page),
+                    Ok(page) => chapter_page_view(&page, &filter),
                     Err(e) => inline_error(&e.to_string()).into_any(),
                 }
             })}
@@ -507,7 +621,6 @@ pub fn Chapter() -> impl IntoView {
 /// lint from firing on this fn (the rules §2 toolchain trap, inverted).
 #[component]
 pub fn Case() -> impl IntoView {
-    let chapter = param("chapter");
     let document = param("document");
     let workflow = param("workflow");
     let id = Memo::new(move |_| format!("{}/{}", document.get(), workflow.get()));
@@ -519,9 +632,8 @@ pub fn Case() -> impl IntoView {
             view! { <p class="text-sm text-ink-muted">"Reading the case…"</p> }
         }>
             {move || Suspend::new(async move {
-                let chapter_key = chapter.get();
                 match detail.await {
-                    Ok(Some(case)) => case_view(&chapter_key, case).into_any(),
+                    Ok(Some(case)) => case_view(case).into_any(),
                     Ok(None) => {
                         view! {
                             <EmptyState
@@ -539,20 +651,201 @@ pub fn Case() -> impl IntoView {
     }
 }
 
-/// The loaded case's sections — plain assembly, erased per section
-/// (rules §1).
-fn case_view(chapter_key: &str, case: CaseDetail) -> impl IntoView + use<> {
-    let citation = case.citation.map_or_else(
-        || {
+/// One labeled fact of the placement card.
+fn fact(label: &'static str, body: AnyView) -> AnyView {
+    view! {
+        <div class="grid grid-cols-[8rem_1fr] items-baseline gap-3">
+            <dt class="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</dt>
+            <dd class="min-w-0 text-sm text-ink">{body}</dd>
+        </div>
+    }
+    .into_any()
+}
+
+/// Where the case sits: chapter, capability, and BASE section or option arms.
+fn placement_view(case: &CaseDetail) -> AnyView {
+    let folder = case.chapter.clone();
+    let chapter = case.chapter_title.clone().map_or_else(
+        || view! { <span class="text-ink-muted">"No chapter declares it"</span> }.into_any(),
+        |title| {
+            let href = case.chapter_key.as_deref().map_or_else(
+                || String::from("/catalogue"),
+                |key| format!("/catalogue#{}", chapter_anchor(key)),
+            );
             view! {
-                <p class="text-sm text-ink-muted">
-                    "No workflow-level citation: each criterion carries its own."
-                </p>
+                <A href=href attr:class="text-accent hover:underline">
+                    {title}
+                </A>
             }
             .into_any()
         },
-        |citation| view! { <p class="font-mono text-xs text-ink">{citation}</p> }.into_any(),
     );
+    let band_title = case.band_title.clone().unwrap_or_else(|| folder.clone());
+    let band = view! {
+        <A href=format!("/catalogue/{folder}") attr:class="text-accent hover:underline">
+            {band_title.clone()}
+        </A>
+        <span class="ml-2 font-mono text-xs text-ink-muted">{folder.clone()}</span>
+    }
+    .into_any();
+    let standing = match &case.standing {
+        CaseStanding::Base { section, title } => {
+            let section = match (section, title) {
+                (Some(key), Some(title)) => {
+                    let title = title.clone();
+                    view! {
+                        " · "
+                        <A
+                            href=format!("/catalogue/{folder}#section-{key}")
+                            attr:class="text-accent hover:underline"
+                        >
+                            {title.clone()}
+                        </A>
+                    }
+                    .into_any()
+                }
+                _ => view! { <span class="text-ink-muted">" · no declared section"</span> }
+                    .into_any(),
+            };
+            fact(
+                "Standing",
+                view! {
+                    <span class="font-medium">"BASE"</span>
+                    {section}
+                    <span class="block text-xs text-ink-muted">
+                        "Every claimant of the capability runs it."
+                    </span>
+                }
+                .into_any(),
+            )
+        }
+        CaseStanding::Option { arms } => {
+            let items = arms
+                .iter()
+                .map(|arm| {
+                    let tier = arm.tier.map_or("Placed in no tier", OptionTier::title);
+                    let option = arm.option.clone();
+                    view! {
+                        <li>
+                            <A
+                                href=format!("/catalogue/{folder}#option-{option}")
+                                attr:class="font-mono text-xs text-accent hover:underline"
+                            >
+                                {option.clone()}
+                            </A>
+                            <span class="text-ink-muted">" arm "</span>
+                            <span class="font-mono text-xs">{arm.arm.clone()}</span>
+                            <span class="block text-xs text-ink-muted">{tier}</span>
+                        </li>
+                    }
+                })
+                .collect_view();
+            fact(
+                "Option",
+                view! {
+                    <ul class="space-y-1.5">{items}</ul>
+                    <span class="mt-1 block text-xs text-ink-muted">
+                        "It runs only when a statement selects one of these arms."
+                    </span>
+                }
+                .into_any(),
+            )
+        }
+    };
+    view! {
+        <section class=CARD_PAD>
+            <h2 class=CARD_TITLE>"Where it sits"</h2>
+            <dl class="space-y-2.5">
+                {fact("Chapter", chapter)} {fact("Capability", band)} {standing}
+            </dl>
+        </section>
+    }
+    .into_any()
+}
+
+/// A file path that may wrap after each `/`, never inside a file name.
+fn path_breaks(path: &str) -> AnyView {
+    path.split_inclusive('/')
+        .map(|segment| {
+            let segment = segment.to_owned();
+            view! {
+                {segment}
+                <wbr />
+            }
+        })
+        .collect_view()
+        .into_any()
+}
+
+/// The citation card body: the source, linked upstream when known, its
+/// section, and the quoted sentence.
+fn citation_view(citation: Option<CitationRow>) -> AnyView {
+    let Some(citation) = citation else {
+        return view! {
+            <p class="text-sm text-ink-muted">
+                "No workflow-level citation: each criterion carries its own."
+            </p>
+        }
+        .into_any();
+    };
+    let source = citation.link.map_or_else(
+        || {
+            view! {
+                <span class="break-words font-mono text-xs text-ink">
+                    {path_breaks(&citation.source)}
+                </span>
+            }
+            .into_any()
+        },
+        |link| {
+            view! {
+                <a
+                    href=link
+                    rel="external noopener"
+                    target="_blank"
+                    class="break-words font-mono text-xs text-accent hover:underline"
+                >
+                    {path_breaks(&citation.source)}
+                </a>
+            }
+            .into_any()
+        },
+    );
+    view! {
+        <div class=WELL>
+            <div>{source}</div>
+            <div class="mt-1 text-xs text-ink-muted">{citation.section}</div>
+            <blockquote class="mt-2 border-l-2 border-edge-strong pl-3 text-sm text-ink">
+                {citation.quote}
+            </blockquote>
+        </div>
+    }
+    .into_any()
+}
+
+/// The loaded case's sections — plain assembly, erased per section
+/// (rules §1).
+fn case_view(case: CaseDetail) -> impl IntoView + use<> {
+    let mut crumbs = vec![Crumb::new("Catalogue", "/catalogue")];
+    if let (Some(title), Some(key)) = (&case.chapter_title, &case.chapter_key) {
+        crumbs.push(Crumb::new(
+            title.clone(),
+            format!("/catalogue#{}", chapter_anchor(key)),
+        ));
+    }
+    crumbs.push(Crumb::new(
+        case.band_title
+            .clone()
+            .unwrap_or_else(|| case.chapter.clone()),
+        format!("/catalogue/{}", case.chapter),
+    ));
+    let placement = placement_view(&case);
+    let citation = citation_view(case.citation);
+    let title = if case.summary.is_empty() {
+        case.id.clone()
+    } else {
+        case.summary
+    };
     let steps = case
         .steps
         .into_iter()
@@ -573,38 +866,22 @@ fn case_view(chapter_key: &str, case: CaseDetail) -> impl IntoView + use<> {
         })
         .collect_view();
     view! {
-        <PageHeader
-            title=case.id
-            subtitle=case.summary
-            crumbs=vec![
-                Crumb::new("Catalogue", "/catalogue"),
-                Crumb::new(chapter_key.to_owned(), format!("/catalogue/{chapter_key}")),
-            ]
-        />
+        <PageHeader title=title tag=case.id crumbs=crumbs />
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <section class=format!("{CARD_PAD} lg:col-span-2")>
                 <h2 class=CARD_TITLE>"Description"</h2>
                 <p class="whitespace-pre-wrap text-sm text-ink">{case.description}</p>
                 <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-ink-muted">
-                    <span>{format!("document: {}", case.document)}</span>
+                    <span>"document: " <span class="font-mono text-xs">{case.document}</span></span>
                 </div>
             </section>
+            {placement}
             <section class=CARD_PAD>
                 <h2 class=CARD_TITLE>"Spec citation"</h2>
-                <div class=WELL>{citation}</div>
+                {citation}
                 <p class="mt-2 text-sm text-ink-muted">
                     "An expectation is refuted by a better reading of the cited text, and by nothing else."
                 </p>
-            </section>
-            <section class=CARD_PAD>
-                <h2 class=CARD_TITLE>"Selection facts"</h2>
-                <div class="grid grid-cols-1 gap-3 text-sm">
-                    {fact_list("Capability folder", vec![case.chapter])}
-                    {fact_list(
-                        "Option arm",
-                        case.option.map(|option| vec![option]).unwrap_or_default(),
-                    )}
-                </div>
             </section>
             <section class=format!("{CARD_PAD} lg:col-span-2")>
                 <h2 class=CARD_TITLE>"Steps"</h2>

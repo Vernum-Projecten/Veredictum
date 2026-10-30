@@ -92,6 +92,98 @@ pub struct StepRow {
     pub description: String,
 }
 
+/// The spec citation a case stands on, with the link to the released text
+/// upstream when the vendored tree records where it came from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CitationRow {
+    /// The vendored file, relative to the repository root.
+    pub source: String,
+    /// The element or the section heading.
+    pub section: String,
+    /// The sentence, verbatim.
+    pub quote: String,
+    /// The source upstream at its pinned commit, when the tree records one.
+    pub link: Option<String>,
+}
+
+/// How firmly the release asks for what an option decides, as the console
+/// titles it, mapped from the engine's tier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum OptionTier {
+    /// Support is a SHOULD.
+    Recommended,
+    /// A MAY, or behaviour the release leaves to the implementation.
+    Optional,
+    /// An option only because the released text is defective.
+    SpecDefect,
+}
+
+impl OptionTier {
+    /// The heading a view prints.
+    #[must_use]
+    pub const fn title(self) -> &'static str {
+        match self {
+            Self::Recommended => "Recommended (SHOULD)",
+            Self::Optional => "Optional (MAY)",
+            Self::SpecDefect => "Spec defect",
+        }
+    }
+
+    /// The one-line explanation printed under the heading.
+    #[must_use]
+    pub const fn note(self) -> &'static str {
+        match self {
+            Self::Recommended => {
+                "The release asks for these with a SHOULD; declining one is recorded as advisory."
+            }
+            Self::Optional => {
+                "A MAY, or behaviour the release leaves to the implementation; the statement picks one arm."
+            }
+            Self::SpecDefect => {
+                "An option only because the released text is defective; each names its upstream report."
+            }
+        }
+    }
+
+    /// The in-page anchor of the tier on a chapter page.
+    #[must_use]
+    pub const fn anchor(self) -> &'static str {
+        match self {
+            Self::Recommended => "tier-recommended",
+            Self::Optional => "tier-optional",
+            Self::SpecDefect => "tier-spec-defect",
+        }
+    }
+}
+
+/// One option arm a case sits on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArmPlace {
+    /// The option name.
+    pub option: String,
+    /// The arm token.
+    pub arm: String,
+    /// The option's tier, when the structure file places it.
+    pub tier: Option<OptionTier>,
+}
+
+/// Whether a case runs for every claimant or only under an option arm.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CaseStanding {
+    /// Every claimant of the capability runs it.
+    Base {
+        /// The section key, when the document names a declared section.
+        section: Option<String>,
+        /// The section heading, when the document names a declared section.
+        title: Option<String>,
+    },
+    /// It runs only when a statement selects one of these arms.
+    Option {
+        /// The arms naming its document.
+        arms: Vec<ArmPlace>,
+    },
+}
+
 /// Everything the case-detail screen shows.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CaseDetail {
@@ -99,19 +191,55 @@ pub struct CaseDetail {
     pub id: String,
     /// The capability folder the case lives under.
     pub chapter: String,
+    /// The key of the chapter the folder sits in, when declared.
+    pub chapter_key: Option<String>,
+    /// The heading of the chapter the folder sits in, when declared.
+    pub chapter_title: Option<String>,
+    /// The folder's heading, when declared.
+    pub band_title: Option<String>,
+    /// BASE with its section, or the option arms that run it.
+    pub standing: CaseStanding,
     /// The document the case is a workflow of.
     pub document: String,
     /// The workflow's summary.
     pub summary: String,
     /// The workflow's description.
     pub description: String,
-    /// The workflow's own citation, as `source, section: "quote"`.
-    pub citation: Option<String>,
+    /// The workflow's own citation.
+    pub citation: Option<CitationRow>,
     /// The steps, in document order.
     pub steps: Vec<StepRow>,
     /// The option arm the document tests, as `option: arm`, when an option
     /// names it.
     pub option: Option<String>,
+}
+
+/// One capability folder as the catalogue home lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BandCard {
+    /// The capability folder under `cases/`.
+    pub folder: String,
+    /// The folder's heading; the folder name when no chapter declares it.
+    pub title: String,
+    /// Every case of the folder.
+    pub cases: u64,
+    /// The cases every claimant runs.
+    pub base: u64,
+    /// The cases an option arm runs.
+    pub options: u64,
+}
+
+/// One chapter of the catalogue home, its folders in declared order.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChapterGroup {
+    /// The chapter key; `other` for the folders no chapter declares.
+    pub key: String,
+    /// The heading.
+    pub title: String,
+    /// Every case of its folders.
+    pub cases: u64,
+    /// Its folders.
+    pub bands: Vec<BandCard>,
 }
 
 /// One BASE section of a capability folder, as its chapter page lists it.
@@ -121,10 +249,10 @@ pub struct SectionBlock {
     pub anchor: String,
     /// The heading.
     pub title: String,
-    /// How many cases the section's documents carry.
+    /// How many cases the section carries.
     pub cases: u64,
-    /// Its documents, in path order.
-    pub documents: Vec<BandRows>,
+    /// Its cases: documents in path order, workflows in document order.
+    pub rows: Vec<CaseRow>,
 }
 
 /// One arm of an option, as a chapter page lists it.
@@ -135,8 +263,8 @@ pub struct ArmBlock {
     /// Whether the catalogue names no document for it: selecting it runs
     /// nothing.
     pub empty: bool,
-    /// Its documents in this folder, in arm order.
-    pub documents: Vec<BandRows>,
+    /// Its cases in this folder, documents in arm order.
+    pub rows: Vec<CaseRow>,
 }
 
 /// One option of `capabilities.yaml` touching a capability folder.
@@ -146,8 +274,8 @@ pub struct OptionBlock {
     pub anchor: String,
     /// The option name.
     pub option: String,
-    /// The heading of its tier, when the structure file places it.
-    pub tier: Option<String>,
+    /// Its tier, when the structure file places it.
+    pub tier: Option<OptionTier>,
     /// The heading of its theme, when the structure file places it.
     pub theme: Option<String>,
     /// What it decides.
@@ -168,30 +296,28 @@ pub struct ChapterPage {
     pub title: Option<String>,
     /// The heading of the chapter the folder sits in.
     pub chapter: Option<String>,
+    /// The key of the chapter the folder sits in.
+    pub chapter_key: Option<String>,
     /// The BASE sections, in declared order; a section with no matching case
     /// is left out.
     pub sections: Vec<SectionBlock>,
     /// The options touching the folder, by tier, theme and name.
     pub options: Vec<OptionBlock>,
-    /// BASE documents that name no declared section of the folder.
-    pub unsectioned: Vec<BandRows>,
+    /// BASE cases whose document names no declared section of the folder.
+    pub unsectioned: Vec<CaseRow>,
 }
 
 impl ChapterPage {
     /// Every case the page lists, counted once per place it is listed.
     #[must_use]
     pub fn cases(&self) -> u64 {
-        let documents = |documents: &[BandRows]| -> u64 {
-            documents
-                .iter()
-                .map(|d| u64::try_from(d.cases.len()).unwrap_or(u64::MAX))
-                .fold(0, u64::saturating_add)
-        };
         self.sections
             .iter()
             .map(|s| s.cases)
             .chain(self.options.iter().map(|o| o.cases))
-            .chain(std::iter::once(documents(&self.unsectioned)))
+            .chain(std::iter::once(
+                u64::try_from(self.unsectioned.len()).unwrap_or(u64::MAX),
+            ))
             .fold(0, u64::saturating_add)
     }
 }
@@ -204,12 +330,14 @@ pub mod read {
     use std::path::Path;
 
     use super::{
-        ArmBlock, BandRows, CaseDetail, CaseRow, CatalogueMissing, ChapterPage, ChapterRow,
-        InstrumentSummary, InstrumentView, OptionBlock, SectionBlock, StepRow,
+        ArmBlock, ArmPlace, BandCard, BandRows, CaseDetail, CaseRow, CaseStanding,
+        CatalogueMissing, ChapterGroup, ChapterPage, ChapterRow, CitationRow, InstrumentSummary,
+        InstrumentView, OptionBlock, OptionTier, SectionBlock, StepRow,
     };
     use crate::state::ConsoleState;
     use veredictum::arazzo::capabilities::{CAPABILITIES_FILE, Capabilities};
     use veredictum::arazzo::document::ArazzoDocument;
+    use veredictum::arazzo::results::upstream_link;
     use veredictum::arazzo::structure::{
         CHAPTERS_FILE, Chapters, Formalisms, Theme, Tier, arms_of, section_of,
     };
@@ -222,6 +350,16 @@ pub mod read {
     /// unreachable and exists only because `as` is banned.
     fn count(n: usize) -> u64 {
         u64::try_from(n).unwrap_or(u64::MAX)
+    }
+
+    /// The console's title of the engine's tier.
+    #[must_use]
+    pub const fn tier_of(tier: Tier) -> OptionTier {
+        match tier {
+            Tier::Recommended => OptionTier::Recommended,
+            Tier::Options => OptionTier::Optional,
+            Tier::SpecBoundary => OptionTier::SpecDefect,
+        }
     }
 
     /// Maps the startup state to the landing view.
@@ -258,6 +396,72 @@ pub mod read {
                 cases: count(documents.iter().map(|d| d.workflows.len()).sum()),
             })
             .collect())
+    }
+
+    /// The catalogue home: the chapters in declared order, each with its
+    /// folders in declared order; a folder no chapter declares lands in a
+    /// trailing `other` group.
+    ///
+    /// # Errors
+    /// The verbatim load failure when the catalogue or a structure file
+    /// present under its root does not load.
+    pub fn catalogue_home(state: &ConsoleState) -> Result<Vec<ChapterGroup>, String> {
+        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+        let (chapters, capabilities) = structure(&listing.root)?;
+        let mut cards: BTreeMap<&str, BandCard> = listing
+            .capabilities()
+            .into_iter()
+            .map(|(folder, documents)| {
+                let (base, options) =
+                    documents
+                        .iter()
+                        .fold((0_usize, 0_usize), |(base, options), document| {
+                            let n = document.workflows.len();
+                            if arms_of(capabilities.as_ref(), &document.id).is_empty() {
+                                (base.saturating_add(n), options)
+                            } else {
+                                (base, options.saturating_add(n))
+                            }
+                        });
+                let card = BandCard {
+                    folder: folder.to_owned(),
+                    title: folder.to_owned(),
+                    cases: count(base.saturating_add(options)),
+                    base: count(base),
+                    options: count(options),
+                };
+                (folder, card)
+            })
+            .collect();
+        let group = |key: &str, title: &str, bands: Vec<BandCard>| ChapterGroup {
+            key: key.to_owned(),
+            title: title.to_owned(),
+            cases: bands.iter().map(|b| b.cases).fold(0, u64::saturating_add),
+            bands,
+        };
+        let mut groups = Vec::new();
+        for chapter in chapters.iter().flat_map(|c| c.chapters.iter()) {
+            let bands: Vec<BandCard> = chapter
+                .folders
+                .iter()
+                .filter_map(|folder| {
+                    let mut card = cards.remove(folder.folder.as_str())?;
+                    card.title.clone_from(&folder.title);
+                    Some(card)
+                })
+                .collect();
+            if !bands.is_empty() {
+                groups.push(group(&chapter.chapter, &chapter.title, bands));
+            }
+        }
+        if !cards.is_empty() {
+            groups.push(group(
+                "other",
+                "Other folders",
+                cards.into_values().collect(),
+            ));
+        }
+        Ok(groups)
     }
 
     /// One capability folder's cases, grouped by document and filtered by the
@@ -321,8 +525,8 @@ pub mod read {
         badge: bool,
         formalisms: &mut Formalisms,
         q: &str,
-    ) -> BandRows {
-        let cases = listed
+    ) -> Vec<CaseRow> {
+        listed
             .workflows
             .iter()
             .filter(|workflow| q.is_empty() || workflow.case.contains(q))
@@ -340,25 +544,16 @@ pub mod read {
                     formalism,
                 }
             })
-            .collect();
-        BandRows {
-            band: listed.id.clone(),
-            cases,
-        }
-    }
-
-    /// The case count of `documents`.
-    fn case_count(documents: &[BandRows]) -> u64 {
-        count(documents.iter().map(|d| d.cases.len()).sum())
+            .collect()
     }
 
     /// The options of `capabilities` naming a document of `by_document`,
-    /// each arm listing its documents there, ordered by tier, theme and name;
+    /// each arm listing its cases there, ordered by tier, theme and name;
     /// under a filter `q`, an option with no matching case is left out.
     fn option_blocks(
         chapters: Option<&Chapters>,
         capabilities: Option<&Capabilities>,
-        by_document: &BTreeMap<&str, BandRows>,
+        by_document: &BTreeMap<&str, Vec<CaseRow>>,
         q: &str,
     ) -> Vec<OptionBlock> {
         let mut options: Vec<(Option<(Tier, Theme)>, OptionBlock)> = capabilities
@@ -382,21 +577,22 @@ pub mod read {
                             .map(|(arm, decl)| ArmBlock {
                                 arm: arm.clone(),
                                 empty: decl.documents.is_empty(),
-                                documents: decl
+                                rows: decl
                                     .documents
                                     .iter()
-                                    .filter_map(|d| by_document.get(d.as_str()).cloned())
-                                    .filter(|d| !d.cases.is_empty())
+                                    .filter_map(|d| by_document.get(d.as_str()))
+                                    .flatten()
+                                    .cloned()
                                     .collect(),
                             })
                             .collect();
-                        let cases = arms.iter().map(|a| case_count(&a.documents)).sum();
+                        let cases = arms.iter().map(|a| count(a.rows.len())).sum();
                         (
                             placement,
                             OptionBlock {
                                 anchor: format!("option-{name}"),
                                 option: name.clone(),
-                                tier: placement.map(|(tier, _)| tier.title().to_owned()),
+                                tier: placement.map(|(tier, _)| tier_of(tier)),
                                 theme: placement.map(|(_, theme)| theme.title().to_owned()),
                                 description: option.description.clone(),
                                 cases,
@@ -434,8 +630,8 @@ pub mod read {
         let declared = chapters.as_ref().and_then(|c| c.folder(folder));
         let badge = declared.is_some_and(|(_, decl)| decl.formalism);
         let mut formalisms = Formalisms::default();
-        let mut by_section: BTreeMap<String, Vec<BandRows>> = BTreeMap::new();
-        let mut by_document: BTreeMap<&str, BandRows> = BTreeMap::new();
+        let mut by_section: BTreeMap<String, Vec<CaseRow>> = BTreeMap::new();
+        let mut by_document: BTreeMap<&str, Vec<CaseRow>> = BTreeMap::new();
         let mut unsectioned = Vec::new();
         for listed in listing.documents.iter().filter(|d| d.capability == folder) {
             // NOTE: no openEHR spec governs this — our own design; a document that does not load
@@ -446,15 +642,18 @@ pub mod read {
                 by_document.insert(listed.id.as_str(), rows);
                 continue;
             }
-            if rows.cases.is_empty() {
+            if rows.is_empty() {
                 continue;
             }
             let section = loaded.as_ref().and_then(section_of).filter(|s| {
                 declared.is_some_and(|(_, d)| d.sections.iter().any(|x| x.section == *s))
             });
             match section {
-                Some(section) => by_section.entry(section.to_owned()).or_default().push(rows),
-                None => unsectioned.push(rows),
+                Some(section) => by_section
+                    .entry(section.to_owned())
+                    .or_default()
+                    .extend(rows),
+                None => unsectioned.extend(rows),
             }
         }
         let sections = declared
@@ -462,12 +661,12 @@ pub mod read {
                 decl.sections
                     .iter()
                     .filter_map(|section| {
-                        let documents = by_section.remove(&section.section)?;
+                        let rows = by_section.remove(&section.section)?;
                         Some(SectionBlock {
                             anchor: format!("section-{}", section.section),
                             title: section.title.clone(),
-                            cases: case_count(&documents),
-                            documents,
+                            cases: count(rows.len()),
+                            rows,
                         })
                     })
                     .collect()
@@ -478,6 +677,7 @@ pub mod read {
             folder: folder.to_owned(),
             title: declared.map(|(_, d)| d.title.clone()),
             chapter: declared.map(|(c, _)| c.title.clone()),
+            chapter_key: declared.map(|(c, _)| c.chapter.clone()),
             sections,
             options,
             unsectioned,
@@ -488,23 +688,66 @@ pub mod read {
     /// carry — a legitimately absent page, not an error.
     ///
     /// # Errors
-    /// The verbatim load failure when the catalogue is absent.
+    /// The verbatim load failure when the catalogue or a structure file
+    /// present under its root does not load.
     pub fn case_detail(state: &ConsoleState, id: &str) -> Result<Option<CaseDetail>, String> {
         let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
         let Some((document, workflow)) = listing.workflows().find(|(_, w)| w.case == id) else {
             return Ok(None);
         };
+        let (chapters, capabilities) = structure(&listing.root)?;
+        let declared = chapters
+            .as_ref()
+            .and_then(|c| c.folder(&document.capability));
+        let arms = arms_of(capabilities.as_ref(), &document.id);
+        let standing = if arms.is_empty() {
+            // NOTE: no openEHR spec governs this — our own design; a document that does not load
+            // is a gate finding already, and its case shows with no section.
+            let loaded = ArazzoDocument::load(&document.path).ok();
+            let section = loaded.as_ref().and_then(section_of).and_then(|key| {
+                declared.and_then(|(_, d)| d.sections.iter().find(|s| s.section == key))
+            });
+            CaseStanding::Base {
+                section: section.map(|s| s.section.clone()),
+                title: section.map(|s| s.title.clone()),
+            }
+        } else {
+            CaseStanding::Option {
+                arms: arms
+                    .into_iter()
+                    .map(|arm| ArmPlace {
+                        tier: chapters
+                            .as_ref()
+                            .and_then(|c| c.options.get(&arm.option))
+                            .map(|p| tier_of(p.tier)),
+                        option: arm.option,
+                        arm: arm.arm,
+                    })
+                    .collect(),
+            }
+        };
+        // NOTE: no openEHR spec governs this — our own design; a citation source is relative to
+        // the repository root, which holds the mounted `specs/openehr` two levels down.
+        let repo_root = state
+            .specs
+            .parent()
+            .and_then(Path::parent)
+            .unwrap_or_else(|| Path::new(""));
         Ok(Some(CaseDetail {
             id: workflow.case.clone(),
             chapter: document.capability.clone(),
+            chapter_key: declared.map(|(c, _)| c.chapter.clone()),
+            chapter_title: declared.map(|(c, _)| c.title.clone()),
+            band_title: declared.map(|(_, d)| d.title.clone()),
+            standing,
             document: document.id.clone(),
             summary: workflow.summary.clone().unwrap_or_default(),
             description: workflow.description.clone().unwrap_or_default(),
-            citation: workflow.citation.as_ref().map(|citation| {
-                format!(
-                    "{}, {}: \"{}\"",
-                    citation.source, citation.section, citation.quote
-                )
+            citation: workflow.citation.as_ref().map(|citation| CitationRow {
+                source: citation.source.clone(),
+                section: citation.section.clone(),
+                quote: citation.quote.clone(),
+                link: upstream_link(&citation.source, repo_root),
             }),
             steps: workflow
                 .steps
@@ -538,7 +781,7 @@ pub mod fns {
         reason = "fires only in some #[server] expansions; see the module doc"
     )]
 
-    use super::{BandRows, CaseDetail, ChapterPage, ChapterRow, InstrumentView};
+    use super::{BandRows, CaseDetail, ChapterGroup, ChapterPage, ChapterRow, InstrumentView};
     use leptos::prelude::{ServerFnError, server};
 
     #[cfg(feature = "ssr")]
@@ -563,6 +806,17 @@ pub mod fns {
     pub async fn fetch_chapters() -> Result<Vec<ChapterRow>, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         read::chapter_rows(&state).map_err(ServerFnError::new)
+    }
+
+    /// The catalogue home: chapters in declared order, each with its folders.
+    ///
+    /// # Errors
+    /// The verbatim load failure when the catalogue or a structure file
+    /// present under its root does not load.
+    #[server]
+    pub async fn fetch_catalogue_home() -> Result<Vec<ChapterGroup>, ServerFnError> {
+        let state: crate::state::ConsoleState = leptos::prelude::expect_context();
+        read::catalogue_home(&state).map_err(ServerFnError::new)
     }
 
     /// One capability folder's cases, grouped by document, filtered by the
