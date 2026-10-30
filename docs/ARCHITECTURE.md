@@ -1976,6 +1976,25 @@ vendor reads why a row is red without opening `results.json`.
   a listed folder has no step calling an unmarked source. Either mismatch is
   refused, so a capability verified only over Veredictum's own routes never
   reads as openEHR coverage.
+- **Structure** (`arazzo-structure`): `catalogue/chapters.yaml` places every
+  capability folder in exactly one chapter and declares each folder's BASE
+  sections. A document no option arm names is BASE and names one declared
+  section with `info.x-veredictum-section`; a document an arm names is
+  OPTION and names none, so BASE and OPTION are derived from
+  `capabilities.yaml` and never declared twice. A section no document uses,
+  an option with no theme and tier, a `spec-boundary` option whose citation
+  names no `report`, a case of a formalism folder whose setups upload no
+  template or templates of both formalisms, and a cited file in no vendored
+  component with a manifest are refused. `catalogue/reports.yaml`, the
+  snapshot of every cited upstream report's title and state, holds exactly
+  the reports the citations name, and `scripts/checks/report-refs.sh` holds
+  it to the tracker.
+- **Maturity** (`arazzo-citation`): every cited file's release status is
+  read from the vendored manifests; a citation into a document the release
+  marks RETIRED is refused, as is one whose document states no known status.
+  A DEVELOPMENT document inside a release is released text. A case citing
+  TRIAL text carries `trial` in the results outline and is read with the
+  options.
 - **Claims**: `validate --statement` holds a statement to its published
   schema, which requires at least one claimed capability folder (#503), to the
   capability folders and to one arm per option. Claim completeness

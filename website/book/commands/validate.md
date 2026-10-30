@@ -23,6 +23,17 @@ A capability document that sends `application/json`, itself or through a
 setup it names in `dependsOn`, and does not state `canonical-json` is refused
 too.
 
+`chapters.yaml` is the reading structure every view of a result follows: it
+places each capability folder in one chapter and declares each folder's BASE
+sections. A document no option arm names is BASE and names its section with
+`x-veredictum-section` on its `info`; a document an arm names is OPTION and
+names none. A folder in no chapter or in two, a BASE document with no section
+or an unknown one, a section no document uses, an OPTION document with a
+section, an option with no theme and tier, a spec-boundary option whose
+citation names no report, and a `reports.yaml` out of step with the reports
+the citations name are refused (`arazzo-structure`). A citation into a
+document the release marks RETIRED is refused (`arazzo-citation`).
+
 Supplying `--statement` adds the static review of that one declaration: it is
 held to the published statement schema, which requires at least one claimed
 capability folder, every capability it claims must be a capability folder of
