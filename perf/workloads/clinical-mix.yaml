@@ -21,8 +21,9 @@ description: >-
   observation trend), ward boards and problem lists polling AQL, the
   monitoring, order, result and correction writes of ward work, and the
   definition, folder, tag, demographic and bootstrap traffic around them.
-  Carried over from the 24 journeys of perf/journeys.yaml without their
-  minute-scale offsets. Provisional, for SEC ratification.
+  Carried over from the 24 class-run journeys of perf/journeys.yaml at
+  commit 20864091 (removed in #892) without their minute-scale offsets.
+  Provisional, for SEC ratification.
 seed: 20261030
 corpus:
   scale: S
@@ -48,7 +49,7 @@ interactions:
       patient summary, reads a document at its version and the current
       version of another, and looks at the blood-pressure trend.
     derivation: >-
-      perf/journeys.yaml chart_review (52.6% of journey arrivals in the class
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): chart_review (52.6% of journey arrivals in the class
       cases), reshaped into a session: ~597 EHR interactions per inpatient
       encounter, overwhelmingly reads (Rule, Chiang and Hribar, JAMIA 2020;
       PMC10148376). The share is what remains after every other interaction,
@@ -67,7 +68,7 @@ interactions:
     share: 8%
     description: The ward board refreshing over the beds of one ward.
     derivation: >-
-      perf/journeys.yaml ward_dashboard (12%), its cross-EHR worklist query;
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): ward_dashboard (12%), its cross-EHR worklist query;
       busy-hour polling per the ITU-T E.500 convention the population model's
       peak factor cites.
     op: aql
@@ -76,7 +77,7 @@ interactions:
     share: 4%
     description: The current problem list of the patient in front of the clinician.
     derivation: >-
-      perf/journeys.yaml ward_dashboard (12%), its stored-query half, as the
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): ward_dashboard (12%), its stored-query half, as the
       per-patient list a ward front end shows beside the board.
     op: aql
     query: problem_list
@@ -84,7 +85,7 @@ interactions:
     share: 0.5%
     description: The problem list narrowed to a SNOMED CT value set through TERMINOLOGY().
     derivation: >-
-      perf/journeys.yaml analytics_review (1.5%), its terminology-expanded
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): analytics_review (1.5%), its terminology-expanded
       filter, held at a third of that journey's share because it runs only
       where the aql-terminology option arm is claimed.
     op: aql
@@ -93,7 +94,7 @@ interactions:
     share: 1%
     description: A cohort count over the population for a service-line dashboard.
     derivation: >-
-      perf/journeys.yaml analytics_review (1.5%), its population analytic
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): analytics_review (1.5%), its population analytic
       read (PMC10148376: the read bulk includes analytic access).
     op: aql
     query: cohort_count
@@ -142,7 +143,7 @@ interactions:
     share: 5%
     description: A nursing observation round committing one vital-signs composition.
     derivation: >-
-      perf/journeys.yaml vitals_round (6%): ward observation cadence of 4 to 6
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): vitals_round (6%): ward observation cadence of 4 to 6
       observation sets per patient-day (RCP NEWS2 monitoring guidance), held
       slightly below the journey share so the expanded mix stays read-heavy.
     op: composition_commit
@@ -151,7 +152,7 @@ interactions:
     share: 1%
     description: A laboratory or imaging request committed as a referral.
     derivation: >-
-      perf/journeys.yaml lab_pipeline (1.5%) and imaging_pipeline (1%), their
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): lab_pipeline (1.5%) and imaging_pipeline (1%), their
       order stage: 15 laboratory results per capita per year (RCPath) and
       0.82 imaging tests per capita per year (NHS DID 2023/24).
     op: composition_commit
@@ -160,7 +161,7 @@ interactions:
     share: 1.5%
     description: A laboratory result landing as its own contribution.
     derivation: >-
-      perf/journeys.yaml lab_pipeline (1.5%), its result stage (RCPath
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): lab_pipeline (1.5%), its result stage (RCPath
       pathology activity).
     op: contribution_commit
     payload: cnf.ckm.lab_result
@@ -168,7 +169,7 @@ interactions:
     share: 0.5%
     description: An imaging report committed after its turnaround.
     derivation: >-
-      perf/journeys.yaml imaging_pipeline (1%), its report stage (NHS DID
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): imaging_pipeline (1%), its report stage (NHS DID
       2023/24: 0.82 imaging tests per capita per year).
     op: composition_commit
     payload: cnf.ckm.ccta_report
@@ -176,7 +177,7 @@ interactions:
     share: 1.5%
     description: A medication order committed (the eMAR loop's order stage).
     derivation: >-
-      perf/journeys.yaml medication_round (1.5%): 21.8 prescription items per
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): medication_round (1.5%): 21.8 prescription items per
       capita per year (NHS BSA Prescription Cost Analysis 2024/25).
     op: composition_commit
     payload: cnf.ckm.eprescription
@@ -184,7 +185,7 @@ interactions:
     share: 1%
     description: The standing medicines list amended as a new version.
     derivation: >-
-      perf/journeys.yaml medicines_reconciliation (1.5%): reconciliation on
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): medicines_reconciliation (1.5%): reconciliation on
       admission and transfer (NICE NG5), its update stage.
     op: composition_update
     payload: cnf.ckm.medicines_list
@@ -192,7 +193,7 @@ interactions:
     share: 0.5%
     description: A specialist synoptic report committed.
     derivation: >-
-      perf/journeys.yaml specialist_report (1.5%), its commit stage (RCPA
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): specialist_report (1.5%), its commit stage (RCPA
       cancer reporting protocols), held at a third because its revision
       history read is its own interaction here.
     op: composition_commit
@@ -201,7 +202,7 @@ interactions:
     share: 0.5%
     description: A registry report committed as its own contribution.
     derivation: >-
-      perf/journeys.yaml registry_submission (1.5%), its commit stage; its
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): registry_submission (1.5%), its commit stage; its
       contribution read is part of audit_review here.
     op: contribution_commit
     payload: cnf.ckm.treat_registry_report
@@ -209,7 +210,7 @@ interactions:
     share: 0.5%
     description: The admission or discharge patient summary committed.
     derivation: >-
-      perf/journeys.yaml admission and discharge (0.8% each), their summary
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their summary
       commit: 0.128 inpatient discharges per capita per year at about 10
       documents per stay (OECD Health at a Glance 2023).
     op: composition_commit
@@ -218,7 +219,7 @@ interactions:
     share: 0.2%
     description: A statutory notification committed at detection.
     derivation: >-
-      perf/journeys.yaml public_health_notification (0.3%), its notification
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): public_health_notification (0.3%), its notification
       stage (UKHSA notifiable diseases reporting duty).
     op: composition_commit
     payload: cnf.ckm.sars_notification
@@ -226,7 +227,7 @@ interactions:
     share: 0.2%
     description: The confirmed-case report following a notification.
     derivation: >-
-      perf/journeys.yaml public_health_notification (0.3%), its confirmation
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): public_health_notification (0.3%), its confirmation
       stage.
     op: composition_commit
     payload: cnf.ckm.covid19_report
@@ -234,7 +235,7 @@ interactions:
     share: 0.2%
     description: A public-health case investigation form committed.
     derivation: >-
-      perf/journeys.yaml case_investigation (0.3%), the rare structured-form
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): case_investigation (0.3%), the rare structured-form
       write.
     op: composition_commit
     payload: cnf.ckm.poisoning_investigation
@@ -242,7 +243,7 @@ interactions:
     share: 0.5%
     description: A form integration committing in the Simplified Flat format.
     derivation: >-
-      perf/journeys.yaml simplified_formats_exchange (0.5%): the declared
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): simplified_formats_exchange (0.5%): the declared
       FLAT share of composition commits, run only where Simplified Formats
       are claimed; the remaining commits are canonical JSON.
     op: composition_commit_flat
@@ -251,7 +252,7 @@ interactions:
     share: 0.3%
     description: An erroneous record logically deleted after review.
     derivation: >-
-      perf/journeys.yaml deletion (0.3%): logical deletes are rare governance
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): deletion (0.3%): logical deletes are rare governance
       events (RM common change_control, the deleted lifecycle state).
     op: composition_delete
 
@@ -260,7 +261,7 @@ interactions:
     share: 2%
     description: A document amended as a new version.
     derivation: >-
-      perf/journeys.yaml correction (3%): about one amendment event per
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): correction (3%): about one amendment event per
       patient-day (PMC10148376), its update stage.
     op: composition_update
     payload: cnf.ckm.gp_data_set
@@ -268,27 +269,27 @@ interactions:
     share: 2%
     description: The version history of a document reviewed.
     derivation: >-
-      perf/journeys.yaml correction, specialist_report and signature_review,
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): correction, specialist_report and signature_review,
       their revision-history stages.
     op: composition_revision_history
   version_read:
     share: 1.5%
     description: The ORIGINAL_VERSION envelope of a committed document read.
     derivation: >-
-      perf/journeys.yaml signature_review (2%), its version read (RM common
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): signature_review (2%), its version read (RM common
       change_control, the version signature's carrier).
     op: composition_version_read
   contribution_read:
     share: 1.5%
     description: A committed contribution inspected.
     derivation: >-
-      perf/journeys.yaml audit_review (4%) and registry_submission, their
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): audit_review (4%) and registry_submission, their
       contribution reads.
     op: contribution_read
   ehr_read:
     share: 1.5%
     description: The EHR a contribution belongs to read by id.
-    derivation: perf/journeys.yaml audit_review (4%), its EHR read.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): audit_review (4%), its EHR read.
     op: ehr_read
 
   # ── ADT and folders ─────────────────────────────────────────────────────
@@ -296,85 +297,85 @@ interactions:
     share: 0.8%
     description: An EHR created at admission.
     derivation: >-
-      perf/journeys.yaml admission (0.8%), its EHR create: 0.128 inpatient
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission (0.8%), its EHR create: 0.128 inpatient
       discharges per capita per year (OECD Health at a Glance 2023).
     op: ehr_create
   status_read:
     share: 0.8%
     description: The EHR_STATUS read at admission or discharge.
-    derivation: perf/journeys.yaml admission and discharge (0.8% each), their status reads.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status reads.
     op: ehr_status_read
   status_update:
     share: 0.8%
     description: The EHR_STATUS updated at admission or discharge.
-    derivation: perf/journeys.yaml admission and discharge (0.8% each), their status updates.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status updates.
     op: ehr_status_update
   directory_read:
     share: 1%
     description: The episode folder tree read.
-    derivation: perf/journeys.yaml discharge and chart_review, their directory reads.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge and chart_review, their directory reads.
     op: directory_read
   directory_update:
     share: 0.4%
     description: The episode folder tree updated.
-    derivation: perf/journeys.yaml discharge (0.8%), its directory update, held at half.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge (0.8%), its directory update, held at half.
     op: directory_update
 
   # ── tags, definitions, demographics, bootstrap ──────────────────────────
   tags_put:
     share: 1%
     description: The tag set of a hot composition replaced.
-    derivation: perf/journeys.yaml tagging (2%), its write half.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its write half.
     op: tags_put
   tags_read:
     share: 1%
     description: The tag set of a composition read.
-    derivation: perf/journeys.yaml tagging (2%), its read half.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its read half.
     op: tags_read
   template_list:
     share: 0.75%
     description: The ADL 1.4 template store listed.
-    derivation: perf/journeys.yaml integration_poll (4%), a quarter each to its four released reads.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter each to its four released reads.
     op: template_list
   template_get:
     share: 0.75%
     description: One ADL 1.4 template fetched.
-    derivation: perf/journeys.yaml integration_poll (4%), a quarter.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
     op: template_get
   template_example:
     share: 0.75%
     description: The generated example of one template fetched.
-    derivation: perf/journeys.yaml integration_poll (4%), a quarter.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
     op: template_example
   template_adl2_list:
     share: 0.75%
     description: The ADL 2 template store listed.
-    derivation: perf/journeys.yaml integration_poll (4%), a quarter.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
     op: template_adl2_list
   party_create:
     share: 0.2%
     description: A person registered on the demographic side.
     derivation: >-
-      perf/journeys.yaml demographic_admission (0.4%), its registration: a
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its registration: a
       person is registered once and admitted repeatedly.
     op: party_create
     payload: cnf.demographic.person.v1
   party_read:
     share: 0.2%
     description: A registered person read back.
-    derivation: perf/journeys.yaml demographic_admission (0.4%), its read.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its read.
     op: party_read
   party_update:
     share: 0.1%
     description: A registered identity amended as a new version.
-    derivation: perf/journeys.yaml demographic_admission (0.4%), its update, held at half.
+    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its update, held at half.
     op: party_update
     payload: cnf.demographic.person.v2
   system_options:
     share: 0.5%
     description: A client bootstrapping against the System API.
     derivation: >-
-      perf/journeys.yaml platform_probe (0.5%): every integration client reads
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): platform_probe (0.5%): every integration client reads
       the service options before its first clinical call.
     op: system_options
 
@@ -448,7 +449,7 @@ queries:
     fetch: 50
     on_refusal: error
     derivation: >-
-      perf/journeys.yaml ward_dashboard, the registered stored query a
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): ward_dashboard, the registered stored query a
       dashboard polls; a list of EHRs is a multi-patient query, so it carries
       no EHR scope (ITS-REST docs/query/Request.md §About the ehr_id
       parameter).
