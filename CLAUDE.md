@@ -40,7 +40,7 @@ and the container image through the pipeline the Releasing section describes.
 | `schemas/**` | the published JSON Schemas for every artifact family (emitted, drift-guarded) |
 | `verification-pack/**` | the recorded HAR exchanges proving the evaluator re-judges them into their adjudicated results |
 | `specs/openehr/**` | the vendored released openEHR spec text: the oracle |
-| `specs/its-xml-schemas/**`, `specs/its-json-schemas/**`, `specs/rest-oas/**` | the released machine-readable bundles; each is a root a citation may name beside `specs/openehr/`, and whether an ITS-JSON schema may ground an expectation is pending #842 |
+| `specs/its-xml-schemas/**`, `specs/its-json-schemas/**`, `specs/rest-oas/**` | the machine-readable bundles; each is a root a citation may name beside `specs/openehr/`, and an ITS-JSON schema grounds an expectation only as the second ordered supplement (hard rule 1) |
 | `upstream/<openEHR repository>/**` | proposed fixes to a released specification, one patch per `upstream-report` issue, written against the vendored commit and never applied to `specs/` |
 | `deploy/docker/**` | the container image: its `Dockerfile`, the quickstart `docker-compose.yml`, the browser-journey SUT pairs, and the hadolint configuration |
 | `deploy/hosted/**` | the hosted instrument: the posture the image carries and the box's cloud-init |
@@ -64,10 +64,15 @@ and quote the sentence that assigns the value.
 - **Oracle set:** the RELEASED components. RM, BASE, AM, QUERY (AQL), TERM,
   ITS-XML, and the ITS-REST **docs text**, which binds every operation to the
   wire. The SM was never released and is no part of the oracle (#604).
-- **One ordered supplement:** the released OpenAPI documents are part of the
+- **Two ordered supplements:** the released OpenAPI documents are part of the
   release's own specification artifacts, so they ground an expectation **where
   the docs text is silent**. They lose to the docs text on any conflict, and an
   OAS-grounded expectation is always cited as the OAS, by file and element.
+  The ITS-JSON schemas (`specs/its-json-schemas/`, DEVELOPMENT in their
+  manifest) are the second, by owner ruling on #842: they ground an expectation
+  only where every released component is silent on the canonical JSON form,
+  lose to any released text, and are always cited as ITS-JSON by file and JSON
+  Pointer. Review-enforced, like the OAS order: no gate can judge silence.
 - **Never authority:** the CNF Platform Conformance Test Schedule (openEHR CNF
   never released a stable version, so it says which behaviours to cover, not
   what the correct answer is), the upstream Robot suites and their data sets
