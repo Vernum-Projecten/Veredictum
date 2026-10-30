@@ -4,7 +4,9 @@
 //! The views of a `perf-result`: `show` and `export --markdown` render the
 //! committed example record byte for byte, name a `custom` workload, the
 //! unmeasured between-run noise and an operation judged below p99, and the
-//! terminal view fits 80 columns. The example is the record
+//! terminal view fits 80 columns; `perf-assets` draws its three charts byte
+//! for byte, with a quantile that does not resolve marked apart and the
+//! scout windows drawn apart from the plateaus. The example is the record
 //! `make_example_perf_result` writes, held to it by
 //! `scripts/checks/example-results-drift.sh`.
 
@@ -13,8 +15,11 @@ use std::process::Command;
 
 use veredictum::arazzo::terminal::ShowOptions;
 use veredictum::perf_result::PerfResult;
+use veredictum::perf_result::charts::saturation;
+use veredictum::perf_result::derive::Latency;
 use veredictum::perf_result::judge::rejudge;
 use veredictum::perf_result::view::{WIDTH, markdown, terminal};
+use veredictum::pipeline::assets::perf_result_assets;
 use veredictum::pipeline::export::{Exports, export_document, show_results};
 
 type Fallible = Result<(), Box<dyn std::error::Error>>;
@@ -154,5 +159,76 @@ fn a_document_of_an_unknown_family_is_refused_by_name() -> Fallible {
     std::fs::write(&path, r#"{"family":"stress"}"#)?;
     let error = show_results(&path, ShowOptions::default()).expect_err("an unknown family");
     assert!(error.to_string().contains("\"stress\""), "{error}");
+    Ok(())
+}
+
+/// The three charts of the example record, pinned byte for byte so a change
+/// to any drawn number or mark is a reviewed snapshot change.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn the_three_charts_are_pinned_and_read_in_both_themes() -> Fallible {
+    let assets = perf_result_assets(&example())?;
+    let names: Vec<&str> = assets.files.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(
+        names,
+        [
+            "perf-saturation.svg",
+            "perf-throughput.svg",
+            "perf-operations.svg"
+        ]
+    );
+    for file in &assets.files {
+        assert!(file.body.contains("@media (prefers-color-scheme: dark)"));
+        assert!(
+            file.body
+                .starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\"")
+        );
+        assert!(file.body.contains("<title>"));
+        insta::assert_snapshot!(file.name.clone(), file.body);
+    }
+    assert_eq!(assets.summary, markdown(&record()?));
+    Ok(())
+}
+
+/// The quantiles of `latencies` that resolve, over p50, p95 and p99.
+fn resolved<'a>(latencies: impl Iterator<Item = &'a Latency>) -> usize {
+    latencies
+        .map(|l| {
+            [&l.p50, &l.p95, &l.p99]
+                .iter()
+                .filter(|q| q.is_resolved())
+                .count()
+        })
+        .sum()
+}
+
+/// The saturation chart draws every scout window as a hollow circle and
+/// every plateau as a square, marks each quantile that does not resolve
+/// below the plot, and shades the knee bracket.
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn the_saturation_chart_sets_scout_windows_apart_and_never_joins_an_unresolved_quantile() -> Fallible
+{
+    let record = record()?;
+    let svg = saturation(&record);
+    let scout = resolved(record.derived.scout.iter().map(|w| &w.latency));
+    let plateaus = resolved(record.derived.plateaus.iter().map(|p| &p.latency));
+    let points = (record.derived.scout.len() + record.derived.plateaus.len()) * 3;
+    let unresolved = points - scout - plateaus;
+    assert_eq!(svg.matches(" hollow\"/>").count(), scout);
+    assert_eq!(svg.matches("width=\"7\" height=\"7\"").count(), plateaus);
+    assert_eq!(svg.matches(" nr\"/>").count(), unresolved);
+    assert!(
+        unresolved > 0,
+        "the example has quantiles that do not resolve"
+    );
+    assert_eq!(svg.matches("class=\"bracket\"").count(), 1);
+    assert_eq!(svg.matches("class=\"fit\"").count(), 1);
     Ok(())
 }

@@ -15,6 +15,7 @@
 //! this: our own design.
 
 pub mod capacity;
+pub mod charts;
 pub mod derive;
 pub mod judge;
 pub mod quantile;

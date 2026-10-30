@@ -72,6 +72,23 @@ struct Family {
     family: Option<String>,
 }
 
+/// Whether the document at `path` names itself a `perf-result`.
+///
+/// # Errors
+/// [`Error::Read`] when the file cannot be read, and [`Error::Parse`] when
+/// it is not a JSON object.
+pub fn is_perf_result(path: &Path) -> Result<bool, Error> {
+    let text = std::fs::read_to_string(path).map_err(|source| Error::Read {
+        path: path.to_owned(),
+        source,
+    })?;
+    let family: Family = serde_json::from_str(&text).map_err(|e| Error::Parse {
+        context: path.display().to_string(),
+        message: e.to_string(),
+    })?;
+    Ok(family.family.as_deref() == Some("perf-result"))
+}
+
 /// Reads the document at `path`, whichever family it is.
 ///
 /// # Errors

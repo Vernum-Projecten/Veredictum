@@ -911,17 +911,30 @@ advantage.
 ## perf-assets
 
 ```text
-Render the published performance SVG assets FROM a committed results.json (deterministic; CI regenerates and diffs — hand-drawn numbers are a build failure)
+Render the published performance SVG assets from a committed record, deterministically: the same record always draws the same bytes.
 
-Usage: veredictum perf-assets [OPTIONS] --root <ROOT> --results <RESULTS> --out <OUT>
+From a `perf-result`, told apart by its `family`, three charts: `perf-saturation.svg` (p50, p95 and p99 against achieved throughput over the scout windows and the plateaus, the knee bracket shaded, the Universal Scalability Law fit dashed), `perf-throughput.svg` (achieved against offered with the identity line) and `perf-operations.svg` (each operation's latency at the knee at its judged quantile, beside its budget). A quantile that does not resolve is marked below the plot and never joined to its neighbours. `--root` and `--stress` do not apply to it. From a class `results.json`, the class ladder, latency, resource and stress charts.
+
+Usage: veredictum perf-assets [OPTIONS] --results <RESULTS> --out <OUT>
 
 Options:
-      --root <ROOT>        The performance schedule root, `perf/` in this repository (for the class-ladder floors)
-      --results <RESULTS>  The committed results.json carrying the measurement records
-      --out <OUT>          Output directory for the SVG files
-      --summary <SUMMARY>  Also write the generated Markdown summary (class ladder + measured detail) to this path — the book's build-time include
-      --stress <STRESS>    A committed stress report (stress.json) to render the latency-throughput curve from, when one exists
-  -h, --help               Print help
+      --root <ROOT>
+          The performance schedule root, `perf/` in this repository (for the class-ladder floors); a class `results.json` needs it
+
+      --results <RESULTS>
+          The committed `perf-result.json`, or a class `results.json` carrying the measurement records
+
+      --out <OUT>
+          Output directory for the SVG files
+
+      --summary <SUMMARY>
+          Also write the generated Markdown summary to this path, the book's build-time include: the `export --markdown` view of a `perf-result`, or the class ladder with its measured detail
+
+      --stress <STRESS>
+          A committed stress report (stress.json) to render the latency-throughput curve from, when one exists
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ## verdicts

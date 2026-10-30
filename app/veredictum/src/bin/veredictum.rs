@@ -40,9 +40,11 @@ use veredictum::certificate::{HONESTY_LINE, Jwks, Outcome, verify};
 use veredictum::identity::OperatorIdentity;
 use veredictum::party::version_line;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
-use veredictum::pipeline::assets::{performance_assets, schema_files, stress_overlay};
+use veredictum::pipeline::assets::{
+    perf_result_assets, performance_assets, schema_files, stress_overlay,
+};
 use veredictum::pipeline::bench::{BenchRequest, compare_bench, describe_packs, run_bench};
-use veredictum::pipeline::export::{Exports, export_document, show_results};
+use veredictum::pipeline::export::{Exports, export_document, is_perf_result, show_results};
 use veredictum::pipeline::judgement::{JudgementRequest, judge};
 use veredictum::pipeline::measured::{
     MeasuredEvent, MeasuredRequest, StressRequest, SustainedWindow, run_measured, run_stress,
@@ -502,22 +504,35 @@ enum Command {
         #[arg(long)]
         out: PathBuf,
     },
-    /// Render the published performance SVG assets FROM a committed
-    /// results.json (deterministic; CI regenerates and diffs — hand-drawn
-    /// numbers are a build failure).
+    /// Render the published performance SVG assets from a committed
+    /// record, deterministically: the same record always draws the same
+    /// bytes.
+    ///
+    /// From a `perf-result`, told apart by its `family`, three charts:
+    /// `perf-saturation.svg` (p50, p95 and p99 against achieved throughput
+    /// over the scout windows and the plateaus, the knee bracket shaded, the
+    /// Universal Scalability Law fit dashed), `perf-throughput.svg` (achieved
+    /// against offered with the identity line) and `perf-operations.svg`
+    /// (each operation's latency at the knee at its judged quantile, beside
+    /// its budget). A quantile that does not resolve is marked below the
+    /// plot and never joined to its neighbours. `--root` and `--stress` do
+    /// not apply to it. From a class `results.json`, the class ladder,
+    /// latency, resource and stress charts.
     PerfAssets {
         /// The performance schedule root, `perf/` in this repository (for the
-        /// class-ladder floors)
+        /// class-ladder floors); a class `results.json` needs it.
         #[arg(long)]
-        root: PathBuf,
-        /// The committed results.json carrying the measurement records.
+        root: Option<PathBuf>,
+        /// The committed `perf-result.json`, or a class `results.json`
+        /// carrying the measurement records.
         #[arg(long)]
         results: PathBuf,
         /// Output directory for the SVG files.
         #[arg(long)]
         out: PathBuf,
-        /// Also write the generated Markdown summary (class ladder +
-        /// measured detail) to this path — the book's build-time include.
+        /// Also write the generated Markdown summary to this path, the
+        /// book's build-time include: the `export --markdown` view of a
+        /// `perf-result`, or the class ladder with its measured detail.
         #[arg(long)]
         summary: Option<PathBuf>,
         /// A committed stress report (stress.json) to render the
@@ -907,7 +922,13 @@ fn main() -> ExitCode {
             out,
             summary,
             stress,
-        } => perf_assets_command(&root, &results, &out, summary.as_deref(), stress.as_deref()),
+        } => perf_assets_command(
+            root.as_deref(),
+            &results,
+            &out,
+            summary.as_deref(),
+            stress.as_deref(),
+        ),
         Command::Verify { certificate, jwks } => verify_command(&certificate, &jwks),
         Command::Show {
             results,
@@ -1085,12 +1106,21 @@ fn verdicts_command(request: &JudgementRequest<'_>, out: &Path) -> ExitCode {
 }
 
 fn perf_assets_command(
-    root: &Path,
+    root: Option<&Path>,
     results: &Path,
     out: &Path,
     summary: Option<&Path>,
     stress: Option<&Path>,
 ) -> ExitCode {
+    match is_perf_result(results) {
+        Ok(true) => return perf_result_assets_command(results, out, summary, root, stress),
+        Ok(false) => {}
+        Err(e) => return fail(&e),
+    }
+    let Some(root) = root else {
+        eprintln!("perf-assets: a class results.json needs --root, the performance schedule");
+        return ExitCode::from(2);
+    };
     let assets = match performance_assets(root, results, stress) {
         Ok(assets) => assets,
         Err(e) => return fail(&e),
@@ -1104,6 +1134,37 @@ fn perf_assets_command(
             Err(e) => return fail(&e),
         };
         if let Err(code) = emit_one(path, &body) {
+            return code;
+        }
+        println!("wrote {}", path.display());
+    }
+    ExitCode::SUCCESS
+}
+
+/// Renders the charts and summary of a `perf-result`.
+fn perf_result_assets_command(
+    results: &Path,
+    out: &Path,
+    summary: Option<&Path>,
+    root: Option<&Path>,
+    stress: Option<&Path>,
+) -> ExitCode {
+    if root.is_some() || stress.is_some() {
+        eprintln!(
+            "perf-assets: {} is a perf-result, which --root and --stress do not apply to",
+            results.display()
+        );
+        return ExitCode::from(2);
+    }
+    let assets = match perf_result_assets(results) {
+        Ok(assets) => assets,
+        Err(e) => return fail(&e),
+    };
+    if let Err(code) = emit(out, &assets.files) {
+        return code;
+    }
+    if let Some(path) = summary {
+        if let Err(code) = emit_one(path, &assets.summary) {
             return code;
         }
         println!("wrote {}", path.display());
