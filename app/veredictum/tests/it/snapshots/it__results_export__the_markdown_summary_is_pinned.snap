@@ -1,94 +1,114 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
+assertion_line: 192
 expression: markdown(&fixture())
 ---
-# Veredictum results: ehr
+# Veredictum results
 
-veredictum 0.1.7 (pre-approval: not yet approved by the openEHR SEC), driven against http://sut/ehrbase/rest/openehr/v1.
+| | |
+| --- | --- |
+| **Server** | http://sut/ehrbase/rest/openehr/v1 |
+| **Instrument** | veredictum 0.1.7, pre-approval: not yet approved by the openEHR SEC |
+| **Document** | `ehr` |
 
-| Status | Rows |
-| --- | ---: |
-| Passed | 1 |
-| Failed | 1 |
-| Advisory | 1 |
-| Errored | 1 |
-| Skipped | 1 |
-| Total | 5 |
+## Summary
 
-Only a failed row counts against the server. An advisory row records a SHOULD the server did not follow and never counts against the server. An errored row is one the instrument could not judge, and a skipped row was not run.
+| Part | Passed | Failed | Advisory | Errored | Skipped | Total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Every row** | **1** | **1** | **1** | **1** | **1** | **5** |
+
+> [!NOTE]
+> Only a **failed** row counts against the server. An **advisory** row is a SHOULD the server did not follow, and it never counts against the server. An **errored** row is one the instrument could not judge, and a **skipped** row was not run.
 
 ## Unplaced
 
 The results carry no outline, so no case is placed in BASE or OPTIONS.
 
-- ✕ ehr/create\_twice: 1 passed, 1 failed
+| Case | Outcome |
+| --- | --- |
+| `ehr/create_twice` | 1 passed, 1 failed |
+| `ehr/etag` | 1 advisory |
+| `ehr/escape` | 1 errored |
+| `ehr/admin_delete` | 1 skipped |
+
+Rows to look at (open one for its explanation):
 
 <details>
-<summary>✕ failed ehr/create_twice row 1, step create-again</summary>
+<summary><b>Failed</b>: <code>ehr/create_twice</code> row 1, unplaced</summary>
 
-```text
-FAILED   ehr/create_twice   step create-again
-What     Create an EHR with the same ehr_id again.
-Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
-         "Can happen when the supplied `ehr_id` is already used by an existing EHR."
-         https://example.org/409_EHR_with_id.yaml
-Expected status 409
-Received status 201
-Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
-Whose    the server: a failed row counts against the claimed capability
-         the cited text has a known spec gap: upstream report #42
-```
+| | |
+| --- | --- |
+| **Step** | `create-again` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | status 201 |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | The server. A failed row counts against the claimed capability. |
+| **Inputs** | `ehr_id` = `"id-1"` |
+| **Upstream report** | [#42](https://github.com/Vernum-Projecten/Veredictum/issues/42) |
+
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
+
+> Can happen when the supplied \`ehr\_id\` is already used by an existing EHR.
 
 </details>
 
-- ! ehr/etag: 1 advisory
-
 <details>
-<summary>! advisory ehr/etag row 0, step read: a SHOULD the server did not follow</summary>
+<summary><b>Advisory</b>: <code>ehr/etag</code> row 0, unplaced</summary>
 
-```text
-ADVISORY: a SHOULD the server did not follow; this row never counts against the server.
-FAILED   ehr/etag   step read
-What     Create an EHR with the same ehr_id again.
-Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
-         "The server SHOULD send an ETag."
-         https://example.org/409_EHR_with_id.yaml
-Expected status 409
-Received no ETag header
-Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
-Whose    advisory: the server did not follow a SHOULD; this row never counts against a capability
-```
+| | |
+| --- | --- |
+| **Step** | `read` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | no ETag header |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | Advisory. The server did not follow a SHOULD, and the row never counts against it. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
+
+> The server SHOULD send an ETag.
 
 </details>
 
-- ? ehr/escape: 1 errored
-
 <details>
-<summary>? errored ehr/escape row 0, step create &lt;first&gt; &amp; "second"</summary>
+<summary><b>Errored</b>: <code>ehr/escape</code> row 0, unplaced</summary>
 
-````text
-ERRORED  ehr/escape   step create <first> & "second"
-What     Create an EHR with the same ehr_id again.
-Why      (no citation resolved)
-Expected status 409
-Received the body | did not parse: ```
-Whose    the instrument could not judge: this row does not count against the vendor
-````
+| | |
+| --- | --- |
+| **Step** | `create <first> & "second"` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | the body \| did not parse: \`\`\` |
+| **Whose problem** | The instrument could not judge it. The row does not count against the server. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+
+**Why it is required:** no citation resolved.
 
 </details>
-
-- ○ ehr/admin\_delete: 1 skipped
 
 ## Advisory rows
 
 Each is a SHOULD the server did not follow. None counts against the server.
 
-| Row | Step | Citation |
+| Row | Step | SHOULD cited |
 | --- | --- | --- |
-| ehr/etag row 0 | read | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description |
+| `ehr/etag row 0` | `read` | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description |
 
 ## Skipped rows
 
-| Row | Reason | Citation |
-| --- | --- | --- |
-| ehr/admin\_delete row 0 | not-declared | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description |
+A skipped row was not run, for the reason given. It never counts for or against the server.
+
+| Reason | Citation | Rows |
+| --- | --- | ---: |
+| not-declared | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description | 1 |
+
+<details>
+<summary>Every skipped row (1)</summary>
+
+| Row | Reason |
+| --- | --- |
+| `ehr/admin_delete row 0` | not-declared |
+
+</details>

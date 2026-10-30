@@ -1,246 +1,277 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
-assertion_line: 681
+assertion_line: 701
 expression: summary
 ---
-# Veredictum results: catalogue
+# Veredictum results
 
-veredictum 0.1.7 (pre-approval: not yet approved by the openEHR SEC), driven against http://sut/ehrbase/rest/openehr/v1.
+| | |
+| --- | --- |
+| **Server** | http://sut/ehrbase/rest/openehr/v1 |
+| **Instrument** | veredictum 0.1.7, pre-approval: not yet approved by the openEHR SEC |
+| **Document** | `catalogue` |
 
-| Status | Rows |
-| --- | ---: |
-| Passed | 5 |
-| Failed | 3 |
-| Advisory | 1 |
-| Errored | 1 |
-| Skipped | 1 |
-| Total | 11 |
+## Summary
 
-Only a failed row counts against the server. An advisory row records a SHOULD the server did not follow and never counts against the server. An errored row is one the instrument could not judge, and a skipped row was not run.
+| Part | Passed | Failed | Advisory | Errored | Skipped | Total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| BASE | 3 | 2 | 1 | 0 | 0 | 6 |
+| RECOMMENDED | 0 | 0 | 0 | 0 | 0 | 0 |
+| OPTIONS | 1 | 1 | 0 | 0 | 1 | 3 |
+| Where the released spec is defective | 0 | 0 | 0 | 1 | 0 | 1 |
+| **Every row** | **5** | **3** | **1** | **1** | **1** | **11** |
+
+> [!NOTE]
+> Only a **failed** row counts against the server. An **advisory** row is a SHOULD the server did not follow, and it never counts against the server. An **errored** row is one the instrument could not judge, and a **skipped** row was not run.
 
 ## BASE
 
-Every case no option decides, outside the TRIAL text: ✓ 3  ✕ 2  ? 0  ! 1 advisory  ○ 0 skipped.
+What every claimant of a capability must do. A case no option arm names is BASE.
 
-### EHR  ✓ 3  ✕ 2  ? 0  ! 1 advisory  ○ 0 skipped
+### EHR
 
-#### COMPOSITION  ✓ 2  ✕ 1  ? 0  ! 1 advisory  ○ 0 skipped
+| Band | Passed | Failed | Advisory | Errored | Skipped |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| COMPOSITION | 2 | 1 | 1 | 0 | 0 |
+| Semantic validation | 1 | 1 | 0 | 0 | 0 |
+| DIRECTORY | 0 | 0 | 0 | 0 | 0 |
 
-##### Create
+#### COMPOSITION
 
-- ✕ composition/create: 1 passed, 1 failed `report #42`
+| Section | Passed | Failed | Advisory | Errored | Skipped |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Create | 1 | 1 | 0 | 0 | 0 |
+| Read | 1 | 0 | 1 | 0 | 0 |
+
+Rows to look at (open one for its explanation):
 
 <details>
-<summary>✕ failed composition/create row 1, step create</summary>
+<summary><b>Failed</b>: <code>composition/create</code> row 1, BASE, Create</summary>
 
-```text
-FAILED   composition/create   step create
-What     Create an EHR with the same ehr_id again.
-Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
-         "The server refuses it."
-         https://example.org/409_EHR_with_id.yaml
-Expected status 409
-Received status 201
-Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
-Whose    the server: a failed row counts against the claimed capability
-         the cited text has a known spec gap: upstream report #42
-```
+| | |
+| --- | --- |
+| **Step** | `create` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | status 201 |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | The server. A failed row counts against the claimed capability. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+| **Upstream report** | [#42](https://github.com/Vernum-Projecten/Veredictum/issues/42): A duplicate create has no status (open) |
+
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
+
+> The server refuses it.
 
 </details>
 
-##### Read
-
-- ! composition/read: 1 passed, 1 advisory
-
 <details>
-<summary>! advisory composition/read row 0, step read: a SHOULD the server did not follow</summary>
+<summary><b>Advisory</b>: <code>composition/read</code> row 0, BASE, Read</summary>
 
-```text
-ADVISORY: a SHOULD the server did not follow; this row never counts against the server.
-FAILED   composition/read   step read
-What     Create an EHR with the same ehr_id again.
-Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
-         "The server refuses it."
-         https://example.org/409_EHR_with_id.yaml
-Expected status 409
-Received status 201
-Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
-Whose    advisory: the server did not follow a SHOULD; this row never counts against a capability
-```
+| | |
+| --- | --- |
+| **Step** | `read` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | status 201 |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | Advisory. The server did not follow a SHOULD, and the row never counts against it. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
+
+> The server refuses it.
 
 </details>
 
-#### Semantic validation  ✓ 1  ✕ 1  ? 0  ! 0 advisory  ○ 0 skipped
+#### Semantic validation
 
-##### Structure and cardinality (ADL 1.4)
+| Section | Passed | Failed | Advisory | Errored | Skipped |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Structure and cardinality (ADL 1.4) | 1 | 0 | 0 | 0 | 0 |
+| Structure and cardinality (ADL 2) | 0 | 1 | 0 | 0 | 0 |
 
-- ✓ content/adl14\_cardinality: 1 passed `ADL 1.4`
-
-##### Structure and cardinality (ADL 2)
-
-- ✕ content/adl2\_cardinality: 1 failed `ADL 2`
+Rows to look at (open one for its explanation):
 
 <details>
-<summary>✕ failed content/adl2_cardinality row 0, step commit</summary>
+<summary><b>Failed</b>: <code>content/adl2_cardinality</code> row 0, BASE, Structure and cardinality, ADL 2</summary>
 
-```text
-FAILED   content/adl2_cardinality   step commit
-What     Create an EHR with the same ehr_id again.
-Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
-         "The server refuses it."
-         https://example.org/409_EHR_with_id.yaml
-Expected status 409
-Received status 201
-Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
-Whose    the server: a failed row counts against the claimed capability
-```
+| | |
+| --- | --- |
+| **Step** | `commit` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | status 201 |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | The server. A failed row counts against the claimed capability. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
+
+> The server refuses it.
 
 </details>
-
-#### DIRECTORY: no cases
 
 ## RECOMMENDED
 
-The release asks for these with a SHOULD; a server that declines one records advisory rows, never failed ones.
+The release asks for these with a SHOULD. A server that declines one records an advisory row, never a failed one.
 
-Every case of the tier: ✓ 0  ✕ 0  ? 0  ! 0 advisory  ○ 0 skipped.
+### EHR
 
-### EHR  ✓ 0  ✕ 0  ? 0  ! 0 advisory  ○ 0 skipped
+#### COMPOSITION
 
-#### COMPOSITION  ✓ 0  ✕ 0  ? 0  ! 0 advisory  ○ 0 skipped
+| Option | Selected arm | Passed | Failed | Advisory | Errored | Skipped |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `etag-sent` | `etag-declined`, nothing to run | 0 | 0 | 0 | 0 | 0 |
 
-##### etag-sent: arm etag-declined (selected)
+<details>
+<summary>What these options decide</summary>
 
-Whether the server supports etag-sent.
+- **`etag-sent`** (Behaviour the release leaves open): Whether the server supports etag-sent.
 
-Theme: Behaviour the release leaves open.
-
-- arm etag-declined: selected, nothing to run
-- arm etag-supported: not selected
+</details>
 
 ## OPTIONS
 
-A MAY, or behaviour the release leaves to the implementation; the statement selects one arm of each.
+A MAY, or behaviour the release leaves to the implementation. The statement selects one arm of each; the other arms are skipped.
 
-Every case of the tier: ✓ 1  ✕ 1  ? 0  ! 0 advisory  ○ 1 skipped.
+### EHR
 
-### EHR  ✓ 1  ✕ 1  ? 0  ! 0 advisory  ○ 1 skipped
+#### COMPOSITION
 
-#### COMPOSITION  ✓ 1  ✕ 1  ? 0  ! 0 advisory  ○ 1 skipped
-
-##### composition-xml-read: arm xml-supported (selected)
-
-Whether the server supports composition-xml-read.
-
-Theme: Canonical XML.
-
-- arm xml-supported: selected, ✓ 1  ✕ 0  ? 0  ! 0 advisory  ○ 0 skipped
-- arm xml-unsupported: not selected
-
-- ✓ composition\_xml/read: 1 passed
-
-##### flat-format: not selected
-
-Whether the server supports flat-format.
-
-Theme: Simplified Formats and Web Template.
-
-The statement selects no arm, so its rows are skipped as option-not-selected and counted in no tally above.
-
-##### TRIAL text  ✓ 0  ✕ 1  ? 0  ! 0 advisory  ○ 0 skipped
-
-The release marks the text these cases cite TRIAL, so they are read here and do not count in the BASE tally.
-
-- ✕ query/stored: 1 failed `TRIAL`
+| Option | Selected arm | Passed | Failed | Advisory | Errored | Skipped |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `composition-xml-read` | `xml-supported` | 1 | 0 | 0 | 0 | 0 |
+| `flat-format` | not selected |  | | | |  |
+| TRIAL text | | 0 | 1 | 0 | 0 | 0 |
 
 <details>
-<summary>✕ failed query/stored row 0, step validate</summary>
+<summary>What these options decide</summary>
 
-```text
-FAILED   query/stored   step validate
-What     Create an EHR with the same ehr_id again.
-Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
-         "The server refuses it."
-         https://example.org/409_EHR_with_id.yaml
-Expected status 409
-Received status 201
-Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
-Whose    the server: a failed row counts against the claimed capability
-```
+- **`composition-xml-read`** (Canonical XML): Whether the server supports composition-xml-read.
+- **`flat-format`** (Simplified Formats and Web Template): Whether the server supports flat-format.
+- **TRIAL text**: BASE cases whose cited text the release marks TRIAL. They are read with the options and never count in the BASE tally.
+
+</details>
+
+Rows to look at (open one for its explanation):
+
+<details>
+<summary><b>Failed</b>: <code>query/stored</code> row 0, OPTIONS, TRIAL text</summary>
+
+| | |
+| --- | --- |
+| **Step** | `validate` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | status 201 |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | The server. A failed row counts against the claimed capability. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
+
+> The server refuses it.
 
 </details>
 
 ## Where the released spec is defective
 
-The options below exist only because the released text is defective, and each report lists the cases resting on text it records as defective.
+These options exist only because the released text is defective.
 
-Every case of the tier: ✓ 0  ✕ 0  ? 1  ! 0 advisory  ○ 0 skipped.
+### EHR
 
-### EHR  ✓ 0  ✕ 0  ? 1  ! 0 advisory  ○ 0 skipped
+#### COMPOSITION
 
-#### COMPOSITION  ✓ 0  ✕ 0  ? 1  ! 0 advisory  ○ 0 skipped
-
-##### ehr-status-flat: arm flat-served (selected)
-
-Whether the server supports ehr-status-flat.
-
-Theme: Simplified Formats and Web Template.
-
-Upstream report [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352): EHR\_STATUS has no flat form (confirmed).
-
-- arm flat-served: selected, ✓ 0  ✕ 0  ? 1  ! 0 advisory  ○ 0 skipped
-- arm flat-not-served: not selected
-
-- ? ehr\_status\_flat/read: 1 errored `report #352`
+| Option | Selected arm | Passed | Failed | Advisory | Errored | Skipped |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `ehr-status-flat` | `flat-served` | 0 | 0 | 0 | 1 | 0 |
 
 <details>
-<summary>? errored ehr_status_flat/read row 0, step read</summary>
+<summary>What these options decide</summary>
 
-```text
-ERRORED  ehr_status_flat/read   step read
-What     Create an EHR with the same ehr_id again.
-Why      specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description:
-         "EHR_STATUS has no flat form."
-         https://example.org/409_EHR_with_id.yaml
-Expected status 409
-Received the body did not parse
-Exchange PUT http://sut/ehr/3f2a -> 201   (recording entry 2)
-Whose    the instrument could not judge: this row does not count against the vendor
-         the cited text has a known spec gap: upstream report #352
-```
+- **`ehr-status-flat`** (Simplified Formats and Web Template): Whether the server supports ehr-status-flat. Upstream report [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352): EHR\_STATUS has no flat form (confirmed).
 
 </details>
 
-### Report [#42](https://github.com/Vernum-Projecten/Veredictum/issues/42): A duplicate create has no status (open)
+Rows to look at (open one for its explanation):
 
-✓ 1  ✕ 1  ? 0  ! 0 advisory  ○ 0 skipped
+<details>
+<summary><b>Errored</b>: <code>ehr_status_flat/read</code> row 0, option ehr-status-flat</summary>
 
-- ✕ composition/create: 1 passed, 1 failed `report #42`
-  - ✕ failed composition/create row 1: specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description
+| | |
+| --- | --- |
+| **Step** | `read` |
+| **What was checked** | Create an EHR with the same ehr\_id again. |
+| **Expected** | status 409 |
+| **Received** | the body did not parse |
+| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |
+| **Whose problem** | The instrument could not judge it. The row does not count against the server. |
+| **Inputs** | `ehr_id` = `"id-0"` |
+| **Upstream report** | [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352): EHR\_STATUS has no flat form (confirmed) |
 
-### Report [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352): EHR\_STATUS has no flat form (confirmed)
+**Why it is required:** [specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description](https://example.org/409_EHR_with_id.yaml)
 
-✓ 0  ✕ 0  ? 1  ! 0 advisory  ○ 0 skipped
+> EHR\_STATUS has no flat form.
 
-- ? ehr\_status\_flat/read: 1 errored `report #352`
-  - ? errored ehr\_status\_flat/read row 0: specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description
+</details>
+
+### Cases resting on reported text
+
+These cases appear in their own place above too. Each rests on released text an upstream report in this repository records as defective.
+
+| Report | State | Passed | Failed | Advisory | Errored | Skipped |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| [#42](https://github.com/Vernum-Projecten/Veredictum/issues/42): A duplicate create has no status | open | 1 | 1 | 0 | 0 | 0 |
+| [#352](https://github.com/Vernum-Projecten/Veredictum/issues/352): EHR\_STATUS has no flat form | confirmed | 0 | 0 | 0 | 1 | 0 |
+
+<details>
+<summary>The 1 case(s) resting on #42</summary>
+
+| Case | Outcome |
+| --- | --- |
+| `composition/create` | 1 passed, 1 failed |
+
+</details>
+
+<details>
+<summary>The 1 case(s) resting on #352</summary>
+
+| Case | Outcome |
+| --- | --- |
+| `ehr_status_flat/read` | 1 errored |
+
+</details>
 
 ## Unplaced
 
 The outline the results carry places these cases nowhere.
 
-- ✓ stray/case: 1 passed
+| Case | Outcome |
+| --- | --- |
+| `stray/case` | 1 passed |
 
 ## Advisory rows
 
 Each is a SHOULD the server did not follow. None counts against the server.
 
-| Row | Step | Citation |
+| Row | Step | SHOULD cited |
 | --- | --- | --- |
-| composition/read row 0 | read | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description |
+| `composition/read row 0` | `read` | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description |
 
 ## Skipped rows
 
-| Row | Reason | Citation |
-| --- | --- | --- |
-| flat/create row 0 | option-not-selected | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description |
+A skipped row was not run, for the reason given. It never counts for or against the server.
+
+| Reason | Citation | Rows |
+| --- | --- | ---: |
+| option-not-selected | specs/openehr/ITS-REST/specifications/responses/409\_EHR\_with\_id.yaml, description | 1 |
+
+<details>
+<summary>Every skipped row (1)</summary>
+
+| Row | Reason |
+| --- | --- |
+| `flat/create row 0` | option-not-selected |
+
+</details>

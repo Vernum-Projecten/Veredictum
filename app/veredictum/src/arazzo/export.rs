@@ -24,7 +24,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::arazzo::reading::{
-    CaseRows, Mark, OptionGroup, Reading, ReportGroup, Tally, TierTree, is_advisory, read,
+    CaseRows, Mark, OptionGroup, Reading, Tally, TierTree, is_advisory, read,
 };
 use crate::arazzo::results::{ResultRow, Results, SkipReason, Status, Whose, Why};
 use crate::arazzo::rows::Row;
@@ -466,22 +466,26 @@ fn html_text(text: &str) -> String {
         .replace(['\r', '\n'], " ")
 }
 
-/// A code fence longer than any backtick run inside `text`.
-fn fence_for(text: &str) -> String {
-    let mut longest = 0;
-    let mut run = 0;
-    for c in text.chars() {
-        if c == '`' {
-            run += 1;
-            longest = longest.max(run);
-        } else {
-            run = 0;
-        }
-    }
-    "`".repeat(longest.max(2) + 1)
+/// A Markdown code span holding `text` verbatim inside a table cell: GFM
+/// processes no backslash escape inside a code span apart from `\|`, so only
+/// the pipe and line breaks are rewritten.
+fn md_code(text: &str) -> String {
+    let text = text.replace(['\r', '\n'], " ").replace('|', "\\|");
+    let longest = text
+        .split(|c| c != '`')
+        .map(str::len)
+        .max()
+        .unwrap_or_default();
+    let fence = "`".repeat(longest + 1);
+    let pad = if text.starts_with('`') || text.ends_with('`') {
+        " "
+    } else {
+        ""
+    };
+    format!("{fence}{pad}{text}{pad}{fence}")
 }
 
-/// The counts of `tally` as the marks every view prints.
+/// The counts of `tally` as the marks the terminal view prints.
 #[must_use]
 pub fn tally_marks(tally: Tally) -> String {
     format!(
@@ -490,7 +494,7 @@ pub fn tally_marks(tally: Tally) -> String {
     )
 }
 
-/// The non-zero counts of `tally` in words, `1 passed, 2 skipped`.
+/// The counts of `tally` in words, leaving out the zero ones.
 #[must_use]
 pub fn tally_words(tally: Tally) -> String {
     let words: Vec<String> = [
@@ -511,132 +515,7 @@ pub fn tally_words(tally: Tally) -> String {
     }
 }
 
-/// The badges a case line carries: its formalism, TRIAL, and each upstream
-/// report its citations name.
-fn md_badges(case: &CaseRows<'_>) -> String {
-    let mut badges = String::new();
-    if let Some(formalism) = case.formalism() {
-        let _ = write!(badges, " `{}`", formalism.label());
-    }
-    if case.trial() {
-        badges.push_str(" `TRIAL`");
-    }
-    for report in case.reports() {
-        let _ = write!(badges, " `report #{report}`");
-    }
-    badges
-}
-
-/// The citation of a red row as `source, section`.
-#[must_use]
-pub fn cited(row: &ResultRow) -> String {
-    citation(row).map_or_else(
-        || String::from("no citation resolved"),
-        |why| format!("{}, {}", why.source, why.section),
-    )
-}
-
-/// Writes one row as a collapsed section holding its four-part explanation.
-fn md_details(out: &mut String, row: &ResultRow) {
-    let mark = Mark::of(row);
-    let text = if mark == Mark::Advisory {
-        format!("{ADVISORY_LINE}\n{row}")
-    } else {
-        row.to_string()
-    };
-    let fence = fence_for(&text);
-    let step = row
-        .explanation
-        .as_ref()
-        .map(|why| format!(", step {}", html_text(&why.step)))
-        .unwrap_or_default();
-    let should = if mark == Mark::Advisory {
-        ": a SHOULD the server did not follow"
-    } else {
-        ""
-    };
-    let _ = write!(
-        out,
-        "\n<details>\n<summary>{} {} {}{step}{should}</summary>\n\n{fence}text\n{text}\n{fence}\n\n</details>\n",
-        mark.glyph(),
-        mark.word(),
-        html_text(&test_name(row)),
-    );
-}
-
-/// Whether a row is shown expanded: failed, advisory or errored.
-fn is_expanded(row: &ResultRow) -> bool {
-    matches!(Mark::of(row), Mark::Failed | Mark::Advisory | Mark::Errored)
-}
-
-/// Writes one case: a line with its mark, counts and badges, then every
-/// failed, advisory and errored row expanded.
-fn md_case(out: &mut String, case: &CaseRows<'_>) {
-    let _ = writeln!(
-        out,
-        "\n- {} {}: {}{}",
-        case.mark().glyph(),
-        md_inline(case.case),
-        tally_words(case.tally()),
-        md_badges(case),
-    );
-    for row in case.rows.iter().filter(|row| is_expanded(row)) {
-        md_details(out, row);
-    }
-}
-
-/// Writes the BASE part, chapter by chapter.
-fn md_base(out: &mut String, reading: &Reading<'_>) {
-    let _ = writeln!(
-        out,
-        "\n## BASE\n\nEvery case no option decides, outside the TRIAL text: {}.",
-        tally_marks(reading.base_total)
-    );
-    for chapter in &reading.base {
-        let _ = writeln!(
-            out,
-            "\n### {}  {}",
-            md_inline(chapter.title),
-            tally_marks(chapter.tally)
-        );
-        for band in &chapter.bands {
-            if band.tally.tests == 0 {
-                let _ = writeln!(out, "\n#### {}: no cases", md_inline(band.title));
-                continue;
-            }
-            let _ = writeln!(
-                out,
-                "\n#### {}  {}",
-                md_inline(band.title),
-                tally_marks(band.tally)
-            );
-            for section in &band.sections {
-                let formalism = section
-                    .formalism
-                    .map(|f| format!(" ({})", f.label()))
-                    .unwrap_or_default();
-                let _ = writeln!(out, "\n##### {}{formalism}", md_inline(section.title));
-                for case in &section.cases {
-                    md_case(out, case);
-                }
-            }
-        }
-    }
-}
-
-/// The path an option is read under: its chapter, its band and its name.
-#[must_use]
-pub fn option_path(outline: &Outline, group: &OptionGroup<'_>) -> String {
-    let mut parts = Vec::new();
-    if let Some((chapter, folder)) = group.folder.and_then(|f| outline.folder(f)) {
-        parts.push(chapter.title.as_str());
-        parts.push(folder.title.as_str());
-    }
-    parts.push(group.option);
-    parts.join(" / ")
-}
-
-/// What an option's heading says about its arms: the selected one, or that
+/// What an option's line says about its arms: the selected one, or that
 /// none is.
 #[must_use]
 pub fn option_choice(group: &OptionGroup<'_>) -> String {
@@ -653,7 +532,7 @@ pub fn option_choice(group: &OptionGroup<'_>) -> String {
     }
 }
 
-/// What a view says about one arm of a selected option.
+/// What a view says about one arm of an option.
 #[must_use]
 pub fn arm_state(selected: bool, empty: bool) -> &'static str {
     match (selected, empty) {
@@ -663,240 +542,542 @@ pub fn arm_state(selected: bool, empty: bool) -> &'static str {
     }
 }
 
-/// The heading of a report: its number, linked, its title and state.
-fn report_heading(report: u64, title: Option<&str>, state: Option<String>) -> String {
+/// The column heads of every count table, after its first column(s).
+const COUNT_HEADS: &str = "Passed | Failed | Advisory | Errored | Skipped";
+
+/// The alignment row cells of the count columns.
+const COUNT_ALIGN: &str = "---: | ---: | ---: | ---: | ---:";
+
+/// The count cells of one table row.
+fn count_cells(tally: Tally) -> String {
+    format!(
+        "{} | {} | {} | {} | {}",
+        tally.passed, tally.failed, tally.advisory, tally.errored, tally.skipped
+    )
+}
+
+/// The word a row's outcome reads as, capitalized for a heading.
+const fn outcome_word(mark: Mark) -> &'static str {
+    match mark {
+        Mark::Passed => "Passed",
+        Mark::Failed => "Failed",
+        Mark::Advisory => "Advisory",
+        Mark::Errored => "Errored",
+        Mark::Skipped => "Skipped",
+    }
+}
+
+/// Whether a row is listed with its explanation: failed, advisory or
+/// errored.
+fn needs_attention(row: &ResultRow) -> bool {
+    matches!(Mark::of(row), Mark::Failed | Mark::Advisory | Mark::Errored)
+}
+
+/// The labels a case carries beside its id: its formalism, TRIAL, and the
+/// upstream reports its text rests on.
+fn case_labels(case: &CaseRows<'_>) -> Vec<String> {
+    let mut labels = Vec::new();
+    if let Some(formalism) = case.formalism() {
+        labels.push(formalism.label().to_owned());
+    }
+    if case.trial() {
+        labels.push(String::from("TRIAL text"));
+    }
+    for report in case.reports() {
+        labels.push(format!("report #{report}"));
+    }
+    labels
+}
+
+/// The link to an upstream report, with its title and state when the
+/// snapshot records it.
+fn report_ref(report: u64, title: Option<&str>, state: Option<String>) -> String {
     match (title, state) {
         (Some(title), Some(state)) => format!(
             "[#{report}]({REPORT_BASE}{report}): {} ({state})",
             md_inline(title)
         ),
-        _ => format!("[#{report}]({REPORT_BASE}{report}) (not in the report snapshot)"),
+        _ => format!("[#{report}]({REPORT_BASE}{report})"),
     }
 }
 
-/// Writes one option at heading level `level`: its heading, what it
-/// decides, each arm, and the cases of its selected arms in this band.
-fn md_option(out: &mut String, outline: &Outline, group: &OptionGroup<'_>, level: usize) {
+/// The citation a row rests on, as source and section.
+fn cited(row: &ResultRow) -> String {
+    citation(row).map_or_else(
+        || String::from("(no citation resolved)"),
+        |why| format!("{}, {}", why.source, why.section),
+    )
+}
+
+/// Writes one row that needs attention as a collapsed block: the summary
+/// names the outcome, the case, the row and where it sits, and opening it
+/// shows the four-part explanation as a table with the cited sentence
+/// quoted below it.
+fn md_row(out: &mut String, outline: Option<&Outline>, row: &ResultRow, place: &str) {
+    let mark = Mark::of(row);
+    let case = outline.and_then(|o| o.place(&row.case));
+    let mut labels = Vec::new();
+    if let Some(case) = case {
+        if let Some(formalism) = case.formalism {
+            labels.push(formalism.label().to_owned());
+        }
+        if case.trial {
+            labels.push(String::from("TRIAL text"));
+        }
+    }
+    let labels = if labels.is_empty() {
+        String::new()
+    } else {
+        format!(", {}", labels.join(", "))
+    };
     let _ = writeln!(
         out,
-        "\n{} {}: {}\n\n{}\n\nTheme: {}.",
-        "#".repeat(level),
-        md_inline(group.option),
-        md_inline(&option_choice(group)),
-        md_inline(group.description),
-        group.theme.title(),
+        "\n<details>\n<summary><b>{}</b>: <code>{}</code> row {}, {}{}</summary>\n",
+        outcome_word(mark),
+        html_text(&row.case),
+        row.row,
+        html_text(place),
+        html_text(&labels),
     );
-    if let Some(report) = group.report {
-        let entry = outline.report(report);
+    out.push_str("| | |\n| --- | --- |\n");
+    if let Some(why) = &row.explanation {
+        let _ = writeln!(out, "| **Step** | {} |", md_code(&why.step));
+        let _ = writeln!(out, "| **What was checked** | {} |", md_inline(&why.what));
+        let _ = writeln!(out, "| **Expected** | {} |", md_inline(&why.expected));
+        let _ = writeln!(out, "| **Received** | {} |", md_inline(&why.received));
+        if let Some(exchange) = &why.exchange {
+            let _ = writeln!(
+                out,
+                "| **Exchange** | {} answered {}, recording entry {} |",
+                md_code(&format!("{} {}", exchange.method, exchange.url)),
+                exchange.status,
+                exchange.entry
+            );
+        }
+        let whose = match why.whose {
+            Whose::Server => "The server. A failed row counts against the claimed capability.",
+            Whose::Instrument => {
+                "The instrument could not judge it. The row does not count against the server."
+            }
+            Whose::Advisory => {
+                "Advisory. The server did not follow a SHOULD, and the row never counts against it."
+            }
+        };
+        let _ = writeln!(out, "| **Whose problem** | {whose} |");
+    }
+    if !row.inputs.is_empty() {
+        let inputs: Vec<String> = row
+            .inputs
+            .iter()
+            .map(|(name, value)| {
+                let generated = if row.generated.contains(name) {
+                    " (generated)"
+                } else {
+                    ""
+                };
+                format!(
+                    "{} = {}{generated}",
+                    md_code(name),
+                    md_code(&value.to_string())
+                )
+            })
+            .collect();
+        let _ = writeln!(out, "| **Inputs** | {} |", inputs.join(", "));
+    }
+    let why = row.explanation.as_ref().and_then(|e| e.why.as_ref());
+    if let Some(report) = why.and_then(|w| w.report) {
+        let entry = outline.and_then(|o| o.report(report));
         let _ = writeln!(
             out,
-            "\nUpstream report {}.",
-            report_heading(
+            "| **Upstream report** | {} |",
+            report_ref(
                 report.get(),
                 entry.map(|e| e.title.as_str()),
                 entry.map(|e| e.state.to_string())
             )
         );
     }
-    if !group.selected {
-        out.push_str(
-            "\nThe statement selects no arm, so its rows are skipped as option-not-selected \
-             and counted in no tally above.\n",
-        );
-        return;
+    match why {
+        Some(why) => {
+            let source = format!("{}, {}", md_inline(&why.source), md_inline(&why.section));
+            let source = match &why.link {
+                Some(link) => format!("[{source}]({link})"),
+                None => source,
+            };
+            let _ = writeln!(
+                out,
+                "\n**Why it is required:** {source}\n\n> {}",
+                md_inline(&why.quote)
+            );
+        }
+        None => out.push_str("\n**Why it is required:** no citation resolved.\n"),
     }
-    out.push('\n');
-    for arm in &group.arms {
-        let counts = if arm.selected && !arm.empty {
-            format!(", {}", tally_marks(arm.tally))
-        } else {
-            String::new()
-        };
-        let _ = writeln!(
-            out,
-            "- arm {}: {}{counts}",
-            md_inline(arm.arm),
-            arm_state(arm.selected, arm.empty)
-        );
-    }
-    for arm in group.arms.iter().filter(|arm| arm.selected) {
-        for case in &arm.cases {
-            md_case(out, case);
+    out.push_str("\n</details>\n");
+}
+
+/// Writes the rows of `cases` that need attention, each as a collapsed
+/// block, under a short lead-in; nothing when every row passed or was
+/// skipped.
+fn md_attention<'a>(
+    out: &mut String,
+    outline: Option<&Outline>,
+    cases: impl IntoIterator<Item = (&'a CaseRows<'a>, String)>,
+) {
+    let mut lead = false;
+    for (case, place) in cases {
+        for row in case.rows.iter().filter(|row| needs_attention(row)) {
+            if !lead {
+                out.push_str("\nRows to look at (open one for its explanation):\n");
+                lead = true;
+            }
+            md_row(out, outline, row, &place);
         }
     }
 }
 
-/// Writes one tier of options the way BASE reads: chapter, band, then the
-/// options of the band and its TRIAL text, each heading with its tally.
-fn md_tier(out: &mut String, outline: &Outline, tree: &TierTree<'_>) {
-    if tree.is_empty() {
-        out.push_str("\nNo option in this tier.\n");
-        return;
-    }
-    let _ = writeln!(out, "\nEvery case of the tier: {}.", tally_marks(tree.tally));
-    for chapter in &tree.chapters {
+/// Writes BASE: per chapter a table of its bands, and per band a table of
+/// its sections followed by the rows that need attention.
+fn md_base(out: &mut String, outline: &Outline, reading: &Reading<'_>) {
+    out.push_str(
+        "\n## BASE\n\nWhat every claimant of a capability must do. A case no option arm \
+         names is BASE.\n",
+    );
+    for chapter in &reading.base {
         let _ = writeln!(
             out,
-            "\n### {}  {}",
-            md_inline(chapter.title),
-            tally_marks(chapter.tally)
+            "\n### {}\n\n| Band | {COUNT_HEADS} |\n| --- | {COUNT_ALIGN} |",
+            md_inline(chapter.title)
         );
         for band in &chapter.bands {
             let _ = writeln!(
                 out,
-                "\n#### {}  {}",
+                "| {} | {} |",
                 md_inline(band.title),
-                tally_marks(band.tally)
+                count_cells(band.tally)
             );
-            for group in &band.options {
-                md_option(out, outline, group, 5);
-            }
-            if let Some(trial) = &band.trial {
+        }
+        for band in chapter.bands.iter().filter(|b| b.tally.tests > 0) {
+            let _ = writeln!(
+                out,
+                "\n#### {}\n\n| Section | {COUNT_HEADS} |\n| --- | {COUNT_ALIGN} |",
+                md_inline(band.title)
+            );
+            for section in &band.sections {
+                let formalism = section
+                    .formalism
+                    .map(|f| format!(" ({})", f.label()))
+                    .unwrap_or_default();
                 let _ = writeln!(
                     out,
-                    "\n##### TRIAL text  {}\n\nThe release marks the text these cases cite \
-                     TRIAL, so they are read here and do not count in the BASE tally.",
-                    tally_marks(trial.tally)
+                    "| {}{formalism} | {} |",
+                    md_inline(section.title),
+                    count_cells(section.tally)
                 );
-                for case in &trial.cases {
-                    md_case(out, case);
-                }
             }
+            md_attention(
+                out,
+                Some(outline),
+                band.sections.iter().flat_map(|section| {
+                    section
+                        .cases
+                        .iter()
+                        .map(move |case| (case, format!("BASE, {}", section.title)))
+                }),
+            );
+        }
+    }
+}
+
+/// The arm cell of an option's table row.
+fn arm_cell(group: &OptionGroup<'_>) -> String {
+    let selected: Vec<String> = group
+        .arms
+        .iter()
+        .filter(|arm| arm.selected)
+        .map(|arm| {
+            if arm.empty {
+                format!("{}, nothing to run", md_code(arm.arm))
+            } else {
+                md_code(arm.arm)
+            }
+        })
+        .collect();
+    if selected.is_empty() {
+        String::from("not selected")
+    } else {
+        selected.join(", ")
+    }
+}
+
+/// Writes one table row per option, and a TRIAL row when the band has one.
+fn md_option_rows(out: &mut String, options: &[OptionGroup<'_>], trial: Option<Tally>) {
+    for group in options {
+        let counts = if group.selected {
+            count_cells(group.tally)
+        } else {
+            String::from(" | | | | ")
+        };
+        let _ = writeln!(
+            out,
+            "| {} | {} | {counts} |",
+            md_code(group.option),
+            arm_cell(group)
+        );
+    }
+    if let Some(tally) = trial {
+        let _ = writeln!(out, "| TRIAL text | | {} |", count_cells(tally));
+    }
+}
+
+/// Writes what each option of a band decides, collapsed.
+fn md_option_notes(out: &mut String, outline: &Outline, options: &[OptionGroup<'_>], trial: bool) {
+    if options.is_empty() && !trial {
+        return;
+    }
+    out.push_str("\n<details>\n<summary>What these options decide</summary>\n\n");
+    for group in options {
+        let _ = write!(
+            out,
+            "- **{}** ({}): {}",
+            md_code(group.option),
+            group.theme.title(),
+            md_inline(group.description)
+        );
+        if let Some(report) = group.report {
+            let entry = outline.report(report);
+            let _ = write!(
+                out,
+                " Upstream report {}.",
+                report_ref(
+                    report.get(),
+                    entry.map(|e| e.title.as_str()),
+                    entry.map(|e| e.state.to_string())
+                )
+            );
+        }
+        out.push('\n');
+    }
+    if trial {
+        out.push_str(
+            "- **TRIAL text**: BASE cases whose cited text the release marks TRIAL. They are \
+             read with the options and never count in the BASE tally.\n",
+        );
+    }
+    out.push_str("\n</details>\n");
+}
+
+/// Writes one tier like BASE: per chapter and band a table of its options
+/// with the selected arm and the counts, what the options decide, and the
+/// rows that need attention.
+fn md_tier(out: &mut String, outline: &Outline, tree: &TierTree<'_>) {
+    if tree.is_empty() {
+        out.push_str("\nNo option in this part.\n");
+        return;
+    }
+    for chapter in &tree.chapters {
+        let _ = writeln!(out, "\n### {}", md_inline(chapter.title));
+        for band in &chapter.bands {
+            let _ = writeln!(
+                out,
+                "\n#### {}\n\n| Option | Selected arm | {COUNT_HEADS} |\n| --- | --- | {COUNT_ALIGN} |",
+                md_inline(band.title)
+            );
+            md_option_rows(out, &band.options, band.trial.as_ref().map(|t| t.tally));
+            md_option_notes(out, outline, &band.options, band.trial.is_some());
+            let option_cases = band.options.iter().flat_map(|group| {
+                group
+                    .arms
+                    .iter()
+                    .filter(|arm| arm.selected)
+                    .flat_map(move |arm| {
+                        arm.cases
+                            .iter()
+                            .map(move |case| (case, format!("option {}", group.option)))
+                    })
+            });
+            let trial_cases = band
+                .trial
+                .iter()
+                .flat_map(|t| t.cases.iter().map(|case| (case, String::from("OPTIONS"))));
+            md_attention(out, Some(outline), option_cases.chain(trial_cases));
         }
     }
     if !tree.unanchored.is_empty() {
-        out.push_str("\n### Options no document tests yet\n");
-        for group in &tree.unanchored {
-            md_option(out, outline, group, 4);
-        }
-    }
-}
-
-/// Writes the cases resting on text one upstream report records.
-fn md_report(out: &mut String, group: &ReportGroup<'_>) {
-    let _ = writeln!(
-        out,
-        "\n### Report {}\n\n{}\n",
-        report_heading(
-            group.report.get(),
-            group.title,
-            group.state.map(|s| s.to_string())
-        ),
-        tally_marks(group.tally),
-    );
-    for case in &group.cases {
         let _ = writeln!(
             out,
-            "- {} {}: {}{}",
-            case.mark().glyph(),
-            md_inline(case.case),
-            tally_words(case.tally()),
-            md_badges(case),
+            "\n### Options no document tests yet\n\n| Option | Selected arm | {COUNT_HEADS} |\n| --- | --- | {COUNT_ALIGN} |"
         );
-        for row in case.rows.iter().filter(|row| is_expanded(row)) {
-            let mark = Mark::of(row);
-            let _ = writeln!(
-                out,
-                "  - {} {} {}: {}",
-                mark.glyph(),
-                mark.word(),
-                md_inline(&test_name(row)),
-                md_inline(&cited(row)),
-            );
-        }
+        md_option_rows(out, &tree.unanchored, None);
+        md_option_notes(out, outline, &tree.unanchored, false);
     }
 }
 
-/// Writes the placed parts of the reading: BASE, RECOMMENDED, OPTIONS with
-/// the TRIAL text, and where the released spec is defective.
-fn md_placed(out: &mut String, outline: &Outline, reading: &Reading<'_>) {
-    md_base(out, reading);
-    out.push_str(
-        "\n## RECOMMENDED\n\nThe release asks for these with a SHOULD; a server that \
-         declines one records advisory rows, never failed ones.\n",
-    );
-    md_tier(out, outline, &reading.recommended);
-    out.push_str(
-        "\n## OPTIONS\n\nA MAY, or behaviour the release leaves to the implementation; \
-         the statement selects one arm of each.\n",
-    );
-    md_tier(out, outline, &reading.options);
-    out.push_str(
-        "\n## Where the released spec is defective\n\nThe options below exist only because \
-         the released text is defective, and each report lists the cases resting on text \
-         it records as defective.\n",
-    );
-    md_tier(out, outline, &reading.boundary);
+/// Writes the table of the upstream reports the result's cases rest on,
+/// with each report's cases collapsed below it.
+fn md_reports(out: &mut String, reading: &Reading<'_>) {
+    out.push_str("\n### Cases resting on reported text\n\n");
     if reading.reports.is_empty() {
-        out.push_str("\nNo case rests on reported text.\n");
+        out.push_str("No case rests on text an upstream report records.\n");
+        return;
+    }
+    out.push_str(
+        "These cases appear in their own place above too. Each rests on released text an \
+         upstream report in this repository records as defective.\n\n",
+    );
+    let _ = writeln!(
+        out,
+        "| Report | State | {COUNT_HEADS} |\n| --- | --- | {COUNT_ALIGN} |"
+    );
+    for group in &reading.reports {
+        let report = group.report.get();
+        let title = group
+            .title
+            .map(|t| format!(": {}", md_inline(t)))
+            .unwrap_or_default();
+        let state = group
+            .state
+            .map_or_else(|| String::from("not recorded"), |s| s.to_string());
+        let _ = writeln!(
+            out,
+            "| [#{report}]({REPORT_BASE}{report}){title} | {state} | {} |",
+            count_cells(group.tally)
+        );
     }
     for group in &reading.reports {
-        md_report(out, group);
+        let _ = writeln!(
+            out,
+            "\n<details>\n<summary>The {} case(s) resting on #{}</summary>\n\n| Case | Outcome |\n| --- | --- |",
+            group.cases.len(),
+            group.report
+        );
+        for case in &group.cases {
+            let _ = writeln!(
+                out,
+                "| {} | {} |",
+                md_code(case.case),
+                tally_words(case.tally())
+            );
+        }
+        out.push_str("\n</details>\n");
     }
+}
+
+/// Writes the summary table: one line per part of the result, then every
+/// row once.
+fn md_summary(out: &mut String, reading: &Reading<'_>, placed: bool) {
+    let _ = writeln!(
+        out,
+        "\n## Summary\n\n| Part | {COUNT_HEADS} | Total |\n| --- | {COUNT_ALIGN} | ---: |"
+    );
+    if placed {
+        for (part, tally) in [
+            ("BASE", reading.base_total),
+            ("RECOMMENDED", reading.recommended.tally),
+            ("OPTIONS", reading.options.tally),
+            (
+                "Where the released spec is defective",
+                reading.boundary.tally,
+            ),
+        ] {
+            let _ = writeln!(out, "| {part} | {} | {} |", count_cells(tally), tally.tests);
+        }
+    }
+    let total = reading.total;
+    let _ = writeln!(
+        out,
+        "| **Every row** | **{}** | **{}** | **{}** | **{}** | **{}** | **{}** |",
+        total.passed, total.failed, total.advisory, total.errored, total.skipped, total.tests
+    );
+    out.push_str(
+        "\n> [!NOTE]\n> Only a **failed** row counts against the server. An **advisory** row \
+         is a SHOULD the server did not follow, and it never counts against the server. An \
+         **errored** row is one the instrument could not judge, and a **skipped** row was \
+         not run.\n",
+    );
 }
 
 /// Writes the Markdown summary of `results`: the page a GitHub Actions job
-/// summary shows.
+/// summary or a pull request shows.
 ///
-/// A heading naming the document, the engine and the base URL, then a table
-/// of the row counts by mark. When the results carry an outline, the rows
-/// follow under BASE (chapter, band and section, in the catalogue's declared
-/// order), RECOMMENDED, OPTIONS with the cases resting on TRIAL text, and
-/// where the released spec is defective, grouped by upstream report. Inside a
-/// group, a failed, advisory or errored row is a collapsed section holding
-/// its four-part explanation, and passed and skipped rows are counted per
-/// case. A case the outline does not place, or every case when the results
-/// carry no outline, is listed under Unplaced. The advisory rows follow in
-/// their own table, each as a SHOULD the server did not follow with its
-/// citation, and the skipped rows in one with their reasons. An advisory row
-/// is never counted as failed.
+/// A table of what was run, then a summary table with one line per part of
+/// the result. When the results carry an outline, BASE follows chapter by
+/// chapter, each chapter a table of its bands and each band a table of its
+/// sections; RECOMMENDED, OPTIONS (with the cases resting on TRIAL text) and
+/// where the released spec is defective follow the same chapters and bands,
+/// each band a table of its options with the selected arm. Only the rows that
+/// need attention are listed: each failed, advisory or errored row is a
+/// collapsed block whose summary names the outcome and the case, and which
+/// opens on its explanation as a table with the cited sentence quoted. The
+/// cases resting on reported text follow by report, the advisory rows in
+/// their own table with their citations, and the skipped rows counted by
+/// reason. A case the outline does not place, or every case when the results
+/// carry no outline, is listed under Unplaced. An advisory row is never
+/// counted as failed.
 #[must_use]
 pub fn markdown(results: &Results) -> String {
     let reading = read(results);
-    let tally = reading.total;
+    let outline = results.outline.as_ref();
     let mut out = String::new();
     let _ = writeln!(
         out,
-        "# Veredictum results: {}\n",
-        md_inline(&results.document)
-    );
-    let _ = writeln!(
-        out,
-        "{} {} ({}), driven against {}.\n",
+        "# Veredictum results\n\n| | |\n| --- | --- |\n| **Server** | {} |\n| **Instrument** | {} {}, {} |\n| **Document** | {} |",
+        md_inline(&results.base_url),
         md_inline(&results.engine.name),
         md_inline(&results.engine.version),
         md_inline(&results.instrument_status.to_string()),
-        md_inline(&results.base_url),
+        md_code(&results.document),
     );
-    out.push_str("| Status | Rows |\n| --- | ---: |\n");
-    for (label, count) in [
-        ("Passed", tally.passed),
-        ("Failed", tally.failed),
-        ("Advisory", tally.advisory),
-        ("Errored", tally.errored),
-        ("Skipped", tally.skipped),
-        ("Total", tally.tests),
-    ] {
-        let _ = writeln!(out, "| {label} | {count} |");
-    }
-    out.push_str(
-        "\nOnly a failed row counts against the server. An advisory row records a SHOULD \
-         the server did not follow and never counts against the server. An errored row is \
-         one the instrument could not judge, and a skipped row was not run.\n",
-    );
-    if let Some(outline) = &results.outline {
-        md_placed(&mut out, outline, &reading);
+    md_summary(&mut out, &reading, outline.is_some());
+    if let Some(outline) = outline {
+        md_base(&mut out, outline, &reading);
+        out.push_str(
+            "\n## RECOMMENDED\n\nThe release asks for these with a SHOULD. A server that \
+             declines one records an advisory row, never a failed one.\n",
+        );
+        md_tier(&mut out, outline, &reading.recommended);
+        out.push_str(
+            "\n## OPTIONS\n\nA MAY, or behaviour the release leaves to the implementation. \
+             The statement selects one arm of each; the other arms are skipped.\n",
+        );
+        md_tier(&mut out, outline, &reading.options);
+        out.push_str(
+            "\n## Where the released spec is defective\n\nThese options exist only because \
+             the released text is defective.\n",
+        );
+        md_tier(&mut out, outline, &reading.boundary);
+        md_reports(&mut out, &reading);
     }
     if !reading.unplaced.is_empty() {
-        out.push_str("\n## Unplaced\n");
-        out.push_str(if results.outline.is_some() {
-            "\nThe outline the results carry places these cases nowhere.\n"
+        out.push_str("\n## Unplaced\n\n");
+        out.push_str(if outline.is_some() {
+            "The outline the results carry places these cases nowhere.\n"
         } else {
-            "\nThe results carry no outline, so no case is placed in BASE or OPTIONS.\n"
+            "The results carry no outline, so no case is placed in BASE or OPTIONS.\n"
         });
+        let _ = writeln!(out, "\n| Case | Outcome |\n| --- | --- |");
         for case in &reading.unplaced {
-            md_case(&mut out, case);
+            let labels = case_labels(case);
+            let labels = if labels.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", labels.join(", "))
+            };
+            let _ = writeln!(
+                out,
+                "| {}{} | {} |",
+                md_code(case.case),
+                md_inline(&labels),
+                tally_words(case.tally())
+            );
         }
+        md_attention(
+            &mut out,
+            outline,
+            reading
+                .unplaced
+                .iter()
+                .map(|case| (case, String::from("unplaced"))),
+        );
     }
     md_advisory(&mut out, results);
     md_skipped(&mut out, results);
@@ -911,7 +1092,7 @@ fn md_advisory(out: &mut String, results: &Results) {
     }
     out.push_str(
         "\n## Advisory rows\n\nEach is a SHOULD the server did not follow. None counts \
-         against the server.\n\n| Row | Step | Citation |\n| --- | --- | --- |\n",
+         against the server.\n\n| Row | Step | SHOULD cited |\n| --- | --- | --- |\n",
     );
     for row in advisory {
         let step = row
@@ -922,14 +1103,15 @@ fn md_advisory(out: &mut String, results: &Results) {
         let _ = writeln!(
             out,
             "| {} | {} | {} |",
-            md_inline(&test_name(row)),
-            md_inline(step),
+            md_code(&test_name(row)),
+            md_code(step),
             md_inline(&cited(row)),
         );
     }
 }
 
-/// Writes the table of skipped rows, when there is one.
+/// Writes the skipped rows counted by reason and citation, with every
+/// skipped row listed in a collapsed table.
 fn md_skipped(out: &mut String, results: &Results) {
     let skipped: Vec<&ResultRow> = results
         .rows
@@ -939,9 +1121,8 @@ fn md_skipped(out: &mut String, results: &Results) {
     if skipped.is_empty() {
         return;
     }
-    out.push_str("\n## Skipped rows\n\n| Row | Reason | Citation |\n| --- | --- | --- |\n");
-    for row in skipped {
-        let (reason, cited) = row.skip.as_ref().map_or_else(
+    let reason_of = |row: &ResultRow| {
+        row.skip.as_ref().map_or_else(
             || (String::from("(none recorded)"), String::new()),
             |skip| {
                 (
@@ -949,17 +1130,39 @@ fn md_skipped(out: &mut String, results: &Results) {
                     format!("{}, {}", skip.why.source, skip.why.section),
                 )
             },
-        );
+        )
+    };
+    let mut by_reason: BTreeMap<(String, String), usize> = BTreeMap::new();
+    for row in &skipped {
+        *by_reason.entry(reason_of(row)).or_default() += 1;
+    }
+    out.push_str(
+        "\n## Skipped rows\n\nA skipped row was not run, for the reason given. It never \
+         counts for or against the server.\n\n| Reason | Citation | Rows |\n| --- | --- | ---: |\n",
+    );
+    for ((reason, cited), count) in &by_reason {
         let _ = writeln!(
             out,
-            "| {} | {} | {} |",
-            md_inline(&test_name(row)),
-            md_inline(&reason),
-            md_inline(&cited),
+            "| {} | {} | {count} |",
+            md_inline(reason),
+            md_inline(cited)
         );
     }
+    let _ = writeln!(
+        out,
+        "\n<details>\n<summary>Every skipped row ({})</summary>\n\n| Row | Reason |\n| --- | --- |",
+        skipped.len()
+    );
+    for row in skipped {
+        let _ = writeln!(
+            out,
+            "| {} | {} |",
+            md_code(&test_name(row)),
+            md_inline(&reason_of(row).0)
+        );
+    }
+    out.push_str("\n</details>\n");
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -971,9 +1174,13 @@ mod tests {
     }
 
     #[test]
-    fn a_fence_outruns_every_backtick_run() {
-        assert_eq!(fence_for("plain"), "```");
-        assert_eq!(fence_for("a ```` b"), "`````");
+    fn a_code_span_keeps_its_text_and_its_table() {
+        assert_eq!(
+            md_code("ehr/create_ehr-with_id"),
+            "`ehr/create_ehr-with_id`"
+        );
+        assert_eq!(md_code("a|b"), "`a\\|b`");
+        assert_eq!(md_code("x `y` z"), "``x `y` z``");
     }
 
     #[test]

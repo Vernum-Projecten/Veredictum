@@ -311,7 +311,27 @@ fn a_red_row_carries_its_four_part_explanation_in_every_view() {
     }
     assert_eq!(text, explanation);
 
-    assert!(markdown(&results).contains(&explanation));
+    let summary = markdown(&results);
+    let why = failed.explanation.as_ref().unwrap();
+    for part in [
+        "<summary><b>Failed</b>: <code>ehr/create_twice</code> row 1, unplaced</summary>"
+            .to_owned(),
+        format!("| **Step** | `{}` |", why.step),
+        format!(
+            "| **What was checked** | {} |",
+            why.what.replace('_', "\\_")
+        ),
+        format!("| **Expected** | {} |", why.expected),
+        format!("| **Received** | {} |", why.received),
+        "| **Exchange** | `PUT http://sut/ehr/3f2a` answered 201, recording entry 2 |".to_owned(),
+        "| **Whose problem** | The server. A failed row counts against the claimed capability. |"
+            .to_owned(),
+        "> Can happen when the supplied \\`ehr\\_id\\` is already used by an existing EHR."
+            .to_owned(),
+        format!("[#42]({}/issues/42)", env!("CARGO_PKG_REPOSITORY")),
+    ] {
+        assert!(summary.contains(&part), "missing {part}\n{summary}");
+    }
 }
 
 #[test]
@@ -426,13 +446,19 @@ fn an_advisory_row_counts_as_failed_in_no_view() {
     assert_eq!(etag["rawStatus"], "advisory");
 
     let summary = markdown(&results);
-    assert!(summary.contains("| Failed | 1 |"), "{summary}");
-    assert!(summary.contains("| Advisory | 1 |"), "{summary}");
+    assert!(
+        summary.contains("| **Every row** | **1** | **1** | **1** | **1** | **1** | **5** |"),
+        "one failed and one advisory row, counted apart: {summary}"
+    );
     assert!(summary.contains("## Advisory rows"), "{summary}");
     assert!(
         summary.contains(
-            "| ehr/etag row 0 | read | specs/openehr/ITS-REST/specifications/responses/409\\_EHR\\_with\\_id.yaml, description |"
+            "| `ehr/etag row 0` | `read` | specs/openehr/ITS-REST/specifications/responses/409\\_EHR\\_with\\_id.yaml, description |"
         ),
+        "{summary}"
+    );
+    assert!(
+        summary.contains("<summary><b>Advisory</b>: <code>ehr/etag</code>"),
         "{summary}"
     );
 }

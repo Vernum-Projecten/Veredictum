@@ -29,16 +29,22 @@ citation and, where the citation names one, the link to its upstream report.
 The CTRF document validates against the schema the CTRF project publishes for
 `specVersion` 0.2.0.
 
-**What the Markdown summary holds.** After the count of each mark, the rows
-follow the reading of a result every view uses: `## BASE` by chapter, band and
-section in the order the catalogue declares, each band heading with its counts;
-`## RECOMMENDED` and `## OPTIONS`, one heading per option naming the arm the
-statement selected, with the cases resting on TRIAL text under OPTIONS; and
-`## Where the released spec is defective`, which lists every case resting on
-text an upstream report records, grouped by report. A failed, advisory or
-errored row is a collapsed section holding its four-part explanation, and each
-case carries its badges: the template formalism, `TRIAL`, and the reports its
-citations name. The advisory and skipped rows follow in their own tables.
+**What the Markdown summary holds.** It is written for a person reading it on
+GitHub. A table names the server and the instrument, and a summary table
+counts the rows of each part: BASE, RECOMMENDED, OPTIONS and where the released
+spec is defective. `## BASE` follows chapter by chapter, each chapter a table
+of its bands and each band a table of its sections. `## RECOMMENDED`,
+`## OPTIONS` and `## Where the released spec is defective` follow the same
+chapters and bands, each band a table of its options with the arm the statement
+selected, and a collapsed note on what each option decides. The cases resting
+on TRIAL text sit in their band under OPTIONS. Passed rows are only counted.
+Each failed, advisory or errored row is a collapsed block whose summary names
+the outcome, the case and where it sits; opening it shows the step, what was
+checked, expected against received, the exchange, whose problem it is and the
+row's inputs as a table, with the cited sentence quoted below it. The cases
+resting on reported text follow in a table by upstream report, then the
+advisory rows with their citations, and the skipped rows counted by reason with
+the full list collapsed.
 
 **Where the Markdown summary goes.** GitHub Actions sets
 `GITHUB_STEP_SUMMARY` in every job step, and `export` appends the summary to
