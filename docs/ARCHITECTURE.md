@@ -1493,7 +1493,8 @@ it is never the authority for an expectation.
 
 ```text
 catalogue/
-  capabilities.yaml                    capabilities, tiers, options and their documents
+  capabilities.yaml                    options and their arms' documents, each document's version and format
+                                       needs, per-folder workflow floors, the extension-only folders
   cases/<capability>/
     <topic>.arazzo.yaml                the workflows
     <workflowId>.rows.yaml             a data-driven workflow's rows, beside it
@@ -1501,7 +1502,8 @@ catalogue/
   payloads/                            request bodies, templates, archetypes, MANIFEST.yaml
   recipes/                             code that generates payloads
   keys/<kind>/                         signing material: the OpenPGP version-signing pair and the SMART test issuer
-  sources/veredictum-extensions.openapi.yaml   the routes no openEHR OAS describes
+  sources/smart-platform.openapi.yaml  the SMART on openEHR routes under the Platform base URL
+  sources/veredictum-probes.openapi.yaml   the deliberately wrong requests no released operation defines
 schemas/                               statement, results, ixit, matrix, rows,
                                        dataset, certificate payload, extension schema
 perf/                                  the performance schedule: classes, journeys, payloads (§8.14), a sibling
@@ -1524,15 +1526,20 @@ today, beside `id-map.yaml` (every former case-core id mapped to its workflows,
   `contribution_create` and `contribution_get` exist in both `ehr` and
   `demographic`, so every step uses the qualified
   `$sourceDescriptions.<name>.<operationId>` form.
-- **Extension routes.** Routes no openEHR OAS describes are declared in one
-  OAS document of our own, `sources/veredictum-extensions.openapi.yaml`, named
-  as a non-openEHR source. A capability folder verified only over those routes
-  is listed under `extension-only` in `capabilities.yaml`, and the
-  `realization-scope` gate holds the list to the sources the folder's steps
-  call (§15.9). No folder is extension-only today.
+- **Extension routes.** Routes no openEHR OAS describes are declared in OAS
+  documents of our own under `sources/`, each marked as a non-openEHR source
+  by `info.x-veredictum-non-openehr: true`: `smart-platform.openapi.yaml`
+  (the SMART routes, with `x-veredictum-base: platform`) and
+  `veredictum-probes.openapi.yaml` (the probes). A capability folder verified
+  only over marked sources is listed under `extension-only` in
+  `capabilities.yaml`, and the `realization-scope` gate holds the list to the
+  marks of the sources the folder's steps call (§15.9). No folder is
+  extension-only today.
 - **Capability by document.** A workflow belongs to the capability of the
-  folder its document is in, and `capabilities.yaml` lists the documents per
-  capability, together with the options a statement answers.
+  folder its document is in. `capabilities.yaml` holds the options a
+  statement answers with the documents of each arm, what a document needs
+  before it runs (`documents`), each folder's floor, and the extension-only
+  folders.
 - **Ids.** A case id is `<document>/<workflowId>`, for example
   `ehr/create_ehr-same_ehr_twice-with_id`. `workflowId` matches
   `[A-Za-z0-9_\-]+`, as Arazzo recommends.
@@ -1867,7 +1874,9 @@ vendor reads why a row is red without opening `results.json`.
   `capabilities.yaml` names a document of the catalogue; a range does not
   start after its end, and its citation passes the citation and level gates;
   a document needing a format sends that format's media type in `Accept` or
-  `Content-Type` on some step.
+  `Content-Type` on some step; and a capability document that sends
+  `application/json`, itself or through a setup it names in `dependsOn`,
+  states `canonical-json`.
 - **Floors** (`arazzo-floor`): every capability folder has a workflow-count
   floor in `capabilities.yaml`, and a folder holding fewer workflows than its
   floor is refused, as are a folder without one and a floor naming no folder.
@@ -1875,10 +1884,11 @@ vendor reads why a row is red without opening `results.json`.
   differs, so a floor rises in the change that adds workflows and coverage
   only ratchets up.
 - **Realization scope** (`arazzo-realization-scope`): a folder every one of
-  whose steps calls an operation of `veredictum-extensions.openapi.yaml` is
-  listed under `extension-only`, and a listed folder has no step calling
-  another source. Either mismatch is refused, so a capability verified only
-  over Veredictum's own routes never reads as openEHR coverage.
+  whose steps calls an operation of a source marked
+  `info.x-veredictum-non-openehr: true` is listed under `extension-only`, and
+  a listed folder has no step calling an unmarked source. Either mismatch is
+  refused, so a capability verified only over Veredictum's own routes never
+  reads as openEHR coverage.
 - **Claims**: `validate --statement` holds a statement to its published
   schema, which requires at least one claimed capability folder (#503), to the
   capability folders and to one arm per option. Claim completeness
@@ -1887,6 +1897,10 @@ vendor reads why a row is red without opening `results.json`.
   `spec_versions` against the `applies` ranges, and its `tech_profiles`
   against the `formats`. ISO/IEC 9646-7 makes the ICS the supplier's statement
   of what it implements, and a claim no workflow can run for verifies nothing.
+  The arm format gate (`arm-format`) refuses a selected option arm one of
+  whose documents needs a format the statement's `tech_profiles` do not
+  claim, since the run would skip that document and verify nothing of the
+  arm.
 
 No openEHR spec governs the floors, the realization scope or the claim gates;
 they are this instrument's own design.
@@ -2087,7 +2101,12 @@ embedded `{$…}` expression, which the parser check reads as a placeholder.
   that serves or accepts a format list it, so a party that does not claim
   `canonical-xml` selects the `-unsupported` or `-refused` arm, whose
   documents pin the 406 or 415 the released text requires and need no
-  format. A document without `formats` is not gated by format.
+  XML. Every capability document that sends `application/json` lists
+  `canonical-json`, so a party claiming only canonical XML runs none of
+  them, and a document whose workflows need different formats is split so
+  the document-level list holds for each of its workflows: an XML refusal
+  that needs no JSON setup sits in a document of its own. A document
+  without `formats` is not gated by format.
 - **Deliberately wrong requests.** A request the released OpenAPI defines no
   operation for, such as an unsupported method on a resource, is declared in
   `catalogue/sources/veredictum-probes.openapi.yaml`, a source marked as

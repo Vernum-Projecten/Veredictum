@@ -1,0 +1,14 @@
+# zizmor configuration (https://docs.zizmor.sh/configuration/).
+#
+# self-repository (https://docs.zizmor.sh/audits/#self-repository) asks every
+# `uses: ./…` to become the `uses: $/…` form GitHub added on 2026-07-30
+# (https://github.blog/changelog/2026-07-30-reference-same-repository-actions-with-self-repository-syntax/).
+# The form is real, but actionlint 1.7.12, the latest release and the
+# correctness gate beside this one, rejects it as an action reference with no
+# ref (https://github.com/rhysd/actionlint/issues/711). Adopting it would turn
+# the actionlint lane red on 13 correct lines, and ignoring those lines there
+# would blind actionlint to them, so the `./` form stays until actionlint
+# accepts `$/` (#832).
+rules:
+  self-repository:
+    disable: true

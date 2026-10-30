@@ -121,10 +121,13 @@ pub(crate) fn fixture_sut() -> Result<u16, std::io::Error> {
     Ok(port)
 }
 
-/// Writes the gate's ixit: every instance at the fixture SUT, the `sut`
-/// principal on Basic credentials whose env-var NAMES the document carries
-/// and whose VALUES only the spawned run's environment will hold. Raw bytes
-/// on purpose: an independently authored wire input catches codec bugs a
+/// Writes the gate's ixit as the console writes it for a run with no
+/// administrative credential: the `sut` principal on Basic credentials under
+/// the ordinary principal's env-var NAMES, whose VALUES only the spawned
+/// run's environment holds, the `unauthenticated` instance, and no `admin`
+/// instance, which the console composes only from an administrative
+/// credential with variable names of its own. Raw bytes on purpose: an
+/// independently authored wire input catches codec bugs a
 /// typed-then-serialized value cannot, and the lib's `Ixit` is
 /// deserialize-only, so raw is also the only honest way to author one.
 pub(crate) fn write_ixit(dir: &Path, port: u16) -> Result<PathBuf, std::io::Error> {
@@ -133,11 +136,7 @@ pub(crate) fn write_ixit(dir: &Path, port: u16) -> Result<PathBuf, std::io::Erro
   "instances": {{
     "sut": {{
       "base_url": "http://127.0.0.1:{port}",
-      "auth": {{ "mode": "basic", "user_env": "GATE_SUT_USER", "password_env": "GATE_SUT_PASS" }}
-    }},
-    "admin": {{
-      "base_url": "http://127.0.0.1:{port}",
-      "auth": {{ "mode": "basic", "user_env": "GATE_SUT_USER", "password_env": "GATE_SUT_PASS" }}
+      "auth": {{ "mode": "basic", "user_env": "VEREDICTUM_CDR_USER", "password_env": "VEREDICTUM_CDR_PASSWORD" }}
     }},
     "unauthenticated": {{
       "base_url": "http://127.0.0.1:{port}",

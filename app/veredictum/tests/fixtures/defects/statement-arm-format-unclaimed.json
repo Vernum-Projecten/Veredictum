@@ -1,0 +1,16 @@
+{
+  "product": {
+    "name": "Seeded defect",
+    "version": "0.0.0-defect",
+    "vendor": "Veredictum test fixtures",
+    "identifier": "urn:veredictum:defect:arm-format-unclaimed"
+  },
+  "schedule_release": "cnf-2.0-w2",
+  "claims": {
+    "capabilities": ["ehr"]
+  },
+  "tech_profiles": [
+    { "its": "its-rest", "formats": ["canonical-json"] }
+  ],
+  "options": ["ehr-xml-supported"]
+}

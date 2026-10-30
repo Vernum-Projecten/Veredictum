@@ -39,7 +39,7 @@
 
 **The catalogue**<br>
 the released openEHR specifications, version-aware per case ·
-1651 spec-cited cases · 205 Arazzo documents
+1651 spec-cited cases · 213 Arazzo documents
 
 </div>
 

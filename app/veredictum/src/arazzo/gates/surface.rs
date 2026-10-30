@@ -873,7 +873,7 @@ mod tests {
             Some("ehr")
         );
         assert_eq!(
-            released_api("../sources/veredictum-extensions.openapi.yaml"),
+            released_api("../sources/veredictum-probes.openapi.yaml"),
             None
         );
         assert_eq!(released_api("specs/rest-oas/ehr.yaml"), None);

@@ -1,0 +1,53 @@
+# The EHR-wide ITEM_TAG listing asked for as XML, as Arazzo 1.1.0 workflows
+# over the released ITS-REST `-validation` OAS. It sends no canonical JSON, so
+# it runs for every party whatever formats its statement claims. Every quote
+# is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: EHR tags as XML
+  version: 0.1.0
+  description: >-
+    The EHR-wide ITEM_TAG listing asked for as canonical XML, which no
+    published XSD declares, so the service refuses it whatever formats it
+    serves.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: ehr_tags_get-xml_not_acceptable
+    summary: An EHR tag listing asked for as XML is answered 406
+    description: >-
+      Retrieves the tag listing of an EHR with Accept application/xml.
+      Canonical XML responses must conform to the published XSDs, and no
+      published XSD declares ITEM_TAG, so no conformant XML tag list
+      exists and the service cannot fulfill the request and answers 406
+      Not Acceptable.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot fulfill this aspect of the request, it MUST respond with HTTP status code `406 Not Acceptable`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the EHR with the client-supplied ehr_id and the default EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: list
+        description: Retrieve the EHR's tag listing as XML.
+        operationId: $sourceDescriptions.ehr.ehr_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 406

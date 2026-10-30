@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: Veredictum contributors
 # SPDX-License-Identifier: Apache-2.0
 # Vendors the openEHR specification *documentation* (the normative spec text)
-# into specs/openehr/, pinned per docs/VERSIONS.md. Text formats only
+# into specs/openehr/, pinned per the COMPONENTS table below. Text formats only
 # (adoc/md/txt/csv/json/yaml) — bitmap images, UML .xmi, XSDs, and other
 # binaries are excluded (fetch from the upstream repo at the pinned ref if
 # needed). .robot/.xml/.opt are included for the executable CNF suite +
@@ -26,12 +26,11 @@
 # the text comes from; a reference with no file at the pin fails the run.
 # Figures are copied byte-for-byte — never re-encoded, never optimized.
 #
-# This is REFERENCE DOCUMENTATION for spec-adherence checks. It is NOT a build
-# input: codegen consumes tools/openehr-codegen/vendor/** (BMM/XSD/OAS) and
-# openehr-its/schemas/**; those vendor dirs stay authoritative for generation.
+# This is the oracle the catalogue's citations resolve against, read by
+# `veredictum validate --specs`. It is never a build input.
 #
 # Idempotent: wipes and re-vendors each component dir. Re-run after bumping a
-# ref below (keep docs/VERSIONS.md in sync).
+# ref below. specs/openehr/README.md is hand-written and not touched.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -48,7 +47,7 @@ INCLUDE_EXT=(adoc md txt csv json yaml yml robot xml opt g4)
 # been released at all (CNF, ITS-JSON): their pins are frozen SHAs, refreshed
 # deliberately only, and the trees carry the development caveat in their
 # PROVENANCE.md — CNF is a coverage guide and never an authority, ITS-JSON is
-# the development pin the codegen tree already matched. SM is not vendored:
+# the development pin specs/its-json-schemas/ is fetched at. SM is not vendored:
 # it was never released, and it is no part of the oracle (#604).
 COMPONENTS=(
   "BASE|specifications-BASE|Release-1.2.0|fba868df1fad9fe15ae0483f3e3ac1c3fa94d735"
@@ -62,8 +61,8 @@ COMPONENTS=(
   "ITS-XML|specifications-ITS-XML|master, frozen SHA (the tags carry only XSDs — vendored AT their tags in specs/its-xml-schemas; the prose the catalogue cites, the README release directory and the per-release documents/README, exists only on master)|de8b37ba6c9a5e126623a063cafba3b58ebf1107"
   "ITS-JSON|specifications-ITS-JSON|master (never released; frozen SHA)|5acae056248e917a4b4c56f7e712f4fcfeb616a6"
 )
-# ITS-BMM is deliberately absent: it is already vendored verbatim (all
-# serializations) at tools/openehr-codegen/vendor/bmm/.
+# ITS-BMM is deliberately absent: no expectation in the catalogue rests on a
+# BMM file.
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

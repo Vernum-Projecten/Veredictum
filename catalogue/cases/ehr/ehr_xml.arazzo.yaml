@@ -9,9 +9,10 @@ info:
   title: EHR reads and creates in canonical XML
   version: 0.1.0
   description: >-
-    Reading an EHR by id and by subject, and creating one on both wire
-    forms of the create, with Accept application/xml from a service that
-    serves the EHR resource in canonical XML.
+    Reading an EHR by id, and creating one on both wire forms of the
+    create, with Accept application/xml from a service that serves the EHR
+    resource in canonical XML. The read by subject, whose setup sends
+    canonical JSON, is `ehr_xml_json_setup.arazzo.yaml`.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
@@ -63,53 +64,6 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
               section: Location
               quote: "It MUST NOT be used to indicate an alternate representation of an existing resource (e.g. via `GET` method)."
-
-  - workflowId: get_ehr-by_subject-xml
-    summary: An EHR read by subject with Accept application/xml is answered in XML
-    description: >-
-      Creates an EHR whose EHR_STATUS names a subject, then retrieves the EHR
-      by that subject asking for canonical XML. The answer is 200 with
-      Content-Type application/xml and no Location header.
-    x-veredictum-cite: *xml_served
-    inputs:
-      type: object
-      properties:
-        subject_id: { type: string, format: uuid }
-    steps:
-      - stepId: setup
-        description: Create an EHR whose EHR_STATUS names the subject.
-        operationId: $sourceDescriptions.ehr.ehr_create
-        requestBody:
-          contentType: application/json
-          payload:
-            _type: EHR_STATUS
-            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
-            name: { _type: DV_TEXT, value: EHR status }
-            archetype_details:
-              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
-              rm_version: 1.1.0
-            subject:
-              _type: PARTY_SELF
-              external_ref:
-                id: { _type: HIER_OBJECT_ID, value: replaced-by-subject_id }
-                namespace: veredictum
-                type: PERSON
-            is_queryable: true
-            is_modifiable: true
-          replacements:
-            - target: /subject/external_ref/id/value
-              value: $inputs.subject_id
-        successCriteria:
-          - condition: $statusCode == 201
-            x-veredictum-cite: *ehr_created
-      - stepId: get
-        description: Retrieve the EHR by the subject's id and namespace in canonical XML.
-        operationId: $sourceDescriptions.ehr.ehr_get_by_subject
-        parameters:
-          - { name: subject_id, in: query, value: $inputs.subject_id }
-          - { name: subject_namespace, in: query, value: veredictum }
-          - { name: Accept, in: header, value: application/xml }
-        successCriteria: *xml_read_criteria
 
   - workflowId: create_ehr-xml
     summary: An EHR create asking for the full resource in XML is answered in XML

@@ -104,8 +104,8 @@ impl SpecVersions {
 /// profile tiers the supplier asserts.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Claims {
-    /// Verdict-bearing capability names (must resolve in the capability
-    /// matrix).
+    /// Verdict-bearing capability names, each the name of a capability
+    /// folder under the catalogue's `cases/` (for example `ehr`).
     #[serde(default)]
     pub capabilities: Vec<CapabilityName>,
     /// The profile tiers claimed (e.g. `CORE`, `STANDARD`, `SEC-BASIC`).

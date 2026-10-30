@@ -5,25 +5,27 @@
 //!
 //! `capabilities.yaml` states what a document needs before it runs, the
 //! workflow count each capability folder keeps, and which folders are
-//! verified only over Veredictum's own extension routes. No openEHR spec governs these — our own design. A floor makes coverage
-//! ratchet: a folder that loses a workflow is refused until its floor is
-//! lowered in review. The realization scope keeps a capability verified only
+//! verified only over the routes of Veredictum's own sources, the ones whose
+//! `info` carries [`NON_OPENEHR_KEY`]. No openEHR spec governs these — our
+//! own design. A floor makes coverage ratchet: a folder that loses a
+//! workflow is refused until its floor is lowered in review. The realization scope keeps a capability verified only
 //! over routes no openEHR OAS describes from reading as openEHR coverage.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use roas_arazzo::common::reusable::ReusableOr;
-use roas_arazzo::v1_1::{ParameterLocation, ValueOrSelector};
+use roas_arazzo::v1_1::{ParameterLocation, ValueOrSelector, Workflow};
 use serde_json::Value;
 
-use crate::arazzo::capabilities::{Capabilities, EXTENSIONS_SOURCE};
+use crate::arazzo::capabilities::Capabilities;
 use crate::arazzo::catalogue::SETUP_DIR;
 use crate::arazzo::cite::{QuoteChecker, check_level};
 use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::surface::NegotiationHeader;
-use crate::arazzo::gates::{Gate, GateFinding};
-use crate::arazzo::source::split_qualified;
+use crate::arazzo::gates::{DOCUMENT_SUFFIX, Gate, GateFinding};
+use crate::arazzo::source::{NON_OPENEHR_KEY, OperationIndex, split_qualified};
+use crate::vocab::FormatName;
 
 /// The capability folder a document sits in; `None` for a shared setup.
 #[must_use]
@@ -89,17 +91,14 @@ pub fn check_floors(
     findings
 }
 
-/// Whether a step of `document` calls an operation of
-/// [`EXTENSIONS_SOURCE`], and whether one calls an operation of another
+/// Whether a step of `document` calls an operation of a source marked with
+/// [`NON_OPENEHR_KEY`], and whether one calls an operation of another
 /// source, as `(extension, other)`.
+///
+/// A source that did not index counts as another source: the document gate
+/// already refuses it, and an unread mark cannot make a folder extension-only.
 #[must_use]
 pub fn realization(document: &ArazzoDocument) -> (bool, bool) {
-    let urls: BTreeMap<&str, &str> = document
-        .description()
-        .source_descriptions
-        .iter()
-        .map(|source| (source.name.as_str(), source.url.as_str()))
-        .collect();
     let (mut extension, mut other) = (false, false);
     for step in document
         .description()
@@ -110,12 +109,10 @@ pub fn realization(document: &ArazzoDocument) -> (bool, bool) {
         let Some((source, _)) = step.operation_id.as_deref().and_then(split_qualified) else {
             continue;
         };
-        let is_extension = urls.get(source).is_some_and(|url| {
-            Path::new(url)
-                .file_name()
-                .is_some_and(|name| name == EXTENSIONS_SOURCE)
-        });
-        if is_extension {
+        if document
+            .source(source)
+            .is_some_and(OperationIndex::is_non_openehr)
+        {
             extension = true;
         } else {
             other = true;
@@ -124,9 +121,11 @@ pub fn realization(document: &ArazzoDocument) -> (bool, bool) {
     (extension, other)
 }
 
-/// Refuses a folder listed as extension-only with a step calling another
-/// source, a folder whose every step calls [`EXTENSIONS_SOURCE`] and that
-/// is not listed, and a listed name that is no folder.
+/// Holds the `extension-only` list to the sources each folder's steps call.
+///
+/// It refuses a listed folder with a step calling an unmarked source, an
+/// unlisted folder whose every step calls a source marked with
+/// [`NON_OPENEHR_KEY`], and a listed name that is no folder.
 #[must_use]
 pub fn check_realization<'a>(
     path: &Path,
@@ -150,12 +149,12 @@ pub fn check_realization<'a>(
         let listed = capabilities.extension_only.contains(folder);
         if listed && !only {
             findings.push(refuse(format!(
-                "`{folder}` is listed as extension-only, and a step in it calls a source other than {EXTENSIONS_SOURCE}"
+                "`{folder}` is listed as extension-only, and a step in it calls a source without `info.{NON_OPENEHR_KEY}: true`"
             )));
         }
         if !listed && only {
             findings.push(refuse(format!(
-                "every step in `{folder}` calls {EXTENSIONS_SOURCE}, so it must be listed as extension-only"
+                "every step in `{folder}` calls a source marked `info.{NON_OPENEHR_KEY}: true`, so it must be listed as extension-only"
             )));
         }
     }
@@ -173,13 +172,19 @@ pub fn check_realization<'a>(
 /// `Content-Type`, each without its parameters.
 #[must_use]
 pub fn sent_media_types(document: &ArazzoDocument) -> BTreeSet<String> {
-    let mut sent = BTreeSet::new();
-    for step in document
+    document
         .description()
         .workflows
         .iter()
-        .flat_map(|workflow| &workflow.steps)
-    {
+        .flat_map(workflow_media_types)
+        .collect()
+}
+
+/// The media types the steps of `workflow` send in `Accept` or
+/// `Content-Type`, each without its parameters.
+fn workflow_media_types(workflow: &Workflow) -> BTreeSet<String> {
+    let mut sent = BTreeSet::new();
+    for step in &workflow.steps {
         for parameter in &step.parameters {
             if let ReusableOr::Item(parameter) = parameter
                 && parameter.in_ == Some(ParameterLocation::Header)
@@ -203,6 +208,57 @@ pub fn sent_media_types(document: &ArazzoDocument) -> BTreeSet<String> {
     sent
 }
 
+/// Whether a workflow of `document` sends the canonical JSON media type,
+/// itself or through a workflow it names in `dependsOn`, resolved among
+/// `documents` by document id.
+#[must_use]
+pub fn sends_canonical_json(
+    document: &ArazzoDocument,
+    documents: &BTreeMap<&str, &ArazzoDocument>,
+) -> bool {
+    let mut seen = BTreeSet::new();
+    document
+        .description()
+        .workflows
+        .iter()
+        .any(|workflow| workflow_sends_json(document, workflow, documents, &mut seen))
+}
+
+/// Whether `workflow` of `document`, or a workflow its `dependsOn` names,
+/// sends [`FormatName::CanonicalJson`]'s media type; `seen` holds every
+/// workflow already visited, so a dependency cycle ends.
+fn workflow_sends_json(
+    document: &ArazzoDocument,
+    workflow: &Workflow,
+    documents: &BTreeMap<&str, &ArazzoDocument>,
+    seen: &mut BTreeSet<(PathBuf, String)>,
+) -> bool {
+    if !seen.insert((document.path().to_owned(), workflow.workflow_id.clone())) {
+        return false;
+    }
+    if workflow_media_types(workflow).contains(FormatName::CanonicalJson.media_type()) {
+        return true;
+    }
+    workflow.depends_on.iter().any(|id| {
+        // NOTE: a `dependsOn` entry that does not resolve is a finding of the
+        // document gate already, so it is legitimately absent here.
+        let resolved = match split_qualified(id) {
+            None => Some((document, id.as_str())),
+            Some((source, workflow_id)) => document
+                .workflow_sources()
+                .get(source)
+                .and_then(|file| file.file_name()?.to_str()?.strip_suffix(DOCUMENT_SUFFIX))
+                .and_then(|target| documents.get(target).copied())
+                .map(|target| (target, workflow_id)),
+        };
+        resolved.is_some_and(|(target, workflow_id)| {
+            target
+                .workflow(workflow_id)
+                .is_some_and(|dependency| workflow_sends_json(target, dependency, documents, seen))
+        })
+    })
+}
+
 /// A media type without its parameters, trimmed and lower-cased.
 fn bare_media_type(value: &str) -> String {
     value
@@ -212,9 +268,17 @@ fn bare_media_type(value: &str) -> String {
         .to_ascii_lowercase()
 }
 
-/// Refuses a `documents` entry naming no document, a range whose `min` lies
-/// above its `max`, and a format the document never names in `Accept` or
-/// `Content-Type`.
+/// Holds the `documents` needs to the documents they name.
+///
+/// It refuses an entry naming no document, a range whose `min` lies above its
+/// `max`, a format the document never names in `Accept` or `Content-Type`,
+/// and a capability document that sends the canonical JSON media type,
+/// itself or through a `dependsOn` setup, without stating `canonical-json`.
+///
+/// The `canonical-json` rule has no XML twin: a document pinning an XML
+/// refusal (406, 415) sends `application/xml` and runs for every party, while
+/// no document pins a JSON refusal. No openEHR spec governs this — our own
+/// design.
 #[must_use]
 pub fn check_needs(
     path: &Path,
@@ -247,7 +311,11 @@ pub fn check_needs(
         }
         let sent = sent_media_types(document);
         for format in &needs.formats {
-            if !sent.contains(format.media_type()) {
+            let sends = match format {
+                FormatName::CanonicalJson => sends_canonical_json(document, documents),
+                _ => sent.contains(format.media_type()),
+            };
+            if !sends {
                 findings.push(GateFinding::new(
                     Gate::Identity,
                     path,
@@ -259,6 +327,27 @@ pub fn check_needs(
                     ),
                 ));
             }
+        }
+    }
+    for (id, document) in documents {
+        if folder_of(document).is_none() || !sends_canonical_json(document, documents) {
+            continue;
+        }
+        let states = capabilities
+            .documents
+            .get(*id)
+            .is_some_and(|needs| needs.formats.contains(&FormatName::CanonicalJson));
+        if !states {
+            findings.push(GateFinding::new(
+                Gate::Identity,
+                path,
+                format!("#/documents/{id}/formats"),
+                format!(
+                    "`{id}` sends `{}`, itself or through a `dependsOn` setup, and does not state `{}`",
+                    FormatName::CanonicalJson.media_type(),
+                    FormatName::CanonicalJson.token()
+                ),
+            ));
         }
     }
     findings
@@ -299,7 +388,8 @@ mod tests {
     use super::*;
 
     /// A document in `cases/<folder>/` whose one step calls `operation` of a
-    /// source at `url`, sending `accept`; built without resolving its source.
+    /// source at `url`, sending `accept`; `url` resolves from the repository
+    /// catalogue, so `folder` names a folder it holds.
     fn document(folder: &str, id: &str, url: &str, accept: &str) -> ArazzoDocument {
         let raw = serde_json::json!({
             "arazzo": "1.1.0",
@@ -315,14 +405,15 @@ mod tests {
                 }]
             }]
         });
-        let path = Path::new("catalogue/cases")
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../catalogue/cases")
             .join(folder)
             .join(format!("{id}.arazzo.yaml"));
         ArazzoDocument::from_value(&path, raw).unwrap().0
     }
 
     const RELEASED: &str = "../../../specs/rest-oas/ehr-validation.openapi.yaml";
-    const EXTENSION: &str = "../../sources/veredictum-extensions.openapi.yaml";
+    const EXTENSION: &str = "../../sources/veredictum-probes.openapi.yaml";
 
     fn capabilities(yaml: Value) -> Capabilities {
         serde_json::from_value(yaml).unwrap()
@@ -362,13 +453,14 @@ mod tests {
     #[test]
     fn the_extension_only_list_agrees_with_the_sources_in_both_directions() {
         let path = Path::new("capabilities.yaml");
-        let listed = capabilities(serde_json::json!({ "extension-only": ["ext"] }));
+        let listed = capabilities(serde_json::json!({ "extension-only": ["security"] }));
         let unlisted = capabilities(serde_json::json!({}));
-        let only = [document("ext", "a", EXTENSION, "application/json")];
+        let only = [document("security", "a", EXTENSION, "application/json")];
         let mixed = [
-            document("ext", "a", EXTENSION, "application/json"),
-            document("ext", "b", RELEASED, "application/json"),
+            document("security", "a", EXTENSION, "application/json"),
+            document("security", "b", RELEASED, "application/json"),
         ];
+        assert_eq!(only.first().map(realization), Some((true, false)));
         assert!(check_realization(path, &listed, &only).is_empty());
         assert!(check_realization(path, &unlisted, &mixed).is_empty());
         assert_eq!(
@@ -388,8 +480,10 @@ mod tests {
 
     #[test]
     fn a_document_need_names_a_document_an_ordered_range_and_a_sent_format() {
+        // A shared setup, so the canonical-json rule, which holds capability
+        // documents only, adds nothing to what this test pins.
         let xml = document(
-            "ehr",
+            "_setup",
             "xml",
             RELEASED,
             "application/xml; q=0.9, application/json",
@@ -425,6 +519,45 @@ mod tests {
                 serde_json::json!({ "xml": { "applies": { "its_rest": {
                 "min": "1.1.0", "max": "1.0.2", "x-veredictum-cite": cite
             } } } })
+            )),
+            [Gate::Identity]
+        );
+    }
+
+    #[test]
+    fn a_capability_document_sending_json_states_canonical_json() {
+        let json = document("ehr", "json", RELEASED, "application/json");
+        let xml = document("ehr", "xml", RELEASED, "application/xml");
+        let shared = document("_setup", "shared", RELEASED, "application/json");
+        let docs = BTreeMap::from([("json", &json), ("xml", &xml), ("shared", &shared)]);
+        let path = Path::new("capabilities.yaml");
+        let needs = |documents: Value| {
+            check_needs(
+                path,
+                &capabilities(serde_json::json!({ "documents": documents })),
+                &docs,
+            )
+        };
+        assert!(sends_canonical_json(&json, &docs));
+        assert!(!sends_canonical_json(&xml, &docs));
+        assert!(needs(serde_json::json!({ "json": { "formats": ["canonical-json"] } })).is_empty());
+        let unstated = needs(serde_json::json!({}));
+        assert_eq!(gates(&unstated), [Gate::Identity]);
+        assert!(
+            unstated
+                .first()
+                .is_some_and(|f| f.location == "#/documents/json/formats"),
+            "{unstated:?}"
+        );
+        assert_eq!(
+            gates(&needs(
+                serde_json::json!({ "json": { "formats": ["canonical-xml"] } })
+            )),
+            [Gate::Identity, Gate::Identity]
+        );
+        assert_eq!(
+            gates(&needs(
+                serde_json::json!({ "json": { "formats": ["canonical-json"] }, "xml": { "formats": ["canonical-json"] } })
             )),
             [Gate::Identity]
         );

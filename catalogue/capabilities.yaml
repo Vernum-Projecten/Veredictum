@@ -10,9 +10,9 @@ options:
       Accept application/xml.
     arms:
       ehr-xml-supported:
-        documents: [ehr_xml]
+        documents: [ehr_xml, ehr_xml_json_setup]
       ehr-xml-unsupported:
-        documents: [ehr_xml_not_acceptable]
+        documents: [ehr_xml_not_acceptable, ehr_xml_not_acceptable_json_setup]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -41,9 +41,9 @@ options:
       application/xml.
     arms:
       ehr-status-xml-supported:
-        documents: [ehr_status_xml]
+        documents: [ehr_status_xml, ehr_status_xml_json_setup]
       ehr-status-xml-unsupported:
-        documents: [ehr_status_xml_not_acceptable]
+        documents: [ehr_status_xml_not_acceptable, ehr_status_xml_not_acceptable_json_setup]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: Data representation
@@ -188,7 +188,7 @@ options:
       the published ITS-XML schema declares.
     arms:
       composition-xml-write-accepted:
-        documents: [composition_xml, composition_update_xml]
+        documents: [composition_xml, composition_xml_setting_invalid, composition_update_xml]
       composition-xml-write-refused:
         documents: [composition_xml_write_refused, composition_update_xml_write_refused]
     x-veredictum-cite:
@@ -404,7 +404,7 @@ options:
       party-xml-write-accepted:
         documents: []
       party-xml-write-refused:
-        documents: [party_xml_write_refused]
+        documents: [party_xml_write_refused, party_xml_create_refused]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format
@@ -702,52 +702,209 @@ options:
 # `formats` lists the wire formats the server must serve or process for the
 # document, in the statement's `tech_profiles` vocabulary, and a statement
 # whose its-rest profile leaves one out skips the document with
-# `format-not-claimed`. Only the documents of an arm that serves or accepts a
-# format need it: the documents that pin its refusal (406, 415) run for every
-# party, and the option arm decides them. ITS-REST Resources.md §Data
+# `format-not-claimed`. Every capability document that sends application/json,
+# itself or through a setup it names in `dependsOn`, states `canonical-json`,
+# and `validate` refuses one that does not. For the other formats only the
+# documents of an arm that serves or accepts a format need it: the documents
+# that pin its refusal (406, 415) run for every party that can drive them, and
+# the option arm decides them. No openEHR spec governs these needs, which are
+# our own design. ITS-REST Resources.md §Data
 # representation: "Services MUST support at least one of the openEHR **XML**
 # or **JSON** canonical formats for resource representation."
 documents:
   ehr_xml: { formats: [canonical-xml] }
+  ehr_xml_json_setup: { formats: [canonical-json, canonical-xml] }
   ehr_status_xml: { formats: [canonical-xml] }
-  composition_read_xml: { formats: [canonical-xml] }
-  composition_versioned_read_xml: { formats: [canonical-xml] }
-  composition_write_xml_accept: { formats: [canonical-xml] }
-  composition_xml: { formats: [canonical-xml] }
-  composition_update_xml: { formats: [canonical-xml] }
-  contribution_read_xml: { formats: [canonical-xml] }
-  contribution_write_xml_accept: { formats: [canonical-xml] }
-  directory_read_xml: { formats: [canonical-xml] }
-  directory_write_xml_accept: { formats: [canonical-xml] }
-  party_read_xml: { formats: [canonical-xml] }
-  party_write_xml_accept: { formats: [canonical-xml] }
-  versioned_party_read_xml: { formats: [canonical-xml] }
-  demographic_contribution_read_xml: { formats: [canonical-xml] }
-  composition_read_flat: { formats: [wt-flat] }
-  composition_write_flat: { formats: [wt-flat] }
-  composition_write_flat_accept: { formats: [wt-flat] }
-  contribution_read_flat: { formats: [wt-flat] }
-  contribution_write_flat: { formats: [wt-flat] }
-  contribution_write_flat_accept: { formats: [wt-flat] }
+  ehr_status_xml_json_setup: { formats: [canonical-json, canonical-xml] }
+  composition_read_xml: { formats: [canonical-json, canonical-xml] }
+  composition_versioned_read_xml: { formats: [canonical-json, canonical-xml] }
+  composition_write_xml_accept: { formats: [canonical-json, canonical-xml] }
+  composition_xml: { formats: [canonical-json, canonical-xml] }
+  composition_xml_setting_invalid: { formats: [canonical-xml] }
+  composition_update_xml: { formats: [canonical-json, canonical-xml] }
+  contribution_read_xml: { formats: [canonical-json, canonical-xml] }
+  contribution_write_xml_accept: { formats: [canonical-json, canonical-xml] }
+  directory_read_xml: { formats: [canonical-json, canonical-xml] }
+  directory_write_xml_accept: { formats: [canonical-json, canonical-xml] }
+  party_read_xml: { formats: [canonical-json, canonical-xml] }
+  party_write_xml_accept: { formats: [canonical-json, canonical-xml] }
+  versioned_party_read_xml: { formats: [canonical-json, canonical-xml] }
+  demographic_contribution_read_xml: { formats: [canonical-json, canonical-xml] }
+  composition_read_flat: { formats: [canonical-json, wt-flat] }
+  composition_write_flat: { formats: [canonical-json, wt-flat] }
+  composition_write_flat_accept: { formats: [canonical-json, wt-flat] }
+  contribution_read_flat: { formats: [canonical-json, wt-flat] }
+  contribution_write_flat: { formats: [canonical-json, wt-flat] }
+  contribution_write_flat_accept: { formats: [canonical-json, wt-flat] }
   flat_commit_refused: { formats: [wt-flat] }
-  flat_context: { formats: [wt-flat] }
-  flat_context_values: { formats: [wt-flat] }
-  flat_entries: { formats: [wt-flat] }
-  flat_mapping: { formats: [wt-flat] }
-  flat_ranges: { formats: [wt-flat] }
-  flat_read: { formats: [wt-flat] }
-  flat_rm_attributes: { formats: [wt-flat] }
+  flat_context: { formats: [canonical-json, wt-flat] }
+  flat_context_values: { formats: [canonical-json, wt-flat] }
+  flat_entries: { formats: [canonical-json, wt-flat] }
+  flat_mapping: { formats: [canonical-json, wt-flat] }
+  flat_ranges: { formats: [canonical-json, wt-flat] }
+  flat_read: { formats: [canonical-json, wt-flat] }
+  flat_rm_attributes: { formats: [canonical-json, wt-flat] }
   flat_rm_refused: { formats: [wt-flat] }
-  flat_structure: { formats: [wt-flat] }
-  composition_read_structured: { formats: [wt-structured] }
-  composition_write_structured: { formats: [wt-structured] }
-  composition_write_structured_accept: { formats: [wt-structured] }
-  contribution_read_structured: { formats: [wt-structured] }
-  contribution_write_structured: { formats: [wt-structured] }
-  contribution_write_structured_accept: { formats: [wt-structured] }
-  structured_commit: { formats: [wt-structured] }
-  structured_read: { formats: [wt-structured] }
+  flat_structure: { formats: [canonical-json, wt-flat] }
+  composition_read_structured: { formats: [canonical-json, wt-structured] }
+  composition_write_structured: { formats: [canonical-json, wt-structured] }
+  composition_write_structured_accept: { formats: [canonical-json, wt-structured] }
+  contribution_read_structured: { formats: [canonical-json, wt-structured] }
+  contribution_write_structured: { formats: [canonical-json, wt-structured] }
+  contribution_write_structured_accept: { formats: [canonical-json, wt-structured] }
+  structured_commit: { formats: [canonical-json, wt-structured] }
+  structured_read: { formats: [canonical-json, wt-structured] }
   template_adl14_web_template: { formats: [wt] }
+# The documents whose only wire format is canonical JSON, sent by their own
+# steps or by a setup they name in `dependsOn`.
+  admin_ehr_delete: { formats: [canonical-json] }
+  admin_ehr_delete_all: { formats: [canonical-json] }
+  admin_ehr_delete_all_disabled: { formats: [canonical-json] }
+  admin_ehr_delete_all_refused: { formats: [canonical-json] }
+  admin_ehr_delete_all_unfiltered: { formats: [canonical-json] }
+  agent: { formats: [canonical-json] }
+  agent_refused: { formats: [canonical-json] }
+  agent_tags: { formats: [canonical-json] }
+  anonymous_ehr: { formats: [canonical-json] }
+  aql_ehr_scope: { formats: [canonical-json] }
+  aql_execute: { formats: [canonical-json] }
+  aql_refused: { formats: [canonical-json] }
+  aql_semantics: { formats: [canonical-json] }
+  aql_stored: { formats: [canonical-json] }
+  aql_stored_top: { formats: [canonical-json] }
+  aqlc_aggregation: { formats: [canonical-json] }
+  aqlc_from: { formats: [canonical-json] }
+  aqlc_order_by: { formats: [canonical-json] }
+  aqlc_paging: { formats: [canonical-json] }
+  aqlc_refused: { formats: [canonical-json] }
+  aqlc_select: { formats: [canonical-json] }
+  aqlc_terminology: { formats: [canonical-json] }
+  aqlc_top: { formats: [canonical-json] }
+  aqlc_where: { formats: [canonical-json] }
+  composition_create: { formats: [canonical-json] }
+  composition_create_refused: { formats: [canonical-json] }
+  composition_delete: { formats: [canonical-json] }
+  composition_read: { formats: [canonical-json] }
+  composition_read_container: { formats: [canonical-json] }
+  composition_read_flat_not_acceptable: { formats: [canonical-json] }
+  composition_read_structured_not_acceptable: { formats: [canonical-json] }
+  composition_read_xml_not_acceptable: { formats: [canonical-json] }
+  composition_tags: { formats: [canonical-json] }
+  composition_tags_party_uid: { formats: [canonical-json] }
+  composition_tags_refused: { formats: [canonical-json] }
+  composition_update: { formats: [canonical-json] }
+  composition_update_refused: { formats: [canonical-json] }
+  composition_update_xml_write_refused: { formats: [canonical-json] }
+  composition_versioned: { formats: [canonical-json] }
+  composition_versioned_read_xml_not_acceptable: { formats: [canonical-json] }
+  composition_write_flat_not_acceptable: { formats: [canonical-json] }
+  composition_write_flat_unsupported: { formats: [canonical-json] }
+  composition_write_structured_not_acceptable: { formats: [canonical-json] }
+  composition_write_structured_unsupported: { formats: [canonical-json] }
+  composition_write_xml_not_acceptable: { formats: [canonical-json] }
+  content_cluster: { formats: [canonical-json] }
+  content_composition: { formats: [canonical-json] }
+  content_element: { formats: [canonical-json] }
+  content_event: { formats: [canonical-json] }
+  content_history: { formats: [canonical-json] }
+  content_item: { formats: [canonical-json] }
+  content_item_list: { formats: [canonical-json] }
+  content_item_structure: { formats: [canonical-json] }
+  content_item_table: { formats: [canonical-json] }
+  content_item_tree: { formats: [canonical-json] }
+  content_item_unmatched_accepted: { formats: [canonical-json] }
+  content_item_unmatched_refused: { formats: [canonical-json] }
+  content_observation: { formats: [canonical-json] }
+  contribution_create: { formats: [canonical-json] }
+  contribution_create_refused: { formats: [canonical-json] }
+  contribution_read: { formats: [canonical-json] }
+  contribution_read_flat_not_acceptable: { formats: [canonical-json] }
+  contribution_read_structured_not_acceptable: { formats: [canonical-json] }
+  contribution_read_xml_not_acceptable: { formats: [canonical-json] }
+  contribution_write_flat_not_acceptable: { formats: [canonical-json] }
+  contribution_write_flat_unsupported: { formats: [canonical-json] }
+  contribution_write_structured_not_acceptable: { formats: [canonical-json] }
+  contribution_write_structured_unsupported: { formats: [canonical-json] }
+  contribution_write_xml_not_acceptable: { formats: [canonical-json] }
+  definition_query: { formats: [canonical-json] }
+  demographic_contribution: { formats: [canonical-json] }
+  demographic_contribution_read_xml_not_acceptable: { formats: [canonical-json] }
+  demographic_tags: { formats: [canonical-json] }
+  deprecated_write: { formats: [canonical-json] }
+  deprecated_write_refused: { formats: [canonical-json] }
+  directory_create: { formats: [canonical-json] }
+  directory_create_refused: { formats: [canonical-json] }
+  directory_delete: { formats: [canonical-json] }
+  directory_read: { formats: [canonical-json] }
+  directory_read_xml_not_acceptable: { formats: [canonical-json] }
+  directory_update: { formats: [canonical-json] }
+  directory_write_xml_not_acceptable: { formats: [canonical-json] }
+  directory_xml_write_refused: { formats: [canonical-json] }
+  dv_boolean: { formats: [canonical-json] }
+  dv_coded_text: { formats: [canonical-json] }
+  dv_count: { formats: [canonical-json] }
+  dv_date: { formats: [canonical-json] }
+  dv_date_time: { formats: [canonical-json] }
+  dv_duration: { formats: [canonical-json] }
+  dv_ehr_uri: { formats: [canonical-json] }
+  dv_identifier: { formats: [canonical-json] }
+  dv_interval_count: { formats: [canonical-json] }
+  dv_interval_date: { formats: [canonical-json] }
+  dv_interval_date_time: { formats: [canonical-json] }
+  dv_interval_duration: { formats: [canonical-json] }
+  dv_interval_ordinal: { formats: [canonical-json] }
+  dv_interval_proportion: { formats: [canonical-json] }
+  dv_interval_quantity: { formats: [canonical-json] }
+  dv_interval_scale: { formats: [canonical-json] }
+  dv_interval_time: { formats: [canonical-json] }
+  dv_multimedia: { formats: [canonical-json] }
+  dv_ordinal: { formats: [canonical-json] }
+  dv_parsable: { formats: [canonical-json] }
+  dv_proportion: { formats: [canonical-json] }
+  dv_quantity: { formats: [canonical-json] }
+  dv_scale: { formats: [canonical-json] }
+  dv_text: { formats: [canonical-json] }
+  dv_time: { formats: [canonical-json] }
+  dv_uri: { formats: [canonical-json] }
+  ehr: { formats: [canonical-json] }
+  ehr_bulk_load: { formats: [canonical-json] }
+  ehr_committal: { formats: [canonical-json] }
+  ehr_status: { formats: [canonical-json] }
+  ehr_status_flags: { formats: [canonical-json] }
+  ehr_status_read_flat_not_acceptable: { formats: [canonical-json] }
+  ehr_status_read_structured_not_acceptable: { formats: [canonical-json] }
+  ehr_status_tags: { formats: [canonical-json] }
+  ehr_status_update: { formats: [canonical-json] }
+  ehr_status_versioned: { formats: [canonical-json] }
+  ehr_status_write_flat_unsupported: { formats: [canonical-json] }
+  ehr_status_write_structured_unsupported: { formats: [canonical-json] }
+  ehr_status_xml_not_acceptable_json_setup: { formats: [canonical-json] }
+  ehr_status_xml_write_refused: { formats: [canonical-json] }
+  ehr_tags: { formats: [canonical-json] }
+  ehr_xml_not_acceptable_json_setup: { formats: [canonical-json] }
+  group: { formats: [canonical-json] }
+  group_refused: { formats: [canonical-json] }
+  group_tags: { formats: [canonical-json] }
+  legacy_write_refused: { formats: [canonical-json] }
+  organisation: { formats: [canonical-json] }
+  organisation_refused: { formats: [canonical-json] }
+  organisation_tags: { formats: [canonical-json] }
+  party_read_xml_not_acceptable: { formats: [canonical-json] }
+  party_write_xml_not_acceptable: { formats: [canonical-json] }
+  party_xml_write_refused: { formats: [canonical-json] }
+  person: { formats: [canonical-json] }
+  person_refused: { formats: [canonical-json] }
+  person_tags: { formats: [canonical-json] }
+  role: { formats: [canonical-json] }
+  role_refused: { formats: [canonical-json] }
+  role_tags: { formats: [canonical-json] }
+  smart_scopes: { formats: [canonical-json] }
+  system_options: { formats: [canonical-json] }
+  template_adl14: { formats: [canonical-json] }
+  template_adl2: { formats: [canonical-json] }
+  version_signature: { formats: [canonical-json] }
+  versioned_party: { formats: [canonical-json] }
+  versioned_party_read_xml_not_acceptable: { formats: [canonical-json] }
 # The workflow count each capability folder keeps. `validate` refuses a folder
 # below its floor, and a test re-derives every floor from the catalogue, so a
 # change that adds workflows raises the floor in the same change.
@@ -767,7 +924,8 @@ floors:
   simplified_formats: 133
   smart: 2
   system: 3
-# The capability folders verified only over the routes of
-# `sources/veredictum-extensions.openapi.yaml`, which no openEHR OAS
-# describes. No folder is: every capability folder calls a released operation.
+# The capability folders verified only over the routes of the sources under
+# `sources/` whose `info` carries `x-veredictum-non-openehr: true`, which no
+# openEHR OAS describes. No folder is: every capability folder calls a
+# released operation.
 extension-only: []

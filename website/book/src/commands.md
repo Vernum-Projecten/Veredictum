@@ -174,8 +174,10 @@ documents that need a server to serve or accept a format carry it: the
 documents that pin a refusal of XML (406 or 415) run for every party, and the
 option arm the statement selects decides them. A statement that selects
 `ehr-xml-supported` and does not claim `canonical-xml` therefore runs nothing
-of `ehr_xml`, and `validate --statement` refuses a claimed folder in which
-nothing is left to run.
+of `ehr_xml`, and `validate --statement` refuses that arm (`arm-format`) and a
+claimed folder in which nothing is left to run. Every document that sends
+`application/json` needs `canonical-json`, so a statement claiming only
+canonical XML runs the documents that need no JSON.
 
 The IXIT answers the `declared` inputs a rows file reads. A workflow with an
 administrative step needs the administrative principal: without
@@ -380,12 +382,16 @@ floor, a floor naming no folder, and a folder holding fewer workflows than its
 floor are refused (`arazzo-floor`), and the test suite re-derives every floor
 from the catalogue, so a change that adds workflows raises the floor with
 them. Its `extension-only` list names the folders verified only over the
-routes of `catalogue/sources/veredictum-extensions.openapi.yaml`, which no
-openEHR OAS describes: a listed folder with a step calling another source,
-and an unlisted folder whose every step calls that one, are refused
+routes of Veredictum's own sources, the documents under `catalogue/sources/`
+whose `info` carries `x-veredictum-non-openehr: true`, which no openEHR OAS
+describes: a listed folder with a step calling an unmarked source, and an
+unlisted folder whose every step calls a marked one, are refused
 (`arazzo-realization-scope`). Under `documents`, an `applies` range or a
 `formats` entry naming no document is refused, as are a range starting after
 its end and a format the document never sends in `Accept` or `Content-Type`.
+A capability document that sends `application/json`, itself or through a
+setup it names in `dependsOn`, and does not state `canonical-json` is refused
+too.
 
 Supplying `--statement` adds the static review of that one declaration: it is
 held to the published statement schema, which requires at least one claimed
@@ -395,7 +401,9 @@ the catalogue, and every option arm it selects must be an arm of an option in
 document the statement lets run: one whose arm it selects, whose `applies`
 ranges contain the versions it declares, and whose formats it claims. A claim
 nothing can run for is refused (`claim-completeness`), since it would verify
-nothing. No openEHR specification governs the floors, the realization scope
+nothing. A selected option arm one of whose documents needs a format the
+statement does not claim is refused (`arm-format`): the run would skip that
+document, so nothing would verify the arm. No openEHR specification governs the floors, the realization scope
 or the claim gates; they are this instrument's own design.
 
 ## perf

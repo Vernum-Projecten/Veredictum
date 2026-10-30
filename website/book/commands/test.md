@@ -69,8 +69,10 @@ documents that need a server to serve or accept a format carry it: the
 documents that pin a refusal of XML (406 or 415) run for every party, and the
 option arm the statement selects decides them. A statement that selects
 `ehr-xml-supported` and does not claim `canonical-xml` therefore runs nothing
-of `ehr_xml`, and `validate --statement` refuses a claimed folder in which
-nothing is left to run.
+of `ehr_xml`, and `validate --statement` refuses that arm (`arm-format`) and a
+claimed folder in which nothing is left to run. Every document that sends
+`application/json` needs `canonical-json`, so a statement claiming only
+canonical XML runs the documents that need no JSON.
 
 The IXIT answers the `declared` inputs a rows file reads. A workflow with an
 administrative step needs the administrative principal: without

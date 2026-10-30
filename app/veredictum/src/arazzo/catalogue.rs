@@ -549,6 +549,30 @@ impl Selection {
         self.claimed.as_ref()
     }
 
+    /// Every document of a selected option arm that needs a format the
+    /// statement does not claim, as `(arm, document, format)`; empty when the
+    /// statement claims every format.
+    ///
+    /// Selecting an arm declares the behaviour its documents test, so an arm
+    /// whose documents the statement's own formats would skip declares a
+    /// behaviour nothing verifies. No openEHR spec governs this — our own
+    /// design.
+    #[must_use]
+    pub fn arms_needing_unclaimed_formats(&self) -> Vec<(&str, &str, FormatName)> {
+        let (Some(capabilities), Some(claimed)) = (&self.capabilities, &self.formats) else {
+            return Vec::new();
+        };
+        capabilities
+            .arm_documents()
+            .filter(|(_, arm, _)| self.selected.iter().any(|selected| selected == arm))
+            .filter_map(|(_, arm, document)| {
+                capabilities
+                    .unclaimed_format(document, claimed)
+                    .map(|format| (arm, document, format))
+            })
+            .collect()
+    }
+
     /// What the statement decides about the document `found`.
     #[must_use]
     pub fn choice(&self, found: &DocumentPath) -> Choice<'_> {
