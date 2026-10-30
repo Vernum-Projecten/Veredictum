@@ -27,25 +27,9 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
-use crate::ids::{CapabilityName, CaseId, OptionTag};
+use crate::ids::{CapabilityName, OptionTag};
 use crate::vocab::{FormatName, ItsName, Tier};
-
-/// A party-artifact invariant violation.
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum PartyError {
-    /// A `skipped`/`not_applicable` outcome carries no citation (the
-    /// schedule's honesty rule: every non-executed verdict names the spec
-    /// text or register entry that excuses it).
-    #[error("outcome for case {case} (status {status}) is missing its mandatory citation")]
-    MissingCitation {
-        /// The offending case id.
-        case: String,
-        /// The status token that requires a citation.
-        status: &'static str,
-    },
-}
 
 // ── the statement (ICS + SDoC) ──────────────────────────────────────────────
 
@@ -128,60 +112,6 @@ pub struct TechProfile {
     pub formats: Vec<FormatName>,
 }
 
-/// Where the technology profile a results document records came from.
-///
-/// The recorded profile is what the verdict pipeline selects gating records
-/// with, so a reader who cannot tell a declaration from a fallback cannot tell
-/// how wide the record's claim is. A declared profile is the party's own
-/// its-rest format claim; a defaulted one is every format the instrument
-/// speaks, which is what a campaign nothing selected has to record so no red
-/// row vanishes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TechProfileSource {
-    /// Read from the party statement's `tech_profiles` entry for this ITS.
-    Declared,
-    /// No declaration named this ITS, so every format the instrument speaks
-    /// was recorded.
-    Defaulted,
-}
-
-impl TechProfileSource {
-    /// All variants, in vocabulary order (schema emission derives from this).
-    pub const ALL: &[TechProfileSource] =
-        &[TechProfileSource::Declared, TechProfileSource::Defaulted];
-
-    /// The source token.
-    #[must_use]
-    pub fn token(self) -> &'static str {
-        match self {
-            TechProfileSource::Declared => "declared",
-            TechProfileSource::Defaulted => "defaulted",
-        }
-    }
-}
-
-/// The technology profile a results document covers, and where it came from.
-///
-/// The same two members a party declares ([`TechProfile`]), plus the
-/// provenance a reader of the record alone cannot otherwise recover.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RecordedTechProfile {
-    /// The ITS the campaign realized.
-    pub its: ItsName,
-    /// The wire formats the campaign recorded outcomes for.
-    #[serde(default)]
-    pub formats: Vec<FormatName>,
-    /// Whether the formats were declared or defaulted.
-    ///
-    /// Absent only in a document written before the member existed (v0.1.4 and
-    /// earlier), where absence is UNKNOWN and never either source — a reader
-    /// that defaults it to `declared` presents a fallback as a party's claim,
-    /// which is the misreading the member exists to prevent.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source: Option<TechProfileSource>,
-}
-
 /// One evidence pointer: a results document and its content digest.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Evidence {
@@ -242,7 +172,7 @@ pub struct Statement {
     pub attestation: Option<Attestation>,
 }
 
-// ── the results ─────────────────────────────────────────────────────────────
+// ── the recorded identity and the instrument status ───────────────────────
 
 /// Who supplied one recorded identity field.
 ///
@@ -341,28 +271,6 @@ impl Sut {
     }
 }
 
-/// Whether the runner's own verification pack (the self-check that the runner
-/// itself is sound) passed for this campaign.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum VerificationPackStatus {
-    /// The verification pack ran and passed.
-    Passed,
-    /// The verification pack was not run.
-    NotRun,
-    /// The verification pack ran and failed (results are untrustworthy).
-    Failed,
-}
-
-impl VerificationPackStatus {
-    /// All variants, in vocabulary order (schema emission derives from this).
-    pub const ALL: &[VerificationPackStatus] = &[
-        VerificationPackStatus::Passed,
-        VerificationPackStatus::NotRun,
-        VerificationPackStatus::Failed,
-    ];
-}
-
 /// The approval status of the instrument that produced a document.
 ///
 /// Every 0.x version is [`Self::PreApproval`], and a 1.0.0 or later version
@@ -453,252 +361,6 @@ impl std::fmt::Display for InstrumentStatus {
 #[must_use]
 pub fn version_line(version: &str) -> String {
     format!("{version} ({})", InstrumentStatus::CURRENT)
-}
-
-/// The runner identity + self-check status.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Runner {
-    /// Runner name.
-    pub name: String,
-    /// Runner version.
-    pub version: String,
-    /// The runner's verification-pack status for this campaign.
-    pub verification_pack_status: VerificationPackStatus,
-}
-
-/// The outcome status of one case×format execution, as recorded in the results.
-///
-/// ISO/IEC 9646 verdicts: passed→pass, failed→fail, errored→
-/// inconclusive; `skipped`/`not_applicable` are selection records each carrying a
-/// mandatory citation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OutcomeStatus {
-    /// Every driven row passed.
-    Passed,
-    /// At least one row failed.
-    Failed,
-    /// Inconclusive (transport fault / unmapped response).
-    Errored,
-    /// Not executed by choice (with citation).
-    Skipped,
-    /// Not applicable to this SUT/profile (with citation).
-    NotApplicable,
-}
-
-impl OutcomeStatus {
-    /// All variants, in vocabulary order (schema emission derives from this).
-    pub const ALL: &[OutcomeStatus] = &[
-        OutcomeStatus::Passed,
-        OutcomeStatus::Failed,
-        OutcomeStatus::Errored,
-        OutcomeStatus::Skipped,
-        OutcomeStatus::NotApplicable,
-    ];
-
-    /// The status token.
-    #[must_use]
-    pub fn token(self) -> &'static str {
-        match self {
-            OutcomeStatus::Passed => "passed",
-            OutcomeStatus::Failed => "failed",
-            OutcomeStatus::Errored => "errored",
-            OutcomeStatus::Skipped => "skipped",
-            OutcomeStatus::NotApplicable => "not_applicable",
-        }
-    }
-
-    /// Whether this status mandates a citation.
-    #[must_use]
-    pub fn needs_citation(self) -> bool {
-        matches!(self, OutcomeStatus::Skipped | OutcomeStatus::NotApplicable)
-    }
-}
-
-/// One failed or errored row of a table-driven case.
-///
-/// It carries the row index (0-based, the content-table order), the step it
-/// stopped at (0 = a precondition, postcondition or aggregate), and the
-/// reason. The list carrying it says which of the two it is.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FailedRow {
-    /// The 0-based row index in the case's parameter table.
-    pub row: usize,
-    /// The step the row stopped at (0 for a precondition, postcondition or
-    /// aggregate).
-    pub step: u32,
-    /// The failure reason.
-    pub reason: String,
-}
-
-/// One case×format outcome record: a single rolled-up verdict in the results
-/// document.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OutcomeRecord {
-    /// The case id.
-    pub case: CaseId,
-    /// The wire format, when the case is format-parameterized.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub format: Option<FormatName>,
-    /// The rolled-up status.
-    pub status: OutcomeStatus,
-    /// Rows driven / rows selected (the printed coverage bound).
-    pub rows_driven: usize,
-    /// Rows selected.
-    pub rows_total: usize,
-    /// The first failing/erroring step, if any.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub failing_step: Option<u32>,
-    /// The failure/error reason, if any.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    /// The excusing citation — mandatory for `skipped`/`not_applicable`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub citation: Option<String>,
-    /// Every failing row of a table-driven case (empty unless `failed`) —
-    /// the per-row evidence a triage needs, not just the first reason.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub failed_rows: Vec<FailedRow>,
-    /// Every errored (inconclusive) row, whatever the rolled-up status: a
-    /// failed row outranks an errored one in `status`, and this list keeps the
-    /// errored row on the record all the same.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub errored_rows: Vec<FailedRow>,
-}
-
-impl OutcomeRecord {
-    /// The invariant: `skipped`/`not_applicable` records carry a citation.
-    ///
-    /// # Errors
-    /// [`PartyError::MissingCitation`] when the status needs a citation and
-    /// none is present.
-    pub fn check_invariants(&self) -> Result<(), PartyError> {
-        if self.status.needs_citation() && self.citation.as_deref().unwrap_or_default().is_empty() {
-            return Err(PartyError::MissingCitation {
-                case: self.case.to_string(),
-                status: self.status.token(),
-            });
-        }
-        Ok(())
-    }
-}
-
-/// What ISO/IEC 9646 test selection had to select the campaign with.
-///
-/// The ICS is the list of components and capabilities a party is answerable
-/// for (CNF profiles `master02-overview.adoc` §Overview), so a campaign
-/// driven without one is a sweep of the whole catalogue rather than a
-/// party-scoped record. A reader of the results document alone must be able
-/// to tell the two apart, because the option arms, the extension routes, the
-/// claimed capabilities and the release floors are all selected from the ICS.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SelectionBasis {
-    /// A party statement was supplied, so selection applied the ICS.
-    Statement,
-    /// No party statement was supplied: nothing selected the party's option
-    /// arms, extension routes, claimed capabilities or release floors.
-    StatementBlind,
-}
-
-impl SelectionBasis {
-    /// All variants, in vocabulary order (schema emission derives from this).
-    pub const ALL: &[SelectionBasis] = &[SelectionBasis::Statement, SelectionBasis::StatementBlind];
-
-    /// The basis token.
-    #[must_use]
-    pub fn token(self) -> &'static str {
-        match self {
-            SelectionBasis::Statement => "statement",
-            SelectionBasis::StatementBlind => "statement_blind",
-        }
-    }
-}
-
-/// Two provenance members of one results document that cannot both be true, so
-/// the conditions of the run cannot be reconstructed from the document at all.
-///
-/// A record with no provenance members is not this: absence is unknown, and a
-/// document written before a member existed carries nothing to contradict.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProvenanceContradiction {
-    /// `tech_profile.source` reads `declared` while `selection_basis` reads
-    /// `statement_blind`: a campaign nothing selected had no declaration to
-    /// read a technology profile from.
-    DeclaredProfileWithoutSelection,
-}
-
-impl std::fmt::Display for ProvenanceContradiction {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            ProvenanceContradiction::DeclaredProfileWithoutSelection => f.write_str(
-                "tech_profile.source reads declared and selection_basis reads statement_blind, \
-                 and a campaign no statement selected has no declaration to read a technology \
-                 profile from",
-            ),
-        }
-    }
-}
-
-/// A provenance digest's width in bytes, which renders as twice that many hex
-/// characters.
-const DIGEST_BYTES: usize = 8;
-
-/// The leading 8 bytes of the SHA-256 over a document's bytes, lowercase hex.
-///
-/// Nothing is canonicalized, reordered or reformatted first, so every recorded
-/// digest is the one `sha256sum <file> | cut -c1-16` prints over the file the
-/// campaign was handed.
-fn leading_digest(text: &str) -> String {
-    use std::fmt::Write as _;
-
-    use sha2::{Digest as _, Sha256};
-
-    Sha256::digest(text.as_bytes())
-        .iter()
-        .take(DIGEST_BYTES)
-        .fold(
-            String::with_capacity(DIGEST_BYTES.saturating_mul(2)),
-            |mut out, byte| {
-                let _ = write!(out, "{byte:02x}");
-                out
-            },
-        )
-}
-
-/// Returns the ixit digest a results record carries, which binds the record
-/// to the exact declaration it was taken under.
-///
-/// The digest is the leading 8 bytes of the SHA-256 over the ixit document's
-/// bytes exactly as they sit on disk, lowercase hex, so anyone holding the
-/// declaration re-derives the recorded value with
-/// `sha256sum ixit.json | cut -c1-16`.
-///
-/// ```
-/// use veredictum::party::ixit_digest;
-///
-/// // `printf '{}' | sha256sum` prints 44136fa355b3678a…
-/// assert_eq!(ixit_digest("{}"), "44136fa355b3678a");
-/// ```
-#[must_use]
-pub fn ixit_digest(ixit_text: &str) -> String {
-    leading_digest(ixit_text)
-}
-
-/// Returns the statement digest a results record carries, which names the
-/// exact claim the record was taken under.
-///
-/// Same shape as [`ixit_digest`], over the statement document's own bytes.
-///
-/// ```
-/// use veredictum::party::statement_digest;
-///
-/// // `printf '{}' | sha256sum` prints 44136fa355b3678a…
-/// assert_eq!(statement_digest("{}"), "44136fa355b3678a");
-/// ```
-#[must_use]
-pub fn statement_digest(statement_text: &str) -> String {
-    leading_digest(statement_text)
 }
 
 #[cfg(test)]
