@@ -19,7 +19,7 @@
   },
   "runner": {
     "name": "veredictum",
-    "version": "0.2.1",
+    "version": "0.3.0",
     "verification_pack_status": "not_run"
   },
   "instrument_status": "pre-approval",
