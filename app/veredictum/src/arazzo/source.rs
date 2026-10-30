@@ -9,46 +9,12 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, Mutex, PoisonError};
-use std::time::SystemTime;
+use std::sync::{LazyLock, Mutex};
 
 use serde_json::Value;
 
+use crate::load::{Stamp, memoized};
 use crate::vocab::HttpMethod;
-
-/// A file as last seen: its path, modification time and length.
-type Stamp = (PathBuf, SystemTime, u64);
-
-/// Returns the index of the file at `path`, built once per process for each
-/// version of the file a [`Stamp`] tells apart; a file whose metadata cannot
-/// be read is indexed afresh every time.
-// NOTE: no openEHR spec governs this — our own design: every catalogue
-// document names the same OpenAPI files, and parsing them per document dominated `validate`.
-fn memoized<T: Clone, E>(
-    cache: &Mutex<BTreeMap<Stamp, T>>,
-    path: &Path,
-    build: fn(&Path) -> Result<T, E>,
-) -> Result<T, E> {
-    let stamp = std::fs::metadata(path)
-        .ok()
-        .and_then(|meta| Some((path.to_owned(), meta.modified().ok()?, meta.len())));
-    let Some(stamp) = stamp else {
-        return build(path);
-    };
-    if let Some(hit) = cache
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .get(&stamp)
-    {
-        return Ok(hit.clone());
-    }
-    let index = build(path)?;
-    cache
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .insert(stamp, index.clone());
-    Ok(index)
-}
 
 /// One addressable operation of a source.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -14,7 +14,10 @@
               exchanges), whose shapes belong to the artifacts and the SUT"
 )]
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex, PoisonError};
+use std::time::SystemTime;
 
 use thiserror::Error;
 
@@ -106,16 +109,57 @@ pub fn yaml_str_to_value(text: &str, name: &Path) -> Result<serde_json::Value, L
     })
 }
 
-/// Parse one YAML file to a JSON value.
+/// Parse one YAML file to a JSON value, once per process for each version of
+/// the file.
 ///
 /// # Errors
 /// [`LoadError::Io`] / [`LoadError::Yaml`].
 pub fn yaml_file_to_value(path: &Path) -> Result<serde_json::Value, LoadError> {
+    static PARSED: LazyLock<Mutex<BTreeMap<Stamp, serde_json::Value>>> =
+        LazyLock::new(Mutex::default);
+    memoized(&PARSED, path, parse_yaml_file)
+}
+
+fn parse_yaml_file(path: &Path) -> Result<serde_json::Value, LoadError> {
     let text = std::fs::read_to_string(path).map_err(|source| LoadError::Io {
         path: path.to_owned(),
         source,
     })?;
     yaml_str_to_value(&text, path)
+}
+
+/// A file as last seen: its path, modification time and length.
+pub(crate) type Stamp = (PathBuf, SystemTime, u64);
+
+/// Returns what `build` makes of the file at `path`, built once per process
+/// for each version of the file a [`Stamp`] tells apart; a file whose
+/// metadata cannot be read is built afresh every time.
+// NOTE: no openEHR spec governs this — our own design: one `validate` parsed 814 files
+// 1901 times, as documents, dependencies and OpenAPI fragments each re-read them.
+pub(crate) fn memoized<T: Clone, E>(
+    cache: &Mutex<BTreeMap<Stamp, T>>,
+    path: &Path,
+    build: fn(&Path) -> Result<T, E>,
+) -> Result<T, E> {
+    let stamp = std::fs::metadata(path)
+        .ok()
+        .and_then(|meta| Some((path.to_owned(), meta.modified().ok()?, meta.len())));
+    let Some(stamp) = stamp else {
+        return build(path);
+    };
+    if let Some(hit) = cache
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get(&stamp)
+    {
+        return Ok(hit.clone());
+    }
+    let value = build(path)?;
+    cache
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(stamp, value.clone());
+    Ok(value)
 }
 
 /// Validate a value against a compiled schema.
