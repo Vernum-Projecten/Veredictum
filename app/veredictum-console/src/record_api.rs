@@ -40,6 +40,30 @@ impl Tally {
             skipped: self.skipped.saturating_add(other.skipped),
         }
     }
+
+    /// The rows a reader has to look at: failed, advisory and errored.
+    #[must_use]
+    pub const fn attention(self) -> u32 {
+        self.failed
+            .saturating_add(self.advisory)
+            .saturating_add(self.errored)
+    }
+
+    /// The counts of `rows`, read from the mark the engine gave each.
+    #[must_use]
+    pub fn of_rows(rows: &[ResultRow]) -> Self {
+        rows.iter().fold(Self::default(), |tally, row| {
+            let one = |mark: &str| u32::from(row.mark == mark);
+            tally.plus(Self {
+                tests: 1,
+                passed: one("passed"),
+                failed: one("failed"),
+                advisory: one("advisory"),
+                errored: one("errored"),
+                skipped: one("skipped"),
+            })
+        })
+    }
 }
 
 /// One results row as every group lists it.
@@ -64,6 +88,15 @@ pub struct ResultRow {
     pub trial: bool,
     /// The upstream reports the case rests on.
     pub reports: Vec<u64>,
+}
+
+impl ResultRow {
+    /// Whether a reader has to look at the row: it failed, is advisory, or
+    /// errored.
+    #[must_use]
+    pub fn needs_attention(&self) -> bool {
+        matches!(self.mark.as_str(), "failed" | "advisory" | "errored")
+    }
 }
 
 /// One BASE section of a band.
@@ -147,6 +180,15 @@ pub struct OptionView {
     pub arms: Vec<ArmView>,
 }
 
+impl OptionView {
+    /// Whether the option belongs to this run: it holds a row, or the
+    /// statement selected one of its arms.
+    #[must_use]
+    pub const fn in_run(&self) -> bool {
+        self.tally.tests > 0 || self.selected
+    }
+}
+
 /// The rows of one band resting on TRIAL text, read with the options.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TrialView {
@@ -177,6 +219,15 @@ pub struct TierBandView {
     pub trial: Option<TrialView>,
 }
 
+impl TierBandView {
+    /// Whether the band belongs to this run: it holds a row, or an option
+    /// of it does.
+    #[must_use]
+    pub fn in_run(&self) -> bool {
+        self.tally.tests > 0 || self.options.iter().any(OptionView::in_run)
+    }
+}
+
 /// One chapter of an option tier.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TierChapterView {
@@ -190,6 +241,14 @@ pub struct TierChapterView {
     pub tally: Tally,
     /// Its bands that hold an option or TRIAL text.
     pub bands: Vec<TierBandView>,
+}
+
+impl TierChapterView {
+    /// Whether the chapter belongs to this run: one of its bands does.
+    #[must_use]
+    pub fn in_run(&self) -> bool {
+        self.bands.iter().any(TierBandView::in_run)
+    }
 }
 
 /// One option tier, read chapter by chapter and band by band like BASE.
@@ -208,6 +267,14 @@ pub struct TierView {
 }
 
 impl TierView {
+    /// Whether the tier belongs to this run: one of its chapters, or one of
+    /// its options naming no document, does.
+    #[must_use]
+    pub fn in_run(&self) -> bool {
+        self.chapters.iter().any(TierChapterView::in_run)
+            || self.unanchored.iter().any(OptionView::in_run)
+    }
+
     /// Every option of the tier, band by band, then the unanchored ones.
     pub fn options(&self) -> impl Iterator<Item = &OptionView> {
         self.chapters
@@ -248,8 +315,8 @@ pub struct ReadingView {
     pub total: Tally,
     /// BASE, chapter by chapter.
     pub chapters: Vec<ChapterView>,
-    /// RECOMMENDED, OPTIONS (with the TRIAL blocks) and the spec boundary,
-    /// in that order.
+    /// Recommended (SHOULD), Optional (MAY, with the TRIAL blocks) and Spec
+    /// defect, in that order.
     pub tiers: Vec<TierView>,
     /// The rows resting on reported text, by report.
     pub reports: Vec<ReportView>,
@@ -576,6 +643,17 @@ pub mod read {
         })
     }
 
+    /// The heading of `tier` on the results page, in the words the catalogue
+    /// uses for it.
+    #[must_use]
+    pub const fn tier_title(tier: Tier) -> &'static str {
+        match tier {
+            Tier::Recommended => "Recommended (SHOULD)",
+            Tier::Options => "Optional (MAY)",
+            Tier::SpecBoundary => "Spec defect",
+        }
+    }
+
     /// One tier as the page lists it, chapter by chapter and band by band.
     ///
     /// # Errors
@@ -606,7 +684,7 @@ pub mod read {
             })
             .collect::<Result<Vec<_>, serde_json::Error>>()?;
         Ok(TierView {
-            title: tree.tier.title().to_owned(),
+            title: tier_title(tree.tier).to_owned(),
             tally: tally_of(&tree.tally),
             chapters,
             unanchored: tree

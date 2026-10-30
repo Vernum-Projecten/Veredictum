@@ -3,14 +3,20 @@
 
 //! S6 — the results surface (#61, #67, #867).
 //!
-//! The finished run's results document as the engine reads it: the chapter
-//! bars, then every row grouped BASE chapter by chapter, then the option
-//! tiers and the rows resting on reported text, red rows first in each
-//! group. A selected row's four-part explanation and the exchange it was
-//! judged on open at the top of the page. The selected row (`?case=`,
-//! `?row=`) and the chart's part (`?view=base|options`) live in the URL, so a
-//! finding is shareable and every control works without JavaScript.
+//! The finished run's results document as the engine reads it: the counts,
+//! the chapter bars, then the rows grouped BASE chapter by chapter, then the
+//! option tiers and the rows resting on reported text. By default a group
+//! lists only the rows that need attention (failed, advisory, errored), red
+//! first, and says in its heading how many passed or were skipped;
+//! `?rows=all` lists every row. A selected row's four-part explanation and
+//! the exchange it was judged on open at the top of the page, with a link
+//! back to the row in the list. The selected row (`?case=`, `?row=`), the
+//! chart's part (`?view=base|options`) and the listing (`?rows=`) live in the
+//! URL, so a finding is shareable and every control works without
+//! JavaScript.
 
+use std::cell::RefCell;
+use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
 use leptos::prelude::{
@@ -22,7 +28,7 @@ use leptos_meta::Title;
 use leptos_router::components::A;
 use leptos_router::hooks::use_query_map;
 
-use crate::chart::{Palette, View, of, render};
+use crate::chart::{NOT_IN_RUN, Palette, TIERS_NOT_IN_RUN, View, of, render};
 use crate::components::data_table::{TABLE, TABLE_WRAP, TD, TH};
 use crate::components::empty_state::EmptyState;
 use crate::components::field::BTN_SECONDARY;
@@ -34,9 +40,38 @@ use crate::pages::run::steps;
 use crate::record_api::fns::{fetch_result_detail, fetch_results};
 use crate::record_api::{
     BandView, CertificateNotice, ChapterView, ExchangeView, OptionView, ReadingView, RecordingView,
-    ReportView, ResultDetail, ResultRow, ResultsScreen, Tally, TierBandView, TierChapterView,
-    TierView,
+    ReportView, ResultDetail, ResultRow, ResultsScreen, SectionView, Tally, TierBandView,
+    TierChapterView, TierView,
 };
+
+/// Which rows the grouped list shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Rows {
+    /// Only the rows that need attention: failed, advisory, errored.
+    Attention,
+    /// Every row, passed and skipped included.
+    All,
+}
+
+impl Rows {
+    /// The listing the `?rows=` token names; attention for anything else.
+    fn from_token(token: &str) -> Self {
+        if token == "all" {
+            Self::All
+        } else {
+            Self::Attention
+        }
+    }
+}
+
+/// Where the list stands in the URL: the chart's part and which rows show.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Listing {
+    /// The chart's part.
+    view: View,
+    /// Which rows the list shows.
+    rows: Rows,
+}
 
 /// The `?case=` selection from the URL.
 fn query_case() -> Memo<String> {
@@ -56,19 +91,15 @@ fn query_row() -> Memo<u32> {
     })
 }
 
-/// The `?view=` part of the chart from the URL; BASE unless it names
-/// `options`.
-fn query_view() -> Memo<View> {
+/// The `?view=` part of the chart and the `?rows=` listing from the URL.
+fn query_listing() -> Memo<Listing> {
     let query = use_query_map();
-    Memo::new(move |_| query.with(|q| View::from_token(&q.get("view").unwrap_or_default())))
-}
-
-/// The token a view travels as in the URL.
-const fn view_token(view: View) -> &'static str {
-    match view {
-        View::Base => "base",
-        View::Options => "options",
-    }
+    Memo::new(move |_| {
+        query.with(|q| Listing {
+            view: View::from_token(&q.get("view").unwrap_or_default()),
+            rows: Rows::from_token(&q.get("rows").unwrap_or_default()),
+        })
+    })
 }
 
 /// `value` percent-encoded for a query string: everything outside the
@@ -85,17 +116,85 @@ fn query_value(value: &str) -> String {
     out
 }
 
-/// The address of one row's detail on this page, keeping the chart's part.
-fn row_href(row: &ResultRow, view: View) -> String {
-    let mut href = format!(
-        "/run/results?case={}&row={}",
-        query_value(&row.case),
-        row.row
-    );
-    if view == View::Options {
-        href.push_str("&view=options");
+/// The in-page anchor of one result row: `row-<case>-<row>`, the case id
+/// kept where it is a letter, digit, `_`, `-` or `/` and every other byte
+/// written `.XX`, so the anchor is one and the same token in an `id` and in
+/// a URL fragment.
+fn row_anchor(case: &str, row: u32) -> String {
+    let mut out = String::from("row-");
+    for byte in case.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'/') {
+            out.push(char::from(byte));
+        } else {
+            let _ = write!(out, ".{byte:02X}");
+        }
+    }
+    let _ = write!(out, "-{row}");
+    out
+}
+
+/// The address of the results page at `listing`, with the selected row and
+/// the fragment when given; the defaults (BASE, attention) stay out of it.
+fn page_href(listing: Listing, selected: Option<(&str, u32)>, fragment: Option<&str>) -> String {
+    let mut params = Vec::new();
+    if let Some((case, row)) = selected {
+        params.push(format!("case={}", query_value(case)));
+        params.push(format!("row={row}"));
+    }
+    if listing.view == View::Options {
+        params.push(String::from("view=options"));
+    }
+    if listing.rows == Rows::All {
+        params.push(String::from("rows=all"));
+    }
+    let mut href = String::from("/run/results");
+    if !params.is_empty() {
+        href.push('?');
+        href.push_str(&params.join("&"));
+    }
+    if let Some(fragment) = fragment {
+        href.push('#');
+        href.push_str(fragment);
     }
     href
+}
+
+/// One group's counts in words: "All 25 rows passed", or the row count and
+/// every outcome that occurs.
+fn counts_line(tally: &Tally) -> String {
+    match (tally.tests, tally.passed == tally.tests) {
+        (0, _) => String::from("no rows"),
+        (1, true) => String::from("The one row passed"),
+        (n, true) => format!("All {n} rows passed"),
+        (n, false) => {
+            let parts: Vec<String> = [
+                (tally.passed, "passed"),
+                (tally.failed, "failed"),
+                (tally.advisory, "advisory"),
+                (tally.errored, "errored"),
+                (tally.skipped, "skipped"),
+            ]
+            .into_iter()
+            .filter(|(count, _)| *count > 0)
+            .map(|(count, word)| format!("{count} {word}"))
+            .collect();
+            let rows = if n == 1 {
+                String::from("1 row")
+            } else {
+                format!("{n} rows")
+            };
+            format!("{rows}: {}", parts.join(", "))
+        }
+    }
+}
+
+/// The line naming, after `prefix`, what the run left out, or nothing when
+/// it left nothing.
+fn absent_line(prefix: &str, titles: &[&str]) -> Option<AnyView> {
+    (!titles.is_empty()).then(|| {
+        let line = format!("{prefix} {}", titles.join(", "));
+        view! { <p class="mb-4 text-sm italic text-ink-muted">{line}</p> }.into_any()
+    })
 }
 
 /// The chip classes of a mark, verdict semantics only: an advisory row never
@@ -115,12 +214,43 @@ fn mark_chip(mark: &str) -> &'static str {
 /// The small badge classes beside a case id.
 const BADGE: &str = "ml-1.5 rounded-control border border-edge-strong px-1 py-px text-[10px] font-medium uppercase tracking-wide text-ink-muted";
 
-/// One group's counts as one line of glyphs.
-fn tally_line(tally: &Tally) -> String {
-    format!(
-        "{} rows · {} ✓ · {} ✕ · {} ! · {} ? · {} ○",
-        tally.tests, tally.passed, tally.failed, tally.advisory, tally.errored, tally.skipped
-    )
+/// The counts beside a heading.
+const COUNTS: &str = "text-xs font-normal tabular-nums text-ink-muted";
+
+/// A tier heading: BASE, Recommended (SHOULD), Optional (MAY), Spec defect.
+const H_TIER: &str = "mb-3 mt-8 flex flex-wrap items-baseline gap-x-3 border-b border-edge pb-1.5 text-lg font-semibold text-ink-heading";
+
+/// A chapter heading.
+const H_CHAPTER: &str =
+    "mb-2 mt-5 flex flex-wrap items-baseline gap-x-3 text-base font-semibold text-ink-heading";
+
+/// A band heading.
+const H_BAND: &str =
+    "mb-1.5 flex flex-wrap items-baseline gap-x-3 text-sm font-semibold text-ink-heading";
+
+/// What every listed row needs from the page: the listing, the selected row,
+/// and the row anchors already given out, so each anchor names one element.
+struct Ctx {
+    /// Where the list stands in the URL.
+    listing: Listing,
+    /// The selected row's case.
+    case: Memo<String>,
+    /// The selected row's number.
+    row: Memo<u32>,
+    /// The row anchors already on the page.
+    seen: RefCell<BTreeSet<String>>,
+}
+
+impl Ctx {
+    /// Whether the list shows `row`.
+    fn shows(&self, row: &ResultRow) -> bool {
+        self.listing.rows == Rows::All || row.needs_attention()
+    }
+
+    /// Whether the list shows any of `rows`.
+    fn shows_any(&self, rows: &[ResultRow]) -> bool {
+        rows.iter().any(|row| self.shows(row))
+    }
 }
 
 /// The results surface.
@@ -132,7 +262,7 @@ fn tally_line(tally: &Tally) -> String {
 pub fn Results() -> impl IntoView {
     let case = query_case();
     let row = query_row();
-    let view = query_view();
+    let listing = query_listing();
     let screen = Resource::new(|| (), |()| fetch_results());
     let detail = Resource::new(
         move || (case.get(), row.get()),
@@ -149,7 +279,7 @@ pub fn Results() -> impl IntoView {
         <Title text="Results · Run · Veredictum console" />
         <PageHeader
             title="Results"
-            subtitle="The results by chapter, red rows first — a red row names a defect in exactly one of three suspects."
+            subtitle="What your server did, chapter by chapter. BASE is what every claimant must do; options are what your statement selected."
             crumbs=vec![Crumb::new("Run", "/run/connect")]
         >
             <div class="flex items-center gap-1">{steps("results")}</div>
@@ -159,7 +289,7 @@ pub fn Results() -> impl IntoView {
         <Suspense fallback=|| ()>
             {move || Suspend::new(async move {
                 match detail.await {
-                    Ok(Some(found)) => detail_view(&found, view.get()).into_any(),
+                    Ok(Some(found)) => detail_view(&found, listing.get()).into_any(),
                     Ok(None) => ().into_any(),
                     Err(e) => inline_error(&e.to_string()).into_any(),
                 }
@@ -170,7 +300,15 @@ pub fn Results() -> impl IntoView {
         }>
             {move || Suspend::new(async move {
                 match screen.await {
-                    Ok(Some(results)) => results_view(&results, view.get()).into_any(),
+                    Ok(Some(results)) => {
+                        let ctx = Ctx {
+                            listing: listing.get(),
+                            case,
+                            row,
+                            seen: RefCell::new(BTreeSet::new()),
+                        };
+                        results_view(&results, &ctx).into_any()
+                    }
                     Ok(None) => {
                         view! {
                             <EmptyState
@@ -230,64 +368,106 @@ fn certificate_view(notice: &CertificateNotice) -> impl IntoView + use<> {
 /// The five stat tiles: an advisory row has its own and is never failed.
 fn stats_view(total: &Tally) -> AnyView {
     view! {
-        <div class="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
-            <StatCard label="Passed" value=total.passed.to_string() icon=icondata_lu::LuCheck />
-            <StatCard label="Failed" value=total.failed.to_string() icon=icondata_lu::LuX />
+        <div class="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
             <StatCard
-                label="Advisory (a SHOULD not followed)"
+                label="Passed"
+                value=total.passed.to_string()
+                icon=icondata_lu::LuCheck
+                hint="did what the cited text requires"
+            />
+            <StatCard
+                label="Failed"
+                value=total.failed.to_string()
+                icon=icondata_lu::LuX
+                hint="counts against the server"
+            />
+            <StatCard
+                label="Advisory"
                 value=total.advisory.to_string()
                 icon=icondata_lu::LuCircleAlert
+                hint="a SHOULD not followed, never counts"
             />
             <StatCard
-                label="Errored (inconclusive)"
+                label="Errored"
                 value=total.errored.to_string()
                 icon=icondata_lu::LuCircleHelp
+                hint="the instrument could not judge"
             />
             <StatCard
-                label="Skipped with citation"
+                label="Skipped"
                 value=total.skipped.to_string()
                 icon=icondata_lu::LuFileText
+                hint="not run, with its reason"
             />
         </div>
     }
     .into_any()
 }
 
-/// The chapter bars, both theme variants, with the two links choosing BASE
-/// or OPTIONS.
-fn chart_view(reading: &ReadingView, view: View) -> AnyView {
-    let chart = of(reading, view);
-    let light = render(&chart, Palette::Light);
-    let dark = render(&chart, Palette::Dark);
-    let link = |target: View, label: &'static str| {
-        let current = target == view;
-        let class = if current {
-            "rounded-control bg-accent-subtle px-2 py-1 font-medium text-accent-ink"
-        } else {
-            "rounded-control px-2 py-1 text-accent hover:underline"
-        };
-        view! {
-            <a
-                href=format!("/run/results?view={}", view_token(target))
-                class=class
-                aria-current=current.then_some("true")
-            >
-                {label}
-            </a>
-        }
+/// One link of a toggle: the current choice is marked, every link keeps the
+/// selected row.
+fn toggle_link(target: Listing, current: bool, label: String, ctx: &Ctx) -> AnyView {
+    let class = if current {
+        "rounded-control bg-accent-subtle px-2 py-1 font-medium text-accent-ink"
+    } else {
+        "rounded-control px-2 py-1 text-accent hover:underline"
     };
-    let title = match view {
-        View::Base => "BASE outcomes by chapter",
-        View::Options => "OPTIONS outcomes by tier",
+    let (case, row) = (ctx.case, ctx.row);
+    let href = move || {
+        case.with(|case| {
+            let selected = (!case.is_empty()).then(|| (case.as_str(), row.get()));
+            page_href(target, selected, None)
+        })
     };
     view! {
-        <section id="outcome-chart" class=format!("{CARD_PAD} mb-4")>
-            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <a href=href class=class aria-current=current.then_some("true")>
+            {label}
+        </a>
+    }
+    .into_any()
+}
+
+/// The chapter bars, both theme variants, with the links choosing the
+/// chart's part and which rows the list shows.
+fn chart_view(reading: &ReadingView, ctx: &Ctx) -> AnyView {
+    let here = ctx.listing;
+    let chart = of(reading, here.view);
+    let light = render(&chart, Palette::Light);
+    let dark = render(&chart, Palette::Dark);
+    let view_link = |view: View, label: &str| {
+        toggle_link(
+            Listing { view, ..here },
+            here.view == view,
+            label.to_owned(),
+            ctx,
+        )
+    };
+    let rows_link = |rows: Rows, label: String| {
+        toggle_link(Listing { rows, ..here }, here.rows == rows, label, ctx)
+    };
+    let title = match here.view {
+        View::Base => "BASE by chapter",
+        View::Options => "Options by tier and chapter",
+    };
+    view! {
+        <section id="outcome-chart" class=format!("{CARD_PAD} mb-6")>
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <h2 class="text-sm font-semibold text-ink-heading">{title}</h2>
-                <nav aria-label="Chart part" class="flex items-center gap-1 text-sm">
-                    {link(View::Base, "BASE")}
-                    {link(View::Options, "OPTIONS")}
-                </nav>
+                <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+                    <nav aria-label="Chart part" class="flex items-center gap-1">
+                        <span class="mr-1 text-xs text-ink-muted">"Chart"</span>
+                        {view_link(View::Base, "BASE")}
+                        {view_link(View::Options, "Options")}
+                    </nav>
+                    <nav aria-label="Rows listed" class="flex items-center gap-1">
+                        <span class="mr-1 text-xs text-ink-muted">"Rows"</span>
+                        {rows_link(
+                            Rows::Attention,
+                            format!("Needing attention ({})", reading.total.attention()),
+                        )}
+                        {rows_link(Rows::All, format!("All ({})", reading.total.tests))}
+                    </nav>
+                </div>
             </div>
             <div class="chart-light" inner_html=light></div>
             <div class="chart-dark" inner_html=dark></div>
@@ -329,41 +509,59 @@ fn badges(row: &ResultRow) -> AnyView {
     .into_any()
 }
 
-/// The table body rows of one group.
-fn row_cells(rows: &[ResultRow], view: View) -> AnyView {
+/// One listed row: its anchor (the first time the row is listed), its link
+/// to the detail, and the highlight while it is the selected row.
+fn row_view(row: &ResultRow, ctx: &Ctx) -> AnyView {
+    let anchor = row_anchor(&row.case, row.row);
+    let id = ctx
+        .seen
+        .borrow_mut()
+        .insert(anchor.clone())
+        .then_some(anchor);
+    let href = page_href(ctx.listing, Some((&row.case, row.row)), Some("detail"));
+    let (case, at) = (ctx.case, ctx.row);
+    let mine = row.case.clone();
+    let number = row.row;
+    let selected = move || at.get() == number && case.with(|case| *case == mine);
+    let current = selected.clone();
+    let chip = mark_chip(&row.mark);
+    let badges = badges(row);
+    view! {
+        <tr id=id class="result-line hover:bg-sunken" class:result-row-selected=selected>
+            <td class=TD>
+                <a
+                    href=href
+                    class="result-row font-mono text-xs text-accent hover:underline"
+                    aria-current=move || current().then_some("true")
+                >
+                    {row.case.clone()}
+                </a>
+                {badges}
+            </td>
+            <td class=format!("{TD} text-right")>
+                <span class="tabular-nums">{row.row}</span>
+            </td>
+            <td class=format!("{TD} whitespace-nowrap")>
+                <span class="mr-1 text-ink-muted" aria-hidden="true">
+                    {row.glyph.clone()}
+                </span>
+                <span class=chip>{row.mark.clone()}</span>
+            </td>
+            <td class=TD>
+                <span class="line-clamp-2 font-mono text-xs">
+                    {row.reason.clone().unwrap_or_default()}
+                </span>
+            </td>
+        </tr>
+    }
+    .into_any()
+}
+
+/// The listed rows of one group.
+fn row_cells(rows: &[ResultRow], ctx: &Ctx) -> AnyView {
     rows.iter()
-        .map(|row| {
-            let href = row_href(row, view);
-            let chip = mark_chip(&row.mark);
-            let badges = badges(row);
-            view! {
-                <tr class="hover:bg-sunken">
-                    <td class=TD>
-                        <a
-                            href=href
-                            class="result-row font-mono text-xs text-accent hover:underline"
-                        >
-                            {row.case.clone()}
-                        </a>
-                        {badges}
-                    </td>
-                    <td class=TD>
-                        <span class="tabular-nums">{row.row}</span>
-                    </td>
-                    <td class=TD>
-                        <span class="mr-1 text-ink-muted" aria-hidden="true">
-                            {row.glyph.clone()}
-                        </span>
-                        <span class=chip>{row.mark.clone()}</span>
-                    </td>
-                    <td class=TD>
-                        <span class="line-clamp-2 font-mono text-xs">
-                            {row.reason.clone().unwrap_or_default()}
-                        </span>
-                    </td>
-                </tr>
-            }
-        })
+        .filter(|row| ctx.shows(row))
+        .map(|row| row_view(row, ctx))
         .collect_view()
         .into_any()
 }
@@ -373,28 +571,37 @@ fn table_head() -> AnyView {
     view! {
         <thead>
             <tr>
-                <th class=TH>"Case"</th>
-                <th class=TH>"Row"</th>
-                <th class=TH>"Outcome"</th>
-                <th class=TH>"Received or skip reason"</th>
+                <th class=format!("{TH} w-1/2")>"Case"</th>
+                <th class=format!("{TH} w-12 text-right")>"Row"</th>
+                <th class=format!("{TH} w-28")>"Outcome"</th>
+                <th class=TH>"Received, or why it was skipped"</th>
             </tr>
         </thead>
     }
     .into_any()
 }
 
-/// One labelled block of a table: a header row carrying the anchor, then
-/// the rows.
-fn table_block(anchor: String, heading: AnyView, rows: &[ResultRow], view: View) -> AnyView {
-    let cells = row_cells(rows, view);
+/// One labelled block of a table: a header row carrying the anchor and the
+/// counts, then the listed rows.
+fn table_block(
+    anchor: String,
+    title: String,
+    extra: Option<AnyView>,
+    tally: &Tally,
+    rows: &[ResultRow],
+    ctx: &Ctx,
+) -> AnyView {
+    let cells = row_cells(rows, ctx);
     view! {
         <tbody id=anchor>
             <tr>
                 <th
                     colspan="4"
-                    class="bg-sunken px-3 py-1.5 text-left text-xs font-semibold text-ink-heading"
+                    class="border-t border-edge bg-sunken px-3 py-1.5 text-left text-xs font-semibold text-ink-heading"
                 >
-                    {heading}
+                    <span>{title}</span>
+                    {extra}
+                    <span class=format!("ml-3 {COUNTS}")>{counts_line(tally)}</span>
                 </th>
             </tr>
             {cells}
@@ -403,75 +610,79 @@ fn table_block(anchor: String, heading: AnyView, rows: &[ResultRow], view: View)
     .into_any()
 }
 
-/// A one-line heading of a block: its title and its counts.
-fn block_heading(title: String, extra: Option<AnyView>, tally: &Tally) -> AnyView {
-    let line = tally_line(tally);
-    view! {
-        <span>{title}</span>
-        {extra}
-        <span class="ml-2 font-normal text-ink-muted">{line}</span>
-    }
-    .into_any()
-}
-
-/// One BASE band: its sections as blocks of one table, or "no cases".
-fn band_view(band: &BandView, view: View) -> AnyView {
-    if band.sections.is_empty() {
-        return view! {
-            <p id=band.anchor.clone() class="mb-3 text-sm text-ink-muted">
-                <span class="font-medium text-ink">{band.title.clone()}</span>
-                ": no cases"
-            </p>
-        }
-        .into_any();
-    }
-    let blocks = band
-        .sections
-        .iter()
-        .map(|section| {
-            let extra = section
-                .formalism
-                .clone()
-                .map(|label| view! { <span class=BADGE>{label}</span> }.into_any());
-            table_block(
-                section.anchor.clone(),
-                block_heading(section.title.clone(), extra, &section.tally),
-                &section.rows,
-                view,
-            )
-        })
-        .collect_view();
+/// One table of blocks under the shared column heads.
+fn blocks_table(blocks: AnyView) -> AnyView {
     let head = table_head();
     view! {
-        <div id=band.anchor.clone() class="mb-4">
-            <h4 class="mb-1 text-sm font-semibold text-ink-heading">
-                {band.title.clone()}
-                <span class="ml-2 font-normal text-ink-muted">{tally_line(&band.tally)}</span>
-            </h4>
-            <div class=TABLE_WRAP>
-                <table class=TABLE>{head} {blocks}</table>
-            </div>
+        <div class=TABLE_WRAP>
+            <table class=format!("{TABLE} table-fixed")>{head} {blocks}</table>
         </div>
     }
     .into_any()
 }
 
-/// One BASE chapter with its bands.
-fn chapter_view(chapter: &ChapterView, view: View) -> AnyView {
+/// One BASE section as a block of its band's table.
+fn section_block(section: &SectionView, ctx: &Ctx) -> AnyView {
+    let extra = section
+        .formalism
+        .clone()
+        .map(|label| view! { <span class=BADGE>{label}</span> }.into_any());
+    table_block(
+        section.anchor.clone(),
+        section.title.clone(),
+        extra,
+        &section.tally,
+        &section.rows,
+        ctx,
+    )
+}
+
+/// One BASE band: its heading and counts, then its sections as one table
+/// when it lists a row.
+fn band_view(band: &BandView, ctx: &Ctx) -> AnyView {
+    let sections: Vec<&SectionView> = band
+        .sections
+        .iter()
+        .filter(|section| section.tally.tests > 0)
+        .collect();
+    let table = sections
+        .iter()
+        .any(|section| ctx.shows_any(&section.rows))
+        .then(|| {
+            let blocks = sections
+                .iter()
+                .map(|section| section_block(section, ctx))
+                .collect_view()
+                .into_any();
+            blocks_table(blocks)
+        });
+    view! {
+        <div id=band.anchor.clone() class="mb-4">
+            <h4 class=H_BAND>
+                <span>{band.title.clone()}</span>
+                <span class=COUNTS>{counts_line(&band.tally)}</span>
+            </h4>
+            {table}
+        </div>
+    }
+    .into_any()
+}
+
+/// One BASE chapter with its bands that hold a row.
+fn chapter_view(chapter: &ChapterView, ctx: &Ctx) -> AnyView {
     let bands = chapter
         .bands
         .iter()
-        .map(|band| band_view(band, view))
+        .filter(|band| band.tally.tests > 0)
+        .map(|band| band_view(band, ctx))
         .collect_view();
     view! {
         <section id=chapter.anchor.clone() class="mb-6">
-            <h3 class="mb-2 text-base font-semibold text-ink-heading">
+            <h3 class=H_CHAPTER>
                 <a href=chapter.href.clone() class="hover:underline">
                     {chapter.title.clone()}
                 </a>
-                <span class="ml-2 text-sm font-normal text-ink-muted">
-                    {tally_line(&chapter.tally)}
-                </span>
+                <span class=COUNTS>{counts_line(&chapter.tally)}</span>
             </h3>
             {bands}
         </section>
@@ -487,27 +698,33 @@ fn rows_block(
     note: Option<String>,
     tally: &Tally,
     rows: &[ResultRow],
-    view: View,
+    ctx: &Ctx,
 ) -> AnyView {
-    let head = table_head();
-    let cells = row_cells(rows, view);
-    let note = note.map(|note| view! { <p class="mb-1 text-sm text-ink-muted">{note}</p> });
+    let table = ctx.shows_any(rows).then(|| {
+        let head = table_head();
+        let cells = row_cells(rows, ctx);
+        view! {
+            <div class=TABLE_WRAP>
+                <table class=format!("{TABLE} table-fixed")>{head} <tbody>{cells}</tbody></table>
+            </div>
+        }
+    });
+    let note = note.map(|note| view! { <p class="mb-1.5 text-xs text-ink-muted">{note}</p> });
     view! {
         <div id=anchor class="mb-4">
-            <h4 class="text-sm font-semibold text-ink-heading">
-                {title} <span class="ml-2 font-normal text-ink-muted">{tally_line(tally)}</span>
+            <h4 class=H_BAND>
+                <span>{title}</span>
+                <span class=COUNTS>{counts_line(tally)}</span>
             </h4>
             {note}
-            <div class=TABLE_WRAP>
-                <table class=TABLE>{head} <tbody>{cells}</tbody></table>
-            </div>
+            {table}
         </div>
     }
     .into_any()
 }
 
 /// One report's rows, with its title and state from the committed snapshot.
-fn report_view(report: &ReportView, view: View) -> AnyView {
+fn report_view(report: &ReportView, ctx: &Ctx) -> AnyView {
     let title = match &report.title {
         Some(title) => format!("report #{}: {title}", report.report),
         None => format!("report #{}", report.report),
@@ -522,33 +739,49 @@ fn report_view(report: &ReportView, view: View) -> AnyView {
         note,
         &report.tally,
         &report.rows,
-        view,
+        ctx,
     )
 }
 
+/// What an option's arm or the option itself reads as its state.
+fn arm_state(empty: bool, selected: bool) -> &'static str {
+    if empty {
+        "nothing to run"
+    } else if selected {
+        "selected"
+    } else {
+        "not selected"
+    }
+}
+
 /// One option under its band: its name with the arm the statement selected,
-/// its theme and description, then one block per arm with its rows.
-fn option_view(option: &OptionView, view: View) -> AnyView {
-    let blocks = option
+/// its theme and counts, then its arms as one table when it lists a row.
+fn option_view(option: &OptionView, ctx: &Ctx) -> AnyView {
+    let arms: Vec<_> = option
         .arms
         .iter()
-        .map(|arm| {
-            let state = if arm.empty {
-                "nothing to run"
-            } else if arm.selected {
-                "selected"
-            } else {
-                "not selected"
-            };
-            let extra = Some(view! { <span class=BADGE>{state}</span> }.into_any());
-            table_block(
-                format!("{}-{}", option.anchor, arm.arm),
-                block_heading(arm.arm.clone(), extra, &arm.tally),
-                &arm.rows,
-                view,
-            )
-        })
-        .collect_view();
+        .filter(|arm| arm.tally.tests > 0 || arm.selected)
+        .collect();
+    let listed = arms.iter().any(|arm| ctx.shows_any(&arm.rows));
+    let table = listed.then(|| {
+        let blocks = arms
+            .iter()
+            .map(|arm| {
+                let state = arm_state(arm.empty, arm.selected);
+                let extra = Some(view! { <span class=BADGE>{state}</span> }.into_any());
+                table_block(
+                    format!("{}-{}", option.anchor, arm.arm),
+                    arm.arm.clone(),
+                    extra,
+                    &arm.tally,
+                    &arm.rows,
+                    ctx,
+                )
+            })
+            .collect_view()
+            .into_any();
+        blocks_table(blocks)
+    });
     let chosen: Vec<&str> = option
         .arms
         .iter()
@@ -567,50 +800,57 @@ fn option_view(option: &OptionView, view: View) -> AnyView {
             </a>
         }
     });
-    let head = table_head();
+    let description = listed.then(|| {
+        view! { <p class="mb-1.5 text-xs text-ink-muted">{option.description.clone()}</p> }
+    });
     view! {
-        <div id=option.anchor.clone() class="mb-4 ml-4">
-            <h5 class="text-sm font-semibold text-ink-heading">
-                <span class="font-mono">{option.option.clone()}</span>
-                <span class="ml-2 font-normal text-ink-muted">{selection}</span>
+        <div id=option.anchor.clone() class="mb-3 ml-4">
+            <h5 class="mb-1 flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-ink-heading">
+                <span class="font-mono" title=option.description.clone()>
+                    {option.option.clone()}
+                </span>
+                <span class="text-xs font-normal text-ink-muted">{selection}</span>
                 <span class=BADGE>{option.theme.clone()}</span>
                 {report}
-                <span class="ml-2 font-normal text-ink-muted">{tally_line(&option.tally)}</span>
+                <span class=COUNTS>{counts_line(&option.tally)}</span>
             </h5>
-            <p class="mb-1 text-sm text-ink-muted">{option.description.clone()}</p>
-            <div class=TABLE_WRAP>
-                <table class=TABLE>{head} {blocks}</table>
-            </div>
+            {description}
+            {table}
         </div>
     }
     .into_any()
 }
 
-/// One band of a tier: its options, then its TRIAL rows.
-fn tier_band_view(band: &TierBandView, view: View) -> AnyView {
+/// One band of a tier: its options in this run, then its TRIAL rows.
+fn tier_band_view(band: &TierBandView, ctx: &Ctx) -> AnyView {
     let options = band
         .options
         .iter()
-        .map(|option| option_view(option, view))
+        .filter(|option| option.in_run())
+        .map(|option| option_view(option, ctx))
         .collect_view();
-    let trial = band.trial.as_ref().map(|trial| {
-        let block = rows_block(
-            trial.anchor.clone(),
-            trial.title.clone(),
-            Some(String::from(
-                "BASE cases whose citations rest on text the release marks TRIAL, read with the options.",
-            )),
-            &trial.tally,
-            &trial.rows,
-            view,
-        );
-        view! { <div class="ml-4">{block}</div> }
-    });
+    let trial = band
+        .trial
+        .as_ref()
+        .filter(|trial| trial.tally.tests > 0)
+        .map(|trial| {
+            let block = rows_block(
+                trial.anchor.clone(),
+                trial.title.clone(),
+                Some(String::from(
+                    "BASE cases whose citations rest on text the release marks TRIAL, read with the options.",
+                )),
+                &trial.tally,
+                &trial.rows,
+                ctx,
+            );
+            view! { <div class="ml-4">{block}</div> }
+        });
     view! {
         <div id=band.anchor.clone() class="mb-4">
-            <h4 class="mb-1 text-sm font-semibold text-ink-heading">
-                {band.title.clone()}
-                <span class="ml-2 font-normal text-ink-muted">{tally_line(&band.tally)}</span>
+            <h4 class=H_BAND>
+                <span>{band.title.clone()}</span>
+                <span class=COUNTS>{counts_line(&band.tally)}</span>
             </h4>
             {options}
             {trial}
@@ -619,20 +859,19 @@ fn tier_band_view(band: &TierBandView, view: View) -> AnyView {
     .into_any()
 }
 
-/// One chapter of a tier with its bands.
-fn tier_chapter_view(chapter: &TierChapterView, view: View) -> AnyView {
+/// One chapter of a tier with its bands in this run.
+fn tier_chapter_view(chapter: &TierChapterView, ctx: &Ctx) -> AnyView {
     let bands = chapter
         .bands
         .iter()
-        .map(|band| tier_band_view(band, view))
+        .filter(|band| band.in_run())
+        .map(|band| tier_band_view(band, ctx))
         .collect_view();
     view! {
         <section id=chapter.anchor.clone() class="mb-5">
-            <h3 class="mb-2 text-base font-semibold text-ink-heading">
-                {chapter.title.clone()}
-                <span class="ml-2 text-sm font-normal text-ink-muted">
-                    {tally_line(&chapter.tally)}
-                </span>
+            <h3 class=H_CHAPTER>
+                <span>{chapter.title.clone()}</span>
+                <span class=COUNTS>{counts_line(&chapter.tally)}</span>
             </h3>
             {bands}
         </section>
@@ -640,90 +879,121 @@ fn tier_chapter_view(chapter: &TierChapterView, view: View) -> AnyView {
     .into_any()
 }
 
-/// The reported rows the spec boundary closes with, grouped by report.
-fn reports_view(reports: &[ReportView], view: View) -> AnyView {
-    if reports.is_empty() {
-        return view! {
-            <h3 class="mb-2 mt-4 text-base font-semibold text-ink-heading">
-                "Rows resting on text reported as defective"
-            </h3>
-            <p class="mb-3 text-sm text-ink-muted">
-                "No row rests on text an upstream report records."
-            </p>
-        }
-        .into_any();
-    }
-    let blocks = reports
-        .iter()
-        .map(|report| report_view(report, view))
-        .collect_view();
-    view! {
-        <h3 class="mb-2 mt-4 text-base font-semibold text-ink-heading">
-            "Rows resting on text reported as defective"
-        </h3>
-        {blocks}
-    }
-    .into_any()
-}
-
 /// One option tier read like BASE: chapter, band, option, with the TRIAL
-/// rows inside their band, the options naming no document after, and on the
-/// spec boundary the rows grouped by the report their text rests on.
-fn tier_view(tier: &TierView, reports: &[ReportView], view: View, boundary: bool) -> AnyView {
+/// rows inside their band and the options naming no document after.
+fn tier_view(tier: &TierView, ctx: &Ctx) -> AnyView {
     let chapters = tier
         .chapters
         .iter()
-        .map(|chapter| tier_chapter_view(chapter, view))
+        .filter(|chapter| chapter.in_run())
+        .map(|chapter| tier_chapter_view(chapter, ctx))
         .collect_view();
-    let unanchored = (!tier.unanchored.is_empty()).then(|| {
-        let options = tier
-            .unanchored
+    let absent: Vec<&str> = tier
+        .chapters
+        .iter()
+        .filter(|chapter| !chapter.in_run())
+        .map(|chapter| chapter.title.as_str())
+        .collect();
+    let unanchored: Vec<&OptionView> = tier
+        .unanchored
+        .iter()
+        .filter(|option| option.in_run())
+        .collect();
+    let unanchored = (!unanchored.is_empty()).then(|| {
+        let options = unanchored
             .iter()
-            .map(|option| option_view(option, view))
+            .map(|option| option_view(option, ctx))
             .collect_view();
         view! {
             <section class="mb-5">
-                <h3 class="mb-2 text-base font-semibold text-ink-heading">
-                    "Options naming no document yet"
-                </h3>
+                <h3 class=H_CHAPTER>"Options naming no document yet"</h3>
                 {options}
             </section>
         }
     });
-    let empty = (tier.chapters.is_empty() && tier.unanchored.is_empty())
-        .then(|| view! { <p class="mb-3 text-sm text-ink-muted">"No option of this tier."</p> });
-    let reports = boundary.then(|| reports_view(reports, view));
     view! {
         <section id=tier.anchor.clone() class="mb-6">
-            <h2 class="mb-3 text-lg font-semibold text-ink-heading">
-                {tier.title.clone()}
-                <span class="ml-2 text-sm font-normal text-ink-muted">
-                    {tally_line(&tier.tally)}
-                </span>
+            <h2 class=H_TIER>
+                <span>{tier.title.clone()}</span>
+                <span class=COUNTS>{counts_line(&tier.tally)}</span>
             </h2>
             {chapters}
             {unanchored}
-            {empty}
-            {reports}
+            {absent_line(NOT_IN_RUN, &absent)}
         </section>
     }
     .into_any()
 }
 
-/// Every row, grouped as the engine reads the results.
-fn grouped_view(reading: &ReadingView, view: View) -> AnyView {
+/// The rows resting on text an upstream report records as defective,
+/// grouped by report; nothing when no row does.
+fn reports_view(reports: &[ReportView], ctx: &Ctx) -> Option<AnyView> {
+    (!reports.is_empty()).then(|| {
+        let blocks = reports
+            .iter()
+            .map(|report| report_view(report, ctx))
+            .collect_view();
+        view! {
+            <section id="reported-rows" class="mb-6">
+                <h2 class=H_TIER>"Rows resting on text reported as defective"</h2>
+                {blocks}
+            </section>
+        }
+        .into_any()
+    })
+}
+
+/// The sentence above the list saying which rows it holds.
+fn listing_note(total: &Tally, rows: Rows) -> String {
+    match (rows, total.attention()) {
+        (Rows::All, _) => format!(
+            "Listing all {} rows, red rows first in each group.",
+            total.tests
+        ),
+        (Rows::Attention, 0) => String::from(
+            "No row needs attention: every row passed or was skipped. Each heading counts its rows.",
+        ),
+        (Rows::Attention, 1) => String::from(
+            "Listing the one row that needs attention. Each heading counts its passed and skipped rows.",
+        ),
+        (Rows::Attention, n) => format!(
+            "Listing the {n} rows that need attention, red first. Each heading counts its passed and skipped rows."
+        ),
+    }
+}
+
+/// The rows, grouped as the engine reads the results.
+fn grouped_view(reading: &ReadingView, ctx: &Ctx) -> AnyView {
+    let base = reading
+        .chapters
+        .iter()
+        .map(|c| c.tally)
+        .fold(Tally::default(), Tally::plus);
     let chapters = reading
         .chapters
         .iter()
-        .map(|chapter| chapter_view(chapter, view))
+        .filter(|chapter| chapter.tally.tests > 0)
+        .map(|chapter| chapter_view(chapter, ctx))
         .collect_view();
-    let last = reading.tiers.len().saturating_sub(1);
+    let absent_chapters: Vec<&str> = reading
+        .chapters
+        .iter()
+        .filter(|chapter| chapter.tally.tests == 0)
+        .map(|chapter| chapter.title.as_str())
+        .collect();
     let tiers = reading
         .tiers
         .iter()
-        .enumerate()
-        .map(|(at, tier)| tier_view(tier, &reading.reports, view, at == last))
+        .filter(|tier| tier.in_run())
+        .map(|tier| tier_view(tier, ctx))
         .collect_view();
+    let absent_tiers: Vec<&str> = reading
+        .tiers
+        .iter()
+        .filter(|tier| !tier.in_run())
+        .map(|tier| tier.title.as_str())
+        .collect();
+    let reports = reports_view(&reading.reports, ctx);
     let unplaced = (!reading.unplaced.is_empty()).then(|| {
         rows_block(
             String::from("unplaced"),
@@ -731,16 +1001,24 @@ fn grouped_view(reading: &ReadingView, view: View) -> AnyView {
             Some(String::from(
                 "Rows the results document places in no chapter or option.",
             )),
-            &Tally::default(),
+            &Tally::of_rows(&reading.unplaced),
             &reading.unplaced,
-            view,
+            ctx,
         )
     });
+    let note = listing_note(&reading.total, ctx.listing.rows);
     view! {
         <div id="result-rows">
-            <h2 class="mb-3 text-lg font-semibold text-ink-heading">"BASE"</h2>
+            <p class="mb-2 text-sm text-ink-muted">{note}</p>
+            <h2 class=H_TIER>
+                <span>"BASE"</span>
+                <span class=COUNTS>{counts_line(&base)}</span>
+            </h2>
             {chapters}
+            {absent_line(NOT_IN_RUN, &absent_chapters)}
             {tiers}
+            {absent_line(TIERS_NOT_IN_RUN, &absent_tiers)}
+            {reports}
             {unplaced}
         </div>
     }
@@ -748,15 +1026,17 @@ fn grouped_view(reading: &ReadingView, view: View) -> AnyView {
 }
 
 /// The tallies, the chart and the grouped rows.
-fn results_view(results: &ResultsScreen, view: View) -> AnyView {
+fn results_view(results: &ResultsScreen, ctx: &Ctx) -> AnyView {
     let stats = stats_view(&results.reading.total);
     let certificate = certificate_view(&results.certificate);
-    let chart = chart_view(&results.reading, view);
-    let rows = grouped_view(&results.reading, view);
+    let chart = chart_view(&results.reading, ctx);
+    let rows = grouped_view(&results.reading, ctx);
     view! {
         {stats}
         {certificate}
-        <p class="mb-2 text-sm text-ink-muted">{format!("Base URL: {}", results.base_url)}</p>
+        <p class="mb-3 text-sm text-ink-muted">
+            "Base URL: " <span class="font-mono text-xs text-ink">{results.base_url.clone()}</span>
+        </p>
         {chart}
         {rows}
     }
@@ -812,9 +1092,10 @@ fn part(label: &'static str, value: Option<String>) -> impl IntoView + use<> {
 }
 
 /// The selected row's detail: the engine's four-part explanation beside the
-/// exchange it was judged on, the catalogue case it came from, and the
-/// attribution law stated where a red row is read.
-fn detail_view(detail: &ResultDetail, view: View) -> AnyView {
+/// exchange it was judged on, the catalogue case it came from, the way back
+/// to the row in the list, and the attribution law stated where a red row is
+/// read.
+fn detail_view(detail: &ResultDetail, listing: Listing) -> AnyView {
     let report = detail.report.map(|report| {
         view! {
             <p class="text-sm text-ink">
@@ -833,22 +1114,31 @@ fn detail_view(detail: &ResultDetail, view: View) -> AnyView {
             </a>
         }
     });
-    let close = match view {
-        View::Base => String::from("/run/results"),
-        View::Options => String::from("/run/results?view=options"),
-    };
+    let back = page_href(
+        listing,
+        None,
+        Some(&row_anchor(&detail.row.case, detail.row.row)),
+    );
     let chip = mark_chip(&detail.row.mark);
     let badges = badges(&detail.row);
     let wire = recording_view(&detail.recording);
+    // NOTE: no openEHR spec governs this — our own design; a full load lets
+    // the browser itself scroll to the streamed row and mark it `:target`.
     view! {
-        <section id="result-detail" class=format!("{CARD_PAD} mb-4")>
+        <section id="detail" class=format!("{CARD_PAD} mb-4")>
             <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-sm font-semibold text-ink-heading">
                     {format!("{} · row {}", detail.row.case, detail.row.row)}
                 </h2>
-                <div class="flex items-center gap-3">
-                    {catalogue} <a href=close class="text-sm text-ink-muted hover:underline">
-                        "Close"
+                <div class="flex items-center gap-4">
+                    {catalogue}
+                    <a
+                        id="result-back"
+                        href=back
+                        rel="external"
+                        class="text-sm font-medium text-accent hover:underline"
+                    >
+                        "Back to the row"
                     </a>
                 </div>
             </div>
@@ -882,7 +1172,8 @@ fn detail_view(detail: &ResultDetail, view: View) -> AnyView {
 
 #[cfg(test)]
 mod tests {
-    use super::query_value;
+    use super::{Listing, Rows, View, counts_line, page_href, query_value, row_anchor};
+    use crate::record_api::Tally;
 
     /// A case id keeps its `/` and loses nothing that would split a query.
     #[test]
@@ -892,5 +1183,70 @@ mod tests {
             "agent_tags_get/agent_tags_get-empty"
         );
         assert_eq!(query_value("a&b=c d+é"), "a%26b%3Dc%20d%2B%C3%A9");
+    }
+
+    /// A row anchor reads its case id as written, and escapes anything that
+    /// a fragment would carry differently from an id.
+    #[test]
+    fn a_row_anchor_is_one_token_in_an_id_and_a_fragment() {
+        assert_eq!(
+            row_anchor("composition_create/ok-empty", 3),
+            "row-composition_create/ok-empty-3"
+        );
+        assert_eq!(row_anchor("a b.é", 0), "row-a.20b.2E.C3.A9-0");
+    }
+
+    /// Every address keeps the listing and leaves the defaults out.
+    #[test]
+    fn an_address_keeps_the_listing_and_the_selection() {
+        let base = Listing {
+            view: View::Base,
+            rows: Rows::Attention,
+        };
+        let all_options = Listing {
+            view: View::Options,
+            rows: Rows::All,
+        };
+        assert_eq!(page_href(base, None, None), "/run/results");
+        assert_eq!(
+            page_href(all_options, Some(("a/b", 2)), Some("detail")),
+            "/run/results?case=a/b&row=2&view=options&rows=all#detail"
+        );
+        assert_eq!(
+            page_href(all_options, None, Some("row-a/b-2")),
+            "/run/results?view=options&rows=all#row-a/b-2"
+        );
+    }
+
+    /// A group's counts read as words, every outcome that occurs and no other.
+    #[test]
+    fn a_group_counts_in_words() {
+        let all = Tally {
+            tests: 25,
+            passed: 25,
+            ..Tally::default()
+        };
+        assert_eq!(counts_line(&all), "All 25 rows passed");
+        let mixed = Tally {
+            tests: 25,
+            passed: 23,
+            skipped: 2,
+            ..Tally::default()
+        };
+        assert_eq!(counts_line(&mixed), "25 rows: 23 passed, 2 skipped");
+        let red = Tally {
+            tests: 4,
+            failed: 3,
+            advisory: 1,
+            ..Tally::default()
+        };
+        assert_eq!(counts_line(&red), "4 rows: 3 failed, 1 advisory");
+        let one = Tally {
+            tests: 1,
+            passed: 1,
+            ..Tally::default()
+        };
+        assert_eq!(counts_line(&one), "The one row passed");
+        assert_eq!(counts_line(&Tally::default()), "no rows");
     }
 }

@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The metric tile: icon, tabular-nums value, muted label — every count the
-//! console shows renders through this one shape.
+//! The metric tile: icon, tabular-nums value, muted label, and an optional
+//! one-line explanation under them — every count the console shows renders
+//! through this one shape.
 
 use leptos::prelude::{
     ClassAttribute, ElementChild, Get, IntoAny, IntoView, Signal, component, view,
@@ -16,7 +17,8 @@ use leptos_icons::Icon;
 )]
 #[component]
 pub fn StatCard(
-    /// The metric label ("Cases", "Bindings", …).
+    /// The metric label ("Cases", "Bindings", …), a word or two: the tile
+    /// never truncates it, so a long label wraps.
     #[prop(into)]
     label: String,
     /// The metric value, already formatted.
@@ -27,7 +29,13 @@ pub fn StatCard(
     /// Optional link target — the whole tile navigates when set.
     #[prop(optional, into)]
     href: Option<String>,
+    /// Optional short explanation of what the metric counts, under the value.
+    #[prop(optional, into)]
+    hint: Option<String>,
 ) -> impl IntoView {
+    let hint = hint.map(|hint| {
+        view! { <p class="mt-2 text-xs leading-snug text-ink-muted">{hint}</p> }
+    });
     let inner = view! {
         <div class="flex items-center gap-3">
             <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control bg-accent-subtle text-accent-ink">
@@ -37,9 +45,10 @@ pub fn StatCard(
                 <div class="text-2xl font-semibold tabular-nums text-ink-heading">
                     {move || value.get()}
                 </div>
-                <div class="truncate text-sm text-ink-muted">{label}</div>
+                <div class="text-sm text-ink-muted">{label}</div>
             </div>
         </div>
+        {hint}
     }
     .into_any();
     match href {

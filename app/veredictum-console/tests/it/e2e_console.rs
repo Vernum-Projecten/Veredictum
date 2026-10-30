@@ -1488,7 +1488,9 @@ const RESULT_ROW_LINKS: &str = "//td//a[starts-with(@href, '/run/results?case=')
 const RESULT_DETAIL_HEADING: &str = "//h2[contains(., '· row')]";
 
 /// One click on a result row opens its detail where the reader is looking
-/// (#869), and the detail reaches the catalogue case the row came from.
+/// (#869), "Back to the row" lands on that row again, marked as the one
+/// opened (#867), and the detail reaches the catalogue case the row came
+/// from.
 ///
 /// The run covers a whole capability, so the row list runs far past the first
 /// screen and the row clicked is the last one. The detail must sit inside the
@@ -1497,8 +1499,8 @@ const RESULT_DETAIL_HEADING: &str = "//h2[contains(., '· row')]";
 /// page, which is what a reader without JavaScript receives.
 ///
 /// # Panics
-/// When the detail does not open, opens out of sight, or names no catalogue
-/// case.
+/// When the detail does not open, opens out of sight, leads back to anything
+/// but the marked row, or names no catalogue case.
 #[tokio::test(flavor = "multi_thread")]
 async fn e2e_a_result_row_opens_its_detail() {
     let Some(h) = Harness::start("result-detail").await else {
@@ -1555,6 +1557,8 @@ async fn e2e_a_result_row_opens_its_detail() {
     );
     h.wait_xpath("//body[contains(., 'The wire')]").await;
 
+    go_back_to_the_row(&h, &href).await;
+
     h.goto_unhydrated(&href).await;
     h.wait_xpath(RESULT_DETAIL_HEADING).await;
     h.wait_hydrated().await;
@@ -1569,4 +1573,53 @@ async fn e2e_a_result_row_opens_its_detail() {
 
     h.assert_console_clean(&[]).await;
     h.finish().await;
+}
+
+/// Follows the open detail's "Back to the row" (#867): the address it lands
+/// on names the row's anchor as its fragment and no longer selects a row, and
+/// the row there is marked as the one opened. `href` is the row link the
+/// detail was opened from.
+///
+/// # Panics
+/// When the way back lands anywhere else, or the row is not marked.
+async fn go_back_to_the_row(h: &Harness, href: &str) {
+    let query = href
+        .split_once('?')
+        .map(|(_, query)| query.split('#').next().unwrap_or_default())
+        .unwrap_or_default();
+    let param = |name: &str| {
+        query
+            .split('&')
+            .find_map(|pair| pair.strip_prefix(&format!("{name}=")))
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let anchor = format!("row-{}-{}", param("case"), param("row"));
+    h.wait_css("a#result-back")
+        .await
+        .click()
+        .await
+        .expect("go back to the row");
+    h.wait_url_contains(&format!("#{anchor}")).await;
+    let landed = h.driver.current_url().await.expect("current url");
+    assert_eq!(
+        landed.fragment(),
+        Some(anchor.as_str()),
+        "the way back must name the row's anchor: {landed}"
+    );
+    assert!(
+        !landed.query().unwrap_or_default().contains("case="),
+        "the way back closes the detail: {landed}"
+    );
+    let edge = h
+        .wait_xpath(&format!("//tr[@id='{anchor}']/td[1]"))
+        .await
+        .css_value("box-shadow")
+        .await
+        .expect("read the row's edge");
+    assert!(
+        edge.contains("inset"),
+        "the row landed on must be marked as the one opened, not `{edge}` {}",
+        h.evidence("row-not-marked").await
+    );
 }

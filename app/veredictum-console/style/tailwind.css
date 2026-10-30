@@ -146,6 +146,27 @@
   display: block;
 }
 
+/* ── The opened result row ─────────────────────────────────────────────────
+   The row whose detail is open, and the row "Back to the row" lands on (the
+   URL fragment), wear the accent tint and a left accent edge, so a reader
+   returning to the list sees which row they opened. The tint is mixed from the
+   accent so link text keeps its contrast in both themes. Both rules are CSS:
+   the landing is a full load, so the browser itself sets `:target`. */
+.result-line {
+  scroll-margin-top: 6rem;
+}
+.result-line.result-row-selected > td,
+.result-line:target > td {
+  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.result-line.result-row-selected > td:first-child,
+.result-line:target > td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+#detail {
+  scroll-margin-top: 1rem;
+}
+
 /* ── Documentation capture mode ────────────────────────────────────────────
    The server stamps `capture` on <html> when VEREDICTUM_CAPTURE_MODE is set
    (src/capture.rs). A screenshot that catches a running transition differs

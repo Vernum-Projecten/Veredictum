@@ -4,7 +4,11 @@
 //! The chapter bars (#867): a result drawn as one stacked bar per band, under
 //! one shaded header per chapter or option tier.
 //!
-//! The SVG is a deterministic function of the reading the results page
+//! Only what the run touched is drawn: a chapter, band or tier with no row
+//! (and, for an option, no selected arm) is left out and named in one line
+//! after the bars. Every bar is its own band's rows at full width, so a small
+//! band reads as clearly as a large one, and the count column carries the
+//! size. The SVG is a deterministic function of the reading the results page
 //! receives, rendered on the server and again, byte for byte, during
 //! hydration, so the chart reads with JavaScript off. Colour is never the only
 //! carrier: every outcome has its glyph in the legend and in the column heads,
@@ -28,13 +32,13 @@ const BAND_X: u32 = 28;
 /// Where every bar starts.
 const BAR_X: f64 = 250.0;
 
-/// The width of a full bar: the scale's test count.
+/// The width of a full bar: all of its band's rows.
 const BAR_W: f64 = 420.0;
 
-/// The right edge of each count column and its head: the test count, then
+/// The right edge of each count column and its head: the row count, then
 /// one column per outcome in the bar's order.
 const COLUMNS: [(u32, &str); 6] = [
-    (722, "tests"),
+    (722, "rows"),
     (774, "✓"),
     (818, "✕"),
     (862, "!"),
@@ -63,6 +67,18 @@ const BAR_H: u32 = 12;
 /// The gap above a bar inside its row, which centres it.
 const BAR_INSET: u32 = 5;
 
+/// The height of one line naming what the run left out.
+const NOTE_H: u32 = 18;
+
+/// The characters one note line holds before it wraps.
+const NOTE_CHARS: usize = 140;
+
+/// The words that open a note naming what the run left out.
+pub const NOT_IN_RUN: &str = "Not in this run:";
+
+/// The words that open the note naming the option tiers the run left out.
+pub const TIERS_NOT_IN_RUN: &str = "Tiers not in this run:";
+
 /// One bar row: a capability folder, or an option or TRIAL row indented
 /// under its folder.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,7 +91,7 @@ pub struct Band {
     pub tally: Tally,
     /// Whether the row sits indented under the band above it.
     pub indent: bool,
-    /// What the row reads in place of a bar when it has no test.
+    /// What the row reads in place of a bar when it has no row.
     pub empty: &'static str,
 }
 
@@ -102,10 +118,10 @@ pub struct Part {
     pub href: String,
     /// The part's counts.
     pub tally: Tally,
-    /// What the part reads when it holds no group.
-    pub empty: &'static str,
     /// Its groups, in reading order.
     pub groups: Vec<Group>,
+    /// The titles of its chapters the run left out, in reading order.
+    pub absent: Vec<String>,
 }
 
 /// One chart: what it draws and the name a reader hears for it.
@@ -115,6 +131,13 @@ pub struct Chart {
     pub label: String,
     /// The parts, in reading order.
     pub parts: Vec<Part>,
+    /// The titles the run left out at the chart's own level: the chapters of
+    /// BASE, or the option tiers.
+    pub absent: Vec<String>,
+    /// The words that open the line naming [`Chart::absent`].
+    pub absent_label: &'static str,
+    /// What the chart reads when it draws no part.
+    pub empty: &'static str,
 }
 
 /// The console theme a drawing is coloured for.
@@ -146,7 +169,7 @@ struct Colours {
     muted: &'static str,
     /// The group header shade.
     shade: &'static str,
-    /// The outline of an empty bar track.
+    /// The outline of a bar.
     track: &'static str,
     /// The suffix that keeps the pattern id unique on a page carrying both
     /// variants.
@@ -214,7 +237,7 @@ fn segments(tally: &Tally, colours: &Colours) -> [(u32, String); 5] {
     ]
 }
 
-/// The counts in column order, the test count first.
+/// The counts in column order, the row count first.
 const fn column_values(tally: &Tally) -> [u32; 6] {
     [
         tally.tests,
@@ -228,27 +251,44 @@ const fn column_values(tally: &Tally) -> [u32; 6] {
 
 /// One line of text naming every count of `tally`, the tooltip of a row.
 fn summary(title: &str, tally: &Tally) -> String {
+    let rows = if tally.tests == 1 { "row" } else { "rows" };
     format!(
-        "{title}: {} tests, {} passed, {} failed, {} advisory, {} errored, {} skipped",
+        "{title}: {} {rows}, {} passed, {} failed, {} advisory, {} errored, {} skipped",
         tally.tests, tally.passed, tally.failed, tally.advisory, tally.errored, tally.skipped
     )
 }
 
-/// The test count a full bar stands for: the largest band of the chart.
-fn scale(chart: &Chart) -> u32 {
-    chart
-        .parts
-        .iter()
-        .flat_map(|part| part.groups.iter())
-        .flat_map(|group| group.bands.iter())
-        .map(|band| band.tally.tests)
-        .max()
-        .unwrap_or_default()
-        .max(1)
+/// `titles` after `prefix` as lines of at most `width` characters, broken
+/// between titles; empty when there is no title.
+#[must_use]
+pub fn wrap(prefix: &str, titles: &[String], width: usize) -> Vec<String> {
+    if titles.is_empty() {
+        return Vec::new();
+    }
+    let mut lines = Vec::new();
+    let mut line = String::from(prefix);
+    let mut fresh = true;
+    for (at, title) in titles.iter().enumerate() {
+        let piece = if at + 1 == titles.len() {
+            title.clone()
+        } else {
+            format!("{title},")
+        };
+        let wide = line.chars().count() + 1 + piece.chars().count();
+        if wide > width && !fresh {
+            lines.push(std::mem::take(&mut line));
+        } else if !line.is_empty() {
+            line.push(' ');
+        }
+        line.push_str(&piece);
+        fresh = false;
+    }
+    lines.push(line);
+    lines
 }
 
 /// Writes the legend and the column heads.
-fn head(out: &mut String, colours: &Colours, scale: u32) {
+fn head(out: &mut String, colours: &Colours) {
     let legend = [
         ("✓", "passed", colours.passed.to_owned()),
         ("✕", "failed", colours.failed.to_owned()),
@@ -272,7 +312,7 @@ fn head(out: &mut String, colours: &Colours, scale: u32) {
     }
     let _ = write!(
         out,
-        r#"<text x="{}" y="18" text-anchor="end" fill="{}">{scale} tests = full bar</text>"#,
+        r#"<text x="{}" y="18" text-anchor="end" fill="{}">each bar is 100% of its own rows</text>"#,
         COLUMNS[5].0, colours.muted
     );
     for (right, label) in COLUMNS {
@@ -295,8 +335,32 @@ fn counts(out: &mut String, tally: &Tally, y: u32, fill: &str, weight: &str) {
     }
 }
 
+/// Writes the stacked bar of `tally` at full width, its top edge at `top`.
+fn bar(out: &mut String, tally: &Tally, top: u32, height: u32, colours: &Colours) {
+    let full = f64::from(tally.tests.max(1));
+    let mut done = 0_u32;
+    for (count, fill) in segments(tally, colours) {
+        if count == 0 {
+            continue;
+        }
+        let from = BAR_X + BAR_W * f64::from(done) / full;
+        done = done.saturating_add(count);
+        let to = BAR_X + BAR_W * f64::from(done) / full;
+        let _ = write!(
+            out,
+            r#"<rect x="{from:.2}" y="{top}" width="{:.2}" height="{height}" fill="{fill}"/>"#,
+            to - from
+        );
+    }
+    let _ = write!(
+        out,
+        r#"<rect x="{BAR_X}" y="{top}" width="{BAR_W}" height="{height}" fill="none" stroke="{}" stroke-width="0.5"/>"#,
+        colours.track
+    );
+}
+
 /// Writes one band row whose top edge is `top`.
-fn band(out: &mut String, band: &Band, top: u32, colours: &Colours, scale: u32) {
+fn band(out: &mut String, band: &Band, top: u32, colours: &Colours) {
     let baseline = top + 15;
     let _ = write!(
         out,
@@ -307,7 +371,6 @@ fn band(out: &mut String, band: &Band, top: u32, colours: &Colours, scale: u32) 
         colours.ink,
         esc(&band.title)
     );
-    let bar_top = top + BAR_INSET;
     if band.tally.tests == 0 {
         let _ = write!(
             out,
@@ -317,27 +380,7 @@ fn band(out: &mut String, band: &Band, top: u32, colours: &Colours, scale: u32) 
         );
         return;
     }
-    let full = f64::from(scale);
-    let mut done = 0_u32;
-    for (count, fill) in segments(&band.tally, colours) {
-        if count == 0 {
-            continue;
-        }
-        let from = BAR_X + BAR_W * f64::from(done) / full;
-        done = done.saturating_add(count);
-        let to = BAR_X + BAR_W * f64::from(done) / full;
-        let _ = write!(
-            out,
-            r#"<rect x="{from:.2}" y="{bar_top}" width="{:.2}" height="{BAR_H}" fill="{fill}"/>"#,
-            to - from
-        );
-    }
-    let _ = write!(
-        out,
-        r#"<rect x="{BAR_X}" y="{bar_top}" width="{:.2}" height="{BAR_H}" fill="none" stroke="{}" stroke-width="0.5"/>"#,
-        BAR_W * f64::from(done) / full,
-        colours.track
-    );
+    bar(out, &band.tally, top + BAR_INSET, BAR_H, colours);
     counts(out, &band.tally, baseline, colours.ink, "");
     out.push_str("</a>");
 }
@@ -388,34 +431,57 @@ fn part_header(out: &mut String, part: &Part, title: &str, top: u32, colours: &C
     out.push_str("</a>");
 }
 
-/// The height of `part` as drawn.
-fn part_height(part: &Part) -> u32 {
-    let header = if part.title.is_some() { TIER_H } else { 0 };
-    let body = if part.groups.is_empty() {
-        ROW_H
-    } else {
-        part.groups
-            .iter()
-            .map(|g| {
-                let bands = u32::try_from(g.bands.len()).unwrap_or(u32::MAX);
-                GROUP_H.saturating_add(ROW_H.saturating_mul(bands))
-            })
-            .fold(0_u32, u32::saturating_add)
-    };
-    header.saturating_add(body)
+/// Writes the muted line naming `titles`, after `prefix`, as left out of the
+/// run, from `top`, and returns the top edge after it.
+fn absent(out: &mut String, prefix: &str, titles: &[String], top: u32, colours: &Colours) -> u32 {
+    let mut top = top;
+    for line in wrap(prefix, titles, NOTE_CHARS) {
+        let _ = write!(
+            out,
+            r#"<text x="{GROUP_X}" y="{}" fill="{}" font-style="italic">{}</text>"#,
+            top + 13,
+            colours.muted,
+            esc(&line)
+        );
+        top += NOTE_H;
+    }
+    top
 }
 
 /// Renders `chart` as one self-contained SVG document in `palette`.
 #[must_use]
 pub fn render(chart: &Chart, palette: Palette) -> String {
     let colours = palette.colours();
-    let scale = scale(chart);
-    let rows = chart
-        .parts
-        .iter()
-        .map(part_height)
-        .fold(0_u32, u32::saturating_add);
-    let height = HEAD_H.saturating_add(rows).saturating_add(8);
+    let mut body = String::new();
+    head(&mut body, &colours);
+    let mut top = HEAD_H;
+    if chart.parts.is_empty() {
+        let _ = write!(
+            body,
+            r#"<text x="{GROUP_X}" y="{}" fill="{}" font-style="italic">{}</text>"#,
+            top + 15,
+            colours.muted,
+            esc(chart.empty)
+        );
+        top += ROW_H;
+    }
+    for part in &chart.parts {
+        if let Some(title) = part.title.as_deref() {
+            part_header(&mut body, part, title, top, &colours);
+            top += TIER_H;
+        }
+        for group in &part.groups {
+            group_header(&mut body, group, top, &colours);
+            top += GROUP_H;
+            for each in &group.bands {
+                band(&mut body, each, top, &colours);
+                top += ROW_H;
+            }
+        }
+        top = absent(&mut body, NOT_IN_RUN, &part.absent, top, &colours);
+    }
+    top = absent(&mut body, chart.absent_label, &chart.absent, top, &colours);
+    let height = top.saturating_add(8);
     let mut out = String::new();
     let _ = write!(
         out,
@@ -429,32 +495,7 @@ pub fn render(chart: &Chart, palette: Palette) -> String {
         colours.hatch,
         s = colours.suffix
     );
-    head(&mut out, &colours, scale);
-    let mut top = HEAD_H;
-    for part in &chart.parts {
-        if let Some(title) = part.title.as_deref() {
-            part_header(&mut out, part, title, top, &colours);
-            top += TIER_H;
-        }
-        if part.groups.is_empty() {
-            let _ = write!(
-                out,
-                r#"<text x="{GROUP_X}" y="{}" fill="{}" font-style="italic">{}</text>"#,
-                top + 15,
-                colours.muted,
-                esc(part.empty)
-            );
-            top += ROW_H;
-        }
-        for group in &part.groups {
-            group_header(&mut out, group, top, &colours);
-            top += GROUP_H;
-            for each in &group.bands {
-                band(&mut out, each, top, &colours, scale);
-                top += ROW_H;
-            }
-        }
-    }
+    out.push_str(&body);
     out.push_str("</svg>");
     out
 }
@@ -480,32 +521,39 @@ impl View {
     }
 }
 
-/// The BASE chart: one group per chapter, one band per capability folder.
+/// The BASE chart: one group per chapter the run touched, one band per
+/// capability folder holding a row.
 #[must_use]
 pub fn base(reading: &ReadingView) -> Chart {
-    let groups = reading
-        .chapters
-        .iter()
-        .map(|chapter| Group {
+    let mut absent = Vec::new();
+    let mut groups = Vec::new();
+    for chapter in &reading.chapters {
+        if chapter.tally.tests == 0 {
+            absent.push(chapter.title.clone());
+            continue;
+        }
+        groups.push(Group {
             title: chapter.title.clone(),
             href: chapter.href.clone(),
             tally: chapter.tally,
             bands: chapter
                 .bands
                 .iter()
+                .filter(|band| band.tally.tests > 0)
                 .map(|band| Band {
                     title: band.title.clone(),
                     href: format!("#{}", band.anchor),
                     tally: band.tally,
                     indent: false,
-                    empty: "no cases",
+                    empty: "no rows",
                 })
                 .collect(),
-        })
-        .collect();
-    Chart {
-        label: String::from("BASE outcomes by chapter"),
-        parts: vec![Part {
+        });
+    }
+    let parts = if groups.is_empty() {
+        Vec::new()
+    } else {
+        vec![Part {
             title: None,
             href: String::from("#result-rows"),
             tally: reading
@@ -513,9 +561,16 @@ pub fn base(reading: &ReadingView) -> Chart {
                 .iter()
                 .map(|c| c.tally)
                 .fold(Tally::default(), Tally::plus),
-            empty: "no BASE case",
             groups,
-        }],
+            absent: Vec::new(),
+        }]
+    };
+    Chart {
+        label: String::from("BASE outcomes by chapter"),
+        parts,
+        absent,
+        absent_label: NOT_IN_RUN,
+        empty: "No BASE row in this run.",
     }
 }
 
@@ -524,7 +579,7 @@ fn option_band(option: &OptionView, indent: bool) -> Band {
     let empty = if option.arms.iter().all(|arm| arm.empty) {
         "nothing to run"
     } else if option.selected {
-        "no cases"
+        "selected, no rows"
     } else {
         "not selected"
     };
@@ -537,70 +592,85 @@ fn option_band(option: &OptionView, indent: bool) -> Band {
     }
 }
 
-/// The OPTIONS chart: each tier above its chapters, each band followed by
-/// its options and its TRIAL row, indented, exactly as BASE reads.
+/// The OPTIONS chart: each tier the run touched above its chapters, each
+/// band followed by its options and its TRIAL row, indented, exactly as BASE
+/// reads.
 #[must_use]
 pub fn options(reading: &ReadingView) -> Chart {
-    let parts = reading
-        .tiers
-        .iter()
-        .map(|tier| {
-            let mut groups: Vec<Group> = tier
-                .chapters
-                .iter()
-                .map(|chapter| {
-                    let mut bands = Vec::new();
-                    for band in &chapter.bands {
-                        bands.push(Band {
-                            title: band.title.clone(),
-                            href: format!("#{}", band.anchor),
-                            tally: band.tally,
-                            indent: false,
-                            empty: "no cases",
-                        });
-                        bands.extend(band.options.iter().map(|o| option_band(o, true)));
-                        if let Some(trial) = band.trial.as_ref() {
-                            bands.push(Band {
-                                title: String::from("TRIAL text"),
-                                href: format!("#{}", trial.anchor),
-                                tally: trial.tally,
-                                indent: true,
-                                empty: "no cases",
-                            });
-                        }
-                    }
-                    Group {
-                        title: chapter.title.clone(),
-                        href: format!("#{}", chapter.anchor),
-                        tally: chapter.tally,
-                        bands,
-                    }
-                })
-                .collect();
-            if !tier.unanchored.is_empty() {
-                groups.push(Group {
-                    title: String::from("No document yet"),
-                    href: format!("#{}", tier.anchor),
-                    tally: Tally::default(),
-                    bands: tier
-                        .unanchored
-                        .iter()
-                        .map(|o| option_band(o, false))
-                        .collect(),
+    let mut parts = Vec::new();
+    let mut absent_tiers = Vec::new();
+    for tier in &reading.tiers {
+        if !tier.in_run() {
+            absent_tiers.push(tier.title.clone());
+            continue;
+        }
+        let mut absent = Vec::new();
+        let mut groups = Vec::new();
+        for chapter in &tier.chapters {
+            if !chapter.in_run() {
+                absent.push(chapter.title.clone());
+                continue;
+            }
+            let mut bands = Vec::new();
+            for band in chapter.bands.iter().filter(|band| band.in_run()) {
+                bands.push(Band {
+                    title: band.title.clone(),
+                    href: format!("#{}", band.anchor),
+                    tally: band.tally,
+                    indent: false,
+                    empty: "no rows",
                 });
+                bands.extend(
+                    band.options
+                        .iter()
+                        .filter(|option| option.in_run())
+                        .map(|option| option_band(option, true)),
+                );
+                if let Some(trial) = band.trial.as_ref().filter(|t| t.tally.tests > 0) {
+                    bands.push(Band {
+                        title: String::from("TRIAL text"),
+                        href: format!("#{}", trial.anchor),
+                        tally: trial.tally,
+                        indent: true,
+                        empty: "no rows",
+                    });
+                }
             }
-            Part {
-                title: Some(tier.title.clone()),
+            groups.push(Group {
+                title: chapter.title.clone(),
+                href: format!("#{}", chapter.anchor),
+                tally: chapter.tally,
+                bands,
+            });
+        }
+        let unanchored: Vec<Band> = tier
+            .unanchored
+            .iter()
+            .filter(|option| option.in_run())
+            .map(|option| option_band(option, false))
+            .collect();
+        if !unanchored.is_empty() {
+            groups.push(Group {
+                title: String::from("No document yet"),
                 href: format!("#{}", tier.anchor),
-                tally: tier.tally,
-                empty: "no option of this tier",
-                groups,
-            }
-        })
-        .collect();
+                tally: Tally::default(),
+                bands: unanchored,
+            });
+        }
+        parts.push(Part {
+            title: Some(tier.title.clone()),
+            href: format!("#{}", tier.anchor),
+            tally: tier.tally,
+            groups,
+            absent,
+        });
+    }
     Chart {
-        label: String::from("OPTIONS outcomes by tier and chapter"),
+        label: String::from("Option outcomes by tier and chapter"),
         parts,
+        absent: absent_tiers,
+        absent_label: TIERS_NOT_IN_RUN,
+        empty: "No option row in this run.",
     }
 }
 
@@ -623,7 +693,8 @@ mod tests {
         ReportState, SectionDecl, Standing, Theme, Tier,
     };
 
-    use super::{Palette, base, options, render};
+    use super::{Palette, base, options, render, wrap};
+    use crate::record_api::Tally;
     use crate::record_api::read::reading_view;
 
     /// One row of `case` with `status`, explained as `whose` when red.
@@ -740,6 +811,11 @@ mod tests {
                     title: String::from("Query"),
                     folders: vec![folder("query", "AQL", &[("aql", "AQL")])],
                 },
+                ChapterDecl {
+                    chapter: String::from("definitions"),
+                    title: String::from("Definitions"),
+                    folders: vec![folder("template", "Templates", &[("upload", "Upload")])],
+                },
             ],
             options: vec![
                 option("flat", Tier::Recommended, None),
@@ -786,8 +862,8 @@ mod tests {
     }
 
     /// A fixed results document touching every part of the reading: two
-    /// chapters, a band with no case, all five marks, every tier, a TRIAL
-    /// case and a reported one.
+    /// chapters with rows and one without, a band with no case, all five
+    /// marks, every tier, a TRIAL case and a reported one.
     fn results() -> Results {
         Results {
             document: String::from("catalogue"),
@@ -859,12 +935,12 @@ mod tests {
         assert_eq!(
             band,
             Some((
-                "OPTIONS",
+                "Optional (MAY)",
                 "tier-options-band-composition",
                 vec!["xml"],
                 Some(1)
             )),
-            "the TRIAL row sits in its band, under OPTIONS"
+            "the TRIAL row sits in its band, under Optional (MAY)"
         );
         let first = reading
             .chapters
@@ -897,5 +973,128 @@ mod tests {
         insta::assert_snapshot!("options_light", render(&chart, Palette::Light));
         insta::assert_snapshot!("options_dark", render(&chart, Palette::Dark));
         Ok(())
+    }
+
+    /// A chapter and a band with no row are not drawn, and the chapter is
+    /// named in the line after the bars.
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    #[test]
+    fn a_chapter_the_run_never_touched_is_named_not_drawn() -> Result<(), serde_json::Error> {
+        let chart = base(&reading_view(&results())?);
+        let drawn: Vec<(&str, Vec<&str>)> = chart
+            .parts
+            .iter()
+            .flat_map(|part| part.groups.iter())
+            .map(|group| {
+                (
+                    group.title.as_str(),
+                    group.bands.iter().map(|b| b.title.as_str()).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            drawn,
+            vec![("EHR", vec!["EHR", "COMPOSITION"]), ("Query", vec!["AQL"])],
+            "the DIRECTORY band and the Definitions chapter hold no row"
+        );
+        assert_eq!(chart.absent, vec![String::from("Definitions")]);
+        let svg = render(&chart, Palette::Light);
+        assert!(
+            svg.contains("Not in this run: Definitions"),
+            "the left-out chapter is named: {svg}"
+        );
+        assert!(!svg.contains("DIRECTORY"), "an empty band is not drawn");
+        Ok(())
+    }
+
+    /// An option tier whose options hold no row and no selected arm is named
+    /// after the bars, never drawn as an empty part.
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    #[test]
+    fn a_tier_the_run_never_touched_is_named_not_drawn() -> Result<(), serde_json::Error> {
+        let mut reading = reading_view(&results())?;
+        let recommended = reading
+            .tiers
+            .first_mut()
+            .expect("the reading carries the Recommended tier");
+        for chapter in &mut recommended.chapters {
+            for band in &mut chapter.bands {
+                band.tally = Tally::default();
+                for option in &mut band.options {
+                    option.selected = false;
+                    option.tally = Tally::default();
+                }
+            }
+        }
+        let chart = options(&reading);
+        let titles: Vec<&str> = chart
+            .parts
+            .iter()
+            .filter_map(|part| part.title.as_deref())
+            .collect();
+        assert_eq!(titles, vec!["Optional (MAY)", "Spec defect"]);
+        assert_eq!(chart.absent, vec![String::from("Recommended (SHOULD)")]);
+        let svg = render(&chart, Palette::Dark);
+        assert!(
+            svg.contains("Tiers not in this run: Recommended (SHOULD)"),
+            "the left-out tier is named as a tier: {svg}"
+        );
+        assert!(
+            !chart
+                .parts
+                .iter()
+                .flat_map(|p| p.groups.iter())
+                .flat_map(|g| g.bands.iter())
+                .any(|b| b.title == "planned"),
+            "an unselected option with no row is not drawn"
+        );
+        Ok(())
+    }
+
+    /// Every bar is its own band's rows at full width, whatever the size of
+    /// the largest band.
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    #[test]
+    fn every_bar_spans_its_own_rows() -> Result<(), serde_json::Error> {
+        let chart = base(&reading_view(&results())?);
+        let svg = render(&chart, Palette::Light);
+        let outlines = svg
+            .matches(r#"width="420" height="12" fill="none""#)
+            .count();
+        assert_eq!(outlines, 3, "one full-width outline per drawn band: {svg}");
+        assert!(!svg.contains("full bar"), "no scale legend is left");
+        Ok(())
+    }
+
+    /// A long list of left-out titles wraps between titles, never inside one.
+    #[test]
+    fn a_long_absent_line_wraps_between_titles() {
+        let titles: Vec<String> = ["Definitions", "Query", "Demographics"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        assert_eq!(
+            wrap("Not in this run:", &titles, 40),
+            vec![
+                String::from("Not in this run: Definitions, Query,"),
+                String::from("Demographics"),
+            ]
+        );
+        assert_eq!(
+            wrap("Not in this run:", &titles, 200),
+            vec![String::from(
+                "Not in this run: Definitions, Query, Demographics"
+            )]
+        );
+        assert!(wrap("Not in this run:", &[], 40).is_empty());
     }
 }
