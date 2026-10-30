@@ -907,6 +907,11 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: action.yml
+          sparse-checkout-cone-mode: false
       - name: Assert every leg landed, and say what published where
         env:
           TAG: ${{ needs.plan.outputs.tag }}
@@ -991,3 +996,31 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           printf '%s\n' "$rows"
           [ "$fail" = 0 ] || { echo "::error::the release pipeline for ${TAG} did not land every leg — see the run summary for the recovery"; exit 1; }
+      # GitHub has no API for publishing an Action to the Marketplace: the owner
+      # ticks it in the release form, behind the account's two-factor sign-in
+      # (https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace).
+      # This step reads the public listing and hands the owner the exact form.
+      - name: Say whether the Marketplace listing shows this release
+        if: always() && needs.finalize.result == 'success'
+        env:
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          set -uo pipefail
+          name=$(sed -n 's/^name:[[:space:]]*//p' action.yml | head -n 1)
+          slug=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]\{1,\}/-/g' -e 's/^-//' -e 's/-$//')
+          listing="https://github.com/marketplace/actions/${slug}"
+          edit="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/edit/${TAG}"
+          page=$(curl -fsSL --max-time 30 "$listing" || true)
+          {
+            printf '### GitHub Marketplace\n\n'
+            # The tag must end where it is named, so v0.2.1 is not found inside v0.2.10 or v0.2.1-rc1.
+            if printf '%s' "$page" | grep -qE "$(printf '%s' "$TAG" | sed 's/[.]/[.]/g')([^-0-9.]|\$)"; then
+              printf 'The listing %s already shows `%s`.\n' "$listing" "$TAG"
+            else
+              printf 'The listing %s does not show `%s` yet. Publishing is a tick in the release form, which no token can set:\n\n' "$listing" "$TAG"
+              printf '1. Open %s\n' "$edit"
+              printf '2. Tick **Publish this Action to the GitHub Marketplace** (primary category Testing, second Continuous integration).\n'
+              printf '3. Press **Update release**.\n'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "$TAG Marketplace form: $edit"

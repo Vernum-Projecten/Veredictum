@@ -453,9 +453,11 @@ pipeline is a `needs` edge, so no leg guesses whether an earlier one finished.
    never re-pointed: the recovery for a bad cut is the next version.
 7. Once `finalize` has published the GitHub release, the owner edits it and
    ticks "Publish this Action to the GitHub Marketplace" (primary category
-   Testing, second Continuous integration). The pipeline cannot do this: it is
-   a step in the release form, and it needs the owning account's two-factor
-   authentication. The form reads `action.yml` from the tagged commit, so a
+   Testing, second Continuous integration). The pipeline cannot do this: GitHub
+   has no API for it, and the form needs the owning account's two-factor
+   authentication. The `announce` job reads the public listing and, when it
+   does not show the tag yet, writes the release form's direct edit link into
+   the run summary. The form reads `action.yml` from the tagged commit, so a
    description over the limit cannot be fixed on that tag (#802, #829);
    `scripts/checks/action-metadata.sh` holds it on every pull request.
 
