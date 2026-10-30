@@ -19,6 +19,7 @@ pub mod derive;
 pub mod judge;
 pub mod quantile;
 pub mod server;
+pub mod view;
 
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -75,6 +76,15 @@ impl PerfResult {
             raw,
             derived,
         })
+    }
+
+    /// Reads a record from its text, checked against the published schema.
+    ///
+    /// # Errors
+    /// [`PerfResultError::Json`] for text that is not JSON or not a record,
+    /// and [`PerfResultError::Schema`] for a document outside the schema.
+    pub fn read(text: &str) -> Result<Self, PerfResultError> {
+        judge::checked(text)
     }
 
     /// The record's canonical text: two-space pretty JSON and a trailing

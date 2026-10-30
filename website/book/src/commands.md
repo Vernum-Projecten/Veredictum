@@ -975,17 +975,32 @@ Options:
 ## export
 
 ```text
-Write the views of an Arazzo results document a vendor's CI shows: JUnit XML, CTRF 0.2.0 JSON and a Markdown summary, each a byte-deterministic function of the document
+Write the views of a result document a vendor's CI shows, each a byte-deterministic function of the document.
+
+An Arazzo results document has three views: JUnit XML, CTRF 0.2.0 JSON and a Markdown summary. A `perf-result`, told apart by its `family`, has the Markdown summary only, so `--junit` and `--ctrf` refuse it.
 
 Usage: veredictum export [OPTIONS] --results <RESULTS>
 
 Options:
-      --results <RESULTS>            The `results.json` the Arazzo evaluator wrote
-      --junit <JUNIT>                Write the JUnit XML view here
-      --ctrf <CTRF>                  Write the CTRF JSON view here
-      --markdown <MARKDOWN>          Write the Markdown summary here. Without this flag and without a job summary file, the summary is printed to standard output
-      --step-summary <STEP_SUMMARY>  The GitHub Actions job summary file the Markdown summary is appended to. GitHub sets the variable in every job step [env: GITHUB_STEP_SUMMARY]
-  -h, --help                         Print help
+      --results <RESULTS>
+          The `results.json` the Arazzo evaluator wrote, or a `perf-result.json`
+
+      --junit <JUNIT>
+          Write the JUnit XML view here
+
+      --ctrf <CTRF>
+          Write the CTRF JSON view here
+
+      --markdown <MARKDOWN>
+          Write the Markdown summary here. Without this flag and without a job summary file, the summary is printed to standard output
+
+      --step-summary <STEP_SUMMARY>
+          The GitHub Actions job summary file the Markdown summary is appended to. GitHub sets the variable in every job step
+          
+          [env: GITHUB_STEP_SUMMARY]
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 `export` reads the `results.json` the Arazzo evaluator writes and renders the
@@ -1086,12 +1101,18 @@ JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
 server's response bodies verbatim, so it belongs where the operator keeps the
 run, never in a public artifact.
 
+A `perf-result.json` has one exported view, the Markdown summary, with the
+same content `show` prints laid out as tables. `--junit` and `--ctrf` refuse
+it with exit status 2, since a performance record has no test cases to list.
+
 ## show
 
 ```text
-Show an Arazzo results document in the terminal: one line per chapter, band and option, each with its counts and a bar.
+Show a result document in the terminal: an Arazzo results document one line per chapter, band and option, each with its counts and a bar, or a `perf-result` one line per plateau.
 
 A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY), or `@SpecDiverge` for an option that exists only because the released text is unclear), with the cases resting on TRIAL text in their band. A closing note counts the cases tagged `@SpecDiverge` and links the reports they are judged by. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! warning and ○ skipped (grey). A warning row is a SHOULD the server did not follow and is never shown as a failure.
+
+A `perf-result` reads as a header naming the target, environment, host, workload (a `custom` one named so), corpus, the knee estimate, the between-run noise and the record's scope; one line per plateau with offered and achieved rates, p50 to max, the error share and a ✓ or ✕ qualification mark, with `unsteady` where recorded; the operations at the knee and at the lowest plateau with the quantile each is judged at (`n/r` where a quantile does not resolve); the knee, peak, population and fit sentences; a sparkline of p99 against the offered rate; and the server-side readings as context. It fits 80 columns. `--failed` does not apply to it.
 
 Exit status: `0` when the view was printed; `2` when the document cannot be read.
 
@@ -1099,7 +1120,7 @@ Usage: veredictum show [OPTIONS] <RESULTS>
 
 Arguments:
   <RESULTS>
-          The `results.json` the Arazzo evaluator wrote
+          The `results.json` the Arazzo evaluator wrote, or a `perf-result.json`
 
 Options:
       --failed
@@ -1157,6 +1178,18 @@ standard output is a terminal and `NO_COLOR` is unset or empty, as
 <https://no-color.org/> asks. `--color always` and `--color never` override
 both, so `veredictum show results.json --color always | less -R` keeps the
 colour.
+
+**A performance record.** Given a `perf-result.json`, which names its
+`family`, `show` prints the record instead: a header with the target, the
+environment, the workload and its digest, the corpus, the between-run noise
+and the scope of one run; a line per plateau with offered and achieved rates,
+p50 to max and the error share, marked `✓` when it qualifies and `✕` when it
+fails, with `unsteady` where the halves disagree; the operations at the knee
+and at the lowest plateau with the quantile each is judged at; the knee, peak,
+population and fit sentences; a sparkline of p99 against the offered rate;
+and the server-side readings. A quantile with fewer than 10 samples above it
+prints `n/r`, not resolvable. Every number comes from the record, and the view
+fits 80 columns.
 
 ## verify
 

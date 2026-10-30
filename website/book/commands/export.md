@@ -95,3 +95,7 @@ The JUnit file is read by GitLab (`artifacts:reports:junit`), Jenkins (the
 JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
 server's response bodies verbatim, so it belongs where the operator keeps the
 run, never in a public artifact.
+
+A `perf-result.json` has one exported view, the Markdown summary, with the
+same content `show` prints laid out as tables. `--junit` and `--ctrf` refuse
+it with exit status 2, since a performance record has no test cases to list.

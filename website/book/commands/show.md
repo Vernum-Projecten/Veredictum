@@ -36,3 +36,15 @@ standard output is a terminal and `NO_COLOR` is unset or empty, as
 <https://no-color.org/> asks. `--color always` and `--color never` override
 both, so `veredictum show results.json --color always | less -R` keeps the
 colour.
+
+**A performance record.** Given a `perf-result.json`, which names its
+`family`, `show` prints the record instead: a header with the target, the
+environment, the workload and its digest, the corpus, the between-run noise
+and the scope of one run; a line per plateau with offered and achieved rates,
+p50 to max and the error share, marked `✓` when it qualifies and `✕` when it
+fails, with `unsteady` where the halves disagree; the operations at the knee
+and at the lowest plateau with the quantile each is judged at; the knee, peak,
+population and fit sentences; a sparkline of p99 against the offered rate;
+and the server-side readings. A quantile with fewer than 10 samples above it
+prints `n/r`, not resolvable. Every number comes from the record, and the view
+fits 80 columns.

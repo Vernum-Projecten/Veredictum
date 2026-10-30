@@ -42,7 +42,7 @@ use veredictum::party::version_line;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
 use veredictum::pipeline::assets::{performance_assets, schema_files, stress_overlay};
 use veredictum::pipeline::bench::{BenchRequest, compare_bench, describe_packs, run_bench};
-use veredictum::pipeline::export::{export_results, show_results};
+use veredictum::pipeline::export::{Exports, export_document, show_results};
 use veredictum::pipeline::judgement::{JudgementRequest, judge};
 use veredictum::pipeline::measured::{
     MeasuredEvent, MeasuredRequest, StressRequest, SustainedWindow, run_measured, run_stress,
@@ -562,11 +562,16 @@ enum Command {
         #[arg(long)]
         result: PathBuf,
     },
-    /// Write the views of an Arazzo results document a vendor's CI shows:
-    /// JUnit XML, CTRF 0.2.0 JSON and a Markdown summary, each a
+    /// Write the views of a result document a vendor's CI shows, each a
     /// byte-deterministic function of the document.
+    ///
+    /// An Arazzo results document has three views: JUnit XML, CTRF 0.2.0
+    /// JSON and a Markdown summary. A `perf-result`, told apart by its
+    /// `family`, has the Markdown summary only, so `--junit` and `--ctrf`
+    /// refuse it.
     Export {
-        /// The `results.json` the Arazzo evaluator wrote.
+        /// The `results.json` the Arazzo evaluator wrote, or a
+        /// `perf-result.json`.
         #[arg(long)]
         results: PathBuf,
         /// Write the JUnit XML view here.
@@ -584,8 +589,9 @@ enum Command {
         #[arg(long, env = "GITHUB_STEP_SUMMARY", hide_env_values = true)]
         step_summary: Option<PathBuf>,
     },
-    /// Show an Arazzo results document in the terminal: one line per chapter,
-    /// band and option, each with its counts and a bar.
+    /// Show a result document in the terminal: an Arazzo results document
+    /// one line per chapter, band and option, each with its counts and a
+    /// bar, or a `perf-result` one line per plateau.
     ///
     /// A result reads in two parts. BASE comes first, chapter by chapter and
     /// band by band, in the order the catalogue declares. OPTIONS follows by
@@ -599,10 +605,22 @@ enum Command {
     /// ! warning and ○ skipped (grey). A warning row is a SHOULD the
     /// server did not follow and is never shown as a failure.
     ///
+    /// A `perf-result` reads as a header naming the target, environment,
+    /// host, workload (a `custom` one named so), corpus, the knee estimate,
+    /// the between-run noise and the record's scope; one line per plateau
+    /// with offered and achieved rates, p50 to max, the error share and a ✓
+    /// or ✕ qualification mark, with `unsteady` where recorded; the
+    /// operations at the knee and at the lowest plateau with the quantile
+    /// each is judged at (`n/r` where a quantile does not resolve); the
+    /// knee, peak, population and fit sentences; a sparkline of p99 against
+    /// the offered rate; and the server-side readings as context. It fits 80
+    /// columns. `--failed` does not apply to it.
+    ///
     /// Exit status: `0` when the view was printed; `2` when the document
     /// cannot be read.
     Show {
-        /// The `results.json` the Arazzo evaluator wrote.
+        /// The `results.json` the Arazzo evaluator wrote, or a
+        /// `perf-result.json`.
         results: PathBuf,
         /// Expand every failed and errored row with its four-part
         /// explanation, then list the warning rows apart.
@@ -1562,16 +1580,30 @@ struct ExportTargets<'a> {
 /// `0` when every view was written and `2` when the document could not be
 /// read or a file could not be written.
 fn export_command(results: &Path, targets: &ExportTargets<'_>) -> ExitCode {
-    let views = match export_results(results) {
+    let views = match export_document(results) {
         Ok(views) => views,
         Err(e) => return fail(&e),
     };
+    let (junit, ctrf) = match &views {
+        Exports::Results(views) => (Some(&views.junit), Some(&views.ctrf)),
+        Exports::Perf { .. } => (None, None),
+    };
+    if junit.is_none() && (targets.junit.is_some() || targets.ctrf.is_some()) {
+        eprintln!(
+            "{} is a perf-result, which has a Markdown view only: --junit and --ctrf read an \
+             Arazzo results document",
+            results.display()
+        );
+        return ExitCode::from(2);
+    }
     for (path, body) in [
-        (targets.junit, &views.junit),
-        (targets.ctrf, &views.ctrf),
-        (targets.markdown, &views.markdown),
+        (targets.junit, junit),
+        (targets.ctrf, ctrf),
+        (targets.markdown, Some(&views.markdown().to_owned())),
     ] {
-        let Some(path) = path else { continue };
+        let (Some(path), Some(body)) = (path, body) else {
+            continue;
+        };
         if let Err(code) = emit_one(path, body) {
             return code;
         }
@@ -1584,7 +1616,7 @@ fn export_command(results: &Path, targets: &ExportTargets<'_>) -> ExitCode {
             .append(true)
             .create(true)
             .open(path)
-            .and_then(|mut file| std::io::Write::write_all(&mut file, views.markdown.as_bytes()));
+            .and_then(|mut file| std::io::Write::write_all(&mut file, views.markdown().as_bytes()));
         if let Err(e) = appended {
             eprintln!("cannot append to {}: {e}", path.display());
             return ExitCode::from(2);
@@ -1592,7 +1624,7 @@ fn export_command(results: &Path, targets: &ExportTargets<'_>) -> ExitCode {
         eprintln!("appended the summary to {}", path.display());
     }
     if targets.markdown.is_none() && targets.step_summary.is_none() {
-        print!("{}", views.markdown);
+        print!("{}", views.markdown());
     }
     ExitCode::SUCCESS
 }

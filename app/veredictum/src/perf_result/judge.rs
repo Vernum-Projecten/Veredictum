@@ -91,6 +91,22 @@ fn diff(
     }
 }
 
+/// Reads the record in `text`, checked against the published schema.
+pub(crate) fn checked(text: &str) -> Result<PerfResult, PerfResultError> {
+    let value: Value =
+        serde_json::from_str(text).map_err(|e| PerfResultError::Json(e.to_string()))?;
+    let validator = jsonschema::validator_for(&perf_result_schema())
+        .map_err(|e| PerfResultError::Schema(format!("the schema does not compile: {e}")))?;
+    let violations: Vec<String> = validator
+        .iter_errors(&value)
+        .map(|e| format!("{}: {e}", e.instance_path()))
+        .collect();
+    if !violations.is_empty() {
+        return Err(PerfResultError::Schema(violations.join("; ")));
+    }
+    serde_json::from_value(value).map_err(|e| PerfResultError::Json(e.to_string()))
+}
+
 /// Re-judges the record in `text`.
 ///
 /// The document is checked against the published schema, read, derived
@@ -103,19 +119,7 @@ fn diff(
 /// [`PerfResultError::Schema`] for a document outside the schema, and every
 /// error of [`derive::derive`] for a raw part that does not re-derive.
 pub fn rejudge(text: &str) -> Result<Rejudgement, PerfResultError> {
-    let value: Value =
-        serde_json::from_str(text).map_err(|e| PerfResultError::Json(e.to_string()))?;
-    let validator = jsonschema::validator_for(&perf_result_schema())
-        .map_err(|e| PerfResultError::Schema(format!("the schema does not compile: {e}")))?;
-    let violations: Vec<String> = validator
-        .iter_errors(&value)
-        .map(|e| format!("{}: {e}", e.instance_path()))
-        .collect();
-    if !violations.is_empty() {
-        return Err(PerfResultError::Schema(violations.join("; ")));
-    }
-    let recorded: PerfResult =
-        serde_json::from_value(value).map_err(|e| PerfResultError::Json(e.to_string()))?;
+    let recorded = checked(text)?;
     let rederived = PerfResult {
         family: recorded.family,
         raw: recorded.raw.clone(),
