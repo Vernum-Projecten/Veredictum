@@ -1,16 +1,15 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The three instruments that drive load at a live system under test: the
-//! measured class run, the step-load stress ladder and the AQL optimization
-//! probe.
+//! The two instruments that drive load at a live system under test: the
+//! measured class run and the step-load stress ladder.
 //!
-//! All three share one preamble — load the performance schedule
+//! Both share one preamble — load the performance schedule
 //! ([`crate::perf_schedule`]), read the topology, select the class's case,
 //! seed a fresh corpus — and differ only in what
 //! they do with the seeded system afterwards. Only the measured run produces
-//! a conformance record; the other two are exploration instruments and say
-//! so in their own reports.
+//! a conformance record; the stress ladder is an exploration instrument and says
+//! so in its own report.
 //!
 //! Each seam reports its own progress through an observer rather than
 //! writing to a console, so a caller renders the run as it happens.
@@ -30,7 +29,6 @@ use crate::perf_run::corpus::SeededCorpus;
 use crate::perf_run::pack::{self, JourneyPack};
 use crate::perf_schedule::{JOURNEYS_FILE, PAYLOADS_FILE, PerfSchedule};
 use crate::pipeline::{Error, load_ixit, load_party_json, to_json_document};
-use crate::probe::AqlProbeReport;
 use crate::schema::results_schema;
 use crate::stress::StressReport;
 use crate::vocab::{FormatName, ItsName};
@@ -156,22 +154,6 @@ pub struct StressRequest<'a> {
     pub bisections: u32,
     /// The climb cap, in arrivals per second.
     pub max_rate: f64,
-}
-
-/// Which class-scale corpus to probe, and how many requests per probe.
-#[derive(Debug)]
-pub struct ProbeRequest<'a> {
-    /// The performance schedule root ([`crate::perf_schedule`]).
-    pub root: &'a Path,
-    /// The ixit topology document; its `containers` block enables DB-side
-    /// attribution and maintenance settling.
-    pub ixit: &'a Path,
-    /// The class token selecting the corpus scale.
-    pub corpus_class: &'a str,
-    /// Parallel seeding workers.
-    pub seed_workers: usize,
-    /// Requests fired per probe.
-    pub requests: u32,
 }
 
 /// Loads the performance schedule under `root`, refusing a tree with any
@@ -353,55 +335,6 @@ pub fn run_stress(
     .map_err(|e| Error::Instrument(format!("stress run failed: {e}")))?;
     perf_run::refuse_rate_limited_record("stress").map_err(Error::Instrument)?;
     Ok(report)
-}
-
-/// Runs the AQL optimization probe against a freshly seeded corpus.
-///
-/// This is exploration evidence for the optimization loop: wire percentiles
-/// plus DB-side statement attribution, never a conformance record.
-///
-/// # Errors
-/// [`Error::Selector`] for an unknown class token, [`Error::Catalogue`] or
-/// [`Error::Artifacts`] when the performance schedule does not load,
-/// [`Error::Read`] or [`Error::Parse`] for the topology, and
-/// [`Error::Instrument`] for a seeding or probe failure.
-pub fn run_aql_probe(
-    request: &ProbeRequest<'_>,
-    progress: &(dyn Fn(String) + Sync),
-) -> Result<AqlProbeReport, Error> {
-    use crate::perf_run;
-
-    let class = PerfClass::parse(request.corpus_class).map_err(Error::Selector)?;
-    let schedule = load_clean_schedule(request.root)?;
-    let (ixit, _) = load_ixit(request.ixit)?;
-    let (principals, environment) =
-        perf_run::window::measured_run_context(&ixit).map_err(Error::Instrument)?;
-    let client = principals.primary().clone();
-    let (_, case) = performance_case_of_class(&schedule, class, request.corpus_class)?;
-    let opt_xml = scale_opt_xml(&schedule)?;
-    let (_, journey_pack) = journey_context(&schedule)?;
-    let corpus = seed_corpus(
-        &client,
-        case.corpus.as_str(),
-        &opt_xml,
-        &journey_pack,
-        request.seed_workers,
-        progress,
-        // The probe records no disk anchors (exploration only).
-        &mut |_| {},
-    )?;
-    let options = crate::probe::ProbeOptions {
-        requests: request.requests,
-    };
-    crate::probe::run_probe(
-        &client,
-        &corpus,
-        &environment,
-        ixit.containers.as_ref(),
-        &options,
-        progress,
-    )
-    .map_err(|e| Error::Instrument(format!("probe run failed: {e}")))
 }
 
 /// Returns the results record a measured run creates when none exists yet:
@@ -851,7 +784,7 @@ mod tests {
     /// vocabulary, and an unknown one is refused before the catalogue is
     /// read, let alone a SUT contacted.
     #[test]
-    fn an_unknown_class_token_is_refused_by_all_three_instruments() {
+    fn an_unknown_class_token_is_refused_by_both_instruments() {
         let root = Path::new("perf");
         let ixit = Path::new("ixit.json");
         let measured = run_measured(
@@ -883,19 +816,6 @@ mod tests {
         )
         .expect_err("PLATINUM is not a performance class");
         assert!(matches!(stress, Error::Selector(_)), "{stress}");
-
-        let probe = run_aql_probe(
-            &ProbeRequest {
-                root,
-                ixit,
-                corpus_class: "PLATINUM",
-                seed_workers: 1,
-                requests: 1,
-            },
-            &|_| {},
-        )
-        .expect_err("PLATINUM is not a performance class");
-        assert!(matches!(probe, Error::Selector(_)), "{probe}");
     }
 
     /// The seeding milestones the disk anchors are probed at are a closed

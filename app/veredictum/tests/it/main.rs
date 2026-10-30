@@ -40,6 +40,7 @@ mod perf_generator;
 mod perf_result;
 mod perf_run_ladder;
 mod perf_seeding;
+mod perf_server;
 mod pipeline_seams;
 mod results_export;
 mod schema_drift;

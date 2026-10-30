@@ -46,7 +46,6 @@ pub mod perf_result;
 pub mod perf_run;
 pub mod perf_schedule;
 pub mod pipeline;
-pub mod probe;
 pub mod schema;
 pub mod stress;
 pub mod transcript;

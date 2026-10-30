@@ -3,7 +3,7 @@
 
 //! The performance schedule: the input tree of the measured instruments.
 //!
-//! `perf`, `stress`, `aql-probe` and `perf-assets` read one root laid out as:
+//! `perf`, `stress` and `perf-assets` read one root laid out as:
 //!
 //! ```text
 //! <root>/classes/*.yaml    the performance cases, one per class

@@ -5,9 +5,8 @@ stricter demonstration and persists like any measured run; nothing shorter than
 the case exists.
 
 `--root` is the performance schedule, `perf/` in this repository: the class
-cases, the journey catalogue and the payloads the journeys send. `stress`,
-`aql-probe` and `perf-assets` read the same tree, and none of them reads
-`catalogue/`.
+cases, the journey catalogue and the payloads the journeys send. `stress`
+and `perf-assets` read the same tree, and none of them reads `catalogue/`.
 
 `--results` names the measured record. When no file exists there, `perf`
 creates it: before it seeds anything, it reads the server's identity through

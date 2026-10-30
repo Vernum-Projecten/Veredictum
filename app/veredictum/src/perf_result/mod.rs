@@ -18,6 +18,7 @@ pub mod capacity;
 pub mod derive;
 pub mod judge;
 pub mod quantile;
+pub mod server;
 
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -35,6 +36,7 @@ use crate::perf_gen::arrivals::Rate;
 use crate::perf_gen::drive::{OperationRecord, WindowRecord};
 use crate::perf_gen::{ErrorClass, FailedExchange, OperationId};
 use crate::perf_result::derive::Derived;
+use crate::perf_result::server::{ServerReadings, SettingsReading};
 use crate::workload::CorpusScale;
 
 /// The sentence every record carries about what one run cannot show.
@@ -320,28 +322,6 @@ pub struct RawMix {
     pub dropped: Vec<DroppedInteractionRecord>,
 }
 
-/// The server-side readings of one plateau: context that never bears on
-/// its qualification.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
-pub enum ServerReadings {
-    /// No reading was taken.
-    Absent {
-        /// Why not.
-        reason: String,
-    },
-}
-
-// TODO(#887): a `present` state carrying the container series, the database sizes and the statement table.
-
-impl Default for ServerReadings {
-    fn default() -> Self {
-        Self::Absent {
-            reason: "the run declared no server-side sampler".to_owned(),
-        }
-    }
-}
-
 /// One operation's evidence in one window.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -558,6 +538,9 @@ pub struct Raw {
     pub qualification: RawQualification,
     /// The seed every draw derived from.
     pub seed: u64,
+    /// The database server's settings, read once before the settle.
+    #[serde(default)]
+    pub server_settings: SettingsReading,
     /// The phases after seeding, in the order they ran.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub phases: Vec<PhaseRecord>,

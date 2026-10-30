@@ -28,7 +28,6 @@ use veredictum::perf_run::schedule::JourneyWorkload;
 use veredictum::perf_run::window::{
     drive_case, measured_run_context, rederive_verdict, run_window,
 };
-use veredictum::probe::{ProbeOptions, run_probe};
 use veredictum::stress::{StressOptions, run_stress};
 
 /// The stub's live fault levers. They are flipped mid-life rather than
@@ -1024,6 +1023,7 @@ fn an_unholdable_budget_breaches_the_first_rung_and_bisects() {
     let containers = Containers {
         sut: "veredictum-no-such-sut-container".to_owned(),
         db: "veredictum-no-such-db-container".to_owned(),
+        database: None,
     };
     let options = StressOptions {
         start_rate: 4.0,
@@ -1074,135 +1074,4 @@ fn an_unholdable_budget_breaches_the_first_rung_and_bisects() {
         seen.iter().any(|m| m.contains("bisecting between")),
         "{seen:?}"
     );
-}
-
-/// The AQL probe over a seeded corpus with no container capability: wire
-/// percentiles for each of the three probes, and the attribution field
-/// saying honestly that DB-side cost could not be attributed.
-#[test]
-fn the_aql_probe_reports_wire_percentiles_and_names_its_missing_attribution() {
-    let (base_url, _server, _faults) = spawn_stub();
-    let (principals, environment) = client_and_env(&base_url);
-    let pack = journey_pack();
-    let corpus = seeded(principals.primary(), &pack);
-
-    let progress = |_message: String| {};
-    let report = run_probe(
-        principals.primary(),
-        &corpus,
-        &environment,
-        None,
-        &ProbeOptions { requests: 4 },
-        &progress,
-    )
-    .unwrap();
-
-    assert_eq!(report.requests_per_probe, 4);
-    assert!(!report.maintenance_settled);
-    assert!(
-        report.attribution.starts_with("unavailable"),
-        "{}",
-        report.attribution
-    );
-    let names: Vec<&str> = report.probes.iter().map(|p| p.name.as_str()).collect();
-    assert_eq!(
-        names,
-        vec!["ward_worklist", "adhoc_trend", "stored_dashboard"]
-    );
-    for probe in &report.probes {
-        assert_eq!(probe.failures, 0, "{} failed on a healthy stub", probe.name);
-        assert!(probe.statements.is_empty(), "no attribution, no statements");
-        assert!(probe.wire_ms.max_ms >= probe.wire_ms.p50_ms);
-    }
-    assert!(
-        report.remark.contains("never a conformance record"),
-        "{}",
-        report.remark
-    );
-}
-
-/// A DECLARED container capability the runtime cannot answer for: the probe
-/// still runs, and both the settling and the attribution degrade to honest
-/// report fields naming why. Fabricating statement costs from an
-/// unreachable database is the one thing an attribution channel must never
-/// do.
-#[test]
-fn an_unreachable_container_leaves_the_probes_attribution_honestly_absent() {
-    let (base_url, _server, _faults) = spawn_stub();
-    let (principals, environment) = client_and_env(&base_url);
-    let pack = journey_pack();
-    let corpus = seeded(principals.primary(), &pack);
-
-    let containers = Containers {
-        sut: "veredictum-no-such-sut-container".to_owned(),
-        db: "veredictum-no-such-db-container".to_owned(),
-    };
-    let notes = std::sync::Mutex::new(Vec::new());
-    let report = run_probe(
-        principals.primary(),
-        &corpus,
-        &environment,
-        Some(&containers),
-        &ProbeOptions { requests: 1 },
-        &|message| {
-            notes
-                .lock()
-                .expect("the progress lock is uncontended")
-                .push(message);
-        },
-    )
-    .unwrap();
-
-    assert!(!report.maintenance_settled);
-    assert!(
-        report.attribution.starts_with("unavailable"),
-        "{}",
-        report.attribution
-    );
-    assert!(
-        report.probes.iter().all(|p| p.statements.is_empty()),
-        "an unreachable database produced attributed statements"
-    );
-    let seen = notes.lock().expect("the progress lock is uncontended");
-    assert!(
-        seen.iter()
-            .any(|m| m.contains("statement attribution unavailable")),
-        "{seen:?}"
-    );
-    assert!(
-        seen.iter().any(|m| m.contains("maintenance not settled")),
-        "{seen:?}"
-    );
-}
-
-/// A probe whose SUT is not listening: every request is a recorded finding,
-/// never an instrument error. The probe still returns a report, because a
-/// failing probe IS the evidence the optimization loop wants.
-#[test]
-fn a_probe_against_an_unreachable_sut_records_failures_rather_than_erroring() {
-    let (base_url, _server, _faults) = spawn_stub();
-    let (principals, environment) = client_and_env(&base_url);
-    let pack = journey_pack();
-    let corpus = seeded(principals.primary(), &pack);
-
-    let dead: Ixit = serde_json::from_value(serde_json::json!({
-        "instances": { "sut": { "base_url": crate::fake_sut::closed_port_url(),
-                                 "auth": { "mode": "none" } } }
-    }))
-    .unwrap();
-    let dead = PerfPrincipals::from_ixit(&dead).unwrap();
-
-    let progress = |_message: String| {};
-    let report = run_probe(
-        dead.primary(),
-        &corpus,
-        &environment,
-        None,
-        &ProbeOptions { requests: 2 },
-        &progress,
-    )
-    .unwrap();
-    for probe in &report.probes {
-        assert_eq!(probe.failures, 2, "{} recorded no failures", probe.name);
-    }
 }

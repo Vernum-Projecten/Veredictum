@@ -7,7 +7,8 @@
 //! Three code paths reach outside this process for their answer: the
 //! resource sampler reads the Docker Engine API's per-container stats, the
 //! disk anchor and the maintenance settling shell into the DB container, and
-//! the AQL probe attributes its cost through `pg_stat_statements`. A fake
+//! the server-side readings read the database's sizes, settings and
+//! `pg_stat_statements` through `psql` in its container. A fake
 //! cannot establish that any of them works, because what is being checked IS
 //! the reply of another program, so this module composes a real container
 //! and reads the real answers.
@@ -19,7 +20,6 @@
 //! path is broken, every test here fails.
 
 #![expect(
-    clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
     reason = "test-support helpers (not `#[test]` fns, so the clippy.toml in-tests scoping does not reach them) are panic-idiomatic: a broken harness must abort the test loudly, Book ch11"
@@ -32,15 +32,14 @@
 use std::process::Command;
 use std::time::Duration;
 
-use veredictum::ixit::{Containers, Environment, Ixit};
-use veredictum::perf_run::client::{PerfClient, PerfPrincipals};
-use veredictum::perf_run::corpus::SeededCorpus;
+use veredictum::ixit::Containers;
+use veredictum::perf_emulate::server::ServerSampler;
+use veredictum::perf_result::server::{
+    ContainersReading, DatabaseReading, SettingsReading, StatementsReading,
+};
 use veredictum::perf_run::resources::{
     ResourceSampler, SAMPLE_INTERVAL, db_volume_bytes, settle_maintenance,
 };
-use veredictum::probe::{ProbeOptions, run_probe};
-
-use crate::fake_sut::closed_port_url;
 
 /// The database image the container-coupled paths are read against. The
 /// upstream `postgres` image ships `du`, `vacuumdb`, `psql` and the
@@ -155,39 +154,9 @@ impl DbContainer {
         Containers {
             sut: self.name.clone(),
             db: self.name.clone(),
+            database: Some("postgres".to_owned()),
         }
     }
-}
-
-/// The environment block every measured artifact is bound to.
-fn environment() -> Environment {
-    serde_json::from_value(serde_json::json!({
-        "hardware_class": "test-container", "cores": 1, "memory_gb": 1,
-        "storage_class": "container", "topology": "one postgres container"
-    }))
-    .unwrap()
-}
-
-/// A corpus index the probe can address: the probe reads the first EHR id
-/// to scope its ad-hoc query, and never writes.
-fn corpus_index() -> SeededCorpus {
-    SeededCorpus {
-        corpus: "cnf.scale.10k".to_owned(),
-        ehr_ids: vec!["ehr-0".to_owned()],
-        compositions: Vec::new(),
-        ward: Vec::new(),
-    }
-}
-
-/// A client addressed at a port nothing listens on: the probe's WIRE half
-/// is not what this module checks, and a recorded failure per request is
-/// the probe's documented behaviour for an unreachable SUT.
-fn unreachable_client() -> PerfClient {
-    let ixit: Ixit = serde_json::from_value(serde_json::json!({
-        "instances": { "sut": { "base_url": closed_port_url(), "auth": { "mode": "none" } } }
-    }))
-    .unwrap();
-    PerfPrincipals::from_ixit(&ixit).unwrap().primary().clone()
 }
 
 /// Prints why a test is skipped and yields nothing, so the reason is in the
@@ -284,20 +253,41 @@ fn the_disk_anchor_and_the_maintenance_settling_run_through_the_container() {
     assert!(error.contains("vacuumdb failed"), "{error}");
 }
 
-/// The probe's DB-side attribution, end to end: the extension is armed,
-/// planner time is separated from executor time, the counters are reset per
-/// probe, and the statements are read back as typed costs. The background
-/// query loop stands in for the SUT's own database work — with the wire half
-/// pointed at nothing, it is the only traffic there is to attribute, and
-/// attribution over an idle database would prove only that the read parses.
+/// The server-side readings, end to end against a real database: the
+/// settings, the sizes at a hold's start and end, the statements
+/// `pg_stat_statements` counted over the hold, and the container series read
+/// through the Engine API. The background query loop stands in for the SUT's
+/// own database work, which is the traffic the statement table attributes.
 #[test]
-fn the_probe_attributes_its_cost_through_pg_stat_statements() {
-    if skip("the_probe_attributes_its_cost_through_pg_stat_statements") {
+#[expect(
+    clippy::too_many_lines,
+    reason = "one end-to-end reading: the database, its traffic, the hold, then each reading checked"
+)]
+fn the_server_side_readings_read_a_real_database_and_container() {
+    if skip("the_server_side_readings_read_a_real_database_and_container") {
         return;
     }
-    let container = DbContainer::start("probe");
+    let container = DbContainer::start("readings");
     container.wait_ready();
-    let containers = container.containers();
+    let create = Command::new("docker")
+        .args([
+            "exec",
+            &container.name,
+            "psql",
+            "-U",
+            "postgres",
+            "-d",
+            "postgres",
+            "-c",
+            "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;",
+        ])
+        .output()
+        .expect("docker exec runs");
+    assert!(
+        create.status.success(),
+        "{}",
+        String::from_utf8_lossy(&create.stderr)
+    );
 
     let name = container.name.clone();
     let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -320,53 +310,93 @@ fn the_probe_attributes_its_cost_through_pg_stat_statements() {
         }
     });
 
-    let notes = std::sync::Mutex::new(Vec::new());
-    let report = run_probe(
-        &unreachable_client(),
-        &corpus_index(),
-        &environment(),
-        Some(&containers),
-        &ProbeOptions { requests: 2 },
-        &|message| notes.lock().unwrap().push(message),
-    )
-    .expect("a probe over a reachable database returns its report");
+    let sampler = ServerSampler::from_ixit(Some(&container.containers()))
+        .with_interval(Duration::from_millis(500));
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("a runtime builds");
+    let (settings, readings) = runtime.block_on(async {
+        let settings = sampler.settings().await;
+        sampler.begin().await;
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        (settings, sampler.end().await)
+    });
     stop.store(true, std::sync::atomic::Ordering::Relaxed);
     traffic.join().expect("the traffic thread finished");
 
-    assert!(
-        report.maintenance_settled,
-        "settling failed: {:?}",
-        notes.lock().unwrap()
-    );
-    assert_eq!(report.attribution, "pg_stat_statements");
-    let seen = notes.lock().unwrap();
-    assert!(
-        !seen.iter().any(|m| m.contains("attribution read failed")),
-        "the statement read failed: {seen:?}"
-    );
-    // The wire half is deliberately unreachable, so every request is a
-    // recorded finding rather than an instrument error.
-    assert!(report.probes.iter().all(|p| p.failures == 2));
-    let attributed: usize = report.probes.iter().map(|p| p.statements.len()).sum();
-    assert!(
-        attributed > 0,
-        "no statement was attributed across {} probes: {seen:?}",
-        report.probes.len()
-    );
-    let statement = report
-        .probes
+    let SettingsReading::Present {
+        server_version,
+        settings,
+    } = settings
+    else {
+        panic!("no settings: {settings:?}");
+    };
+    assert!(server_version.starts_with("18"), "{server_version}");
+    assert!(settings.contains_key("shared_buffers"));
+    assert!(settings.contains_key("shared_preload_libraries"));
+
+    let ContainersReading::Present { series } = &readings.containers else {
+        panic!("no container series: {:?}", readings.containers);
+    };
+    assert_eq!(series.len(), 2, "one series per declared role");
+    for one in series {
+        assert!(one.truncated.is_none(), "{:?}", one.truncated);
+        assert!(
+            one.samples.len() >= 2,
+            "{} has {} samples",
+            one.name,
+            one.samples.len()
+        );
+        assert!(one.samples.iter().all(|s| s.rss_bytes > 0));
+    }
+    let DatabaseReading::Present { database, end, .. } = &readings.database else {
+        panic!("no sizes: {:?}", readings.database);
+    };
+    assert_eq!(database, "postgres");
+    assert!(end.database_bytes > 0);
+    let StatementsReading::Present { statements } = &readings.statements else {
+        panic!("no statement table: {:?}", readings.statements);
+    };
+    let statement = statements
         .iter()
-        .flat_map(|p| &p.statements)
-        .find(|s| s.sql.contains("pg_class"))
-        .expect("the background query is among the attributed statements");
+        .find(|s| s.query.contains("pg_class"))
+        .unwrap_or_else(|| panic!("the background query is not in the table: {statements:?}"));
     assert!(statement.calls > 0);
-    assert!(statement.total_ms >= statement.mean_ms - f64::EPSILON);
-    assert!(
-        statement.mean_plan_ms > 0.0,
-        "track_planning was armed but the plan share reads zero"
-    );
     assert!(
         statement.shared_blks_hit > 0,
         "a catalogue scan hit no buffer"
     );
+    assert!(
+        statements
+            .iter()
+            .all(|s| !s.query.contains("pg_stat_statements")),
+        "the sampler's own reads are in its table"
+    );
+}
+
+/// A declared database without `pg_stat_statements`: the statement table
+/// is absent with the server's own reason, and the sizes are still read.
+#[test]
+fn a_database_without_the_extension_gets_an_absent_statement_table() {
+    if skip("a_database_without_the_extension_gets_an_absent_statement_table") {
+        return;
+    }
+    let container = DbContainer::start("no-extension");
+    container.wait_ready();
+    let sampler = ServerSampler::from_ixit(Some(&container.containers()));
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("a runtime builds");
+    let readings = runtime.block_on(async {
+        sampler.begin().await;
+        sampler.end().await
+    });
+    assert!(
+        matches!(&readings.statements, StatementsReading::Absent { reason } if reason.contains("pg_stat_statements")),
+        "{:?}",
+        readings.statements
+    );
+    assert!(matches!(readings.database, DatabaseReading::Present { .. }));
 }

@@ -1,16 +1,13 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The measured instruments against the fake SUT: the AQL probe's answer
-//! classification, the stress ladder's step arithmetic, and the pipeline
-//! preamble all three share.
+//! The measured instruments against the fake SUT: the stress ladder's step
+//! arithmetic, and the pipeline preamble both share.
 //!
-//! The probe and the ladder are exploration evidence, never a conformance
-//! record, so what these tests pin is that each one reports honestly: a
-//! failing request is a recorded finding rather than an instrument error, an
-//! unavailable attribution channel says so in the artifact instead of
-//! fabricating rows, and a step that leaves the envelope is named as
-//! breached. The ladders here are deliberately tiny — one-second holds, two
+//! The ladder is exploration evidence, never a conformance record, so what
+//! these tests pin is that it reports honestly: a failing request is a
+//! recorded finding rather than an instrument error, and a step that leaves
+//! the envelope is named as breached. The ladders here are deliberately tiny — one-second holds, two
 //! rungs — because the arithmetic is what is under test, not throughput.
 //!
 //! The pipeline seams are driven to the point where the instrument would
@@ -35,11 +32,9 @@ use veredictum::perf_run::corpus::SeededCorpus;
 use veredictum::perf_run::pack::{AuxPayloads, JourneyPack};
 use veredictum::perf_run::schedule::JourneyWorkload;
 use veredictum::pipeline::measured::{
-    MeasuredRequest, ProbeRequest, StressRequest, SustainedWindow, run_aql_probe, run_measured,
-    seed_corpus,
+    MeasuredRequest, StressRequest, SustainedWindow, run_measured, seed_corpus,
 };
 use veredictum::pipeline::{Error, measured};
-use veredictum::probe::{ProbeOptions, run_probe};
 use veredictum::stress::{StressOptions, run_stress};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, ResponseTemplate};
@@ -67,7 +62,7 @@ fn environment(ixit: &Ixit) -> Environment {
     ixit.measured_environment().unwrap()
 }
 
-/// A one-patient corpus index: enough for the probe's `ehr_id` parameter and
+/// A one-patient corpus index: enough for an `ehr_id` parameter and
 /// for one ward-addressed journey stage.
 fn corpus() -> SeededCorpus {
     serde_json::from_value(json!({
@@ -83,147 +78,6 @@ fn corpus() -> SeededCorpus {
         }]
     }))
     .unwrap()
-}
-
-/// Every probe answers 200, so the report carries no failure and the
-/// percentiles are ordered. The attribution field states the honest reason
-/// the DB channel is absent rather than leaving the reader to guess.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn the_probe_reports_percentiles_and_declares_its_missing_attribution() -> Fallible {
-    let sut = FakeSut::start();
-    sut.mount(
-        Mock::given(method("POST"))
-            .and(path("/query/aql"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "rows": [] }))),
-    );
-    sut.mount(
-        Mock::given(method("GET"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "rows": [] }))),
-    );
-
-    let ixit = topology(&sut.base_url());
-    let client = PerfClient::from_instance(ixit.default_instance()?, &ixit)?;
-    let report = run_probe(
-        &client,
-        &corpus(),
-        &environment(&ixit),
-        None,
-        &ProbeOptions { requests: 3 },
-        &|_message| {},
-    )?;
-
-    assert_eq!(report.requests_per_probe, 3);
-    assert_eq!(
-        report.probes.len(),
-        3,
-        "the closed probe set is ward, ad-hoc and stored"
-    );
-    let names: Vec<&str> = report.probes.iter().map(|p| p.name.as_str()).collect();
-    assert_eq!(names, ["ward_worklist", "adhoc_trend", "stored_dashboard"]);
-    for probe in &report.probes {
-        assert_eq!(probe.failures, 0, "probe {} saw a failure", probe.name);
-        assert!(
-            probe.wire_ms.min_ms <= probe.wire_ms.p50_ms
-                && probe.wire_ms.p50_ms <= probe.wire_ms.p95_ms
-                && probe.wire_ms.p95_ms <= probe.wire_ms.max_ms,
-            "probe {} percentiles are out of order: {:?}",
-            probe.name,
-            probe.wire_ms
-        );
-        assert!(
-            probe.statements.is_empty(),
-            "no attribution channel exists, so no statement may be reported"
-        );
-    }
-    assert!(!report.maintenance_settled);
-    assert!(
-        report.attribution.starts_with("unavailable"),
-        "attribution reads {:?}",
-        report.attribution
-    );
-    assert!(report.remark.contains("never a conformance record"));
-
-    // Three probes x three requests, all of them actually sent.
-    assert_eq!(sut.requests().len(), 9);
-    Ok(())
-}
-
-/// A probe the SUT refuses is a RECORDED FINDING, not an instrument error:
-/// the run completes, the failure count names the bad probe, and the other
-/// probes are unaffected.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn a_refused_probe_is_counted_not_raised() -> Fallible {
-    let sut = FakeSut::start();
-    sut.mount(
-        Mock::given(method("POST"))
-            .and(path("/query/aql"))
-            .respond_with(ResponseTemplate::new(500)),
-    );
-    sut.mount(
-        Mock::given(method("GET"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "rows": [] }))),
-    );
-
-    let ixit = topology(&sut.base_url());
-    let client = PerfClient::from_instance(ixit.default_instance()?, &ixit)?;
-    let report = run_probe(
-        &client,
-        &corpus(),
-        &environment(&ixit),
-        None,
-        &ProbeOptions { requests: 2 },
-        &|_message| {},
-    )?;
-
-    let failures: Vec<(&str, u32)> = report
-        .probes
-        .iter()
-        .map(|p| (p.name.as_str(), p.failures))
-        .collect();
-    assert_eq!(
-        failures,
-        [
-            ("ward_worklist", 2),
-            ("adhoc_trend", 2),
-            ("stored_dashboard", 0)
-        ]
-    );
-    Ok(())
-}
-
-/// An empty corpus index has no EHR to parameterize the probes with, and
-/// that is an instrument-construction error rather than a fabricated run.
-#[test]
-#[expect(
-    clippy::panic_in_result_fn,
-    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
-)]
-fn a_probe_over_an_empty_corpus_refuses_to_run() -> Fallible {
-    let sut = FakeSut::start();
-    let ixit = topology(&sut.base_url());
-    let client = PerfClient::from_instance(ixit.default_instance()?, &ixit)?;
-    let empty: SeededCorpus = serde_json::from_value(json!({
-        "corpus": "cnf.scale.10k", "ehr_ids": [], "compositions": [], "ward": []
-    }))?;
-    let outcome = run_probe(
-        &client,
-        &empty,
-        &environment(&ixit),
-        None,
-        &ProbeOptions::default(),
-        &|_message| {},
-    );
-    assert_eq!(outcome.err(), Some("corpus index has no EHRs".to_owned()));
-    assert_eq!(sut.requests().len(), 0);
-    Ok(())
 }
 
 /// The smallest workload the stress ladder can climb: one read journey and
@@ -584,18 +438,7 @@ fn each_instrument_names_the_artifact_its_preamble_could_not_read() -> Fallible 
             &|_| {},
         )
         .expect_err("the preamble must refuse before any wire call");
-        let probe = run_aql_probe(
-            &ProbeRequest {
-                root,
-                ixit,
-                corpus_class: "POC",
-                seed_workers: 1,
-                requests: 1,
-            },
-            &|_| {},
-        )
-        .expect_err("the preamble must refuse before any wire call");
-        for error in [measured, stress, probe] {
+        for error in [measured, stress] {
             let matched = match expected {
                 "class" => matches!(&error, Error::Missing(m) if m.contains("class POC")),
                 "artifacts" => matches!(error, Error::Artifacts(_)),
@@ -608,10 +451,10 @@ fn each_instrument_names_the_artifact_its_preamble_could_not_read() -> Fallible 
     Ok(())
 }
 
-/// The three instruments reach the SAME seeding over the committed
-/// catalogue's own POC case, and a SUT that refuses it stops each of them
-/// with the seeding named: no report, no probe record, and no measurement
-/// merged into the results document.
+/// Both instruments reach the SAME seeding over the committed catalogue's
+/// own POC case, and a SUT that refuses it stops each of them with the
+/// seeding named: no report, and no measurement merged into the results
+/// document.
 #[test]
 #[expect(
     clippy::panic_in_result_fn,
@@ -664,21 +507,6 @@ fn a_refused_seeding_stops_every_instrument_before_it_records_anything() -> Fall
         "{stress}"
     );
 
-    let probe = run_aql_probe(
-        &ProbeRequest {
-            root: schedule_root(),
-            ixit: &ixit,
-            corpus_class: "POC",
-            seed_workers: 1,
-            requests: 1,
-        },
-        &|_| {},
-    )
-    .expect_err("a refused seeding is no probe");
-    assert!(
-        matches!(&probe, Error::Instrument(m) if m.contains("seeding failed")),
-        "{probe}"
-    );
     Ok(())
 }
 
@@ -917,18 +745,7 @@ fn the_instruments_need_nothing_from_the_case_core_catalogue() -> Fallible {
         &|_| {},
     )
     .expect_err("a refused seeding is no stress ladder");
-    let probe = run_aql_probe(
-        &ProbeRequest {
-            root: &root,
-            ixit: &ixit,
-            corpus_class: "L",
-            seed_workers: 1,
-            requests: 1,
-        },
-        &|_| {},
-    )
-    .expect_err("a refused seeding is no probe");
-    for error in [measured, stress, probe] {
+    for error in [measured, stress] {
         assert!(
             matches!(&error, Error::Instrument(m) if m.contains("seeding failed")),
             "the preamble stopped before the seeding: {error}"

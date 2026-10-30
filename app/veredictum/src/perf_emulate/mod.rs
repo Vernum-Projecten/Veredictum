@@ -7,7 +7,8 @@
 //!
 //! [`binding`] turns a workload into the generator's mix and the limits a
 //! plateau is judged by; [`run`] drives settle, warm-up, scout, drain, the
-//! ladder and the closing phase against any performer.
+//! ladder and the closing phase against any performer; [`server`] reads the
+//! declared containers and the database beside every plateau.
 //!
 //! No openEHR specification governs measured performance (CNF guide
 //! `master03-overview.adoc`: "Non-functional conformance (performance, etc)
@@ -18,3 +19,4 @@ pub mod corpus;
 pub mod http;
 pub mod performer;
 pub mod run;
+pub mod server;

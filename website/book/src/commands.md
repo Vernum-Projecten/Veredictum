@@ -125,8 +125,8 @@ openEHR specification governs this order; it is this instrument's own design.
 A workflow that declares no inputs carries the marker in a rows file with no
 `rows`, and the workflow then runs once. A conformance-only IXIT declares
 `exclusive_server` alone: the other `environment` members describe the
-hardware a measured run was taken on, and only `perf`, `stress` and
-`aql-probe` read them. `test` reads no `instances` either, since `--base-url`
+hardware a measured run was taken on, and only `perf` and `stress` read
+them. `test` reads no `instances` either, since `--base-url`
 names the server, so `{ "environment": { "exclusive_server": true } }` is a
 whole IXIT for it. The IXIT is checked against the published IXIT schema
 before anything runs, and one that fails it, such as a misspelled member,
@@ -508,9 +508,8 @@ stricter demonstration and persists like any measured run; nothing shorter than
 the case exists.
 
 `--root` is the performance schedule, `perf/` in this repository: the class
-cases, the journey catalogue and the payloads the journeys send. `stress`,
-`aql-probe` and `perf-assets` read the same tree, and none of them reads
-`catalogue/`.
+cases, the journey catalogue and the payloads the journeys send. `stress`
+and `perf-assets` read the same tree, and none of them reads `catalogue/`.
 
 `--results` names the measured record. When no file exists there, `perf`
 creates it: before it seeds anything, it reads the server's identity through
@@ -888,28 +887,6 @@ refused there, so a changed workload raises its version and its pin together.
 
 With `--workload` it checks one document of your own instead. A document that
 matches no pinned digest is labelled `custom`.
-
-## aql-probe
-
-```text
-Run the AQL optimization probe: fire the measurement machinery's AQL vocabulary against a live, freshly seeded SUT, record wire percentiles, and attribute the DB-side cost per probe via `pg_stat_statements` (exploration evidence for the optimization loop — never a conformance record)
-
-Usage: veredictum aql-probe [OPTIONS] --root <ROOT> --ixit <IXIT> --out <OUT>
-
-Options:
-      --root <ROOT>                  The performance schedule root, `perf/` in this repository (classes/, journeys.yaml, payloads.yaml, payloads/)
-      --ixit <IXIT>                  The ixit topology file (JSON) — the `containers` block enables DB-side attribution and maintenance settling
-      --out <OUT>                    Where to write the probe report (aql-probe.json)
-      --corpus-class <CORPUS_CLASS>  The class-scale corpus the probes run against (POC | S | L | R) [default: POC]
-      --seed-workers <SEED_WORKERS>  Parallel seeding workers [default: 16]
-      --requests <REQUESTS>          Requests fired per probe [default: 20]
-  -h, --help                         Print help
-```
-
-Fires the measurement machinery's AQL vocabulary, records wire percentiles per
-probe, and attributes the database-side cost through `pg_stat_statements`. This
-is evidence for someone optimizing a server, and it is never a conformance
-record.
 
 ## stress-compare
 

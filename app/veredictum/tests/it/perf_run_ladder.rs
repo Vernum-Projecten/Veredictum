@@ -5,7 +5,8 @@
 //! on a paused clock: the ladder brackets the capacity between two adjacent
 //! plateaus, and the run takes at most five
 //! minutes against a server of 1,000 operations per second and at most ten
-//! against one of 30. Virtual time stands in for the minutes
+//! against one of 30, with failing server-side readings leaving the run
+//! intact. Virtual time stands in for the minutes
 //! (<https://docs.rs/tokio/1/tokio/time/fn.pause.html>), so the criteria
 //! cost seconds of CI.
 
@@ -26,10 +27,12 @@ use veredictum::perf_emulate::binding::Binding;
 use veredictum::perf_emulate::run::{
     LadderOutcome, RunHooks, RunRequest, RunShape, run_after_seeding,
 };
+use veredictum::perf_emulate::server::{ReadingError, ServerSampler, SqlReader};
 use veredictum::perf_gen::arrivals::{ArrivalProcess, Rate};
 use veredictum::perf_gen::drive::GeneratorLimits;
 use veredictum::perf_gen::{Call, ErrorClass, Interaction, Mix, OperationId, Outcome, Performer};
 use veredictum::perf_result::derive::plateau;
+use veredictum::perf_result::server::{ContainersReading, DatabaseReading, ServerReadings};
 use veredictum::perf_result::{Phase, RawQualification};
 use veredictum::workload::Stage;
 use veredictum::workload::ops::WorkloadOp;
@@ -198,4 +201,75 @@ fn a_slow_server_is_bracketed_in_at_most_ten_minutes() {
         outcome.elapsed
     );
     assert_phases_recorded(&outcome);
+}
+
+/// A database that refuses every reading.
+struct RefusingDatabase;
+
+impl SqlReader for RefusingDatabase {
+    fn query(
+        &self,
+        _sql: &'static str,
+    ) -> impl Future<Output = Result<String, ReadingError>> + Send {
+        std::future::ready(Err(ReadingError::Sql("connection refused".to_owned())))
+    }
+}
+
+/// Hooks whose server-side sampler fails at every reading.
+struct FailingReadings(ServerSampler<RefusingDatabase>);
+
+impl RunHooks for FailingReadings {
+    fn progress(&self, _message: &str) {}
+
+    async fn settle(&self) {}
+
+    async fn closing(&self) {}
+
+    async fn plateau_began(&self, _index: usize) {
+        self.0.begin().await;
+    }
+
+    async fn plateau_ended(&self, _index: usize) -> ServerReadings {
+        self.0.end().await
+    }
+}
+
+#[test]
+fn failing_server_side_readings_leave_the_run_and_its_ladder_intact() {
+    let binding = binding();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .start_paused(true)
+        .build()
+        .unwrap();
+    let hooks = FailingReadings(ServerSampler::new(
+        Err("the IXIT declares no `containers`".to_owned()),
+        Ok(Arc::new(RefusingDatabase)),
+    ));
+    let outcome = runtime.block_on(async {
+        let request = RunRequest {
+            seed: 7,
+            process: ArrivalProcess::Poisson,
+            binding: &binding,
+            limits: GeneratorLimits::default(),
+            shape: RunShape::standard(5_000, Rate::new(8.0).unwrap(), Rate::new(4_096.0).unwrap()),
+        };
+        run_after_seeding(&request, Arc::new(Admitting::of_capacity(1_000)), &hooks)
+            .await
+            .unwrap()
+    });
+    let (below, above) = bracket(&outcome, &binding);
+    assert!(below <= 1_000.0 && 1_000.0 <= above, "{below} .. {above}");
+    assert!(outcome.plateaus.len() >= 4);
+    for plateau in &outcome.plateaus {
+        assert!(
+            matches!(&plateau.server.database, DatabaseReading::Absent { reason } if reason.contains("connection refused")),
+            "{:?}",
+            plateau.server.database
+        );
+        assert!(matches!(
+            &plateau.server.containers,
+            ContainersReading::Absent { .. }
+        ));
+    }
 }

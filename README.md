@@ -165,7 +165,7 @@ complete workflow, every input, and what to keep out of an uploaded artifact.
 ### Measured instruments
 
 - [`perf`](https://veredictum.eu/docs/running.html#measured-performance-stress-and-speed): earns a population-anchored performance class (POC, S, L, R) under open-loop load
-- [`stress`](https://veredictum.eu/docs/commands.html#stress) and [`aql-probe`](https://veredictum.eu/docs/commands.html#aql-probe): find where a deployment breaks, as exploration that never yields a conformance record
+- [`stress`](https://veredictum.eu/docs/commands.html#stress): finds where a deployment breaks, as exploration that never yields a conformance record
 - [`bench`](https://veredictum.eu/docs/running.html#benchmark-a-cdr-in-one-command): comparative speed from embedded packs, with EHRbase and FerroEHR as pinned baselines
 
 ### Results and CI exports

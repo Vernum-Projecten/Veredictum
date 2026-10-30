@@ -45,8 +45,7 @@ use veredictum::pipeline::bench::{BenchRequest, compare_bench, describe_packs, r
 use veredictum::pipeline::export::{export_results, show_results};
 use veredictum::pipeline::judgement::{JudgementRequest, judge};
 use veredictum::pipeline::measured::{
-    MeasuredEvent, MeasuredRequest, ProbeRequest, StressRequest, SustainedWindow, run_aql_probe,
-    run_measured, run_stress,
+    MeasuredEvent, MeasuredRequest, StressRequest, SustainedWindow, run_measured, run_stress,
 };
 use veredictum::pipeline::perf_judge::judge_perf_result;
 use veredictum::pipeline::perf_workload::{CorpusMode, WorkloadRunRequest, run_workload};
@@ -483,33 +482,6 @@ enum Command {
         #[arg(long)]
         workload: Option<PathBuf>,
     },
-    /// Run the AQL optimization probe: fire the measurement machinery's
-    /// AQL vocabulary against a live, freshly seeded SUT, record wire
-    /// percentiles, and attribute the DB-side cost per probe via
-    /// `pg_stat_statements` (exploration evidence for the optimization
-    /// loop — never a conformance record).
-    AqlProbe {
-        /// The performance schedule root, `perf/` in this repository
-        /// (classes/, journeys.yaml, payloads.yaml, payloads/)
-        #[arg(long)]
-        root: PathBuf,
-        /// The ixit topology file (JSON) — the `containers` block enables
-        /// DB-side attribution and maintenance settling.
-        #[arg(long)]
-        ixit: PathBuf,
-        /// Where to write the probe report (aql-probe.json).
-        #[arg(long)]
-        out: PathBuf,
-        /// The class-scale corpus the probes run against (POC | S | L | R).
-        #[arg(long, default_value = "POC")]
-        corpus_class: String,
-        /// Parallel seeding workers.
-        #[arg(long, default_value_t = 16)]
-        seed_workers: usize,
-        /// Requests fired per probe.
-        #[arg(long, default_value_t = 20)]
-        requests: u32,
-    },
     /// Render the cross-SUT stress overlay (both systems' latency-throughput
     /// curves on one canvas) FROM two committed stress reports —
     /// deterministic, both directions on equal footing.
@@ -904,23 +876,6 @@ fn main() -> ExitCode {
             out,
             workload,
         } => perf_workloads_command(&root, &catalogue, out.as_deref(), workload.as_deref()),
-        Command::AqlProbe {
-            root,
-            ixit,
-            out,
-            corpus_class,
-            seed_workers,
-            requests,
-        } => probe_command(
-            &ProbeRequest {
-                root: &root,
-                ixit: &ixit,
-                corpus_class: &corpus_class,
-                seed_workers,
-                requests,
-            },
-            &out,
-        ),
         Command::StressCompare {
             left,
             left_label,
@@ -1486,23 +1441,6 @@ fn perf_workloads_command(
     if let Err(code) = emit(out, &files) {
         return code;
     }
-    ExitCode::SUCCESS
-}
-
-fn probe_command(request: &ProbeRequest<'_>, out: &Path) -> ExitCode {
-    let progress = |message: String| eprintln!("[probe] {message}");
-    let report = match run_aql_probe(request, &progress) {
-        Ok(report) => report,
-        Err(e) => return fail(&e),
-    };
-    let document = match to_json_document(&report, "serialize") {
-        Ok(document) => document,
-        Err(e) => return fail(&e),
-    };
-    if let Err(code) = emit_one(out, &document) {
-        return code;
-    }
-    println!("wrote {} ({} probes)", out.display(), report.probes.len());
     ExitCode::SUCCESS
 }
 

@@ -824,8 +824,9 @@ jobs:
       # without that program, because a skip must never be the outcome that
       # gates a merge. The container-runtime-coupled paths (#192): the
       # resource sampler's Engine API reads, the disk anchor and the
-      # maintenance settling, and the AQL probe's `pg_stat_statements`
-      # attribution are all another program's reply, so `env_coupled.rs`
+      # maintenance settling, and the server-side readings' sizes, settings
+      # and `pg_stat_statements` table are all another program's reply, so
+      # `env_coupled.rs`
       # drives a real engine and skips with a printed reason when none
       # answers. This step refuses a runner without one, and pre-pulls the
       # image so three parallel tests do not race the same pull. The pin is

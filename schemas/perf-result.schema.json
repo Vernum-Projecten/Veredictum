@@ -917,6 +917,71 @@
             }
           }
         },
+        "server_settings": {
+          "description": "The database server's settings, read once before the settle: every setting not at its built-in default, and the planner, memory, WAL and parallelism settings whatever their source.",
+          "type": "object",
+          "required": [
+            "state"
+          ],
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "server_version",
+                "settings"
+              ],
+              "properties": {
+                "state": {
+                  "const": "present"
+                },
+                "server_version": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "settings": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "setting",
+                      "source"
+                    ],
+                    "properties": {
+                      "setting": {
+                        "type": "string"
+                      },
+                      "unit": {
+                        "type": "string"
+                      },
+                      "source": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "reason"
+              ],
+              "properties": {
+                "state": {
+                  "const": "absent"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        },
         "plateaus": {
           "type": "array",
           "items": {
@@ -1066,26 +1131,315 @@
                 "description": "The planned rate as a multiple of the scout's knee estimate."
               },
               "server": {
-                "description": "The server-side readings over the hold: context that never bears on qualification.",
-                "oneOf": [
-                  {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "containers",
+                  "database",
+                  "statements"
+                ],
+                "description": "The server-side readings over the hold: context that never bears on qualification. Each is present, or absent with its reason.",
+                "properties": {
+                  "containers": {
+                    "description": "The declared containers' cumulative counters from the Docker Engine API stats endpoint, read at a fixed interval from the hold's start and once at its end. A failed reading ends that container's series, with the reason.",
                     "type": "object",
-                    "additionalProperties": false,
                     "required": [
-                      "state",
-                      "reason"
+                      "state"
                     ],
-                    "properties": {
-                      "state": {
-                        "const": "absent"
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "series"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "present"
+                          },
+                          "series": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "role",
+                                "name",
+                                "interval_ms",
+                                "samples"
+                              ],
+                              "properties": {
+                                "role": {
+                                  "enum": [
+                                    "sut",
+                                    "db"
+                                  ]
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "interval_ms": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "samples": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "offset_ms",
+                                      "cpu_ns",
+                                      "rss_bytes",
+                                      "blk_read_bytes",
+                                      "blk_write_bytes",
+                                      "net_rx_bytes",
+                                      "net_tx_bytes"
+                                    ],
+                                    "properties": {
+                                      "offset_ms": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "cpu_ns": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "rss_bytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "blk_read_bytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "blk_write_bytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "net_rx_bytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "net_tx_bytes": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      }
+                                    }
+                                  }
+                                },
+                                "truncated": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "at_ms",
+                                    "reason"
+                                  ],
+                                  "properties": {
+                                    "at_ms": {
+                                      "type": "integer",
+                                      "minimum": 0
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
                       },
-                      "reason": {
-                        "type": "string",
-                        "minLength": 1
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "reason"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "absent"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
                       }
-                    }
+                    ]
+                  },
+                  "database": {
+                    "description": "The database's pg_database_size and per-schema pg_total_relation_size at the hold's start and end.",
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "database",
+                          "start",
+                          "end"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "present"
+                          },
+                          "database": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "start": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "database_bytes",
+                              "schemas"
+                            ],
+                            "properties": {
+                              "database_bytes": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "schemas": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          },
+                          "end": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "database_bytes",
+                              "schemas"
+                            ],
+                            "properties": {
+                              "database_bytes": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "schemas": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "reason"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "absent"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "statements": {
+                    "description": "The statements pg_stat_statements counted over the hold, by execution and planning time, costliest first.",
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "statements"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "present"
+                          },
+                          "statements": {
+                            "type": "array",
+                            "maxItems": 10,
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "query",
+                                "calls",
+                                "total_exec_ms",
+                                "total_plan_ms",
+                                "rows",
+                                "shared_blks_hit",
+                                "shared_blks_read"
+                              ],
+                              "properties": {
+                                "query": {
+                                  "type": "string",
+                                  "maxLength": 1000
+                                },
+                                "calls": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "total_exec_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "total_plan_ms": {
+                                  "type": "number",
+                                  "minimum": 0.0
+                                },
+                                "rows": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "shared_blks_hit": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "shared_blks_read": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "required": [
+                          "state",
+                          "reason"
+                        ],
+                        "properties": {
+                          "state": {
+                            "const": "absent"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      }
+                    ]
                   }
-                ]
+                }
               },
               "failed_exchanges": {
                 "type": "object",
@@ -3112,6 +3466,76 @@
                         }
                       ]
                     }
+                  }
+                }
+              },
+              "server": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "The server-side readings summarized from the raw series alone: context that never bears on qualification.",
+                "properties": {
+                  "containers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "role",
+                        "name",
+                        "samples",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "role": {
+                          "enum": [
+                            "sut",
+                            "db"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "samples": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        },
+                        "cpu_mean_pct": {
+                          "type": "number",
+                          "minimum": 0.0
+                        },
+                        "cpu_max_pct": {
+                          "type": "number",
+                          "minimum": 0.0
+                        },
+                        "rss_max_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "blk_read_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "blk_write_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "net_rx_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "net_tx_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  },
+                  "database_growth_bytes": {
+                    "type": "integer"
                   }
                 }
               }

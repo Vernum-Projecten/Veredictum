@@ -20,6 +20,7 @@ use crate::perf_result::capacity::{
     Knee, Peak, PopulationReading, UslReading, fit_usl, knee, peak, population, usl_points,
 };
 use crate::perf_result::quantile::{Quantile, QuantileName, quantile, u64_to_f64, us_to_ms};
+use crate::perf_result::server::ServerSummary;
 use crate::perf_result::{
     LoadModel, PerfResultError, Raw, RawPlateau, RawQualification, RawScout, RawWindow, SCOPE,
     decode, is_zero,
@@ -331,6 +332,10 @@ pub struct DerivedPlateau {
     pub stopped: bool,
     /// The plateau's qualification.
     pub qualification: Qualification,
+    /// The server-side readings, summarized: context that never bears on
+    /// the qualification.
+    #[serde(default, skip_serializing_if = "ServerSummary::is_empty")]
+    pub server: ServerSummary,
 }
 
 /// One scout window, derived.
@@ -768,6 +773,7 @@ pub fn plateau(
         generator,
         stopped,
         qualification,
+        server: crate::perf_result::server::summarize(&plateau.server),
     })
 }
 

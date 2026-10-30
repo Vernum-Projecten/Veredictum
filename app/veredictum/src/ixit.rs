@@ -482,6 +482,10 @@ pub struct Containers {
     pub sut: String,
     /// The database container name (also the disk-anchor probe target).
     pub db: String,
+    /// The `PostgreSQL` database the SUT keeps its data in, inside `db`: the
+    /// database whose sizes and `pg_stat_statements` table a run reads.
+    #[serde(default)]
+    pub database: Option<String>,
 }
 
 /// The whole IXIT document.

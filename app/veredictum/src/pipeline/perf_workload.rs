@@ -23,8 +23,10 @@ use crate::perf_emulate::corpus::{
 use crate::perf_emulate::http::HttpClient;
 use crate::perf_emulate::performer::{Targets, WirePerformer, read_current};
 use crate::perf_emulate::run::{RunHooks, RunRequest, RunShape, run_after_seeding};
+use crate::perf_emulate::server::{DockerPsql, NO_CONTAINERS, NO_DATABASE, ServerSampler};
 use crate::perf_gen::arrivals::Rate;
 use crate::perf_gen::drive::GeneratorLimits;
+use crate::perf_result::server::{ServerReadings, SettingsReading};
 use crate::perf_result::{
     CorpusOrigin, CorpusRecord, EmbeddedWorkload, Generator, Instrument, LoadModel, PerfResult,
     Raw, RawMix, SeedingRecord, Target, TargetOptions,
@@ -78,6 +80,7 @@ struct LiveHooks<'a> {
     progress: &'a (dyn Fn(String) + Sync),
     client: HttpClient,
     db_container: Option<String>,
+    server: ServerSampler<DockerPsql>,
 }
 
 impl RunHooks for LiveHooks<'_> {
@@ -99,6 +102,20 @@ impl RunHooks for LiveHooks<'_> {
             Ok(Err(e)) => (self.progress)(format!("settle: maintenance not settled: {e}")),
             Err(e) => (self.progress)(format!("settle: maintenance not settled: {e}")),
         }
+    }
+
+    async fn plateau_began(&self, _index: usize) {
+        self.server.begin().await;
+    }
+
+    async fn plateau_ended(&self, index: usize) -> ServerReadings {
+        let readings = self.server.end().await;
+        for (what, reason) in readings.absences() {
+            if reason != NO_CONTAINERS && reason != NO_DATABASE {
+                (self.progress)(format!("plateau {index}: no {what} reading: {reason}"));
+            }
+        }
+        readings
     }
 
     async fn closing(&self) {
@@ -213,7 +230,7 @@ pub fn run_workload(
     );
     let limits = GeneratorLimits::default();
 
-    let (state, seeding, origin, outcome) = runtime.block_on(async {
+    let (state, seeding, origin, outcome, server_settings) = runtime.block_on(async {
         let (state, report, origin) = match request.corpus {
             CorpusMode::Seed => {
                 progress(format!(
@@ -273,7 +290,19 @@ pub fn run_workload(
             progress,
             client: client.clone(),
             db_container: ixit.containers.as_ref().map(|c| c.db.clone()),
+            server: ServerSampler::from_ixit(ixit.containers.as_ref()),
         };
+        let settings = hooks.server.settings().await;
+        if let SettingsReading::Absent { reason } = &settings {
+            progress(format!(
+                "server-side readings: no database settings, sizes or statements ({reason})"
+            ));
+        }
+        if ixit.containers.is_none() {
+            progress(format!(
+                "server-side readings: no container series ({NO_CONTAINERS})"
+            ));
+        }
         let run = RunRequest {
             seed: workload.seed,
             process: workload.arrival,
@@ -297,7 +326,7 @@ pub fn run_workload(
                  and a reuse will be refused"
             )),
         }
-        Ok::<_, Error>((state, seeding, origin, outcome))
+        Ok::<_, Error>((state, seeding, origin, outcome, settings))
     })?;
 
     let document = std::fs::read_to_string(&loaded.path).map_err(|source| Error::Read {
@@ -343,6 +372,7 @@ pub fn run_workload(
         },
         qualification: binding.qualification.clone(),
         seed: workload.seed,
+        server_settings,
         phases: outcome.phases,
         scout: Some(outcome.scout),
         plateaus: outcome.plateaus,

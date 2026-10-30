@@ -439,7 +439,8 @@ pub fn ixit_schema() -> Value {
                 "required": ["sut", "db"],
                 "properties": {
                     "sut": { "type": "string", "minLength": 1 },
-                    "db": { "type": "string", "minLength": 1 }
+                    "db": { "type": "string", "minLength": 1 },
+                    "database": { "type": "string", "minLength": 1, "description": "The PostgreSQL database the SUT keeps its data in, inside the `db` container. `perf` reads its sizes and its `pg_stat_statements` table through it; without it those readings are recorded absent." }
                 }
             },
             "system_id": {
@@ -668,7 +669,7 @@ fn declared_environment_def() -> Value {
         block.remove("required");
         block.insert(
             "description".to_owned(),
-            json!("`exclusive_server` is all a conformance run reads. `perf`, `stress` and `aql-probe` need every other member, and refuse an IXIT lacking one, naming it."),
+            json!("`exclusive_server` is all a conformance run reads. `perf` and `stress` need every other member, and refuse an IXIT lacking one, naming it."),
         );
     }
     def
@@ -762,73 +763,6 @@ pub fn stress_schema() -> Value {
             "max_sustainable_throughput_per_s": { "type": "number", "minimum": 0.0 },
             "ladder_capped": { "type": "boolean" },
             "generator_bound": { "type": "boolean" },
-            "remark": { "type": "string", "minLength": 1 }
-        }
-    })
-}
-
-/// `aql-probe.json` — the AQL optimization probe report (exploration
-/// evidence: wire percentiles + per-statement DB attribution over the
-/// seeded corpus; never a conformance record).
-#[must_use]
-pub fn aql_probe_schema() -> Value {
-    json!({
-        "$schema": DRAFT,
-        "$id": urn("aql-probe"),
-        "title": "CNF 2.0 AQL probe report",
-        "description": "The seeded-corpus AQL optimization probe: per-probe wire-latency percentiles and pg_stat_statements attribution through the container runtime, environment-bound. Exploration evidence for the optimization loop — never a conformance record; results.json is never touched.",
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["corpus", "environment", "requests_per_probe", "maintenance_settled",
-                      "attribution", "probes", "remark"],
-        "properties": {
-            "corpus": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
-            "environment": environment_def(),
-            "requests_per_probe": { "type": "integer", "minimum": 1 },
-            "maintenance_settled": { "type": "boolean" },
-            "attribution": { "type": "string", "minLength": 1 },
-            "probes": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["name", "aql", "failures", "wire_ms"],
-                    "properties": {
-                        "name": { "type": "string", "minLength": 1 },
-                        "aql": { "type": "string", "minLength": 1 },
-                        "failures": { "type": "integer", "minimum": 0 },
-                        "wire_ms": {
-                            "type": "object",
-                            "additionalProperties": false,
-                            "required": ["min_ms", "p50_ms", "p95_ms", "max_ms"],
-                            "properties": {
-                                "min_ms": { "type": "number", "minimum": 0.0 },
-                                "p50_ms": { "type": "number", "minimum": 0.0 },
-                                "p95_ms": { "type": "number", "minimum": 0.0 },
-                                "max_ms": { "type": "number", "minimum": 0.0 }
-                            }
-                        },
-                        "statements": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": ["sql", "calls", "mean_ms", "total_ms",
-                                              "shared_blks_hit", "shared_blks_read"],
-                                "properties": {
-                                    "sql": { "type": "string", "minLength": 1 },
-                                    "calls": { "type": "integer", "minimum": 0 },
-                                    "mean_ms": { "type": "number", "minimum": 0.0 },
-                                    "total_ms": { "type": "number", "minimum": 0.0 },
-                                    "shared_blks_hit": { "type": "integer", "minimum": 0 },
-                                    "shared_blks_read": { "type": "integer", "minimum": 0 }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
             "remark": { "type": "string", "minLength": 1 }
         }
     })
@@ -2851,6 +2785,25 @@ fn perf_result_raw_def() -> Value {
                     }
                 }
             },
+            "server_settings": perf_reading_def(
+                "The database server's settings, read once before the settle: every setting not at its built-in default, and the planner, memory, WAL and parallelism settings whatever their source.",
+                &json!({
+                    "server_version": { "type": "string", "minLength": 1 },
+                    "settings": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["setting", "source"],
+                            "properties": {
+                                "setting": { "type": "string" },
+                                "unit": { "type": "string" },
+                                "source": { "type": "string", "minLength": 1 }
+                            }
+                        }
+                    }
+                }),
+            ),
             "plateaus": {
                 "type": "array",
                 "items": {
@@ -2864,17 +2817,7 @@ fn perf_result_raw_def() -> Value {
                         "halves": { "type": "array", "minItems": 2, "maxItems": 2, "items": perf_raw_window_def() },
                         "stopped_at_ms": { "type": "integer", "minimum": 0 },
                         "multiple": { "type": "number", "exclusiveMinimum": 0.0, "description": "The planned rate as a multiple of the scout's knee estimate." },
-                        "server": {
-                            "description": "The server-side readings over the hold: context that never bears on qualification.",
-                            "oneOf": [
-                                {
-                                    "type": "object",
-                                    "additionalProperties": false,
-                                    "required": ["state", "reason"],
-                                    "properties": { "state": { "const": "absent" }, "reason": { "type": "string", "minLength": 1 } }
-                                }
-                            ]
-                        },
+                        "server": perf_server_readings_def(),
                         "failed_exchanges": {
                             "type": "object",
                             "propertyNames": { "pattern": "^\\S+$" },
@@ -2898,6 +2841,153 @@ fn perf_result_raw_def() -> Value {
                     }
                 }
             }
+        }
+    })
+}
+
+/// A server-side reading: `present` with `properties`, or `absent` with
+/// the reason.
+fn perf_reading_def(description: &str, properties: &Value) -> Value {
+    let mut present = serde_json::Map::new();
+    let _state = present.insert("state".to_owned(), json!({ "const": "present" }));
+    let mut required = vec![json!("state")];
+    if let Some(members) = properties.as_object() {
+        for (name, def) in members {
+            let _member = present.insert(name.clone(), def.clone());
+            required.push(json!(name));
+        }
+    }
+    json!({
+        "description": description,
+        "type": "object",
+        "required": ["state"],
+        "oneOf": [
+            { "additionalProperties": false, "required": required, "properties": present },
+            {
+                "additionalProperties": false,
+                "required": ["state", "reason"],
+                "properties": { "state": { "const": "absent" }, "reason": { "type": "string", "minLength": 1 } }
+            }
+        ]
+    })
+}
+
+/// The server-side readings of one plateau's hold.
+fn perf_server_readings_def() -> Value {
+    let count = json!({ "type": "integer", "minimum": 0 });
+    let sizes = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["database_bytes", "schemas"],
+        "properties": {
+            "database_bytes": count,
+            "schemas": { "type": "object", "additionalProperties": count }
+        }
+    });
+    let ms = json!({ "type": "number", "minimum": 0.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["containers", "database", "statements"],
+        "description": "The server-side readings over the hold: context that never bears on qualification. Each is present, or absent with its reason.",
+        "properties": {
+            "containers": perf_reading_def(
+                "The declared containers' cumulative counters from the Docker Engine API stats endpoint, read at a fixed interval from the hold's start and once at its end. A failed reading ends that container's series, with the reason.",
+                &json!({
+                    "series": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["role", "name", "interval_ms", "samples"],
+                            "properties": {
+                                "role": { "enum": ["sut", "db"] },
+                                "name": { "type": "string", "minLength": 1 },
+                                "interval_ms": { "type": "integer", "minimum": 1 },
+                                "samples": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "required": ["offset_ms", "cpu_ns", "rss_bytes", "blk_read_bytes", "blk_write_bytes", "net_rx_bytes", "net_tx_bytes"],
+                                        "properties": {
+                                            "offset_ms": count, "cpu_ns": count, "rss_bytes": count,
+                                            "blk_read_bytes": count, "blk_write_bytes": count,
+                                            "net_rx_bytes": count, "net_tx_bytes": count
+                                        }
+                                    }
+                                },
+                                "truncated": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["at_ms", "reason"],
+                                    "properties": { "at_ms": count, "reason": { "type": "string", "minLength": 1 } }
+                                }
+                            }
+                        }
+                    }
+                }),
+            ),
+            "database": perf_reading_def(
+                "The database's pg_database_size and per-schema pg_total_relation_size at the hold's start and end.",
+                &json!({
+                    "database": { "type": "string", "minLength": 1 },
+                    "start": sizes,
+                    "end": sizes
+                }),
+            ),
+            "statements": perf_reading_def(
+                "The statements pg_stat_statements counted over the hold, by execution and planning time, costliest first.",
+                &json!({
+                    "statements": {
+                        "type": "array",
+                        "maxItems": crate::perf_result::server::STATEMENTS_PER_PLATEAU,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["query", "calls", "total_exec_ms", "total_plan_ms", "rows", "shared_blks_hit", "shared_blks_read"],
+                            "properties": {
+                                "query": { "type": "string", "maxLength": crate::perf_result::server::STATEMENT_TEXT_LIMIT },
+                                "calls": { "type": "integer", "minimum": 1 },
+                                "total_exec_ms": ms, "total_plan_ms": ms,
+                                "rows": count, "shared_blks_hit": count, "shared_blks_read": count
+                            }
+                        }
+                    }
+                }),
+            )
+        }
+    })
+}
+
+/// A plateau's server-side readings, summarized.
+fn perf_server_summary_def() -> Value {
+    let count = json!({ "type": "integer", "minimum": 0 });
+    let pct = json!({ "type": "number", "minimum": 0.0 });
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The server-side readings summarized from the raw series alone: context that never bears on qualification.",
+        "properties": {
+            "containers": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["role", "name", "samples", "truncated"],
+                    "properties": {
+                        "role": { "enum": ["sut", "db"] },
+                        "name": { "type": "string", "minLength": 1 },
+                        "samples": count,
+                        "truncated": { "type": "boolean" },
+                        "cpu_mean_pct": pct, "cpu_max_pct": pct,
+                        "rss_max_bytes": count,
+                        "blk_read_bytes": count, "blk_write_bytes": count,
+                        "net_rx_bytes": count, "net_tx_bytes": count
+                    }
+                }
+            },
+            "database_growth_bytes": { "type": "integer" }
         }
     })
 }
@@ -3144,7 +3234,8 @@ fn perf_result_derived_def() -> Value {
                         },
                         "generator": perf_generator_reading_def(),
                         "stopped": { "type": "boolean" },
-                        "qualification": perf_qualification_def()
+                        "qualification": perf_qualification_def(),
+                        "server": perf_server_summary_def()
                     }
                 }
             }
@@ -3185,7 +3276,6 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
         ("perf-workload.schema.json", perf_workload_schema()),
         ("perf-workloads.schema.json", perf_workloads_schema()),
         ("stress.schema.json", stress_schema()),
-        ("aql-probe.schema.json", aql_probe_schema()),
         ("bench-result.schema.json", bench_result_schema()),
         ("bench-packs.schema.json", bench_packs_schema()),
         ("perf-result.schema.json", perf_result_schema()),

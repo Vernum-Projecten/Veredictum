@@ -26,6 +26,7 @@ use veredictum::perf_result::capacity::{Knee, PeakSource, PopulationReading, Usl
 use veredictum::perf_result::derive::{BetweenRunNoise, JudgedAt, Steadiness};
 use veredictum::perf_result::judge::rejudge;
 use veredictum::perf_result::quantile::{Quantile, QuantileName, quantile};
+use veredictum::perf_result::server::SettingsReading;
 use veredictum::perf_result::{
     CorpusOrigin, CorpusRecord, EmbeddedWorkload, Generator, Instrument, LoadModel, PerfResult,
     Phase, PhaseRecord, Raw, RawMix, RawPlateau, RawQualification, RawScout, RawScoutWindow,
@@ -161,6 +162,7 @@ fn raw(plateaus: Vec<RawPlateau>) -> Raw {
             min_achieved_ppm: 950_000,
         },
         seed: 42,
+        server_settings: SettingsReading::default(),
         phases: Vec::new(),
         scout: None,
         plateaus,

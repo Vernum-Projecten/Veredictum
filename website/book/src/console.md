@@ -6,8 +6,8 @@ from paths you mount, and reaches the engine only through the published
 `veredictum` crate: every number it shows is one the command line prints too.
 
 The console runs functional conformance. The measured instruments (`perf`,
-`stress`, `aql-probe` and `bench`) are run with the command line, and the
-console exposes none of them.
+`stress` and `bench`) are run with the command line, and the console exposes
+none of them.
 
 Every screenshot below is captured by the console's own browser journeys
 (`scripts/ui-e2e.sh` with `UI_E2E_DOCS_SHOTS=1`), in one 1440×900 browser

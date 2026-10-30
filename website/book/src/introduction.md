@@ -49,7 +49,7 @@ and reproducible, which is the stability that matters for a verdict.
 |---|---|
 | **Does it conform?** | `validate` checks the catalogue itself before any server is involved; zero findings is the only passing result. `test` drives the cases your statement selects against the server over its own REST wire, records every exchange as HAR, judges each row and writes `results.json`; `--rejudge` reproduces those results from the recording alone. `export` renders the results for a CI system. |
 | **What class does it sustain?** | `perf` seeds the population-scale corpus and holds a class's offered load for the sustained window, open-loop, merging the measured record into the results. |
-| **Where does it break?** | `stress` steps load up to the maximum sustainable throughput; `stress-compare` overlays two committed stress reports; `aql-probe` explores AQL behaviour over the seeded corpus with per-statement database attribution. All three are exploration and never produce a conformance record. |
+| **Where does it break?** | `stress` steps load up to the maximum sustainable throughput; `stress-compare` overlays two committed stress reports. Both are exploration and never produce a conformance record; a `perf --workload` record carries the per-plateau container, database-size and `pg_stat_statements` readings beside its numbers. |
 | **How fast is it?** | `bench` runs an embedded benchmark pack against any reachable CDR from a base URL and credentials; `bench-compare` aligns committed results into one table; `bench-packs` writes the byte-deterministic description of what every pack runs. Comparative speed only, never a conformance verdict. |
 
 More subcommands serve the records themselves: `verdicts` re-derives the
@@ -95,7 +95,7 @@ disagrees with the catalogue.
 | **15 capability folders** | EHR, EHR status, composition, content, contribution, directory, item tags, query, definition, demographic, admin, security, simplified formats, SMART, system. A statement claims folders |
 | **The options** | `catalogue/capabilities.yaml`: the behaviours the release leaves to the implementation, each an option with its arms; a party's statement picks one arm of each, and the documents of every other arm are skipped |
 | **The id map** | `catalogue/id-map.yaml`: every case id of the former case-core catalogue, mapped to the workflows that carry it or to the reason none does |
-| **The performance schedule** | `perf/`: the four measured-workload class cases, the journey catalogue and the payloads `perf`, `stress` and `aql-probe` send, kept apart from the conformance catalogue |
+| **The performance schedule** | `perf/`: the four measured-workload class cases, the journey catalogue and the payloads `perf` and `stress` send, kept apart from the conformance catalogue |
 | **The published schemas** | `schemas/`: JSON Schema for every artifact family, emitted by the instrument and drift-tested, so you can author against the format |
 | **The verification pack** | `verification-pack/arazzo/`: recorded HAR exchanges with their adjudicated results. The evaluator re-judges every recording and must reproduce every row, so no harness, this one included, is trusted on its word |
 | **The specification oracle** | `specs/openehr/`: the released specification text, vendored verbatim, plus the released XSD, JSON Schema and OpenAPI bundles a citation resolves against |

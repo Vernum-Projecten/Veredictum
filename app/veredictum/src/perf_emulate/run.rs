@@ -37,9 +37,9 @@ use crate::perf_gen::drive::{
 };
 use crate::perf_gen::{Call, ErrorClass, Outcome, Performer};
 use crate::perf_result::derive::{self, ScoutEstimate};
+use crate::perf_result::server::ServerReadings;
 use crate::perf_result::{
-    PerfResultError, Phase, PhaseRecord, RawPlateau, RawScout, RawScoutWindow, RawWindow,
-    ServerReadings, millis,
+    PerfResultError, Phase, PhaseRecord, RawPlateau, RawScout, RawScoutWindow, RawWindow, millis,
 };
 use crate::workload::plan::{
     CLOSING_S, DRAIN_S, EXTRA_PLATEAU, LADDER, RAMP_IN_S, SCOUT_S, SETTLE_S, WARMUP_S, hold_s,
