@@ -921,6 +921,293 @@ pub fn perf_payloads_schema() -> Value {
     })
 }
 
+/// A share of a whole, written as a percentage with at most four decimals.
+const SHARE_PATTERN: &str = "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$";
+
+/// A map of names to shares.
+fn share_map(name_pattern: &str) -> Value {
+    json!({
+        "type": "object",
+        "minProperties": 1,
+        "propertyNames": { "pattern": name_pattern },
+        "additionalProperties": { "type": "string", "pattern": SHARE_PATTERN }
+    })
+}
+
+/// One stage of a workload interaction.
+fn workload_stage_def() -> Value {
+    let ops: Vec<&str> = crate::workload::ops::WorkloadOp::ALL
+        .iter()
+        .map(|op| op.token())
+        .collect();
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["op"],
+        "properties": {
+            "op": { "enum": ops },
+            "payload": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
+            "query": { "type": "string", "pattern": IDENT_PATTERN }
+        }
+    })
+}
+
+/// A workload document under `perf/workloads/`: the traffic a measured run
+/// offers.
+#[must_use]
+#[expect(clippy::too_many_lines, reason = "one literal JSON-Schema document")]
+pub fn perf_workload_schema() -> Value {
+    let ops: Vec<&str> = crate::workload::ops::WorkloadOp::ALL
+        .iter()
+        .map(|op| op.token())
+        .collect();
+    let transports: Vec<&str> = crate::workload::ops::QueryTransport::ALL
+        .iter()
+        .map(|t| t.token())
+        .collect();
+    let transport_pattern = format!("^({})$", transports.join("|"));
+    let text = json!({ "type": "string", "minLength": 1 });
+    let session = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["think_time_mean_ms", "stages"],
+        "properties": {
+            "think_time_mean_ms": { "type": "integer", "minimum": 0 },
+            "stages": { "type": "array", "minItems": 2, "items": workload_stage_def() }
+        }
+    });
+    let interaction = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["share", "description", "derivation"],
+        "properties": {
+            "share": { "type": "string", "pattern": SHARE_PATTERN },
+            "description": text,
+            "derivation": text,
+            "op": { "enum": ops },
+            "payload": { "type": "string", "pattern": CORPUS_KEY_PATTERN },
+            "query": { "type": "string", "pattern": IDENT_PATTERN },
+            "session": session
+        },
+        "oneOf": [
+            { "required": ["op"], "not": { "required": ["session"] } },
+            { "required": ["session"], "not": { "anyOf": [
+                { "required": ["op"] }, { "required": ["payload"] }, { "required": ["query"] } ] } }
+        ]
+    });
+    let parameter = json!({
+        "oneOf": [
+            { "enum": ["ehr", "other_ehr", "composition"] },
+            { "type": "object", "additionalProperties": false, "required": ["int_range"],
+              "properties": { "int_range": {
+                  "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer" } } } }
+        ]
+    });
+    let query = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "text", "scope", "tier", "transport", "on_refusal", "derivation"],
+        "properties": {
+            "description": text,
+            "text": text,
+            "scope": { "enum": ["single_subject", "population"] },
+            "tier": { "enum": ["metadata", "content"] },
+            "parameters": { "type": "object",
+                            "propertyNames": { "pattern": "^[A-Za-z0-9_]+$" },
+                            "additionalProperties": parameter },
+            "transport": share_map(&transport_pattern),
+            "fetch": { "type": "integer", "minimum": 1 },
+            "requires": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9_-]+$" } },
+            "on_refusal": { "enum": ["error", "count_apart"] },
+            "derivation": text
+        }
+    });
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("perf-workload"),
+        "title": "Performance workload",
+        "description": "The traffic a measured run offers: a seed, a corpus recipe, an arrival process, the plateau qualification limits, the per-plateau sample target, the interactions with their shares of interaction arrivals (one operation, or a partly-open session on one EHR), and the AQL query classes with their transport mix. Every operation token names a released ITS-REST operation. Loading enforces the gates no schema can: shares summing to exactly 100 %, payloads present in perf/payloads.yaml, AQL that parses, requires tokens that resolve against the catalogue, the 10:1 to 50:1 read band, limits no looser than the ruled default, and a planned run of at most 600 s after seeding. No openEHR spec governs measured performance (CNF guide master03-overview.adoc: \"Non-functional conformance (performance, etc) is not addressed by this guide\") — our own design.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "status", "description", "seed", "corpus", "interactions"],
+        "properties": {
+            "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+            "version": { "type": "integer", "minimum": 1 },
+            "status": { "enum": ["provisional", "ratified"] },
+            "description": text,
+            "seed": { "type": "integer", "minimum": 0 },
+            "corpus": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["scale", "compositions_per_ehr", "templates"],
+                "properties": {
+                    "scale": { "enum": ["POC", "S", "L", "R"] },
+                    "compositions_per_ehr": { "type": "integer", "minimum": 1 },
+                    "templates": share_map(CORPUS_KEY_PATTERN)
+                }
+            },
+            "arrival": { "enum": ["poisson", "uniform"] },
+            "sample_target": { "type": "integer", "minimum": 1 },
+            "qualification": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "operation_p99_ms": { "type": "integer", "minimum": 1 },
+                    "population_aql_p99_ms": { "type": "integer", "minimum": 1 },
+                    "max_error_share": { "type": "string", "pattern": SHARE_PATTERN },
+                    "min_achieved_share": { "type": "string", "pattern": SHARE_PATTERN }
+                }
+            },
+            "interactions": {
+                "type": "object",
+                "minProperties": 1,
+                "propertyNames": { "pattern": IDENT_PATTERN },
+                "additionalProperties": interaction
+            },
+            "queries": {
+                "type": "object",
+                "propertyNames": { "pattern": IDENT_PATTERN },
+                "additionalProperties": query
+            }
+        }
+    })
+}
+
+/// The manifest `perf-workloads` writes: every pinned workload described.
+#[must_use]
+#[expect(clippy::too_many_lines, reason = "one literal JSON-Schema document")]
+pub fn perf_workloads_schema() -> Value {
+    let text = json!({ "type": "string" });
+    let share = json!({ "type": "string", "pattern": SHARE_PATTERN });
+    let percent = json!({ "type": "string", "pattern": "^[0-9]+\\.[0-9]{2}%$" });
+    let sha = json!({ "type": "string", "pattern": "^[0-9a-f]{64}$" });
+    let released = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation_id", "method", "path", "citation"],
+        "properties": {
+            "operation_id": text, "method": text, "path": text, "citation": text
+        }
+    });
+    let object = |required: &[&str], properties: Value| {
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": required,
+            "properties": properties
+        })
+    };
+    let workload = object(
+        &[
+            "id",
+            "version",
+            "label",
+            "status",
+            "file",
+            "sha256",
+            "description",
+            "seed",
+            "arrival",
+            "sample_target",
+            "qualification",
+            "corpus",
+            "planned_run",
+            "read_write_ratio",
+            "mean_operations_per_interaction",
+            "interactions",
+            "operations",
+            "queries",
+            "payloads",
+        ],
+        json!({
+            "id": text,
+            "version": { "type": "integer", "minimum": 1 },
+            "label": text,
+            "status": { "enum": ["provisional", "ratified"] },
+            "file": text,
+            "sha256": sha,
+            "description": text,
+            "seed": { "type": "integer", "minimum": 0 },
+            "arrival": { "enum": ["poisson", "uniform"] },
+            "sample_target": { "type": "integer", "minimum": 1 },
+            "qualification": object(
+                &["operation_p99_ms", "population_aql_p99_ms", "max_error_share", "min_achieved_share"],
+                json!({
+                    "operation_p99_ms": { "type": "integer" },
+                    "population_aql_p99_ms": { "type": "integer" },
+                    "max_error_share": share,
+                    "min_achieved_share": share
+                })),
+            "corpus": object(
+                &["scale", "ehrs", "compositions_per_ehr", "templates"],
+                json!({
+                    "scale": { "enum": ["POC", "S", "L", "R"] },
+                    "ehrs": { "type": "integer" },
+                    "compositions_per_ehr": { "type": "integer" },
+                    "templates": { "type": "array", "items": object(&["key", "share"],
+                        json!({ "key": text, "share": share })) }
+                })),
+            "planned_run": object(
+                &["min_s", "max_s", "session_tail_s", "limit_s"],
+                json!({
+                    "min_s": { "type": "integer" }, "max_s": { "type": "integer" },
+                    "session_tail_s": { "type": "integer" }, "limit_s": { "type": "integer" }
+                })),
+            "read_write_ratio": { "type": "string", "pattern": "^[0-9]+\\.[0-9]{2}:1$" },
+            "mean_operations_per_interaction": { "type": "string", "pattern": "^[0-9]+\\.[0-9]{2}$" },
+            "interactions": { "type": "array", "items": object(
+                &["name", "share", "kind", "stages", "requires", "description", "derivation"],
+                json!({
+                    "name": text, "share": share, "kind": { "enum": ["single", "session"] },
+                    "think_time_mean_ms": { "type": "integer" },
+                    "stages": { "type": "array", "items": text },
+                    "requires": { "type": "array", "items": text },
+                    "description": text, "derivation": text
+                })) },
+            "operations": { "type": "array", "items": object(
+                &["key", "share_of_operations", "write", "released"],
+                json!({
+                    "key": text, "share_of_operations": percent, "write": { "type": "boolean" },
+                    "released": { "type": "array", "items": released }
+                })) },
+            "queries": { "type": "array", "items": object(
+                &["name", "share_of_operations", "scope", "tier", "budget_ms", "text", "parameters",
+                  "transport", "requires", "on_refusal", "description", "derivation"],
+                json!({
+                    "name": text, "share_of_operations": percent,
+                    "scope": { "enum": ["single_subject", "population"] },
+                    "tier": { "enum": ["metadata", "content"] },
+                    "budget_ms": { "type": "integer" },
+                    "text": text,
+                    "parameters": { "type": "object" },
+                    "transport": { "type": "array", "items": object(&["transport", "share", "released"],
+                        json!({ "transport": text, "share": share, "released": released })) },
+                    "requires": { "type": "array", "items": text },
+                    "on_refusal": { "enum": ["error", "count_apart"] },
+                    "description": text, "derivation": text
+                })) },
+            "payloads": { "type": "array", "items": object(
+                &["key", "source", "bytes", "sha256", "provenance"],
+                json!({
+                    "key": text, "source": text, "template_id": text,
+                    "bytes": { "type": "integer", "minimum": 0 }, "sha256": sha, "provenance": text
+                })) }
+        }),
+    );
+    json!({
+        "$schema": DRAFT,
+        "$id": urn("perf-workloads"),
+        "title": "Performance workload manifest",
+        "description": "What `veredictum perf-workloads` writes: every pinned workload with its digest, its expanded per-operation mix with the released ITS-REST operation each entry is sent as, its query classes, its read:write ratio, its planned run range after seeding, and every payload it sends or seeds with its size and digest. Byte-deterministic. No openEHR spec governs measured performance — our own design.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workloads"],
+        "properties": {
+            "workloads": { "type": "array", "items": workload }
+        }
+    })
+}
+
 /// The published journey-operation tokens, vocabulary order.
 fn perf_op_tokens() -> Vec<&'static str> {
     crate::perf::PerfOp::ALL
@@ -2639,6 +2926,8 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
         ("performance-case.schema.json", performance_case_schema()),
         ("journey-catalogue.schema.json", journey_catalogue_schema()),
         ("perf-payloads.schema.json", perf_payloads_schema()),
+        ("perf-workload.schema.json", perf_workload_schema()),
+        ("perf-workloads.schema.json", perf_workloads_schema()),
         ("stress.schema.json", stress_schema()),
         ("aql-probe.schema.json", aql_probe_schema()),
         ("bench-result.schema.json", bench_result_schema()),

@@ -817,6 +817,37 @@ the file and diffing it is a build gate. The public page at
 is generated from the committed copy of this document, and CI refuses a pack
 change that leaves either of them stale.
 
+## perf-workloads
+
+```text
+Load the performance workloads through their gates and print, for each, the expanded per-operation mix, its read:write ratio and the planned run range after seeding. With --out, write the byte-deterministic manifest of the pinned workloads with their digests and the page generated from it; with --workload, check one document instead, labelled custom unless it matches a pinned digest
+
+Usage: veredictum perf-workloads [OPTIONS] --root <ROOT> --catalogue <CATALOGUE>
+
+Options:
+      --root <ROOT>            The performance root, perf/ in this repository (workloads/, payloads.yaml, payloads/)
+      --catalogue <CATALOGUE>  The catalogue root a workload's requires tokens resolve against (catalogue/ in this repository)
+      --out <OUT>              Output directory for perf-workloads.json and perf-workloads.md (created if missing)
+      --workload <WORKLOAD>    One workload document to check and summarize
+  -h, --help                   Print help
+```
+
+A workload is the traffic a measured run offers: a versioned document under
+`perf/workloads/`, published as `schemas/perf-workload.schema.json`. This
+command loads every workload through its gates and prints, per workload, the
+expanded per-operation mix, the read:write ratio and the planned run range
+after seeding. A defect is reported against the file and the field, and the
+command exits `1`.
+
+With `--out` it writes `perf-workloads.json`, the byte-deterministic manifest
+of the workloads this binary pins by sha256, and `perf-workloads.md`, the page
+generated from it: every interaction, operation, query class and payload with
+its share and its source. A committed workload whose bytes match no pin is
+refused there, so a changed workload raises its version and its pin together.
+
+With `--workload` it checks one document of your own instead. A document that
+matches no pinned digest is labelled `custom`.
+
 ## aql-probe
 
 ```text

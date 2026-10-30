@@ -41,3 +41,5 @@ mod perf_seeding;
 mod pipeline_seams;
 mod results_export;
 mod schema_drift;
+mod workload_gates;
+mod workload_wire;

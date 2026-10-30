@@ -408,6 +408,29 @@ enum Command {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Load the performance workloads through their gates and print, for each,
+    /// the expanded per-operation mix, its read:write ratio and the planned run
+    /// range after seeding. With --out, write the byte-deterministic manifest of
+    /// the pinned workloads with their digests and the page generated from it;
+    /// with --workload, check one document instead, labelled custom unless it
+    /// matches a pinned digest.
+    PerfWorkloads {
+        /// The performance root, perf/ in this repository (workloads/,
+        /// payloads.yaml, payloads/)
+        #[arg(long)]
+        root: PathBuf,
+        /// The catalogue root a workload's requires tokens resolve against
+        /// (catalogue/ in this repository)
+        #[arg(long)]
+        catalogue: PathBuf,
+        /// Output directory for perf-workloads.json and perf-workloads.md
+        /// (created if missing)
+        #[arg(long, conflicts_with = "workload")]
+        out: Option<PathBuf>,
+        /// One workload document to check and summarize
+        #[arg(long)]
+        workload: Option<PathBuf>,
+    },
     /// Run the AQL optimization probe: fire the measurement machinery's
     /// AQL vocabulary against a live, freshly seeded SUT, record wire
     /// percentiles, and attribute the DB-side cost per probe via
@@ -787,6 +810,12 @@ fn main() -> ExitCode {
         ),
         Command::BenchCompare { results, out } => bench_compare_command(&results, &out),
         Command::BenchPacks { out } => bench_packs_command(&out),
+        Command::PerfWorkloads {
+            root,
+            catalogue,
+            out,
+            workload,
+        } => perf_workloads_command(&root, &catalogue, out.as_deref(), workload.as_deref()),
         Command::AqlProbe {
             root,
             ixit,
@@ -1301,6 +1330,73 @@ fn bench_packs_command(out: &Path) -> ExitCode {
             pack.phases.len(),
             pack.fixtures.len()
         );
+    }
+    ExitCode::SUCCESS
+}
+
+fn perf_workloads_command(
+    root: &Path,
+    catalogue: &Path,
+    out: Option<&Path>,
+    workload: Option<&Path>,
+) -> ExitCode {
+    use veredictum::workload::load::{LoadContext, load_dir, load_file};
+    use veredictum::workload::manifest::{
+        MANIFEST_FILE, PAGE_FILE, describe_pinned, render_json, render_page, summary,
+    };
+    let ctx = match LoadContext::from_roots(root, catalogue) {
+        Ok(ctx) => ctx,
+        Err(e) => return fail(&e),
+    };
+    if let Some(path) = workload {
+        return match load_file(path, &ctx) {
+            Ok(loaded) => {
+                print!("{}", summary(&loaded));
+                ExitCode::SUCCESS
+            }
+            Err(refused) => {
+                eprintln!("{refused}");
+                ExitCode::from(1)
+            }
+        };
+    }
+    match load_dir(root, &ctx) {
+        Ok((loaded, refused)) => {
+            for workload in &loaded {
+                print!("{}", summary(workload));
+            }
+            if !refused.is_empty() {
+                for r in &refused {
+                    eprintln!("{r}");
+                }
+                return ExitCode::from(1);
+            }
+        }
+        Err(e) => return fail(&e),
+    }
+    let Some(out) = out else {
+        return ExitCode::SUCCESS;
+    };
+    let manifest = match describe_pinned(root, &ctx) {
+        Ok(manifest) => manifest,
+        Err(e) => return fail(&e),
+    };
+    let json = match render_json(&manifest) {
+        Ok(json) => json,
+        Err(e) => return fail(&e),
+    };
+    let files = [
+        RenderedFile {
+            name: MANIFEST_FILE.to_owned(),
+            body: json,
+        },
+        RenderedFile {
+            name: PAGE_FILE.to_owned(),
+            body: render_page(&manifest),
+        },
+    ];
+    if let Err(code) = emit(out, &files) {
+        return code;
     }
     ExitCode::SUCCESS
 }

@@ -1,0 +1,389 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:openehr:cnf:schema:perf-workload:0.1.0",
+  "title": "Performance workload",
+  "description": "The traffic a measured run offers: a seed, a corpus recipe, an arrival process, the plateau qualification limits, the per-plateau sample target, the interactions with their shares of interaction arrivals (one operation, or a partly-open session on one EHR), and the AQL query classes with their transport mix. Every operation token names a released ITS-REST operation. Loading enforces the gates no schema can: shares summing to exactly 100 %, payloads present in perf/payloads.yaml, AQL that parses, requires tokens that resolve against the catalogue, the 10:1 to 50:1 read band, limits no looser than the ruled default, and a planned run of at most 600 s after seeding. No openEHR spec governs measured performance (CNF guide master03-overview.adoc: \"Non-functional conformance (performance, etc) is not addressed by this guide\") — our own design.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "version",
+    "status",
+    "description",
+    "seed",
+    "corpus",
+    "interactions"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "enum": [
+        "provisional",
+        "ratified"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scale",
+        "compositions_per_ehr",
+        "templates"
+      ],
+      "properties": {
+        "scale": {
+          "enum": [
+            "POC",
+            "S",
+            "L",
+            "R"
+          ]
+        },
+        "compositions_per_ehr": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "templates": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[a-z0-9_-]+(\\.[a-z0-9_-]+)*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$"
+          }
+        }
+      }
+    },
+    "arrival": {
+      "enum": [
+        "poisson",
+        "uniform"
+      ]
+    },
+    "sample_target": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_p99_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "population_aql_p99_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_error_share": {
+          "type": "string",
+          "pattern": "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$"
+        },
+        "min_achieved_share": {
+          "type": "string",
+          "pattern": "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$"
+        }
+      }
+    },
+    "interactions": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "share",
+          "description",
+          "derivation"
+        ],
+        "properties": {
+          "share": {
+            "type": "string",
+            "pattern": "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "derivation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "op": {
+            "enum": [
+              "ehr_create",
+              "ehr_read",
+              "ehr_read_by_subject",
+              "ehr_status_read",
+              "ehr_status_update",
+              "composition_commit",
+              "composition_commit_flat",
+              "composition_read",
+              "composition_read_current",
+              "composition_update",
+              "composition_delete",
+              "composition_revision_history",
+              "composition_version_read",
+              "directory_create",
+              "directory_read",
+              "directory_update",
+              "contribution_commit",
+              "contribution_read",
+              "tags_put",
+              "tags_read",
+              "template_list",
+              "template_get",
+              "template_example",
+              "template_adl2_list",
+              "party_create",
+              "party_read",
+              "party_update",
+              "system_options",
+              "aql"
+            ]
+          },
+          "payload": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]+(\\.[a-z0-9_-]+)*$"
+          },
+          "query": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "session": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "think_time_mean_ms",
+              "stages"
+            ],
+            "properties": {
+              "think_time_mean_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "stages": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "op"
+                  ],
+                  "properties": {
+                    "op": {
+                      "enum": [
+                        "ehr_create",
+                        "ehr_read",
+                        "ehr_read_by_subject",
+                        "ehr_status_read",
+                        "ehr_status_update",
+                        "composition_commit",
+                        "composition_commit_flat",
+                        "composition_read",
+                        "composition_read_current",
+                        "composition_update",
+                        "composition_delete",
+                        "composition_revision_history",
+                        "composition_version_read",
+                        "directory_create",
+                        "directory_read",
+                        "directory_update",
+                        "contribution_commit",
+                        "contribution_read",
+                        "tags_put",
+                        "tags_read",
+                        "template_list",
+                        "template_get",
+                        "template_example",
+                        "template_adl2_list",
+                        "party_create",
+                        "party_read",
+                        "party_update",
+                        "system_options",
+                        "aql"
+                      ]
+                    },
+                    "payload": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9_-]+(\\.[a-z0-9_-]+)*$"
+                    },
+                    "query": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "op"
+            ],
+            "not": {
+              "required": [
+                "session"
+              ]
+            }
+          },
+          {
+            "required": [
+              "session"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "op"
+                  ]
+                },
+                {
+                  "required": [
+                    "payload"
+                  ]
+                },
+                {
+                  "required": [
+                    "query"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "queries": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "description",
+          "text",
+          "scope",
+          "tier",
+          "transport",
+          "on_refusal",
+          "derivation"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "enum": [
+              "single_subject",
+              "population"
+            ]
+          },
+          "tier": {
+            "enum": [
+              "metadata",
+              "content"
+            ]
+          },
+          "parameters": {
+            "type": "object",
+            "propertyNames": {
+              "pattern": "^[A-Za-z0-9_]+$"
+            },
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "enum": [
+                    "ehr",
+                    "other_ehr",
+                    "composition"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "int_range"
+                  ],
+                  "properties": {
+                    "int_range": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "items": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "transport": {
+            "type": "object",
+            "minProperties": 1,
+            "propertyNames": {
+              "pattern": "^(adhoc_post|adhoc_get|stored_get|stored_post)$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^(100|[0-9]{1,2})(\\.[0-9]{1,4})?%$"
+            }
+          },
+          "fetch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9_-]+$"
+            }
+          },
+          "on_refusal": {
+            "enum": [
+              "error",
+              "count_apart"
+            ]
+          },
+          "derivation": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

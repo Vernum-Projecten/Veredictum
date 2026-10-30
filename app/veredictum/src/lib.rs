@@ -52,3 +52,4 @@ pub mod transcript;
 pub mod validate;
 pub mod verdict;
 pub mod vocab;
+pub mod workload;
