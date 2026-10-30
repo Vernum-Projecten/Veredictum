@@ -15,15 +15,16 @@ BASE
     DIRECTORY                               no cases
 ```
 
-The groups are the ones every view of a result uses. BASE lists each chapter
-and band in the order the catalogue declares. RECOMMENDED and OPTIONS list one
-line per option with the arm the statement selected; an option with no arm
-selected is listed once and its rows count nowhere. The cases whose citations
-rest on text the release marks TRIAL are listed under OPTIONS, never in a BASE
-count. The last part lists the options that exist only because the released
-text is defective, and every case resting on text an upstream report records,
-grouped by report, with the report's title and state from the snapshot the
-catalogue commits. Nothing is fetched while the view is printed.
+A result reads in two parts, the ones every view uses. BASE lists each chapter
+and band in the order the catalogue declares; a band whose cases rest on
+released text an upstream report records as defective carries a yellow
+`! spec defect` line naming the reports. OPTIONS lists the same chapters and
+bands, one line per option with the arm the statement selected and its kind:
+Recommended (SHOULD), Optional (MAY), or Spec defect with its report number.
+An option with no arm selected is listed once and its rows count nowhere. The
+cases whose citations rest on text the release marks TRIAL are listed in their
+band under OPTIONS, never in a BASE count. Report numbers come from the snapshot
+the catalogue commits; nothing is fetched while the view is printed.
 
 An advisory row is a SHOULD the server did not follow. It is counted apart
 from the failed rows, and `--failed` lists it under its own heading after the

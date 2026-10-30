@@ -1,6 +1,6 @@
-- The Markdown summary and the terminal view each end with the part of a
-  result that rests on released text an upstream report records as defective:
-  the options that exist only because of such text, and every case whose
-  citations name a report, grouped by report with its title and state from the
-  snapshot the catalogue commits. A red row there names its cited source and
-  section.
+- Every view marks the cases that rest on released text an upstream report
+  records as defective, in place: a BASE band carries a spec-defect warning
+  naming its reports with their titles and states, an option that exists only
+  because of such text is labelled Spec defect with its report, and a red
+  row's explanation names the report. The titles and states come from the
+  snapshot the catalogue commits, never from the tracker during a run.

@@ -520,11 +520,13 @@ enum Command {
     /// Show an Arazzo results document in the terminal: one line per chapter,
     /// band and option, each with its counts and a bar.
     ///
-    /// BASE comes first, chapter by chapter and band by band, in the order
-    /// the catalogue declares. RECOMMENDED and OPTIONS follow, one line per
-    /// option naming its selected arm, then the cases resting on TRIAL text,
-    /// and last the part of the result that rests on released text an
-    /// upstream report records as defective. Every mark is a glyph as well
+    /// A result reads in two parts. BASE comes first, chapter by chapter and
+    /// band by band, in the order the catalogue declares; a band whose cases
+    /// rest on released text an upstream report records as defective carries
+    /// a spec-defect warning. OPTIONS follows by the same chapters and bands,
+    /// one line per option naming its selected arm and its kind (Recommended
+    /// (SHOULD), Optional (MAY) or Spec defect with its report), with the
+    /// cases resting on TRIAL text in their band. Every mark is a glyph as well
     /// as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow),
     /// ! advisory and ○ skipped (grey). An advisory row is a SHOULD the
     /// server did not follow and is never shown as a failure.

@@ -966,21 +966,21 @@ upstream report. The CTRF document validates against the schema the CTRF
 project publishes for `specVersion` 0.2.0, its latest release.
 
 **What the Markdown summary holds.** It is written for a person reading it on
-GitHub. A table names the server and the instrument, and a summary table
-counts the rows of each part: BASE, RECOMMENDED, OPTIONS and where the released
-spec is defective. `## BASE` follows chapter by chapter, each chapter a table
-of its bands and each band a table of its sections. `## RECOMMENDED`,
-`## OPTIONS` and `## Where the released spec is defective` follow the same
-chapters and bands, each band a table of its options with the arm the statement
-selected, and a collapsed note on what each option decides. The cases resting
-on TRIAL text sit in their band under OPTIONS. Passed rows are only counted.
-Each failed, advisory or errored row is a collapsed block whose summary names
-the outcome, the case and where it sits; opening it shows the step, what was
-checked, expected against received, the exchange, whose problem it is and the
-row's inputs as a table, with the cited sentence quoted below it. The cases
-resting on reported text follow in a table by upstream report, then the
-advisory rows with their citations, and the skipped rows counted by reason with
-the full list collapsed.
+GitHub, in two parts. A table names the server and the instrument, and a
+summary table counts the rows of BASE and OPTIONS. `## BASE` follows chapter by
+chapter, each chapter a table of its bands and each band a table of its
+sections; a band whose cases rest on released text an upstream report records
+as defective carries a warning box naming the reports. `## OPTIONS` follows the
+same chapters and bands, each band a table of its options with their kind
+(Recommended (SHOULD), Optional (MAY), or Spec defect with its report) and the
+arm the statement selected, and a collapsed note on what each option decides.
+The cases resting on TRIAL text sit in their band under OPTIONS. Passed rows
+are only counted. Each failed, advisory or errored row is a collapsed block
+whose summary names the outcome, the case and where it sits; opening it shows
+the step, what was checked, expected against received, the exchange, whose
+problem it is and the row's inputs as a table, with the cited sentence quoted
+below it. The advisory rows follow with their citations, and the skipped rows
+counted by reason with the full list collapsed.
 
 **Where the Markdown summary goes.** GitHub Actions sets
 `GITHUB_STEP_SUMMARY` in every job step, and `export` appends the summary to
@@ -1019,7 +1019,7 @@ run, never in a public artifact.
 ```text
 Show an Arazzo results document in the terminal: one line per chapter, band and option, each with its counts and a bar.
 
-BASE comes first, chapter by chapter and band by band, in the order the catalogue declares. RECOMMENDED and OPTIONS follow, one line per option naming its selected arm, then the cases resting on TRIAL text, and last the part of the result that rests on released text an upstream report records as defective. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! advisory and ○ skipped (grey). An advisory row is a SHOULD the server did not follow and is never shown as a failure.
+A result reads in two parts. BASE comes first, chapter by chapter and band by band, in the order the catalogue declares; a band whose cases rest on released text an upstream report records as defective carries a spec-defect warning. OPTIONS follows by the same chapters and bands, one line per option naming its selected arm and its kind (Recommended (SHOULD), Optional (MAY) or Spec defect with its report), with the cases resting on TRIAL text in their band. Every mark is a glyph as well as a colour: ✓ passed (green), ✕ failed (red), ? errored (yellow), ! advisory and ○ skipped (grey). An advisory row is a SHOULD the server did not follow and is never shown as a failure.
 
 Exit status: `0` when the view was printed; `2` when the document cannot be read.
 
@@ -1064,15 +1064,16 @@ BASE
     DIRECTORY                               no cases
 ```
 
-The groups are the ones every view of a result uses. BASE lists each chapter
-and band in the order the catalogue declares. RECOMMENDED and OPTIONS list one
-line per option with the arm the statement selected; an option with no arm
-selected is listed once and its rows count nowhere. The cases whose citations
-rest on text the release marks TRIAL are listed under OPTIONS, never in a BASE
-count. The last part lists the options that exist only because the released
-text is defective, and every case resting on text an upstream report records,
-grouped by report, with the report's title and state from the snapshot the
-catalogue commits. Nothing is fetched while the view is printed.
+A result reads in two parts, the ones every view uses. BASE lists each chapter
+and band in the order the catalogue declares; a band whose cases rest on
+released text an upstream report records as defective carries a yellow
+`! spec defect` line naming the reports. OPTIONS lists the same chapters and
+bands, one line per option with the arm the statement selected and its kind:
+Recommended (SHOULD), Optional (MAY), or Spec defect with its report number.
+An option with no arm selected is listed once and its rows count nowhere. The
+cases whose citations rest on text the release marks TRIAL are listed in their
+band under OPTIONS, never in a BASE count. Report numbers come from the snapshot
+the catalogue commits; nothing is fetched while the view is printed.
 
 An advisory row is a SHOULD the server did not follow. It is counted apart
 from the failed rows, and `--failed` lists it under its own heading after the

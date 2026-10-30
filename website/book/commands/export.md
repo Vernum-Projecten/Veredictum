@@ -44,21 +44,21 @@ upstream report. The CTRF document validates against the schema the CTRF
 project publishes for `specVersion` 0.2.0, its latest release.
 
 **What the Markdown summary holds.** It is written for a person reading it on
-GitHub. A table names the server and the instrument, and a summary table
-counts the rows of each part: BASE, RECOMMENDED, OPTIONS and where the released
-spec is defective. `## BASE` follows chapter by chapter, each chapter a table
-of its bands and each band a table of its sections. `## RECOMMENDED`,
-`## OPTIONS` and `## Where the released spec is defective` follow the same
-chapters and bands, each band a table of its options with the arm the statement
-selected, and a collapsed note on what each option decides. The cases resting
-on TRIAL text sit in their band under OPTIONS. Passed rows are only counted.
-Each failed, advisory or errored row is a collapsed block whose summary names
-the outcome, the case and where it sits; opening it shows the step, what was
-checked, expected against received, the exchange, whose problem it is and the
-row's inputs as a table, with the cited sentence quoted below it. The cases
-resting on reported text follow in a table by upstream report, then the
-advisory rows with their citations, and the skipped rows counted by reason with
-the full list collapsed.
+GitHub, in two parts. A table names the server and the instrument, and a
+summary table counts the rows of BASE and OPTIONS. `## BASE` follows chapter by
+chapter, each chapter a table of its bands and each band a table of its
+sections; a band whose cases rest on released text an upstream report records
+as defective carries a warning box naming the reports. `## OPTIONS` follows the
+same chapters and bands, each band a table of its options with their kind
+(Recommended (SHOULD), Optional (MAY), or Spec defect with its report) and the
+arm the statement selected, and a collapsed note on what each option decides.
+The cases resting on TRIAL text sit in their band under OPTIONS. Passed rows
+are only counted. Each failed, advisory or errored row is a collapsed block
+whose summary names the outcome, the case and where it sits; opening it shows
+the step, what was checked, expected against received, the exchange, whose
+problem it is and the row's inputs as a table, with the cited sentence quoted
+below it. The advisory rows follow with their citations, and the skipped rows
+counted by reason with the full list collapsed.
 
 **Where the Markdown summary goes.** GitHub Actions sets
 `GITHUB_STEP_SUMMARY` in every job step, and `export` appends the summary to
