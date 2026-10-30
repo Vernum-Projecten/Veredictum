@@ -1109,6 +1109,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
       section: Usage in Requests
       quote: "When used as request headers for creation or update operations (`PUT`, `POST`), the header instructs the system which ITEM_TAG list should be associated with the target VERSION or VERSIONED_OBJECT resource (depending on the header name)."
+      level: must
     inputs: *ehr_input
     steps:
       - *create
