@@ -34,7 +34,8 @@ use crate::pages::run::steps;
 use crate::record_api::fns::{fetch_result_detail, fetch_results};
 use crate::record_api::{
     BandView, CertificateNotice, ChapterView, ExchangeView, OptionView, ReadingView, RecordingView,
-    ReportView, ResultDetail, ResultRow, ResultsScreen, Tally, TierView,
+    ReportView, ResultDetail, ResultRow, ResultsScreen, Tally, TierBandView, TierChapterView,
+    TierView,
 };
 
 /// The `?case=` selection from the URL.
@@ -478,53 +479,6 @@ fn chapter_view(chapter: &ChapterView, view: View) -> AnyView {
     .into_any()
 }
 
-/// One option: its description and one block per arm.
-fn option_view(option: &OptionView, view: View) -> AnyView {
-    let blocks = option
-        .arms
-        .iter()
-        .map(|arm| {
-            let state = if arm.empty {
-                "nothing to run"
-            } else if arm.selected {
-                "selected"
-            } else {
-                "not selected"
-            };
-            let extra = Some(view! { <span class=BADGE>{state}</span> }.into_any());
-            table_block(
-                format!("{}-{}", option.anchor, arm.arm),
-                block_heading(arm.arm.clone(), extra, &arm.tally),
-                &arm.rows,
-                view,
-            )
-        })
-        .collect_view();
-    let report = option.report.map(|report| {
-        view! {
-            <a href=format!("#report-{report}") class=format!("{BADGE} hover:text-accent")>
-                {format!("report #{report}")}
-            </a>
-        }
-    });
-    let head = table_head();
-    view! {
-        <div id=option.anchor.clone() class="mb-4">
-            <h4 class="text-sm font-semibold text-ink-heading">
-                <span class="font-mono">{option.option.clone()}</span>
-                <span class=BADGE>{option.theme.clone()}</span>
-                {report}
-                <span class="ml-2 font-normal text-ink-muted">{tally_line(&option.tally)}</span>
-            </h4>
-            <p class="mb-1 text-sm text-ink-muted">{option.description.clone()}</p>
-            <div class=TABLE_WRAP>
-                <table class=TABLE>{head} {blocks}</table>
-            </div>
-        </div>
-    }
-    .into_any()
-}
-
 /// One block of rows under a heading of its own: the TRIAL rows, a report's
 /// rows, the unplaced rows.
 fn rows_block(
@@ -572,20 +526,75 @@ fn report_view(report: &ReportView, view: View) -> AnyView {
     )
 }
 
-/// One option tier: its options, the TRIAL block on OPTIONS, and on the spec
-/// boundary the rows grouped by the report their text rests on.
-fn tier_view(tier: &TierView, reports: &[ReportView], view: View, boundary: bool) -> AnyView {
-    let options = if tier.options.is_empty() {
-        view! { <p class="mb-3 text-sm text-ink-muted">"No option of this tier."</p> }.into_any()
+/// One option under its band: its name with the arm the statement selected,
+/// its theme and description, then one block per arm with its rows.
+fn option_view(option: &OptionView, view: View) -> AnyView {
+    let blocks = option
+        .arms
+        .iter()
+        .map(|arm| {
+            let state = if arm.empty {
+                "nothing to run"
+            } else if arm.selected {
+                "selected"
+            } else {
+                "not selected"
+            };
+            let extra = Some(view! { <span class=BADGE>{state}</span> }.into_any());
+            table_block(
+                format!("{}-{}", option.anchor, arm.arm),
+                block_heading(arm.arm.clone(), extra, &arm.tally),
+                &arm.rows,
+                view,
+            )
+        })
+        .collect_view();
+    let chosen: Vec<&str> = option
+        .arms
+        .iter()
+        .filter(|arm| arm.selected)
+        .map(|arm| arm.arm.as_str())
+        .collect();
+    let selection = if chosen.is_empty() {
+        String::from("not selected")
     } else {
-        tier.options
-            .iter()
-            .map(|option| option_view(option, view))
-            .collect_view()
-            .into_any()
+        format!("selected: {}", chosen.join(", "))
     };
-    let trial = tier.trial.as_ref().map(|trial| {
-        rows_block(
+    let report = option.report.map(|report| {
+        view! {
+            <a href=format!("#report-{report}") class=format!("{BADGE} hover:text-accent")>
+                {format!("report #{report}")}
+            </a>
+        }
+    });
+    let head = table_head();
+    view! {
+        <div id=option.anchor.clone() class="mb-4 ml-4">
+            <h5 class="text-sm font-semibold text-ink-heading">
+                <span class="font-mono">{option.option.clone()}</span>
+                <span class="ml-2 font-normal text-ink-muted">{selection}</span>
+                <span class=BADGE>{option.theme.clone()}</span>
+                {report}
+                <span class="ml-2 font-normal text-ink-muted">{tally_line(&option.tally)}</span>
+            </h5>
+            <p class="mb-1 text-sm text-ink-muted">{option.description.clone()}</p>
+            <div class=TABLE_WRAP>
+                <table class=TABLE>{head} {blocks}</table>
+            </div>
+        </div>
+    }
+    .into_any()
+}
+
+/// One band of a tier: its options, then its TRIAL rows.
+fn tier_band_view(band: &TierBandView, view: View) -> AnyView {
+    let options = band
+        .options
+        .iter()
+        .map(|option| option_view(option, view))
+        .collect_view();
+    let trial = band.trial.as_ref().map(|trial| {
+        let block = rows_block(
             trial.anchor.clone(),
             trial.title.clone(),
             Some(String::from(
@@ -594,39 +603,107 @@ fn tier_view(tier: &TierView, reports: &[ReportView], view: View, boundary: bool
             &trial.tally,
             &trial.rows,
             view,
-        )
-    });
-    let reports = boundary.then(|| {
-        let blocks = reports
-            .iter()
-            .map(|report| report_view(report, view))
-            .collect_view();
-        view! {
-            <h4 class="mb-2 mt-4 text-sm font-semibold text-ink-heading">
-                "Rows resting on text reported as defective"
-            </h4>
-            {if reports.is_empty() {
-                view! {
-                    <p class="mb-3 text-sm text-ink-muted">
-                        "No row rests on text an upstream report records."
-                    </p>
-                }
-                    .into_any()
-            } else {
-                blocks.into_any()
-            }}
-        }
+        );
+        view! { <div class="ml-4">{block}</div> }
     });
     view! {
-        <section id=tier.anchor.clone() class="mb-6">
+        <div id=band.anchor.clone() class="mb-4">
+            <h4 class="mb-1 text-sm font-semibold text-ink-heading">
+                {band.title.clone()}
+                <span class="ml-2 font-normal text-ink-muted">{tally_line(&band.tally)}</span>
+            </h4>
+            {options}
+            {trial}
+        </div>
+    }
+    .into_any()
+}
+
+/// One chapter of a tier with its bands.
+fn tier_chapter_view(chapter: &TierChapterView, view: View) -> AnyView {
+    let bands = chapter
+        .bands
+        .iter()
+        .map(|band| tier_band_view(band, view))
+        .collect_view();
+    view! {
+        <section id=chapter.anchor.clone() class="mb-5">
             <h3 class="mb-2 text-base font-semibold text-ink-heading">
+                {chapter.title.clone()}
+                <span class="ml-2 text-sm font-normal text-ink-muted">
+                    {tally_line(&chapter.tally)}
+                </span>
+            </h3>
+            {bands}
+        </section>
+    }
+    .into_any()
+}
+
+/// The reported rows the spec boundary closes with, grouped by report.
+fn reports_view(reports: &[ReportView], view: View) -> AnyView {
+    if reports.is_empty() {
+        return view! {
+            <h3 class="mb-2 mt-4 text-base font-semibold text-ink-heading">
+                "Rows resting on text reported as defective"
+            </h3>
+            <p class="mb-3 text-sm text-ink-muted">
+                "No row rests on text an upstream report records."
+            </p>
+        }
+        .into_any();
+    }
+    let blocks = reports
+        .iter()
+        .map(|report| report_view(report, view))
+        .collect_view();
+    view! {
+        <h3 class="mb-2 mt-4 text-base font-semibold text-ink-heading">
+            "Rows resting on text reported as defective"
+        </h3>
+        {blocks}
+    }
+    .into_any()
+}
+
+/// One option tier read like BASE: chapter, band, option, with the TRIAL
+/// rows inside their band, the options naming no document after, and on the
+/// spec boundary the rows grouped by the report their text rests on.
+fn tier_view(tier: &TierView, reports: &[ReportView], view: View, boundary: bool) -> AnyView {
+    let chapters = tier
+        .chapters
+        .iter()
+        .map(|chapter| tier_chapter_view(chapter, view))
+        .collect_view();
+    let unanchored = (!tier.unanchored.is_empty()).then(|| {
+        let options = tier
+            .unanchored
+            .iter()
+            .map(|option| option_view(option, view))
+            .collect_view();
+        view! {
+            <section class="mb-5">
+                <h3 class="mb-2 text-base font-semibold text-ink-heading">
+                    "Options naming no document yet"
+                </h3>
+                {options}
+            </section>
+        }
+    });
+    let empty = (tier.chapters.is_empty() && tier.unanchored.is_empty())
+        .then(|| view! { <p class="mb-3 text-sm text-ink-muted">"No option of this tier."</p> });
+    let reports = boundary.then(|| reports_view(reports, view));
+    view! {
+        <section id=tier.anchor.clone() class="mb-6">
+            <h2 class="mb-3 text-lg font-semibold text-ink-heading">
                 {tier.title.clone()}
                 <span class="ml-2 text-sm font-normal text-ink-muted">
                     {tally_line(&tier.tally)}
                 </span>
-            </h3>
-            {options}
-            {trial}
+            </h2>
+            {chapters}
+            {unanchored}
+            {empty}
             {reports}
         </section>
     }

@@ -14,7 +14,7 @@
 
 use std::fmt::Write as _;
 
-use crate::record_api::{ReadingView, Tally};
+use crate::record_api::{OptionView, ReadingView, Tally};
 
 /// The whole width of the drawing, in user units.
 const WIDTH: u32 = 960;
@@ -48,6 +48,12 @@ const HEAD_H: u32 = 52;
 /// The height of a group header.
 const GROUP_H: u32 = 26;
 
+/// The height of a tier header.
+const TIER_H: u32 = 30;
+
+/// Where an indented row's title starts: an option under its band.
+const OPTION_X: u32 = 44;
+
 /// The height of a band row.
 const ROW_H: u32 = 22;
 
@@ -57,18 +63,23 @@ const BAR_H: u32 = 12;
 /// The gap above a bar inside its row, which centres it.
 const BAR_INSET: u32 = 5;
 
-/// One band: a stacked bar and its counts.
+/// One bar row: a capability folder, or an option or TRIAL row indented
+/// under its folder.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Band {
-    /// The band's heading.
+    /// The row's heading.
     pub title: String,
-    /// Where the band links: its rows on the results page.
+    /// Where the row links: its rows on the results page.
     pub href: String,
     /// Its counts.
     pub tally: Tally,
+    /// Whether the row sits indented under the band above it.
+    pub indent: bool,
+    /// What the row reads in place of a bar when it has no test.
+    pub empty: &'static str,
 }
 
-/// One shaded group of bands: a chapter, or an option tier.
+/// One shaded group of bands: a chapter.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Group {
     /// The group's heading.
@@ -81,13 +92,29 @@ pub struct Group {
     pub bands: Vec<Band>,
 }
 
+/// One part of a chart: an option tier above its chapters, or the untitled
+/// whole of BASE.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Part {
+    /// The tier heading; `None` draws the groups with no header above them.
+    pub title: Option<String>,
+    /// Where the heading links.
+    pub href: String,
+    /// The part's counts.
+    pub tally: Tally,
+    /// What the part reads when it holds no group.
+    pub empty: &'static str,
+    /// Its groups, in reading order.
+    pub groups: Vec<Group>,
+}
+
 /// One chart: what it draws and the name a reader hears for it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Chart {
     /// The accessible name of the drawing.
     pub label: String,
-    /// The groups, in reading order.
-    pub groups: Vec<Group>,
+    /// The parts, in reading order.
+    pub parts: Vec<Part>,
 }
 
 /// The console theme a drawing is coloured for.
@@ -210,8 +237,9 @@ fn summary(title: &str, tally: &Tally) -> String {
 /// The test count a full bar stands for: the largest band of the chart.
 fn scale(chart: &Chart) -> u32 {
     chart
-        .groups
+        .parts
         .iter()
+        .flat_map(|part| part.groups.iter())
         .flat_map(|group| group.bands.iter())
         .map(|band| band.tally.tests)
         .max()
@@ -272,9 +300,10 @@ fn band(out: &mut String, band: &Band, top: u32, colours: &Colours, scale: u32) 
     let baseline = top + 15;
     let _ = write!(
         out,
-        r#"<a href="{}"><title>{}</title><rect x="0" y="{top}" width="{WIDTH}" height="{ROW_H}" fill="transparent"/><text x="{BAND_X}" y="{baseline}" fill="{}">{}</text>"#,
+        r#"<a href="{}"><title>{}</title><rect x="0" y="{top}" width="{WIDTH}" height="{ROW_H}" fill="transparent"/><text x="{}" y="{baseline}" fill="{}">{}</text>"#,
         esc(&band.href),
         esc(&summary(&band.title, &band.tally)),
+        if band.indent { OPTION_X } else { BAND_X },
         colours.ink,
         esc(&band.title)
     );
@@ -282,8 +311,9 @@ fn band(out: &mut String, band: &Band, top: u32, colours: &Colours, scale: u32) 
     if band.tally.tests == 0 {
         let _ = write!(
             out,
-            r#"<text x="{BAR_X}" y="{baseline}" fill="{}" font-style="italic">no cases</text></a>"#,
-            colours.muted
+            r#"<text x="{BAR_X}" y="{baseline}" fill="{}" font-style="italic">{}</text></a>"#,
+            colours.muted,
+            esc(band.empty)
         );
         return;
     }
@@ -312,18 +342,78 @@ fn band(out: &mut String, band: &Band, top: u32, colours: &Colours, scale: u32) 
     out.push_str("</a>");
 }
 
+/// Writes one chapter header whose top edge is `top`.
+fn group_header(out: &mut String, group: &Group, top: u32, colours: &Colours) {
+    let _ = write!(
+        out,
+        r#"<a href="{}"><title>{}</title><rect x="0" y="{top}" width="{WIDTH}" height="{GROUP_H}" fill="{}"/><text x="{GROUP_X}" y="{}" fill="{}" font-weight="600">{}</text>"#,
+        esc(&group.href),
+        esc(&summary(&group.title, &group.tally)),
+        colours.shade,
+        top + 17,
+        colours.ink,
+        esc(&group.title)
+    );
+    counts(
+        out,
+        &group.tally,
+        top + 17,
+        colours.ink,
+        r#" font-weight="600""#,
+    );
+    out.push_str("</a>");
+}
+
+/// Writes one tier header whose top edge is `top`.
+fn part_header(out: &mut String, part: &Part, title: &str, top: u32, colours: &Colours) {
+    let baseline = top + 20;
+    let _ = write!(
+        out,
+        r#"<a href="{}"><title>{}</title><rect x="0" y="{top}" width="{WIDTH}" height="{TIER_H}" fill="transparent"/><line x1="0" y1="{}" x2="{WIDTH}" y2="{}" stroke="{}" stroke-width="1"/><text x="0" y="{baseline}" fill="{}" font-size="13" font-weight="700">{}</text>"#,
+        esc(&part.href),
+        esc(&summary(title, &part.tally)),
+        top + 4,
+        top + 4,
+        colours.muted,
+        colours.ink,
+        esc(title)
+    );
+    counts(
+        out,
+        &part.tally,
+        baseline,
+        colours.ink,
+        r#" font-weight="700""#,
+    );
+    out.push_str("</a>");
+}
+
+/// The height of `part` as drawn.
+fn part_height(part: &Part) -> u32 {
+    let header = if part.title.is_some() { TIER_H } else { 0 };
+    let body = if part.groups.is_empty() {
+        ROW_H
+    } else {
+        part.groups
+            .iter()
+            .map(|g| {
+                let bands = u32::try_from(g.bands.len()).unwrap_or(u32::MAX);
+                GROUP_H.saturating_add(ROW_H.saturating_mul(bands))
+            })
+            .fold(0_u32, u32::saturating_add)
+    };
+    header.saturating_add(body)
+}
+
 /// Renders `chart` as one self-contained SVG document in `palette`.
 #[must_use]
 pub fn render(chart: &Chart, palette: Palette) -> String {
     let colours = palette.colours();
     let scale = scale(chart);
-    let rows: u32 = chart
-        .groups
+    let rows = chart
+        .parts
         .iter()
-        .map(|g| {
-            let bands = u32::try_from(g.bands.len()).unwrap_or(u32::MAX);
-            GROUP_H.saturating_add(ROW_H.saturating_mul(bands))
-        })
+        .map(part_height)
         .fold(0_u32, u32::saturating_add);
     let height = HEAD_H.saturating_add(rows).saturating_add(8);
     let mut out = String::new();
@@ -341,29 +431,28 @@ pub fn render(chart: &Chart, palette: Palette) -> String {
     );
     head(&mut out, &colours, scale);
     let mut top = HEAD_H;
-    for group in &chart.groups {
-        let _ = write!(
-            out,
-            r#"<a href="{}"><title>{}</title><rect x="0" y="{top}" width="{WIDTH}" height="{GROUP_H}" fill="{}"/><text x="{GROUP_X}" y="{}" fill="{}" font-weight="600">{}</text>"#,
-            esc(&group.href),
-            esc(&summary(&group.title, &group.tally)),
-            colours.shade,
-            top + 17,
-            colours.ink,
-            esc(&group.title)
-        );
-        counts(
-            &mut out,
-            &group.tally,
-            top + 17,
-            colours.ink,
-            r#" font-weight="600""#,
-        );
-        out.push_str("</a>");
-        top += GROUP_H;
-        for each in &group.bands {
-            band(&mut out, each, top, &colours, scale);
+    for part in &chart.parts {
+        if let Some(title) = part.title.as_deref() {
+            part_header(&mut out, part, title, top, &colours);
+            top += TIER_H;
+        }
+        if part.groups.is_empty() {
+            let _ = write!(
+                out,
+                r#"<text x="{GROUP_X}" y="{}" fill="{}" font-style="italic">{}</text>"#,
+                top + 15,
+                colours.muted,
+                esc(part.empty)
+            );
             top += ROW_H;
+        }
+        for group in &part.groups {
+            group_header(&mut out, group, top, &colours);
+            top += GROUP_H;
+            for each in &group.bands {
+                band(&mut out, each, top, &colours, scale);
+                top += ROW_H;
+            }
         }
     }
     out.push_str("</svg>");
@@ -375,7 +464,7 @@ pub fn render(chart: &Chart, palette: Palette) -> String {
 pub enum View {
     /// BASE, chapter by chapter.
     Base,
-    /// The options, tier by tier.
+    /// The options, tier by tier, then chapter by chapter.
     Options,
 }
 
@@ -394,64 +483,124 @@ impl View {
 /// The BASE chart: one group per chapter, one band per capability folder.
 #[must_use]
 pub fn base(reading: &ReadingView) -> Chart {
+    let groups = reading
+        .chapters
+        .iter()
+        .map(|chapter| Group {
+            title: chapter.title.clone(),
+            href: chapter.href.clone(),
+            tally: chapter.tally,
+            bands: chapter
+                .bands
+                .iter()
+                .map(|band| Band {
+                    title: band.title.clone(),
+                    href: format!("#{}", band.anchor),
+                    tally: band.tally,
+                    indent: false,
+                    empty: "no cases",
+                })
+                .collect(),
+        })
+        .collect();
     Chart {
         label: String::from("BASE outcomes by chapter"),
-        groups: reading
-            .chapters
-            .iter()
-            .map(|chapter| Group {
-                title: chapter.title.clone(),
-                href: chapter.href.clone(),
-                tally: chapter.tally,
-                bands: chapter
-                    .bands
-                    .iter()
-                    .map(|band| Band {
-                        title: band.title.clone(),
-                        href: format!("#{}", band.anchor),
-                        tally: band.tally,
-                    })
-                    .collect(),
-            })
-            .collect(),
+        parts: vec![Part {
+            title: None,
+            href: String::from("#result-rows"),
+            tally: reading
+                .chapters
+                .iter()
+                .map(|c| c.tally)
+                .fold(Tally::default(), Tally::plus),
+            empty: "no BASE case",
+            groups,
+        }],
     }
 }
 
-/// The OPTIONS chart: one group per tier, one band per option, and the
-/// TRIAL-grounded cases as a band of the OPTIONS tier.
+/// The row of one option: its counts, or why it has none.
+fn option_band(option: &OptionView, indent: bool) -> Band {
+    let empty = if option.arms.iter().all(|arm| arm.empty) {
+        "nothing to run"
+    } else if option.selected {
+        "no cases"
+    } else {
+        "not selected"
+    };
+    Band {
+        title: option.option.clone(),
+        href: format!("#{}", option.anchor),
+        tally: option.tally,
+        indent,
+        empty,
+    }
+}
+
+/// The OPTIONS chart: each tier above its chapters, each band followed by
+/// its options and its TRIAL row, indented, exactly as BASE reads.
 #[must_use]
 pub fn options(reading: &ReadingView) -> Chart {
-    let groups = reading
+    let parts = reading
         .tiers
         .iter()
         .map(|tier| {
-            let mut bands: Vec<Band> = tier
-                .options
+            let mut groups: Vec<Group> = tier
+                .chapters
                 .iter()
-                .map(|option| Band {
-                    title: option.option.clone(),
-                    href: format!("#{}", option.anchor),
-                    tally: option.tally,
+                .map(|chapter| {
+                    let mut bands = Vec::new();
+                    for band in &chapter.bands {
+                        bands.push(Band {
+                            title: band.title.clone(),
+                            href: format!("#{}", band.anchor),
+                            tally: band.tally,
+                            indent: false,
+                            empty: "no cases",
+                        });
+                        bands.extend(band.options.iter().map(|o| option_band(o, true)));
+                        if let Some(trial) = band.trial.as_ref() {
+                            bands.push(Band {
+                                title: String::from("TRIAL text"),
+                                href: format!("#{}", trial.anchor),
+                                tally: trial.tally,
+                                indent: true,
+                                empty: "no cases",
+                            });
+                        }
+                    }
+                    Group {
+                        title: chapter.title.clone(),
+                        href: format!("#{}", chapter.anchor),
+                        tally: chapter.tally,
+                        bands,
+                    }
                 })
                 .collect();
-            if let Some(trial) = tier.trial.as_ref() {
-                bands.push(Band {
-                    title: trial.title.clone(),
-                    href: format!("#{}", trial.anchor),
-                    tally: trial.tally,
+            if !tier.unanchored.is_empty() {
+                groups.push(Group {
+                    title: String::from("No document yet"),
+                    href: format!("#{}", tier.anchor),
+                    tally: Tally::default(),
+                    bands: tier
+                        .unanchored
+                        .iter()
+                        .map(|o| option_band(o, false))
+                        .collect(),
                 });
             }
-            Group {
-                title: tier.title.clone(),
+            Part {
+                title: Some(tier.title.clone()),
                 href: format!("#{}", tier.anchor),
                 tally: tier.tally,
-                bands,
+                empty: "no option of this tier",
+                groups,
             }
         })
         .collect();
     Chart {
-        label: String::from("OPTIONS outcomes by tier"),
-        groups,
+        label: String::from("OPTIONS outcomes by tier and chapter"),
+        parts,
     }
 }
 
@@ -596,6 +745,15 @@ mod tests {
                 option("flat", Tier::Recommended, None),
                 option("gap", Tier::SpecBoundary, report),
                 option("xml", Tier::Options, None),
+                OutlineOption {
+                    folders: Vec::new(),
+                    arms: vec![OutlineArm {
+                        arm: String::from("planned-supported"),
+                        selected: false,
+                        documents: Vec::new(),
+                    }],
+                    ..option("planned", Tier::Options, None)
+                },
             ],
             reports: report
                 .map(|report| OutlineReport {
@@ -686,11 +844,28 @@ mod tests {
         let reading = reading_view(&results())?;
         assert_eq!(reading.total.failed, 3);
         assert_eq!(reading.total.advisory, 2);
-        let options = reading
-            .tiers
-            .get(1)
-            .map(|t| (t.title.as_str(), t.trial.as_ref().map(|x| x.tally.failed)));
-        assert_eq!(options, Some(("OPTIONS", Some(1))));
+        let band = reading.tiers.get(1).and_then(|t| {
+            let band = t.chapters.first()?.bands.first()?;
+            Some((
+                t.title.as_str(),
+                band.anchor.as_str(),
+                band.options
+                    .iter()
+                    .map(|o| o.option.as_str())
+                    .collect::<Vec<_>>(),
+                band.trial.as_ref().map(|x| x.tally.failed),
+            ))
+        });
+        assert_eq!(
+            band,
+            Some((
+                "OPTIONS",
+                "tier-options-band-composition",
+                vec!["xml"],
+                Some(1)
+            )),
+            "the TRIAL row sits in its band, under OPTIONS"
+        );
         let first = reading
             .chapters
             .first()

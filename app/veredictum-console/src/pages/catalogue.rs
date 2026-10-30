@@ -18,7 +18,7 @@ use leptos_router::components::{A, Form};
 use leptos_router::hooks::{use_params_map, use_query_map};
 
 use crate::catalogue_api::fns::{fetch_case_detail, fetch_chapter_page, fetch_chapters};
-use crate::catalogue_api::{ArmBlock, BandRows, CaseDetail, ChapterPage};
+use crate::catalogue_api::{ArmBlock, BandRows, CaseDetail, ChapterPage, OptionBlock};
 use crate::components::data_table::{TABLE, TABLE_WRAP, TD, TH};
 use crate::components::empty_state::EmptyState;
 use crate::components::field::INPUT;
@@ -197,6 +197,38 @@ fn documents_table(folder: &str, documents: &[BandRows]) -> AnyView {
     .into_any()
 }
 
+/// The options of a page in runs of one tier each, in the page's order,
+/// which the reader sorts by tier first.
+fn tier_runs(options: &[OptionBlock]) -> Vec<(String, Vec<&OptionBlock>)> {
+    let mut runs: Vec<(String, Vec<&OptionBlock>)> = Vec::new();
+    for option in options {
+        let tier = option
+            .tier
+            .clone()
+            .unwrap_or_else(|| String::from("Placed in no tier"));
+        match runs.last_mut() {
+            Some((current, members)) if *current == tier => members.push(option),
+            _ => runs.push((tier, vec![option])),
+        }
+    }
+    runs
+}
+
+/// The in-page anchor of a tier heading on a chapter page.
+fn tier_anchor(tier: &str) -> String {
+    let slug: String = tier
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    format!("tier-{slug}")
+}
+
 /// The table of contents: every section and option with its case count.
 fn contents_view(page: &ChapterPage) -> AnyView {
     let entry = |anchor: &str, label: String, cases: u64| {
@@ -222,10 +254,26 @@ fn contents_view(page: &ChapterPage) -> AnyView {
             .fold(0, u64::saturating_add);
         entry("section-other", String::from("Other BASE documents"), cases)
     });
-    let options = page
-        .options
-        .iter()
-        .map(|o| entry(&o.anchor, o.option.clone(), o.cases))
+    let options = tier_runs(&page.options)
+        .into_iter()
+        .map(|(tier, members)| {
+            let entries = members
+                .into_iter()
+                .map(|o| entry(&o.anchor, o.option.clone(), o.cases))
+                .collect_view();
+            let href = format!("#{}", tier_anchor(&tier));
+            view! {
+                <li class="pt-1">
+                    <a
+                        href=href
+                        class="text-xs font-semibold uppercase tracking-wide text-ink-muted hover:underline"
+                    >
+                        {tier}
+                    </a>
+                    <ul class="space-y-0.5">{entries}</ul>
+                </li>
+            }
+        })
         .collect_view();
     let no_options = page
         .options
@@ -321,35 +369,43 @@ fn arm_view(folder: &str, arm: &ArmBlock) -> AnyView {
 /// The OPTIONS part: one block per option, its arms side by side.
 fn options_view(page: &ChapterPage) -> AnyView {
     let folder = page.folder.clone();
-    let blocks = page
-        .options
-        .iter()
-        .map(|option| {
-            let tier = option
-                .tier
-                .clone()
-                .map(|tier| view! { <span class=BADGE>{tier}</span> });
-            let theme = option
-                .theme
-                .clone()
-                .map(|theme| view! { <span class=BADGE>{theme}</span> });
-            let arms = option
-                .arms
-                .iter()
-                .map(|arm| arm_view(&folder, arm))
-                .collect_view();
+    let option_block = |option: &OptionBlock| {
+        let theme = option
+            .theme
+            .clone()
+            .map(|theme| view! { <span class=BADGE>{theme}</span> });
+        let arms = option
+            .arms
+            .iter()
+            .map(|arm| arm_view(&folder, arm))
+            .collect_view();
+        view! {
+            <section id=option.anchor.clone() class=format!("{CARD_PAD} mb-4")>
+                <h4 class="text-sm font-semibold text-ink-heading">
+                    <span class="font-mono">{option.option.clone()}</span>
+                    {theme}
+                    <span class="ml-2 font-normal text-ink-muted">{cases_label(option.cases)}</span>
+                </h4>
+                <p class="mb-3 mt-1 text-sm text-ink-muted">{option.description.clone()}</p>
+                <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">{arms}</div>
+            </section>
+        }
+    };
+    let tiers = tier_runs(&page.options)
+        .into_iter()
+        .map(|(tier, members)| {
+            let cases = members.iter().map(|o| o.cases).fold(0, u64::saturating_add);
+            let blocks = members.into_iter().map(option_block).collect_view();
+            let id = tier_anchor(&tier);
             view! {
-                <section id=option.anchor.clone() class=format!("{CARD_PAD} mb-4")>
-                    <h3 class="text-sm font-semibold text-ink-heading">
-                        <span class="font-mono">{option.option.clone()}</span>
+                <section id=id class="mb-4">
+                    <h3 class="mb-2 text-base font-semibold text-ink-heading">
                         {tier}
-                        {theme}
-                        <span class="ml-2 font-normal text-ink-muted">
-                            {cases_label(option.cases)}
+                        <span class="ml-2 text-sm font-normal text-ink-muted">
+                            {cases_label(cases)}
                         </span>
                     </h3>
-                    <p class="mb-3 mt-1 text-sm text-ink-muted">{option.description.clone()}</p>
-                    <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">{arms}</div>
+                    {blocks}
                 </section>
             }
         })
@@ -362,7 +418,7 @@ fn options_view(page: &ChapterPage) -> AnyView {
         <h2 id="options" class="mb-3 mt-6 text-lg font-semibold text-ink-heading">
             "OPTIONS"
         </h2>
-        {blocks}
+        {tiers}
         {empty}
     }
     .into_any()

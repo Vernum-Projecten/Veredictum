@@ -147,7 +147,7 @@ pub struct OptionView {
     pub arms: Vec<ArmView>,
 }
 
-/// The BASE rows resting on TRIAL text, read with the options.
+/// The rows of one band resting on TRIAL text, read with the options.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TrialView {
     /// The in-page anchor of the block.
@@ -160,19 +160,68 @@ pub struct TrialView {
     pub rows: Vec<ResultRow>,
 }
 
-/// One option tier.
+/// One band of an option tier: the options one capability folder holds.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TierBandView {
+    /// The capability folder.
+    pub folder: String,
+    /// The in-page anchor of the band, unique across tiers.
+    pub anchor: String,
+    /// The heading.
+    pub title: String,
+    /// Its counts, each case once.
+    pub tally: Tally,
+    /// Its options, each arm holding this band's cases only.
+    pub options: Vec<OptionView>,
+    /// The band's rows resting on TRIAL text, on the OPTIONS tier only.
+    pub trial: Option<TrialView>,
+}
+
+/// One chapter of an option tier.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TierChapterView {
+    /// The chapter key.
+    pub chapter: String,
+    /// The in-page anchor of the chapter, unique across tiers.
+    pub anchor: String,
+    /// The heading.
+    pub title: String,
+    /// Its counts, each case once.
+    pub tally: Tally,
+    /// Its bands that hold an option or TRIAL text.
+    pub bands: Vec<TierBandView>,
+}
+
+/// One option tier, read chapter by chapter and band by band like BASE.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TierView {
     /// The in-page anchor of the tier.
     pub anchor: String,
     /// The heading.
     pub title: String,
-    /// Its counts, the TRIAL block included.
+    /// Its counts, each case once.
     pub tally: Tally,
-    /// Its options.
-    pub options: Vec<OptionView>,
-    /// The TRIAL-grounded BASE rows, on the OPTIONS tier only.
-    pub trial: Option<TrialView>,
+    /// Its chapters that hold an option or TRIAL text.
+    pub chapters: Vec<TierChapterView>,
+    /// Its options whose arms name no document, so no band holds them.
+    pub unanchored: Vec<OptionView>,
+}
+
+impl TierView {
+    /// Every option of the tier, band by band, then the unanchored ones.
+    pub fn options(&self) -> impl Iterator<Item = &OptionView> {
+        self.chapters
+            .iter()
+            .flat_map(|c| c.bands.iter().flat_map(|b| b.options.iter()))
+            .chain(self.unanchored.iter())
+    }
+
+    /// Every TRIAL block of the tier, band by band.
+    pub fn trials(&self) -> impl Iterator<Item = &TrialView> {
+        self.chapters
+            .iter()
+            .flat_map(|c| c.bands.iter().filter_map(|b| b.trial.as_ref()))
+    }
 }
 
 /// The rows resting on text one upstream report records as defective.
@@ -199,7 +248,7 @@ pub struct ReadingView {
     pub total: Tally,
     /// BASE, chapter by chapter.
     pub chapters: Vec<ChapterView>,
-    /// RECOMMENDED, OPTIONS (with the TRIAL block) and the spec boundary,
+    /// RECOMMENDED, OPTIONS (with the TRIAL blocks) and the spec boundary,
     /// in that order.
     pub tiers: Vec<TierView>,
     /// The rows resting on reported text, by report.
@@ -209,8 +258,8 @@ pub struct ReadingView {
 }
 
 impl ReadingView {
-    /// Every row once, in reading order: BASE, the options, the TRIAL
-    /// block, the unplaced rows.
+    /// Every row in reading order: BASE, the options, the TRIAL blocks, the
+    /// unplaced rows; a case two arms name is listed under each.
     #[must_use]
     pub fn rows(&self) -> Vec<&ResultRow> {
         let base = self
@@ -220,11 +269,10 @@ impl ReadingView {
             .flat_map(|b| b.sections.iter())
             .flat_map(|s| s.rows.iter());
         let tiers = self.tiers.iter().flat_map(|tier| {
-            tier.options
-                .iter()
+            tier.options()
                 .flat_map(|o| o.arms.iter())
                 .flat_map(|a| a.rows.iter())
-                .chain(tier.trial.iter().flat_map(|t| t.rows.iter()))
+                .chain(tier.trials().flat_map(|t| t.rows.iter()))
         });
         base.chain(tiers).chain(self.unplaced.iter()).collect()
     }
@@ -324,13 +372,15 @@ pub mod read {
     use super::{
         ArmView, BandView, CertificateNotice, ChapterView, ExchangeView, OptionView, ReadingView,
         RecordingView, ReportView, ResultDetail, ResultRow, ResultsScreen, SectionView, Tally,
-        TierView, TrialView,
+        TierBandView, TierChapterView, TierView, TrialView,
     };
     use crate::certificates::CertificateStatus;
     use crate::engine::token;
     use crate::state::ConsoleState;
     use veredictum::arazzo::har::{Entry, Har, NameValue};
-    use veredictum::arazzo::reading::{CaseRows, Mark, OptionGroup, Tally as EngineTally, read};
+    use veredictum::arazzo::reading::{
+        CaseRows, Mark, OptionBand, OptionGroup, Tally as EngineTally, TierTree, read,
+    };
     use veredictum::arazzo::results::{ResultRow as EngineRow, Results, Why};
     use veredictum::arazzo::structure::{Place, Tier};
 
@@ -462,14 +512,14 @@ pub mod read {
         Ok(rows.into_iter().map(|(_, row)| row).collect())
     }
 
-    /// One option as the page lists it.
+    /// One option as the page lists it, anchored under `prefix`.
     ///
     /// # Errors
     /// The status token's `serde_json` failure, verbatim.
-    fn option_of(group: &OptionGroup<'_>) -> Result<OptionView, serde_json::Error> {
+    fn option_of(prefix: &str, group: &OptionGroup<'_>) -> Result<OptionView, serde_json::Error> {
         Ok(OptionView {
             option: group.option.to_owned(),
-            anchor: anchor("option", &[group.option]),
+            anchor: anchor(prefix, &["option", group.option]),
             description: group.description.to_owned(),
             theme: group.theme.title().to_owned(),
             report: group.report.map(std::num::NonZeroU64::get),
@@ -491,38 +541,82 @@ pub mod read {
         })
     }
 
-    /// One tier as the page lists it.
+    /// One band of a tier as the page lists it, anchored under `prefix`.
     ///
     /// # Errors
     /// The status token's `serde_json` failure, verbatim.
-    fn tier_of(
-        tier: Tier,
-        groups: &[OptionGroup<'_>],
-        trial: Option<TrialView>,
-    ) -> Result<TierView, serde_json::Error> {
-        let options = groups
-            .iter()
-            .map(option_of)
-            .collect::<Result<Vec<_>, _>>()?;
-        let tally = options
-            .iter()
-            .map(|o| o.tally)
-            .chain(trial.iter().map(|t| t.tally))
-            .fold(Tally::default(), Tally::plus);
-        let key = match tier {
+    fn tier_band_of(
+        prefix: &str,
+        band: &OptionBand<'_>,
+    ) -> Result<TierBandView, serde_json::Error> {
+        let here = anchor(prefix, &["band", band.folder]);
+        let trial = band
+            .trial
+            .as_ref()
+            .map(|trial| {
+                Ok::<_, serde_json::Error>(TrialView {
+                    anchor: format!("{here}-trial"),
+                    title: String::from("Resting on TRIAL text"),
+                    tally: tally_of(&trial.tally),
+                    rows: rows_of(&trial.cases)?,
+                })
+            })
+            .transpose()?;
+        Ok(TierBandView {
+            folder: band.folder.to_owned(),
+            title: band.title.to_owned(),
+            tally: tally_of(&band.tally),
+            options: band
+                .options
+                .iter()
+                .map(|group| option_of(&here, group))
+                .collect::<Result<_, _>>()?,
+            trial,
+            anchor: here,
+        })
+    }
+
+    /// One tier as the page lists it, chapter by chapter and band by band.
+    ///
+    /// # Errors
+    /// The status token's `serde_json` failure, verbatim.
+    fn tier_of(tree: &TierTree<'_>) -> Result<TierView, serde_json::Error> {
+        let key = match tree.tier {
             Tier::Recommended => "recommended",
             Tier::Options => "options",
             Tier::SpecBoundary => "boundary",
         };
+        let prefix = anchor("tier", &[key]);
+        let chapters = tree
+            .chapters
+            .iter()
+            .map(|chapter| {
+                let here = anchor(&prefix, &["chapter", chapter.chapter]);
+                Ok(TierChapterView {
+                    chapter: chapter.chapter.to_owned(),
+                    title: chapter.title.to_owned(),
+                    tally: tally_of(&chapter.tally),
+                    bands: chapter
+                        .bands
+                        .iter()
+                        .map(|band| tier_band_of(&prefix, band))
+                        .collect::<Result<_, _>>()?,
+                    anchor: here,
+                })
+            })
+            .collect::<Result<Vec<_>, serde_json::Error>>()?;
         Ok(TierView {
-            anchor: anchor("tier", &[key]),
-            title: tier.title().to_owned(),
-            tally,
-            options,
-            trial,
+            title: tree.tier.title().to_owned(),
+            tally: tally_of(&tree.tally),
+            chapters,
+            unanchored: tree
+                .unanchored
+                .iter()
+                .map(|group| option_of(&prefix, group))
+                .collect::<Result<_, _>>()?,
+            anchor: prefix,
         })
     }
-
     /// The engine's reading of `results`, as the page lists it.
     ///
     /// # Errors
@@ -576,16 +670,10 @@ pub mod read {
                 })
             })
             .collect::<Result<Vec<_>, serde_json::Error>>()?;
-        let trial = TrialView {
-            anchor: String::from("trial"),
-            title: String::from("Resting on TRIAL text"),
-            tally: tally_of(&reading.trial.tally),
-            rows: rows_of(&reading.trial.cases)?,
-        };
         let tiers = vec![
-            tier_of(Tier::Recommended, &reading.recommended, None)?,
-            tier_of(Tier::Options, &reading.options, Some(trial))?,
-            tier_of(Tier::SpecBoundary, &reading.boundary, None)?,
+            tier_of(&reading.recommended)?,
+            tier_of(&reading.options)?,
+            tier_of(&reading.boundary)?,
         ];
         let reports = reading
             .reports
