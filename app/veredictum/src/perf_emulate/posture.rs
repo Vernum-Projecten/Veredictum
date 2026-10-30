@@ -3,18 +3,19 @@
 
 //! Posture profiles, the disclosure block, and the canaries that check it.
 //!
-//! Two speed numbers are comparable only when the same features were switched
-//! on behind them. A pack therefore defines NAMED posture profiles, a run
-//! declares exactly one, and the record carries every disclosed item with the
-//! value that was declared for it.
+//! Two performance records are comparable only when the same features were
+//! switched on behind them. The instrument therefore defines NAMED posture
+//! profiles, a run declares exactly one (`perf --posture`), and the record
+//! carries every disclosed item with the value that was declared for it.
 //!
 //! A declaration alone is a promise. Each item is therefore probed black-box
 //! where an observable exists, and the record labels the item
 //! [`Assurance::Verified`] or [`Assurance::DeclaredOnly`] so a reader never has
-//! to guess which. The probes run BEFORE and AFTER the measured window: a
-//! reading that contradicts the declaration, and a pair of readings that
-//! disagree with each other, both refuse the whole run with a typed error
-//! naming the item. Nothing here is ever a footnote on a published number.
+//! to guess which. The probes run after seeding and again after the last
+//! plateau: a reading that contradicts the declaration, and a pair of
+//! readings that disagree with each other, both refuse the whole run with a
+//! typed error naming the item. Nothing here is ever a footnote on a
+//! published number.
 //!
 //! What each probe can and cannot see:
 //!
@@ -24,8 +25,8 @@
 //!   is `0..1` on `VERSION` and holds an "OpenPGP digital signature or digest"
 //!   (openEHR RM `UML/classes/version.adoc` §Attributes), so the armor header
 //!   separates the two schemes.
-//! - **Commit validation** — the pack's own invalid twin is committed inside
-//!   the run window. ITS-REST `specifications/responses/422.yaml` defines the
+//! - **Commit validation** — the workload's own invalid twin is committed
+//!   in each bracket. ITS-REST `specifications/responses/422.yaml` defines the
 //!   refusal as "semantic validation errors, such as the underlying template is
 //!   not known or is not validating the supplied resource", and
 //!   `specifications/operations/composition_create.yaml` lists `422` on the
@@ -53,9 +54,102 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::bench::BenchError;
-use crate::bench::client::{BenchClient, PreferReturn, created_identifier};
-use crate::bench::pack::Fixture;
+use thiserror::Error;
+
+use crate::perf_emulate::canary::{CanaryClient, PreferReturn, created_identifier};
+
+/// A posture that cannot be declared or that the canaries refuse.
+#[derive(Debug, Error)]
+pub enum PostureError {
+    /// A token outside a closed posture vocabulary.
+    #[error("unknown {vocabulary} token {token:?} (accepted: {accepted})")]
+    UnknownToken {
+        /// Which vocabulary rejected the token.
+        vocabulary: &'static str,
+        /// The token as written.
+        token: String,
+        /// The accepted tokens, comma-separated.
+        accepted: String,
+    },
+    /// The profile a run names is not one the instrument defines.
+    #[error("unknown posture profile {requested:?} (defined: {known})")]
+    UnknownProfile {
+        /// The name the run gave.
+        requested: String,
+        /// The defined profile names, comma-separated.
+        known: String,
+    },
+    /// A canary observed something other than what the run declared, so the
+    /// run measured another system than the one it declares.
+    #[error(
+        "posture canary contradicts the declaration: `{}` is declared `{}` and the \
+         {} canary observed `{}` ({})",
+        .0.item, .0.declared, .0.bracket, .0.observed, .0.evidence
+    )]
+    Contradiction(Box<PostureDisagreement>),
+    /// A canary read one thing after seeding and another after the last
+    /// plateau, so the measured plateaus straddle two configurations.
+    #[error(
+        "posture canary flipped across the run: `{item}` read `{before}` after seeding and \
+         `{after}` after the last plateau"
+    )]
+    Flip {
+        /// The disclosed item that moved.
+        item: String,
+        /// The first reading.
+        before: String,
+        /// The second reading.
+        after: String,
+    },
+    /// A bracket produced no reading for one disclosed item.
+    #[error("posture canary {bracket} bracket produced no reading for `{item}`")]
+    Bracket {
+        /// The item with no reading.
+        item: String,
+        /// The bracket that is short.
+        bracket: String,
+    },
+}
+
+/// The composition a workload declares invalid: the bytes of one of its
+/// compositions with a mandatory attribute removed, which the validation
+/// canary commits.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InvalidTwin {
+    /// The payload key it is read from.
+    pub key: String,
+    /// The canonical JSON bytes.
+    pub bytes: String,
+}
+
+/// Every profile a run may declare, in the order `--posture` lists them.
+pub static PROFILES: [&PostureProfile; 4] = [
+    &MINIMAL,
+    &MINIMAL_SIGNED_DIGEST,
+    &MINIMAL_SIGNED_PGP,
+    &CLINICAL_DEFAULT,
+];
+
+impl PostureProfile {
+    /// The profile named `name`.
+    ///
+    /// # Errors
+    /// [`PostureError::UnknownProfile`] naming the defined profiles.
+    pub fn by_name(name: &str) -> Result<&'static PostureProfile, PostureError> {
+        PROFILES
+            .iter()
+            .copied()
+            .find(|profile| profile.name == name)
+            .ok_or_else(|| PostureError::UnknownProfile {
+                requested: name.to_owned(),
+                known: PROFILES
+                    .iter()
+                    .map(|p| p.name)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            })
+    }
+}
 
 /// Declares one closed posture vocabulary with its token table.
 ///
@@ -91,13 +185,13 @@ macro_rules! posture_vocabulary {
             /// Reads one token from the closed vocabulary.
             ///
             /// # Errors
-            /// [`BenchError::UnknownToken`] listing the accepted tokens.
-            pub fn parse(token: &str) -> Result<Self, BenchError> {
+            /// [`PostureError::UnknownToken`] listing the accepted tokens.
+            pub fn parse(token: &str) -> Result<Self, PostureError> {
                 Self::ALL
                     .iter()
                     .copied()
                     .find(|value| value.as_str() == token)
-                    .ok_or_else(|| BenchError::UnknownToken {
+                    .ok_or_else(|| PostureError::UnknownToken {
                         vocabulary: $vocabulary,
                         token: token.to_owned(),
                         accepted: Self::ALL
@@ -156,7 +250,7 @@ impl PostureItem {
     /// Whether a canary observes this item first-hand.
     ///
     /// An observable item has a wire surface that discloses it: committed
-    /// versions carry `signature`, a commit of the pack's invalid twin is
+    /// versions carry `signature`, a commit of the workload's invalid twin is
     /// accepted or refused, an uncredentialed read is refused or answered, the
     /// base URL names its scheme, and a response is encoded or plain. Audit and
     /// tenancy have none, because released ITS-REST defines no read operation
@@ -263,9 +357,9 @@ posture_vocabulary! {
 posture_vocabulary! {
     /// Which end of the measured window a canary reading was taken at.
     Bracket, "posture bracket", {
-        /// Before the first measured repetition.
+        /// After seeding, before the settle.
         Before => "before",
-        /// After the last measured repetition.
+        /// After the last plateau.
         After => "after",
     }
 }
@@ -331,7 +425,7 @@ const CANARY_PATH: &str = "/definition/template/adl1.4";
 /// A named posture profile: the deployment configuration a run declares.
 ///
 /// The five items here are what an operator CONFIGURES, so they are part of
-/// the versioned pack definition and changing one changes the pack version.
+/// the instrument's definition, and a record names the profile it declared.
 /// The two remaining disclosed items, authentication and TLS, are facts of the
 /// invocation rather than of the profile, and the run supplies them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -448,20 +542,20 @@ pub struct VersionSample {
 #[derive(Debug)]
 pub struct CanaryTarget<'a> {
     /// The run's own client, credential and all.
-    pub client: &'a BenchClient,
+    pub client: &'a CanaryClient,
     /// The same target over a client that never decompresses, so
     /// `Content-Encoding` survives.
-    pub raw: &'a BenchClient,
+    pub raw: &'a CanaryClient,
     /// The same target with no credential at all.
-    pub anonymous: &'a BenchClient,
+    pub anonymous: &'a CanaryClient,
     /// The profile the run declared.
     pub profile: &'a PostureProfile,
     /// The authentication mode the run presents.
     pub authn: AuthnMode,
     /// Whether the recorded base URL is an HTTPS one.
     pub tls: TlsMode,
-    /// The pack's invalid twin, which the validation canary commits.
-    pub invalid_twin: Option<Fixture>,
+    /// The workload's invalid twin, which the validation canary commits.
+    pub invalid_twin: Option<InvalidTwin>,
     /// Versions the run's own seed phases committed.
     pub samples: &'a [VersionSample],
 }
@@ -482,7 +576,7 @@ pub struct CanaryReading {
 
 /// A canary reading that contradicts the run's declaration.
 ///
-/// Carried boxed by [`BenchError::PostureContradiction`], so the error type
+/// Carried boxed by [`PostureError::Contradiction`], so the error type
 /// stays small enough for every `Result` in the engine to return it by value
 /// (the `RootMismatch` shape, one module over).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -819,7 +913,7 @@ fn probe_signing(target: &CanaryTarget<'_>, bracket: Bracket) -> CanaryReading {
     )
 }
 
-/// What the validation canary saw when it offered the pack's invalid twin.
+/// What the validation canary saw when it offered the workload's invalid twin.
 const TWIN_REFUSED: &str = "refuses-the-invalid-twin";
 
 /// The other half of that observation.
@@ -836,12 +930,12 @@ const fn predicted_twin_fate(depth: ValidationDepth) -> &'static str {
     }
 }
 
-/// Commits the pack's invalid twin into a scratch EHR and reports its fate.
+/// Commits the workload's invalid twin into a scratch EHR and reports its fate.
 fn probe_validation(target: &CanaryTarget<'_>, bracket: Bracket) -> CanaryReading {
-    let Some(twin) = target.invalid_twin else {
+    let Some(twin) = &target.invalid_twin else {
         return unobservable(
             bracket,
-            "this pack embeds no invalid twin, so no commit refusal could be offered",
+            "this workload names no invalid twin, so no commit refusal could be offered",
         );
     };
     let Ok(created) = target.client.send(
@@ -866,7 +960,7 @@ fn probe_validation(target: &CanaryTarget<'_>, bracket: Bracket) -> CanaryReadin
         "posture canary: validation twin",
         reqwest::Method::POST,
         &format!("/ehr/{ehr_id}/composition"),
-        Some((twin.kind.media_type(), twin.bytes.as_bytes().to_vec())),
+        Some(("application/json", twin.bytes.as_bytes().to_vec())),
         PreferReturn::Identifier,
     ) else {
         return unobservable(
@@ -892,7 +986,7 @@ fn probe_validation(target: &CanaryTarget<'_>, bracket: Bracket) -> CanaryReadin
         predicted_twin_fate(target.profile.validation),
         observed,
         format!(
-            "the pinned invalid twin `{}` — this pack's own composition with the mandatory COMPOSITION.composer [1..1] removed (openEHR RM UML/classes/composition.adoc §Attributes) — was committed and answered {} (ITS-REST specifications/responses/422.yaml: a commit is refused when the template \"is not validating the supplied resource\")",
+            "the pinned invalid twin `{}` — the workload's own composition with the mandatory COMPOSITION.composer [1..1] removed (openEHR RM UML/classes/composition.adoc §Attributes) — was committed and answered {} (ITS-REST specifications/responses/422.yaml: a commit is refused when the template \"is not validating the supplied resource\")",
             twin.key, commit.status
         ),
     )
@@ -1028,17 +1122,17 @@ fn probe_compression(target: &CanaryTarget<'_>, bracket: Bracket) -> CanaryReadi
 /// being taken. Neither is recordable as a footnote on a published figure.
 ///
 /// # Errors
-/// [`BenchError::PostureContradiction`] naming the item whose observation
-/// disagrees with the declaration, [`BenchError::PostureFlip`] naming the item
+/// [`PostureError::Contradiction`] naming the item whose observation
+/// disagrees with the declaration, [`PostureError::Flip`] naming the item
 /// whose two readings disagree with each other, and
-/// [`BenchError::PostureBracket`] when a bracket is missing an item.
+/// [`PostureError::Bracket`] when a bracket is missing an item.
 pub fn settle(
     profile: &PostureProfile,
     authn: AuthnMode,
     tls: TlsMode,
     before: &[(PostureItem, CanaryReading)],
     after: &[(PostureItem, CanaryReading)],
-) -> Result<PostureRecord, BenchError> {
+) -> Result<PostureRecord, PostureError> {
     let mut items = Vec::with_capacity(PostureItem::ALL.len());
     for item in PostureItem::ALL.iter().copied() {
         let declared = declared_value(profile, authn, tls, item);
@@ -1046,19 +1140,17 @@ pub fn settle(
         let second = reading_of(after, item, Bracket::After)?;
         for reading in [first, second] {
             if reading.outcome == CanaryOutcome::Contradicted {
-                return Err(BenchError::PostureContradiction(Box::new(
-                    PostureDisagreement {
-                        item: item.as_str().to_owned(),
-                        declared,
-                        bracket: reading.bracket.as_str().to_owned(),
-                        observed: reading.observed.clone(),
-                        evidence: reading.evidence.clone(),
-                    },
-                )));
+                return Err(PostureError::Contradiction(Box::new(PostureDisagreement {
+                    item: item.as_str().to_owned(),
+                    declared,
+                    bracket: reading.bracket.as_str().to_owned(),
+                    observed: reading.observed.clone(),
+                    evidence: reading.evidence.clone(),
+                })));
             }
         }
         if first.outcome != second.outcome || first.observed != second.observed {
-            return Err(BenchError::PostureFlip {
+            return Err(PostureError::Flip {
                 item: item.as_str().to_owned(),
                 before: format!("{} ({})", first.observed, first.outcome),
                 after: format!("{} ({})", second.observed, second.outcome),
@@ -1111,12 +1203,12 @@ fn reading_of(
     readings: &[(PostureItem, CanaryReading)],
     item: PostureItem,
     bracket: Bracket,
-) -> Result<&CanaryReading, BenchError> {
+) -> Result<&CanaryReading, PostureError> {
     readings
         .iter()
         .find(|(key, _)| *key == item)
         .map(|(_, reading)| reading)
-        .ok_or_else(|| BenchError::PostureBracket {
+        .ok_or_else(|| PostureError::Bracket {
             item: item.as_str().to_owned(),
             bracket: bracket.as_str().to_owned(),
         })
@@ -1179,7 +1271,7 @@ mod tests {
     /// Every posture token round-trips, and an unknown one is refused rather
     /// than read as a default posture.
     #[test]
-    fn every_posture_token_round_trips() -> Result<(), BenchError> {
+    fn every_posture_token_round_trips() -> Result<(), PostureError> {
         for item in PostureItem::ALL {
             assert_eq!(PostureItem::parse(item.as_str())?, *item);
         }
@@ -1327,10 +1419,7 @@ mod tests {
             &after,
         )
         .unwrap_err();
-        assert!(
-            matches!(error, BenchError::PostureContradiction(_)),
-            "{error}"
-        );
+        assert!(matches!(error, PostureError::Contradiction(_)), "{error}");
         assert!(error.to_string().contains("commit_validation"), "{error}");
         assert!(
             error.to_string().contains("accepts-the-invalid-twin"),
@@ -1356,7 +1445,7 @@ mod tests {
             &after,
         )
         .unwrap_err();
-        assert!(matches!(error, BenchError::PostureFlip { .. }), "{error}");
+        assert!(matches!(error, PostureError::Flip { .. }), "{error}");
         assert!(error.to_string().contains("compression"), "{error}");
     }
 
@@ -1374,10 +1463,7 @@ mod tests {
             &confirming(&MINIMAL, Bracket::After),
         )
         .unwrap_err();
-        assert!(
-            matches!(error, BenchError::PostureBracket { .. }),
-            "{error}"
-        );
+        assert!(matches!(error, PostureError::Bracket { .. }), "{error}");
     }
 
     /// The two profiles differ in exactly the item their names promise, so a

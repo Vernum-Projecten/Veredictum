@@ -18,8 +18,8 @@ use std::sync::LazyLock;
 
 use serde::{Deserialize, Serialize};
 
-use crate::bench::fingerprint::EnvironmentFingerprint;
 use crate::load::{LoadError, compile_schema, load_artifact};
+use crate::perf_emulate::fingerprint::EnvironmentFingerprint;
 
 /// The directory under the performance root that holds the prescriptions.
 pub const HOSTS_DIR: &str = "hosts";
@@ -261,7 +261,9 @@ pub fn read_host(
     match fingerprint.total_memory_bytes {
         Some(bytes) => {
             let prescribed = u64::from(host.memory_gib).saturating_mul(1 << 30);
-            let floor = prescribed.saturating_mul(100 - MEMORY_SLACK_PERCENT).div_euclid(100);
+            let floor = prescribed
+                .saturating_mul(100 - MEMORY_SLACK_PERCENT)
+                .div_euclid(100);
             if bytes > prescribed || bytes < floor {
                 mismatches.push(format!(
                     "the generator measured {bytes} bytes of memory and the prescription names {} GiB",

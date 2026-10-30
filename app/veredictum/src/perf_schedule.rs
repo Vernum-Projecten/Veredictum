@@ -373,6 +373,13 @@ fn check_payload_keys(
                     format!("{}.example", read.key),
                     (Role::Bytes, read.reader.clone()),
                 );
+                let twin = format!("{}.invalid_twin", read.key);
+                if manifest.get(&twin).is_some() {
+                    needed.insert(
+                        twin,
+                        (Role::Bytes, "the commit-validation canary".to_owned()),
+                    );
+                }
             }
             PayloadRole::Flat => {
                 needed.insert(read.key.clone(), (Role::Template, read.reader.clone()));

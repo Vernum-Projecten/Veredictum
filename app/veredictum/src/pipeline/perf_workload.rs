@@ -9,22 +9,34 @@
 //! interleaved comparison of `perf-compare`, which drives two targets with
 //! the same workload, corpus recipe and seed.
 //!
+//! The posture canaries bracket every run: one bracket after seeding and
+//! one after the last plateau, each checking the declared profile against
+//! the server black-box. A reading that contradicts the declaration, or two
+//! readings that disagree, refuse the record.
+//!
 //! A server that answers any exchange of the run `429 Too Many Requests`
 //! gets no record: the run would have measured its rate limiter. The
 //! refusal reads the run's own record, never a process-wide flag, so two
 //! runs in one process never refuse each other's.
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
-use crate::bench::fingerprint::EnvironmentFingerprint;
-use crate::ixit::{Environment, Ixit};
+use crate::ixit::{Containers, Environment};
+use crate::perf_emulate::baselines::ReferencePin;
 use crate::perf_emulate::binding::{Binding, bind};
+use crate::perf_emulate::canary::CanaryClient;
 use crate::perf_emulate::corpus::{
     self, CorpusError, CorpusState, Needs, Payloads, SeedReport, SeedRequest,
 };
+use crate::perf_emulate::fingerprint::EnvironmentFingerprint;
 use crate::perf_emulate::http::HttpClient;
 use crate::perf_emulate::performer::{Targets, WirePerformer, read_current};
+use crate::perf_emulate::posture::{
+    AuthnMode, Bracket, CanaryReading, CanaryTarget, InvalidTwin, PostureDivergence, PostureItem,
+    PostureProfile, PostureRecord, TlsMode, VersionSample, bracket, settle, submission_defects,
+    tls_of,
+};
 use crate::perf_emulate::run::{LadderOutcome, RunHooks, RunRequest, RunShape, run_after_seeding};
 use crate::perf_emulate::server::{DockerPsql, NO_CONTAINERS, NO_DATABASE, ServerSampler};
 use crate::perf_gen::arrivals::Rate;
@@ -75,6 +87,8 @@ pub struct WorkloadSettings<'a> {
     pub host_prescription: Option<String>,
     /// Where the generator sits relative to the server.
     pub network_leg: NetworkLeg,
+    /// The posture profile the run declares, which the canaries check.
+    pub posture: &'static PostureProfile,
 }
 
 /// One measured run of a workload.
@@ -90,13 +104,130 @@ pub struct WorkloadRunRequest<'a> {
     pub corpus_state: PathBuf,
 }
 
+/// The readings of one canary bracket, one per posture item.
+type Readings = Vec<(PostureItem, CanaryReading)>;
+
+/// The posture a side declares, and every item on which the deployment's
+/// own configuration departs from the named profile.
+#[derive(Debug, Clone)]
+pub(crate) struct Declared {
+    pub(crate) profile: PostureProfile,
+    pub(crate) divergences: Vec<PostureDivergence>,
+}
+
+impl Declared {
+    /// A profile declared as the instrument defines it.
+    pub(crate) fn plain(profile: &PostureProfile) -> Self {
+        Self {
+            profile: *profile,
+            divergences: Vec::new(),
+        }
+    }
+}
+
+/// The posture canaries of one side: the declared profile, the three client
+/// views, the workload's invalid twin and versions the seeding committed.
+pub(crate) struct PostureCheck {
+    profile: PostureProfile,
+    divergences: Vec<PostureDivergence>,
+    authn: AuthnMode,
+    tls: TlsMode,
+    client: CanaryClient,
+    raw: CanaryClient,
+    anonymous: CanaryClient,
+    twin: Option<InvalidTwin>,
+    samples: Vec<VersionSample>,
+}
+
+/// How many seeded versions the signing canary samples from.
+const POSTURE_SAMPLES: usize = 3;
+
+impl PostureCheck {
+    /// Builds the canaries of a side whose corpus is ready.
+    pub(crate) fn new(
+        declared: Declared,
+        target: &OpenTarget,
+        twin: Option<InvalidTwin>,
+        state: &CorpusState,
+    ) -> Result<Self, Error> {
+        let principal = target.client.principal();
+        let authorization = principal.authorization().map_err(instrument)?;
+        let client = CanaryClient::new(
+            principal.base_url(),
+            authorization,
+            principal.extra_headers().to_vec(),
+        )
+        .map_err(instrument)?;
+        let samples = state
+            .listing
+            .ehrs
+            .iter()
+            .flat_map(|ehr| {
+                ehr.compositions.iter().map(|c| VersionSample {
+                    ehr_id: ehr.ehr_id.clone(),
+                    object_uid: c.object_uid().to_owned(),
+                    version_uid: c.version_uid.clone(),
+                })
+            })
+            .take(POSTURE_SAMPLES)
+            .collect();
+        Ok(Self {
+            profile: declared.profile,
+            divergences: declared.divergences,
+            authn: target.authn,
+            tls: tls_of(&target.base_url),
+            raw: client.without_decompression().map_err(instrument)?,
+            anonymous: client.without_credential().map_err(instrument)?,
+            client,
+            twin,
+            samples,
+        })
+    }
+
+    /// Takes one bracket of readings; blocking.
+    fn take(&self, which: Bracket) -> Readings {
+        let target = CanaryTarget {
+            client: &self.client,
+            raw: &self.raw,
+            anonymous: &self.anonymous,
+            profile: &self.profile,
+            authn: self.authn,
+            tls: self.tls,
+            invalid_twin: self.twin.clone(),
+            samples: &self.samples,
+        };
+        bracket(&target, which)
+    }
+
+    /// Takes one bracket on a blocking thread.
+    pub(crate) async fn bracket(self: &Arc<Self>, which: Bracket) -> Result<Readings, Error> {
+        let check = Arc::clone(self);
+        tokio::task::spawn_blocking(move || check.take(which))
+            .await
+            .map_err(|e| instrument(format!("posture canaries: {e}")))
+    }
+
+    /// Settles the two brackets into the record's posture block.
+    pub(crate) fn settle(
+        &self,
+        before: &Readings,
+        after: &Readings,
+    ) -> Result<PostureRecord, Error> {
+        let mut record = settle(&self.profile, self.authn, self.tls, before, after)
+            .map_err(|e| instrument(format!("the run is refused: {e}")))?;
+        record.comparability.clone_from(&self.divergences);
+        Ok(record)
+    }
+}
+
 /// The hooks a live run gives the run after seeding.
 pub(crate) struct LiveHooks<'a> {
     progress: &'a (dyn Fn(String) + Sync),
     label: &'static str,
-    client: HttpClient,
     db_container: Option<String>,
     server: ServerSampler<DockerPsql>,
+    posture: Arc<PostureCheck>,
+    after: Mutex<Option<Result<Readings, Error>>>,
 }
 
 impl LiveHooks<'_> {
@@ -141,20 +272,30 @@ impl RunHooks for LiveHooks<'_> {
     }
 
     async fn closing(&self) {
-        // TODO(#891): the posture canaries bracket the run here.
-        let request = crate::workload::wire::operation_request(
-            crate::workload::ops::WorkloadOp::SystemOptions,
-            &crate::workload::wire::Addressing::default(),
-            None,
-        );
-        let line = match request {
-            Ok(request) => match self.client.send(&request).await {
-                Ok(reply) => format!("closing: System OPTIONS answered {}", reply.status.as_u16()),
-                Err(e) => format!("closing: System OPTIONS failed: {e}"),
-            },
-            Err(e) => format!("closing: {e}"),
-        };
-        self.say(&line);
+        self.say(&format!(
+            "closing: posture canaries against the declared profile `{}`",
+            self.posture.profile.name
+        ));
+        let readings = self.posture.bracket(Bracket::After).await;
+        *self.after.lock().unwrap_or_else(PoisonError::into_inner) = Some(readings);
+    }
+}
+
+impl LiveHooks<'_> {
+    /// Settles the closing bracket against `before` into the posture block,
+    /// refusing the run on a contradiction or a flip.
+    pub(crate) fn posture_record(&self, before: &Readings) -> Result<PostureRecord, Error> {
+        let after = self
+            .after
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .ok_or_else(|| instrument("the closing posture bracket never ran"))??;
+        let record = self.posture.settle(before, &after)?;
+        for defect in submission_defects(&record) {
+            self.say(&format!("posture: {defect}"));
+        }
+        Ok(record)
     }
 }
 
@@ -177,6 +318,7 @@ pub(crate) struct Prepared {
     pub(crate) limits: GeneratorLimits,
     pub(crate) host: Option<HostPrescription>,
     pub(crate) workers: usize,
+    pub(crate) twin: Option<InvalidTwin>,
 }
 
 /// Loads the workload through its gates, applies the statement's claims,
@@ -224,7 +366,9 @@ pub(crate) fn prepare(
         path: loaded.path.clone(),
         source,
     })?;
+    let twin = payloads.invalid_twin.clone();
     Ok(Prepared {
+        twin,
         loaded,
         document,
         binding: Arc::new(binding),
@@ -238,7 +382,8 @@ pub(crate) fn prepare(
 
 /// One target: its IXIT, its environment, its client and its identity.
 pub(crate) struct OpenTarget {
-    pub(crate) ixit: Ixit,
+    pub(crate) authn: AuthnMode,
+    pub(crate) containers: Option<Containers>,
     pub(crate) environment: Environment,
     pub(crate) client: HttpClient,
     pub(crate) base_url: String,
@@ -268,14 +413,55 @@ pub(crate) fn open_target(ixit_path: &Path) -> Result<OpenTarget, Error> {
         Err(e) => TargetOptions::Unanswered { error: e },
     };
     let base_url = instance.base_url.clone();
+    let authn = match &instance.auth {
+        crate::ixit::AuthMode::None => AuthnMode::None,
+        crate::ixit::AuthMode::Basic { .. } => AuthnMode::Basic,
+        crate::ixit::AuthMode::Bearer { .. } | crate::ixit::AuthMode::BearerMint { .. } => {
+            AuthnMode::Bearer
+        }
+    };
     let client = HttpClient::new(principals.primary().clone()).map_err(Error::Instrument)?;
     Ok(OpenTarget {
-        ixit,
+        authn,
+        containers: ixit.containers.clone(),
         environment,
         client,
         base_url,
         options,
     })
+}
+
+impl OpenTarget {
+    /// A target composed on this host from a reference pin: its base URL,
+    /// its clinical user's credential, and the environment of the target it
+    /// is compared with.
+    pub(crate) fn baseline(pin: &ReferencePin, environment: Environment) -> Result<Self, Error> {
+        let base_url = pin.base_url();
+        let authorization = pin.authorization();
+        let options = match crate::exec::transport::HttpTransport::new() {
+            Ok(mut transport) => {
+                match crate::identity::read(&mut transport, &base_url, Some(&authorization)) {
+                    Ok(answered) => TargetOptions::Answered {
+                        answer: answered.read,
+                    },
+                    Err(e) => TargetOptions::Unanswered {
+                        error: e.to_string(),
+                    },
+                }
+            }
+            Err(e) => TargetOptions::Unanswered { error: e },
+        };
+        let principal = crate::perf_run::client::PerfClient::fixed(&base_url, Some(authorization))
+            .map_err(Error::Instrument)?;
+        Ok(Self {
+            authn: AuthnMode::Basic,
+            containers: None,
+            environment,
+            client: HttpClient::new(principal).map_err(Error::Instrument)?,
+            base_url,
+            options,
+        })
+    }
 }
 
 /// A target with its corpus ready and its performer built.
@@ -359,15 +545,17 @@ pub(crate) async fn ready_target(
 /// The hooks of one live side, with the database settings read once.
 pub(crate) async fn live_hooks<'p>(
     target: &OpenTarget,
+    posture: Arc<PostureCheck>,
     label: &'static str,
     progress: &'p (dyn Fn(String) + Sync),
 ) -> (LiveHooks<'p>, SettingsReading) {
     let hooks = LiveHooks {
         progress,
         label,
-        client: target.client.clone(),
-        db_container: target.ixit.containers.as_ref().map(|c| c.db.clone()),
-        server: ServerSampler::from_ixit(target.ixit.containers.as_ref()),
+        db_container: target.containers.as_ref().map(|c| c.db.clone()),
+        server: ServerSampler::from_ixit(target.containers.as_ref()),
+        posture,
+        after: Mutex::new(None),
     };
     let settings = hooks.server.settings().await;
     if let SettingsReading::Absent { reason } = &settings {
@@ -375,7 +563,7 @@ pub(crate) async fn live_hooks<'p>(
             "server-side readings: no database settings, sizes or statements ({reason})"
         ));
     }
-    if target.ixit.containers.is_none() {
+    if target.containers.is_none() {
         hooks.say(&format!(
             "server-side readings: no container series ({NO_CONTAINERS})"
         ));
@@ -415,6 +603,7 @@ pub(crate) fn raw_record(
     ready: &ReadyTarget,
     server_settings: SettingsReading,
     outcome: LadderOutcome,
+    posture: PostureRecord,
 ) -> Raw {
     let workload = &prepared.loaded.workload;
     let state = &ready.state;
@@ -435,7 +624,7 @@ pub(crate) fn raw_record(
         network_leg: Some(settings.network_leg),
         interleaving: None,
         aa_floor: None,
-        posture: None,
+        posture: Some(posture),
         workload: EmbeddedWorkload {
             id: workload.id.to_string(),
             label: prepared.loaded.identity.label(),
@@ -505,7 +694,7 @@ pub fn run_workload(
     let prepared = prepare(settings, progress)?;
     let target = open_target(request.ixit)?;
     let runtime = runtime(prepared.workers)?;
-    let (ready, outcome, server_settings) = runtime.block_on(async {
+    let (ready, outcome, server_settings, posture) = runtime.block_on(async {
         let ready = ready_target(
             &prepared,
             &target,
@@ -519,7 +708,18 @@ pub fn run_workload(
              request follows the settle",
             prepared.loaded.plan.min_s, prepared.loaded.plan.max_s
         ));
-        let (hooks, server_settings) = live_hooks(&target, "", progress).await;
+        let check = Arc::new(PostureCheck::new(
+            Declared::plain(settings.posture),
+            &target,
+            prepared.twin.clone(),
+            &ready.state,
+        )?);
+        progress(format!(
+            "posture canaries against the declared profile `{}`",
+            settings.posture.name
+        ));
+        let before = check.bracket(Bracket::Before).await?;
+        let (hooks, server_settings) = live_hooks(&target, check, "", progress).await;
         let run = RunRequest {
             seed: prepared.loaded.workload.seed,
             process: prepared.loaded.workload.arrival,
@@ -530,8 +730,9 @@ pub fn run_workload(
         let outcome = run_after_seeding(&run, Arc::clone(&ready.performer), &hooks)
             .await
             .map_err(instrument)?;
+        let posture = hooks.posture_record(&before)?;
         store_read_back(&target, &ready.state, &request.corpus_state, progress).await?;
-        Ok::<_, Error>((ready, outcome, server_settings))
+        Ok::<_, Error>((ready, outcome, server_settings, posture))
     })?;
     let raw = raw_record(
         &prepared,
@@ -540,6 +741,7 @@ pub fn run_workload(
         &ready,
         server_settings,
         outcome,
+        posture,
     );
     refuse_rate_limited(&raw)?;
     let record = PerfResult::from_raw(raw).map_err(instrument)?;

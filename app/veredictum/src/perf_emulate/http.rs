@@ -97,6 +97,11 @@ impl HttpClient {
         self.principal.base_url()
     }
 
+    /// The principal the client presents.
+    pub(crate) fn principal(&self) -> &PerfClient {
+        &self.principal
+    }
+
     /// Sends `request` and reads its answer to the end.
     ///
     /// # Errors

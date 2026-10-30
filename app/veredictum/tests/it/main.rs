@@ -3,9 +3,8 @@
 
 //! Integration tests for `veredictum`: the Arazzo catalogue's gates, its CLI,
 //! its evaluator and verification pack, the results export, the schema-drift
-//! guards, the measured-performance driver, the universal-benchmark engine and
-//! its published pack manifest, and the wire-speaking modules against
-//! in-process fixture servers.
+//! guards, the measured-performance run, its records and comparisons, and the
+//! wire-speaking modules against in-process fixture servers.
 //!
 //! One binary per crate, split into topic modules: Cargo compiles and links
 //! every top-level `tests/*.rs` as its own crate
@@ -25,9 +24,6 @@ mod arazzo_derive;
 mod arazzo_exclusive;
 mod arazzo_pack;
 mod arazzo_smart;
-mod bench_engine;
-mod bench_manifest;
-mod bench_posture;
 mod certificate_cli;
 mod defect_rejection;
 mod env_coupled;
@@ -38,6 +34,7 @@ mod perf_compare;
 mod perf_corpus;
 mod perf_driver;
 mod perf_generator;
+mod perf_posture;
 mod perf_result;
 mod perf_run_ladder;
 mod perf_seeding;

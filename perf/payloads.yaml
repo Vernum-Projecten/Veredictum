@@ -141,6 +141,10 @@ cnf.ckm.vital_signs.example:
   source: ckm/vital-signs.example.json
   template_id: "Vital signs"
   provenance: "example skeleton generated once from the SUT example endpoint (detail_level=medium) by scripts/generate-ckm-examples.sh 2026-07-22 and committed byte-identical — the deterministic payload ground every SUT receives at measurement time"
+cnf.ckm.vital_signs.invalid_twin:
+  source: twins/vital-signs.missing-composer.json
+  template_id: "Vital signs"
+  provenance: "derived in this repository from ckm/vital-signs.example.json by deleting the mandatory COMPOSITION.composer member (openEHR RM UML/classes/composition.adoc §Attributes, composer 1..1) and nothing else; the invalid twin the commit-validation posture canary offers, which a server validating against the template refuses (ITS-REST specifications/responses/422.yaml)"
 cnf.opt.blood_pressure:
   source: templates/blood_pressure.opt
   template_id: "cnf.blood_pressure"

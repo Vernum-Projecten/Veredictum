@@ -461,3 +461,28 @@ fn the_manifest_validates_against_its_schema() {
         .collect();
     assert!(violations.is_empty(), "{violations:#?}");
 }
+
+/// The book's workload page and the manifest beside it are what
+/// `perf-workloads --out website/book/src` writes from the pinned workloads,
+/// byte for byte, so the published methodology cannot drift from the
+/// documents a run offers.
+#[test]
+fn the_published_workload_page_is_what_the_manifest_renders() {
+    let perf = repo().join("perf");
+    let manifest = describe_pinned(&perf, &context()).expect("describes");
+    let book = repo().join("website/book/src");
+    let committed_json =
+        std::fs::read_to_string(book.join("perf-workloads.json")).expect("the committed manifest");
+    let committed_page =
+        std::fs::read_to_string(book.join("perf-workloads.md")).expect("the committed page");
+    assert_eq!(
+        committed_json,
+        render_json(&manifest).expect("renders"),
+        "regenerate with `veredictum perf-workloads --root perf --catalogue catalogue --out website/book/src`"
+    );
+    assert_eq!(
+        committed_page,
+        render_page(&manifest),
+        "regenerate with `veredictum perf-workloads --root perf --catalogue catalogue --out website/book/src`"
+    );
+}

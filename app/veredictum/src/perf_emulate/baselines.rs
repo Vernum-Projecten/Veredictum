@@ -3,13 +3,14 @@
 
 //! Same-machine reference baselines: the anchor an absolute millisecond needs.
 //!
-//! A bench number taken on one machine says nothing about a number taken on
+//! A number taken on one machine says nothing about a number taken on
 //! another, because the machines differ. The anchor is a reference CDR
-//! measured on the SAME host, in the same session, by the same pack at the
-//! same seed: the ratio between the two travels where the milliseconds do
-//! not. This module composes each reference deployment from its own pinned
-//! image digests, drives the pack against it, and tears the stack down with
-//! its volumes, so the next baseline starts from an empty database.
+//! measured on the SAME host, in the same session, by the same workload at
+//! the same seed, interleaved with the target: the ratio between the two
+//! travels where the milliseconds do not. This module composes each
+//! reference deployment from its own pinned image digests and tears the
+//! stack down with its volumes, so the next baseline starts from an empty
+//! database; `perf-compare --with-baselines` drives it.
 //!
 //! Every reference image is pinned BY DIGEST, never by tag, so two submitters
 //! measure the same bytes (docker's own guidance for a reproducible build,
@@ -24,21 +25,18 @@
 //! at something that does not exist and assert the refusal.
 
 use std::collections::BTreeMap;
-use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use crate::bench::BenchError;
-use crate::bench::client::{AuthKind, BenchClient, PreferReturn};
-use crate::bench::compare::summarize;
-use crate::bench::pack::BenchPack;
-use crate::bench::posture::{
+use base64::Engine as _;
+use thiserror::Error;
+
+use crate::perf_emulate::canary::{CanaryClient, PreferReturn};
+use crate::perf_emulate::posture::{
     AuditSink, AuthnMode, CompressionMode, PostureDivergence, PostureItem, PostureProfile,
     SigningScheme, Tenancy, ValidationDepth,
 };
-use crate::bench::result::{BaselineRecord, BaselineResources, RecipeReference};
-use crate::bench::run::{self, BenchRun};
 
 /// The CPU ceiling every baseline's server container runs under.
 ///
@@ -119,13 +117,13 @@ impl ReferenceCdr {
     /// Reads one token from the closed vocabulary.
     ///
     /// # Errors
-    /// [`BenchError::UnknownToken`] listing the accepted tokens.
-    pub fn parse(token: &str) -> Result<Self, BenchError> {
+    /// [`BaselineError::UnknownToken`] listing the accepted tokens.
+    pub fn parse(token: &str) -> Result<Self, BaselineError> {
         Self::ALL
             .iter()
             .copied()
             .find(|cdr| cdr.as_str() == token)
-            .ok_or_else(|| BenchError::UnknownToken {
+            .ok_or_else(|| BaselineError::UnknownToken {
                 vocabulary: "reference CDR",
                 token: token.to_owned(),
                 accepted: Self::ALL
@@ -379,14 +377,22 @@ impl ReferencePin {
         format!("veredictum-baseline-{}", self.cdr.as_str())
     }
 
-    /// The upstream deployment recipe this pin's topology follows.
+    /// The upstream deployment recipe this pin's topology follows: the
+    /// repository, the immutable tag and the file.
     #[must_use]
-    pub fn recipe(&self) -> RecipeReference {
-        RecipeReference {
-            repository: self.recipe_repository.to_owned(),
-            git_ref: self.recipe_ref.to_owned(),
-            file: self.recipe_file.to_owned(),
-        }
+    pub fn recipe(&self) -> String {
+        format!(
+            "{} at {}: {}",
+            self.recipe_repository, self.recipe_ref, self.recipe_file
+        )
+    }
+
+    /// The `Authorization` value the composed stack's clinical user presents.
+    #[must_use]
+    pub fn authorization(&self) -> String {
+        let token = base64::engine::general_purpose::STANDARD
+            .encode(format!("{}:{}", self.user, self.password).as_bytes());
+        format!("Basic {token}")
     }
 
     /// The posture this baseline declares against a target's profile, and
@@ -590,6 +596,132 @@ fn ferroehr_configuration() -> String {
     )
 }
 
+/// A baseline stack that could not be composed, reached or torn down.
+#[derive(Debug, Error)]
+pub enum BaselineError {
+    /// A token outside the reference-CDR vocabulary.
+    #[error("unknown {vocabulary} token {token:?} (accepted: {accepted})")]
+    UnknownToken {
+        /// Which vocabulary rejected the token.
+        vocabulary: &'static str,
+        /// The token as written.
+        token: String,
+        /// The accepted tokens, comma-separated.
+        accepted: String,
+    },
+    /// The container runtime could not be invoked or answered with a failure.
+    #[error("the container runtime `{binary}` is unavailable: {detail}")]
+    DockerUnavailable {
+        /// The binary that was invoked.
+        binary: String,
+        /// What went wrong.
+        detail: String,
+    },
+    /// A baseline stack could not be composed or never became ready.
+    #[error("baseline {cdr}: {detail}")]
+    Baseline {
+        /// The reference CDR.
+        cdr: String,
+        /// What went wrong.
+        detail: String,
+    },
+    /// The compose workspace could not be written.
+    #[error("{path}: {source}")]
+    Write {
+        /// The file or directory.
+        path: PathBuf,
+        /// The underlying failure.
+        #[source]
+        source: std::io::Error,
+    },
+}
+
+/// A composed baseline stack, ready to be measured; [`Composed::tear_down`]
+/// removes it with its volumes.
+#[derive(Debug)]
+pub struct Composed<'d> {
+    /// The pin the stack was composed from.
+    pub pin: &'static ReferencePin,
+    workspace: PathBuf,
+    compose_file: PathBuf,
+    docker: &'d DockerCli,
+}
+
+/// Composes one reference CDR on this host from its pinned images and waits
+/// until it answers an authenticated read.
+///
+/// A stack that fails to come up is torn down before the error returns, so
+/// a failed baseline never leaves containers behind.
+///
+/// # Errors
+/// [`BaselineError::DockerUnavailable`] when the runtime does not answer,
+/// [`BaselineError::Write`] when the workspace cannot be written, and
+/// [`BaselineError::Baseline`] when the stack never becomes ready.
+pub fn compose<'d>(
+    cdr: ReferenceCdr,
+    docker: &'d DockerCli,
+    progress: &(dyn Fn(String) + Sync),
+) -> Result<Composed<'d>, BaselineError> {
+    let pin = cdr.pin();
+    let workspace = workspace_dir(pin);
+    let compose_file = workspace.join(COMPOSE_FILE);
+    write_workspace(pin, &workspace, &compose_file)?;
+    progress(format!(
+        "baseline {}: composing {} and {}",
+        cdr.as_str(),
+        pin.server_image,
+        pin.database_image
+    ));
+    let composed = Composed {
+        pin,
+        workspace,
+        compose_file,
+        docker,
+    };
+    let up = docker
+        .run(
+            cdr,
+            &compose_up_args(&pin.project(), &composed.compose_file),
+        )
+        .map(|_stdout| ())
+        .and_then(|()| wait_until_ready(pin, progress));
+    match up {
+        Ok(()) => Ok(composed),
+        Err(error) => {
+            if let Err(down) = composed.tear_down(progress) {
+                progress(format!("baseline {}: {down}", cdr.as_str()));
+            }
+            Err(error)
+        }
+    }
+}
+
+impl Composed<'_> {
+    /// Tears the stack down with its volumes and removes its workspace.
+    ///
+    /// # Errors
+    /// [`BaselineError`] when the runtime refuses the teardown.
+    pub fn tear_down(self, progress: &(dyn Fn(String) + Sync)) -> Result<(), BaselineError> {
+        let cdr = self.pin.cdr;
+        progress(format!("baseline {}: tearing down", cdr.as_str()));
+        let torn_down = self
+            .docker
+            .run(
+                cdr,
+                &compose_down_args(&self.pin.project(), &self.compose_file),
+            )
+            .map(|_stdout| ());
+        if let Err(error) = std::fs::remove_dir_all(&self.workspace) {
+            progress(format!(
+                "baseline {}: the workspace {} could not be removed: {error}",
+                cdr.as_str(),
+                self.workspace.display()
+            ));
+        }
+        torn_down
+    }
+}
+
 /// How the baseline orchestration reaches the container runtime.
 ///
 /// The binary path is a field rather than a literal so a caller can point it
@@ -633,18 +765,18 @@ impl DockerCli {
     /// it disclosed.
     ///
     /// # Errors
-    /// [`BenchError::DockerUnavailable`] naming the binary that could not be
+    /// [`BaselineError::DockerUnavailable`] naming the binary that could not be
     /// invoked, or that answered with a failure.
-    pub fn probe(&self) -> Result<String, BenchError> {
+    pub fn probe(&self) -> Result<String, BaselineError> {
         let output = Command::new(&self.binary)
             .args(version_args())
             .output()
-            .map_err(|source| BenchError::DockerUnavailable {
+            .map_err(|source| BaselineError::DockerUnavailable {
                 binary: self.binary.display().to_string(),
                 detail: source.to_string(),
             })?;
         if !output.status.success() {
-            return Err(BenchError::DockerUnavailable {
+            return Err(BaselineError::DockerUnavailable {
                 binary: self.binary.display().to_string(),
                 detail: format!(
                     "`docker version` exited {:?}: {}",
@@ -659,18 +791,18 @@ impl DockerCli {
     /// Runs one docker invocation, returning its trimmed standard output.
     ///
     /// # Errors
-    /// [`BenchError::DockerUnavailable`] when the binary could not be
-    /// invoked, or [`BenchError::Baseline`] when it exited non-zero.
-    fn run(&self, cdr: ReferenceCdr, args: &[String]) -> Result<String, BenchError> {
+    /// [`BaselineError::DockerUnavailable`] when the binary could not be
+    /// invoked, or [`BaselineError::Baseline`] when it exited non-zero.
+    fn run(&self, cdr: ReferenceCdr, args: &[String]) -> Result<String, BaselineError> {
         let output = Command::new(&self.binary)
             .args(args)
             .output()
-            .map_err(|source| BenchError::DockerUnavailable {
+            .map_err(|source| BaselineError::DockerUnavailable {
                 binary: self.binary.display().to_string(),
                 detail: source.to_string(),
             })?;
         if !output.status.success() {
-            return Err(BenchError::Baseline {
+            return Err(BaselineError::Baseline {
                 cdr: cdr.as_str().to_owned(),
                 detail: format!(
                     "`docker {}` exited {:?}: {}",
@@ -733,195 +865,6 @@ pub fn compose_down_args(project: &str, compose_file: &Path) -> Vec<String> {
     ]
 }
 
-/// What a baseline sweep asks for: the same pack, the same seed, the same
-/// repetitions the target run used.
-#[derive(Debug)]
-pub struct BaselineRun<'a> {
-    /// The pack to drive against every reference CDR.
-    pub pack: &'a BenchPack,
-    /// The posture profile the TARGET declared, which every baseline is read
-    /// against so the two sides of a ratio describe the same sport. A pin
-    /// whose own recipe configures an item differently runs and declares the
-    /// recipe's value ([`ReferencePin::declaration`]), and the baseline's
-    /// record carries the departure.
-    pub profile: &'a PostureProfile,
-    /// How many times to repeat the measured phases, matching the target.
-    pub repetitions: u32,
-    /// The scale factor the target ran at.
-    pub scale: f64,
-    /// The seed-worker override the target ran with.
-    pub seed_workers: Option<usize>,
-    /// How the orchestration reaches the container runtime.
-    pub docker: &'a DockerCli,
-}
-
-/// Composes, measures and tears down every reference CDR in turn.
-///
-/// # Errors
-/// [`BenchError::DockerUnavailable`] when the container runtime does not
-/// answer, [`BenchError::Baseline`] when a stack could not be composed or
-/// never became ready, [`BenchError::Write`] when the compose document could
-/// not be written, and whatever the engine itself reports for the measured
-/// run.
-pub fn run_baselines(
-    run: &BaselineRun<'_>,
-    progress: &(dyn Fn(String) + Sync),
-) -> Result<Vec<BaselineRecord>, BenchError> {
-    let version = run.docker.probe()?;
-    progress(format!(
-        "container runtime answers, server version {version}"
-    ));
-    let mut records = Vec::with_capacity(ReferenceCdr::ALL.len());
-    for cdr in ReferenceCdr::ALL {
-        records.push(run_one_baseline(*cdr, run, progress)?);
-    }
-    Ok(records)
-}
-
-/// Composes one reference CDR, measures it, and tears it down.
-///
-/// The teardown runs whether or not the measurement succeeded, so a failed
-/// baseline never leaves containers and volumes behind for the next one.
-fn run_one_baseline(
-    cdr: ReferenceCdr,
-    run: &BaselineRun<'_>,
-    progress: &(dyn Fn(String) + Sync),
-) -> Result<BaselineRecord, BenchError> {
-    let pin = cdr.pin();
-    let workspace = workspace_dir(pin);
-    let compose_file = workspace.join(COMPOSE_FILE);
-    write_workspace(pin, &workspace, &compose_file)?;
-
-    progress(format!(
-        "baseline {}: composing {} and {}",
-        cdr.as_str(),
-        pin.server_image,
-        pin.database_image
-    ));
-    let measured = compose_and_measure(cdr, pin, run, &compose_file, progress);
-
-    progress(format!("baseline {}: tearing down", cdr.as_str()));
-    let torn_down = run
-        .docker
-        .run(cdr, &compose_down_args(&pin.project(), &compose_file))
-        .map(|_stdout| ());
-    let cleaned = std::fs::remove_dir_all(&workspace);
-    if let Err(error) = cleaned {
-        progress(format!(
-            "baseline {}: the workspace {} could not be removed: {error}",
-            cdr.as_str(),
-            workspace.display()
-        ));
-    }
-    let record = measured?;
-    torn_down?;
-    Ok(record)
-}
-
-/// Brings the stack up, waits for the server's own answer, and drives the
-/// pack against it.
-fn compose_and_measure(
-    cdr: ReferenceCdr,
-    pin: &ReferencePin,
-    run: &BaselineRun<'_>,
-    compose_file: &Path,
-    progress: &(dyn Fn(String) + Sync),
-) -> Result<BaselineRecord, BenchError> {
-    let _stdout = run
-        .docker
-        .run(cdr, &compose_up_args(&pin.project(), compose_file))?;
-    wait_until_ready(pin, progress)?;
-    let (declared, divergences) = pin.declaration(run.profile);
-    for divergence in &divergences {
-        progress(format!(
-            "baseline {}: `{}` is declared `{}` by profile `{}` and configured `{}` by the pinned recipe, so this baseline runs and declares the recipe's value",
-            cdr.as_str(),
-            divergence.item,
-            divergence.profile_declares,
-            run.profile.name,
-            divergence.deployment_configures
-        ));
-    }
-    progress(format!(
-        "baseline {}: driving pack {}@{} at seed {:#018x}",
-        cdr.as_str(),
-        run.pack.id.as_str(),
-        run.pack.version,
-        run.pack.seed
-    ));
-    let mut result = run::execute(
-        &BenchRun {
-            pack: run.pack,
-            base_url: &pin.base_url(),
-            profile: &declared,
-            auth: AuthKind::Basic,
-            user: Some(pin.user),
-            credential: Some(pin.password),
-            repetitions: run.repetitions,
-            label: Some(pin.cdr.display_name()),
-            scale: run.scale,
-            seed_workers: run.seed_workers,
-        },
-        progress,
-    )?;
-    note_divergences(&mut result, cdr, divergences);
-    let cross = summarize(&result.repetitions);
-    Ok(BaselineRecord {
-        cdr: cdr.as_str().to_owned(),
-        display_name: cdr.display_name().to_owned(),
-        images: pin.images(),
-        recipe: pin.recipe(),
-        resources: pinned_resources(),
-        base_url: result.target.base_url.clone(),
-        sut_version: result.target.sut_version.clone(),
-        started_at: result.started_at.clone(),
-        finished_at: result.finished_at.clone(),
-        seed_phases: result.seed_phases.clone(),
-        repetitions: result.repetitions.clone(),
-        cross,
-        posture: result.posture.clone(),
-    })
-}
-
-/// Records the items on which this baseline's pinned recipe departs from the
-/// profile the target declared.
-///
-/// The summary gains one sentence pointing at the block, because a reader who
-/// sees the profile name at the top of a posture block would otherwise take
-/// its every item on the profile's word.
-fn note_divergences(
-    result: &mut crate::bench::result::BenchResult,
-    cdr: ReferenceCdr,
-    divergences: Vec<PostureDivergence>,
-) {
-    if divergences.is_empty() {
-        return;
-    }
-    let items = divergences
-        .iter()
-        .map(|divergence| divergence.item.as_str())
-        .collect::<Vec<_>>()
-        .join(", ");
-    let _written = write!(
-        result.posture.summary,
-        " This baseline was composed from {}'s own pinned recipe, which configures {items} differently; it ran and declared the recipe's value, and the comparability block names each.",
-        cdr.display_name()
-    );
-    result.posture.comparability = divergences;
-}
-
-/// The resource ceilings every baseline composes under.
-#[must_use]
-pub fn pinned_resources() -> BaselineResources {
-    BaselineResources {
-        server_cpus: SERVER_CPUS.to_owned(),
-        server_memory: SERVER_MEMORY.to_owned(),
-        database_cpus: DATABASE_CPUS.to_owned(),
-        database_memory: DATABASE_MEMORY.to_owned(),
-        database_shm_size: DATABASE_SHM_SIZE.to_owned(),
-    }
-}
-
 /// The directory this baseline's compose document and its side files are
 /// written into.
 ///
@@ -936,18 +879,20 @@ fn write_workspace(
     pin: &ReferencePin,
     workspace: &Path,
     compose_file: &Path,
-) -> Result<(), BenchError> {
-    std::fs::create_dir_all(workspace).map_err(|source| BenchError::Write {
+) -> Result<(), BaselineError> {
+    std::fs::create_dir_all(workspace).map_err(|source| BaselineError::Write {
         path: workspace.to_owned(),
         source,
     })?;
-    std::fs::write(compose_file, pin.compose_document()).map_err(|source| BenchError::Write {
-        path: compose_file.to_owned(),
-        source,
+    std::fs::write(compose_file, pin.compose_document()).map_err(|source| {
+        BaselineError::Write {
+            path: compose_file.to_owned(),
+            source,
+        }
     })?;
     for (name, body) in pin.side_files() {
         let path = workspace.join(name);
-        std::fs::write(&path, body).map_err(|source| BenchError::Write { path, source })?;
+        std::fs::write(&path, body).map_err(|source| BaselineError::Write { path, source })?;
     }
     Ok(())
 }
@@ -959,14 +904,15 @@ fn write_workspace(
 fn wait_until_ready(
     pin: &ReferencePin,
     progress: &(dyn Fn(String) + Sync),
-) -> Result<(), BenchError> {
+) -> Result<(), BaselineError> {
     let base_url = pin.base_url();
-    let client = BenchClient::with_credential(
-        &base_url,
-        AuthKind::Basic,
-        Some(pin.user),
-        Some(pin.password),
-    )?;
+    let client =
+        CanaryClient::new(&base_url, Some(pin.authorization()), Vec::new()).map_err(|e| {
+            BaselineError::Baseline {
+                cdr: pin.cdr.as_str().to_owned(),
+                detail: e.to_string(),
+            }
+        })?;
     let deadline = Instant::now() + READINESS_TIMEOUT;
     let mut last = "no attempt completed".to_owned();
     while Instant::now() < deadline {
@@ -990,7 +936,7 @@ fn wait_until_ready(
         };
         std::thread::sleep(READINESS_INTERVAL);
     }
-    Err(BenchError::Baseline {
+    Err(BaselineError::Baseline {
         cdr: pin.cdr.as_str().to_owned(),
         detail: format!(
             "the stack never became ready within {}s at {base_url}: {last}",
@@ -1007,12 +953,12 @@ fn wait_until_ready(
 )]
 mod tests {
     use super::*;
-    use crate::bench::posture::{CLINICAL_DEFAULT, MINIMAL};
+    use crate::perf_emulate::posture::{CLINICAL_DEFAULT, MINIMAL};
 
     /// Every reference token round-trips, and an unknown one is refused
     /// rather than falling back to a default baseline.
     #[test]
-    fn every_reference_token_round_trips() -> Result<(), BenchError> {
+    fn every_reference_token_round_trips() -> Result<(), BaselineError> {
         for cdr in ReferenceCdr::ALL {
             assert_eq!(ReferenceCdr::parse(cdr.as_str())?, *cdr);
         }
@@ -1138,7 +1084,7 @@ mod tests {
         let docker = DockerCli::at("/nonexistent/veredictum/docker");
         let error = docker.probe().unwrap_err();
         assert!(
-            matches!(&error, BenchError::DockerUnavailable { binary, .. }
+            matches!(&error, BaselineError::DockerUnavailable { binary, .. }
                 if binary == "/nonexistent/veredictum/docker"),
             "{error}"
         );
@@ -1149,9 +1095,6 @@ mod tests {
     /// two numbers readable against one another.
     #[test]
     fn both_baselines_run_under_the_same_ceilings() {
-        let resources = pinned_resources();
-        assert_eq!(resources.server_cpus, SERVER_CPUS);
-        assert_eq!(resources.database_memory, DATABASE_MEMORY);
         for cdr in ReferenceCdr::ALL {
             let document = cdr.pin().compose_document();
             assert!(
@@ -1170,13 +1113,15 @@ mod tests {
     #[test]
     fn every_pin_discloses_its_upstream_recipe() {
         for cdr in ReferenceCdr::ALL {
-            let recipe = cdr.pin().recipe();
-            assert!(recipe.repository.starts_with("https://"), "{recipe:?}");
-            assert!(recipe.git_ref.starts_with('v'), "{recipe:?}");
-            let extension = Path::new(&recipe.file)
+            let pin = cdr.pin();
+            let recipe = pin.recipe();
+            assert!(pin.recipe_repository.starts_with("https://"), "{recipe}");
+            assert!(pin.recipe_ref.starts_with('v'), "{recipe}");
+            let extension = Path::new(pin.recipe_file)
                 .extension()
                 .and_then(std::ffi::OsStr::to_str);
-            assert!(matches!(extension, Some("yml" | "yaml")), "{recipe:?}");
+            assert!(matches!(extension, Some("yml" | "yaml")), "{recipe}");
+            assert!(recipe.contains(pin.recipe_ref), "{recipe}");
         }
     }
 

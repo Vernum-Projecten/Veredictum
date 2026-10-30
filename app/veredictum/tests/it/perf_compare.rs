@@ -339,3 +339,43 @@ fn a_record_on_an_unmatched_prescription_is_labelled_unmatched() {
     let markdown = veredictum::perf_result::view::markdown(&record);
     assert!(markdown.contains("UNMATCHED"), "{markdown}");
 }
+
+/// `--with-baselines` proves the container runtime answers before it loads,
+/// seeds or composes anything, and names the binary it could not invoke.
+#[test]
+fn a_baseline_run_without_a_container_runtime_is_refused_first() {
+    use veredictum::perf_emulate::baselines::DockerCli;
+    use veredictum::perf_emulate::posture::MINIMAL;
+    use veredictum::pipeline::perf_compare::{InterleavedRequest, run_with_baselines};
+    use veredictum::pipeline::perf_workload::{CorpusMode, WorkloadSettings};
+    let root = repo().join("perf");
+    let catalogue = repo().join("catalogue");
+    let workload = root.join("workloads/clinical-mix.yaml");
+    let out = scratch("baselines");
+    let request = InterleavedRequest {
+        settings: WorkloadSettings {
+            root: &root,
+            catalogue: &catalogue,
+            workload: &workload,
+            statement: None,
+            corpus: CorpusMode::Seed,
+            seed_workers: 1,
+            start_rate: 8.0,
+            scout_end_rate: 64.0,
+            host_prescription: None,
+            network_leg: NetworkLeg::SameHost,
+            posture: &MINIMAL,
+        },
+        ixit_a: Path::new("/nonexistent/ixit.json"),
+        ixit_b: None,
+        out: &out,
+        tolerance: 0.05,
+        floor: None,
+    };
+    let docker = DockerCli::at("/nonexistent/veredictum/docker");
+    let error = run_with_baselines(&request, &docker, &|_| {})
+        .expect_err("no runtime, no baseline")
+        .to_string();
+    assert!(error.contains("/nonexistent/veredictum/docker"), "{error}");
+    std::fs::remove_dir_all(&out).unwrap();
+}

@@ -25,7 +25,7 @@ use std::fmt::Write as _;
 
 use serde::{Deserialize, Serialize};
 
-use crate::bench::posture::PostureRecord;
+use crate::perf_emulate::posture::PostureRecord;
 use crate::perf_result::PerfResult;
 use crate::perf_result::derive::{DerivedPlateau, Latency};
 use crate::perf_result::quantile::Quantile;

@@ -28,9 +28,79 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::arazzo::scope::{self, Coverage, ScopeSet};
-use crate::bench::client::AuthKind;
 use crate::exec::transport::{RawResponse, Transport};
 use crate::vocab::HttpMethod;
+
+/// How the CDR wants a client to log in (a closed vocabulary): the token
+/// `--auth` takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthKind {
+    /// No `Authorization` header.
+    None,
+    /// HTTP Basic, from a user and a password variable.
+    Basic,
+    /// A bearer token from a token variable.
+    Bearer,
+}
+
+/// An `--auth` token outside the closed vocabulary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnknownAuthKind {
+    /// The token as written.
+    pub token: String,
+}
+
+impl fmt::Display for UnknownAuthKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "unknown auth mode token {:?} (accepted: {})",
+            self.token,
+            AuthKind::ALL
+                .iter()
+                .map(|mode| mode.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+impl std::error::Error for UnknownAuthKind {}
+
+impl AuthKind {
+    /// Every mode, in the order `--auth` documents them.
+    pub const ALL: &[AuthKind] = &[AuthKind::None, AuthKind::Basic, AuthKind::Bearer];
+
+    /// The token as written on the command line.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            AuthKind::None => "none",
+            AuthKind::Basic => "basic",
+            AuthKind::Bearer => "bearer",
+        }
+    }
+
+    /// Reads one token from the closed vocabulary.
+    ///
+    /// # Errors
+    /// [`UnknownAuthKind`] naming the token and the accepted ones.
+    pub fn parse(token: &str) -> Result<Self, UnknownAuthKind> {
+        Self::ALL
+            .iter()
+            .copied()
+            .find(|mode| mode.as_str() == token)
+            .ok_or_else(|| UnknownAuthKind {
+                token: token.to_owned(),
+            })
+    }
+}
+
+impl fmt::Display for AuthKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
 
 /// The `Authorization` value a step sent as the ordinary principal carries
 /// until the transport puts the credential in its place.
@@ -1053,5 +1123,14 @@ mod tests {
             ScopedTokens::read(&sources),
             Err(CredentialError::Key(_))
         ));
+    }
+
+    /// An unknown `--auth` token is refused rather than defaulting to `none`,
+    /// which would silently measure an unauthenticated surface.
+    #[test]
+    fn an_unknown_auth_token_is_refused() {
+        assert_eq!(AuthKind::parse("bearer").ok(), Some(AuthKind::Bearer));
+        let error = AuthKind::parse("Bearer").unwrap_err();
+        assert!(error.to_string().contains("none, basic, bearer"), "{error}");
     }
 }

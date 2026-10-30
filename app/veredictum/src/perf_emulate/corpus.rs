@@ -32,6 +32,7 @@ use thiserror::Error;
 use tokio::time::Instant;
 
 use crate::perf_emulate::http::{HttpClient, Reply, request_line};
+use crate::perf_emulate::posture::InvalidTwin;
 use crate::perf_run::pack::{self, FlatPayload, PackTemplate};
 use crate::perf_schedule::PayloadManifest;
 use crate::workload::load::sha256_hex;
@@ -97,7 +98,14 @@ pub struct Payloads {
     pub flats: BTreeMap<String, FlatPayload>,
     /// Bodies sent as their bytes, by payload key.
     pub bodies: BTreeMap<String, Value>,
+    /// The invalid twin the validation canary commits: the first corpus
+    /// template, in key order, whose manifest carries a `<key>.invalid_twin`
+    /// entry.
+    pub invalid_twin: Option<InvalidTwin>,
 }
+
+/// The manifest suffix that names a corpus template's invalid twin.
+pub const INVALID_TWIN_SUFFIX: &str = ".invalid_twin";
 
 impl Payloads {
     /// Loads the corpus templates and every stage payload of `workload`.
@@ -132,6 +140,16 @@ impl Payloads {
             std::fs::read_to_string(payloads_dir.join(source))
                 .map_err(|e| CorpusError::Payload(format!("cannot read {source}: {e}")))
         };
+        for key in workload.corpus.templates.keys() {
+            let twin_key = format!("{key}{INVALID_TWIN_SUFFIX}");
+            if let Some(entry) = manifest.get(&twin_key) {
+                payloads.invalid_twin = Some(InvalidTwin {
+                    key: twin_key,
+                    bytes: read(&entry.source)?,
+                });
+                break;
+            }
+        }
         for (key, role) in wanted {
             match role {
                 PayloadRole::Template => {

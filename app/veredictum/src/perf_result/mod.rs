@@ -31,11 +31,11 @@ use hdrhistogram::Histogram;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::bench::fingerprint::EnvironmentFingerprint;
-use crate::bench::posture::PostureRecord;
 use crate::identity::IdentityRead;
 use crate::ixit::Environment;
 use crate::perf::{decode_hdr_v2, encode_hdr_v2};
+use crate::perf_emulate::fingerprint::EnvironmentFingerprint;
+use crate::perf_emulate::posture::PostureRecord;
 use crate::perf_gen::arrivals::Rate;
 use crate::perf_gen::drive::{OperationRecord, WindowRecord};
 use crate::perf_gen::{ErrorClass, FailedExchange, OperationId};

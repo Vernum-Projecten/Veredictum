@@ -194,9 +194,9 @@
   <section id="evidence">
     <div class="wrap">
       <div class="head">
-        <span class="eyebrow">One tool, four kinds of evidence</span>
-        <h2>Functional conformance, measured performance, step-load stress, comparative speed</h2>
-        <p>The same recorded-then-computed discipline carries all four, so
+        <span class="eyebrow">One tool, two kinds of evidence</span>
+        <h2>Functional conformance and measured performance</h2>
+        <p>The same recorded-then-computed discipline carries both, so
           every number about a deployment comes from one instrument.</p>
       </div>
       <div class="table-scroll">
@@ -212,25 +212,21 @@
             </tr>
             <tr>
               <td><strong>Measured performance</strong><br><code>perf</code></td>
-              <td>Does this deployment sustain the volumetric class it claims, over the normative hour or a longer window?</td>
-              <td>HDR histograms embedded in <code>results.json</code>, so the stored summary is re-derived rather than trusted</td>
+              <td>Under the traffic a clinical front end sends, where does this deployment stop holding its latency budget, and how does latency move as load rises?</td>
+              <td><code>perf-result.json</code> with its HDR histograms, which <code>perf-judge</code> re-derives byte for byte</td>
             </tr>
             <tr>
-              <td><strong>Step-load stress</strong><br><code>stress</code></td>
-              <td>Where does this deployment break, in arrivals per second?</td>
-              <td><code>stress.json</code>. Exploration only, and never a conformance record</td>
-            </tr>
-            <tr>
-              <td><strong>Benchmark</strong><br><code>bench</code></td>
-              <td>How fast does this CDR answer a fixed workload, relative to reference CDRs measured on the same machine?</td>
-              <td>A bench result with a relative index per reference. Comparative speed only, never a conformance verdict; run locally with the CLI, the way the <a href="benchmark-methodology.html">methodology</a> describes</td>
+              <td><strong>Comparison</strong><br><code>perf-compare</code></td>
+              <td>Is one deployment faster than another, or than the reference CDRs, by more than the noise between runs?</td>
+              <td>Two records interleaved on one host and the ratios between them, judged against an A/A floor</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p class="after-code">Latency is measured from the planned arrival instant
-        under open-loop offered load, which is what stops coordinated omission
-        from hiding a stall.</p>
+      <p class="after-code">Latency is measured from the instant a request was
+        due under open-loop Poisson arrivals, which stops coordinated omission
+        from hiding a stall. The workloads a run can offer are listed in the
+        <a href="./docs/perf-workloads.html">workload manifest</a>.</p>
     </div>
   </section>
 

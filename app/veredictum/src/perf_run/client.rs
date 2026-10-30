@@ -172,6 +172,25 @@ impl PerfClient {
         })
     }
 
+    /// Builds the client of a target whose credential is held in process:
+    /// a stack this instrument composed itself, never the operator's.
+    ///
+    /// # Errors
+    /// A message when the client cannot be built.
+    pub fn fixed(base_url: &str, authorization: Option<String>) -> Result<Self, String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(CLIENT_TIMEOUT)
+            .pool_max_idle_per_host(256)
+            .build()
+            .map_err(|e| format!("http client: {e}"))?;
+        Ok(Self {
+            client,
+            base_url: base_url.trim_end_matches('/').to_owned(),
+            credential: Arc::new(Credential::Fixed(authorization)),
+            extra_headers: Vec::new(),
+        })
+    }
+
     /// The base URL every path is joined to.
     pub(crate) fn base_url(&self) -> &str {
         &self.base_url

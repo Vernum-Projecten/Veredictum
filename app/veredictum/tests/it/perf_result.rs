@@ -16,9 +16,9 @@ use std::process::Command;
 use std::time::Duration;
 
 use serde_json::Value;
-use veredictum::bench::fingerprint::EnvironmentFingerprint;
 use veredictum::identity::{IdentityRead, OptionsDocument};
 use veredictum::ixit::Environment;
+use veredictum::perf_emulate::fingerprint::EnvironmentFingerprint;
 use veredictum::perf_gen::arrivals::Rate;
 use veredictum::perf_gen::drive::{OperationRecord, WindowRecord, WindowSpec, latency_histogram};
 use veredictum::perf_gen::{ErrorClass, FailedExchange, OperationId};

@@ -8,9 +8,10 @@
 //! re-judging its recording ([`arazzo_run`]), exporting its results document
 //! to the views a vendor's CI shows ([`export`]), judging a measured campaign
 //! ([`judgement`]), rendering the deterministic published assets
-//! ([`assets`]), running the measured instruments ([`measured`]), re-judging
-//! a performance record ([`perf_judge`]), and driving the universal benchmark
-//! ([`mod@bench`]). Every seam returns typed facts —
+//! ([`assets`]), running the measured instruments ([`measured`],
+//! [`perf_workload`]), re-judging a performance record ([`perf_judge`]), and
+//! comparing performance records ([`perf_compare`]). Every seam returns typed
+//! facts —
 //! never pre-rendered console text — so a second consumer renders its own
 //! views over the same values the command line prints.
 //!
@@ -28,7 +29,6 @@
 
 pub mod arazzo_run;
 pub mod assets;
-pub mod bench;
 pub mod export;
 pub mod judgement;
 pub mod listing;

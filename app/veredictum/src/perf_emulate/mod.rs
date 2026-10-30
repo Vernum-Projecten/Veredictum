@@ -14,9 +14,13 @@
 //! `master03-overview.adoc`: "Non-functional conformance (performance, etc)
 //! is not addressed by this guide"): our own design.
 
+pub mod baselines;
 pub mod binding;
+pub mod canary;
 pub mod corpus;
+pub mod fingerprint;
 pub mod http;
 pub mod performer;
+pub mod posture;
 pub mod run;
 pub mod server;

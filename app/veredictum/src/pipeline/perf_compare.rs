@@ -18,6 +18,8 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 
+use crate::perf_emulate::baselines::{DockerCli, ReferenceCdr, compose};
+use crate::perf_emulate::posture::Bracket;
 use crate::perf_emulate::run::{InterleavedOutcome, RunRequest, run_interleaved};
 use crate::perf_result::compare::{
     AaFloor, CompareMode, InterleaveMode, Interleaving, PerfComparison, SideName, compare,
@@ -26,8 +28,9 @@ use crate::perf_result::compare::{
 use crate::perf_result::{PerfResult, Raw};
 use crate::pipeline::Error;
 use crate::pipeline::perf_workload::{
-    WorkloadSettings, instrument, live_hooks, open_target, prepare, raw_record, ready_target,
-    refuse_rate_limited, runtime, store_read_back, write_record,
+    Declared, OpenTarget, PostureCheck, Prepared, ReadyTarget, WorkloadSettings, instrument,
+    live_hooks, open_target, prepare, raw_record, ready_target, refuse_rate_limited, runtime,
+    store_read_back, write_record,
 };
 
 /// The file an interleaved run writes side A's record to.
@@ -243,11 +246,6 @@ pub fn run_compare(
     request: &InterleavedRequest<'_>,
     progress: &(dyn Fn(String) + Sync),
 ) -> Result<InterleavedComparison, Error> {
-    let mode = if request.ixit_b.is_some() {
-        InterleaveMode::Ab
-    } else {
-        InterleaveMode::Aa
-    };
     let supplied_floor = match request.floor {
         Some(path) => Some(read_floor(path)?),
         None => None,
@@ -260,85 +258,246 @@ pub fn run_compare(
         Some(path) => Some(open_target(path)?),
         None => None,
     };
-    let state_a = request.out.join("a.corpus.json");
-    let state_b = request.out.join("b.corpus.json");
-    let runtime = runtime(prepared.workers)?;
-    let (ready_a, ready_b, outcome, settings_a, settings_b) = runtime.block_on(async {
-        let ready_a = ready_target(&prepared, &target_a, settings, &state_a, progress).await?;
-        let ready_b = match &target_b {
-            Some(target) => {
-                Some(ready_target(&prepared, target, settings, &state_b, progress).await?)
-            }
-            None => None,
-        };
-        let (hooks_a, settings_a) = live_hooks(&target_a, "A: ", progress).await;
-        let (hooks_b, settings_b) =
-            live_hooks(target_b.as_ref().unwrap_or(&target_a), "B: ", progress).await;
-        let performer_b = ready_b.as_ref().map_or_else(
-            || Arc::clone(&ready_a.performer),
-            |r| Arc::clone(&r.performer),
-        );
-        let run = RunRequest {
-            seed: prepared.loaded.workload.seed,
-            process: prepared.loaded.workload.arrival,
-            binding: &prepared.binding,
-            limits: prepared.limits.clone(),
-            shape: prepared.shape.clone(),
-        };
-        progress(format!(
-            "interleaved {}: each side settles, warms up and scouts, then four rungs run ABBA",
-            match mode {
-                InterleaveMode::Aa => "A/A",
-                InterleaveMode::Ab => "A/B",
-            }
-        ));
-        let outcome = run_interleaved(
-            &run,
-            (Arc::clone(&ready_a.performer), &hooks_a),
-            (performer_b, &hooks_b),
-        )
-        .await
-        .map_err(instrument)?;
-        store_read_back(&target_a, &ready_a.state, &state_a, progress).await?;
-        if let (Some(target), Some(ready)) = (&target_b, &ready_b) {
-            store_read_back(target, &ready.state, &state_b, progress).await?;
-        }
-        Ok::<_, Error>((ready_a, ready_b, outcome, settings_a, settings_b))
-    })?;
-    let target_b = target_b.as_ref().unwrap_or(&target_a);
-    let ready_b = ready_b.as_ref().unwrap_or(&ready_a);
-    let raw_a = raw_record(
+    let sides = TargetSides {
+        a: &target_a,
+        b: target_b
+            .as_ref()
+            .map(|t| (t, Declared::plain(settings.posture))),
+    };
+    let InterleavedComparison { a, b, comparison } = compare_targets(
         &prepared,
         settings,
-        &target_a,
+        &sides,
+        request.out,
+        request.tolerance,
+        supplied_floor,
+        progress,
+    )?;
+    write_record(&a, &request.out.join(A_RECORD))?;
+    write_record(&b, &request.out.join(B_RECORD))?;
+    write_comparison(&comparison, request.out)?;
+    Ok(InterleavedComparison { a, b, comparison })
+}
+
+/// The two targets of an interleaved run: side A, and side B with the
+/// posture profile it declares, or `None` for A on both sides.
+pub(crate) struct TargetSides<'t> {
+    pub(crate) a: &'t OpenTarget,
+    pub(crate) b: Option<(&'t OpenTarget, Declared)>,
+}
+
+/// One side's canaries, built once its corpus is ready.
+fn side_posture(
+    prepared: &Prepared,
+    declared: Declared,
+    target: &OpenTarget,
+    ready: &ReadyTarget,
+) -> Result<Arc<PostureCheck>, Error> {
+    Ok(Arc::new(PostureCheck::new(
+        declared,
+        target,
+        prepared.twin.clone(),
+        &ready.state,
+    )?))
+}
+
+/// Drives two opened targets interleaved and builds both records and their
+/// comparison; the corpora are stored under `out`.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one sequence: ready both sides, bracket, drive, bracket, record, compare"
+)]
+pub(crate) fn compare_targets(
+    prepared: &Prepared,
+    settings: &WorkloadSettings<'_>,
+    sides: &TargetSides<'_>,
+    out: &Path,
+    tolerance: f64,
+    supplied_floor: Option<AaFloor>,
+    progress: &(dyn Fn(String) + Sync),
+) -> Result<InterleavedComparison, Error> {
+    let mode = if sides.b.is_some() {
+        InterleaveMode::Ab
+    } else {
+        InterleaveMode::Aa
+    };
+    let target_a = sides.a;
+    let state_a = out.join("a.corpus.json");
+    let state_b = out.join("b.corpus.json");
+    let runtime = runtime(prepared.workers)?;
+    let (ready_a, ready_b, outcome, settings_a, settings_b, posture_a, posture_b) = runtime
+        .block_on(async {
+            let ready_a = ready_target(prepared, target_a, settings, &state_a, progress).await?;
+            let ready_b = match &sides.b {
+                Some((target, _)) => {
+                    Some(ready_target(prepared, target, settings, &state_b, progress).await?)
+                }
+                None => None,
+            };
+            let check_a = side_posture(
+                prepared,
+                Declared::plain(settings.posture),
+                target_a,
+                &ready_a,
+            )?;
+            let check_b = match (&sides.b, &ready_b) {
+                (Some((target, declared)), Some(ready)) => {
+                    side_posture(prepared, declared.clone(), target, ready)?
+                }
+                _ => Arc::clone(&check_a),
+            };
+            let before_a = check_a.bracket(Bracket::Before).await?;
+            let before_b = check_b.bracket(Bracket::Before).await?;
+            let target_b = sides.b.as_ref().map_or(target_a, |(t, _)| *t);
+            let (hooks_a, settings_a) = live_hooks(target_a, check_a, "A: ", progress).await;
+            let (hooks_b, settings_b) = live_hooks(target_b, check_b, "B: ", progress).await;
+            let performer_b = ready_b.as_ref().map_or_else(
+                || Arc::clone(&ready_a.performer),
+                |r| Arc::clone(&r.performer),
+            );
+            let run = RunRequest {
+                seed: prepared.loaded.workload.seed,
+                process: prepared.loaded.workload.arrival,
+                binding: &prepared.binding,
+                limits: prepared.limits.clone(),
+                shape: prepared.shape.clone(),
+            };
+            progress(format!(
+                "interleaved {}: each side settles, warms up and scouts, then four rungs run ABBA",
+                match mode {
+                    InterleaveMode::Aa => "A/A",
+                    InterleaveMode::Ab => "A/B",
+                }
+            ));
+            let outcome = run_interleaved(
+                &run,
+                (Arc::clone(&ready_a.performer), &hooks_a),
+                (performer_b, &hooks_b),
+            )
+            .await
+            .map_err(instrument)?;
+            let posture_a = hooks_a.posture_record(&before_a)?;
+            let posture_b = hooks_b.posture_record(&before_b)?;
+            store_read_back(target_a, &ready_a.state, &state_a, progress).await?;
+            if let (Some((target, _)), Some(ready)) = (&sides.b, &ready_b) {
+                store_read_back(target, &ready.state, &state_b, progress).await?;
+            }
+            Ok::<_, Error>((
+                ready_a, ready_b, outcome, settings_a, settings_b, posture_a, posture_b,
+            ))
+        })?;
+    let target_b = sides.b.as_ref().map_or(target_a, |(t, _)| *t);
+    let ready_b = ready_b.as_ref().unwrap_or(&ready_a);
+    let raw_a = raw_record(
+        prepared,
+        settings,
+        target_a,
         &ready_a,
         settings_a,
         outcome.a.clone(),
+        posture_a,
     );
     let raw_b = raw_record(
-        &prepared,
+        prepared,
         settings,
         target_b,
         ready_b,
         settings_b,
         outcome.b.clone(),
+        posture_b,
     );
     refuse_rate_limited(&raw_a)?;
     refuse_rate_limited(&raw_b)?;
-    let InterleavedComparison { a, b, comparison } = assemble(
+    assemble(
         Sides {
             a: (raw_a, &target_a.base_url),
             b: (raw_b, &target_b.base_url),
         },
         &outcome,
         mode,
-        request.tolerance,
+        tolerance,
         supplied_floor,
-    )?;
-    write_record(&a, &request.out.join(A_RECORD))?;
-    write_record(&b, &request.out.join(B_RECORD))?;
-    write_comparison(&comparison, request.out)?;
-    Ok(InterleavedComparison { a, b, comparison })
+    )
+}
+
+/// Runs the target against every pinned reference CDR, each composed on
+/// this host from its own digest-pinned images, interleaved the same way.
+///
+/// For each reference the stack is composed, the target is side A and the
+/// reference side B, the two records and their comparison are written under
+/// `<out>/<reference>/`, and the stack is torn down with its volumes before
+/// the next reference is composed. The ratios of each comparison are the
+/// target's index relative to that reference: dimensionless, so they travel
+/// between machines where milliseconds do not. A reference whose pinned
+/// recipe configures a posture item differently declares the recipe's value,
+/// and its record names each departure.
+///
+/// # Errors
+/// Every error of [`run_compare`], and [`Error::Instrument`] when a
+/// reference stack cannot be composed or torn down.
+pub fn run_with_baselines(
+    request: &InterleavedRequest<'_>,
+    docker: &DockerCli,
+    progress: &(dyn Fn(String) + Sync),
+) -> Result<Vec<(ReferenceCdr, InterleavedComparison)>, Error> {
+    let supplied_floor = match request.floor {
+        Some(path) => Some(read_floor(path)?),
+        None => None,
+    };
+    let version = docker.probe().map_err(instrument)?;
+    progress(format!(
+        "container runtime answers, server version {version}"
+    ));
+    let settings = &request.settings;
+    let prepared = prepare(settings, progress)?;
+    let target = open_target(request.ixit_a)?;
+    let mut done = Vec::new();
+    for cdr in ReferenceCdr::ALL.iter().copied() {
+        let composed = compose(cdr, docker, progress).map_err(instrument)?;
+        let (profile, divergences) = composed.pin.declaration(settings.posture);
+        for divergence in &divergences {
+            progress(format!(
+                "baseline {cdr}: `{}` is declared `{}` by profile `{}` and configured `{}` by the \
+                 pinned recipe, so this baseline declares the recipe's value",
+                divergence.item,
+                divergence.profile_declares,
+                settings.posture.name,
+                divergence.deployment_configures
+            ));
+        }
+        let out = request.out.join(cdr.as_str());
+        let measured = ensure_dir(&out)
+            .and_then(|()| OpenTarget::baseline(composed.pin, target.environment.clone()))
+            .and_then(|baseline| {
+                let sides = TargetSides {
+                    a: &target,
+                    b: Some((
+                        &baseline,
+                        Declared {
+                            profile,
+                            divergences,
+                        },
+                    )),
+                };
+                compare_targets(
+                    &prepared,
+                    settings,
+                    &sides,
+                    &out,
+                    request.tolerance,
+                    supplied_floor.clone(),
+                    progress,
+                )
+            });
+        let torn_down = composed.tear_down(progress).map_err(instrument);
+        let comparison = measured?;
+        torn_down?;
+        write_record(&comparison.a, &out.join(A_RECORD))?;
+        write_record(&comparison.b, &out.join(B_RECORD))?;
+        write_comparison(&comparison.comparison, &out)?;
+        done.push((cdr, comparison));
+    }
+    Ok(done)
 }
 
 /// Writes the comparison and its Markdown view into `dir`.

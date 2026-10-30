@@ -504,7 +504,7 @@
         "posture": {
           "type": "object",
           "additionalProperties": false,
-          "description": "What was switched on behind these numbers. A run declares exactly one named posture profile out of the set its pack defines, and black-box canaries bracket the measured window: every item is labelled `verified` when both brackets observed the declared value first-hand, and `declared-only` when nothing on the wire discloses it. A canary that contradicted the declaration, or a pair of brackets that disagreed, refused the run, so no such record exists.",
+          "description": "What was switched on behind these numbers. A run declares exactly one named posture profile, and black-box canaries bracket the run, after seeding and after the last plateau: every item is labelled `verified` when both brackets observed the declared value first-hand, and `declared-only` when nothing on the wire discloses it. A canary that contradicted the declaration, or a pair of brackets that disagreed, refused the run, so no such record exists.",
           "required": [
             "profile",
             "summary",
@@ -520,7 +520,7 @@
               "minLength": 1
             },
             "comparability": {
-              "description": "Every item on which the measured deployment's own configuration departs from the profile named above. A same-machine baseline is composed from somebody else's pinned recipe, so where that recipe configures an item differently the run declares, and the canaries check, what the deployment actually does; this block is how the record says so. Absent for a run that declared its profile as the pack defines it.",
+              "description": "Every item on which the measured deployment's own configuration departs from the profile named above. A same-host baseline is composed from somebody else's pinned recipe, so where that recipe configures an item differently the run declares, and the canaries check, what the deployment actually does; this block is how the record says so. Absent for a run that declared its profile as the instrument defines it.",
               "type": "array",
               "minItems": 1,
               "items": {

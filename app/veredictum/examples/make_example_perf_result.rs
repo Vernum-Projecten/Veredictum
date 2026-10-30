@@ -36,9 +36,9 @@ use std::fmt::Write as _;
 use std::time::Duration;
 
 use sha2::{Digest, Sha256};
-use veredictum::bench::fingerprint::EnvironmentFingerprint;
 use veredictum::identity::{IdentityRead, OptionsDocument};
 use veredictum::ixit::Environment;
+use veredictum::perf_emulate::fingerprint::EnvironmentFingerprint;
 use veredictum::perf_gen::arrivals::Rate;
 use veredictum::perf_gen::drive::{OperationRecord, WindowRecord, WindowSpec, latency_histogram};
 use veredictum::perf_gen::{ErrorClass, FailedExchange, OperationId};

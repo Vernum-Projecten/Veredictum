@@ -33,26 +33,26 @@ use std::sync::LazyLock;
 
 use clap::{Parser, Subcommand};
 
+use veredictum::arazzo::credential::AuthKind;
 use veredictum::arazzo::credential::{CredentialSource, Role};
 use veredictum::arazzo::terminal::{ColorChoice, ShowOptions, render, wants_color};
-use veredictum::bench::client::AuthKind;
 use veredictum::certificate::{HONESTY_LINE, Jwks, Outcome, verify};
 use veredictum::identity::OperatorIdentity;
 use veredictum::party::version_line;
+use veredictum::perf_emulate::posture::PostureProfile;
 use veredictum::perf_result::compare::DEFAULT_TOLERANCE;
 use veredictum::perf_result::host::NetworkLeg;
 use veredictum::pipeline::arazzo_run::{ArazzoRunRequest, Drive, run_catalogue};
 use veredictum::pipeline::assets::{
     perf_result_assets, performance_assets, schema_files, stress_overlay,
 };
-use veredictum::pipeline::bench::{BenchRequest, compare_bench, describe_packs, run_bench};
 use veredictum::pipeline::export::{Exports, export_document, is_perf_result, show_results};
 use veredictum::pipeline::judgement::{JudgementRequest, judge};
 use veredictum::pipeline::measured::{
     MeasuredEvent, MeasuredRequest, StressRequest, SustainedWindow, run_measured, run_stress,
 };
 use veredictum::pipeline::perf_compare::{
-    InterleavedRequest, align_records, run_compare, write_comparison,
+    InterleavedRequest, align_records, run_compare, run_with_baselines, write_comparison,
 };
 use veredictum::pipeline::perf_judge::judge_perf_result;
 use veredictum::pipeline::perf_workload::{
@@ -333,6 +333,17 @@ enum Command {
         /// Where the load generator sits relative to the server.
         #[arg(long, value_enum, default_value_t = NetworkLegArg::SameHost, requires = "workload", conflicts_with = "class")]
         network_leg: NetworkLegArg,
+        /// The posture profile the run declares: `minimal`,
+        /// `minimal-signed-digest`, `minimal-signed-pgp` or `clinical-default`.
+        /// The canaries check it after seeding and after the last plateau,
+        /// and a contradiction refuses the run.
+        #[arg(
+            long,
+            default_value = "minimal",
+            requires = "workload",
+            conflicts_with = "class"
+        )]
+        posture: String,
         /// The measured results record (`results.schema.json`) to merge the
         /// measurement records into; created when no file exists at the path.
         #[arg(long, required_unless_present = "workload")]
@@ -393,86 +404,6 @@ enum Command {
         #[arg(long, default_value_t = 4096.0)]
         max_rate: f64,
     },
-    /// Run the universal SPEED benchmark: an embedded pack against any
-    /// reachable CDR over its base URL, seeded once and measured N times
-    /// open-loop (comparative speed only; never a conformance record, a
-    /// certificate, or a performance-class rating).
-    Bench {
-        /// The system's base URL, up to and including the openEHR REST base
-        /// (for example `https://cdr.example/openehr/v1`).
-        #[arg(long)]
-        base_url: String,
-        /// How the client presents itself: `none`, `basic` or `bearer`.
-        ///
-        /// The secret never rides argv: `basic` reads
-        /// `VEREDICTUM_CDR_PASSWORD` and `bearer` reads
-        /// `VEREDICTUM_CDR_TOKEN`, the variables `test` and `identify` read,
-        /// each also from the file its `_FILE` form names.
-        #[arg(long, default_value = "none")]
-        auth: String,
-        /// The user `--auth basic` presents; without it, the user is read
-        /// from `VEREDICTUM_CDR_USER`.
-        #[arg(long)]
-        user: Option<String>,
-        /// The embedded pack to drive.
-        #[arg(long, default_value = "smoke")]
-        pack: String,
-        /// The posture profile to declare, out of the set the pack defines.
-        /// Omit to take the pack's first, which is always `minimal`.
-        ///
-        /// The run's canaries check the declaration against the running system
-        /// before and after the measured window, and a contradiction refuses
-        /// the run.
-        #[arg(long)]
-        posture: Option<String>,
-        /// How many times to repeat the measured phases. A result with fewer
-        /// than three is recorded as not submittable, and names that as one of
-        /// its unmet requirements.
-        #[arg(long, default_value_t = 3)]
-        repetitions: u32,
-        /// Multiply the pack's EHR count by this factor, for a shorter run.
-        /// Anything but `1.0` takes the run off the pack's pinned
-        /// configuration, and the record says so.
-        #[arg(long, default_value_t = 1.0)]
-        scale: f64,
-        /// Override the worker count every seed phase declares. Omit to run
-        /// the pack's own value, which is what its reference figures describe.
-        #[arg(long)]
-        seed_workers: Option<usize>,
-        /// After the target's run, compose each pinned reference CDR on this
-        /// host from its own digest-pinned images, drive the same pack at the
-        /// same seed against it, and record the relative index. Needs the
-        /// docker CLI; a record without a baseline is not submittable.
-        #[arg(long)]
-        with_baselines: bool,
-        /// Output directory for the result document and its summary.
-        #[arg(long)]
-        out: PathBuf,
-        /// A label for this run, which names its column in a comparison and
-        /// distinguishes its file name in a shared output directory.
-        #[arg(long)]
-        label: Option<String>,
-    },
-    /// Align two or more committed bench results into one table, one column
-    /// per file, with every pack or host mismatch stated in the header.
-    BenchCompare {
-        /// A committed bench result. Repeat the flag once per file; at least
-        /// two are needed.
-        #[arg(long = "result", required = true)]
-        results: Vec<PathBuf>,
-        /// Output directory for the rendered comparison.
-        #[arg(long)]
-        out: PathBuf,
-    },
-    /// Write the embedded benchmark pack manifest: every pack's phases with
-    /// their load discipline, its operation mix with what each entry probes,
-    /// its posture profiles, its fixture pins with their provenance, its seed,
-    /// and the submission requirements (byte-deterministic).
-    BenchPacks {
-        /// Output directory (created if missing).
-        #[arg(long)]
-        out: PathBuf,
-    },
     /// Load the performance workloads through their gates and print, for each,
     /// the expanded per-operation mix, its read:write ratio and the planned run
     /// range after seeding. With --out, write the byte-deterministic manifest of
@@ -525,14 +456,21 @@ enum Command {
     PerfCompare {
         /// A committed `perf-result`. Repeat the flag once per file; at least
         /// two are needed.
-        #[arg(long = "result", conflicts_with_all = ["ab", "aa"], required_unless_present_any = ["ab", "aa"])]
+        #[arg(long = "result", conflicts_with_all = ["ab", "aa", "with_baselines"], required_unless_present_any = ["ab", "aa", "with_baselines"])]
         results: Vec<PathBuf>,
         /// Side A's and side B's IXIT, for an interleaved A/B run.
         #[arg(long, num_args = 2, value_names = ["IXIT_A", "IXIT_B"], conflicts_with = "aa")]
         ab: Option<Vec<PathBuf>>,
         /// The IXIT of the one target an A/A run puts on both sides.
-        #[arg(long, value_name = "IXIT")]
+        #[arg(long, value_name = "IXIT", conflicts_with = "with_baselines")]
         aa: Option<PathBuf>,
+        /// The IXIT of a target to run against every pinned reference CDR
+        /// (EHRbase and FerroEHR), each composed on this host from its own
+        /// digest-pinned images with the docker CLI and torn down with its
+        /// volumes afterwards. Each comparison, the target's index relative to
+        /// that reference, is written under `--out/<reference>/`.
+        #[arg(long, value_name = "IXIT", conflicts_with = "ab")]
+        with_baselines: Option<PathBuf>,
         #[command(flatten)]
         run: CompareRunArgs,
         /// The declared tolerance: a ratio within it either way is never a
@@ -874,6 +812,7 @@ fn main() -> ExitCode {
             scout_end_rate,
             host_prescription,
             network_leg,
+            posture,
             results,
             sut_name,
             sut_version,
@@ -882,6 +821,10 @@ fn main() -> ExitCode {
             hours,
         } => match (workload, out, class, results) {
             (Some(workload), Some(out), None, None) => {
+                let posture = match PostureProfile::by_name(&posture) {
+                    Ok(profile) => profile,
+                    Err(e) => return fail(&e),
+                };
                 let corpus_state =
                     corpus_state.unwrap_or_else(|| out.with_extension("corpus.json"));
                 perf_workload_command(&WorkloadRunRequest {
@@ -896,6 +839,7 @@ fn main() -> ExitCode {
                         scout_end_rate,
                         host_prescription,
                         network_leg: network_leg.into(),
+                        posture,
                     },
                     ixit: &ixit,
                     out: &out,
@@ -940,35 +884,6 @@ fn main() -> ExitCode {
             },
             &out,
         ),
-        Command::Bench {
-            base_url,
-            auth,
-            user,
-            pack,
-            posture,
-            repetitions,
-            scale,
-            seed_workers,
-            with_baselines,
-            out,
-            label,
-        } => bench_command(
-            &BenchInvocation {
-                base_url: &base_url,
-                auth_token: &auth,
-                user: user.as_deref(),
-                pack_token: &pack,
-                posture_token: posture.as_deref(),
-                repetitions,
-                scale,
-                seed_workers,
-                with_baselines,
-                label: label.as_deref(),
-            },
-            &out,
-        ),
-        Command::BenchCompare { results, out } => bench_compare_command(&results, &out),
-        Command::BenchPacks { out } => bench_packs_command(&out),
         Command::PerfWorkloads {
             root,
             catalogue,
@@ -979,14 +894,16 @@ fn main() -> ExitCode {
             results,
             ab,
             aa,
+            with_baselines,
             run,
             tolerance,
             floor,
             out,
         } => {
-            let invocation = match (ab.as_deref(), aa.as_deref()) {
-                (Some([a, b]), None) => CompareInvocation::Interleaved { a, b: Some(b) },
-                (None, Some(a)) => CompareInvocation::Interleaved { a, b: None },
+            let invocation = match (ab.as_deref(), aa.as_deref(), with_baselines.as_deref()) {
+                (Some([a, b]), None, None) => CompareInvocation::Interleaved { a, b: Some(b) },
+                (None, Some(a), None) => CompareInvocation::Interleaved { a, b: None },
+                (None, None, Some(a)) => CompareInvocation::Baselines { a },
                 _ => CompareInvocation::Records(&results),
             };
             perf_compare_command(
@@ -1301,21 +1218,6 @@ fn stress_command(request: &StressRequest<'_>, out: &Path) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// What one `bench` invocation asked for, so the command takes one argument
-/// rather than eight positional ones that a swap would silently reorder.
-struct BenchInvocation<'a> {
-    base_url: &'a str,
-    auth_token: &'a str,
-    user: Option<&'a str>,
-    pack_token: &'a str,
-    posture_token: Option<&'a str>,
-    repetitions: u32,
-    scale: f64,
-    seed_workers: Option<usize>,
-    with_baselines: bool,
-    label: Option<&'a str>,
-}
-
 /// Prints the server's identity document on stdout.
 /// What `test` drives: a server, or a recording.
 struct TestTarget<'a> {
@@ -1424,124 +1326,6 @@ fn identify_command(base_url: &str, auth: &str) -> ExitCode {
         }
         Err(e) => fail(&e),
     }
-}
-
-fn bench_command(invocation: &BenchInvocation<'_>, out: &Path) -> ExitCode {
-    let auth = match AuthKind::parse(invocation.auth_token) {
-        Ok(auth) => auth,
-        Err(e) => return fail(&e),
-    };
-    let pack = match veredictum::bench::pack::load(invocation.pack_token) {
-        Ok(pack) => pack,
-        Err(e) => return fail(&e),
-    };
-    let profile = match pack.resolve_profile(invocation.posture_token) {
-        Ok(profile) => profile,
-        Err(e) => return fail(&e),
-    };
-    let progress = |message: String| eprintln!("[bench] {message}");
-    let outcome = match run_bench(
-        &BenchRequest {
-            pack: &pack,
-            profile,
-            base_url: invocation.base_url,
-            auth,
-            user: invocation.user,
-            repetitions: invocation.repetitions,
-            label: invocation.label,
-            scale: invocation.scale,
-            seed_workers: invocation.seed_workers,
-            with_baselines: invocation.with_baselines,
-            docker: None,
-        },
-        &progress,
-    ) {
-        Ok(outcome) => outcome,
-        Err(e) => return fail(&e),
-    };
-    if let Err(code) = emit(out, &outcome.documents) {
-        return code;
-    }
-    println!("{}", veredictum::bench::BOUNDARY_STATEMENT);
-    println!(
-        "machine: {}",
-        veredictum::bench::render::machine_line(&outcome.result.environment)
-    );
-    println!(
-        "{} repetition(s) over pack {}@{}; submittable: {}",
-        outcome.result.repetitions.len(),
-        outcome.result.pack.id,
-        outcome.result.pack.version,
-        outcome.result.submittable
-    );
-    println!("posture `{}`:", outcome.result.posture.profile);
-    for line in &outcome.result.posture.items {
-        println!("  {} = {} ({})", line.item, line.declared, line.assurance);
-    }
-    for requirement in &outcome.result.submittable_unmet {
-        println!(
-            "not submittable, unmet `{requirement}`: {}",
-            requirement.statement()
-        );
-    }
-    for index in &outcome.result.relative {
-        println!(
-            "vs {}: {} indexed operation(s), {} gap(s)",
-            index.display_name,
-            index
-                .phases
-                .values()
-                .map(|phase| phase.operations.len())
-                .sum::<usize>(),
-            index.gaps.len()
-        );
-    }
-    if !outcome.result.scale.reference_configuration {
-        println!(
-            "scale factor {:.3}: this run is off the pack's pinned configuration, so its numbers are not comparable with the reference figures the pack describes",
-            outcome.result.scale.factor
-        );
-    }
-    ExitCode::SUCCESS
-}
-
-fn bench_compare_command(results: &[PathBuf], out: &Path) -> ExitCode {
-    let outcome = match compare_bench(results) {
-        Ok(outcome) => outcome,
-        Err(e) => return fail(&e),
-    };
-    println!("{}", outcome.document.body);
-    if let Err(code) = emit(out, std::slice::from_ref(&outcome.document)) {
-        return code;
-    }
-    if outcome.comparison.warnings.is_empty() {
-        ExitCode::SUCCESS
-    } else {
-        for warning in &outcome.comparison.warnings {
-            eprintln!("bench-compare: {warning}");
-        }
-        ExitCode::from(1)
-    }
-}
-
-fn bench_packs_command(out: &Path) -> ExitCode {
-    let outcome = match describe_packs() {
-        Ok(outcome) => outcome,
-        Err(e) => return fail(&e),
-    };
-    if let Err(code) = emit(out, std::slice::from_ref(&outcome.document)) {
-        return code;
-    }
-    for pack in &outcome.manifest.packs {
-        println!(
-            "{}@{}: {} phase(s), {} fixture(s)",
-            pack.id,
-            pack.version,
-            pack.phases.len(),
-            pack.fixtures.len()
-        );
-    }
-    ExitCode::SUCCESS
 }
 
 fn perf_workloads_command(
@@ -1688,6 +1472,9 @@ struct CompareRunArgs {
     /// Where the load generator sits relative to the servers.
     #[arg(long, value_enum, default_value_t = NetworkLegArg::SameHost)]
     network_leg: NetworkLegArg,
+    /// The posture profile both sides declare.
+    #[arg(long, default_value = "minimal")]
+    posture: String,
 }
 
 /// What `perf-compare` was asked to do.
@@ -1700,6 +1487,11 @@ enum CompareInvocation<'a> {
         a: &'a Path,
         /// Side B's IXIT; absent for an A/A run.
         b: Option<&'a Path>,
+    },
+    /// Run one target against every pinned reference CDR.
+    Baselines {
+        /// The target's IXIT.
+        a: &'a Path,
     },
 }
 
@@ -1727,12 +1519,22 @@ fn perf_compare_command(
             }
             comparison
         }
-        CompareInvocation::Interleaved { a, b } => {
+        CompareInvocation::Interleaved { a, .. } | CompareInvocation::Baselines { a } => {
             let (Some(root), Some(workload), Some(out)) = (&run.root, &run.workload, out) else {
-                eprintln!("perf-compare: --ab and --aa need --root, --workload and --out");
+                eprintln!(
+                    "perf-compare: --ab, --aa and --with-baselines need --root, --workload and --out"
+                );
                 return ExitCode::from(2);
             };
+            let b = match invocation {
+                CompareInvocation::Interleaved { b, .. } => *b,
+                _ => None,
+            };
             let progress = |message: String| eprintln!("[perf-compare] {message}");
+            let posture = match PostureProfile::by_name(&run.posture) {
+                Ok(profile) => profile,
+                Err(e) => return fail(&e),
+            };
             let request = InterleavedRequest {
                 settings: WorkloadSettings {
                     root,
@@ -1745,13 +1547,35 @@ fn perf_compare_command(
                     scout_end_rate: run.scout_end_rate,
                     host_prescription: run.host_prescription.clone(),
                     network_leg: run.network_leg.into(),
+                    posture,
                 },
                 ixit_a: a,
-                ixit_b: *b,
+                ixit_b: b,
                 out,
                 tolerance,
                 floor,
             };
+            if matches!(invocation, CompareInvocation::Baselines { .. }) {
+                let docker = veredictum::perf_emulate::baselines::DockerCli::new();
+                let done = match run_with_baselines(&request, &docker, &progress) {
+                    Ok(done) => done,
+                    Err(e) => return fail(&e),
+                };
+                let mut mismatched = false;
+                for (cdr, comparison) in &done {
+                    println!("against {}:", cdr.display_name());
+                    print!(
+                        "{}",
+                        veredictum::perf_result::compare::terminal(&comparison.comparison)
+                    );
+                    mismatched |= comparison.comparison.mismatched();
+                }
+                return if mismatched {
+                    ExitCode::from(1)
+                } else {
+                    ExitCode::SUCCESS
+                };
+            }
             match run_compare(&request, &progress) {
                 Ok(done) => done.comparison,
                 Err(e) => return fail(&e),
