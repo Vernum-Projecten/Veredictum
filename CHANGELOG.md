@@ -20,6 +20,169 @@ version on.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-30
+
+### Added
+
+- A refusal workflow, one that expects `400` or `422`, names its control in
+  `x-veredictum-control`: the workflow whose request is the same apart from
+  the one defect. A refusal row whose control was not accepted in the same run
+  is errored with a reason naming the control, so a server that refuses every
+  request for an unrelated reason no longer passes the refusals. `validate`
+  refuses a refusal workflow without a control and a control that names no
+  workflow, the workflow itself or another refusal workflow. (#662)
+- The catalogue adds `content/dv_coded_text-validate_open-accepted`, the valid
+  twin of the open DV_CODED_TEXT refusals, and moves `get-fetch_with_top` and
+  `post-top_with_limit` into `query/aql_refused_top`, which runs only on the
+  `aql-top-supported` arm, so a service that declines TOP is not judged on
+  them. (#662)
+- A refusal with no valid twin in the catalogue yet names the issue that
+  tracks one, `x-veredictum-control: { pending: <issue> }`, and is never
+  judged: every row of it is errored, naming the issue. The ADL2 upload
+  refusals name #835 and the DV_CODED_TEXT external-terminology refusals #836. (#662)
+- A citation may name a file of the ITS-JSON or ITS-XML schema bundles
+  (`specs/its-json-schemas/`, `specs/its-xml-schemas/`), and a JSON Pointer
+  into a JSON or YAML source may name a number, a boolean or `null`, whose
+  quote is that value written as JSON and is matched by value. An ITS-JSON
+  schema grounds an expectation only where every released component is
+  silent on the canonical JSON form, and loses to any released text (#842). (#666)
+- `schemas/identity.schema.json` describes the document `veredictum identify`
+  prints, emitted by `emit-schemas` and drift-guarded like the other schemas. (#671)
+- `veredictum test` records the server's System OPTIONS identity once in
+  `results.json`, under `server`: from the run's own exchange when a workflow
+  sent one, otherwise from one read after the catalogue, which the recording
+  keeps so `--rejudge` writes the same bytes without asking the server. The
+  stated `restapi_specs_version` is absent when the server states none. When
+  it differs from the statement's `spec_versions.its_rest`, `results.json`
+  carries a `review` note of kind `restapi-version-differs` and the run prints
+  it; the note changes no row and no exit status. (#671)
+- The ITEM_TAG catalogue sends the `openehr-item-tag` and
+  `openehr-version-item-tag` request headers on a COMPOSITION create, a
+  COMPOSITION update and an EHR_STATUS update, and reads each tag back from
+  the target the header names: the VERSIONED_OBJECT for `openehr-item-tag`,
+  the new VERSION for `openehr-version-item-tag`. Two further workflows pin a
+  header carrying two tags and an empty header that removes the container's
+  tags. (#694)
+- A citation may carry `level: may` for a sentence that only permits, in the
+  `arazzo-extensions` and `arazzo-capabilities` schemas. A `may` criterion
+  counts against the server like a `must` one (RFC 2119 §5). `validate` now
+  refuses a citation that leaves the default `must` while its quote says
+  "should", "can" or "may" in lower case and nothing that requires, until the
+  citation states its level; 78 catalogue citations now state one. (#749)
+- `veredictum test` skips every workflow of a document as `version-out-of-range`
+  when the statement's `spec_versions` declares a version outside the
+  document's `applies` range, a new `documents.<id>.applies` entry of
+  `capabilities.yaml` with an inclusive `min`/`max` and the released sentence
+  that bounds it. `validate` refuses a range naming no document, an unknown
+  component, or a start after its end. (#777)
+- `veredictum test` skips every workflow of a document as `format-not-claimed`
+  when it needs a wire format the statement's its-rest `tech_profiles` entry
+  does not list. The format is stated in `capabilities.yaml` under
+  `documents.<id>.formats`, and every catalogue document that needs a server
+  to serve or accept canonical XML, Simplified Flat or Structured JSON, or the
+  Web Template now carries it. (#778)
+- The AQL semantics carry the term-code form of the node predicate name
+  shortcut (`items[at0004, at0004]`, `items[at0004, local::at0004|value|]`
+  and a mismatching code) over a new set-up that commits a COMPOSITION whose
+  ELEMENT name is a DV_CODED_TEXT. The five terminology-server cases are
+  recorded as not carried, because AQL leaves what a TERMINOLOGY() call
+  returns to the terminology service. (#790)
+- `veredictum validate` computes the claim gates: every capability folder keeps
+  a workflow-count floor (`arazzo-floor`), a folder verified only over
+  Veredictum's extension routes is listed under `extension-only`
+  (`arazzo-realization-scope`), and `--statement` refuses a claimed folder in
+  which no workflow can run under the statement (`claim-completeness`). (#804)
+- The `x-veredictum-check` extension gains the `json_type` judge, which
+  asserts that a value is one of the six JSON types of RFC 8259 §3; `validate`
+  refuses any other type name. The SMART discovery case
+  `smart_discovery/smart_configuration-document` now asserts that
+  `capabilities` is an array. (#807)
+- `validate --statement` refuses a selected option arm one of whose
+  documents needs a wire format the statement does not claim, under the new
+  `arm-format` check. (#838)
+
+### Changed
+
+- The published statement schema requires `claims.capabilities` with at least
+  one capability folder, agreeing with `veredictum test`, which already refused
+  an absent or empty claim. (#503)
+- `veredictum bench` reads its credential from the variables `test` and
+  `identify` read: `VEREDICTUM_CDR_PASSWORD` and `VEREDICTUM_CDR_TOKEN`, each
+  with its `_FILE` form, and `VEREDICTUM_CDR_USER` when `--user` is absent.
+  `VEREDICTUM_BENCH_PASSWORD` and `VEREDICTUM_BENCH_TOKEN` are no longer read. (#671)
+- The `arazzo-surface` gate counts a `regex` criterion on `$statusCode` whose
+  pattern is a plain alternation of status codes, such as `^(400|409)$`, as
+  covering each declared response it names. Any other pattern on
+  `$statusCode` still covers nothing. The surface gap for the 400 of a
+  COMPOSITION delete is closed. (#681)
+- Every catalogue document that sends `application/json`, itself or through a
+  setup it names in `dependsOn`, now states `canonical-json` in
+  `capabilities.yaml`, so a party whose statement claims only canonical XML
+  skips it as `format-not-claimed`; `validate` refuses a document that sends
+  JSON without stating the format. The XML option documents whose workflows
+  need different formats are split, so a document-level format holds for
+  each of its workflows. (#838)
+- The container image carries one copy of the ITS-XML 2.0.0 schemas,
+  `specs/its-xml-schemas/its-xml-2.0.0-nsv2/`. The byte-identical
+  `specs/its-xml-schemas/components/` tree is gone, and
+  `scripts/vendor/its-xml-schemas.sh` refreshes both XSD lineages from their
+  pinned commits. (#852)
+
+### Removed
+
+- The measured record (`results.schema.json`) no longer carries a top-level
+  `restapi_specs_version`. The release the server stated is recorded once, in
+  `sut.restapi_specs_version` with source `server`, and a document that still
+  carries the top-level member fails the published schema. (#850)
+
+### Fixed
+
+- The console asks for an optional administrative credential beside the server
+  credential and passes it to `veredictum test` through `--admin-auth` and the
+  `VEREDICTUM_CDR_ADMIN_*` variables, so a console run can drive the
+  administrative workflows. Without one it passes `--admin-auth none`, and the
+  IXIT it writes carries no `admin` instance instead of repeating the server
+  credential as a second principal. (#483)
+- The Arazzo schema gate admits a Payload Replacement Object `value` of every
+  JSON type, as Arazzo 1.1.0 §Payload Replacement Object types it, and the
+  evaluator sends a non-string literal with its JSON type intact. (#663)
+- A version label or display name edited on the console's connect step after the
+  probe reaches the run: Continue stores the labels the screen shows. An edit to
+  the address or a credential after the probe withholds Continue until a new
+  probe, and the screen says so. The live screen shows the name and version the
+  run records. (#670)
+- A row stopped because a step did not produce an output a later step needs
+  is advisory, naming the SHOULD criterion, when that step failed only
+  `level: should` criteria; it was errored before. (#674)
+- `veredictum perf` creates the measured record when `--results` names no
+  file, so a measured run no longer needs a `results.json` that no remaining
+  command writes. Before it seeds anything, it reads the SUT identity through
+  System OPTIONS, and the new `--sut-name` and `--sut-version` flags supply
+  what the server does not state. The new record holds the measurements and no
+  conformance outcome: it is `statement_blind` with the defaulted technology
+  profile, and its verification pack is `not_run`. An existing record keeps
+  its header and gains or replaces the measured case's record, as before.
+  `verdicts` and `perf-assets` read either kind. (#800)
+- The console's not-found page names the three surfaces the console serves, and
+  no longer the public record check it stopped serving. (#827)
+- The `realization-scope` gate reads the `info.x-veredictum-non-openehr`
+  mark of the sources a step calls, so it judges the sources under
+  `catalogue/sources/` instead of a file name nothing carries; a mark that is
+  not a boolean is refused. (#839)
+- A certificate's `sut.restapi_specs_version` is the release the run's
+  `results.json` records under `server`, and absent when the server stated
+  none. It used to come from the console's own identity read, so a certificate
+  could state a release the run never recorded. (#850)
+- `veredictum identify` and the `server` member of `results.json` record a
+  System OPTIONS answer whose code lies from 600 to 999 as the outcome
+  `invalid_status`, since RFC 9110 §15 makes those codes invalid.
+  `not_offered` now covers 100 to 599 only, so every document the instrument
+  prints validates against `identity.schema.json`. (#850)
+- The published crate ships the upstream `LICENSE` of the Arazzo and CTRF
+  schemas it embeds, and the container image carries the upstream `LICENSE`
+  beside the ITS-REST OpenAPI documents, the ITS-JSON schemas and the ITS-XML
+  schemas. Each is fetched by the tree's vendor script. (#855)
+
 ## [0.2.0] - 2026-10-29
 
 ### Added
@@ -5080,7 +5243,8 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
   attribution-stripping `commit-msg` hook with `scripts/install-hooks.sh`, and
   the Rust `.gitignore` set.
 
-[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.7...v0.2.0
 [0.2.0-rc2]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.7...v0.2.0-rc2
 [0.2.0-rc1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.7...v0.2.0-rc1
