@@ -601,7 +601,11 @@ The instrument proves its own judgement with the verification pack under
 an errored and an ETag-variant row, and the adjudicated results each must
 re-judge into (`expected.json`). The integration suite re-judges every
 recording and requires the adjudicated rows; a tampered adjudication must
-fail the comparison, which is the pack's own falsifiability requirement.
+fail the comparison, which is the pack's own falsifiability requirement. Each
+recording is a slice of one or two workflows, so the suite plans every other
+workflow of the document as skipped; `test --rejudge` re-judges the recording
+of a whole run and refuses a slice, because a replay that does not line up
+with its documents is refused rather than judged.
 Live-SUT conformance stays a second leg: the catalogue is driven against at
 least two independent live SUTs, and every disagreement is attributed under
 `.claude/rules/cnf-triage.md` before anything changes.
