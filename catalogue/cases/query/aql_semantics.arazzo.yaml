@@ -3113,6 +3113,134 @@ workflows:
               match: count
               count: 0
 
+  - workflowId: node_predicate-name_term_code
+    summary: A node predicate with a term-code name shortcut selects the node whose name carries that local code
+    description: >-
+      Queries the magnitudes through items[at0004, at0004] over the EHR of
+      the coded-name set-up, whose only ELEMENT at0004 is named by the
+      DV_CODED_TEXT local::at0004 and holds 13. A shortcut with no
+      terminology_id stands for the local terminology, so the result is [13].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-coded_name]
+    x-veredictum-cite: &term_code_standard
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Node predicate
+      quote: "[archetype_node_id=at0002 and name/defining_code/code_string='at0003' and name/defining_code/terminology_id/value='local']"
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query over the set-up EHR, its ehr_id passed as the
+          query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004,
+              at0004]/value/magnitude AS magnitude FROM EHR
+              e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS
+              OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the set-up ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-coded_name.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite: &query_ok
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[13]]
+
+  - workflowId: node_predicate-name_term_code_with_value
+    summary: A term-code name shortcut with a terminology_id and an informational value selects the coded node
+    description: >-
+      Queries the magnitudes through items[at0004, local::at0004|value|] over
+      the EHR of the coded-name set-up. The shortcut names the terminology
+      local and the code at0004, and its value between bars is informational
+      only, so the result is [13].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-coded_name]
+    x-veredictum-cite:
+      source: specs/openehr/QUERY/docs/AQL/master03-syntax.adoc
+      section: Node predicate
+      quote: "Containing an `archetype_node_id` and a shortcut of a `name` term code criterion (the `name` attribute is coded text rather than free text), consisting of a _terminology_id_, a _code_string_ and an optional (informational) _value_, formatted as `terminology_id::code_string|value|`, e.g.:"
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query over the set-up EHR, its ehr_id passed as the
+          query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004,
+              local::at0004|value|]/value/magnitude AS magnitude FROM EHR
+              e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS
+              OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1]
+            query_parameters:
+              ehr_id: replaced with the set-up ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-coded_name.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite: *query_ok
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[13]]
+
+  - workflowId: node_predicate-name_term_code_mismatch
+    summary: A term-code name shortcut with another code selects no node
+    description: >-
+      Queries the names of the COMPOSITIONs of the coded-name set-up EHR for
+      which items[at0004, local::at0005] EXISTS. The only ELEMENT at0004 is
+      named by the code at0004, and the shortcut stands for a
+      name/defining_code/code_string criterion, so no node is selected and
+      the result is empty.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-coded_name]
+    x-veredictum-cite: *term_code_standard
+    steps:
+      - stepId: query
+        description: >-
+          Execute the query over the set-up EHR, its ehr_id passed as the
+          query parameter ehr_id.
+        operationId: $sourceDescriptions.query.query_execute_adhoc_query_body
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            q: >-
+              SELECT c/name/value AS name FROM EHR e[ehr_id/value=$ehr_id]
+              CONTAINS COMPOSITION c CONTAINS OBSERVATION
+              o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE EXISTS
+              o/data[at0001]/events[at0002]/data[at0003]/items[at0004,
+              local::at0005]
+            query_parameters:
+              ehr_id: replaced with the set-up ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-coded_name.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite: *query_ok
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: count
+              count: 0
+
   - workflowId: parameter-number
     summary: A numeric parameter is substituted at run time
     description: >-

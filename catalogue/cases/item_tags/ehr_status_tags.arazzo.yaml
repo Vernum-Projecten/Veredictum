@@ -988,3 +988,161 @@ workflows:
             x-veredictum-cite: *list_retrieved
           - condition: $response.body#/0 == null
             x-veredictum-cite: *empty_list
+
+  - workflowId: ehr_status_update-item_tag_header
+    summary: The openehr-item-tag header of an EHR_STATUS update tags the VERSIONED_EHR_STATUS
+    description: >-
+      Updates the EHR_STATUS with the openehr-item-tag header category=final,
+      keeps the version_uid of the version the update makes, derives the
+      versioned_object_uid of its container from it, and reads both tag
+      lists back. The header applies to the VERSIONED_OBJECT, so the
+      container's list holds the tag and the new version's list is empty.
+    x-veredictum-cite: &header_usage
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+      section: Usage in Requests
+      quote: "When used as request headers for creation or update operations (`PUT`, `POST`), the header instructs the system which ITEM_TAG list should be associated with the target VERSION or VERSIONED_OBJECT resource (depending on the header name)."
+      level: must
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: >-
+          Update the EHR_STATUS with is_queryable false under the current
+          version and openehr-item-tag category=final, keep the new
+          version_uid and derive the container's versioned_object_uid from it.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-item-tag, in: header, value: 'key="category",value="final"' }
+        requestBody:
+          contentType: application/json
+          payload: &status_payload
+            _type: EHR_STATUS
+            archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+            name: { _type: DV_TEXT, value: EHR status }
+            archetype_details:
+              archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+              rm_version: 1.1.0
+            subject: { _type: PARTY_SELF }
+            is_queryable: false
+            is_modifiable: true
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &status_updated
+              source: specs/openehr/ITS-REST/specifications/responses/200_EHR_STATUS_updated.yaml
+              section: description
+              quote: "`200 OK` is returned when the EHR_STATUS is successfully updated, with the full resource in the response body when `Prefer` header is `return=representation`,"
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: container-tags
+        description: Retrieve the container's tags; they hold category=final only.
+        operationId: $sourceDescriptions.ehr.ehr_status_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.update.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'category' && @.value == 'final']"
+          - condition: $response.body#/1 == null
+      - stepId: version-tags
+        description: Retrieve the new version's tags; the header named no version, so they are empty.
+        operationId: $sourceDescriptions.ehr.ehr_status_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.update.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - condition: $response.body#/0 == null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: openehr-item-tag and openehr-version-item-tag
+              quote: "`openehr-item-tag` applies to *VERSIONED_OBJECT* targets."
+
+  - workflowId: ehr_status_update-version_item_tag_header
+    summary: The openehr-version-item-tag header of an EHR_STATUS update tags the new version
+    description: >-
+      Updates the EHR_STATUS with the openehr-version-item-tag header
+      reviewed=true, keeps the version_uid of the version the update makes
+      and derives the versioned_object_uid of its container from it. The
+      header applies to the new VERSION, so its list holds the tag, and the
+      previous version's list and the container's list are empty.
+    x-veredictum-cite: *header_usage
+    inputs: *ehr_input
+    steps:
+      - *create
+      - *current
+      - stepId: update
+        description: >-
+          Update the EHR_STATUS with is_queryable false under the current
+          version and openehr-version-item-tag reviewed=true, keep the new
+          version_uid and derive the container's versioned_object_uid from it.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: openehr-version-item-tag, in: header, value: 'key="reviewed",value="true"' }
+        requestBody:
+          contentType: application/json
+          payload: *status_payload
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *status_updated
+        outputs:
+          version_uid: $response.body#/uid/value
+        x-veredictum-derive:
+          versioned_object_uid: { function: object_id, of: version_uid }
+      - stepId: version-tags
+        description: Retrieve the new version's tags; they hold reviewed=true only.
+        operationId: $sourceDescriptions.ehr.ehr_status_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.update.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.key == 'reviewed' && @.value == 'true']"
+          - condition: $response.body#/1 == null
+      - stepId: previous-version-tags
+        description: Retrieve the previous version's tags; the header did not name it, so they are empty.
+        operationId: $sourceDescriptions.ehr.ehr_status_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.current.outputs.version_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - condition: $response.body#/0 == null
+            x-veredictum-cite: &version_item_tag_target
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: openehr-item-tag and openehr-version-item-tag
+              quote: "`openehr-version-item-tag` applies to a specific target *VERSION* within a VERSIONED_OBJECT."
+      - stepId: container-tags
+        description: Retrieve the container's tags; the header named no container, so they are empty.
+        operationId: $sourceDescriptions.ehr.ehr_status_tags_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: uid_based_id, in: path, value: $steps.update.outputs.versioned_object_uid }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *list_retrieved
+          - condition: $response.body#/0 == null
+            x-veredictum-cite: *version_item_tag_target
