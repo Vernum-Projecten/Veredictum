@@ -33,11 +33,11 @@ use crate::arazzo::gates::Gate;
 use crate::arazzo::gates::profile::{ProfileHeader, RegexBreach, lint_regex};
 use crate::arazzo::principal::{PRINCIPAL_KEY, PrincipalError, principal_of};
 use crate::arazzo::scope::{SCOPE_KEY, ScopeError, scope_of};
-use crate::arazzo::structure::SECTION_KEY;
 use crate::arazzo::source::{
     DeclaredParameter, Operation, OperationIndex, ParameterError, ParameterIn, ParameterIndex,
     SourceError, split_qualified,
 };
+use crate::arazzo::structure::SECTION_KEY;
 
 /// Every workflow of one `type: arazzo` source, by id, with whether it is a
 /// refusal workflow.

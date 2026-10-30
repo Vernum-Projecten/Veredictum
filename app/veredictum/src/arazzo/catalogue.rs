@@ -722,10 +722,9 @@ impl Selection {
         let cases = planned
             .iter()
             .flat_map(|document| {
-                document
-                    .places
-                    .iter()
-                    .map(|(workflow, place)| (format!("{}/{workflow}", document.name), place.clone()))
+                document.places.iter().map(|(workflow, place)| {
+                    (format!("{}/{workflow}", document.name), place.clone())
+                })
             })
             .collect();
         Some(structure::outline(
