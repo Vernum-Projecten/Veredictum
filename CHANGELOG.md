@@ -20,6 +20,164 @@ version on.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-30
+
+### Added
+
+- The catalogue declares its reading structure in `catalogue/chapters.yaml`:
+  chapters in order, the capability folders of each, every folder's BASE
+  sections, and each option's theme and tier (`recommended`, `options` or
+  `spec-boundary`). A document no option arm names is BASE and names its
+  section with `x-veredictum-section` on its `info`. `validate` refuses a
+  folder in no chapter or in two, a BASE document with no section or an
+  unknown one, a section no document uses, an OPTION document with a section,
+  an option with no theme and tier, and a spec-boundary option whose citation
+  names no report, each under the new `arazzo-structure` gate. The
+  structure is published as `schemas/arazzo-chapters.schema.json`. (#863)
+- `catalogue/reports.yaml` records the title and state of every upstream
+  report a citation names, published as `schemas/arazzo-reports.schema.json`.
+  `validate` refuses a cited report the file lacks and an entry no citation
+  names, and `scripts/checks/report-refs.sh` holds each entry to the tracker. (#863)
+- A catalogue run's `results.json` carries an `outline`: the chapters, every
+  option with the arms the statement selected, the recorded reports, and for
+  each case its chapter, folder, BASE section or option arms, a TRIAL mark,
+  the reports it rests on and its template formalism. (#863)
+- `veredictum show <results.json>` prints a result in the terminal: one line
+  per chapter, band and option with a bar and the count of each mark, in two
+  parts, BASE and OPTIONS. Each option names its selected arm and its kind,
+  and a closing note counts the cases tagged `@SpecDiverge`. `--failed` expands every failed and errored row with
+  its four-part explanation and lists the advisory rows apart. Colour follows
+  the terminal and `NO_COLOR`, and `--color` overrides it; every mark is a
+  glyph as well, so the view reads without colour. `veredictum test` prints
+  the same view when a run finishes. (#866)
+- The console results page draws the outcome as chapter bars above the rows:
+  one shaded header per chapter and one stacked bar per capability folder,
+  with passed, failed, advisory, errored and skipped counts beside each bar.
+  The chart is server-rendered SVG in the Okabe-Ito palette, with a glyph
+  for every outcome, and `?view=options` draws OPTIONS instead of BASE, read
+  by chapter and folder with each option and the TRIAL rows indented under
+  their folder. An option row carries its kind after its name, Recommended
+  (SHOULD) or Optional (MAY), and an option of the spec-boundary tier the
+  `@SpecDiverge` tag. Each bar links to its rows, and the rows are grouped
+  the same way. Each row shows its formalism and TRIAL marks, and an advisory
+  row has its own stat card and is never counted as failed. (#867)
+- Every semantic validation case in `content` carries the template formalism
+  its setups upload, `adl1.4` or `adl2`, derived from the upload operation and
+  never declared by hand, and the views badge each case with it. `validate`
+  refuses a case of that folder whose setups upload no template, or templates
+  of both formalisms. Every case today checks an ADL 1.4 template. (#870)
+- A case resting on released text an upstream report records as unclear or
+  contradictory is tagged `@SpecDiverge` in every view: beside the case in the
+  Markdown summary and the terminal, as the option kind of an option that
+  exists only because of such text, as the `eu.veredictum.tag` property in
+  JUnit and in the standard `tags` of a CTRF test. Each view closes with a
+  short note counting the tagged cases and linking the reports they are
+  judged by until the specification resolves them, read from the snapshot the
+  catalogue commits, never from the tracker during a run. (#871)
+- The release status of every cited file is read from the vendored manifests.
+  A case whose citations rest on a document the release marks TRIAL carries
+  `trial` in the results outline, and every view reads it with the options,
+  outside the BASE tally. Today that is the stored-query cases citing the
+  ITS-REST OpenAPI files. A citation into a document the release marks
+  RETIRED is refused by `validate`, and a DEVELOPMENT document inside a
+  release stays released text. (#872)
+
+### Changed
+
+- **Breaking for CTRF readers:** every field Veredictum adds to a CTRF
+  document now sits in `extra` under the one namespaced key `eu.veredictum`,
+  as CTRF 0.2.0 §4.6.1 asks. A reader of `extra.case`, `extra.row`,
+  `extra.skipReason`, `extra.citation`, `extra.report` or `extra.whose` on a
+  test, `extra.instrumentStatus` on the tool or `extra.baseUrl` on the
+  environment reads them under `extra["eu.veredictum"]` instead. Each test
+  also carries its place in the result in the standard `suite` path and
+  `labels`, and its `type` is `conformance`. (#864)
+- The Markdown summary `export` writes is laid out for a person reading it on
+  GitHub, in two parts. A summary table counts the rows of BASE and OPTIONS.
+  BASE follows by chapter, band and section, each level a table of counts.
+  OPTIONS follows the same chapters and bands as tables naming each option's
+  kind (Recommended (SHOULD), Optional (MAY) or `@SpecDiverge`) and the arm
+  the statement selected. Passed rows are counted,
+  not listed. Each failed, advisory or errored row is a collapsed block that
+  opens on its explanation as a table, with the cited sentence quoted.
+  Skipped rows are counted by reason. The cases resting on TRIAL text sit in
+  their band under OPTIONS. (#865)
+- The console's results page reads in two parts, BASE and OPTIONS, each
+  chapter by chapter and folder by folder; there are no tier headings. Every
+  option sits under OPTIONS with its kind beside its name, Recommended
+  (SHOULD) or Optional (MAY), Recommended first. A case resting on released
+  text that an upstream report records as unclear or contradictory, and an
+  option of the spec-boundary tier, carry one quiet `@SpecDiverge` tag naming
+  the reports on hover, and a short note closing the page counts those cases
+  and links each report; the separate list of rows resting on reported text
+  is gone. The page lists only the rows that need attention (failed,
+  advisory, errored) under each section, option and band, and says in each
+  heading how many rows passed or were skipped; `?rows=all` lists every row.
+  Opening a row keeps the reader's place: the detail links back to the row,
+  which stays marked as the one opened. The counted unit is the row
+  everywhere on the page, the stat cards carry short labels with a one-line
+  explanation, and the chart leaves out the chapters and bands the run never
+  touched, naming them in one line, with every bar drawn at full width over
+  its own rows. (#867)
+- A console catalogue chapter page lists the folder's BASE sections in
+  declared order, then one Options group with every option that touches the
+  folder, each with its kind (Recommended (SHOULD) or Optional (MAY), or the
+  `@SpecDiverge` tag for an option of the spec-boundary tier), its theme,
+  description and arms side by side, under a table of contents with case
+  counts. Content cases carry their ADL formalism badge, and a case resting
+  on released text an upstream report records carries the `@SpecDiverge` tag;
+  a short note closing the page counts those cases and links each report. The
+  filter narrows every group, and the page no longer pages the flat case list. (#868)
+- The console's catalogue reads by chapter. The catalogue home groups the
+  capability folders under their chapters in the order `chapters.yaml`
+  declares, each folder a card with its title, its folder name, its case count
+  and how many of those cases are BASE and how many sit in options. A chapter
+  page is titled with its folder's title under a "Catalogue / chapter"
+  breadcrumb, folds each BASE section and each option into a block that opens
+  on a click and opens by itself under a filter, and lists each case by its
+  summary with the case id beneath. The options form one group with no tier
+  headings, each labelled with its kind. A case page says where the case sits
+  (chapter, folder, BASE section or option arm with its kind, and the
+  `@SpecDiverge` tag when its cited text rests on an upstream report), and its
+  citation's source links to the released file upstream when the vendored
+  tree records where it came from. (#868)
+- The `aql-top` option is gone. The released AQL deprecates TOP but keeps it
+  in the grammar, and no sentence lets a service refuse it, so `aqlc_top`,
+  `aql_refused_top` and `aql_stored_top` now run for every claimant of
+  `query`. A statement that still selects `aql-top-supported` or
+  `aql-top-declined` names an arm that no longer exists. (#873)
+- A service that declines a format the release recommends now gets one
+  advisory row per declining arm. The unsupported arms of the four COMPOSITION
+  and four CONTRIBUTION Simplified Formats options and of
+  `template-web-template` each repeat one refused request and expect it
+  served, citing "the **Simplified Formats** format SHOULD be supported". The
+  406 and 415 refusals still gate. The `authentication-not-required` arm runs
+  the new `security/authentication_not_required` document, which expects a
+  401 on a request with an invalid credential. Each such row is failed and
+  advisory, and never counts against the capability. (#873)
+
+### Fixed
+
+- An advisory row, a SHOULD the server did not follow, no longer counts as
+  failed in any view of a result. The Markdown summary shows an Advisory count
+  and lists those rows in their own table with their citations. In JUnit an
+  advisory row is a passing `testcase` with its explanation in `<system-out>`,
+  and no `failures` count includes it; in CTRF it is `other` with
+  `rawStatus: advisory`, and `summary.failed` excludes it. A CI that fails a
+  job on a failed test no longer fails it on a SHOULD. The line `test` prints
+  after a run counts advisory rows apart as well. (#864)
+- The JUnit XML export validates against the schemas the tools that read it
+  publish: the document against the Jenkins xUnit plugin's `junit-10.xsd` and
+  each `<testsuite>` against Apache Maven Surefire's test report schema. Every
+  `<testcase>` now carries the `time` Surefire requires, and the
+  `<testsuites>` root no longer carries the `skipped` attribute junit-10 does
+  not define. A suite carries its place in the result as `eu.veredictum.*`
+  `<properties>`, and a CI gate checks the pinned views with `xmllint`. (#864)
+- One click on a console result row opens its detail at the top of the
+  results page, with JavaScript on or off, and the detail links to the
+  catalogue case the row came from. The detail used to render below every
+  row, out of sight on a full run. (#869)
+
 ## [0.2.1] - 2026-10-30
 
 ### Added
@@ -5243,7 +5401,8 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
   attribution-stripping `commit-msg` hook with `scripts/install-hooks.sh`, and
   the Rust `.gitignore` set.
 
-[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.1...HEAD
+[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.7...v0.2.0
 [0.2.0-rc2]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.7...v0.2.0-rc2
