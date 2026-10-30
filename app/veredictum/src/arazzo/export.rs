@@ -779,30 +779,35 @@ fn cited(row: &ResultRow) -> String {
     )
 }
 
+/// The labels a row's summary carries after where it sits: its formalism,
+/// TRIAL, and the upstream reports its case rests on, each led by a comma.
+fn row_labels(outline: Option<&Outline>, case: &str) -> String {
+    let mut labels = Vec::new();
+    if let Some(place) = outline.and_then(|o| o.place(case)) {
+        if let Some(formalism) = place.formalism {
+            labels.push(formalism.label().to_owned());
+        }
+        if place.trial {
+            labels.push(String::from("TRIAL text"));
+        }
+        for report in &place.reports {
+            labels.push(format!("report #{report}"));
+        }
+    }
+    if labels.is_empty() {
+        String::new()
+    } else {
+        format!(", {}", labels.join(", "))
+    }
+}
+
 /// Writes one row that needs attention as a collapsed block: the summary
 /// names the outcome, the case, the row and where it sits, and opening it
 /// shows the four-part explanation as a table with the cited sentence
 /// quoted below it.
 fn md_row(out: &mut String, outline: Option<&Outline>, row: &ResultRow, place: &str) {
     let mark = Mark::of(row);
-    let case = outline.and_then(|o| o.place(&row.case));
-    let mut labels = Vec::new();
-    if let Some(case) = case {
-        if let Some(formalism) = case.formalism {
-            labels.push(formalism.label().to_owned());
-        }
-        if case.trial {
-            labels.push(String::from("TRIAL text"));
-        }
-        for report in &case.reports {
-            labels.push(format!("report #{report}"));
-        }
-    }
-    let labels = if labels.is_empty() {
-        String::new()
-    } else {
-        format!(", {}", labels.join(", "))
-    };
+    let labels = row_labels(outline, &row.case);
     let _ = writeln!(
         out,
         "\n<details>\n<summary><b>{}</b>: <code>{}</code> row {}, {}{}</summary>\n",
