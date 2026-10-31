@@ -2396,15 +2396,18 @@ cases:
     open: >-
       The target is an IMPORTED_VERSION, which only an EHR import through a
       route no released OAS declares can establish, and the
-      attestation member it commits is the shape #690 tracks.
+      attestation member it commits has no shape in the released commit DTO
+      (upstream report #751).
   I_EHR_CONTRIBUTION.commit_contribution-attestation_attested_view:
     new: []
     open: &attestation >-
-      The case commits a 666 attestation member with neither data nor
-      lifecycle_state, which the released commit DTO (UpdateVersion.yaml,
-      required lifecycle_state, data and commit_audit) does not admit; the
-      member shape is #690, and no workflow commits an attestation until it
-      is settled.
+      The case commits a 666 attestation member, which adds an ATTESTATION to
+      an existing ORIGINAL_VERSION and commits no new version (RM common
+      master06 §Contributions). The released commit DTO cannot express it:
+      UpdateVersion.yaml requires lifecycle_state and data on every member,
+      and no member names an existing version to attest. Upstream report
+      #751 proposes the member shape, and no workflow commits an attestation
+      member until the release can express one.
   I_EHR_CONTRIBUTION.commit_contribution-attestation_commit_audit:
     new: []
     open: >-

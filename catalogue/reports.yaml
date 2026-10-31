@@ -10,6 +10,7 @@ reports:
   229: { title: "AQL leaves SUM and AVG over an input type outside their declared set unassigned", state: closed }
   307: { title: "AM never states whether a data node matching no constraint node is invalid", state: open }
   352: { title: "ITS-REST declares the Simplified Formats for EHR_STATUS, FOLDER and the PARTY kinds, which the Simplified Formats specification never maps", state: open }
+  353: { title: "LOCATABLE.archetype_node_id's description says \"Always in the form of an at-code\" and contradicts itself two sentences later", state: open }
   661: { title: "RM: REVISION_HISTORY.items is most-recent-first in the class purpose and most-recent-last everywhere else", state: open }
   673: { title: "ITS-REST: return=identifier is a SHOULD in one section and \"never 204\" with no keyword in another", state: open }
   721: { title: "Simplified Formats: the RM mapping tables name RM attributes and types the RM does not have", state: open }

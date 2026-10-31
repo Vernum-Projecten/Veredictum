@@ -1,0 +1,84 @@
+# Content validation of DV_CODED_TEXT against a CONSTRAINT_REF, under the
+# arm of the terminology-binding-unresolvable option that accepts a coded
+# value whose binding the service cannot resolve. The template's
+# CONSTRAINT_REF names a value set only an external terminology query defines,
+# so whether the commit is accepted is the option's question. Every quote is
+# copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Content validation, an external DV CODED TEXT term, accepted
+  version: 0.1.0
+  description: >-
+    Commits a complete DV_CODED_TEXT against a template that constrains its
+    defining_code with a CONSTRAINT_REF, for a service that accepts a coded
+    value whose bound value set it cannot resolve. The commit is created
+    (201).
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+  - name: templates
+    url: ../_setup/content_templates.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: dv_coded_text-validate_ext_term-accepted
+    summary: "DV_CODED_TEXT against a CONSTRAINT_REF with a constraint_binding: a complete external term is created where an unresolvable binding is accepted"
+    description: >-
+      Commits the rows' content against the template (DV_CODED_TEXT against a
+      CONSTRAINT_REF with a constraint_binding). Each row carries a complete
+      defining_code from an external terminology and the rubric the vendored
+      text gives it. The value set the CONSTRAINT_REF stands for is defined
+      only by a query into an external service, which the service does not
+      resolve on this arm, so the commit is answered 201 Created.
+    dependsOn: [$sourceDescriptions.templates.upload_template-dv_coded_text_constraint_ref]
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/AOM1.4/master04-constraint_model_package.adoc
+      section: "Reference Objects (C_REFERENCE_OBJECT)"
+      quote: "but where the actual definition of the constraints is outside the archetype definition proper, and is instead expressed in the binding of the constraint reference (e.g. 'ac0004') to a query or expression into an external service (e.g. a terminology service)."
+    inputs:
+      type: object
+      required: [composition]
+      properties:
+        "code_string": { type: "string" }
+        "terminology_id": { type: "string" }
+        "value": { type: "string" }
+        "CONSTRAINT_REF.reference": { type: "string" }
+        "constraint_bindings": { type: "string" }
+        composition: { type: object }
+    steps:
+      - stepId: create-ehr
+        description: Create the EHR the composition is committed to.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: commit
+        description: Commit the row's composition.
+        operationId: $sourceDescriptions.ehr.composition_create
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create-ehr.outputs.ehr_id }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+          - { name: Content-Type, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: $inputs.composition
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
+              section: "description"
+              quote: "`201 Created` is returned when the COMPOSITION is successfully created."

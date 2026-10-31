@@ -612,9 +612,17 @@ fn a_chapter_page_filters_across_groups_and_badges_content()
         .collect();
     assert!(!badges.is_empty(), "content carries BASE cases");
     assert!(
-        badges.iter().all(|b| *b == Some("ADL 1.4")),
-        "every content case uploads an ADL 1.4 template"
+        badges
+            .iter()
+            .all(|b| matches!(*b, Some("ADL 1.4" | "ADL 2"))),
+        "every content case carries the formalism of the template it uploads"
     );
+    for formalism in ["ADL 1.4", "ADL 2"] {
+        assert!(
+            badges.contains(&Some(formalism)),
+            "the content chapter badges {formalism} cases"
+        );
+    }
     Ok(())
 }
 

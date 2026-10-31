@@ -688,12 +688,14 @@ options:
       constraint binding it cannot resolve, because the terminology query
       server is unreachable or does not know the value set: refuse the
       commit, or accept it. Which terminology servers a service reaches is
-      its own configuration, so neither arm has a document yet.
+      its own configuration. The accepted arm carries the accepted twin of
+      the DV_CODED_TEXT external-term refusals; the refused arm has no
+      document, since a refusal of a complete term proves no acceptance.
     arms:
       terminology-binding-unresolvable-refused:
         documents: []
       terminology-binding-unresolvable-accepted:
-        documents: []
+        documents: [dv_coded_text_ext_term_accepted]
     x-veredictum-cite:
       source: specs/openehr/BASE/docs/architecture_overview/master12-terminology.adoc
       section: Binding Terminology Value-sets to Archetypes
@@ -819,6 +821,10 @@ documents:
   content_item_tree: { formats: [canonical-json] }
   content_item_unmatched_accepted: { formats: [canonical-json] }
   content_item_unmatched_refused: { formats: [canonical-json] }
+  dv_coded_text_ext_term_accepted: { formats: [canonical-json] }
+  adl2_dv_count: { formats: [canonical-json] }
+  adl2_dv_interval_count: { formats: [canonical-json] }
+  adl2_item_tree: { formats: [canonical-json] }
   content_observation: { formats: [canonical-json] }
   contribution_create: { formats: [canonical-json] }
   contribution_create_refused: { formats: [canonical-json] }
@@ -916,9 +922,9 @@ documents:
 floors:
   admin: 17
   composition: 207
-  content: 361
+  content: 368
   contribution: 69
-  definition: 33
+  definition: 34
   demographic: 369
   directory: 87
   ehr: 50

@@ -1,15 +1,17 @@
-# The ADL 2 operational templates of the DEFINITION API that need no stored
-# template: the listing, the reads of a template_id that names nothing, and
-# an upload whose body does not parse or is declared as XML. Every quote is
-# copied verbatim from the named vendored file.
+# The ADL 2 operational templates of the DEFINITION API: the listing, the
+# upload of a valid raw operational template written here for the purpose,
+# the reads of a template_id that names nothing, and an upload whose body
+# does not parse or is declared as XML. Every quote is copied verbatim from
+# the named vendored file.
 arazzo: 1.1.0
 info:
   title: ADL 2 templates
   version: 0.1.0
   x-veredictum-section: adl-2-templates
   description: >-
-    Listing ADL 2 operational templates, reading one that does not exist and
-    refusing an upload that does not parse, through the DEFINITION API.
+    Listing ADL 2 operational templates, uploading a valid one, reading one
+    that does not exist and refusing an upload that does not parse, through
+    the DEFINITION API.
 sourceDescriptions:
   - name: definition
     url: ../../../specs/rest-oas/definition-validation.openapi.yaml
@@ -102,8 +104,152 @@ workflows:
         successCriteria:
           - condition: $statusCode == 404
 
+  - workflowId: upload_template_adl2-minimal
+    summary: A valid ADL 2 operational template is accepted and listed under its template_id
+    description: >-
+      Uploads a raw ADL 2 operational template under a fresh template_id: a
+      COMPOSITION of category event whose content is an inlined OBSERVATION
+      archetype down to one ELEMENT with a DV_TEXT value, with the
+      component_terminologies section an operational template carries. It
+      then lists the ADL 2 templates matching that template_id. The upload
+      answers 201 and the listing holds the template.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/definition_template_adl2_upload.yaml
+      section: description
+      quote: "Upload a new ADL2 operational template."
+    inputs: *run_input
+    steps:
+      - stepId: upload
+        description: Upload the operational template under a fresh template_id.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: text/plain
+          # NOTE: AM OPT2 master03-opt_raw.adoc §Artefact Structure gives the
+          # outer structure; ADL2 master07.08 §Description Section the minimal description.
+          payload: |-
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+                openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"A minimal operational template for conformance testing">
+                    >
+                >
+
+            definition
+                COMPOSITION[id1] matches {
+                    category matches {
+                        DV_CODED_TEXT[id2] matches {
+                            defining_code matches {[at1]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[id3, openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[id2] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[id3] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[id4] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[id5] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_TEXT[id6]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["id1"] = <
+                            text = <"Minimal">
+                            description = <"A minimal event composition">
+                        >
+                        ["id3"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                        ["at1"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at1"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["id1"] = <
+                                text = <"Minimal observation">
+                                description = <"An observation with one text element">
+                            >
+                            ["id3"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["id5"] = <
+                                text = <"Value">
+                                description = <"A text value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_Template_adl2_upload.yaml
+              section: description
+              quote: "`201 Created` is returned when the template has been successfully uploaded."
+      - stepId: list
+        description: List the ADL 2 templates whose template_id matches the uploaded one.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_list
+        parameters:
+          - { name: template_id, in: query, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_TemplateList_adl2.yaml
+              section: description
+              quote: "`200 OK` is returned when the template list is successfully retrieved."
+          - context: $response.body
+            type: jsonpath
+            condition: "$[?@.template_id == 'openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0']"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/parameters/query/filter_template_id.yaml
+              section: description
+              quote: "Pattern for matching `template_id` (supports wildcards `*`)"
+
   - workflowId: upload_template_adl2-empty_body
-    x-veredictum-control: { pending: 835 }
+    x-veredictum-control: upload_template_adl2-minimal
     summary: An ADL 2 upload with an empty body is refused with 400
     description: >-
       Uploads an empty body as text/plain. An empty body holds no
@@ -125,7 +271,7 @@ workflows:
           - condition: $statusCode == 400
 
   - workflowId: upload_template_adl2-unparseable
-    x-veredictum-control: { pending: 835 }
+    x-veredictum-control: upload_template_adl2-minimal
     summary: An ADL 2 upload whose body does not parse is refused with 400
     description: >-
       Uploads a text/plain body that opens an operational template and
