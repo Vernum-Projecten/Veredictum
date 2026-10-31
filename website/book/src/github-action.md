@@ -90,7 +90,10 @@ JUnit view is read by most other CI systems.
 3. It runs `export` over that `results.json`, writing `junit.xml`, `ctrf.json`
    and `summary.md` beside it, and appends `summary.md` to the job summary
    together with the image it ran.
-4. It exits with the run's status.
+4. It runs `badge`, writing the [badges](#badges) into `badges/` in
+   `out-dir`, and pushes them to `badge-branch` when that input is set and the
+   run may push.
+5. It exits with the run's status.
 
 | Exit status | Meaning |
 |---|---|
@@ -100,7 +103,8 @@ JUnit view is read by most other CI systems.
 
 A run that could not start writes no results, so there is nothing to export;
 the job summary says so, and the step log names the reason. The action
-removes the five files it writes from `out-dir` before the run, so a results
+removes the files it writes from `out-dir` before the run, the badges among
+them, so a results
 document left by an earlier run is never exported as this one.
 
 ## Inputs
@@ -115,17 +119,18 @@ document left by an earlier run is never exported as this one.
 | `documents` | none | document ids separated by white space; a narrowed run is a working tool, never the record you submit |
 | `profile` | `development` | the specification text the citations are read against: `development` (the pinned `master` of each openEHR repository) or `released` (the frozen release); only a `released` run backs a released claim or a certificate |
 | `platform-url` | none | the SMART Platform base URL ([below](#smart-on-openehr)); without it every workflow sent to the Platform is skipped as `not-declared` |
-| `out-dir` | `veredictum-results` | where the five files are written |
+| `out-dir` | `veredictum-results` | where the five files and the `badges/` directory are written |
 | `image` | the release image | the image to run ([below](#which-image-runs)) |
 | `pull` | `true` | `false` runs an image already on the runner, such as one built earlier in the job |
 | `network` | `host` | the container network the run joins |
+| `badge-branch` | none | a branch of your repository to push the badges to ([below](#badges)); with none, nothing is pushed |
 
 With `network: host` the run shares the runner's network, so a service
 container is reached at `127.0.0.1` on its published port, as above, and a
 server elsewhere at its own address.
 
-The step's outputs are `exit-code`, the paths `results`, `junit`, `ctrf` and
-`summary`, and `image-id` and `image-digests`, which name the image the run
+The step's outputs are `exit-code`, the paths `results`, `junit`, `ctrf`,
+`summary` and `badges`, and `image-id` and `image-digests`, which name the image the run
 used.
 
 ## Credentials
@@ -239,8 +244,21 @@ prints it for any release. Whichever reference you pass, the step runs both
 subcommands by the image ID it resolved, and writes that ID to the job summary
 and to its `image-id` output, so the run names the image it judged with.
 
+## Badges
+
+The step draws five badges from every run into `badges/` in `out-dir`. With
+`badge-branch: <branch>` it also pushes them to that branch of your
+repository, but only from a run on your default branch that is not a pull
+request, so your README can show them. [Badges](badges.md) covers what each
+badge says, the colour rules, and the README snippet.
+
 ## Permissions
 
-The action calls no GitHub API and reads no token. The job needs
-`contents: read` for its own checkout and nothing more; set `permissions: {}`
-at the workflow level and grant that one scope on the job, as above.
+Without `badge-branch`, the action calls no GitHub API and reads no token. The
+job needs `contents: read` for its own checkout and nothing more; set
+`permissions: {}` at the workflow level and grant that one scope on the job,
+as above.
+
+With `badge-branch`, the step pushes the badges with the job's token, which
+you set as `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the step's `env:`.
+The job then needs `contents: write` instead.

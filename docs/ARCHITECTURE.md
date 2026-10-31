@@ -1101,9 +1101,14 @@ Cross-cutting rules:
   rung 3, legal veracity remains a commercial-contract matter between vendor
   and procurer (ISO/IEC 17050 framing, §6.4) — stated plainly, as the 2021
   roadmap did.
-- **Badges** derive from registry state (rung + profile + schedule release +
-  tech profile), machine-served by the registry, never self-hosted claims.
-  **The badge is a licensed ordinary trademark, not a registered
+- **Badges** are static files the instrument draws from one result
+  (`veredictum badge`), and the vendor publishes them from its own run, for
+  example to a branch of its own repository through the GitHub Action (owner
+  rulings 2026-10-31, #919). Each badge says `self-run`, names the
+  specification profile its result was judged under, and links to the run
+  whose recorded results are its evidence. No badge is a certificate, and no
+  server draws one. The registry's mark, once a registry exists, is governed
+  as follows. **The badge is a licensed ordinary trademark, not a registered
   certification mark**: an EU certification mark legally asserts that the
   proprietor *certifies* (EUTMR (EU) 2017/1001 Art 83) — incompatible with
   self-declared rungs — and its owner may not carry on business involving
