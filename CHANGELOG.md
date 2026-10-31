@@ -20,6 +20,230 @@ version on.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-31
+
+### Added
+
+- The console serves its operator's counters at `/metrics`, in the Prometheus
+  text format, to a request presenting the bearer token
+  `VEREDICTUM_METRICS_TOKEN` sets: runs accepted, started and ended by
+  outcome, a run-duration histogram, queue depth beside the concurrency cap,
+  refusals by the guard and reason that refused (rate ledger, target guard,
+  statement validator, one run per visitor), server-function answers by status
+  class, and the container's memory, CPU, process count and OOM kills from its
+  cgroup. Unset or empty, the route answers 404; a value shorter than 32
+  characters or outside RFC 6750's `b64token` refuses to start. Every label is
+  a closed vocabulary, so no target, SUT name, credential or result appears. (#489)
+- Each run writes one JSON line to standard error when its engine starts and
+  when it leaves the job map: its id, outcome, queue and drive time, and case
+  counts. The hosted compose file sends the console's output to the host's
+  journal, so the record survives a redeploy, and the hosted watch reads the
+  counters to report a `/metrics` that refuses its token or an OOM kill in the
+  console container. (#489)
+- `definition/template_adl2` covers the ADL 2 branches a stored template
+  unblocks: the three `Prefer` answers of an upload (an empty body, the
+  `template_id`, the template itself), the 409 of a second upload, the read
+  as ADL text and in JSON, the deprecated read at a version, the example of
+  a stored template with its root `archetype_node_id`, and the 406 of an
+  example asked for in the Web Template format. Ten ADL 2 gaps leave
+  `catalogue/cases/surface.yaml`; the XML answers stay there, since no
+  released schema gives an ADL 2 operational template an XML form. (#714)
+- `definition/template_adl2` refuses with 400 a deprecated read at a version
+  that is not a SEMVER version or prefix, and an example asked for with a
+  `type` or a `detail_level` outside the values the operation declares, each
+  against its accepted read as control. The two 400 gaps leave
+  `catalogue/cases/surface.yaml`, and every DEFINITION gap left there states
+  the released sentence that keeps it open. (#714)
+- `definition/template_adl2/upload_template_adl2-minimal` uploads a valid raw
+  ADL 2 operational template, written here against the AM OPT2 and ADL2
+  text, and expects 201 and the template in the listing. It is the control
+  of the two ADL 2 upload refusals, whose rows were recorded errored while
+  they had none. (#835)
+- `content/dv_coded_text_ext_term_accepted` commits a complete external
+  DV_CODED_TEXT term (`SNOMED-CT::254626006`, "adenocarcinoma of lung", the
+  code and rubric the BASE terminology overview writes) on the template of
+  the three external-term refusals, and expects 201 under the accepted arm of
+  `terminology-binding-unresolvable`. It is the control of those refusals,
+  whose rows were recorded errored while they had none. A run that declares
+  the refused arm runs no control for them, so their rows stay errored there. (#836)
+- `content/adl2_dv_coded_text` carries the three DV_CODED_TEXT 400
+  refusals (no `defining_code`, no `terminology_id`, no `code_string`) and a
+  422 refusal of a code outside the value set, against an ADL 2 template
+  whose `defining_code` matches a value set the template defines itself
+  (ADL2 `value_sets`). Their accepted twin commits a member of that value
+  set, which no external terminology service has to resolve, so the
+  refusals have a control that holds under either arm of
+  `terminology-binding-unresolvable`. ADL 1.4 has no such binding: AOM 1.4
+  places the constraint of a `CONSTRAINT_REF` in a query into an external
+  service, so the ADL 1.4 refusals keep their accepted-arm control. (#836)
+- A citation into an ITS-XML schema (`.xsd`) names one top-level
+  `xs:element`, `xs:complexType` or `xs:simpleType` by its `name` in
+  `section`, optionally after its kind (`complexType COMPOSITION`), and its
+  quote must occur inside that definition. `validate` refuses an unknown or
+  ambiguous name and a quote outside the named definition. (#843)
+- ADL 2 counterparts of the remaining ADL 1.4 content templates: 49 more
+  ADL 2 operational templates in `_setup/content_templates_adl2`, and 78
+  content workflows over them in 22 new `content/adl2_*` documents and the
+  existing `adl2_dv_count` and `adl2_dv_interval_count`. Every template has
+  an accepted case, and every constraint an ADL 2 template carries where
+  the ADL 1.4 case refuses has its 422 refusal, citing the ADL2 cADL text
+  for it. An integration test holds every inline ADL 2 composition to
+  the published ITS-JSON schema: a 400 refusal carries a body the schema
+  refuses, and every other commit a body it admits. (#874)
+- The first content validation cases against ADL 2 operational templates:
+  `content/adl2_dv_count`, `content/adl2_dv_interval_count` and
+  `content/adl2_item_tree`, one per content section, each a 422 refusal
+  with its accepted twin. Their three templates are uploaded through the
+  ADL 2 definition operation by `_setup/content_templates_adl2`, so the
+  results outline badges the cases `adl2` and splits those sections by
+  formalism. The accepted twins carry upstream report #353, since their
+  data names ADL 2 id-codes as `archetype_node_id`. (#874)
+- The GitHub Action annotates the run: one error annotation per failed or
+  errored row and one warning annotation per warning row, titled with the case
+  id and its row and carrying what was checked, the cited sentence with its
+  source and section, and what was expected and received. At most 10 of each
+  kind are written, GitHub's per-step limit, and a closing notice names how
+  many more rows the job summary lists. The `annotations` input turns them
+  off. `veredictum export --annotations <file>` writes the same workflow
+  commands for any CI that reads them. (#917)
+- `veredictum badge --results <file> --out <dir>` draws static badges for a
+  README, each as an SVG and a Shields.io endpoint JSON document, with the
+  Veredictum mark as its icon. A conformance result draws five: `base`,
+  `options` and `warnings`, each naming the specification profile in its
+  label, `profile`, and `instrument`, which says `self-run`. A counting badge
+  is green only when no row failed or errored. A `perf-result` draws one,
+  `perf`, with the workload and the knee as the record states it, in a
+  neutral colour. Every badge is byte-deterministic, and none is a
+  certificate. (#919)
+- The GitHub Action draws the badges into `badges/` in `out-dir` after every
+  run, and with the new `badge-branch` input pushes them to that branch of the
+  calling repository with the job's `GITHUB_TOKEN`, only from a run on the
+  default branch that is not a pull request. The new `badges` output names the
+  directory. (#919)
+- The book has a Badges page: what each badge says, the colour rules, and how
+  to publish the badges from GitHub, GitLab or any other CI. (#919)
+- A GitLab CI template, `ci/gitlab/veredictum.yml`, runs the instrument in one
+  `include: remote:` pinned to a release tag, with typed `spec: inputs`
+  matching the GitHub Action's. Its run job pulls the release image of that
+  tag, writes the results, the views and the badges into `out-dir`, keeps
+  them as artifacts and publishes JUnit as the merge request's test report;
+  its verdict job fails exactly as the Action's step does, `fail-on-inconclusive`
+  included. Credentials are masked CI/CD variables read by name.
+  `scripts/release/check-gitlab-template.sh` holds the template's image to the
+  engine version and the version being released, and a test validates the
+  template against GitLab's own CI schema, vendored under
+  `ci/gitlab/schema/`. The book gains a GitLab CI page, and the Badges page
+  uses the template. (#920)
+- A CDR environment in the SMART on openEHR posture,
+  `deploy/docker/e2e-ferroehr-smart.yml`: FerroEHR pinned by digest as the
+  resource server, a Platform base URL, and the committed static test issuer
+  it trusts, with a statement and an IXIT for it under `deploy/docker/smart/`.
+  `scripts/smart-lane.sh` runs every SMART document against it and refuses a
+  run that does not exit `0` or that skips a SMART row; CI's `smart` job runs
+  it on every pull request that touches the SMART documents, the test issuer
+  or the evaluator's token handling. (#921)
+
+### Changed
+
+- The eight CONTRIBUTION attestation ids in `catalogue/id-map.yaml` stay
+  uncarried and now name upstream report #751: the released commit DTO
+  requires `lifecycle_state` and `data` on every member and names no
+  existing version to attest, so it cannot express the RM's attestation of
+  an existing version. The report's patch proposes the member shape. (#690)
+- A gap in `catalogue/cases/surface.yaml` names either the `issue` that
+  tracks covering it or, for a recorded boundary the release leaves
+  uncoverable, a `note` quoting why, and `schemas/arazzo-surface.schema.json`
+  accepts either. The template gaps name their new issues, and the read and
+  example 400s, the ADL 1.4 JSON read and the ADL 2 XML forms are recorded
+  boundaries. (#714)
+- `veredictum test` and `test --rejudge` take their exit status from the
+  attribution each red row's record already carries. A run exits `1` when a
+  row counts against the server (it failed, a warning row excepted, or
+  errored with the server named), and `3`, which is new, when no row does but
+  at least one is inconclusive (the instrument could not judge it); `0` and
+  `2` are unchanged. The line before the exit names both counts. This is a
+  breaking change for a script that tests for exactly `1`: a run whose only
+  red rows the instrument could not judge used to exit `1` and now exits `3`.
+  The GitHub Action takes a `fail-on-inconclusive` input (default `true`);
+  with `false`, exit status `3` passes the step and the job summary lists the
+  inconclusive rows, while `1` and `2` always fail it. (#922)
+- The `base` and `options` badges follow the same attribution: an errored row
+  whose record names the server, or no one, counts against the server and
+  draws the badge red like a failed row; orange is left for a badge whose
+  only red rows are inconclusive. The Markdown summary's note says which
+  errored rows count against the server. (#922)
+
+### Removed
+
+- **Breaking for statement authors and certificate readers:** the statement's
+  `claims.profiles` member and its tier vocabulary (`CORE`, `STANDARD`,
+  `OPTIONS`, `SEC-BASIC`, `D`, `M`, `X`) are gone from
+  `schemas/statement.schema.json`, and no certificate carries a tier or family
+  rating. Nothing selected, gated or judged by them. A statement that still
+  lists `profiles` is refused by the schema, and `validate --statement` names
+  the field. Remove the member; a result already says what it covers, as BASE
+  and OPTIONS chapter by chapter. (#856)
+- The library functions `exec::recipes::bp_series` and
+  `exec::recipes::query_bp`, which nothing in the instrument called. (#940)
+
+### Fixed
+
+- The console marks a page hydrated only after every interactive control on
+  it has its listener, including controls inside streamed sections, so a
+  scripted click after the marker is never lost. (#377)
+- The console's Cancel control on the live screen cancels the run under
+  documentation capture mode too, instead of posting the pinned stand-in id
+  and failing; capture mode now pins only the id a screen displays, so the
+  permalinks and the certificate download link reach the run itself. (#404)
+- A console call whose body runs past the transport cap is answered `413`
+  with a sentence naming the cap, instead of `400` "One of its arguments could
+  not be decoded". The console counts the body bytes it read to tell the two
+  apart, rather than reading the framework's error message. (#530)
+- The console's Connect step works without JavaScript: Probe and Continue are
+  forms the server answers, a probe posted without the client bundle returns
+  to the step with its stored answer, Continue redirects to Scope, and a
+  refused form returns to the step stating the refusal with no Continue. A
+  display name or version the server states is no longer kept as an
+  operator-entered label in the connection draft, and an oversized label is
+  refused at the probe as well as at Continue. (#847)
+- A row whose case the results' outline places nowhere is counted on the
+  `base` badge, and the Markdown summary's table gives it an `Unplaced` line,
+  so a failed or errored unplaced row can never leave the badge or the summary
+  looking green. (#919)
+- The ADL 1.4 template `cnf.tpl.dv_coded_text_constraint_ref` defines the
+  constraint code `ac0001` its `CONSTRAINT_REF` uses and binds it to a
+  SNOMED-CT query, in a `component_ontologies` entry for the OBSERVATION
+  archetype. It used the code without defining it, which ADL 1.4 rule VACDF
+  forbids, so a server checking the rule was right to refuse the upload.
+  Integration tests now hold every ADL 1.4 content template to that rule,
+  and the composition the content cases commit to the archetype ids and
+  at-codes of every template it is committed against. (#927)
+- The ADL 2 template uploads, `definition/template_adl2/upload_template_adl2-minimal`
+  and every setup in `_setup/content_templates_adl2`, name upstream report
+  #939: they follow the OPT2 grammar, which has no `specialize` section,
+  while the AOM2 class model requires every operational template to be
+  specialised. (#927)
+- The reference workload `clinical-mix` is v2: thirteen derivations written
+  as plain YAML scalars ended at the ` #` of "(removed in #892)", which YAML
+  reads as a comment, so the loaded workload, `veredictum perf-workloads` and
+  the published workload page carried them cut mid-sentence. They are block
+  scalars now and load whole, the shares are unchanged, and a test refuses a
+  pinned workload whose description or derivation is cut. (#938)
+- The DV_EHR_URI list and pattern refusals send ehr URIs of the forms the RM
+  lists (`ehr:/ehr_id`, `ehr://system_id/ehr_id`), so a 422 shows the
+  template constraint was enforced rather than the RM `Scheme_valid`
+  invariant. The `https://` value they sent before is kept as its own row of
+  the `Scheme_valid` refusal. (#940)
+- The ADL 2 DV_QUANTITY templates no longer constrain `property`, which the
+  released RM DV_QUANTITY does not have, so a server that refuses them by
+  AOM2 VCARM is no longer marked down. The units and the units-magnitude
+  templates become `cnf_adl2_dv_quantity_units` and
+  `cnf_adl2_dv_quantity_units_mag`, the Celsius interval template becomes
+  `cnf_adl2_dv_interval_quantity_celsius`, and their payloads drop the
+  `property` member. The four cases that asserted a property match or a
+  property refusal are removed, and the tuple refusals name report #946.
+  Every ADL 2 accepted commit names report #945.
+
 ## [0.3.1] - 2026-10-31
 
 ### Added
@@ -5691,7 +5915,8 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
   attribution-stripping `commit-msg` hook with `scripts/install-hooks.sh`, and
   the Rust `.gitignore` set.
 
-[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.1...HEAD
+[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.0...v0.2.1
