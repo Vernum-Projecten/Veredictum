@@ -904,8 +904,14 @@ belongs to:
 ```
 
 The step writes `junit.xml`, `ctrf.json` and `summary.md` into `conformance/`,
-appends the summary to the job summary, and fails the job when a row failed or
-errored. Its page has a complete workflow.
+appends the summary to the job summary, annotates the rows that need attention,
+and fails the job when a row counts against the server. Its page has a
+complete workflow, and [GitLab CI](gitlab-ci.md) has the same as a template.
+
+`--annotations <file>` writes those annotations as GitHub Actions workflow
+commands: one `::error` per failed or errored row and one `::warning` per
+warning row, at most 10 of each, then a `::notice` naming how many more rows
+the summary lists.
 
 The JUnit file is read by GitLab (`artifacts:reports:junit`), Jenkins (the
 JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
@@ -913,8 +919,9 @@ server's response bodies verbatim, so it belongs where the operator keeps the
 run, never in a public artifact.
 
 A `perf-result.json` has one exported view, the Markdown summary, with the
-same content `show` prints laid out as tables. `--junit` and `--ctrf` refuse
-it with exit status 2, since a performance record has no test cases to list.
+same content `show` prints laid out as tables. `--junit`, `--ctrf` and
+`--annotations` refuse it with exit status 2, since a performance record has
+no test cases to list.
 
 ## badge
 
