@@ -510,6 +510,31 @@ mod tests {
         Ok(())
     }
 
+    /// A statement that still lists profile tiers under `claims.profiles` is
+    /// refused by the published schema, and the finding names the field.
+    #[test]
+    fn a_statement_listing_profile_tiers_is_refused_with_the_field_named()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let validator = jsonschema::validator_for(&crate::schema::statement_schema())?;
+        let statement = serde_json::json!({
+            "product": { "name": "x", "version": "1", "vendor": "v", "identifier": "urn:x" },
+            "schedule_release": "cnf-2.0-w2",
+            "claims": { "capabilities": ["ehr"], "profiles": ["CORE"] }
+        });
+        assert!(!validator.is_valid(&statement));
+        let dir = assert_fs::TempDir::new()?;
+        let path = dir.path().join("statement.json");
+        std::fs::write(&path, statement.to_string())?;
+        let findings = review_statement(&repo_root().join("catalogue"), &path);
+        assert!(
+            findings.iter().any(|f| f.check == CheckId::Statement
+                && f.message.contains("/claims")
+                && f.message.contains("profiles")),
+            "{findings:?}"
+        );
+        Ok(())
+    }
+
     /// A selected XML arm is refused while the statement leaves its format
     /// unclaimed, and accepted once it claims it.
     #[test]

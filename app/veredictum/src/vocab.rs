@@ -47,56 +47,6 @@ pub enum Component {
     Performance,
 }
 
-/// A capability family (the certificate's rating dimensions).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Family {
-    /// The platform (CDR) profile family: CORE/STANDARD/OPTIONS.
-    Platform,
-    /// The proposed Enterprise extension: D/M/X.
-    Enterprise,
-    /// The Security & Privacy family: SEC-BASIC (higher rungs are future SEC work).
-    Security,
-}
-
-/// A family-scoped profile tier token, the vocabulary of a statement's
-/// `claims.profiles`. Each tier knows its family.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum Tier {
-    /// Platform CORE: the capabilities every conformant CDR must serve.
-    #[serde(rename = "CORE")]
-    Core,
-    /// Platform STANDARD: capabilities expected of a full platform above CORE.
-    #[serde(rename = "STANDARD")]
-    Standard,
-    /// Platform OPTIONS: capabilities a CDR may serve, rated when present.
-    #[serde(rename = "OPTIONS")]
-    Options,
-    /// Security & Privacy basic rung: authentication, authorization, audit.
-    #[serde(rename = "SEC-BASIC")]
-    SecBasic,
-    /// Enterprise D (the proposed Enterprise family's data-management rung).
-    #[serde(rename = "D")]
-    EnterpriseD,
-    /// Enterprise M (the proposed Enterprise family's management rung).
-    #[serde(rename = "M")]
-    EnterpriseM,
-    /// Enterprise X (the proposed Enterprise family's extension rung).
-    #[serde(rename = "X")]
-    EnterpriseX,
-}
-
-impl Tier {
-    /// The family this tier is scoped to.
-    #[must_use]
-    pub fn family(self) -> Family {
-        match self {
-            Tier::Core | Tier::Standard | Tier::Options => Family::Platform,
-            Tier::SecBasic => Family::Security,
-            Tier::EnterpriseD | Tier::EnterpriseM | Tier::EnterpriseX => Family::Enterprise,
-        }
-    }
-}
-
 /// A wire format role (the §8.7 format axes; media types per the ITS-REST
 /// `Accept_*`/`ContentType_*` parameter files).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -269,13 +219,6 @@ pub enum ItsName {
 mod tests {
     use super::*;
 
-    #[test]
-    fn tier_families() {
-        assert_eq!(Tier::Core.family(), Family::Platform);
-        assert_eq!(Tier::SecBasic.family(), Family::Security);
-        assert_eq!(Tier::EnterpriseD.family(), Family::Enterprise);
-    }
-
     /// The spec-component keys are the one spelling every `applies` map, every
     /// statement's `spec_versions` and every renderer uses.
     #[test]
@@ -286,8 +229,6 @@ mod tests {
 
     #[test]
     fn serde_tokens() {
-        let tier: Tier = serde_json::from_value(serde_json::json!("SEC-BASIC")).unwrap();
-        assert_eq!(tier, Tier::SecBasic);
         let comp: Component =
             serde_json::from_value(serde_json::json!("DEFINITION_ADL14")).unwrap();
         assert_eq!(comp, Component::DefinitionAdl14);
@@ -314,24 +255,6 @@ impl Component {
         Component::SimplifiedFormats,
         Component::Security,
         Component::Performance,
-    ];
-}
-
-impl Family {
-    /// All variants, in vocabulary order (schema emission derives from this).
-    pub const ALL: &[Family] = &[Family::Platform, Family::Enterprise, Family::Security];
-}
-
-impl Tier {
-    /// All variants, in vocabulary order (schema emission derives from this).
-    pub const ALL: &[Tier] = &[
-        Tier::Core,
-        Tier::Standard,
-        Tier::Options,
-        Tier::SecBasic,
-        Tier::EnterpriseD,
-        Tier::EnterpriseM,
-        Tier::EnterpriseX,
     ];
 }
 
@@ -478,7 +401,6 @@ mod all_consts_tests {
     #[test]
     fn all_lists_are_exhaustive() {
         assert_eq!(Component::ALL.len(), 15);
-        assert_eq!(Tier::ALL.len(), 7);
         assert_eq!(FormatName::ALL.len(), 5);
         assert_eq!(CorpusFormat::ALL.len(), 9);
     }

@@ -25,7 +25,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use crate::party::{IdentitySource, InstrumentStatus};
-use crate::vocab::{FormatName, ItsName, SpecComponent, Tier};
+use crate::vocab::{FormatName, ItsName, SpecComponent};
 
 /// The schema version stamped into every `$id` (bumps with the schedule
 /// release, independently of the product version).
@@ -51,7 +51,6 @@ vocab_tokens!(
     ItsName,
     FormatName,
     SpecComponent,
-    Tier,
     IdentitySource,
     InstrumentStatus,
     crate::ixit::SpecProfile,
@@ -174,8 +173,7 @@ pub fn statement_schema() -> Value {
                         "type": "array",
                         "minItems": 1,
                         "items": { "type": "string", "pattern": IDENT_PATTERN }
-                    },
-                    "profiles": { "type": "array", "items": { "enum": tokens(Tier::ALL) } }
+                    }
                 }
             },
             "tech_profiles": {

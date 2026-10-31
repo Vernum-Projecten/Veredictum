@@ -82,11 +82,10 @@ model that killed it:
    maintainer. The same machine-readable philosophy openEHR already applies
    via BMM and OpenAPI.
 3. **Certification defined with international vocabulary** (§6, §9), with a
-   **multi-dimensional certificate**: functional profiles plus measured
-   performance-class ratings (§8.14) and the Security & Privacy rating
-   (SEC-BASIC, §8.15), Enterprise following (§11.11): a
-   conformity-assessment scheme per ISO/IEC 17000 — ISO/IEC 17050
-   supplier's declarations first, witnessed peer verification next,
+   certificate that signs one run: the functional result reads as BASE and
+   OPTIONS, chapter by chapter (§15.9), and the measured instruments report
+   their own figures (§8.14). The whole is a conformity-assessment scheme
+   per ISO/IEC 17000 — ISO/IEC 17050 supplier's declarations first, witnessed peer verification next,
    delegated ISO/IEC 17025-lab + 17065-certifier assessment (the only rung
    ISO/IEC 17067 governs) last — the architecture IHE and ONC already run
    and the shape EHDS Art 40 mandates.
@@ -116,7 +115,7 @@ vendored snapshot `specs/openehr/CNF/` @ `33251d2a`.
 |---|---|---|---|
 | Conformance Guide | DEVELOPMENT | 0.6.0, 08-Jan-2022 (`guide/master00-amendment_record.adoc`) | Methodology sound (SUT model, the specs→runnable-tests "square", API-vs-content test split). **Assessment layer all `TBD`**: `guide/master05-assessment.adoc` §Tooling, §Test Execution Report, §Conformance Statement, §Conformance Certification. "Platform Clients" scope: bare `TBD`. |
 | Platform Conformance Test Schedule | DEVELOPMENT | 0.8.6, 24-Mar-2022 (`platform_test_schedule/master00-amendment_record.adoc`) | See chapter map below. Minimum RM pinned 1.0.2 (`master03-overview.adoc`), behind RM 1.1.0/1.2.0. |
-| Platform Profiles | DEVELOPMENT | 2022 | CORE / STANDARD / OPTIONS capability matrix (`profiles/master03-profiles.adoc`). This repository carries no tiers: its capabilities are the folders under `catalogue/cases/`, and the behaviour the release leaves to the implementation is an option in `catalogue/capabilities.yaml`. |
+| Platform Profiles | DEVELOPMENT | 2022 | CORE / STANDARD / OPTIONS capability matrix (`profiles/master03-profiles.adoc`). The instrument adopts none of these tiers, in the statement or on the certificate: its capabilities are the folders under `catalogue/cases/`, the behaviour the release leaves to the implementation is an option in `catalogue/capabilities.yaml`, and a result reads as BASE and OPTIONS, chapter by chapter (§15.9). |
 | Conformance Certificate | DEVELOPMENT | 2021 | A **fictional worked example** ("BestEHR 2.4", "ACME EHR systems LLC", dated 2017; `certificate/master03-certificate.adoc`). No issuance procedure, assessor accreditation, validity period, or revocation anywhere. The book advertises BASIC-SEC/BASIC-PRIV ratings for which no defining test cases exist. |
 
 ### 3.2 Test Schedule chapter map
@@ -324,7 +323,7 @@ Conformance under CNF 2.0 attests exactly two ISO/IEC 25010 characteristics
   explicit SEC decision item. Measures follow ISO/IEC 25023.
 
 The Security & Privacy family (§8.15) sits **inside** functional
-suitability: SEC-BASIC attests the functional *correctness of security
+suitability: its cases attest the functional *correctness of security
 behaviours* (access rejected, audit written, demographic content separated)
 through the assertion machinery — and so does **signature verification**:
 where the Signing capability is claimed, the presence, verifiability, and
@@ -1027,13 +1026,13 @@ number.
 
 ### 8.15 The Security & Privacy schedule
 
-Security & Privacy is the fourth certificate rating of the 2017 schedule
-(Functional | Enterprise | Performance | Security),
-realized as an **assertion-machinery capability family** (§8's architecture:
-these are testable functional behaviours — this is explicitly NOT a security
-evaluation scheme in the Common Criteria sense, §11.9). The family's first
-level is **SEC-BASIC** (the 2017 schedule's "BASIC" rung); higher levels are
-future SEC work. SEC-BASIC's conformance points, each a family of ordinary workflows:
+The 2017 schedule rated Security & Privacy as its own certificate dimension
+(Functional | Enterprise | Performance | Security). Here it is the `security`
+capability folder of the functional catalogue (§8's architecture: these are
+testable functional behaviours, and this is explicitly NOT a security
+evaluation scheme in the Common Criteria sense, §11.9). Its conformance points
+come from the 2017 schedule's "BASIC" rung, each a family of ordinary
+workflows; deeper points are future SEC work:
 
 | Point | Conformance behaviour | Anchor |
 |---|---|---|
@@ -1042,7 +1041,7 @@ future SEC work. SEC-BASIC's conformance points, each a family of ordinary workf
 | **Authorization separation** | Admin-family operations reject non-administrative principals (`403`); read-only principals cannot commit. The premise is DECLARED, never presumed: no released operation discloses which roles a principal holds (upstream report #757), so the run's administrative principal is the one `--admin-auth` presents. | ITS-REST overview §HTTP status codes (the code of a refusal) |
 | **Audit accountability** | Every change-controlled commit carries `commit_audit` with committer identity and **server-set** `time_committed` (client value ignored); audit-event emission on writes where an audit log is supported (IHE ATNA-shaped). | RM common §change_control; ITS-REST overview §openehr-audit-details |
 | **Anonymous EHRs** | An EHR is creatable and fully operable with no demographic identity attached. | Profiles book §Non-Functional (existing CORE capability) |
-| **Version-signature integrity** *(applies when the Signing capability is claimed — Profiles: STANDARD, not SEC-BASIC-required)* | Committed VERSIONs carry a verifiable `signature`: produced over the canonical form of the version data, verifiable against the declared key material, with the version lineage (`preceding_version_uid` chain) intact — the digital signing chain. Verification behaviour is conformance; algorithm strength and key management are not (§6.3). | RM common §change_control (`ORIGINAL_VERSION.signature`); Profiles book §Non-Functional (Signing) |
+| **Version-signature integrity** *(applies when the Signing capability is claimed)* | Committed VERSIONs carry a verifiable `signature`: produced over the canonical form of the version data, verifiable against the declared key material, with the version lineage (`preceding_version_uid` chain) intact — the digital signing chain. Verification behaviour is conformance; algorithm strength and key management are not (§6.3). | RM common §change_control (`ORIGINAL_VERSION.signature`); Profiles book §Non-Functional (Signing) |
 
 Signing thereby gets its concrete conformance point (the signature workflows
 under `catalogue/cases/security/`, judged by the `signature` judge of §15.4). The
@@ -1052,9 +1051,9 @@ D-row's "encryption? id pseudonymisation?" aspects — declared in the
 statement's `non_functional` security slots and revisited when the
 Enterprise-D chapter (§11.11) makes export regression testable.
 
-**Certificate rating**: `Security: SEC-BASIC` is earned when every SEC-BASIC
-capability case passes (assertion machinery, per tech profile) — computed
-like every other cell, never declared.
+**What a result says**: the `security` folder's rows read like every other
+folder's, BASE and OPTIONS chapter by chapter (§15.9). No certificate carries
+a separate Security rating.
 
 The catalogue's `security` capability folder holds these behaviours; a
 party claims it like any other folder (§8.10).
@@ -1081,13 +1080,13 @@ attestation level so no rung can masquerade as a higher one:
 
 Cross-cutting rules:
 
-- **Certificate ratings are the machinery × family matrix** (the 2017
-  multi-dimensional certificate, realized cleanly): assertion-machinery
-  ratings per capability family — Platform (CORE/STANDARD/OPTIONS), and
-  Enterprise (D/M/X, §11.11) as its chapter lands and Security (SEC-BASIC,
-  §8.15) — each per tech profile, plus the measurement-machinery rating
-  (the knee and its population reading per environment, from a `perf-result`, §8.14). Every cell is computed from `results.json` +
-  `catalogue/capabilities.yaml`, never hand-asserted.
+- **What a certificate covers**: one run. It carries no tier or family
+  rating; its payload names the run and the digests of its `results.json`
+  and recording (§15.10), and that result reads as BASE and OPTIONS, chapter
+  by chapter, from `catalogue/chapters.yaml` and `catalogue/capabilities.yaml`
+  (§15.9). The measured instruments report the knee and its population
+  reading per environment in a `perf-result` (§8.14). Every figure is
+  computed from recorded data, never hand-asserted.
 - **Validity & supersession**: a statement/certificate names the CNF schedule
   release + spec versions + tech profile + exact product version. It never
   expires by clock alone; it is **superseded** when a newer schedule release
@@ -1138,8 +1137,8 @@ The deliverable a tendering authority can use the moment rung 0 exists:
   answering the framework's "RFI/RFP guides: future" TODO):
 
   > *The offered product must demonstrate openEHR conformance to [CNF
-  > schedule release ≥ R, profile ≥ STANDARD, technology profile including
-  > canonical JSON], evidenced by a published openEHR Conformance Statement
+  > schedule release ≥ R, capabilities C and option arms O, technology
+  > profile including canonical JSON], evidenced by a published openEHR Conformance Statement
   > at registry rung ≥ 1 for the product version offered, **or by equivalent
   > means of proof** (including a manufacturer's technical dossier or an
   > equivalent conformance report) demonstrating conformity to the same test
@@ -1148,7 +1147,8 @@ The deliverable a tendering authority can use the moment rung 0 exists:
   > witnessed re-run (rung 2) of the published or submitted results prior to
   > acceptance.*
 
-  Tender authors fill four parameters (release, profile, tech profile, rung).
+  Tender authors fill five parameters (release, capabilities, option arms,
+  tech profile, rung).
   **The equivalence clause is not optional**: Directive 2014/24/EU Arts 42–44
   oblige contracting authorities to accept equivalent labels and equivalent
   means of proof (and a technical dossier where the operator demonstrably
@@ -1215,8 +1215,8 @@ once §8.3 makes cases enumerable files:
    assumption.
 9. **Security & privacy conformance points** — the Certificate book
    advertises BASIC-SEC/BASIC-PRIV with no defining cases; only Signing +
-   Anonymous EHRs exist in the Profiles book. **The SEC-BASIC level is now
-   defined in §8.15** (EHR/demographic separation, authenticated access,
+   Anonymous EHRs exist in the Profiles book. **The BASIC rung's points are
+   now defined in §8.15** (EHR/demographic separation, authenticated access,
    authorization separation, audit accountability, anonymous EHRs) — this
    roadmap item authors its cases. Explicitly scoped small; not a security
    evaluation scheme.

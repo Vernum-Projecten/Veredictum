@@ -1022,10 +1022,7 @@ pub mod read {
             },
             schedule_release: String::from(veredictum::party::SCHEDULE_RELEASE),
             spec_versions: veredictum::party::SpecVersions::default(),
-            claims: veredictum::party::Claims {
-                capabilities,
-                profiles: Vec::new(),
-            },
+            claims: veredictum::party::Claims { capabilities },
             tech_profiles: Vec::new(),
             options: Vec::new(),
             non_functional: std::collections::BTreeMap::new(),
