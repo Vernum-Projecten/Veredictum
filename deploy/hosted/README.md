@@ -48,6 +48,8 @@ Two numbers say so, and neither is a code change:
 | `VEREDICTUM_MAX_CONCURRENT_RUNS` in `.env` | `2` | What the host can hold. A value that is not a positive integer refuses to start, rather than falling back to something larger |
 | `memory:` in `docker-compose.yml` | `6g` | Leaves roughly 2 GB for Caddy and the operating system. A limit above what the host has is not a limit |
 
+Both rest on the headroom figures in "Headroom on the CAX21" below.
+
 **On a resize, move both together** — and nothing else. That is the whole point
 of the cap being an environment value: a bigger box is an `.env` edit and a
 redeploy, not a release.
@@ -128,15 +130,18 @@ that will not start on a posture nobody has run before.
 
 ## What the instance keeps, and what it never holds
 
-In trial mode, which is how it runs today, nothing durable. A run's artifacts
-live long enough to be judged and shown. Because the box does not restart,
+In trial mode, which is how it runs today, nothing durable of a run's
+content. A run's artifacts live long enough to be judged and shown. The one
+durable trace is the run record (see "The operator's signal"): its id, how it
+ended, how long it waited and drove, and how many cases it completed, kept in
+the host's journal. It names no target, no SUT and no result. Because the box does not restart,
 the console sweeps expired run directories itself on a stated policy —
 `ARTIFACTS_KEPT`, currently a day — and a swept run answers through #386's
 honest "this console knows nothing about that run" rather than a stack trace.
 
-**No credential lives on this host while it is in trial mode.** `.env` carries
-the image reference, the concurrency cap and the issuance setting, and nothing
-that signs or opens anything. The console reads no signing key in trial mode,
+**No signing credential lives on this host while it is in trial mode.** `.env`
+carries the image reference, the concurrency cap, the issuance setting and the
+metrics token, and the token opens the operator's counters and nothing else. The console reads no signing key in trial mode,
 so the box runs without one.
 
 **No backups yet**, because in trial mode there is nothing here worth backing
@@ -324,6 +329,107 @@ Four layers, each answering a different question:
    closes it on recovery, so an open issue always means a live problem.
 4. Log rotation with a size cap, because a box that fills its disk fails in a
    way that looks like nothing at all.
+
+The watch also reads the operator's counters when the `HOSTED_METRICS_TOKEN`
+repository secret is set: a `/metrics` that refuses the token is `blind`, and
+a kernel OOM kill inside the console container is `strained`. Its log is
+public, so it prints the status code and nothing of the body.
+
+## The operator's signal
+
+Nothing a run produces is published, and nothing here changes that. The signal
+is counts, durations, queue depth, outcomes by kind, refusals by reason,
+resource use and error classes. No target URL, credential, SUT name, result row
+or response body is counted, labelled or logged by it. Every label is a closed
+vocabulary the console spells itself (`app/veredictum-console/src/metrics.rs`),
+so no text a visitor typed can reach it. The box holds no signing key, and
+none of this is an input to a verdict or a record.
+
+### The counters, without shell access
+
+`https://console.veredictum.eu/metrics`, in the Prometheus text format, to a
+request carrying `Authorization: Bearer <VEREDICTUM_METRICS_TOKEN>`:
+
+```bash
+curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$TOKEN") \
+  https://console.veredictum.eu/metrics
+```
+
+With no token in `.env` the route answers 404. A wrong or missing header gets
+401. Caddy's access log redacts the `Authorization` header by default.
+
+| Series | What it answers |
+|---|---|
+| `veredictum_runs_accepted_total`, `_started_total` | how many runs were taken, and how many reached an engine |
+| `veredictum_runs_ended_total{outcome}` | `finished`, `cancelled`, `expired` (the wall-clock cap), `failed` (no parseable record), `not_started` (the engine would not spawn), `withdrawn` (cancelled while queued) |
+| `veredictum_run_duration_seconds` | a histogram of engine drive time, buckets up to the 30-minute cap |
+| `veredictum_run_cases_completed_total` | cases the engines reported complete |
+| `veredictum_runs_running`, `_queued`, `_max_concurrent` | the queue now, beside the cap |
+| `veredictum_refusals_total{guard,reason}` | the rate ledger (`probe`, `start`), the target guard (`unreadable`, `no_host`, `unresolvable`, `unchecked`, or the refused family such as `private`), the statement validator (`too_large`, `not_json`, `schema_invalid`, `unparsable`), and the one-run-per-visitor cap |
+| `veredictum_server_fn_responses_total{class}` | server-function answers by status class; a refusal a server function raises answers 5xx, so subtract the refusals to read the fault rate |
+| `veredictum_container_*` | the container's cgroup: memory now, peak and limit, anonymous memory, CPU seconds, process count, OOM kills |
+
+The counters are process memory. A restart zeroes them, the same as the job
+map; the container figures are the cgroup's own and also restart with it.
+
+### The run record, past a restart
+
+Every run writes one JSON line when its engine starts and one when it leaves
+the job map, to the console's standard error:
+
+```json
+{"event":"run_ended","run":"3f2504e0-…","outcome":"finished","queued_ms":0,"driving_ms":435120,"cases_completed":1689,"cases_total":1689}
+```
+
+The compose file sends the console's output to the host's journal, which
+keeps it through a container recreate and a reboot, capped at 1 GB and a year
+by the drop-in `cloud-init.yaml` writes. A run that has a `run_started` line
+and no `run_ended` line was in flight when the console itself stopped. On the
+box:
+
+```bash
+journalctl CONTAINER_TAG=veredictum-console -o cat --since -7d \
+  | jq -cR 'fromjson? | select(.event == "run_ended")'
+```
+
+### Headroom on the CAX21
+
+The two caps above are starting values until a measured campaign on this host
+confirms them. What they rest on today, and how each figure was reached:
+
+| Figure | Value | How |
+|---|---|---|
+| Catalogue | 219 documents, 1,689 workflows | `veredictum validate`, 2026-10-31 |
+| Gate, the first thing every run does | 244 MB peak RSS, 3.2 s | `/usr/bin/time -l veredictum validate`, release build, Apple M-series |
+| Full campaign, no server answering | 494 MB peak RSS, 2.0 CPU-seconds, 43 MB recording, 22 MB results | `/usr/bin/time -l veredictum test` against a closed port, same build: every exchange fails at connect, so the recording has requests and no response bodies |
+| Full campaign, live | about 435 s | 1,146 cases took 295 s against a live third-party CDR over the internet on 2026-08-31 (#467), 0.26 s a case, scaled to 1,689 |
+
+Memory is the ceiling, as `run_job.rs` says. A live recording adds every
+response body to the bodiless 494 MB, so the budget is 1.5 GB per engine,
+three times the bodiless figure, plus about 250 MB for the console's own
+catalogue read. Two runs come to about 3.3 GB of the 6 GB limit. CPU is not the
+ceiling: a run waits on the server for nearly all of its time, and the bodiless
+campaign spent 2 CPU-seconds on the whole catalogue, so two runs use well under
+two of the four cores. The wall-clock cap of 30 minutes sits four times above
+the estimated campaign.
+
+The budget is an estimate, and the on-box measurement replaces it. After a
+deploy, so the container's counters start clean, drive one full campaign
+against a public CDR and sample the counters while it runs:
+
+```bash
+while sleep 5; do
+  curl -sS -H @<(printf 'Authorization: Bearer %s\n' "$TOKEN") \
+    https://console.veredictum.eu/metrics \
+    | awk '/^veredictum_container_(memory_anon_bytes|memory_peak_bytes|cpu_seconds_total|oom_kills_total) /'
+done
+```
+
+The largest `memory_anon_bytes` is the working set; `memory_peak_bytes`
+includes page cache and is the upper bound. CPU use is the
+`cpu_seconds_total` difference over the wall-clock time, divided by four. Then
+drive two at once. Write both results into this table, and move the caps if
+they say to.
 
 ## Provisioning
 

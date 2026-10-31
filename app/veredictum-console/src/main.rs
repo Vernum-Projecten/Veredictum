@@ -91,6 +91,15 @@ async fn serve() -> anyhow::Result<()> {
             veredictum_console::certificates::IssuanceMode::Issuing => "on",
         }
     );
+    // Whether the counters are served, never the token that opens them.
+    eprintln!(
+        "veredictum-console: metrics {}",
+        if state.metrics.access().is_some() {
+            "served at /metrics behind the operator's token"
+        } else {
+            "not served (no token set)"
+        }
+    );
     if let Err(reason) = state.catalogue.as_ref() {
         // A load diagnostic about a mount, never SUT data: no response body
         // reaches a log stream.

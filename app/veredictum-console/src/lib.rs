@@ -46,6 +46,8 @@ pub mod engine;
 pub mod identity;
 #[cfg(feature = "ssr")]
 pub mod linger;
+#[cfg(feature = "ssr")]
+pub mod metrics;
 pub mod pages;
 #[cfg(feature = "ssr")]
 pub mod posture;

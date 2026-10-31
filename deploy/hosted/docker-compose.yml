@@ -53,9 +53,18 @@ services:
       # stays one so a box this file reaches without its `.env` starts small.
       VEREDICTUM_MAX_CONCURRENT_RUNS: "${VEREDICTUM_MAX_CONCURRENT_RUNS:-1}"
     env_file:
-      # Holds CONSOLE_IMAGE, the concurrency cap and the certificate setting.
-      # Readable by the service user alone.
+      # Holds CONSOLE_IMAGE, the concurrency cap, the certificate setting and
+      # the metrics token. Readable by the service user alone.
       - .env
+    # The host's journal keeps the console's output, so the one record line
+    # each run writes (#489) survives the container being recreated by a
+    # deploy, which deletes a json-file log with it. Retention is the journal's
+    # own cap, set in cloud-init.yaml. `docker logs` still reads it
+    # (https://docs.docker.com/engine/logging/drivers/journald/).
+    logging:
+      driver: journald
+      options:
+        tag: veredictum-console
     volumes:
       # The signing key's directory, read-only. In trial mode, the default, the
       # console never opens it, so it may be empty; README.md, section

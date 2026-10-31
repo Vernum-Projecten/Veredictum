@@ -23,6 +23,8 @@ mod engine_gate;
 
 mod hosted_posture;
 #[cfg(feature = "ssr")]
+mod metrics_http;
+#[cfg(feature = "ssr")]
 mod read_surfaces;
 #[cfg(feature = "ssr")]
 mod run_live;

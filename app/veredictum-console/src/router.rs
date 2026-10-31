@@ -96,6 +96,18 @@ pub fn router(
         // bundle or the app shell is broken: it claims only "the server
         // accepts connections".
         .route("/healthz", axum::routing::get(|| async { "ok" }))
+        // The operator's counters (#489), outside the route tree for the same
+        // reason, and behind the operator's bearer token.
+        .route(
+            crate::metrics::ROUTE,
+            axum::routing::get({
+                let state = state.clone();
+                move |headers: axum::http::HeaderMap| {
+                    let state = state.clone();
+                    async move { crate::metrics::answer(&state, &headers).await }
+                }
+            }),
+        )
         // The verifying keys, outside the Leptos route tree for the same
         // reason: a verifier needs them whatever state the app shell is in.
         .route(
@@ -145,6 +157,12 @@ pub fn router(
         .layer(axum::middleware::from_fn_with_state(
             caps.server_fn,
             caller_faults_are_4xx,
+        ))
+        // Outside the refusal layer, so a server function's response is
+        // counted with the status its caller reads (#489).
+        .layer(axum::middleware::from_fn_with_state(
+            state.metrics.clone(),
+            crate::metrics::count_server_fns,
         ))
         .with_state(leptos_options))
 }

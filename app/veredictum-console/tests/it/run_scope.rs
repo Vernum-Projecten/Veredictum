@@ -56,6 +56,7 @@ fn the_scope_preview_counts_what_the_engine_processes() -> Result<(), Box<dyn st
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     };
     let preview = veredictum_console::run_api::read::scope_preview(&state, SCOPE_FILTER)
         .map_err(|e| format!("preview: {e}"))?;
@@ -126,6 +127,7 @@ fn the_draft_view_carries_no_secret() -> Result<(), Box<dyn std::error::Error>> 
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     };
     veredictum_console::run_api::read::save_connection(
         &state,
@@ -223,6 +225,7 @@ fn drafted_state() -> veredictum_console::state::ConsoleState {
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     }
 }
 
