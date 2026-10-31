@@ -514,6 +514,15 @@ enum Command {
         /// appended to. GitHub sets the variable in every job step.
         #[arg(long, env = "GITHUB_STEP_SUMMARY", hide_env_values = true)]
         step_summary: Option<PathBuf>,
+        /// Write the GitHub Actions annotations here: one `::error` workflow
+        /// command per failed or errored row and one `::warning` per warning
+        /// row, titled with the case id and carrying what was checked, the
+        /// cited sentence and what was expected and received. GitHub shows
+        /// at most 10 of each kind per step, so at most 10 of each are
+        /// written and a closing `::notice` names how many more rows the
+        /// summary lists. An Arazzo results document only.
+        #[arg(long)]
+        annotations: Option<PathBuf>,
     },
     /// Draw the static badges of a result document, for a README.
     ///
@@ -759,6 +768,7 @@ fn main() -> ExitCode {
             ctrf,
             markdown,
             step_summary,
+            annotations,
         } => export_command(
             &results,
             &ExportTargets {
@@ -766,6 +776,7 @@ fn main() -> ExitCode {
                 ctrf: ctrf.as_deref(),
                 markdown: markdown.as_deref(),
                 step_summary: step_summary.as_deref(),
+                annotations: annotations.as_deref(),
             },
         ),
         Command::Perf {
@@ -1452,6 +1463,8 @@ struct ExportTargets<'a> {
     /// The GitHub Actions job summary file the Markdown summary is appended
     /// to.
     step_summary: Option<&'a Path>,
+    /// The GitHub Actions annotations file.
+    annotations: Option<&'a Path>,
 }
 
 /// Writes the views of an Arazzo results document.
@@ -1465,14 +1478,20 @@ fn export_command(results: &Path, targets: &ExportTargets<'_>) -> ExitCode {
         Ok(views) => views,
         Err(e) => return fail(&e),
     };
-    let (junit, ctrf) = match &views {
-        Exports::Results(views) => (Some(&views.junit), Some(&views.ctrf)),
-        Exports::Perf { .. } => (None, None),
+    let (junit, ctrf, annotations) = match &views {
+        Exports::Results(views) => (
+            Some(&views.junit),
+            Some(&views.ctrf),
+            Some(&views.annotations),
+        ),
+        Exports::Perf { .. } => (None, None, None),
     };
-    if junit.is_none() && (targets.junit.is_some() || targets.ctrf.is_some()) {
+    if junit.is_none()
+        && (targets.junit.is_some() || targets.ctrf.is_some() || targets.annotations.is_some())
+    {
         eprintln!(
-            "{} is a perf-result, which has a Markdown view only: --junit and --ctrf read an \
-             Arazzo results document",
+            "{} is a perf-result, which has a Markdown view only: --junit, --ctrf and \
+             --annotations read an Arazzo results document",
             results.display()
         );
         return ExitCode::from(2);
@@ -1481,6 +1500,7 @@ fn export_command(results: &Path, targets: &ExportTargets<'_>) -> ExitCode {
         (targets.junit, junit),
         (targets.ctrf, ctrf),
         (targets.markdown, Some(&views.markdown().to_owned())),
+        (targets.annotations, annotations),
     ] {
         let (Some(path), Some(body)) = (path, body) else {
             continue;

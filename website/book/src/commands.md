@@ -807,6 +807,9 @@ Options:
           
           [env: GITHUB_STEP_SUMMARY]
 
+      --annotations <ANNOTATIONS>
+          Write the GitHub Actions annotations here: one `::error` workflow command per failed or errored row and one `::warning` per warning row, titled with the case id and carrying what was checked, the cited sentence and what was expected and received. GitHub shows at most 10 of each kind per step, so at most 10 of each are written and a closing `::notice` names how many more rows the summary lists. An Arazzo results document only
+
   -h, --help
           Print help (see a summary with '-h')
 ```

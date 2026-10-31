@@ -31,6 +31,7 @@ use crate::arazzo::rows::Row;
 use crate::arazzo::spec_profile::Specification;
 use crate::arazzo::structure::{Outline, Place, SPEC_DIVERGE_TAG, Standing, Tier};
 use crate::party::InstrumentStatus;
+use crate::pipeline::arazzo_run::Bearing;
 
 /// The CTRF specification version the CTRF view is written to
 /// (<https://github.com/ctrf-io/ctrf/tree/v0.2.0>).
@@ -1353,9 +1354,119 @@ fn md_skipped(out: &mut String, results: &Results) {
     }
     out.push_str("\n</details>\n");
 }
+
+/// How many annotations of one kind GitHub Actions shows per step: "GitHub
+/// Actions are limited to 10 warning annotations and 10 error annotations per
+/// step" (<https://docs.github.com/en/rest/checks/runs>).
+pub const GITHUB_ANNOTATIONS_PER_KIND: usize = 10;
+
+/// Escapes a workflow command's message, as the Actions toolkit's
+/// `escapeData` does
+/// (<https://github.com/actions/toolkit/blob/main/packages/core/src/command.ts>).
+fn gh_data(text: &str) -> String {
+    text.replace('%', "%25")
+        .replace('\r', "%0D")
+        .replace('\n', "%0A")
+}
+
+/// Escapes a workflow command's property value, as the toolkit's
+/// `escapeProperty` does.
+fn gh_property(text: &str) -> String {
+    gh_data(text).replace(':', "%3A").replace(',', "%2C")
+}
+
+/// The message of one row's annotation: what was checked, the cited
+/// sentence with its source and section, what was expected and received.
+fn annotation_message(row: &ResultRow, mark: Mark) -> String {
+    let mut message = String::from(match mark {
+        Mark::Failed => "Failed: counts against the server.",
+        Mark::Warning => {
+            "Warning: a SHOULD the server did not follow; never counts against the server."
+        }
+        Mark::Errored if Bearing::of(row) == Bearing::AgainstServer => {
+            "Errored: counts against the server."
+        }
+        Mark::Errored => {
+            "Errored: the instrument could not judge this row; it does not count against the server."
+        }
+        Mark::Passed | Mark::Skipped => "",
+    });
+    if let Some(why) = &row.explanation {
+        let _ = write!(message, "\nChecked: {}", why.what);
+        if let Some(cite) = &why.why {
+            let _ = write!(
+                message,
+                "\nCited: \"{}\" ({}, {})",
+                cite.quote, cite.source, cite.section
+            );
+        }
+        let _ = write!(
+            message,
+            "\nExpected: {}\nReceived: {}",
+            why.expected, why.received
+        );
+    }
+    message
+}
+
+/// Writes the GitHub Actions workflow commands that annotate a run: one
+/// `::error` per failed or errored row and one `::warning` per warning row,
+/// each titled with the case id and its row
+/// (<https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands>).
+///
+/// At most [`GITHUB_ANNOTATIONS_PER_KIND`] of each kind are written, in the
+/// order the rows appear, and a closing `::notice` names how many more rows
+/// the summary lists. No annotation names a file: the catalogue a row was
+/// read from ships in the image, never in the repository the run annotates.
+/// Empty when no row needs attention.
+#[must_use]
+pub fn github_annotations(results: &Results) -> String {
+    let mut out = String::new();
+    let (mut errors, mut warnings) = (0_usize, 0_usize);
+    for row in &results.rows {
+        let mark = Mark::of(row);
+        let (command, count) = match mark {
+            Mark::Failed | Mark::Errored => ("error", &mut errors),
+            Mark::Warning => ("warning", &mut warnings),
+            Mark::Passed | Mark::Skipped => continue,
+        };
+        *count = count.saturating_add(1);
+        if *count > GITHUB_ANNOTATIONS_PER_KIND {
+            continue;
+        }
+        let _ = writeln!(
+            out,
+            "::{command} title={}::{}",
+            gh_property(&test_name(row)),
+            gh_data(&annotation_message(row, mark))
+        );
+    }
+    let more_errors = errors.saturating_sub(GITHUB_ANNOTATIONS_PER_KIND);
+    let more_warnings = warnings.saturating_sub(GITHUB_ANNOTATIONS_PER_KIND);
+    if more_errors > 0 || more_warnings > 0 {
+        let _ = writeln!(
+            out,
+            "::notice title={}::{}",
+            gh_property("Veredictum: more rows than annotations"),
+            gh_data(&format!(
+                "{more_errors} more failed or errored row(s) and {more_warnings} more warning \
+                 row(s) than GitHub shows as annotations ({GITHUB_ANNOTATIONS_PER_KIND} of each \
+                 kind per step); the job summary lists every row."
+            ))
+        );
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_workflow_command_cannot_be_broken_by_its_text() {
+        assert_eq!(gh_data("50% a\r\nb"), "50%25 a%0D%0Ab");
+        assert_eq!(gh_property("ehr/a: b, c"), "ehr/a%3A b%2C c");
+    }
 
     #[test]
     fn a_character_xml_cannot_carry_is_replaced() {

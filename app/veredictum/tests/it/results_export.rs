@@ -25,7 +25,8 @@ use serde_json::Value;
 use veredictum::arazzo::document::ArazzoDocument;
 use veredictum::arazzo::evaluate::{Plan, rejudge};
 use veredictum::arazzo::export::{
-    CTRF_SPEC_VERSION, EXTENSION_NAMESPACE, WARNING_LINE, ctrf, junit, markdown,
+    CTRF_SPEC_VERSION, EXTENSION_NAMESPACE, GITHUB_ANNOTATIONS_PER_KIND, WARNING_LINE, ctrf,
+    github_annotations, junit, markdown,
 };
 use veredictum::arazzo::har::Har;
 use veredictum::arazzo::results::{
@@ -817,4 +818,52 @@ fn the_show_command_refuses_another_shape() {
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(2), "{output:?}");
+}
+
+#[test]
+fn the_github_annotations_are_pinned() {
+    insta::assert_snapshot!(github_annotations(&fixture()));
+}
+
+#[test]
+fn a_run_with_nothing_to_flag_writes_no_annotation() {
+    let mut results = fixture();
+    results
+        .rows
+        .retain(|r| matches!(r.status, Status::Passed | Status::Skipped));
+    assert_eq!(github_annotations(&results), "");
+}
+
+#[test]
+fn annotations_stop_at_the_per_step_limit_and_name_the_rest() {
+    let mut results = fixture();
+    let failed = results.rows[1].clone();
+    let warning = results.rows[2].clone();
+    results.rows = (0..13)
+        .map(|i| ResultRow {
+            row: i,
+            ..failed.clone()
+        })
+        .chain((0..11).map(|i| ResultRow {
+            row: i,
+            ..warning.clone()
+        }))
+        .collect();
+    let text = github_annotations(&results);
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(
+        lines.iter().filter(|l| l.starts_with("::error ")).count(),
+        GITHUB_ANNOTATIONS_PER_KIND
+    );
+    assert_eq!(
+        lines.iter().filter(|l| l.starts_with("::warning ")).count(),
+        GITHUB_ANNOTATIONS_PER_KIND
+    );
+    let last = lines.last().copied().unwrap_or_default();
+    assert!(last.starts_with("::notice "), "{last}");
+    assert!(
+        last.contains("3 more failed or errored row(s) and 1 more warning row(s)"),
+        "{last}"
+    );
+    assert_eq!(lines.len(), 2 * GITHUB_ANNOTATIONS_PER_KIND + 1);
 }

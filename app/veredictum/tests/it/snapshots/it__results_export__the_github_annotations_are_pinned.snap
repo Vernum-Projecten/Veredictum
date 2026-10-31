@@ -1,0 +1,8 @@
+---
+source: app/veredictum/tests/it/results_export.rs
+assertion_line: 825
+expression: github_annotations(&fixture())
+---
+::error title=ehr/create_twice row 1::Failed: counts against the server.%0AChecked: Create an EHR with the same ehr_id again.%0ACited: "Can happen when the supplied `ehr_id` is already used by an existing EHR." (specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description)%0AExpected: status 409%0AReceived: status 201
+::warning title=ehr/etag row 0::Warning: a SHOULD the server did not follow; never counts against the server.%0AChecked: Create an EHR with the same ehr_id again.%0ACited: "The server SHOULD send an ETag." (specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description)%0AExpected: status 409%0AReceived: no ETag header
+::error title=ehr/escape row 0::Errored: the instrument could not judge this row; it does not count against the server.%0AChecked: Create an EHR with the same ehr_id again.%0AExpected: status 409%0AReceived: the body | did not parse: ```

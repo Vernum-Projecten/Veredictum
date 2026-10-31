@@ -16,14 +16,14 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use crate::arazzo::export::{ctrf, junit, markdown};
+use crate::arazzo::export::{ctrf, github_annotations, junit, markdown};
 use crate::arazzo::results::Results;
 use crate::arazzo::terminal::{ShowOptions, render};
 use crate::badge::{Badge, badges, perf_badge};
 use crate::perf_result::{PerfResult, view};
 use crate::pipeline::{Error, RenderedFile, read_json};
 
-/// The three views of one results document.
+/// The views of one results document.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResultsExports {
     /// The JUnit XML view.
@@ -32,6 +32,9 @@ pub struct ResultsExports {
     pub ctrf: String,
     /// The Markdown summary.
     pub markdown: String,
+    /// The GitHub Actions workflow commands annotating each row that needs
+    /// attention, at most GitHub's per-step limit of each kind.
+    pub annotations: String,
 }
 
 /// The views of a document of either family.
@@ -137,6 +140,7 @@ fn results_exports(results: &Results) -> Result<ResultsExports, Error> {
         junit: junit(results)?,
         ctrf: ctrf(results)?,
         markdown: markdown(results),
+        annotations: github_annotations(results),
     })
 }
 
