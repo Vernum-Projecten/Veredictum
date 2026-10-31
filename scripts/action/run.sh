@@ -6,8 +6,8 @@
 # It runs the instrument's container image twice: `test` drives the shipped
 # Arazzo catalogue against the server under test and writes `results.json` and
 # the HAR recording into the output directory, then `export` writes the JUnit
-# XML, CTRF and Markdown views beside them. The Markdown summary is appended to
-# the job summary. The step exits with the run's own status: 0 when every row
+# XML, CTRF and Markdown views beside them, and `badge` writes the badges into
+# `badges/` under it. The Markdown summary is appended to the job summary. The step exits with the run's own status: 0 when every row
 # passed or was skipped, 1 when a verdict-bearing row failed or errored, 2 when
 # the run could not start or finish.
 #
@@ -29,6 +29,15 @@
 #                   version this action's own tree carries
 #   IN_PULL         true | false: pull the image before resolving it
 #   IN_NETWORK      the container network the run joins
+#   IN_BADGE_BRANCH the branch of the calling repository the badges are pushed
+#                   to (optional; empty pushes nothing)
+#
+# The badge push uses GITHUB_TOKEN from the step's env, by name, and happens
+# only on a run that is not a pull request (GITHUB_EVENT_NAME) and whose
+# GITHUB_REF is the repository's default branch, read from the event payload
+# at GITHUB_EVENT_PATH. The branch holds one parentless commit with the badges
+# and nothing else, replaced on every push, and no commit is made when the
+# badges did not change.
 #
 # Credentials are read from the variables the engine reads
 # (VEREDICTUM_CDR_USER, VEREDICTUM_CDR_PASSWORD, VEREDICTUM_CDR_TOKEN and
@@ -59,6 +68,9 @@ readonly CREDENTIALS=(
 )
 readonly SCOPED_TOKEN_PREFIX=VEREDICTUM_SCOPED_TOKEN_
 readonly RELEASE_IMAGE=ghcr.io/vernum-projecten/veredictum
+readonly BADGES=(base options warnings profile instrument)
+readonly BOT_NAME='github-actions[bot]'
+readonly BOT_EMAIL='41898282+github-actions[bot]@users.noreply.github.com'
 
 # output <name> <value>: a step output, when the runner provides the file.
 output() {
@@ -96,6 +108,94 @@ absolute() {
 action_version() {
   awk -F'"' '/^\[package\]/{p=1} p && /^version = /{print $2; exit}' \
     "${GITHUB_ACTION_PATH:?}/app/veredictum/Cargo.toml"
+}
+
+# badge_git <args…>: git without the runner's global or system configuration,
+# so no signing key, hook or credential helper of the runner applies.
+badge_git() {
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git "$@"
+}
+
+# publish_badges <dir> <branch>: push the badges in <dir> to <branch> of the
+# calling repository when this run may, and print why when it may not. Returns
+# non-zero only when a push was due and failed.
+publish_badges() {
+  local dir="$1" branch="$2" event="${GITHUB_EVENT_NAME:-}" ref="${GITHUB_REF:-}"
+  local default="" server="${GITHUB_SERVER_URL:-https://github.com}" remote work
+  case "$event" in
+    pull_request | pull_request_target)
+      echo "badges not pushed: a ${event} run never updates the badge branch"
+      return 0
+      ;;
+  esac
+  if [[ -n "${GITHUB_EVENT_PATH:-}" && -f "$GITHUB_EVENT_PATH" ]]; then
+    default="$(jq -r '.repository.default_branch // empty' "$GITHUB_EVENT_PATH")" || default=""
+  fi
+  if [[ -z "$default" ]]; then
+    echo "badges not pushed: the event payload names no default branch"
+    return 0
+  fi
+  if [[ "$ref" != "refs/heads/${default}" ]]; then
+    echo "badges not pushed: ${ref:-no ref} is not the default branch refs/heads/${default}"
+    return 0
+  fi
+  if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+    echo "::error::badge-branch is set, but GITHUB_TOKEN is not in the step's env" >&2
+    return 1
+  fi
+  if [[ -z "${GITHUB_REPOSITORY:-}" ]]; then
+    echo "::error::GITHUB_REPOSITORY is not set" >&2
+    return 1
+  fi
+  remote="${server}/${GITHUB_REPOSITORY}.git"
+
+  local status=0 header
+  work="$(mktemp -d)"
+  # The token reaches git through its environment, never a command line.
+  header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+  export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.${server}/.extraheader" GIT_CONFIG_VALUE_0="$header"
+  push_badges "$dir" "$branch" "$remote" "$work" || status=$?
+  unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
+  rm -rf -- "$work"
+  return "$status"
+}
+
+# push_badges <dir> <branch> <remote> <work>: commit the badges in <dir> as the
+# one commit of <branch> at <remote>, using the scratch repository <work>,
+# unless that branch already holds exactly these badges.
+push_badges() {
+  local dir="$1" branch="$2" remote="$3" work="$4" old tree commit name
+  badge_git init --quiet "$work"
+  for name in "${BADGES[@]}"; do
+    cp "${dir}/${name}.svg" "${dir}/${name}.json" "$work/"
+  done
+  badge_git -C "$work" add --all
+  tree="$(badge_git -C "$work" write-tree)"
+  if ! old="$(badge_git ls-remote "$remote" "refs/heads/${branch}")"; then
+    echo "::error::could not read ${branch} of ${GITHUB_REPOSITORY}" >&2
+    return 1
+  fi
+  old="${old%%[[:space:]]*}"
+  if [[ -n "$old" ]]; then
+    if ! badge_git -C "$work" fetch --quiet --depth 1 "$remote" "refs/heads/${branch}"; then
+      echo "::error::could not fetch ${branch} of ${GITHUB_REPOSITORY}" >&2
+      return 1
+    fi
+    old="$(badge_git -C "$work" rev-parse FETCH_HEAD)"
+    if [[ "$(badge_git -C "$work" rev-parse "FETCH_HEAD^{tree}")" == "$tree" ]]; then
+      echo "badges unchanged: nothing pushed to ${branch}"
+      return 0
+    fi
+  fi
+  commit="$(GIT_AUTHOR_NAME="$BOT_NAME" GIT_AUTHOR_EMAIL="$BOT_EMAIL" \
+    GIT_COMMITTER_NAME="$BOT_NAME" GIT_COMMITTER_EMAIL="$BOT_EMAIL" \
+    badge_git -C "$work" commit-tree "$tree" -m "Veredictum badges for ${GITHUB_SHA:-an unknown commit}")"
+  if ! badge_git -C "$work" push --quiet --force-with-lease="refs/heads/${branch}:${old}" \
+    "$remote" "${commit}:refs/heads/${branch}"; then
+    echo "::error::could not push the badges to ${branch} of ${GITHUB_REPOSITORY}" >&2
+    return 1
+  fi
+  echo "badges pushed to ${branch} as ${commit}"
 }
 
 main() {
@@ -146,6 +246,10 @@ main() {
   # earlier run in the same directory would otherwise be exported as this one.
   rm -f "${out_dir}/results.json" "${out_dir}/recording.har" "${out_dir}/junit.xml" \
     "${out_dir}/ctrf.json" "${out_dir}/summary.md"
+  local badge
+  for badge in "${BADGES[@]}"; do
+    rm -f "${out_dir}/badges/${badge}.svg" "${out_dir}/badges/${badge}.json"
+  done
   output results "${out_dir}/results.json"
 
   # The image runs as uid 65532; running as the caller's uid instead lets the
@@ -230,6 +334,23 @@ main() {
     if [[ "$code" -eq 0 ]]; then code=2; fi
   fi
 
+  local badge_code=0
+  docker run --rm --network none --user "$(id -u):$(id -g)" -v "${out_dir}:/work/out" \
+    "$image_id" badge --results /work/out/results.json --out /work/out/badges || badge_code=$?
+  if [[ "$badge_code" -eq 0 ]]; then
+    output badges "${out_dir}/badges"
+    if [[ -z "${IN_BADGE_BRANCH:-}" ]]; then
+      echo "badges not pushed: the badge-branch input is empty"
+    elif ! publish_badges "${out_dir}/badges" "$IN_BADGE_BRANCH"; then
+      summary "Veredictum could not push the badges to \`${IN_BADGE_BRANCH}\`; the step log says why."
+      if [[ "$code" -eq 0 ]]; then code=2; fi
+    fi
+  else
+    echo "::error::the badges of ${out_dir}/results.json exited ${badge_code}" >&2
+    summary "Veredictum could not draw the badges (exit status ${badge_code})."
+    if [[ "$code" -eq 0 ]]; then code=2; fi
+  fi
+
   output exit-code "$code"
   exit "$code"
 }
@@ -276,6 +397,13 @@ for arg in "$@"; do
       printf '<testsuites/>\n' > "$out/junit.xml"
       printf '{}\n' > "$out/ctrf.json"
       printf '# Veredictum results: stub\n' > "$out/summary.md"
+      exit 0 ;;
+    badge)
+      mkdir -p "$out/badges"
+      for name in base options warnings profile instrument; do
+        printf '<svg>%s %s</svg>\n' "$name" "${STUB_BADGE:-first}" > "$out/badges/$name.svg"
+        printf '{"schemaVersion":1,"label":"%s"}\n' "$name" > "$out/badges/$name.json"
+      done
       exit 0 ;;
   esac
 done
@@ -359,6 +487,97 @@ STUB
     VEREDICTUM_SCOPED_TOKEN_TEMPLATE_READ=issued-s3cr3t
   check "a variable outside the credential names is not passed" 0 '' 'UNRELATED_SECRET' \
     UNRELATED_SECRET=x
+  check "the badges are drawn into the output directory" 0 \
+    '^badges=.*/veredictum-results/badges$' ''
+  if [[ -f "$dir/work/veredictum-results/badges/base.svg" \
+    && -f "$dir/work/veredictum-results/badges/instrument.json" ]]; then
+    echo "self-test ok: the badge files sit beside the views"
+  else
+    echo "self-test FAILED: the badge files are not in the output directory" >&2
+    fails=$((fails + 1))
+  fi
+
+  # The badge push, against a local bare repository standing in for GitHub.
+  local remote="$dir/remote/owner/repo.git"
+  printf '{"repository":{"default_branch":"main"}}\n' > "$dir/event.json"
+  fresh_remote() {
+    rm -rf -- "$dir/remote"
+    git init --quiet --bare "$remote"
+  }
+  # branch_head: the commit the badge branch points at, or nothing.
+  branch_head() {
+    git --git-dir="$remote" rev-parse --verify --quiet refs/heads/badges || true
+  }
+  # push_case <label> <exit> <pattern the step log must match> <commits on the branch> [env…]
+  push_case() {
+    local label="$1" want="$2" must="$3" commits="$4" got=0 count=0
+    shift 4
+    : > "$dir/output"
+    (
+      cd "$dir/work" || exit 99
+      env -i PATH="$dir/bin:$PATH" STUB_LOG="$dir/log" STUB_VERSION=9.8.7 \
+        GITHUB_ACTION_PATH="$dir/action" GITHUB_STEP_SUMMARY="$dir/summary" \
+        GITHUB_OUTPUT="$dir/output" IN_BASE_URL=http://127.0.0.1:9/openehr/v1 \
+        STUB_TEST_EXIT=0 IN_BADGE_BRANCH=badges GITHUB_EVENT_NAME=push \
+        GITHUB_REF=refs/heads/main GITHUB_EVENT_PATH="$dir/event.json" \
+        GITHUB_SERVER_URL="file://$dir/remote" GITHUB_REPOSITORY=owner/repo \
+        GITHUB_TOKEN=t0k3n GITHUB_SHA=abc123 "$@" bash "$SELF" > "$dir/step.log" 2>&1
+    ) || got=$?
+    if [[ -n "$(branch_head)" ]]; then
+      count="$(git --git-dir="$remote" rev-list --count refs/heads/badges)"
+    fi
+    if [[ "$got" != "$want" ]]; then
+      echo "self-test FAILED: ${label}: exit ${got}, expected ${want}" >&2
+      fails=$((fails + 1))
+    elif ! grep -qE -- "$must" "$dir/step.log"; then
+      echo "self-test FAILED: ${label}: the step log did not match ${must}" >&2
+      fails=$((fails + 1))
+    elif [[ "$count" != "$commits" ]]; then
+      echo "self-test FAILED: ${label}: ${count} commit(s) on the badge branch, expected ${commits}" >&2
+      fails=$((fails + 1))
+    else
+      echo "self-test ok: ${label}"
+    fi
+  }
+
+  fresh_remote
+  push_case "no badge-branch input pushes nothing" 0 'badge-branch input is empty' 0 \
+    IN_BADGE_BRANCH=
+  push_case "a pull request never pushes" 0 'a pull_request run never updates' 0 \
+    GITHUB_EVENT_NAME=pull_request
+  push_case "a pull_request_target run never pushes" 0 'a pull_request_target run never' 0 \
+    GITHUB_EVENT_NAME=pull_request_target
+  push_case "a branch other than the default never pushes" 0 \
+    'refs/heads/feature is not the default branch refs/heads/main' 0 GITHUB_REF=refs/heads/feature
+  push_case "a missing token fails the step and pushes nothing" 2 'GITHUB_TOKEN is not in' 0 \
+    GITHUB_TOKEN=
+  push_case "the default branch creates the badge branch" 0 '^badges pushed to badges as ' 1
+  local first
+  first="$(branch_head)"
+  if [[ "$(git --git-dir="$remote" log -1 --format='%an <%ae>|%cn <%ce>' refs/heads/badges)" \
+    == "${BOT_NAME} <${BOT_EMAIL}>|${BOT_NAME} <${BOT_EMAIL}>" ]] \
+    && [[ "$(git --git-dir="$remote" ls-tree --name-only refs/heads/badges | LC_ALL=C sort | tr '\n' ' ')" \
+      == "base.json base.svg instrument.json instrument.svg options.json options.svg profile.json profile.svg warnings.json warnings.svg " ]]; then
+    echo "self-test ok: the badge commit is the bot's and holds only the badges"
+  else
+    echo "self-test FAILED: the badge commit's author or tree is not as expected" >&2
+    fails=$((fails + 1))
+  fi
+  if grep -q 't0k3n' "$dir/log" "$dir/step.log"; then
+    echo "self-test FAILED: the token appeared in a command line or the step log" >&2
+    fails=$((fails + 1))
+  fi
+  push_case "unchanged badges make no commit" 0 '^badges unchanged: nothing pushed' 1
+  if [[ "$(branch_head)" != "$first" ]]; then
+    echo "self-test FAILED: unchanged badges moved the badge branch" >&2
+    fails=$((fails + 1))
+  fi
+  push_case "changed badges replace the one commit" 0 '^badges pushed to badges as ' 1 \
+    STUB_BADGE=second
+  if [[ "$(branch_head)" == "$first" ]]; then
+    echo "self-test FAILED: changed badges did not move the badge branch" >&2
+    fails=$((fails + 1))
+  fi
 
   if [[ "$fails" -gt 0 ]]; then
     echo "run.sh self-test: ${fails} case(s) failed" >&2

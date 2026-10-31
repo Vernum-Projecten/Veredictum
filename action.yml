@@ -6,7 +6,8 @@
 #
 # It runs the instrument's container image: `test` drives the Arazzo catalogue
 # the image ships, `export` writes JUnit XML, CTRF and a Markdown summary into
-# the output directory, and the summary is appended to the job summary. The step
+# the output directory, `badge` writes the badges into its `badges/`
+# directory, and the summary is appended to the job summary. The step
 # fails when a verdict-bearing row failed or errored (exit status 1) or when the
 # run could not start (2). The work is `scripts/action/run.sh`, whose header
 # lists every input it reads.
@@ -46,8 +47,12 @@
 # VEREDICTUM_SCOPED_TOKEN_KEY, and every token the IXIT names under
 # VEREDICTUM_SCOPED_TOKEN_<NAME>, each also with `_FILE`.
 #
-# PERMISSIONS. The action calls no GitHub API and needs no token scope. A
-# caller's job needs `contents: read` for its own checkout, and nothing else.
+# PERMISSIONS. Without `badge-branch` the action calls no GitHub API and needs
+# no token scope: a caller's job needs `contents: read` for its own checkout.
+# With `badge-branch`, a run on the default branch that is not a pull request
+# pushes the badges to that branch with GITHUB_TOKEN, which the caller sets as
+# `env:` on the step like a credential, and the job then needs
+# `contents: write`.
 #
 # No openEHR specification governs this. It is our own design.
 name: Veredictum openEHR conformance
@@ -119,8 +124,8 @@ inputs:
     default: development
   out-dir:
     description: >-
-      Where results.json, recording.har, junit.xml, ctrf.json and summary.md
-      are written. The recording holds the server's response bodies verbatim,
+      Where results.json, recording.har, junit.xml, ctrf.json, summary.md and
+      the badges/ directory are written. The recording holds the server's response bodies verbatim,
       so it belongs where the operator keeps the run, never in a public
       artifact.
     required: false
@@ -144,6 +149,14 @@ inputs:
       ports.
     required: false
     default: host
+  badge-branch:
+    description: >-
+      A branch of this repository to push the badges to, as one commit that
+      holds only the badges. Pushed only from a run on the default branch that
+      is not a pull request, with GITHUB_TOKEN from the step's env; the job
+      then needs contents write. Empty pushes nothing.
+    required: false
+    default: ""
 
 outputs:
   exit-code:
@@ -164,6 +177,9 @@ outputs:
   summary:
     description: The path of the Markdown summary, set when the export succeeded.
     value: ${{ steps.run.outputs.summary }}
+  badges:
+    description: The directory holding the badges, set when they were drawn.
+    value: ${{ steps.run.outputs.badges }}
   image-id:
     description: The ID of the image the run used.
     value: ${{ steps.run.outputs.image-id }}
@@ -191,4 +207,5 @@ runs:
         IN_IMAGE: ${{ inputs.image }}
         IN_PULL: ${{ inputs.pull }}
         IN_NETWORK: ${{ inputs.network }}
+        IN_BADGE_BRANCH: ${{ inputs.badge-branch }}
       run: bash "${GITHUB_ACTION_PATH}/scripts/action/run.sh"
