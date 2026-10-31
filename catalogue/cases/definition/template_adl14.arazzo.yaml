@@ -3156,6 +3156,10 @@ workflows:
       source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Template.xsd
       section: complexType OPERATIONAL_TEMPLATE
       quote: '<xs:element name="template_id" type="TEMPLATE_ID"/>'
+      development:
+        source: specs/openehr-development/specifications-ITS-XML/components/AM/Release-1.4/Template.xsd
+        section: complexType OPERATIONAL_TEMPLATE
+        quote: '<xs:element name="template_id" type="TEMPLATE_ID"/>'
     inputs: *run_inputs
     steps:
       - stepId: upload
@@ -3201,6 +3205,10 @@ workflows:
       source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Template.xsd
       section: complexType OPERATIONAL_TEMPLATE
       quote: '<xs:element name="concept" type="xs:string"/>'
+      development:
+        source: specs/openehr-development/specifications-ITS-XML/components/AM/Release-1.4/Template.xsd
+        section: complexType OPERATIONAL_TEMPLATE
+        quote: '<xs:element name="concept" type="xs:string"/>'
     inputs: *run_inputs
     steps:
       - stepId: upload
@@ -3246,6 +3254,10 @@ workflows:
       source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Template.xsd
       section: complexType OPERATIONAL_TEMPLATE
       quote: '<xs:element name="definition" type="C_ARCHETYPE_ROOT"/>'
+      development:
+        source: specs/openehr-development/specifications-ITS-XML/components/AM/Release-1.4/Template.xsd
+        section: complexType OPERATIONAL_TEMPLATE
+        quote: '<xs:element name="definition" type="C_ARCHETYPE_ROOT"/>'
     inputs: *run_inputs
     steps:
       - stepId: upload
@@ -3281,6 +3293,10 @@ workflows:
       source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Template.xsd
       section: complexType OPERATIONAL_TEMPLATE
       quote: '<xs:element name="concept" type="xs:string"/>'
+      development:
+        source: specs/openehr-development/specifications-ITS-XML/components/AM/Release-1.4/Template.xsd
+        section: complexType OPERATIONAL_TEMPLATE
+        quote: '<xs:element name="concept" type="xs:string"/>'
     inputs: *run_inputs
     steps:
       - stepId: upload
@@ -3328,6 +3344,10 @@ workflows:
       source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Template.xsd
       section: complexType OPERATIONAL_TEMPLATE
       quote: '<xs:element name="template_id" type="TEMPLATE_ID"/>'
+      development:
+        source: specs/openehr-development/specifications-ITS-XML/components/AM/Release-1.4/Template.xsd
+        section: complexType OPERATIONAL_TEMPLATE
+        quote: '<xs:element name="template_id" type="TEMPLATE_ID"/>'
     inputs: *run_inputs
     steps:
       - stepId: upload
@@ -3375,6 +3395,10 @@ workflows:
       source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Resource.xsd
       section: complexType RESOURCE_DESCRIPTION
       quote: '<xs:element name="lifecycle_state" type="xs:string"/>'
+      development:
+        source: specs/openehr-development/specifications-ITS-XML/components/AM/Release-1.4/Resource.xsd
+        section: complexType RESOURCE_DESCRIPTION
+        quote: '<xs:element name="lifecycle_state" type="xs:string"/>'
     inputs: *run_inputs
     steps:
       - stepId: upload
