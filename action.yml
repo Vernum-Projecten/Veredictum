@@ -40,6 +40,12 @@
 # or each with `_FILE` appended, naming a file that holds the value. An empty
 # variable counts as unset, so a missing repository secret stops the run.
 #
+# The SMART on openEHR documents need the `platform-url` input and the scoped
+# tokens the IXIT's `scoped_tokens` member declares. Those secrets travel the
+# same way, by name from the step's `env:`: the test issuer's key as
+# VEREDICTUM_SCOPED_TOKEN_KEY, and every token the IXIT names under
+# VEREDICTUM_SCOPED_TOKEN_<NAME>, each also with `_FILE`.
+#
 # PERMISSIONS. The action calls no GitHub API and needs no token scope. A
 # caller's job needs `contents: read` for its own checkout, and nothing else.
 #
@@ -94,6 +100,13 @@ inputs:
       Run only these documents, by id, separated by white space. A narrowed run
       is a working tool, never the record a party submits. Empty runs every
       document.
+    required: false
+    default: ""
+  platform-url:
+    description: >-
+      The SMART Platform base URL, for example https://platform.example, which
+      SMART on openEHR serves its discovery document relative to. Empty skips
+      every workflow with a step sent to it as not-declared.
     required: false
     default: ""
   profile:
@@ -173,6 +186,7 @@ runs:
         IN_ADMIN_AUTH: ${{ inputs.admin-auth }}
         IN_DOCUMENTS: ${{ inputs.documents }}
         IN_PROFILE: ${{ inputs.profile }}
+        IN_PLATFORM_URL: ${{ inputs.platform-url }}
         IN_OUT_DIR: ${{ inputs.out-dir }}
         IN_IMAGE: ${{ inputs.image }}
         IN_PULL: ${{ inputs.pull }}

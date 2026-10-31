@@ -113,6 +113,7 @@ document left by an earlier run is never exported as this one.
 | `auth` | `none` | `none`, `basic` or `bearer` |
 | `admin-auth` | `none` | the same, for the administrative principal; with `none` the administrative workflows are skipped |
 | `documents` | none | document ids separated by white space; a narrowed run is a working tool, never the record you submit |
+| `platform-url` | none | the SMART Platform base URL ([below](#smart-on-openehr)); without it every workflow sent to the Platform is skipped as `not-declared` |
 | `out-dir` | `veredictum-results` | where the five files are written |
 | `image` | the release image | the image to run ([below](#which-image-runs)) |
 | `pull` | `true` | `false` runs an image already on the runner, such as one built earlier in the job |
@@ -174,6 +175,42 @@ An empty variable counts as unset. A secret that does not exist in your
 repository expands to an empty string, and the run then stops with exit status
 `2` on the missing credential instead of presenting an empty one to your
 server.
+
+## SMART on openEHR
+
+A server that claims the `smart` folder runs its documents in the same step.
+Two things are added. The `platform-url` input names the SMART Platform base
+URL, which SMART on openEHR serves its discovery document relative to and
+which can differ from `base-url`. The scoped tokens come from the IXIT's
+`scoped_tokens` member ([`test`](commands.md#test) describes it), and every
+secret that member names is set as `env:` on the step, like the CDR
+credentials:
+
+| The IXIT declares | `env:` on the step |
+|---|---|
+| a test issuer under `mint` | `VEREDICTUM_SCOPED_TOKEN_KEY`, the RSA private key in PEM |
+| a token under `issued` | the `VEREDICTUM_SCOPED_TOKEN_<NAME>` variable it names |
+
+```yaml
+      - uses: Vernum-Projecten/Veredictum@<commit-sha> # vX.Y.Z
+        env:
+          VEREDICTUM_CDR_TOKEN: ${{ secrets.CDR_TOKEN }}
+          VEREDICTUM_SCOPED_TOKEN_KEY: ${{ secrets.SMART_TEST_ISSUER_KEY }}
+        with:
+          base-url: http://127.0.0.1:8080/openehr/v1
+          platform-url: http://127.0.0.1:8080
+          statement: conformance/statement.json
+          ixit: conformance/ixit.json
+          auth: bearer
+```
+
+Here the statement claims `smart` and the IXIT's `scoped_tokens` declares a
+`mint` issuer, so the instrument signs a token for each scope set a row
+presents. Give it only key material a test deployment trusts, never one a
+production deployment trusts. Each variable may instead be given as a file by
+appending `_FILE`, and an empty one counts as unset, exactly as for the CDR
+credentials. The action hands every variable named
+`VEREDICTUM_SCOPED_TOKEN_<NAME>` to the container by name and no other.
 
 ## Which image runs
 
