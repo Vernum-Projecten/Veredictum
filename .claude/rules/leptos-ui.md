@@ -200,6 +200,16 @@ is the precedent to imitate, not a path in this tree.
   `<ActionForm>`-compatible (default URL-encoded POST; nested structs use
   `name="arg[field]"` indexing; mind `serde_qs` Option/enum quirks —
   `server/25`).
+  Where the answer must be handled in the action's own continuation (a
+  toast, §2), the hand-written equivalent is sanctioned: a plain
+  `<form action=X::url() method="post" on:submit=…>` whose handler calls
+  `ev.prevent_default()`, parses `X::from_event(&ev)` (reporting a parse
+  error the way the action reports a refusal) and dispatches an `Action`
+  that calls the server fn. That is `<ActionForm>`'s own body (leptos
+  `form.rs`), so the no-WASM path is kept, and its server fn must answer a
+  refused plain post itself with `leptos_axum::redirect` to a page that
+  states the refusal by a closed kind, because leptos_axum otherwise 302s an
+  `Err` back to the `Referer` with nothing to show (`server/27`).
 
 ## 6. Async data (the server-function pattern)
 
