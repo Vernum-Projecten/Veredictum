@@ -1364,9 +1364,10 @@ fn md_skipped(out: &mut String, results: &Results) {
     out.push_str("\n</details>\n");
 }
 
-/// How many annotations of one kind GitHub Actions shows per step: "GitHub
-/// Actions are limited to 10 warning annotations and 10 error annotations per
-/// step" (<https://docs.github.com/en/rest/checks/runs>).
+/// How many annotations of one kind GitHub Actions shows per step.
+///
+/// "GitHub Actions are limited to 10 warning annotations and 10 error
+/// annotations per step" (<https://docs.github.com/en/rest/checks/runs>).
 pub const GITHUB_ANNOTATIONS_PER_KIND: usize = 10;
 
 /// Escapes a workflow command's message, as the Actions toolkit's
@@ -1418,9 +1419,10 @@ fn annotation_message(row: &ResultRow, mark: Mark) -> String {
     message
 }
 
-/// Writes the GitHub Actions workflow commands that annotate a run: one
-/// `::error` per failed or errored row and one `::warning` per warning row,
-/// each titled with the case id and its row
+/// Writes the GitHub Actions workflow commands that annotate a run.
+///
+/// One `::error` per failed or errored row and one `::warning` per warning
+/// row, each titled with the case id and its row
 /// (<https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands>).
 ///
 /// At most [`GITHUB_ANNOTATIONS_PER_KIND`] of each kind are written, in the
