@@ -1,5 +1,5 @@
 diff --git a/specifications/operations/definition_template_adl1.4_upload.yaml b/specifications/operations/definition_template_adl1.4_upload.yaml
-index 394a9afc..5f788839 100644
+index 394a9af..5f78883 100644
 --- a/specifications/operations/definition_template_adl1.4_upload.yaml
 +++ b/specifications/operations/definition_template_adl1.4_upload.yaml
 @@ -2,6 +2,9 @@ operationId: definition_template_adl1.4_upload
@@ -19,7 +19,7 @@ index 394a9afc..5f788839 100644
 +  '422':
 +    $ref: ../responses/422.yaml
 diff --git a/specifications/operations/definition_template_adl2_upload.yaml b/specifications/operations/definition_template_adl2_upload.yaml
-index 3ebe3003..5ef8f1d2 100644
+index 3ebe300..5ef8f1d 100644
 --- a/specifications/operations/definition_template_adl2_upload.yaml
 +++ b/specifications/operations/definition_template_adl2_upload.yaml
 @@ -2,6 +2,9 @@ operationId: definition_template_adl2_upload

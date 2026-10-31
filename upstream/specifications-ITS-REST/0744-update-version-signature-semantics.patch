@@ -1,7 +1,8 @@
 diff --git a/specifications/schemas/demographic/UpdateVersion.yaml b/specifications/schemas/demographic/UpdateVersion.yaml
+index e9d574b..753a89b 100644
 --- a/specifications/schemas/demographic/UpdateVersion.yaml
 +++ b/specifications/schemas/demographic/UpdateVersion.yaml
-@@ -11,6 +11,10 @@
+@@ -11,6 +11,10 @@ properties:
      $ref: ../base_types/ObjectVersionId.yaml
    signature:
      type: string
@@ -13,9 +14,10 @@ diff --git a/specifications/schemas/demographic/UpdateVersion.yaml b/specificati
      $ref: ../data_types/DvCodedText.yaml
    attestations:
 diff --git a/specifications/schemas/ehr/UpdateVersion.yaml b/specifications/schemas/ehr/UpdateVersion.yaml
+index 550fe71..c24b506 100644
 --- a/specifications/schemas/ehr/UpdateVersion.yaml
 +++ b/specifications/schemas/ehr/UpdateVersion.yaml
-@@ -9,6 +9,10 @@
+@@ -9,6 +9,10 @@ properties:
      $ref: ../base_types/ObjectVersionId.yaml
    signature:
      type: string

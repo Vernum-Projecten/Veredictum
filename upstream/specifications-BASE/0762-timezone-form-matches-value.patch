@@ -1,8 +1,8 @@
-diff --git a/docs/UML/classes/time_definitions.adoc b/docs/UML/classes/time_definitions.adoc
-index 82df549..ee920c0 100755
---- a/docs/UML/classes/time_definitions.adoc
-+++ b/docs/UML/classes/time_definitions.adoc
-@@ -168,6 +168,8 @@ with an additional optional timezone indicator of:
+diff --git a/docs/UML/classes/org.openehr.base.foundation_types.time_definitions.adoc b/docs/UML/classes/org.openehr.base.foundation_types.time_definitions.adoc
+index ba71540..9a36bbf 100644
+--- a/docs/UML/classes/org.openehr.base.foundation_types.time_definitions.adoc
++++ b/docs/UML/classes/org.openehr.base.foundation_types.time_definitions.adoc
+@@ -169,6 +169,8 @@ with an additional optional timezone indicator of:
  
  * `Z` or `±hh[:mm]` (extended)  `±hh[mm]` (compact)
  
@@ -11,7 +11,7 @@ index 82df549..ee920c0 100755
  Where:
  
  * `hh` is "00" - "23" (0-filled to two digits)
-@@ -188,6 +190,8 @@ a|String is a valid ISO 8601 date-time, i.e. takes the form:
+@@ -189,6 +191,8 @@ a|String is a valid ISO 8601 date-time, i.e. takes the form:
  ** `YYYY-MM-DDThh:mm` or `YYYY-MM-DDThh` (extended)
  ** `YYYYMMDDThhmm` or `YYYYMMDDThh` (compact)
  

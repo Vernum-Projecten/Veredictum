@@ -1,5 +1,5 @@
 diff --git a/specifications/parameters/path/template_id.yaml b/specifications/parameters/path/template_id.yaml
-index 9245d302..6176081f 100644
+index 9245d30..6176081 100644
 --- a/specifications/parameters/path/template_id.yaml
 +++ b/specifications/parameters/path/template_id.yaml
 @@ -1,7 +1,9 @@
@@ -14,7 +14,7 @@ index 9245d302..6176081f 100644
  style: simple
  schema:
 diff --git a/specifications/parameters/query/filter_version.yaml b/specifications/parameters/query/filter_version.yaml
-index 4e7bceeb..5ac2f52b 100644
+index 4e7bcee..5ac2f52 100644
 --- a/specifications/parameters/query/filter_version.yaml
 +++ b/specifications/parameters/query/filter_version.yaml
 @@ -2,6 +2,8 @@ name: version

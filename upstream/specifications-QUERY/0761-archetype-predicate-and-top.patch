@@ -1,5 +1,5 @@
 diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
-index d9ac89d..5720424 100755
+index 02aa7f3..1f2b98d 100755
 --- a/docs/AQL/master03-syntax.adoc
 +++ b/docs/AQL/master03-syntax.adoc
 @@ -158,7 +158,7 @@ Standard predicates always have a left-hand operand, an operator and a right-han
@@ -11,7 +11,7 @@ index d9ac89d..5720424 100755
  
  --------
  FROM EHR [ehr_id/value='1234']
-@@ -1074,7 +1074,7 @@ FROM
+@@ -1095,7 +1095,7 @@ FROM
  The `TOP` will be removed in a future major release of AQL specification.
  It is not allowed to use `TOP` while also using `LIMIT` clause in the same query.
  

@@ -1,5 +1,5 @@
 diff --git a/specifications/docs/query/Request.md b/specifications/docs/query/Request.md
-index d1470b7b..8307575e 100644
+index d1470b7..8307575 100644
 --- a/specifications/docs/query/Request.md
 +++ b/specifications/docs/query/Request.md
 @@ -22,7 +22,7 @@ Long queries in the `q` parameter and having a long list of `query_parameters` m
@@ -24,7 +24,7 @@ index d1470b7b..8307575e 100644
  
  Depending on each query definition, various query parameters SHOULD be supported, generically named `query_parameters`
 diff --git a/specifications/operations/definition_query_list.yaml b/specifications/operations/definition_query_list.yaml
-index 4bd31e33..b8af8762 100644
+index 4bd31e3..b8af876 100644
 --- a/specifications/operations/definition_query_list.yaml
 +++ b/specifications/operations/definition_query_list.yaml
 @@ -2,6 +2,7 @@ operationId: definition_query_list

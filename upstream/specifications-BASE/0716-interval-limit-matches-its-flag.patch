@@ -1,8 +1,8 @@
-diff --git a/docs/UML/classes/interval.adoc b/docs/UML/classes/interval.adoc
-index 2ebbd36..d5409ef 100755
---- a/docs/UML/classes/interval.adoc
-+++ b/docs/UML/classes/interval.adoc
-@@ -96,4 +96,10 @@ h|
+diff --git a/docs/UML/classes/org.openehr.base.foundation_types.interval.adoc b/docs/UML/classes/org.openehr.base.foundation_types.interval.adoc
+index 1d5395f..94ca259 100644
+--- a/docs/UML/classes/org.openehr.base.foundation_types.interval.adoc
++++ b/docs/UML/classes/org.openehr.base.foundation_types.interval.adoc
+@@ -84,4 +84,10 @@ h|
  
  h|
  2+a|__Limits_comparable__: `(not upper_unbounded and not lower_unbounded) implies lower.strictly_comparable_to (upper)`

@@ -1,7 +1,7 @@
-diff --git a/docs/UML/classes/dv_coded_text.adoc b/docs/UML/classes/dv_coded_text.adoc
-index 675b875..16e5e81 100755
---- a/docs/UML/classes/dv_coded_text.adoc
-+++ b/docs/UML/classes/dv_coded_text.adoc
+diff --git a/docs/UML/classes/org.openehr.rm.data_types.dv_coded_text.adoc b/docs/UML/classes/org.openehr.rm.data_types.dv_coded_text.adoc
+index ab72e86..b6f5b5d 100644
+--- a/docs/UML/classes/org.openehr.rm.data_types.dv_coded_text.adoc
++++ b/docs/UML/classes/org.openehr.rm.data_types.dv_coded_text.adoc
 @@ -22,4 +22,7 @@ h|*Attributes*
  h|*1..1*
  |*defining_code*: `<<_code_phrase_class,CODE_PHRASE>>`

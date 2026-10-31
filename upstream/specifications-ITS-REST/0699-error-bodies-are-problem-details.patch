@@ -1,8 +1,8 @@
 diff --git a/specifications/docs/overview/Requests_and_responses.md b/specifications/docs/overview/Requests_and_responses.md
-index bc37e680..373a8c16 100644
+index e3957a6..5f9f18f 100644
 --- a/specifications/docs/overview/Requests_and_responses.md
 +++ b/specifications/docs/overview/Requests_and_responses.md
-@@ -239,33 +239,41 @@ To indicate the status of a request or operation, an appropriate HTTP status cod
+@@ -243,33 +243,41 @@ To indicate the status of a request or operation, an appropriate HTTP status cod
  Status code `400` indicates normally a bad request, as well as a generic client-side error, used when no other `4xx` error code is appropriate.
  The client SHOULD NOT repeat the request without modifications.
  
@@ -67,7 +67,7 @@ index bc37e680..373a8c16 100644
      ]
  }
 diff --git a/specifications/responses/400.yaml b/specifications/responses/400.yaml
-index 2708605e..0c4ff650 100644
+index 2708605..0c4ff65 100644
 --- a/specifications/responses/400.yaml
 +++ b/specifications/responses/400.yaml
 @@ -2,6 +2,6 @@ description: |
@@ -79,7 +79,7 @@ index 2708605e..0c4ff650 100644
      schema:
        $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/400_CONTRIBUTION.yaml b/specifications/responses/400_CONTRIBUTION.yaml
-index 4adf07e5..48c32ddd 100644
+index 4adf07e..48c32dd 100644
 --- a/specifications/responses/400_CONTRIBUTION.yaml
 +++ b/specifications/responses/400_CONTRIBUTION.yaml
 @@ -2,6 +2,6 @@ description: |
@@ -91,7 +91,7 @@ index 4adf07e5..48c32ddd 100644
      schema:
        $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/400_Query.yaml b/specifications/responses/400_Query.yaml
-index 8d55c2d8..3379bef1 100644
+index 8d55c2d..3379bef 100644
 --- a/specifications/responses/400_Query.yaml
 +++ b/specifications/responses/400_Query.yaml
 @@ -1,2 +1,6 @@
@@ -102,7 +102,7 @@ index 8d55c2d8..3379bef1 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/400_already_deleted.yaml b/specifications/responses/400_already_deleted.yaml
-index 5870c672..6a02a4f4 100644
+index 5870c67..6a02a4f 100644
 --- a/specifications/responses/400_already_deleted.yaml
 +++ b/specifications/responses/400_already_deleted.yaml
 @@ -1,2 +1,6 @@
@@ -113,7 +113,7 @@ index 5870c672..6a02a4f4 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404.yaml b/specifications/responses/404.yaml
-index 375ebd43..acedf7a7 100644
+index 375ebd4..acedf7a 100644
 --- a/specifications/responses/404.yaml
 +++ b/specifications/responses/404.yaml
 @@ -1,2 +1,6 @@
@@ -124,7 +124,7 @@ index 375ebd43..acedf7a7 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_CONTRIBUTION.yaml b/specifications/responses/404_CONTRIBUTION.yaml
-index b24770c4..00fc7461 100644
+index b24770c..00fc746 100644
 --- a/specifications/responses/404_CONTRIBUTION.yaml
 +++ b/specifications/responses/404_CONTRIBUTION.yaml
 @@ -1,2 +1,6 @@
@@ -135,7 +135,7 @@ index b24770c4..00fc7461 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_EHR_subject.yaml b/specifications/responses/404_EHR_subject.yaml
-index 34c81a4a..dc4f246b 100644
+index 34c81a4..dc4f246 100644
 --- a/specifications/responses/404_EHR_subject.yaml
 +++ b/specifications/responses/404_EHR_subject.yaml
 @@ -1,2 +1,6 @@
@@ -146,7 +146,7 @@ index 34c81a4a..dc4f246b 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_Query.yaml b/specifications/responses/404_Query.yaml
-index 3a4e84ca..115e4421 100644
+index 3a4e84c..115e442 100644
 --- a/specifications/responses/404_Query.yaml
 +++ b/specifications/responses/404_Query.yaml
 @@ -1,2 +1,6 @@
@@ -157,7 +157,7 @@ index 3a4e84ca..115e4421 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_Query_version.yaml b/specifications/responses/404_Query_version.yaml
-index d45767d5..240d9af8 100644
+index d45767d..240d9af 100644
 --- a/specifications/responses/404_Query_version.yaml
 +++ b/specifications/responses/404_Query_version.yaml
 @@ -1,2 +1,6 @@
@@ -168,7 +168,7 @@ index d45767d5..240d9af8 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_demographic_CONTRIBUTION.yaml b/specifications/responses/404_demographic_CONTRIBUTION.yaml
-index a9141488..52575272 100644
+index a914148..5257527 100644
 --- a/specifications/responses/404_demographic_CONTRIBUTION.yaml
 +++ b/specifications/responses/404_demographic_CONTRIBUTION.yaml
 @@ -1,2 +1,6 @@
@@ -179,7 +179,7 @@ index a9141488..52575272 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml b/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml
-index eb1d9c73..b2b89b68 100644
+index eb1d9c7..b2b89b6 100644
 --- a/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml
 +++ b/specifications/responses/404_directory_unknown_ehr_id_or_no_version_at_time_or_no_path.yaml
 @@ -1,2 +1,6 @@
@@ -190,7 +190,7 @@ index eb1d9c73..b2b89b68 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_directory_unknown_ehr_id_or_no_version_uid_or_no_path.yaml b/specifications/responses/404_directory_unknown_ehr_id_or_no_version_uid_or_no_path.yaml
-index 9b9f809d..43333230 100644
+index 9b9f809..4333323 100644
 --- a/specifications/responses/404_directory_unknown_ehr_id_or_no_version_uid_or_no_path.yaml
 +++ b/specifications/responses/404_directory_unknown_ehr_id_or_no_version_uid_or_no_path.yaml
 @@ -1,2 +1,6 @@
@@ -201,7 +201,7 @@ index 9b9f809d..43333230 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_not_found_or_no_version_at_time.yaml b/specifications/responses/404_not_found_or_no_version_at_time.yaml
-index 0e5eeae1..b4208374 100644
+index 0e5eeae..b420837 100644
 --- a/specifications/responses/404_not_found_or_no_version_at_time.yaml
 +++ b/specifications/responses/404_not_found_or_no_version_at_time.yaml
 @@ -1,2 +1,6 @@
@@ -212,7 +212,7 @@ index 0e5eeae1..b4208374 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_ehr_id.yaml b/specifications/responses/404_unknown_ehr_id.yaml
-index 4e6abfe1..a5d65f7b 100644
+index 4e6abfe..a5d65f7 100644
 --- a/specifications/responses/404_unknown_ehr_id.yaml
 +++ b/specifications/responses/404_unknown_ehr_id.yaml
 @@ -1,2 +1,6 @@
@@ -223,7 +223,7 @@ index 4e6abfe1..a5d65f7b 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_ehr_id_or_no_version_at_time.yaml b/specifications/responses/404_unknown_ehr_id_or_no_version_at_time.yaml
-index bd532cf0..23acb7b3 100644
+index bd532cf..23acb7b 100644
 --- a/specifications/responses/404_unknown_ehr_id_or_no_version_at_time.yaml
 +++ b/specifications/responses/404_unknown_ehr_id_or_no_version_at_time.yaml
 @@ -1,2 +1,6 @@
@@ -234,7 +234,7 @@ index bd532cf0..23acb7b3 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_ehr_id_or_uid_based_id.yaml b/specifications/responses/404_unknown_ehr_id_or_uid_based_id.yaml
-index 21d1e21f..d2e020ff 100644
+index 21d1e21..d2e020f 100644
 --- a/specifications/responses/404_unknown_ehr_id_or_uid_based_id.yaml
 +++ b/specifications/responses/404_unknown_ehr_id_or_uid_based_id.yaml
 @@ -1,2 +1,6 @@
@@ -245,7 +245,7 @@ index 21d1e21f..d2e020ff 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_ehr_id_or_uid_based_id_or_key.yaml b/specifications/responses/404_unknown_ehr_id_or_uid_based_id_or_key.yaml
-index c0368e30..7312e3f3 100644
+index c0368e3..7312e3f 100644
 --- a/specifications/responses/404_unknown_ehr_id_or_uid_based_id_or_key.yaml
 +++ b/specifications/responses/404_unknown_ehr_id_or_uid_based_id_or_key.yaml
 @@ -1,2 +1,6 @@
@@ -256,7 +256,7 @@ index c0368e30..7312e3f3 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_ehr_id_or_version_uid.yaml b/specifications/responses/404_unknown_ehr_id_or_version_uid.yaml
-index 2916cb5f..cdff9b9d 100644
+index 2916cb5..cdff9b9 100644
 --- a/specifications/responses/404_unknown_ehr_id_or_version_uid.yaml
 +++ b/specifications/responses/404_unknown_ehr_id_or_version_uid.yaml
 @@ -1,2 +1,6 @@
@@ -267,7 +267,7 @@ index 2916cb5f..cdff9b9d 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid.yaml b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid.yaml
-index 227757a6..b44145c8 100644
+index 227757a..b44145c 100644
 --- a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid.yaml
 +++ b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid.yaml
 @@ -1,2 +1,6 @@
@@ -278,7 +278,7 @@ index 227757a6..b44145c8 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_no_version_at_time.yaml b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_no_version_at_time.yaml
-index 1237efd4..3f631465 100644
+index 1237efd..3f63146 100644
 --- a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_no_version_at_time.yaml
 +++ b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_no_version_at_time.yaml
 @@ -1,2 +1,6 @@
@@ -289,7 +289,7 @@ index 1237efd4..3f631465 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_version_uid.yaml b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_version_uid.yaml
-index 66500939..46cd9606 100644
+index 6650093..46cd960 100644
 --- a/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_version_uid.yaml
 +++ b/specifications/responses/404_unknown_ehr_id_or_versioned_object_uid_or_version_uid.yaml
 @@ -1,2 +1,6 @@
@@ -300,7 +300,7 @@ index 66500939..46cd9606 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_template_id.yaml b/specifications/responses/404_unknown_template_id.yaml
-index 1535862a..b06374f8 100644
+index 1535862..b06374f 100644
 --- a/specifications/responses/404_unknown_template_id.yaml
 +++ b/specifications/responses/404_unknown_template_id.yaml
 @@ -1,2 +1,6 @@
@@ -311,7 +311,7 @@ index 1535862a..b06374f8 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_template_id_or_version.yaml b/specifications/responses/404_unknown_template_id_or_version.yaml
-index 2877785f..ef8eb11e 100644
+index 2877785..ef8eb11 100644
 --- a/specifications/responses/404_unknown_template_id_or_version.yaml
 +++ b/specifications/responses/404_unknown_template_id_or_version.yaml
 @@ -1,2 +1,6 @@
@@ -322,7 +322,7 @@ index 2877785f..ef8eb11e 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_uid_based_id.yaml b/specifications/responses/404_unknown_uid_based_id.yaml
-index 6376206e..2f554f11 100644
+index 6376206..2f554f1 100644
 --- a/specifications/responses/404_unknown_uid_based_id.yaml
 +++ b/specifications/responses/404_unknown_uid_based_id.yaml
 @@ -1,2 +1,6 @@
@@ -333,7 +333,7 @@ index 6376206e..2f554f11 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/404_unknown_uid_based_id_or_key.yaml b/specifications/responses/404_unknown_uid_based_id_or_key.yaml
-index fd299a85..cf38cde6 100644
+index fd299a8..cf38cde 100644
 --- a/specifications/responses/404_unknown_uid_based_id_or_key.yaml
 +++ b/specifications/responses/404_unknown_uid_based_id_or_key.yaml
 @@ -1,2 +1,6 @@
@@ -344,7 +344,7 @@ index fd299a85..cf38cde6 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/405.yaml b/specifications/responses/405.yaml
-index ccbe5540..dcea6e50 100644
+index ccbe554..dcea6e5 100644
 --- a/specifications/responses/405.yaml
 +++ b/specifications/responses/405.yaml
 @@ -1,2 +1,6 @@
@@ -355,7 +355,7 @@ index ccbe5540..dcea6e50 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/406.yaml b/specifications/responses/406.yaml
-index db4f4675..38ba9f6a 100644
+index db4f467..38ba9f6 100644
 --- a/specifications/responses/406.yaml
 +++ b/specifications/responses/406.yaml
 @@ -1,2 +1,6 @@
@@ -366,7 +366,7 @@ index db4f4675..38ba9f6a 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/408_Query.yaml b/specifications/responses/408_Query.yaml
-index 586e7a28..5ce527a2 100644
+index 586e7a2..5ce527a 100644
 --- a/specifications/responses/408_Query.yaml
 +++ b/specifications/responses/408_Query.yaml
 @@ -1,2 +1,6 @@
@@ -377,7 +377,7 @@ index 586e7a28..5ce527a2 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/409.yaml b/specifications/responses/409.yaml
-index a26add27..c7189cdf 100644
+index a26add2..c7189cd 100644
 --- a/specifications/responses/409.yaml
 +++ b/specifications/responses/409.yaml
 @@ -1,2 +1,6 @@
@@ -388,7 +388,7 @@ index a26add27..c7189cdf 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/409_AGENT_with_uid_based_id.yaml b/specifications/responses/409_AGENT_with_uid_based_id.yaml
-index 2076459e..435d89ca 100644
+index 2076459..435d89c 100644
 --- a/specifications/responses/409_AGENT_with_uid_based_id.yaml
 +++ b/specifications/responses/409_AGENT_with_uid_based_id.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -400,7 +400,7 @@ index 2076459e..435d89ca 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/409_COMPOSITION_with_uid_based_id.yaml b/specifications/responses/409_COMPOSITION_with_uid_based_id.yaml
-index a1de778d..fd535e09 100644
+index a1de778..fd535e0 100644
 --- a/specifications/responses/409_COMPOSITION_with_uid_based_id.yaml
 +++ b/specifications/responses/409_COMPOSITION_with_uid_based_id.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -412,7 +412,7 @@ index a1de778d..fd535e09 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/409_EHR.yaml b/specifications/responses/409_EHR.yaml
-index 6f0fe534..717042df 100644
+index 6f0fe53..717042d 100644
 --- a/specifications/responses/409_EHR.yaml
 +++ b/specifications/responses/409_EHR.yaml
 @@ -1,2 +1,6 @@
@@ -423,7 +423,7 @@ index 6f0fe534..717042df 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/409_EHR_with_id.yaml b/specifications/responses/409_EHR_with_id.yaml
-index 5b325bce..44650ec7 100644
+index 5b325bc..44650ec 100644
 --- a/specifications/responses/409_EHR_with_id.yaml
 +++ b/specifications/responses/409_EHR_with_id.yaml
 @@ -1,3 +1,7 @@
@@ -435,7 +435,7 @@ index 5b325bce..44650ec7 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/409_GROUP_with_uid_based_id.yaml b/specifications/responses/409_GROUP_with_uid_based_id.yaml
-index 2076459e..435d89ca 100644
+index 2076459..435d89c 100644
 --- a/specifications/responses/409_GROUP_with_uid_based_id.yaml
 +++ b/specifications/responses/409_GROUP_with_uid_based_id.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -447,7 +447,7 @@ index 2076459e..435d89ca 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/409_ORGANISATION_with_uid_based_id.yaml b/specifications/responses/409_ORGANISATION_with_uid_based_id.yaml
-index 2076459e..435d89ca 100644
+index 2076459..435d89c 100644
 --- a/specifications/responses/409_ORGANISATION_with_uid_based_id.yaml
 +++ b/specifications/responses/409_ORGANISATION_with_uid_based_id.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -459,7 +459,7 @@ index 2076459e..435d89ca 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/409_PERSON_with_uid_based_id.yaml b/specifications/responses/409_PERSON_with_uid_based_id.yaml
-index 2076459e..435d89ca 100644
+index 2076459..435d89c 100644
 --- a/specifications/responses/409_PERSON_with_uid_based_id.yaml
 +++ b/specifications/responses/409_PERSON_with_uid_based_id.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -471,7 +471,7 @@ index 2076459e..435d89ca 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/409_ROLE_with_uid_based_id.yaml b/specifications/responses/409_ROLE_with_uid_based_id.yaml
-index 2076459e..435d89ca 100644
+index 2076459..435d89c 100644
 --- a/specifications/responses/409_ROLE_with_uid_based_id.yaml
 +++ b/specifications/responses/409_ROLE_with_uid_based_id.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -483,7 +483,7 @@ index 2076459e..435d89ca 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/409_StoredQuery_version.yaml b/specifications/responses/409_StoredQuery_version.yaml
-index 77b92c1d..0531d9df 100644
+index 77b92c1..0531d9d 100644
 --- a/specifications/responses/409_StoredQuery_version.yaml
 +++ b/specifications/responses/409_StoredQuery_version.yaml
 @@ -1,2 +1,6 @@
@@ -494,7 +494,7 @@ index 77b92c1d..0531d9df 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/409_template_already_exists.yaml b/specifications/responses/409_template_already_exists.yaml
-index 43accbdc..4f11288b 100644
+index 43accbd..4f11288 100644
 --- a/specifications/responses/409_template_already_exists.yaml
 +++ b/specifications/responses/409_template_already_exists.yaml
 @@ -1,2 +1,6 @@
@@ -505,7 +505,7 @@ index 43accbdc..4f11288b 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/412_AGENT.yaml b/specifications/responses/412_AGENT.yaml
-index 224cb88b..0aee10d2 100644
+index 224cb88..0aee10d 100644
 --- a/specifications/responses/412_AGENT.yaml
 +++ b/specifications/responses/412_AGENT.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -517,7 +517,7 @@ index 224cb88b..0aee10d2 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/412_COMPOSITION.yaml b/specifications/responses/412_COMPOSITION.yaml
-index 7ea79eb5..4482ffe9 100644
+index 7ea79eb..4482ffe 100644
 --- a/specifications/responses/412_COMPOSITION.yaml
 +++ b/specifications/responses/412_COMPOSITION.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -529,7 +529,7 @@ index 7ea79eb5..4482ffe9 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/412_EHR_STATUS.yaml b/specifications/responses/412_EHR_STATUS.yaml
-index 224cb88b..0aee10d2 100644
+index 224cb88..0aee10d 100644
 --- a/specifications/responses/412_EHR_STATUS.yaml
 +++ b/specifications/responses/412_EHR_STATUS.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -541,7 +541,7 @@ index 224cb88b..0aee10d2 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/412_GROUP.yaml b/specifications/responses/412_GROUP.yaml
-index 224cb88b..0aee10d2 100644
+index 224cb88..0aee10d 100644
 --- a/specifications/responses/412_GROUP.yaml
 +++ b/specifications/responses/412_GROUP.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -553,7 +553,7 @@ index 224cb88b..0aee10d2 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/412_ORGANISATION.yaml b/specifications/responses/412_ORGANISATION.yaml
-index 224cb88b..0aee10d2 100644
+index 224cb88..0aee10d 100644
 --- a/specifications/responses/412_ORGANISATION.yaml
 +++ b/specifications/responses/412_ORGANISATION.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -565,7 +565,7 @@ index 224cb88b..0aee10d2 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/412_PERSON.yaml b/specifications/responses/412_PERSON.yaml
-index 224cb88b..0aee10d2 100644
+index 224cb88..0aee10d 100644
 --- a/specifications/responses/412_PERSON.yaml
 +++ b/specifications/responses/412_PERSON.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -577,7 +577,7 @@ index 224cb88b..0aee10d2 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/412_ROLE.yaml b/specifications/responses/412_ROLE.yaml
-index 224cb88b..0aee10d2 100644
+index 224cb88..0aee10d 100644
 --- a/specifications/responses/412_ROLE.yaml
 +++ b/specifications/responses/412_ROLE.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -589,7 +589,7 @@ index 224cb88b..0aee10d2 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/412_directory.yaml b/specifications/responses/412_directory.yaml
-index e7d2f26c..23d86bbf 100644
+index e7d2f26..23d86bb 100644
 --- a/specifications/responses/412_directory.yaml
 +++ b/specifications/responses/412_directory.yaml
 @@ -6,3 +6,7 @@ headers:
@@ -601,7 +601,7 @@ index e7d2f26c..23d86bbf 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/responses/422.yaml b/specifications/responses/422.yaml
-index 906ef132..3009cff4 100644
+index 906ef13..3009cff 100644
 --- a/specifications/responses/422.yaml
 +++ b/specifications/responses/422.yaml
 @@ -1,2 +1,6 @@
@@ -612,7 +612,7 @@ index 906ef132..3009cff4 100644
 +    schema:
 +      $ref: ../schemas/others/Error.yaml
 diff --git a/specifications/schemas/others/Error.yaml b/specifications/schemas/others/Error.yaml
-index b257c61b..7b3ed7c7 100644
+index b257c61..7b3ed7c 100644
 --- a/specifications/schemas/others/Error.yaml
 +++ b/specifications/schemas/others/Error.yaml
 @@ -1,18 +1,52 @@

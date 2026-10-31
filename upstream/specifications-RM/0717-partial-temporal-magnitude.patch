@@ -1,8 +1,8 @@
-diff --git a/docs/UML/classes/dv_date.adoc b/docs/UML/classes/dv_date.adoc
-index 37b5833..6892b72 100644
---- a/docs/UML/classes/dv_date.adoc
-+++ b/docs/UML/classes/dv_date.adoc
-@@ -26,7 +26,7 @@ h|*Functions*
+diff --git a/docs/UML/classes/org.openehr.rm.data_types.dv_date.adoc b/docs/UML/classes/org.openehr.rm.data_types.dv_date.adoc
+index ddc54a4..8330189 100644
+--- a/docs/UML/classes/org.openehr.rm.data_types.dv_date.adoc
++++ b/docs/UML/classes/org.openehr.rm.data_types.dv_date.adoc
+@@ -27,7 +27,7 @@ h|*Functions*
  h|*1..1 +
  (effected)*
  |*magnitude* (): `link:/releases/BASE/{base_release}/foundation_types.html#_integer_class[Integer^]`
@@ -11,24 +11,24 @@ index 37b5833..6892b72 100644
  
  h|*1..1 +
  (effected)*
-diff --git a/docs/UML/classes/dv_date_time.adoc b/docs/UML/classes/dv_date_time.adoc
-index 8853f25..cf551bb 100644
---- a/docs/UML/classes/dv_date_time.adoc
-+++ b/docs/UML/classes/dv_date_time.adoc
-@@ -28,7 +28,7 @@ h|*Functions*
+diff --git a/docs/UML/classes/org.openehr.rm.data_types.dv_date_time.adoc b/docs/UML/classes/org.openehr.rm.data_types.dv_date_time.adoc
+index 29df4bf..c4af21a 100644
+--- a/docs/UML/classes/org.openehr.rm.data_types.dv_date_time.adoc
++++ b/docs/UML/classes/org.openehr.rm.data_types.dv_date_time.adoc
+@@ -29,7 +29,7 @@ h|*Functions*
  h|*1..1 +
  (effected)*
- |*magnitude* (): `link:/releases/BASE/{base_release}/foundation_types.html#_double_class[double^]`
+ |*magnitude* (): `link:/releases/BASE/{base_release}/foundation_types.html#_double_class[Double^]`
 -a|Numeric value of the date/time as seconds since the calendar origin date/time `0001-01-01T00:00:00Z`.
 +a|Numeric value of the date/time as seconds since the calendar origin date/time `0001-01-01T00:00:00Z`. For a partial date/time, each missing part counts as its first value, as for `DV_DATE` and `DV_TIME`.
  
  h|*1..1 +
- (redefined)*
-diff --git a/docs/UML/classes/dv_time.adoc b/docs/UML/classes/dv_time.adoc
-index 3a8b4da..fc9d338 100644
---- a/docs/UML/classes/dv_time.adoc
-+++ b/docs/UML/classes/dv_time.adoc
-@@ -28,7 +28,7 @@ h|*Functions*
+ (effected)*
+diff --git a/docs/UML/classes/org.openehr.rm.data_types.dv_time.adoc b/docs/UML/classes/org.openehr.rm.data_types.dv_time.adoc
+index 0439592..a5b3ade 100644
+--- a/docs/UML/classes/org.openehr.rm.data_types.dv_time.adoc
++++ b/docs/UML/classes/org.openehr.rm.data_types.dv_time.adoc
+@@ -29,7 +29,7 @@ h|*Functions*
  h|*1..1 +
  (effected)*
  |*magnitude* (): `link:/releases/BASE/{base_release}/foundation_types.html#_real_class[Real^]`
@@ -36,4 +36,4 @@ index 3a8b4da..fc9d338 100644
 +a|Numeric value of the time as seconds since the start of day, i.e. `00:00:00`. For a partial time, a missing minute or second counts as `00`, so `10` has the magnitude of `10:00:00`.
  
  h|*1..1 +
- (redefined)*
+ (effected)*

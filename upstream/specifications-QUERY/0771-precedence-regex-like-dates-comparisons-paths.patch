@@ -1,7 +1,8 @@
 diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
+index 02aa7f3..16f33f4 100755
 --- a/docs/AQL/master03-syntax.adoc
 +++ b/docs/AQL/master03-syntax.adoc
-@@ -37,7 +37,7 @@
+@@ -37,7 +37,7 @@ NOTE: `TOP` modifier is deprecated in favour of the `LIMIT` clause combined with
  
  The openEHR path syntax has been described in detail (see {openehr_path_syntax}[Paths and Locators^] section in the {openehr_overview}[Architecture Overview specification^]). AQL utilises the openEHR path syntax to reference both coarse-grained and fine-grained archetype nodes (objects and data values, respectively), and openEHR class instances and attributes, when referencing something that is not defined in an archetype but is part of the openEHR Reference Model.
  
@@ -10,7 +11,7 @@ diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
  
  
  A set of openEHR path examples are shown below:
-@@ -246,6 +246,12 @@
+@@ -246,6 +246,12 @@ The corresponding standard predicates would be:
  [at0002 and value/defining_code/terminology_id/value=$terminologyId]
  --------
  
@@ -22,8 +23,8 @@ diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
 +
  A node predicate defines criteria on fine-grained data.
  
- == Identified Paths
-@@ -292,6 +298,7 @@
+ === Version predicate
+@@ -313,6 +319,7 @@ An AQL operator is a reserved word or a symbol, used primarily in `WHERE` clause
  === Comparison operators
  
  The table below shows the supported AQL comparison operators, meaning and example.
@@ -31,7 +32,7 @@ diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
  
  [width="100%",cols="1,2,5",options="header",]
  |===
-@@ -329,7 +336,7 @@
+@@ -350,7 +357,7 @@ The `?` wildcard in the pattern matches any single character, while the `\*` wil
  If the pattern does not contain any of these wildcards, then `LIKE` acts like the `=` (equal) operator.
  The `LIKE` operator always tries to match the entire string value, therefore if the intention is to match a sequence anywhere within the string, the pattern must start and end with the `*` wildcard, e.g. `"\*test*"`.
  
@@ -40,7 +41,7 @@ diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
  
  ==== matches
  
-@@ -417,6 +424,8 @@
+@@ -438,6 +445,8 @@ WHERE
  
  === Logical operators
  
@@ -49,7 +50,7 @@ diff --git a/docs/AQL/master03-syntax.adoc b/docs/AQL/master03-syntax.adoc
  ==== AND
  
  `AND` is a binary operator used to combine two Boolean expressions. It represents a _logical 'and'_ (conjunction) and evaluates to `true` when both operands evaluate to `true`, and it evaluates to `false` otherwise.
-@@ -895,7 +904,7 @@
+@@ -916,7 +925,7 @@ WHERE composition/context/start_time <= '1986-01-01T12:00:00.000+09:30'
  WHERE composition/context/start_time <= '1986-01-01'
  --------
  --------

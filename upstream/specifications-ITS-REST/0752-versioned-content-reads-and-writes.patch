@@ -1,5 +1,5 @@
 diff --git a/specifications/operations/agent_update.yaml b/specifications/operations/agent_update.yaml
-index 7a722fb3..c376e8e2 100644
+index 7a722fb..c376e8e 100644
 --- a/specifications/operations/agent_update.yaml
 +++ b/specifications/operations/agent_update.yaml
 @@ -5,7 +5,7 @@ description: |
@@ -12,7 +12,7 @@ index 7a722fb3..c376e8e2 100644
    The existing latest `version_uid` of AGENT resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
    
 diff --git a/specifications/operations/composition_update.yaml b/specifications/operations/composition_update.yaml
-index cb38f41a..a9c23abd 100644
+index cb38f41..a9c23ab 100644
 --- a/specifications/operations/composition_update.yaml
 +++ b/specifications/operations/composition_update.yaml
 @@ -5,7 +5,7 @@ description: |
@@ -25,7 +25,7 @@ index cb38f41a..a9c23abd 100644
    The existing latest `version_uid` of COMPOSITION resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
    
 diff --git a/specifications/operations/group_update.yaml b/specifications/operations/group_update.yaml
-index 00e34c30..eb797457 100644
+index 00e34c3..eb79745 100644
 --- a/specifications/operations/group_update.yaml
 +++ b/specifications/operations/group_update.yaml
 @@ -5,7 +5,7 @@ description: |
@@ -38,7 +38,7 @@ index 00e34c30..eb797457 100644
    The existing latest `version_uid` of GROUP resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
    
 diff --git a/specifications/operations/organisation_update.yaml b/specifications/operations/organisation_update.yaml
-index 3b236641..4636e120 100644
+index 3b23664..4636e12 100644
 --- a/specifications/operations/organisation_update.yaml
 +++ b/specifications/operations/organisation_update.yaml
 @@ -5,7 +5,7 @@ description: |
@@ -51,7 +51,7 @@ index 3b236641..4636e120 100644
    The existing latest `version_uid` of ORGANISATION resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
    
 diff --git a/specifications/operations/person_update.yaml b/specifications/operations/person_update.yaml
-index 715ac8bb..e8e64b29 100644
+index 715ac8b..e8e64b2 100644
 --- a/specifications/operations/person_update.yaml
 +++ b/specifications/operations/person_update.yaml
 @@ -5,7 +5,7 @@ description: |
@@ -64,7 +64,7 @@ index 715ac8bb..e8e64b29 100644
    The existing latest `version_uid` of PERSON resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
    
 diff --git a/specifications/operations/role_update.yaml b/specifications/operations/role_update.yaml
-index 54e5d390..ac2a2afb 100644
+index 54e5d39..ac2a2af 100644
 --- a/specifications/operations/role_update.yaml
 +++ b/specifications/operations/role_update.yaml
 @@ -5,7 +5,7 @@ description: |
@@ -77,7 +77,7 @@ index 54e5d390..ac2a2afb 100644
    The existing latest `version_uid` of ROLE resource (i.e. the `preceding_version_uid`) must be specified in the `If-Match` header.
    
 diff --git a/specifications/responses/204_deleted_at_time.yaml b/specifications/responses/204_deleted_at_time.yaml
-index 73539ab5..f90a76e9 100644
+index 73539ab..f90a76e 100644
 --- a/specifications/responses/204_deleted_at_time.yaml
 +++ b/specifications/responses/204_deleted_at_time.yaml
 @@ -1,2 +1,2 @@

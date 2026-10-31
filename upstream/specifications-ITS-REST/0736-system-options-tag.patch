@@ -1,5 +1,5 @@
 diff --git a/specifications/system.openapi.yaml b/specifications/system.openapi.yaml
-index fec91222..31a196f4 100644
+index fec9122..31a196f 100644
 --- a/specifications/system.openapi.yaml
 +++ b/specifications/system.openapi.yaml
 @@ -26,7 +26,7 @@ paths:
