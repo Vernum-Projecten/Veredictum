@@ -20,13 +20,15 @@ options:
   ehr-xml-write:
     description: >-
       Whether the service processes an EHR_STATUS sent as canonical XML on
-      the EHR creates. The global `items` element (LOCATABLE) of
-      documents/Structure.xsd gives an EHR_STATUS a conforming root, but no
-      released sentence requires a service to accept that root (upstream
-      report #759), so the accepting arm has no document yet.
+      the EHR creates. No published document schema reaches EHR_STATUS: the
+      global `items` element (LOCATABLE) of documents/Structure.xsd does not
+      include Ehr.xsd, which only the 2.0.0 lineage publishes, and no
+      released sentence names the root a service accepts (upstream report
+      #759). The accepting arm sends an `items` root typed EHR_STATUS in that
+      lineage's namespace, so its workflows rest on that report.
     arms:
       ehr-xml-write-accepted:
-        documents: []
+        documents: [ehr_xml_write]
       ehr-xml-write-refused:
         documents: [ehr_xml_write_refused]
     x-veredictum-cite:
@@ -51,13 +53,16 @@ options:
   ehr-status-xml-write:
     description: >-
       Whether the service processes an EHR_STATUS sent as canonical XML on
-      the EHR_STATUS update. The global `items` element (LOCATABLE) of
-      documents/Structure.xsd gives an EHR_STATUS a conforming root, but no
-      released sentence requires a service to accept that root (upstream
-      report #759), so the accepting arm has no document yet.
+      the EHR_STATUS update. No published document schema reaches
+      EHR_STATUS: the global `items` element (LOCATABLE) of
+      documents/Structure.xsd does not include Ehr.xsd, which only the 2.0.0
+      lineage publishes, and no released sentence names the root a service
+      accepts (upstream report #759). The accepting arm sends an `items` root
+      typed EHR_STATUS in that lineage's namespace, so its workflow rests on
+      that report.
     arms:
       ehr-status-xml-write-accepted:
-        documents: []
+        documents: [ehr_status_xml_write]
       ehr-status-xml-write-refused:
         documents: [ehr_status_xml_write_refused]
     x-veredictum-cite:
@@ -338,10 +343,11 @@ options:
       on the directory create and update. The global `items` element
       (LOCATABLE) of documents/Structure.xsd gives a FOLDER a conforming
       root, but no released sentence requires a service to accept that root
-      (upstream report #759), so the accepting arm has no document yet.
+      (upstream report #759), so the accepting arm's workflows rest on that
+      report.
     arms:
       directory-xml-write-accepted:
-        documents: []
+        documents: [directory_xml_write]
       directory-xml-write-refused:
         documents: [directory_xml_write_refused]
     x-veredictum-cite:
@@ -385,10 +391,12 @@ options:
       of a type a PARTY extends is `items` (LOCATABLE) in documents/Structure.xsd,
       and that schema does not include Demographic.xsd, where the PARTY types
       are defined, so no published document schema reaches the PARTY types
-      (upstream report #759) and the accepting arm has no document yet.
+      (upstream report #759). The accepting arm sends an `items` root typed
+      with each PARTY kind in the 2.0.0 lineage's namespace, so its workflows
+      rest on that report.
     arms:
       party-xml-write-accepted:
-        documents: []
+        documents: [party_xml_write]
       party-xml-write-refused:
         documents: [party_xml_write_refused, party_xml_create_refused]
     x-veredictum-cite:
@@ -720,6 +728,10 @@ documents:
   directory_write_xml_accept: { formats: [canonical-json, canonical-xml] }
   party_read_xml: { formats: [canonical-json, canonical-xml] }
   party_write_xml_accept: { formats: [canonical-json, canonical-xml] }
+  party_xml_write: { formats: [canonical-json, canonical-xml] }
+  ehr_xml_write: { formats: [canonical-json, canonical-xml] }
+  ehr_status_xml_write: { formats: [canonical-json, canonical-xml] }
+  directory_xml_write: { formats: [canonical-json, canonical-xml] }
   versioned_party_read_xml: { formats: [canonical-json, canonical-xml] }
   demographic_contribution_read_xml: { formats: [canonical-json, canonical-xml] }
   composition_read_flat: { formats: [canonical-json, wt-flat] }
@@ -907,10 +919,10 @@ floors:
   content: 361
   contribution: 69
   definition: 33
-  demographic: 359
-  directory: 85
-  ehr: 48
-  ehr_status: 76
+  demographic: 369
+  directory: 87
+  ehr: 50
+  ehr_status: 77
   item_tags: 71
   query: 194
   security: 11

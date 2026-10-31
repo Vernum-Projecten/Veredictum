@@ -261,6 +261,15 @@ jobs:
       - name: JUnit schemas — seeded-violation proof
         run: bash scripts/checks/junit-schema.sh --self-test
 
+      # Every canonical-XML body an accepting XML-write arm sends validates
+      # against the vendored ITS-XML schemas (Resources.md, XML Format).
+      # xmllint validates; yq ships on the GitHub Ubuntu runner images.
+      - name: The XML bodies of the accepting XML-write arms hold to ITS-XML
+        run: bash scripts/checks/xml-write-bodies.sh
+
+      - name: XML write bodies — seeded-violation proof
+        run: bash scripts/checks/xml-write-bodies.sh --self-test
+
       # console.veredictum.eu is the official conformance instrument (#388), so
       # no reader-facing surface may call it a demo or a sandbox. The words are
       # refused as whole words, which leaves `demonstration` and the CSP
