@@ -26,9 +26,12 @@ sourceDescriptions:
   - name: templates
     url: ../_setup/content_templates.arazzo.yaml
     type: arazzo
+  - name: ext_term_accepted
+    url: dv_coded_text_ext_term_accepted.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: dv_coded_text-validate_ext_term-code_string_terminology_id_missing
-    x-veredictum-control: { pending: 836 }
+    x-veredictum-control: $sourceDescriptions.ext_term_accepted.dv_coded_text-validate_ext_term-accepted
     summary: "DV_CODED_TEXT against a CONSTRAINT_REF with a constraint_binding: a body with no defining_code is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against a
@@ -90,7 +93,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_coded_text-validate_ext_term-terminology_id_missing
-    x-veredictum-control: { pending: 836 }
+    x-veredictum-control: $sourceDescriptions.ext_term_accepted.dv_coded_text-validate_ext_term-accepted
     summary: "DV_CODED_TEXT against a CONSTRAINT_REF with a constraint_binding: a body with no terminology_id is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against a
@@ -152,7 +155,7 @@ workflows:
               quote: "`400 Bad Request` is returned when the request could not be parsed or is invalid (e.g. malformed request URL syntax, missing required header or parameter, or syntactically invalid header, parameter or content)."
 
   - workflowId: dv_coded_text-validate_ext_term-code_string_missing
-    x-veredictum-control: { pending: 836 }
+    x-veredictum-control: $sourceDescriptions.ext_term_accepted.dv_coded_text-validate_ext_term-accepted
     summary: "DV_CODED_TEXT against a CONSTRAINT_REF with a constraint_binding: a body with no code_string is refused with 400"
     description: >-
       Commits the rows' content against the template (DV_CODED_TEXT against a

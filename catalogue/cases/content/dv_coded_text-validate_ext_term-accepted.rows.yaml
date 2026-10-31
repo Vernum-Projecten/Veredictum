@@ -1,0 +1,18 @@
+# The accepted twin of the CONT-DV_CODED_TEXT-validate_ext_term refusals: a
+# complete coded text on the same template. The code and its rubric are the
+# ones BASE docs/architecture_overview/master12-terminology.adoc §Querying
+# using External Terminologies writes as [snomed-ct::254626006|adenocarcinoma
+# of lung|], and the terminology id is the one BASE
+# docs/base_types/master05-identification_package.adoc §Terminology
+# Identifiers gives for SNOMED CT. The recipe builds each row's composition
+# from its literals.
+workflow: dv_coded_text_ext_term_accepted/dv_coded_text-validate_ext_term-accepted
+iteration: reset_per_row
+literals: ["code_string", "terminology_id", "value", "CONSTRAINT_REF.reference", "constraint_bindings"]
+recipe:
+  name: content_instance
+  rm_class: DV_CODED_TEXT
+  template_id: cnf.tpl.dv_coded_text_constraint_ref
+  input: composition
+rows:
+  - {"code_string": "254626006", "terminology_id": "SNOMED-CT", "value": "adenocarcinoma of lung", "CONSTRAINT_REF.reference": "ac0001", "constraint_bindings": "[SNOMED_CT]"}
