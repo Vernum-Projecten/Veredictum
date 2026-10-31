@@ -1,13 +1,14 @@
 ---
 source: app/veredictum/tests/it/badges.rs
-expression: lower.render().unwrap()
+assertion_line: 248
+expression: record.render().unwrap()
 ---
 {
   "family": "perf-result",
   "raw": {
     "instrument": {
       "name": "veredictum",
-      "version": "0.3.2"
+      "version": "0.3.1"
     },
     "target": {
       "base_url": "https://cdr.example/openehr/v1",
@@ -2648,7 +2649,15 @@ expression: lower.render().unwrap()
   },
   "derived": {
     "passes": 1,
-    "between_run_noise": "unmeasured",
+    "between_run_noise": {
+      "aa_floor": {
+        "ratios": {
+          "p95": 1.04,
+          "achieved": 1.01
+        },
+        "pairs": 12
+      }
+    },
     "scope": "A run of at most ten minutes measures steady-state capacity and says nothing about memory growth, data growth or behaviour over hours.",
     "seeding": {
       "model": "closed_loop",

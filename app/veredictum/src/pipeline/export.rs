@@ -19,7 +19,7 @@ use serde::Deserialize;
 use crate::arazzo::export::{ctrf, github_annotations, junit, markdown};
 use crate::arazzo::results::Results;
 use crate::arazzo::terminal::{ShowOptions, render};
-use crate::badge::{Badge, badges, perf_badge};
+use crate::badge::{Badge, badges, perf_badges};
 use crate::perf_result::{PerfResult, view};
 use crate::pipeline::{Error, RenderedFile, read_json};
 
@@ -160,9 +160,9 @@ pub fn export_document(path: &Path) -> Result<Exports, Error> {
 
 /// Reads a document of either family and draws its badges.
 ///
-/// Each badge is `<name>.svg` and `<name>.json`: the five of a results document in
-/// [`crate::badge::BadgeName::CONFORMANCE`] order, or the one `perf` badge of
-/// a `perf-result`.
+/// Each badge is `<name>.svg` and `<name>.json`: the four of a results document
+/// in [`crate::badge::BadgeName::CONFORMANCE`] order, or the three of a
+/// `perf-result` in [`crate::badge::BadgeName::PERF`] order.
 ///
 /// # Errors
 /// Every error of [`read_document`], and [`Error::Serialize`] when an
@@ -170,7 +170,7 @@ pub fn export_document(path: &Path) -> Result<Exports, Error> {
 pub fn badge_files(path: &Path) -> Result<Vec<RenderedFile>, Error> {
     let drawn: Vec<Badge> = match read_document(path)? {
         Document::Results(results) => badges(&results),
-        Document::Perf(record) => vec![perf_badge(&record)],
+        Document::Perf(record) => perf_badges(&record),
     };
     let mut files = Vec::new();
     for badge in drawn {

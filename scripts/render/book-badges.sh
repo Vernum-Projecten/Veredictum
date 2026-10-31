@@ -11,11 +11,12 @@
 #   passing/      the passing result, judged against the release
 #   failing/      the failing result
 #   development/  the passing result, judged against the development snapshot
-#   perf/         `app/veredictum/examples/perf-result.example.json` (a knee
-#                 bracket) as `bracket.svg`, and the same record read as a
-#                 lower bound of a pinned workload as `lower-bound.svg`
+#   perf/bracket/      `app/veredictum/examples/perf-result.example.json` (a
+#                      knee bracket, no A/A floor), naming version 0.3.1
+#   perf/lower-bound/  the same record read as a lower bound of a pinned
+#                      workload, with an A/A floor attached
 #
-# The three results documents and the lower-bound record are pinned as insta
+# The three results documents and the two perf records are pinned as insta
 # snapshots by `the_badge_fixtures_are_pinned_as_documents`; this script reads
 # the snapshot body (everything after the second `---` line), so the gallery
 # and the golden tests can never draw from different documents. Only the SVGs
@@ -32,7 +33,6 @@ cd "$(dirname "$0")/../.."
 
 OUT="${1:-website/book/src/badges}"
 SNAPSHOTS=app/veredictum/tests/it/snapshots
-PERF_EXAMPLE=app/veredictum/examples/perf-result.example.json
 
 if [[ $# -gt 1 ]]; then
   echo "usage: $0 [<out-dir>]" >&2
@@ -73,12 +73,10 @@ for kind in passing failing development; do
   draw "$work/$kind.json" "$work/out/$kind"
 done
 
-mkdir -p "$work/out/perf"
-draw "$PERF_EXAMPLE" "$work/perf-bracket"
-mv "$work/perf-bracket/perf.svg" "$work/out/perf/bracket.svg"
-snapshot_body "$SNAPSHOTS/it__badges__perf-lower-bound-record.json.snap" "$work/lower-bound.json"
-draw "$work/lower-bound.json" "$work/perf-lower"
-mv "$work/perf-lower/perf.svg" "$work/out/perf/lower-bound.svg"
+for kind in bracket lower-bound; do
+  snapshot_body "$SNAPSHOTS/it__badges__perf-${kind}-record.json.snap" "$work/perf-$kind.json"
+  draw "$work/perf-$kind.json" "$work/out/perf/$kind"
+done
 
 rm -rf "$OUT"
 mkdir -p "$(dirname "$OUT")"

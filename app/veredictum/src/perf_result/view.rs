@@ -95,6 +95,24 @@ pub fn format_rate(rate: f64) -> String {
     group(&format!("{rate:.1}"))
 }
 
+/// A rate as a whole number rounded down, with thousands separators.
+///
+/// The lower end of a bracket reads with this, so a whole-number bracket only
+/// ever widens: `180.8` reads `180`.
+#[must_use]
+pub fn format_rate_floor(rate: f64) -> String {
+    group(&format!("{:.0}", rate.floor()))
+}
+
+/// A rate as a whole number rounded up, with thousands separators.
+///
+/// The upper end of a bracket reads with this, so a whole-number bracket only
+/// ever widens: `210.1` reads `211`.
+#[must_use]
+pub fn format_rate_ceil(rate: f64) -> String {
+    group(&format!("{:.0}", rate.ceil()))
+}
+
 /// Bytes in decimal units, one decimal below 10.
 #[must_use]
 pub fn format_bytes(bytes: f64) -> String {
