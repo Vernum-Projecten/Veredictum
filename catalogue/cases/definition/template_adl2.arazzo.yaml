@@ -120,6 +120,7 @@ workflows:
       source: specs/openehr/ITS-REST/specifications/operations/definition_template_adl2_upload.yaml
       section: description
       quote: "Upload a new ADL2 operational template."
+      report: 939
     inputs: *run_input
     steps:
       - &upload_minimal

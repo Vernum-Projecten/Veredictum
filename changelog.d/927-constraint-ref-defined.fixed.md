@@ -6,3 +6,8 @@
   Integration tests now hold every ADL 1.4 content template to that rule,
   and the composition the content cases commit to the archetype ids and
   at-codes of every template it is committed against.
+- The ADL 2 template uploads, `definition/template_adl2/upload_template_adl2-minimal`
+  and every setup in `_setup/content_templates_adl2`, name upstream report
+  #939: they follow the OPT2 grammar, which has no `specialize` section,
+  while the AOM2 class model requires every operational template to be
+  specialised.
