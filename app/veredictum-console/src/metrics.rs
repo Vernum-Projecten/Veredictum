@@ -699,7 +699,7 @@ impl Metrics {
             &mut out,
             "veredictum_server_fn_responses_total",
             "counter",
-            "Server-function responses by status class. A refusal a server function raises answers 5xx, so the refusal counts are part of the 5xx count.",
+            "Server-function responses by status class. A refusal answers 4xx, so the 5xx count is the instance's own failures.",
         );
         for (class, count) in &counters.responses {
             let _ = writeln!(

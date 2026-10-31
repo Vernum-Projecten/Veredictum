@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Veredictum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The status and the sentence a malformed server-function call gets back.
+//! The refusal a malformed server-function call gets back.
 //!
 //! Every `#[server]` fn here is a publicly reachable HTTP endpoint, so its
 //! refusals are part of the interface. A call whose arguments cannot be
@@ -13,19 +13,12 @@
 //! between "you sent the wrong thing" and "this thing is down".
 //!
 //! The framework offers no hook for it, so the rewrite happens in a layer this
-//! crate owns, over the encoded error and the number of body bytes the
-//! transport read.
+//! crate owns, over the decoded [`ConsoleError`] and the number of body bytes
+//! the transport read.
 
-use std::fmt::Write as _;
+use leptos::prelude::ServerFnErrorErr;
 
-/// The decoding failures that are the CALLER's mistake.
-///
-/// `server_fn` encodes an error as its variant name, a `|`, and the message
-/// (`ServerFnError::ser`), and these three variants are the ones raised before
-/// a handler runs: an argument that will not deserialize, one that is missing
-/// outright, and a body that is not the expected encoding at all
-/// (<https://docs.rs/leptos/latest/leptos/prelude/enum.ServerFnErrorErr.html>).
-const CALLER_FAULT: [&str; 3] = ["Args", "MissingArg", "Deserialization"];
+use crate::error::ConsoleError;
 
 /// How much of a call's body the transport read, against the cap it holds.
 ///
@@ -48,71 +41,33 @@ impl BodyRead {
     }
 }
 
-/// Why a call is the caller's mistake, each cause with its own sentence.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CallerFault {
-    /// The body was larger than the transport cap, so it was never decoded.
-    TooLarge {
-        /// The cap, in bytes.
-        cap: usize,
-    },
-    /// The body was read, and an argument was missing or did not decode.
-    Undecodable {
-        /// The argument serde named as missing, when it named one.
-        missing: Option<String>,
-    },
-}
-
-impl CallerFault {
-    /// Returns the sentence a caller gets instead of the serializer's own
-    /// words.
-    #[must_use]
-    pub fn sentence(&self) -> String {
-        match self {
-            Self::TooLarge { cap } => format!(
-                "This call could not be read. Its body is larger than the \
-                 {cap} bytes this console reads for one call, so none of its \
-                 arguments were decoded."
-            ),
-            Self::Undecodable { missing } => {
-                let mut sentence = String::from("This call could not be read.");
-                if let Some(argument) = missing {
-                    let _ = write!(
-                        sentence,
-                        " The argument `{argument}` is required and was not supplied."
-                    );
-                } else {
-                    sentence.push_str(" One of its arguments could not be decoded.");
-                }
-                sentence.push_str(
-                    " Every argument of a console endpoint is required: a value that is \
-                     not being declared has its own spelling — an empty string, or the \
-                     `Undeclared` member of its vocabulary — so that an omitted argument \
-                     can never read as a declared absence.",
-                );
-                sentence
-            }
-        }
-    }
-}
-
-/// Classifies an encoded server-function error as the caller's mistake.
+/// Reads a server-function error as the caller's mistake, when it is one.
 ///
-/// `Some` when the encoded error names a decoding failure. The body's own
-/// size decides between the two causes: the framework's limited reader
-/// reports an overrun as a decoding failure, so a body that ran past the cap
-/// is [`CallerFault::TooLarge`] whatever the message says. `None` when the
-/// error is the server's own, which keeps its status and its body untouched.
+/// `Some` when the transport failed to decode the call: an argument that will
+/// not deserialize, one missing outright, or a body that is not the expected
+/// encoding at all, the three [`ServerFnErrorErr`] variants raised before a
+/// handler runs
+/// (<https://docs.rs/leptos/latest/leptos/prelude/enum.ServerFnErrorErr.html>).
+/// The body's own size decides between the two refusals: the framework's
+/// limited reader reports an overrun as a decoding failure, so a body that ran
+/// past the cap is [`ConsoleError::CallTooLarge`] whatever the message says.
+/// `None` for every other error, which keeps its own variant.
 #[must_use]
-pub fn caller_fault(encoded: &str, read: BodyRead) -> Option<CallerFault> {
-    let (variant, detail) = encoded.split_once('|')?;
-    if !CALLER_FAULT.contains(&variant) {
+pub fn caller_fault(error: &ConsoleError, read: BodyRead) -> Option<ConsoleError> {
+    let ConsoleError::Transport(
+        ServerFnErrorErr::Args(detail)
+        | ServerFnErrorErr::MissingArg(detail)
+        | ServerFnErrorErr::Deserialization(detail),
+    ) = error
+    else {
         return None;
-    }
+    };
     if read.overran() {
-        return Some(CallerFault::TooLarge { cap: read.cap });
+        return Some(ConsoleError::CallTooLarge {
+            cap: u64::try_from(read.cap).unwrap_or(u64::MAX),
+        });
     }
-    Some(CallerFault::Undecodable {
+    Some(ConsoleError::CallUndecodable {
         missing: missing_field(detail).map(str::to_owned),
     })
 }
@@ -139,27 +94,45 @@ mod tests {
         cap: 4_194_304,
     };
 
+    fn transport(error: ServerFnErrorErr) -> ConsoleError {
+        ConsoleError::Transport(error)
+    }
+
     #[test]
     fn a_missing_argument_is_the_callers_fault_and_names_itself() {
-        let answer = caller_fault("Args|missing field `postures`", READ)
-            .expect("a decoding failure is the caller's fault")
-            .sentence();
+        let fault = caller_fault(
+            &transport(ServerFnErrorErr::Args(String::from(
+                "missing field `postures`",
+            ))),
+            READ,
+        )
+        .expect("a decoding failure is the caller's fault");
+        assert_eq!(
+            fault,
+            ConsoleError::CallUndecodable {
+                missing: Some(String::from("postures"))
+            }
+        );
+        let answer = fault.to_string();
         assert!(answer.contains("`postures`"), "{answer}");
         assert!(answer.contains("required"), "{answer}");
         assert!(
-            !answer.contains("Args|"),
+            !answer.contains("Args"),
             "the serializer's own phrasing does not travel: {answer}"
         );
     }
 
     #[test]
     fn an_undecodable_argument_says_so_without_inventing_a_name() {
-        let answer = caller_fault(
-            "Deserialization|invalid type: string \"x\", expected u32",
+        let fault = caller_fault(
+            &transport(ServerFnErrorErr::Deserialization(String::from(
+                "invalid type: string \"x\", expected u32",
+            ))),
             READ,
         )
-        .expect("a decoding failure is the caller's fault")
-        .sentence();
+        .expect("a decoding failure is the caller's fault");
+        assert_eq!(fault, ConsoleError::CallUndecodable { missing: None });
+        let answer = fault.to_string();
         assert!(answer.contains("could not be decoded"), "{answer}");
         assert!(
             !answer.contains("The argument `"),
@@ -169,14 +142,30 @@ mod tests {
 
     #[test]
     fn a_missing_arg_variant_is_read_the_same_way() {
-        assert!(caller_fault("MissingArg|no argument named `filter`", READ).is_some());
+        assert!(
+            caller_fault(
+                &transport(ServerFnErrorErr::MissingArg(String::from(
+                    "no argument named `filter`"
+                ))),
+                READ
+            )
+            .is_some()
+        );
     }
 
     #[test]
     fn the_servers_own_errors_are_left_alone() {
-        assert_eq!(caller_fault("ServerError|the engine exited 2", READ), None);
-        assert_eq!(caller_fault("WrappedServerError|refused", READ), None);
-        assert_eq!(caller_fault("no separator at all", READ), None);
+        assert_eq!(
+            caller_fault(
+                &transport(ServerFnErrorErr::ServerError(String::from(
+                    "the engine exited 2"
+                ))),
+                READ
+            ),
+            None
+        );
+        assert_eq!(caller_fault(&ConsoleError::NoDraft, READ), None);
+        assert_eq!(caller_fault(&ConsoleError::internal("refused"), READ), None);
     }
 
     /// The overrun is told apart by the bytes the transport read, never by
@@ -187,10 +176,15 @@ mod tests {
             bytes: 4_194_305,
             cap: 4_194_304,
         };
-        let fault = caller_fault("Deserialization|anything at all", past)
-            .expect("a decoding failure is the caller's fault");
-        assert_eq!(fault, CallerFault::TooLarge { cap: 4_194_304 });
-        let answer = fault.sentence();
+        let fault = caller_fault(
+            &transport(ServerFnErrorErr::Deserialization(String::from(
+                "anything at all",
+            ))),
+            past,
+        )
+        .expect("a decoding failure is the caller's fault");
+        assert_eq!(fault, ConsoleError::CallTooLarge { cap: 4_194_304 });
+        let answer = fault.to_string();
         assert!(answer.contains("larger than the 4194304 bytes"), "{answer}");
         assert!(!answer.contains("could not be decoded"), "{answer}");
     }
@@ -202,8 +196,13 @@ mod tests {
             cap: 4_194_304,
         };
         assert_eq!(
-            caller_fault("Deserialization|expected u32", at),
-            Some(CallerFault::Undecodable { missing: None })
+            caller_fault(
+                &transport(ServerFnErrorErr::Deserialization(String::from(
+                    "expected u32"
+                ))),
+                at
+            ),
+            Some(ConsoleError::CallUndecodable { missing: None })
         );
     }
 
@@ -213,6 +212,14 @@ mod tests {
             bytes: 9_000_000,
             cap: 4_194_304,
         };
-        assert_eq!(caller_fault("ServerError|the engine exited 2", past), None);
+        assert_eq!(
+            caller_fault(
+                &transport(ServerFnErrorErr::ServerError(String::from(
+                    "the engine exited 2"
+                ))),
+                past
+            ),
+            None
+        );
     }
 }

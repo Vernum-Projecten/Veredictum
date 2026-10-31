@@ -10,11 +10,13 @@
 //! router's, so every request here travels a socket into the router the
 //! server binary builds.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use leptos::prelude::FromServerFnError;
 use leptos::server_fn::ServerFn;
 use reqwest::StatusCode;
 use reqwest::header::LOCATION;
+use veredictum_console::error::ConsoleError;
 use veredictum_console::posture::Posture;
 use veredictum_console::run_api::fns::{ProbeAndSave, SaveIdentity};
 use veredictum_console::run_api::{AuthChoice, ConnectRefusal, PROBED_PATH, SCOPE_PATH};
@@ -49,25 +51,18 @@ async fn bind_with(
     rates: veredictum_console::rate_limit::Rates,
 ) -> Result<Bound, Box<dyn std::error::Error>> {
     let scratch = assert_fs::TempDir::new()?;
+    // The connect step reads no catalogue, so a stated absence keeps this
+    // gate off the validation pass.
     let state = ConsoleState {
-        root: crate::engine_gate::repo_root().join("catalogue"),
-        specs: crate::engine_gate::repo_root().join("specs/openehr"),
-        out: scratch.path().to_path_buf(),
-        // The connect step reads no catalogue, so a stated absence keeps this
-        // gate off the validation pass.
-        catalogue: Arc::new(Err(String::from(
-            "no catalogue: this gate drives the connect forms",
-        ))),
-        draft: Arc::new(Mutex::new(veredictum_console::run_api::Drafts::new())),
-        jobs: veredictum_console::run_job::JobSlot::default(),
-        client_ip_header: None,
-        metrics: veredictum_console::metrics::Metrics::default(),
         posture,
         rates: veredictum_console::rate_limit::RateLimiter::with(
             rates,
             veredictum_console::rate_limit::Clock::manual(),
         ),
-        capture: false,
+        ..crate::support::state(
+            scratch.path(),
+            crate::support::absent("no catalogue: this gate drives the connect forms"),
+        )
     };
     let options = leptos::prelude::LeptosOptions::builder()
         .output_name("veredictum-console")
@@ -104,6 +99,7 @@ struct Answer {
     status: StatusCode,
     location: Option<String>,
     navigates: bool,
+    body: String,
 }
 
 /// Posts a URL-encoded form to a server function, asking for `accept`.
@@ -131,6 +127,7 @@ async fn post(
         navigates: response
             .headers()
             .contains_key(leptos::server_fn::redirect::REDIRECT_HEADER),
+        body: response.text().await?,
     })
 }
 
@@ -285,6 +282,19 @@ async fn a_refused_plain_form_returns_to_the_connect_step_naming_its_refusal()
         client_call.location, None,
         "the client reads the refusal from the body"
     );
+    // The variant the client decodes, end to end over the wire, and the 4xx
+    // it answers with (#401).
+    assert_eq!(client_call.status, StatusCode::UNPROCESSABLE_ENTITY);
+    let decoded = <ConsoleError as FromServerFnError>::de(client_call.body.into());
+    assert_eq!(
+        decoded,
+        ConsoleError::TooLong {
+            field: String::from("display name"),
+            bytes: 2_000,
+            cap: veredictum_console::run_api::IDENTITY_LABEL_CAP_BYTES,
+        }
+    );
+    assert_eq!(ConnectRefusal::from(&decoded), ConnectRefusal::Label);
 
     let page = client()?
         .get(format!("{}{}", bound.origin, ConnectRefusal::Label.path()))

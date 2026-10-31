@@ -13,19 +13,13 @@ use veredictum_console::run_api::{
     SigningChoice, SigningPosture, SpecProfileChoice,
 };
 
+use veredictum_console::error::ConsoleError;
+
 use crate::engine_gate;
 
 /// The document filter the equality gate drives: one small document, so the
 /// run is seconds.
 const SCOPE_FILTER: &str = engine_gate::GATE_DOCUMENT;
-
-/// The listing the console reads at startup, over the committed catalogue.
-fn committed_listing() -> std::sync::Arc<Result<veredictum::pipeline::listing::Listing, String>> {
-    std::sync::Arc::new(
-        veredictum::pipeline::listing::read(&engine_gate::repo_root().join("catalogue"), None)
-            .map_err(|e| e.to_string()),
-    )
-}
 
 #[expect(
     clippy::panic_in_result_fn,
@@ -43,21 +37,10 @@ fn the_scope_preview_counts_what_the_engine_processes() -> Result<(), Box<dyn st
     }
     let engine = Engine::verified(&binary)?;
 
-    let state = veredictum_console::state::ConsoleState {
-        root: engine_gate::repo_root().join("catalogue"),
-        specs: engine_gate::repo_root().join("specs/openehr"),
-        out: engine_gate::repo_root().join("out"),
-        catalogue: committed_listing(),
-        draft: std::sync::Arc::new(std::sync::Mutex::new(
-            veredictum_console::run_api::Drafts::new(),
-        )),
-        client_ip_header: None,
-        jobs: veredictum_console::run_job::JobSlot::default(),
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
-    };
+    let state = crate::support::state(
+        &crate::support::repo_root().join("out"),
+        crate::support::committed_listing(),
+    );
     let preview = veredictum_console::run_api::read::scope_preview(&state, SCOPE_FILTER)
         .map_err(|e| format!("preview: {e}"))?;
     let documents = veredictum_console::run_api::read::filtered_documents(&state, SCOPE_FILTER)
@@ -98,7 +81,8 @@ fn a_filter_that_selects_no_document_is_refused() {
     let state = drafted_state();
     let refused = veredictum_console::run_api::read::filtered_documents(&state, "no-such-document");
     assert!(
-        refused.is_err_and(|e| e.contains("no-such-document")),
+        refused.is_err_and(|e| matches!(e, ConsoleError::Invalid { .. })
+            && e.to_string().contains("no-such-document")),
         "an empty selection is refused by name"
     );
     assert_eq!(
@@ -114,21 +98,10 @@ fn a_filter_that_selects_no_document_is_refused() {
 )]
 #[test]
 fn the_draft_view_carries_no_secret() -> Result<(), Box<dyn std::error::Error>> {
-    let state = veredictum_console::state::ConsoleState {
-        root: "catalogue".into(),
-        specs: "specs/openehr".into(),
-        out: "out".into(),
-        catalogue: std::sync::Arc::new(Err(String::from("unused"))),
-        draft: std::sync::Arc::new(std::sync::Mutex::new(
-            veredictum_console::run_api::Drafts::new(),
-        )),
-        client_ip_header: None,
-        jobs: veredictum_console::run_job::JobSlot::default(),
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
-    };
+    let state = crate::support::state(
+        &crate::support::repo_root().join("out"),
+        crate::support::absent("unused"),
+    );
     veredictum_console::run_api::read::save_connection(
         &state,
         engine_gate::gate_submitter(),
@@ -202,10 +175,6 @@ fn a_credential_form_debug_rendering_carries_no_secret() {
 /// claim gates below.
 fn drafted_state() -> veredictum_console::state::ConsoleState {
     veredictum_console::state::ConsoleState {
-        root: engine_gate::repo_root().join("catalogue"),
-        specs: engine_gate::repo_root().join("specs/openehr"),
-        out: engine_gate::repo_root().join("out"),
-        catalogue: committed_listing(),
         draft: std::sync::Arc::new(std::sync::Mutex::new(engine_gate::drafts_of(RunDraft {
             profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             base_url: String::from("http://unused"),
@@ -222,12 +191,10 @@ fn drafted_state() -> veredictum_console::state::ConsoleState {
             filter: None,
             postures: DeclaredPostures::default(),
         }))),
-        jobs: veredictum_console::run_job::JobSlot::default(),
-        client_ip_header: None,
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
+        ..crate::support::state(
+            &crate::support::repo_root().join("out"),
+            crate::support::committed_listing(),
+        )
     }
 }
 
@@ -443,7 +410,10 @@ fn a_composed_claim_saves_through_the_pasted_claim_path() -> Result<(), Box<dyn 
         engine_gate::gate_submitter(),
         &[String::from("NoSuchCapability")],
     );
-    assert!(unknown.is_err_and(|e| e.contains("NoSuchCapability")));
+    assert!(
+        unknown.is_err_and(|e| matches!(e, ConsoleError::Invalid { .. })
+            && e.to_string().contains("NoSuchCapability"))
+    );
     Ok(())
 }
 
@@ -515,7 +485,11 @@ fn an_unusable_posture_declaration_is_refused_by_name() -> Result<(), Box<dyn st
         ..PostureForm::default()
     })
     .expect_err("a pgp posture with no key cannot verify anything");
-    assert!(keyless.contains("no public key"), "{keyless}");
+    assert!(
+        matches!(keyless, ConsoleError::Invalid { .. })
+            && keyless.to_string().contains("no public key"),
+        "{keyless}"
+    );
 
     let junk = veredictum_console::run_api::declared_postures(&PostureForm {
         signing: SigningChoice::Pgp,
@@ -523,14 +497,26 @@ fn an_unusable_posture_declaration_is_refused_by_name() -> Result<(), Box<dyn st
         ..PostureForm::default()
     })
     .expect_err("a key the verifier cannot read is refused");
-    assert!(junk.contains("PGP PUBLIC KEY BLOCK"), "{junk}");
+    assert!(
+        matches!(junk, ConsoleError::Invalid { .. })
+            && junk.to_string().contains("PGP PUBLIC KEY BLOCK"),
+        "{junk}"
+    );
 
     let oversized = veredictum_console::run_api::declared_postures(&PostureForm {
         system_id: "s".repeat(4096),
         ..PostureForm::default()
     })
     .expect_err("an abusive system id is capped");
-    assert!(oversized.contains("the cap is"), "{oversized}");
+    assert_eq!(
+        oversized,
+        ConsoleError::TooLong {
+            field: String::from("system id"),
+            bytes: 4096,
+            cap: 256,
+        }
+    );
+    assert!(oversized.to_string().contains("the cap is"), "{oversized}");
 
     // A declared digest posture narrows to the typed carrier, parameters and
     // all, and an empty prefix stays empty rather than becoming a stand-in.

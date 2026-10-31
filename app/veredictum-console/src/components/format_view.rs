@@ -64,3 +64,15 @@ pub fn inline_error(diagnostic: &str) -> impl IntoView + use<> {
         </div>
     }
 }
+
+/// The inline shape of a refused mutation, beside its toast: the diagnostic
+/// verbatim, then the next step the refusal's variant names.
+#[must_use]
+pub fn refusal_view(error: &crate::error::ConsoleError) -> impl IntoView + use<> {
+    let next = error.next_step();
+    view! {
+        <div class="space-y-1">
+            {inline_error(&error.to_string())} <p class="text-sm text-ink-muted">{next}</p>
+        </div>
+    }
+}

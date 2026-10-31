@@ -27,7 +27,7 @@
     reason = "the skip-with-reason and capture lines ARE this suite's report"
 )]
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 
 use leptos::server_fn::ServerFn;
@@ -69,8 +69,7 @@ fn env(name: &str) -> Option<String> {
 /// The book's console screenshot directory, resolved from this crate's
 /// manifest directory.
 fn book_img_dir() -> PathBuf {
-    let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
-    Path::new(root)
+    crate::support::repo_root()
         .join("website")
         .join("book")
         .join("src")
@@ -630,14 +629,17 @@ async fn e2e_run_wizard_reaches_connect_and_scope() {
         .expect("compose with nothing checked");
     h.wait_xpath("//body[contains(., 'check at least one capability')]")
         .await;
+    // The refusal's variant chooses the next step the screen offers (#401).
+    h.wait_xpath("//body[contains(., 'Correct it and try again.')]")
+        .await;
     // The connection pane resolves either way — a draft summary labelled
     // `connection`, or the honest "No connection draft" answer — so what is
     // asserted is that the Suspense RESOLVED, never which of the two it
     // landed on.
     h.wait_xpath("//body[contains(., 'connection')]").await;
-    // A refused server function answers 500, which the browser logs as a
-    // failed resource: the refusal above is the assertion, and this ONE
-    // endpoint's status line is what driving it deliberately costs.
+    // A refused server function answers its 4xx (#401), which the browser
+    // logs as a failed resource: the refusal above is the assertion, and this
+    // ONE endpoint's status line is what driving it deliberately costs.
     h.assert_console_clean(&["/api/compose_claim"]).await;
     h.finish().await;
 }
@@ -1462,7 +1464,8 @@ async fn e2e_two_visitors_drive_two_runs_at_once() {
     // Every `#[server]` fn is a public endpoint, so this is part of the
     // interface: the same form with `postures` left out, which server_fn
     // answers with 500 and its own serializer's phrasing unless something
-    // rewrites it.
+    // rewrites it. The rewrite is the console's own encoded error, so the
+    // variant is what a caller decodes.
     let (status, body) = second
         .call_expecting_a_refusal(<SaveScope as ServerFn>::PATH, "filter=")
         .await;
@@ -1471,13 +1474,16 @@ async fn e2e_two_visitors_drive_two_runs_at_once() {
         reqwest::StatusCode::BAD_REQUEST,
         "a caller's mistake is 4xx, not 5xx: {body}"
     );
-    assert!(
-        body.contains("`postures`"),
-        "the refusal names the argument: {body}"
-    );
-    assert!(
-        !body.contains("Args|"),
-        "the serializer's own phrasing does not reach a caller: {body}"
+    let refusal =
+        <veredictum_console::error::ConsoleError as leptos::prelude::FromServerFnError>::de(
+            body.clone().into(),
+        );
+    assert_eq!(
+        refusal,
+        veredictum_console::error::ConsoleError::CallUndecodable {
+            missing: Some(String::from("postures"))
+        },
+        "the refusal names the argument, and the serializer's own phrasing does not reach a caller: {body}"
     );
 
     // Visitor two is this journey, over the same public endpoints.

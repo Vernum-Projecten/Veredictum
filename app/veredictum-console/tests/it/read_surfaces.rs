@@ -14,33 +14,13 @@ use std::path::Path;
 use veredictum_console::catalogue_api::{ArmPlace, CaseStanding, InstrumentView, OptionKind, read};
 use veredictum_console::state::ConsoleState;
 
-/// The repository root, two levels above this crate (#55).
-fn repo_root() -> &'static Path {
-    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-}
-
 /// The startup state over the committed catalogue, exactly as `main` builds
 /// it — the env override keeps the test independent of the process cwd.
 fn committed_state() -> ConsoleState {
-    let root = repo_root().join("catalogue");
-    let specs = repo_root().join("specs/openehr");
-    let catalogue =
-        veredictum::pipeline::listing::read(&root, Some(&specs)).map_err(|e| e.to_string());
-    ConsoleState {
-        root,
-        specs,
-        out: repo_root().join("out"),
-        catalogue: std::sync::Arc::new(catalogue),
-        draft: std::sync::Arc::new(std::sync::Mutex::new(
-            veredictum_console::run_api::Drafts::new(),
-        )),
-        client_ip_header: None,
-        jobs: veredictum_console::run_job::JobSlot::default(),
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
-    }
+    crate::support::state(
+        &crate::support::repo_root().join("out"),
+        crate::support::validated_listing(),
+    )
 }
 
 /// The worked example of the Arazzo design, a case the catalogue keeps.
@@ -95,17 +75,10 @@ fn refused_state(reason: &str) -> ConsoleState {
     ConsoleState {
         root: "/nonexistent/catalogue".into(),
         specs: "/nonexistent/specs".into(),
-        out: "/nonexistent/out".into(),
-        catalogue: std::sync::Arc::new(Err(reason.to_owned())),
-        draft: std::sync::Arc::new(std::sync::Mutex::new(
-            veredictum_console::run_api::Drafts::new(),
-        )),
-        client_ip_header: None,
-        jobs: veredictum_console::run_job::JobSlot::default(),
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
+        ..crate::support::state(
+            Path::new("/nonexistent/out"),
+            crate::support::absent(reason),
+        )
     }
 }
 
@@ -174,18 +147,14 @@ fn the_capability_counts_partition_the_catalogue() -> Result<(), Box<dyn std::er
 #[test]
 fn every_reader_reports_the_load_refusal_verbatim() {
     let state = refused_state("catalogue/cases: no such directory");
-    assert_eq!(
-        read::chapter_rows(&state).err().as_deref(),
-        Some("catalogue/cases: no such directory")
+    let refusal = Some(
+        veredictum_console::error::ConsoleError::CatalogueUnavailable {
+            detail: String::from("catalogue/cases: no such directory"),
+        },
     );
-    assert_eq!(
-        read::band_rows(&state, "ehr", "").err().as_deref(),
-        Some("catalogue/cases: no such directory")
-    );
-    assert_eq!(
-        read::case_detail(&state, "any").err().as_deref(),
-        Some("catalogue/cases: no such directory")
-    );
+    assert_eq!(read::chapter_rows(&state).err(), refusal);
+    assert_eq!(read::band_rows(&state, "ehr", "").err(), refusal);
+    assert_eq!(read::case_detail(&state, "any").err(), refusal);
 }
 
 /// A capability listing has one section per document, and every row carries

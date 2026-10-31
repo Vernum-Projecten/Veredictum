@@ -303,6 +303,7 @@ pub mod read {
         CatalogueMissing, ChapterGroup, ChapterPage, ChapterRow, CitationRow, InstrumentSummary,
         InstrumentView, OptionBlock, OptionKind, SectionBlock, StepRow,
     };
+    use crate::error::ConsoleError;
     use crate::state::ConsoleState;
     use veredictum::arazzo::capabilities::{CAPABILITIES_FILE, Capabilities};
     use veredictum::arazzo::cite::Citation;
@@ -365,8 +366,8 @@ pub mod read {
     ///
     /// # Errors
     /// The verbatim load failure when the catalogue is absent.
-    pub fn chapter_rows(state: &ConsoleState) -> Result<Vec<ChapterRow>, String> {
-        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+    pub fn chapter_rows(state: &ConsoleState) -> Result<Vec<ChapterRow>, ConsoleError> {
+        let listing = state.listing()?;
         Ok(listing
             .capabilities()
             .into_iter()
@@ -384,8 +385,8 @@ pub mod read {
     /// # Errors
     /// The verbatim load failure when the catalogue or a structure file
     /// present under its root does not load.
-    pub fn catalogue_home(state: &ConsoleState) -> Result<Vec<ChapterGroup>, String> {
-        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+    pub fn catalogue_home(state: &ConsoleState) -> Result<Vec<ChapterGroup>, ConsoleError> {
+        let listing = state.listing()?;
         let (chapters, capabilities) = structure(&listing.root)?;
         let mut cards: BTreeMap<&str, BandCard> = listing
             .capabilities()
@@ -452,8 +453,8 @@ pub mod read {
         state: &ConsoleState,
         chapter: &str,
         q: &str,
-    ) -> Result<Vec<BandRows>, String> {
-        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+    ) -> Result<Vec<BandRows>, ConsoleError> {
+        let listing = state.listing()?;
         Ok(listing
             .documents
             .iter()
@@ -481,16 +482,24 @@ pub mod read {
     ///
     /// # Errors
     /// The verbatim load failure of a structure file that is present.
-    fn structure(root: &Path) -> Result<(Option<Chapters>, Option<Capabilities>), String> {
+    /// A structure file present under the catalogue root that does not load
+    /// leaves the catalogue unreadable, as its own load failure would.
+    fn unavailable(error: impl std::fmt::Display) -> ConsoleError {
+        ConsoleError::CatalogueUnavailable {
+            detail: error.to_string(),
+        }
+    }
+
+    fn structure(root: &Path) -> Result<(Option<Chapters>, Option<Capabilities>), ConsoleError> {
         let chapters_path = root.join(CHAPTERS_FILE);
         let chapters = if chapters_path.is_file() {
-            Some(Chapters::load(&chapters_path).map_err(|e| e.to_string())?)
+            Some(Chapters::load(&chapters_path).map_err(unavailable)?)
         } else {
             None
         };
         let capabilities_path = root.join(CAPABILITIES_FILE);
         let capabilities = if capabilities_path.is_file() {
-            Some(Capabilities::load(&capabilities_path).map_err(|e| e.to_string())?)
+            Some(Capabilities::load(&capabilities_path).map_err(unavailable)?)
         } else {
             None
         };
@@ -622,8 +631,8 @@ pub mod read {
         state: &ConsoleState,
         folder: &str,
         q: &str,
-    ) -> Result<ChapterPage, String> {
-        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+    ) -> Result<ChapterPage, ConsoleError> {
+        let listing = state.listing()?;
         let (chapters, capabilities) = structure(&listing.root)?;
         let declared = chapters.as_ref().and_then(|c| c.folder(folder));
         let badge = declared.is_some_and(|(_, decl)| decl.formalism);
@@ -688,8 +697,8 @@ pub mod read {
     /// # Errors
     /// The verbatim load failure when the catalogue or a structure file
     /// present under its root does not load.
-    pub fn case_detail(state: &ConsoleState, id: &str) -> Result<Option<CaseDetail>, String> {
-        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+    pub fn case_detail(state: &ConsoleState, id: &str) -> Result<Option<CaseDetail>, ConsoleError> {
+        let listing = state.listing()?;
         let Some((document, workflow)) = listing.workflows().find(|(_, w)| w.case == id) else {
             return Ok(None);
         };
@@ -792,7 +801,8 @@ pub mod fns {
     )]
 
     use super::{CaseDetail, ChapterGroup, ChapterPage, InstrumentView};
-    use leptos::prelude::{ServerFnError, server};
+    use crate::error::ConsoleError;
+    use leptos::prelude::server;
 
     #[cfg(feature = "ssr")]
     use super::read;
@@ -803,7 +813,7 @@ pub mod fns {
     /// The server-fn transport only; the catalogue's absence is data, not an
     /// error.
     #[server]
-    pub async fn fetch_instrument() -> Result<InstrumentView, ServerFnError> {
+    pub async fn fetch_instrument() -> Result<InstrumentView, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         Ok(read::instrument_view(&state))
     }
@@ -814,9 +824,9 @@ pub mod fns {
     /// The verbatim load failure when the catalogue or a structure file
     /// present under its root does not load.
     #[server]
-    pub async fn fetch_catalogue_home() -> Result<Vec<ChapterGroup>, ServerFnError> {
+    pub async fn fetch_catalogue_home() -> Result<Vec<ChapterGroup>, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        read::catalogue_home(&state).map_err(ServerFnError::new)
+        read::catalogue_home(&state)
     }
 
     /// One capability folder grouped into its BASE sections and the options
@@ -829,9 +839,9 @@ pub mod fns {
     pub async fn fetch_chapter_page(
         chapter: String,
         q: String,
-    ) -> Result<ChapterPage, ServerFnError> {
+    ) -> Result<ChapterPage, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        read::chapter_page(&state, &chapter, &q).map_err(ServerFnError::new)
+        read::chapter_page(&state, &chapter, &q)
     }
 
     /// One case in full; `None` for an id the catalogue does not carry.
@@ -839,8 +849,8 @@ pub mod fns {
     /// # Errors
     /// The verbatim load failure when the catalogue is absent.
     #[server]
-    pub async fn fetch_case_detail(id: String) -> Result<Option<CaseDetail>, ServerFnError> {
+    pub async fn fetch_case_detail(id: String) -> Result<Option<CaseDetail>, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        read::case_detail(&state, &id).map_err(ServerFnError::new)
+        read::case_detail(&state, &id)
     }
 }

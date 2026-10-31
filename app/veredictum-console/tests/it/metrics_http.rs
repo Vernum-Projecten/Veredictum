@@ -8,8 +8,6 @@
 //! counters are driven through a job map spawning the gate engine, because
 //! what they count is what the supervisor actually did.
 
-use std::sync::{Arc, Mutex};
-
 use leptos::server_fn::ServerFn;
 use veredictum_console::metrics::{AccessToken, Metrics};
 use veredictum_console::run_api::fns::{ProbeAndSave, SaveScope};
@@ -34,17 +32,13 @@ async fn bind(token: Option<&str>) -> Result<Bound, Box<dyn std::error::Error>> 
     let scratch = assert_fs::TempDir::new()?;
     let metrics = Metrics::default().with_access(token.map(AccessToken::parse).transpose()?);
     let state = veredictum_console::state::ConsoleState {
-        root: engine_gate::repo_root().join("catalogue"),
-        specs: engine_gate::repo_root().join("specs/openehr"),
-        out: scratch.path().to_path_buf(),
-        catalogue: Arc::new(Err(String::from("no catalogue: this gate drives metrics"))),
-        draft: Arc::new(Mutex::new(veredictum_console::run_api::Drafts::new())),
         jobs: JobSlot::default().with_metrics(metrics.clone()),
-        client_ip_header: None,
         posture: veredictum_console::posture::Posture::Hosted,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
         metrics,
+        ..crate::support::state(
+            scratch.path(),
+            crate::support::absent("no catalogue: this gate drives metrics"),
+        )
     };
     let options = leptos::prelude::LeptosOptions::builder()
         .output_name("veredictum-console")
@@ -154,7 +148,7 @@ async fn only_the_operators_token_opens_the_metrics() -> Result<(), Box<dyn std:
 }
 
 /// A target refusal is counted by its reason and the address never appears;
-/// a malformed call is counted as the 4xx its caller read.
+/// it and a malformed call are each counted as the 4xx their caller read.
 #[expect(
     clippy::panic_in_result_fn,
     reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
@@ -171,9 +165,10 @@ async fn refusals_and_server_fn_answers_are_counted_and_name_no_target()
          &admin[auth]=None&admin[user]=&admin[password]=&admin[token]=",
     )
     .await?;
-    assert!(
-        refused.is_server_error(),
-        "a server function's refusal answers 5xx: {refused}"
+    assert_eq!(
+        refused,
+        reqwest::StatusCode::UNPROCESSABLE_ENTITY,
+        "a refused target is the caller's, and answers 4xx (#401): {refused}"
     );
     let malformed = call(&bound, <SaveScope as ServerFn>::PATH, "nonsense").await?;
     assert_eq!(malformed, reqwest::StatusCode::BAD_REQUEST);
@@ -187,12 +182,12 @@ async fn refusals_and_server_fn_answers_are_counted_and_name_no_target()
         "{text}"
     );
     assert!(
-        text.contains("veredictum_server_fn_responses_total{class=\"4xx\"} 1\n"),
+        text.contains("veredictum_server_fn_responses_total{class=\"4xx\"} 2\n"),
         "{text}"
     );
     assert!(
-        text.contains("veredictum_server_fn_responses_total{class=\"5xx\"} 1\n"),
-        "{text}"
+        !text.contains("veredictum_server_fn_responses_total{class=\"5xx\"}"),
+        "no refusal counts as this instance's own failure: {text}"
     );
     for leaked in ["127.0.0.42", "secret-path", "8080"] {
         assert!(!text.contains(leaked), "{leaked} reached the exposition");

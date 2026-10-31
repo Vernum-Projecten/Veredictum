@@ -85,6 +85,13 @@ pub fn error(title: &str, body: &str) {
     push(Intent::Error, title, body);
 }
 
+/// Dispatches the error toast for a refused `act`: its title, what it left
+/// unchanged, the diagnostic verbatim, and the next step, all worded by
+/// [`crate::error`].
+pub fn refused(act: crate::error::Act, refusal: &crate::error::ConsoleError) {
+    error(act.title(), &act.refusal(refusal));
+}
+
 /// The fixed host region rendering the queue; the shell mounts exactly one.
 #[expect(
     clippy::must_use_candidate,

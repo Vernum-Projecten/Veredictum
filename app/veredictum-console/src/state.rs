@@ -124,6 +124,21 @@ pub struct ConsoleState {
 }
 
 impl ConsoleState {
+    /// The startup listing of the catalogue.
+    ///
+    /// # Errors
+    /// [`ConsoleError::CatalogueUnavailable`](crate::error::ConsoleError::CatalogueUnavailable)
+    /// carrying the verbatim reason the catalogue could not be opened.
+    pub fn listing(
+        &self,
+    ) -> Result<&veredictum::pipeline::listing::Listing, crate::error::ConsoleError> {
+        self.catalogue.as_ref().as_ref().map_err(|reason| {
+            crate::error::ConsoleError::CatalogueUnavailable {
+                detail: reason.clone(),
+            }
+        })
+    }
+
     /// Reads the mounts from the environment and reads the catalogue once,
     /// through the published lib — the same gates `validate` runs.
     ///
