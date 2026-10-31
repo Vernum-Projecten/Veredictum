@@ -716,6 +716,11 @@ pub struct CapabilityRow {
     pub documents: u64,
     /// The workflows those documents carry.
     pub cases: u64,
+    /// The top-level ITS-REST resources the folder's operations address.
+    pub resources: Vec<String>,
+    /// Whether the Scope screen starts with the folder checked: the server
+    /// listed `endpoints`, and every resource of the folder among them.
+    pub starts_checked: bool,
 }
 
 /// The probe's verbatim answer.
@@ -1155,21 +1160,69 @@ pub mod read {
         })
     }
 
-    /// The capability rows: each folder with its documents and workflows.
+    /// The capability rows: each folder with its documents, workflows and
+    /// resources, and whether the Scope screen starts with it checked.
+    ///
+    /// The start follows the `endpoints` the submitter's server listed in
+    /// its System OPTIONS document ([`starts_checked`]).
     ///
     /// # Errors
-    /// The catalogue's verbatim load failure.
-    pub fn capability_rows(state: &ConsoleState) -> Result<Vec<CapabilityRow>, String> {
+    /// The catalogue's verbatim load failure, and a poisoned draft lock.
+    pub fn capability_rows(
+        state: &ConsoleState,
+        submitter: Submitter,
+    ) -> Result<Vec<CapabilityRow>, String> {
         let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+        let endpoints = {
+            let guard = state.draft.lock().map_err(|e| e.to_string())?;
+            guard
+                .get(submitter)
+                .and_then(|draft| draft.identity.as_ref())
+                .and_then(crate::identity::IdentityAnswer::endpoints)
+                .map(<[String]>::to_vec)
+        };
+        let resources = listing.capability_resources();
         Ok(listing
             .capabilities()
             .into_iter()
-            .map(|(name, documents)| CapabilityRow {
-                name: name.to_owned(),
-                documents: count(documents.len()),
-                cases: count(documents.iter().map(|d| d.workflows.len()).sum()),
+            .map(|(name, documents)| {
+                let addressed = resources.get(name).cloned().unwrap_or_default();
+                CapabilityRow {
+                    name: name.to_owned(),
+                    documents: count(documents.len()),
+                    cases: count(documents.iter().map(|d| d.workflows.len()).sum()),
+                    starts_checked: starts_checked(&addressed, endpoints.as_deref()),
+                    resources: addressed.into_iter().map(str::to_owned).collect(),
+                }
             })
             .collect())
+    }
+
+    /// Whether a capability addressing `resources` starts checked.
+    ///
+    /// A server that listed no `endpoints` member starts every capability
+    /// unchecked, as one that never answered does. A server that listed them
+    /// starts a capability checked only when it listed every resource the
+    /// capability addresses, compared by top-level segment, so `/ehr/` names
+    /// `/ehr`. A capability addressing only the API root, where the System
+    /// API answered the document itself, starts checked. The `endpoints`
+    /// member is ITS-REST `specifications/schemas/others/Options.yaml`; no
+    /// openEHR spec governs the starting selection — our own design.
+    #[must_use]
+    pub fn starts_checked(
+        resources: &std::collections::BTreeSet<&str>,
+        endpoints: Option<&[String]>,
+    ) -> bool {
+        let Some(endpoints) = endpoints else {
+            return false;
+        };
+        let listed: std::collections::BTreeSet<&str> = endpoints
+            .iter()
+            .filter_map(|endpoint| {
+                veredictum::pipeline::listing::top_level_resource(endpoint.trim())
+            })
+            .collect();
+        resources.iter().all(|resource| listed.contains(resource))
     }
 
     /// The composed claim's product identifier, derived from the identity the
@@ -2110,7 +2163,8 @@ pub mod fns {
     #[server]
     pub async fn fetch_capability_rows() -> Result<Vec<CapabilityRow>, ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        super::read::capability_rows(&state).map_err(ServerFnError::new)
+        let who = crate::submitter::current(&state);
+        super::read::capability_rows(&state, who).map_err(ServerFnError::new)
     }
 
     /// Composes the ad-hoc claim for a capability selection, answering with

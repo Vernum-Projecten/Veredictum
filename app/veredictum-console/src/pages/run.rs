@@ -837,7 +837,9 @@ pub fn Scope() -> impl IntoView {
     let draft = Resource::new(|| (), |()| fetch_draft());
     let statement_json = RwSignal::new(String::new());
     let capability_rows = Resource::new(|| (), |()| fetch_capability_rows());
-    let checked = RwSignal::new(Vec::<String>::new());
+    // The operator's own ticks, by folder; a folder absent here shows the
+    // start the server's listed endpoints gave it (`CapabilityRow`).
+    let checked = RwSignal::new(std::collections::BTreeMap::<String, bool>::new());
     let composed_note = RwSignal::new(None::<Result<String, String>>);
     let compose = Action::new(move |selection: &Vec<String>| {
         let selection = selection.clone();
@@ -1143,11 +1145,23 @@ pub fn Scope() -> impl IntoView {
     }
 }
 
+/// The folders checked: the operator's tick where there is one, else the
+/// row's start.
+fn checked_names(
+    rows: &[CapabilityRow],
+    ticks: &std::collections::BTreeMap<String, bool>,
+) -> Vec<String> {
+    rows.iter()
+        .filter(|row| ticks.get(&row.name).copied().unwrap_or(row.starts_checked))
+        .map(|row| row.name.clone())
+        .collect()
+}
+
 /// The capability picker: each folder's counts, the checkboxes that build the
 /// claim, and the compose button with its note.
 fn capability_picker(
     capability_rows: Resource<Result<Vec<CapabilityRow>, ServerFnError>>,
-    checked: RwSignal<Vec<String>>,
+    checked: RwSignal<std::collections::BTreeMap<String, bool>>,
     compose: Action<Vec<String>, ()>,
     composed_note: RwSignal<Option<Result<String, String>>>,
 ) -> impl IntoView + use<> {
@@ -1175,6 +1189,7 @@ fn capability_picker(
                                         row.cases,
                                     );
                                     let held = row.name.clone();
+                                    let start = row.starts_checked;
                                     let toggled = row.name;
                                     view! {
                                         <label
@@ -1186,16 +1201,16 @@ fn capability_picker(
                                                 type="checkbox"
                                                 class="size-4 accent-accent"
                                                 prop:checked=move || {
-                                                    checked.with(|names| names.contains(&held))
+                                                    checked
+                                                        .with(|ticks| {
+                                                            ticks.get(&held).copied().unwrap_or(start)
+                                                        })
                                                 }
                                                 on:change:target=move |ev| {
                                                     let on = ev.target().checked();
                                                     checked
-                                                        .update(|names| {
-                                                            names.retain(|name| *name != toggled);
-                                                            if on {
-                                                                names.push(toggled.clone());
-                                                            }
+                                                        .update(|ticks| {
+                                                            ticks.insert(toggled.clone(), on);
                                                         });
                                                 }
                                             />
@@ -1216,7 +1231,13 @@ fn capability_picker(
                     type="button"
                     class=BTN_SECONDARY
                     on:click=move |_| {
-                        compose.dispatch(checked.get());
+                        // NOTE: no openEHR spec governs this — our own design; rows not yet
+                        // loaded show no box to check, so nothing is checked.
+                        let rows = capability_rows
+                            .get_untracked()
+                            .and_then(Result::ok)
+                            .unwrap_or_default();
+                        compose.dispatch(checked_names(&rows, &checked.get_untracked()));
                     }
                 >
                     "Compose the claim"
