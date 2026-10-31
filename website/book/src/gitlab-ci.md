@@ -111,7 +111,7 @@ presenting an empty credential to your server.
 
 ## Badges
 
-The run job draws the five [badges](badges.md) into `badges/` in `out-dir`.
+The run job draws the four [badges](badges.md) into `badges/` in `out-dir`.
 GitLab serves a job artifact by URL from the latest successful pipeline of a
 branch, and [Badges](badges.md#gitlab) gives the URL and the README snippet.
 A verdict job that fails the pipeline leaves that URL on the last successful

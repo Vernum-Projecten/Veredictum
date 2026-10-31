@@ -4,8 +4,10 @@
 //! The static badges of an Arazzo results document: every badge pinned as SVG
 //! and as a Shields.io endpoint document for a passing, a failing and a
 //! development-profile result; a failed or errored row never drawn in a
-//! passing colour; the profile named in every counting badge; and the command
-//! writing the files and refusing a `perf-result`.
+//! passing colour; a warning counted on its own badge, outside the ratio and
+//! out of the colour; the profile named in every counting badge; and the
+//! command writing the files and drawing only the perf badge for a
+//! `perf-result`.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -227,6 +229,22 @@ fn every_badge_is_pinned_for_a_passing_a_failing_and_a_development_result() {
     }
 }
 
+/// The documents the badges above are drawn from, pinned as the files
+/// `scripts/render/book-badges.sh` hands to `veredictum badge` for the book's
+/// gallery, so the gallery shows these fixtures and nothing hand-made.
+#[test]
+fn the_badge_fixtures_are_pinned_as_documents() {
+    for (kind, results) in [
+        ("passing", passing()),
+        ("failing", failing()),
+        ("development", development()),
+    ] {
+        insta::assert_snapshot!(format!("{kind}-results.json"), results.to_text().unwrap());
+    }
+    let [_, (_, lower)] = perf_records().unwrap();
+    insta::assert_snapshot!("perf-lower-bound-record.json", lower.render().unwrap());
+}
+
 #[test]
 fn a_failed_or_errored_row_is_never_drawn_in_a_passing_colour() {
     assert_eq!(
@@ -253,14 +271,63 @@ fn a_failed_or_errored_row_is_never_drawn_in_a_passing_colour() {
         "the unselected arm's skipped row is left out"
     );
     assert_eq!(
-        badge(&passing(), BadgeName::Warnings).unwrap().message,
-        "1",
-        "the warning row counts as a warning"
-    );
-    assert_eq!(
         badge(&passing(), BadgeName::Base).unwrap().message,
-        "3/4 passed"
+        "3/3 passed \u{b7} 1 warning",
+        "the warning row is named after the ratio, never inside it"
     );
+}
+
+#[test]
+fn a_base_warning_leaves_the_ratio_all_passed_and_the_badge_green() {
+    let base = badge(&passing(), BadgeName::Base).unwrap();
+    assert_eq!(base.message, "3/3 passed \u{b7} 1 warning");
+    assert_eq!(base.colour, BadgeColour::Passing);
+    let mut unwarned = passing();
+    unwarned.rows.retain(|r| r.explanation.is_none());
+    let plain = badge(&unwarned, BadgeName::Base).unwrap();
+    assert_eq!(plain.message, "3/3 passed");
+    assert_eq!(plain.colour, base.colour, "a warning changes no colour");
+}
+
+#[test]
+fn an_option_warning_is_counted_on_the_options_badge_only() {
+    let mut results = passing();
+    results.rows.retain(|r| r.explanation.is_none());
+    results.rows.push(row(
+        "xml-supported/read",
+        1,
+        Status::Failed,
+        Some(Whose::Warning),
+    ));
+    let options = badge(&results, BadgeName::Options).unwrap();
+    assert_eq!(options.message, "1/1 passed \u{b7} 1 warning");
+    assert_eq!(options.colour, BadgeColour::Passing);
+    assert_eq!(
+        badge(&results, BadgeName::Base).unwrap().message,
+        "3/3 passed"
+    );
+}
+
+#[test]
+fn warnings_in_base_and_options_are_counted_on_each_badge_apart() {
+    let mut results = failing();
+    for (case, index) in [("ehr/read", 2), ("ehr/read", 3), ("xml-supported/read", 1)] {
+        results
+            .rows
+            .push(row(case, index, Status::Failed, Some(Whose::Warning)));
+    }
+    let base = badge(&results, BadgeName::Base).unwrap();
+    assert_eq!(
+        base.message,
+        "2/4 passed \u{b7} 1 failed \u{b7} 1 errored \u{b7} 2 warnings"
+    );
+    assert_eq!(base.colour, BadgeColour::Failing);
+    let options = badge(&results, BadgeName::Options).unwrap();
+    assert_eq!(
+        options.message,
+        "0/1 passed \u{b7} 1 errored \u{b7} 1 warning"
+    );
+    assert_eq!(options.colour, BadgeColour::Errored);
 }
 
 #[test]
@@ -272,7 +339,10 @@ fn a_server_attributed_errored_row_makes_the_base_badge_red() {
             .push(row("ehr/create", 2, Status::Errored, whose));
         let base = badge(&results, BadgeName::Base).unwrap();
         assert_eq!(base.colour, BadgeColour::Failing, "{whose:?}");
-        assert_eq!(base.message, "3/5 passed \u{b7} 1 errored", "{whose:?}");
+        assert_eq!(
+            base.message, "3/4 passed \u{b7} 1 errored \u{b7} 1 warning",
+            "{whose:?}"
+        );
     }
     let mut inconclusive = passing();
     inconclusive.rows.push(row(
@@ -302,7 +372,7 @@ fn a_red_row_the_outline_places_nowhere_never_leaves_the_base_badge_green() {
         assert_eq!(base.colour, colour, "{status:?}");
         assert_eq!(
             base.message.split(' ').next(),
-            Some("3/5"),
+            Some("3/4"),
             "{}",
             base.message
         );
@@ -319,12 +389,7 @@ fn a_red_row_the_outline_places_nowhere_never_leaves_the_base_badge_green() {
 
 #[test]
 fn every_counting_badge_names_its_profile_and_the_profiles_never_draw_alike() {
-    for name in [
-        BadgeName::Base,
-        BadgeName::Options,
-        BadgeName::Warnings,
-        BadgeName::Profile,
-    ] {
+    for name in [BadgeName::Base, BadgeName::Options, BadgeName::Profile] {
         let released = badge(&passing(), name).unwrap();
         let development = badge(&development(), name).unwrap();
         assert_ne!(released.svg(), development.svg(), "{}", name.token());
@@ -401,7 +466,7 @@ fn the_command_writes_every_badge_the_seam_draws() {
     let output = badge_command(&path, &out).unwrap();
     assert!(output.status.success(), "{output:?}");
     let files = badge_files(&path).unwrap();
-    assert_eq!(files.len(), 10);
+    assert_eq!(files.len(), 8);
     for file in &files {
         assert_eq!(
             std::fs::read_to_string(out.join(&file.name)).unwrap(),

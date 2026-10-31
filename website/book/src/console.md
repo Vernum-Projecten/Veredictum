@@ -118,6 +118,8 @@ links to its detail: the four-part explanation the engine wrote (what was
 checked, why it is required with the cited sentence, what was expected and
 what was received, and whose problem the row is), which is what
 [the attribution](methodology.md#when-a-run-goes-red) of that row turns on.
+[Reading a result](reading-results.md) explains what each kind of row means
+for a buyer.
 
 The detail ends with the wire: the exchange the row was judged on, read from
 the run's `recording.har`, as its request and response panes, verbatim. The

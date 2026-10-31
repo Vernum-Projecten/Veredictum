@@ -76,7 +76,7 @@ readonly CREDENTIALS=(
 )
 readonly SCOPED_TOKEN_PREFIX=VEREDICTUM_SCOPED_TOKEN_
 readonly RELEASE_IMAGE=ghcr.io/vernum-projecten/veredictum
-readonly BADGES=(base options warnings profile instrument)
+readonly BADGES=(base options profile instrument)
 readonly BOT_NAME='github-actions[bot]'
 readonly BOT_EMAIL='41898282+github-actions[bot]@users.noreply.github.com'
 
@@ -438,7 +438,7 @@ for arg in "$@"; do
       exit 0 ;;
     badge)
       mkdir -p "$out/badges"
-      for name in base options warnings profile instrument; do
+      for name in base options profile instrument; do
         printf '<svg>%s %s</svg>\n' "$name" "${STUB_BADGE:-first}" > "$out/badges/$name.svg"
         printf '{"schemaVersion":1,"label":"%s"}\n' "$name" > "$out/badges/$name.json"
       done
@@ -622,7 +622,7 @@ STUB
   if [[ "$(git --git-dir="$remote" log -1 --format='%an <%ae>|%cn <%ce>' refs/heads/badges)" \
     == "${BOT_NAME} <${BOT_EMAIL}>|${BOT_NAME} <${BOT_EMAIL}>" ]] \
     && [[ "$(git --git-dir="$remote" ls-tree --name-only refs/heads/badges | LC_ALL=C sort | tr '\n' ' ')" \
-      == "base.json base.svg instrument.json instrument.svg options.json options.svg profile.json profile.svg warnings.json warnings.svg " ]]; then
+      == "base.json base.svg instrument.json instrument.svg options.json options.svg profile.json profile.svg " ]]; then
     echo "self-test ok: the badge commit is the bot's and holds only the badges"
   else
     echo "self-test FAILED: the badge commit's author or tree is not as expected" >&2

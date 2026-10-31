@@ -1,0 +1,197 @@
+---
+source: app/veredictum/tests/it/badges.rs
+expression: results.to_text().unwrap()
+---
+{
+  "document": "catalogue",
+  "engine": {
+    "name": "veredictum",
+    "version": "0.3.1"
+  },
+  "instrument_status": "pre-approval",
+  "specification": {
+    "profile": "released"
+  },
+  "base_url": "http://sut/openehr/v1",
+  "rows": [
+    {
+      "case": "ehr/create",
+      "row": 0,
+      "status": "passed",
+      "inputs": {},
+      "generated": []
+    },
+    {
+      "case": "ehr/create",
+      "row": 1,
+      "status": "failed",
+      "inputs": {},
+      "generated": [],
+      "explanation": {
+        "step": "read",
+        "what": "Read the EHR.",
+        "expected": "status 200",
+        "received": "status 500",
+        "whose": "server"
+      }
+    },
+    {
+      "case": "ehr/read",
+      "row": 0,
+      "status": "errored",
+      "inputs": {},
+      "generated": [],
+      "explanation": {
+        "step": "read",
+        "what": "Read the EHR.",
+        "expected": "status 200",
+        "received": "status 500",
+        "whose": "instrument"
+      }
+    },
+    {
+      "case": "ehr/read",
+      "row": 1,
+      "status": "passed",
+      "inputs": {},
+      "generated": []
+    },
+    {
+      "case": "xml-supported/read",
+      "row": 0,
+      "status": "errored",
+      "inputs": {},
+      "generated": [],
+      "explanation": {
+        "step": "read",
+        "what": "Read the EHR.",
+        "expected": "status 200",
+        "received": "status 500",
+        "whose": "instrument"
+      }
+    },
+    {
+      "case": "flat-supported/read",
+      "row": 0,
+      "status": "skipped",
+      "inputs": {},
+      "generated": []
+    }
+  ],
+  "outline": {
+    "chapters": [
+      {
+        "chapter": "ehr",
+        "title": "EHR",
+        "folders": [
+          {
+            "folder": "ehr",
+            "title": "EHR",
+            "sections": [
+              {
+                "section": "create",
+                "title": "Create"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "options": [
+      {
+        "option": "ehr-xml",
+        "description": "Whether the server supports ehr-xml.",
+        "theme": "canonical-xml",
+        "tier": "options",
+        "folders": [
+          "ehr"
+        ],
+        "arms": [
+          {
+            "arm": "xml-supported",
+            "selected": true,
+            "documents": [
+              "xml-supported"
+            ]
+          },
+          {
+            "arm": "xml-unsupported",
+            "selected": false,
+            "documents": [
+              "xml-unsupported"
+            ]
+          }
+        ]
+      },
+      {
+        "option": "ehr-flat",
+        "description": "Whether the server supports ehr-flat.",
+        "theme": "canonical-xml",
+        "tier": "options",
+        "folders": [
+          "ehr"
+        ],
+        "arms": [
+          {
+            "arm": "flat-unsupported",
+            "selected": true,
+            "documents": [
+              "flat-unsupported"
+            ]
+          },
+          {
+            "arm": "flat-supported",
+            "selected": false,
+            "documents": [
+              "flat-supported"
+            ]
+          }
+        ]
+      }
+    ],
+    "cases": {
+      "ehr/create": {
+        "chapter": "ehr",
+        "folder": "ehr",
+        "standing": {
+          "kind": "base",
+          "section": "create"
+        }
+      },
+      "ehr/read": {
+        "chapter": "ehr",
+        "folder": "ehr",
+        "standing": {
+          "kind": "base",
+          "section": "create"
+        }
+      },
+      "flat-supported/read": {
+        "chapter": "ehr",
+        "folder": "ehr",
+        "standing": {
+          "kind": "option",
+          "arms": [
+            {
+              "option": "ehr-flat",
+              "arm": "flat-supported"
+            }
+          ]
+        }
+      },
+      "xml-supported/read": {
+        "chapter": "ehr",
+        "folder": "ehr",
+        "standing": {
+          "kind": "option",
+          "arms": [
+            {
+              "option": "ehr-xml",
+              "arm": "xml-supported"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
