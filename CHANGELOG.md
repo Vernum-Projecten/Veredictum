@@ -20,6 +20,296 @@ version on.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-31
+
+### Added
+
+- A run picks a specification profile. `development`, the default for `test`,
+  the GitHub Action's new `profile` input and the console, is the newest text:
+  a pinned snapshot of the `master` of each openEHR specification repository,
+  the line that carries the newest text, under `specs/openehr-development/`,
+  one directory per repository at its own paths, vendored by `scripts/vendor/spec-docs-development.sh` with a
+  `PROVENANCE.md` naming the repository, branch and commit. `released` is
+  selectable and frozen: the vendored release under `specs/openehr/`. A case
+  whose cited file, section or sentence the snapshot lacks is skipped as
+  `cited-text-absent`, with a `detail` naming the profile and what is missing. (#875)
+- `results.json` records the profile under `specification`, with every
+  snapshot commit for a development run, and `schemas/arazzo-results.schema.json`
+  describes it. The terminal view, `show`, the Markdown summary, JUnit, CTRF and
+  the console's results screen name the profile and the snapshot. (#875)
+- Released results alone back a released claim or a certificate. Certificate
+  issuance refuses a development record with a typed error, so a certificate
+  needs a `--profile released` run, and a development result is never compared
+  with or counted toward a released result. (#875)
+- `validate --profile development` reports, beside every gate against the
+  release, each case citation the snapshot lacks as information and the counts
+  per component. `validate` still defaults to the released profile, where zero
+  findings is the only passing result. (#875)
+- The container image carries `specs/openehr-development/`. (#875)
+- Under the development profile a quote is matched against the cited text as
+  the page renders it: `link:`, `xref:` and labelled `<<id,label>>` macros read
+  as their label and a straight double quote as a backtick, and a class table
+  the release names by its class is found under its package-qualified name.
+  The released profile's matching is unchanged. (#875)
+- A citation in `x-veredictum-cite` may carry a `development` member, the
+  snapshot's wording of a reworded section, which the development profile
+  reads in place of `section` and `quote`. `validate --profile development`
+  refuses one the snapshot does not hold and a stale one whose released quote
+  still occurs there. (#875)
+- A performance workload is a versioned document under `perf/workloads/`, published as `schemas/perf-workload.schema.json`. Loading it refuses, naming the file and the field, shares that do not sum to 100 %, a session over 10 s of mean think time, an operation or query outside the vocabulary, a payload missing from `perf/payloads.yaml`, a query that does not parse or binds its parameters wrongly, a `requires` token that names no capability folder or option arm, a mix outside the 10:1 to 50:1 read band, a qualification limit looser than the ruled default, and a planned run longer than 10 minutes after seeding. (#881)
+- `veredictum perf-workloads` prints each workload's expanded per-operation mix, read:write ratio and planned run range; `--out` writes the byte-deterministic manifest of the pinned workloads with their sha256 digests (`schemas/perf-workloads.schema.json`) and the page generated from it, and `--workload` checks one document of your own, labelled `custom` unless it matches a pinned digest. (#881)
+- The reference workload `clinical-mix` v1 offers what a clinical front end sends: chart review as a partly-open session (EHR by subject, patient summary AQL, composition reads, an observation trend), ward board, problem list with a `TERMINOLOGY()` variant behind its option arm, cohort `COUNT` and the six `aql-mix` classes over ad-hoc and stored query execution on `GET` and `POST`, and the monitoring, order, result, correction, folder, tag, definition, demographic and bootstrap traffic at shares carried over from the journey catalogue. Every share names its derivation, and the mix is provisional, for SEC ratification. (#882)
+- The engine gains an open-loop load generator (`veredictum::perf_gen`):
+  interactions arrive on a seeded Poisson process laid over a rate profile
+  of constant and ramping segments, a session's later stages wait for the
+  previous answer and a drawn think time, every latency runs from the
+  intended instant, arrivals are tasks under a bounded in-flight budget,
+  and each window records the generator's own lag so a window it could
+  not hold reads `generator_bound` and a budget that stays exhausted stops
+  the run as saturated. (#883)
+- `schemas/perf-result.schema.json` publishes the `perf-result` record: a
+  `raw` part holding the run's evidence, with one encoded HDR histogram per
+  plateau half and operation, and a `derived` part computed from it. Each
+  percentile from p50 to p99.9 comes from summed histograms and carries its
+  95 % rank interval, or reads `not_resolvable` with fewer than 10 samples
+  above it, and each operation names the quantile it is judged at. Every
+  record states `passes: 1`, `between_run_noise: unmeasured` and what a run
+  of at most ten minutes cannot show. (#884)
+- `veredictum perf-judge --result <file>` re-derives every derived number of
+  a `perf-result` from its recorded histograms and exits `1` on any byte of
+  difference, naming each differing field by its JSON pointer. (#884)
+- `veredictum perf --workload <file> --out <record>` runs a workload document
+  against a live server: a closed-loop seeding reported apart (or `--corpus
+  reuse` of a stored corpus, refused before the warm-up when its read-back
+  counts or digest differ), then settle, warm-up, a 60 s scout ramp, four
+  plateaus at 0.5, 0.75, 0.9 and 1.05 of the knee estimate with an extra
+  plateau at 0.25 when the lowest fails, and the closing canary, at most ten
+  minutes after seeding. The planned duration is printed before the first
+  measured request, every phase's wall time is in the record, each plateau
+  carries its qualification, a refused optional query is counted apart from
+  errors, and a `429` anywhere in the run refuses that run's record. The
+  class run (`--class`, `--hours`) stays beside it and the two are mutually
+  exclusive. (#885)
+- A `perf-result` derives what the run says about capacity: the knee as a
+  bracket between the highest plateau that qualifies with every lower one and
+  the first failing plateau, or as a lower bound when the top plateau
+  qualifies; the peak achieved throughput whatever the latency; a Universal
+  Scalability Law fit (α, β, γ, N*, the predicted maximum and R²) made with a
+  pinned grid and 200 Levenberg-Marquardt steps; and the population reading,
+  the knee over 13 to 75 peak API arrivals per second per 100,000 population,
+  with the corpus scale, the environment and its derivation. `perf-judge`
+  re-derives each of them byte for byte. (#886)
+- A `perf --workload` record carries server-side readings beside every
+  plateau, as context that never bears on its qualification: per declared
+  container the cumulative CPU, memory, block and network counters from the
+  Docker Engine API stats endpoint every 2 s of the hold, the database and
+  per-schema sizes at the hold's start and end, and the ten statements
+  `pg_stat_statements` counted most time for over the hold, plus the
+  PostgreSQL settings once per run. Each reading is `present` or `absent`
+  with its reason, a failed container reading ends that series with the
+  reason, and no failed reading fails the run. `derived` summarizes each
+  series as CPU mean and maximum, peak resident memory and I/O, and the
+  database growth, so `perf-judge` reproduces them. The readings never write
+  to the database: without the `pg_stat_statements` extension the statement
+  table is absent with the server's reason. (#887)
+- The IXIT `containers` block takes an optional `database`, the PostgreSQL
+  database in the `db` container whose sizes and statements a run reads;
+  without it those readings are recorded absent. (#887)
+- `veredictum show` and `veredictum export --markdown` read a `perf-result`
+  as well as an Arazzo results document, told apart by the document's
+  `family`. The view names the target, environment, host prescription and
+  generator, the workload with its digest (a `custom` one named so), the
+  corpus scale, the knee estimate, the between-run noise and the record's
+  scope; prints one line per plateau with offered and achieved rates, p50 to
+  p99.9 and max, the error share, a ✓ or ✕ qualification mark and `unsteady`
+  where recorded; tables the operations at the knee and at the lowest
+  plateau with the quantile each is judged at (`n/r` where a quantile does
+  not resolve) and names every operation judged below p99; states the knee,
+  peak, population and scalability-fit sentences; draws a sparkline of p99
+  against the offered rate; and lists the server-side readings as context.
+  The terminal view fits 80 columns. `export --junit` and `--ctrf` refuse a
+  `perf-result` with exit status 2, and a document naming any other
+  `family` is refused by name. (#888)
+- `app/veredictum/examples/perf-result.example.json` is a committed example
+  record from `cargo run --example make_example_perf_result`, held to its
+  generator by `scripts/checks/example-results-drift.sh`. (#888)
+- `veredictum perf-assets --results <perf-result.json> --out <dir>` draws
+  three charts from a `perf-result`: `perf-saturation.svg`, p50, p95 and p99
+  against achieved throughput over the scout windows (hollow circles on thin
+  lines) and the plateaus (squares on thick lines), with the knee bracket
+  shaded and the Universal Scalability Law fit as a dashed curve of mean
+  latency; `perf-throughput.svg`, achieved against offered throughput with
+  the identity line; and `perf-operations.svg`, each operation's latency at
+  the knee at the quantile it is judged at, beside its budget. A quantile
+  that does not resolve is marked below the plot and never joined to its
+  neighbours, every chart restyles for a dark colour scheme, and the same
+  record always draws the same bytes. `--summary` writes the
+  `export --markdown` view of the record. `--root` is now needed only for a
+  class `results.json`, and a `perf-result` refuses `--root` and `--stress`. (#889)
+- `veredictum perf-compare` reads `perf-result` records. `--result` (twice
+  or more) aligns committed records into one table and names every mismatch
+  above it: the workload digest, the corpus recipe, the posture, the host
+  prescription, the generator's fingerprint and the network leg; any
+  mismatch exits `1`. `--ab <IXIT_A> <IXIT_B>` seeds both targets from the
+  same recipe and seed, gives each its settle, warm-up and scout, builds the
+  shared ladder from the larger knee estimate, and runs the plateaus ABBA per
+  rung; `--aa <IXIT>` runs one target on both sides and attaches its floor,
+  the largest A/A ratio per metric, to both records. A ratio counts as a
+  difference only past the declared `--tolerance` and the attached floor
+  (`--floor`), with the two 95 % intervals apart. Each interleaved run writes
+  both records, `perf-compare.json` (`schemas/perf-compare.schema.json`) and
+  `perf-compare.md`. (#890)
+- Host prescriptions are versioned data under `perf/hosts/<id>.yaml`,
+  published as `schemas/perf-host.schema.json` and loaded through gates; the
+  first is `reference-8cpu-8gb`, the idle 8-CPU, 8 GB reference host.
+  `perf --host-prescription <id>` embeds the prescription in the record, and
+  `perf --network-leg` names where the generator sat. (#890)
+- A `perf-result` gains `raw.network_leg`, `raw.interleaving`, `raw.aa_floor`
+  and `derived.host`, which reads the measured fingerprint against the
+  claimed prescription as `matched`, `unmatched` (each contradiction named),
+  `unverifiable` or `unclaimed`. `derived.between_run_noise` is
+  `unmeasured`, or the attached A/A floor. `raw.host_prescription` is now the
+  embedded prescription rather than its name. (#890)
+- `community-vitals` and `aql-mix` are embedded workloads under
+  `perf/workloads/`, pinned by digest. `community-vitals` reproduces the
+  openEHR community's vital-signs harness: 100 EHRs of 1,000 commits of the
+  harness's own composition on one worker, then a closed-loop walk of its
+  seven reads over every composition (recorded as `raw.walk` and
+  `derived.walk`, labelled closed-loop), then the same reads on the load
+  ladder. `aql-mix` offers the six query classes over the same population.
+  The template and composition are pinned by `sha256` in
+  `perf/payloads.yaml`. (#891)
+- A workload document may name the harness it `reproduces`, which exempts its
+  mix from the population read band and is printed wherever it is rendered;
+  its corpus may pin `ehrs`, `seed_workers`, a `verbatim` commit form and a
+  closed-loop `walk`. The operation vocabulary gains
+  `composition_read_at_time`, `versioned_composition_read`,
+  `composition_version_read_latest` and `composition_version_read_at_time`. (#891)
+- The population reading states the EHRs the server held when the clock
+  started, as read back, rather than the scale's nominal count. (#891)
+- The posture canaries bracket every `perf --workload` run and every side of
+  a `perf-compare` run: one bracket after seeding, one after the last
+  plateau. `perf --posture <profile>` declares `minimal` (the default),
+  `minimal-signed-digest`, `minimal-signed-pgp` or `clinical-default`, the
+  record carries the posture block, and a reading that contradicts the
+  declaration, or two readings that disagree, refuse the record. The
+  validation canary commits the workload's invalid twin, named in
+  `perf/payloads.yaml` as `<template>.invalid_twin`. (#891)
+- `perf-compare --with-baselines <IXIT>` composes each pinned reference CDR
+  (EHRbase, FerroEHR) on the same host from its digest-pinned images, runs
+  the target against it interleaved, writes both records and the comparison
+  under `--out/<reference>/`, and tears the stack down with its volumes. (#891)
+- The workload manifest `perf-workloads --out` writes is published in the
+  book as the "Performance workloads" page, held to the pinned workloads by
+  a test. (#891)
+- The accepting arms of `ehr-xml-write`, `ehr-status-xml-write`,
+  `directory-xml-write` and `party-xml-write` carry documents: 15 workflows
+  that write the EHR creates, the EHR_STATUS update, the directory create and
+  update, and the create and update of each PARTY kind as canonical XML and
+  read the content back as JSON. The bodies are `items` elements typed with
+  `xsi:type`, the one global LOCATABLE element the ITS-XML schemas publish,
+  and the workflows rest on upstream report #759, which records that no
+  released sentence names the root a service accepts. (#904)
+- `scripts/checks/xml-write-bodies.sh` validates every XML body an accepting
+  XML-write arm sends against the vendored ITS-XML schemas, with a seeded
+  self-test, in the CI guards job and `scripts/checks/gates.sh`. (#904)
+- The GitHub Action takes a `platform-url` input, passed to `test` as
+  `--platform-url`, and hands every `VEREDICTUM_SCOPED_TOKEN_<NAME>` variable
+  on the step, the test issuer's `VEREDICTUM_SCOPED_TOKEN_KEY` among them, to
+  the container by name, each also as a `_FILE`. A server that claims the
+  `smart` folder runs those documents in the same step. (#911)
+
+### Changed
+
+- The architecture record describes measured performance as traffic emulation: a declared workload of operations, AQL shapes and payloads offered as Poisson arrivals in a partly-open session model, latency measured from the intended instant, a ten-minute run of settle, warm-up, scout and four plateaus sized for 5,000 samples each, the knee, peak and population readings, and what one pass does not measure. It records the owner's rulings of 2026-10-30 and names every command, flag, schema and tree the design removes. The universal benchmark section is folded into it. (#880)
+- The book describes measured performance as it now runs: the running chapter
+  walks a run from the IXIT to `show` phase by phase with the committed
+  example record's timings, explains how to read a record (percentiles and
+  their resolvability, `judged_at`, the knee bracket, the peak, the USL fit,
+  the population reading and the scope sentence), what one pass does not
+  measure and how an A/A comparison supplies it, how to declare a workload,
+  how to compare two CDRs on one host, and why a hosted CI runner never
+  publishes an absolute figure. The glossary gains the performance terms, the
+  command reference is regenerated from `--help`, and the "Performance
+  workloads" page is generated from the pinned workloads. (#893)
+- **Breaking for readers of `results.json`, the certificate, CTRF and JUnit:**
+  the outcome of a row whose SHOULD the server did not meet is now called
+  `warning`, where it was `advisory`. A results row carries
+  `"whose": "warning"`, the certificate summary counts it as `warning`, CTRF
+  reports it as `other` with `rawStatus: warning`, and the JUnit text opens
+  with `WARNING:`. `show`, `export --markdown`, the console and the book label
+  it Warning. The meaning is unchanged: a warning row is never counted as
+  failed, is listed apart from failed rows and keeps its own count. Ten case
+  ids that ended in `_advisory` now end in `_warning`. (#897)
+
+### Removed
+
+- The `aql-probe` command and `schemas/aql-probe.schema.json` are removed, a
+  breaking change for any script that runs the probe. The per-plateau
+  `pg_stat_statements` table of a `perf --workload` record is the attribution
+  the probe gave, read over the plateaus a run holds rather than a separate
+  burst. (#887)
+- **Breaking:** the `bench`, `bench-compare` and `bench-packs` commands, the
+  `bench` library module, `schemas/bench-result.schema.json` and
+  `schemas/bench-packs.schema.json` are removed, with the landing site's
+  generated benchmark methodology page and its `bench-packs.json`. `bench`'s
+  three repetitions and its "at least three repetitions" submittability rule
+  give way to one pass per record and the interleaved A/A comparison of
+  `perf-compare`. A script that runs any of the three commands stops
+  working. (#891)
+- **Breaking:** the class run, the sustained hour and the stress ladder are
+  removed. Removed commands: `stress`, `stress-compare` and `verdicts`.
+  Removed flags: `perf --class`, `--hours`, `--results`, `--sut-name` and
+  `--sut-version` (`perf` now takes `--workload` and `--out` and nothing
+  else selects a run), and `perf-assets --root` and `--stress` (`perf-assets`
+  reads a `perf-result` only). Removed with them: the `PT1H` window, the
+  `PT5M` warm-up, the diurnal curve and the even arrival grid; `perf/classes/`
+  and `perf/journeys.yaml`; the schemas `performance-case.schema.json`,
+  `journey-catalogue.schema.json`, `stress.schema.json` and the
+  measured-campaign `results.schema.json` (the Arazzo
+  `arazzo-results.schema.json` is unchanged); the class verdict and its
+  `earned` / `not-earned` token; the committed `results.example.json`; and
+  the statement's `performance` block, which `statement.schema.json` now
+  refuses with the field named. The corpus scale names POC, S, L and R stay,
+  as names of corpus scales. This breaks FerroEHR's `scripts/conformance.sh`,
+  which sets `CONF_PERF_CLASS` and `CONF_PERF_HOURS`. (#892)
+- The payload manifest `perf/payloads.yaml` is gated by the workload loader:
+  every source is a file under `payloads/`, a `sha256` pin is checked, and an
+  entry no workload reads is refused. The entries only the removed journeys
+  read are gone. (#892)
+
+### Fixed
+
+- The console no longer registers the two catalogue server functions no page
+  calls, `fetch_chapters` and `fetch_chapter_bands`, so the shipped server and
+  the shipped browser bundle name the same server-function paths again and
+  the release image smoke passes. (#895)
+- The release pipeline applies the image tags, `:latest` among them, and
+  deploys the hosted console only after the image smoke passed, so a pushed
+  digest that does not serve the console stays untagged. (#896)
+- `veredictum emit-schemas` exits with status 2 and names the schema file when
+  a schema cannot be serialized, where it wrote an empty file before, and a
+  vocabulary token that is not a string stops the emission instead of
+  publishing `null` or an empty name. (#898)
+- The seven ITEM_TAG target-shape criteria accept the served `target` in
+  either shape the release gives: the bare `UID_BASED_ID` of the RM
+  `ITEM_TAG` class or the `UObjectRefOfUidBasedId` wrapper of the OAS, each
+  carrying the expected identifier. They cite the RM class with upstream
+  report #750 and carry `@SpecDiverge`; the tag, key and owner criteria stay
+  gating. (#900)
+- `smart_scopes/template_list-system_scope_granted` no longer fails a `403`
+  for the `system/template-*.r` and `.crud` rows: no released text says
+  whether a template list needs `r` or `s` (upstream report #758), so either
+  the list or a `403` passes and any other status fails. The new
+  `smart_scopes/template_list-system_scope_read_search_granted` requires the
+  list for `.rs` and `.cruds`, which hold both permissions. (#902)
+- `directory_create_refused/create_directory-folders_empty` records a warning,
+  not a failure, when a server accepts a FOLDER whose `folders` list is empty.
+  The refusal rests on the ITS-REST sentence that a request payload SHOULD be
+  valid against the published JSON schemas, and the RM `Folders_valid`
+  invariant it could otherwise rest on lacks the guard its 0..1 cardinality
+  needs (upstream report #167). (#903)
+
 ## [0.3.0] - 2026-10-30
 
 ### Added
@@ -5401,7 +5691,8 @@ tag stands; 0.1.0-alpha.6 ships the same tree plus the pipeline fix.
   attribution-stripping `commit-msg` hook with `scripts/install-hooks.sh`, and
   the Rust `.gitignore` set.
 
-[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Vernum-Projecten/Veredictum/compare/v0.1.7...v0.2.0
