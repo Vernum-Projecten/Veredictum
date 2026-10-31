@@ -574,6 +574,7 @@ pub fn identity_answer(
                 version: options.solution_version,
                 vendor: options.vendor,
                 restapi_specs_version: options.restapi_specs_version,
+                endpoints: options.endpoints,
             })
         }
         IdentityRead::NotOffered { status } => {

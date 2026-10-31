@@ -240,7 +240,10 @@ async fn the_scope_reads_come_off_the_committed_trees() -> Result<(), Box<dyn st
         .map_err(|e| e.to_string())?;
     assert_eq!(
         rows,
-        veredictum_console::run_api::read::capability_rows(&state)?,
+        veredictum_console::run_api::read::capability_rows(
+            &state,
+            veredictum_console::submitter::Submitter::Unknown
+        )?,
         "the endpoint adds nothing to its reader"
     );
     assert!(
@@ -725,10 +728,13 @@ async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
     assert_eq!(composed, composed_once);
 
     // Every capability the Scope screen offers composes into one claim.
-    let every: Vec<String> = veredictum_console::run_api::read::capability_rows(&state)?
-        .into_iter()
-        .map(|row| row.name)
-        .collect();
+    let every: Vec<String> = veredictum_console::run_api::read::capability_rows(
+        &state,
+        veredictum_console::submitter::Submitter::Unknown,
+    )?
+    .into_iter()
+    .map(|row| row.name)
+    .collect();
     let all = fns::compose_claim(Some(every.clone()))
         .await
         .map_err(|e| e.to_string())?;

@@ -17,8 +17,7 @@
 //! substituted as an escaped literal. A `jsonpath` condition is an RFC 9535
 //! query that holds when its nodelist is not empty (Arazzo 1.1.0 §`JSONPath`
 //! Conditions), with every embedded value escaped for an RFC 9535 string
-//! literal. An `xpath` condition is refused: the profile names `XPath` 3.1, and
-//! no engine for it is vetted here.
+//! literal. An `xpath` condition is judged by [`crate::arazzo::xpath`].
 
 use std::collections::BTreeMap;
 use std::fmt::{self, Write as _};
@@ -118,9 +117,18 @@ pub enum ParseError {
         /// The parser's verbatim reason.
         reason: String,
     },
-    /// An `xpath` condition, which the evaluator does not judge.
-    #[error("`{0}` is an xpath condition, and no vetted XPath 3.1 engine judges it")]
-    XPath(String),
+    /// An `xpath` condition that does not compile as XPath 3.1 under the
+    /// profile's static context.
+    #[error("`{query}` is not an XPath 3.1 expression the profile compiles: {reason}")]
+    XPath {
+        /// The expression as authored.
+        query: String,
+        /// The engine's verbatim reason.
+        reason: String,
+    },
+    /// An `xpath` condition whose context is not the whole response body.
+    #[error("an `xpath` criterion reads the whole `$response.body`, not `{0}`")]
+    XPathContext(String),
     /// An Expression Type Object names a language or version the profile
     /// does not use.
     #[error("expression type `{kind}` version `{version}` is outside the profile")]
@@ -231,6 +239,16 @@ pub enum EvalError {
     /// The substituted `jsonpath` condition does not parse.
     #[error("the JSONPath query `{0}` does not parse once substituted: {1}")]
     BadJsonPath(String, String),
+    /// The `xpath` condition cannot be formed or compiled once substituted.
+    #[error("the XPath expression `{0}` cannot be judged once substituted: {1}")]
+    BadXPath(String, String),
+    /// The response body is not well-formed XML, so an `xpath` condition
+    /// cannot read it.
+    #[error("the response body is not well-formed XML ({0}), so `$response.body` cannot be read")]
+    UnreadableXml(String),
+    /// The `xpath` evaluation raised a dynamic error.
+    #[error("the XPath expression `{0}` raised a dynamic error: {1}")]
+    XPath(String, String),
     /// A judge cannot decide on this exchange.
     #[error("{0}")]
     Unjudgeable(String),
@@ -263,6 +281,8 @@ pub struct ResponseView {
     pub headers: BTreeMap<String, String>,
     /// The body parsed as JSON: `Ok(None)` when empty, `Err` when unparsable.
     pub body: Result<Option<Value>, String>,
+    /// The body as received, which an `xpath` condition parses as XML.
+    pub text: String,
 }
 
 /// Everything an expression may read at one point of a workflow run.
@@ -604,7 +624,7 @@ const PLACEHOLDER: &str = "0";
 
 /// Checks every embedded `{$…}` expression of `template` parses, and returns
 /// the template with each replaced by [`PLACEHOLDER`].
-fn with_placeholders(template: &str) -> Result<String, ParseError> {
+pub(crate) fn with_placeholders(template: &str) -> Result<String, ParseError> {
     let mut out = String::new();
     let mut rest = template;
     while let Some(start) = rest.find("{$") {
@@ -800,6 +820,7 @@ mod tests {
                 status,
                 headers: BTreeMap::from([("location".to_owned(), "https://x/ehr/1".to_owned())]),
                 body: parsed,
+                text: body.to_owned(),
             },
         )
     }

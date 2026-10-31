@@ -18,8 +18,8 @@ use std::path::{Path, PathBuf};
 use enumset::EnumSet;
 use roas_arazzo::common::reusable::ReusableOr;
 use roas_arazzo::v1_1::{
-    Criterion, CriterionKind, CriterionType, Description, ExpressionKind, ExpressionType,
-    ParameterLocation, RequestBody, SourceType, Step, ValueOrSelector, Workflow,
+    Criterion, CriterionKind, CriterionType, Description, ExpressionKind, ParameterLocation,
+    RequestBody, SourceType, Step, ValueOrSelector, Workflow,
 };
 use roas_arazzo::validation::Validate;
 use serde_json::Value;
@@ -38,6 +38,7 @@ use crate::arazzo::source::{
     SourceError, split_qualified,
 };
 use crate::arazzo::structure::SECTION_KEY;
+use crate::arazzo::xpath::XPathCriterion;
 
 /// Every workflow of one `type: arazzo` source, by id, with whether it is a
 /// refusal workflow.
@@ -591,9 +592,9 @@ fn plan_profile(plan: &CriterionPlan, criterion: &Criterion, out: &mut Vec<Findi
                 out.push(FindingKind::Profile(error));
             }
         }
-        // NOTE: Arazzo 1.1.0 §JSONPath Conditions; `JsonPathCriterion::parse` already refused a
-        // query that is not RFC 9535 and a context that does not parse.
-        CriterionPlan::JsonPath(_) => {}
+        // NOTE: Arazzo 1.1.0 §JSONPath and §XPath Conditions; each `parse` already refused a query
+        // its engine does not compile and a context outside the profile.
+        CriterionPlan::JsonPath(_) | CriterionPlan::XPath(_) => {}
         CriterionPlan::Checked(inner, _) => plan_profile(inner, criterion, out),
     }
 }
@@ -724,6 +725,8 @@ pub enum CriterionPlan {
     Regex(RegexCriterion),
     /// An RFC 9535 `jsonpath` condition over a context.
     JsonPath(JsonPathCriterion),
+    /// An XPath 3.1 `xpath` condition over the response body.
+    XPath(XPathCriterion),
     /// A condition that must hold for its `x-veredictum-check` judge to run;
     /// the criterion holds when both do.
     Checked(Box<CriterionPlan>, Check),
@@ -754,6 +757,8 @@ impl CriterionPlan {
         let jsonpath = || {
             JsonPathCriterion::parse(context("jsonpath")?, &criterion.condition).map(Self::JsonPath)
         };
+        let xpath =
+            || XPathCriterion::parse(context("xpath")?, &criterion.condition).map(Self::XPath);
         match &criterion.type_ {
             None | Some(CriterionType::Simple(CriterionKind::Simple)) => {
                 SimpleCondition::parse(&criterion.condition).map(Self::Simple)
@@ -768,14 +773,13 @@ impl CriterionPlan {
             {
                 jsonpath()
             }
-            // TODO(#637): judge `xpath` criteria once a vetted XPath 3.1 engine is chosen.
-            Some(
-                CriterionType::Simple(CriterionKind::Xpath)
-                | CriterionType::Expression(ExpressionType {
-                    type_: ExpressionKind::Xpath,
-                    ..
-                }),
-            ) => Err(ParseError::XPath(criterion.condition.clone())),
+            Some(CriterionType::Simple(CriterionKind::Xpath)) => xpath(),
+            Some(CriterionType::Expression(expression))
+                if expression.type_ == ExpressionKind::Xpath
+                    && expression.version == "xpath-31" =>
+            {
+                xpath()
+            }
             Some(CriterionType::Expression(expression)) => Err(ParseError::ExpressionType {
                 kind: format!("{:?}", expression.type_).to_lowercase(),
                 version: expression.version.clone(),
@@ -1302,14 +1306,59 @@ mod tests {
     }
 
     #[test]
-    fn a_seeded_xpath_criterion_is_refused() {
-        let text = with_criterion(
-            "          - context: $response.body\n            type: xpath\n            condition: /ehr\n",
+    fn an_xpath_3_1_criterion_with_the_profile_prefixes_is_admitted() {
+        for criterion in [
+            "          - context: $response.body\n            type: xpath\n            condition: /oe:ehr\n",
+            "          - context: $response.body\n            type: xpath\n            condition: \"/oe2:ehr/oe2:ehr_id/oe2:value = '{$inputs.ehr_id}'\"\n",
+            "          - context: $response.body\n            type: { type: xpath, version: xpath-31 }\n            condition: count(/oe:ehr/@xsi:type) eq 0\n",
+        ] {
+            let (dir, doc) = fixture(&with_criterion(criterion));
+            assert_eq!(kinds(&dir, &doc), Vec::new(), "{criterion}");
+        }
+    }
+
+    #[test]
+    fn a_seeded_xpath_criterion_outside_the_profile_is_refused() {
+        let unparsable = with_criterion(
+            "          - context: $response.body\n            type: xpath\n            condition: /oe:ehr[\n",
         );
-        let (dir, doc) = fixture(&text);
-        assert_eq!(
-            kinds(&dir, &doc),
-            vec![FindingKind::Profile(ParseError::XPath("/ehr".to_owned()))]
+        let (dir, doc) = fixture(&unparsable);
+        assert!(matches!(
+            kinds(&dir, &doc).as_slice(),
+            [FindingKind::Profile(ParseError::XPath { .. })]
+        ));
+        let unbound = with_criterion(
+            "          - context: $response.body\n            type: xpath\n            condition: /ehrbase:ehr\n",
+        );
+        let (dir, doc) = fixture(&unbound);
+        assert!(matches!(
+            kinds(&dir, &doc).as_slice(),
+            [FindingKind::Profile(ParseError::XPath { .. })]
+        ));
+        let pointer = with_criterion(
+            "          - context: $response.body#/ehr\n            type: xpath\n            condition: /oe:ehr\n",
+        );
+        let (dir, doc) = fixture(&pointer);
+        assert!(matches!(
+            kinds(&dir, &doc).as_slice(),
+            [FindingKind::Profile(ParseError::XPathContext(_))]
+        ));
+        let older = with_criterion(
+            "          - context: $response.body\n            type: { type: xpath, version: xpath-10 }\n            condition: /oe:ehr\n",
+        );
+        let (dir, doc) = fixture(&older);
+        assert!(matches!(
+            kinds(&dir, &doc).as_slice(),
+            [FindingKind::Profile(ParseError::ExpressionType { .. })]
+        ));
+        let bare = with_criterion("          - type: xpath\n            condition: /oe:ehr\n");
+        let (dir, doc) = fixture(&bare);
+        assert!(
+            kinds(&dir, &doc)
+                .iter()
+                .any(|k| matches!(k, FindingKind::Profile(ParseError::MissingContext(_)))),
+            "{:?}",
+            kinds(&dir, &doc)
         );
     }
 

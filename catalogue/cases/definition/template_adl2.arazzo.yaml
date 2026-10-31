@@ -295,6 +295,246 @@ workflows:
         successCriteria:
           - condition: $statusCode == 400
 
+  - workflowId: upload_template_adl2-invalid-unknown_rm_type
+    x-veredictum-control: upload_template_adl2-minimal
+    summary: An ADL 2 template that names an object type the RM does not define is refused with 400
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id with one defect: the DV_TEXT leaf of the minimal template renamed to DV_NO_SUCH_TYPE, a type no openEHR RM defines. The template breaks an AOM2
+      validity rule, so the request is invalid and the upload is refused
+      with 400, the refusal the operation declares.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/AOM2/master04.5-constraint_model-class_definitions.adoc
+      section: "Validity Rules: C_OBJECT"
+      quote: "*VCORM* object constraint type name existence: a type name introducing an object constraint block must be defined in the underlying information model."
+    inputs: *run_input
+    steps:
+      - stepId: upload
+        description: Upload the template that names an object type the RM does not define.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+                openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"A minimal operational template for conformance testing">
+                    >
+                >
+
+            definition
+                COMPOSITION[id1] matches {
+                    category matches {
+                        DV_CODED_TEXT[id2] matches {
+                            defining_code matches {[at1]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[id3, openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[id2] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[id3] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[id4] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[id5] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_NO_SUCH_TYPE[id6]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["id1"] = <
+                            text = <"Minimal">
+                            description = <"A minimal event composition">
+                        >
+                        ["id3"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                        ["at1"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at1"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["id1"] = <
+                                text = <"Minimal observation">
+                                description = <"An observation with one text element">
+                            >
+                            ["id3"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["id5"] = <
+                                text = <"Value">
+                                description = <"A text value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
+  - workflowId: upload_template_adl2-invalid-unknown_rm_attribute
+    x-veredictum-control: upload_template_adl2-minimal
+    summary: An ADL 2 template that constrains an attribute the RM type does not have is refused with 400
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id with one defect: the DV_TEXT leaf of the minimal template constraining no_such_attribute, which RM DV_TEXT does not define. The template breaks an AOM2
+      validity rule, so the request is invalid and the upload is refused
+      with 400, the refusal the operation declares.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/AOM2/master04.5-constraint_model-class_definitions.adoc
+      section: "Validity Rules: C_ATTRIBUTE"
+      quote: "*VCARM*: attribute name reference model validity: an attribute name introducing an attribute constraint block must be defined in the underlying information model as an attribute (stored or computed) of the type which introduces the enclosing object block."
+    inputs: *run_input
+    steps:
+      - stepId: upload
+        description: Upload the template that constrains an attribute the RM type does not have.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+                openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"A minimal operational template for conformance testing">
+                    >
+                >
+
+            definition
+                COMPOSITION[id1] matches {
+                    category matches {
+                        DV_CODED_TEXT[id2] matches {
+                            defining_code matches {[at1]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[id3, openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[id2] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[id3] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[id4] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[id5] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_TEXT[id6] matches {
+                                                                    no_such_attribute matches {"x"}
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["id1"] = <
+                            text = <"Minimal">
+                            description = <"A minimal event composition">
+                        >
+                        ["id3"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                        ["at1"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at1"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["id1"] = <
+                                text = <"Minimal observation">
+                                description = <"An observation with one text element">
+                            >
+                            ["id3"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["id5"] = <
+                                text = <"Value">
+                                description = <"A text value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
   - workflowId: upload_template_adl2-xml_content_type
     summary: An ADL 2 upload declared as XML is refused with 415
     description: >-
@@ -630,3 +870,350 @@ workflows:
         successCriteria:
           - condition: $statusCode == 400
             x-veredictum-cite: *bad_request
+
+  - workflowId: get_template_adl2_version-older_of_two
+    summary: Of two stored versions of an ADL 2 template, the read at the older exact version answers that version
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id at version 1.0.0 and again at version 1.1.0, then reads it
+      through the deprecated read at a version, naming the template by its
+      major version and the exact version 1.0.0, with Accept
+      application/json. The read answers 200 with the template whose
+      release_version is 1.0.0.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/definition_template_adl2_version_get.yaml
+      section: description
+      quote: "Retrieves the ADL2 operational template identified by `template_id` identifier, at specified `version`."
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - &upload_newer
+        stepId: upload-newer
+        description: Upload the same template at version 1.1.0.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: text/plain
+          # NOTE: AM Identification master04-versioning.adoc; the minimal template
+          # above with the release version 1.1.0 in its identifier.
+          payload: |-
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+                openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.1.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"A minimal operational template for conformance testing">
+                    >
+                >
+
+            definition
+                COMPOSITION[id1] matches {
+                    category matches {
+                        DV_CODED_TEXT[id2] matches {
+                            defining_code matches {[at1]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[id3, openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[id2] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[id3] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[id4] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[id5] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_TEXT[id6]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["id1"] = <
+                            text = <"Minimal">
+                            description = <"A minimal event composition">
+                        >
+                        ["id3"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                        ["at1"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at1"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["id1"] = <
+                                text = <"Minimal observation">
+                                description = <"An observation with one text element">
+                            >
+                            ["id3"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["id5"] = <
+                                text = <"Value">
+                                description = <"A text value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *uploaded
+      - stepId: read
+        description: Read the template at version 1.0.0 with Accept application/json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_version_get
+        parameters:
+          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *template_read
+          - context: $response.body#/archetype_id/release_version
+            type: regex
+            condition: '^1\.0\.0$'
+            x-veredictum-cite: &release_version
+              source: specs/its-json-schemas/AM/Release-2.2.0/Aom2/all.json
+              section: /definitions/ARCHETYPE_HRID/properties/release_version/description
+              quote: "The full numeric version of this archetype consisting of 3 parts"
+
+  - workflowId: get_template_adl2_version-major_prefix
+    summary: Of two stored versions of an ADL 2 template, the read at a major version prefix answers the latest
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id at version 1.0.0 and again at version 1.1.0, then reads it
+      through the deprecated read at a version with the major version prefix
+      1, with Accept application/json. The highest version matching the
+      prefix is 1.1.0, so the read answers 200 with that template.
+    x-veredictum-cite: &version_prefix
+      source: specs/openehr/ITS-REST/specifications/parameters/path/version.yaml
+      section: description
+      quote: "This can be an exact version (e.g. `1.7.1`), or a pattern as partial prefix, in a form of `{major}` or `{major}.{minor}` (e.g. `1` or `1.0`), in which case the highest (latest) version matching the prefix will be considered."
+      level: must
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - *upload_newer
+      - stepId: read
+        description: Read the template at the version prefix 1 with Accept application/json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_version_get
+        parameters:
+          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1" }
+          - { name: version, in: path, value: "1" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *template_read
+          - context: $response.body#/archetype_id/release_version
+            type: regex
+            condition: '^1\.1\.0$'
+            x-veredictum-cite: *release_version
+
+  - workflowId: get_template_adl2_version-minor_prefix
+    summary: Of two stored versions of an ADL 2 template, the read at a major.minor prefix answers the version under it
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id at version 1.0.0 and again at version 1.1.0, then reads it
+      through the deprecated read at a version with the prefix 1.0, with
+      Accept application/json. Only 1.0.0 matches the prefix, so the read
+      answers 200 with that template.
+    x-veredictum-cite: *version_prefix
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - *upload_newer
+      - stepId: read
+        description: Read the template at the version prefix 1.0 with Accept application/json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_version_get
+        parameters:
+          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1" }
+          - { name: version, in: path, value: "1.0" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *template_read
+          - context: $response.body#/archetype_id/release_version
+            type: regex
+            condition: '^1\.0\.0$'
+            x-veredictum-cite: *release_version
+
+  - workflowId: get_template_adl2-partial_reference
+    summary: Of two stored versions of an ADL 2 template, a read by the partial template_id answers the latest
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id at version 1.0.0 and again at version 1.1.0, then reads it
+      by the partial template_id that stops at the major version, with
+      Accept application/json. A partial template_id resolves to the latest
+      version of its major version, so the read answers 200 with the
+      template whose release_version is 1.1.0.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/parameters/path/template_id_adl2.yaml
+      section: description
+      quote: "Template identifier or partial reference. A partial `template_id` will resolve to “latest” major version of that template"
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - *upload_newer
+      - stepId: read
+        description: Read the template by its partial template_id with Accept application/json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_get
+        parameters:
+          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *template_read
+          - context: $response.body#/archetype_id/release_version
+            type: regex
+            condition: '^1\.1\.0$'
+            x-veredictum-cite: *release_version
+
+  - workflowId: list_templates_adl2-latest_version_only
+    summary: Of two stored versions of an ADL 2 template, a listing without a version filter holds only the latest
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id at version 1.0.0 and again at version 1.1.0, then lists the
+      ADL 2 templates matching that template with no version parameter. The
+      listing answers 200 and holds one entry, the version 1.1.0.
+    x-veredictum-cite: &filter_version
+      source: specs/openehr/ITS-REST/specifications/parameters/query/filter_version.yaml
+      section: description
+      quote: "Filter by version (e.g. `1.2.*` or use `*` for all versions), taken from `template_id`; if missing, then only the latest version will be returned."
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - *upload_newer
+      - stepId: list
+        description: List the ADL 2 templates of this run with no version parameter.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_list
+        parameters:
+          - { name: template_id, in: query, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}*" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &listed
+              source: specs/openehr/ITS-REST/specifications/responses/200_TemplateList_adl2.yaml
+              section: description
+              quote: "`200 OK` is returned when the template list is successfully retrieved."
+          - context: $response.body#/0/template_id
+            type: regex
+            condition: '^openEHR-EHR-COMPOSITION\.vdef-{$inputs.run}\.v1\.1\.0$'
+          - condition: $response.body#/1 == null
+
+  - workflowId: list_templates_adl2-version_exact
+    summary: Of two stored versions of an ADL 2 template, a listing filtered by an exact version holds only that version
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id at version 1.0.0 and again at version 1.1.0, then lists the
+      ADL 2 templates matching that template with the version 1.0.0. The
+      listing answers 200 and holds one entry, the version 1.0.0.
+    x-veredictum-cite: *filter_version
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - *upload_newer
+      - stepId: list
+        description: List the ADL 2 templates of this run at the version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_list
+        parameters:
+          - { name: template_id, in: query, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}*" }
+          - { name: version, in: query, value: "1.0.0" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *listed
+          - context: $response.body#/0/template_id
+            type: regex
+            condition: '^openEHR-EHR-COMPOSITION\.vdef-{$inputs.run}\.v1\.0\.0$'
+          - condition: $response.body#/1 == null
+
+  - workflowId: list_templates_adl2-version_prefix_glob
+    summary: Of two stored versions of an ADL 2 template, a listing filtered by 1.* holds both
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id at version 1.0.0 and again at version 1.1.0, then lists the
+      ADL 2 templates matching that template with the version pattern 1.*.
+      The listing answers 200 and holds both versions.
+    x-veredictum-cite: *filter_version
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - *upload_newer
+      - stepId: list
+        description: List the ADL 2 templates of this run at the version pattern 1.*.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_list
+        parameters:
+          - { name: template_id, in: query, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}*" }
+          - { name: version, in: query, value: "1.*" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *listed
+          - &holds_older
+            context: $response.body
+            type: jsonpath
+            condition: "$[?@.template_id == 'openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0']"
+          - &holds_newer
+            context: $response.body
+            type: jsonpath
+            condition: "$[?@.template_id == 'openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.1.0']"
+
+  - workflowId: list_templates_adl2-version_star
+    summary: Of two stored versions of an ADL 2 template, a listing filtered by * holds both
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id at version 1.0.0 and again at version 1.1.0, then lists the
+      ADL 2 templates matching that template with the version *. The listing
+      answers 200 and holds both versions.
+    x-veredictum-cite: *filter_version
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - *upload_newer
+      - stepId: list
+        description: List the ADL 2 templates of this run at every version.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_list
+        parameters:
+          - { name: template_id, in: query, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}*" }
+          - { name: version, in: query, value: "*" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *listed
+          - *holds_older
+          - *holds_newer

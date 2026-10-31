@@ -495,26 +495,37 @@ cases:
   CONT-DV_QUANTITY-validate_property:
     new:
       - dv_quantity/dv_quantity-validate_property-accepted
-      - dv_quantity/dv_quantity-validate_property-c_dv_quantity_property
       - dv_quantity/dv_quantity-validate_property-magnitude_units_missing
       - dv_quantity/dv_quantity-validate_property-magnitude_missing
       - dv_quantity/dv_quantity-validate_property-units_missing
+    open: &quantity_property >-
+      No case refuses units of another property than the C_DV_QUANTITY
+      names: the released RM DV_QUANTITY has no property (RM
+      data_types master00-amendment_record.adoc, "SPEC-95. Remove
+      `_property_` attribute from `quantity` package."), AOM 1.4
+      masterAppA-domain_extension.adoc says its C_QUANTITY model "does not
+      try to define any normative semantics", and no vendored released
+      sentence relates a DV_QUANTITY's units to a constrained property. The
+      openEHR Archetype Profile, which the AM manifest links as a Release
+      1.0.2 PDF and this repository does not vendor, gives
+      C_DV_QUANTITY.property only as "Optional constraint on units
+      property", so no case can quote it.
   CONT-DV_QUANTITY-validate_property_units:
     new:
       - dv_quantity/dv_quantity-validate_property_units-accepted
-      - dv_quantity/dv_quantity-validate_property_units-c_dv_quantity_property
       - dv_quantity/dv_quantity-validate_property_units-c_dv_quantity_list
       - dv_quantity/dv_quantity-validate_property_units-magnitude_units_missing
       - dv_quantity/dv_quantity-validate_property_units-magnitude_missing
       - dv_quantity/dv_quantity-validate_property_units-units_missing
+    open: *quantity_property
   CONT-DV_QUANTITY-validate_property_units_mag:
     new:
       - dv_quantity/dv_quantity-validate_property_units_mag-accepted
-      - dv_quantity/dv_quantity-validate_property_units_mag-c_dv_quantity_property
       - dv_quantity/dv_quantity-validate_property_units_mag-c_dv_quantity_list
       - dv_quantity/dv_quantity-validate_property_units_mag-magnitude_units_missing
       - dv_quantity/dv_quantity-validate_property_units_mag-magnitude_missing
       - dv_quantity/dv_quantity-validate_property_units_mag-units_missing
+    open: *quantity_property
   CONT-DV_SCALE-validate_constraint:
     new:
       - dv_scale/dv_scale-validate_constraint-accepted
@@ -1204,17 +1215,30 @@ cases:
     new: []
     open: *adl14_archetype
   I_DEFINITION_ADL14.upload_opt-invalid_opt:
-    new: []
-    open: &invalid_opt >-
-      Each invalid OPT needs its own adjudication: 400 where the body is
-      invalid against the published OPT XSD, 422 where it is valid against
-      it and breaks an AM or BASE invariant. Not converted yet, tracked by
-      #949.
-  I_DEFINITION_ADL14.upload_opt-largest_published:
-    new: []
+    new: &invalid_opt
+      - template_adl14/upload_template-compact
+      - template_adl14/upload_template-invalid-template_id_missing
+      - template_adl14/upload_template-invalid-concept_missing
+      - template_adl14/upload_template-invalid-definition_missing
+      - template_adl14/upload_template-invalid-concept_twice
+      - template_adl14/upload_template-invalid-template_id_twice
     open: >-
-      The 5.2 MB OPT is too large to write inline, and the catalogue has no
-      payload references yet. Not converted yet, tracked by #949.
+      Each invalid OPT is refused with 400, the only refusal
+      definition_template_adl1.4_upload.yaml declares: every carried defect
+      makes the body invalid against the ITS-XML Template.xsd. An empty
+      template_id value is not carried: the schema types it xs:token, and
+      BASE template_id.adoc leaves its lexical form "to be determined"
+      (upstream report #715).
+  I_DEFINITION_ADL14.upload_opt-largest_published:
+    new: [template_adl14/upload_template-obs_inst]
+    open: >-
+      The largest published OPT is vendored as
+      perf/payloads/ckm/congenital-syphilis-case-investigation.opt (CKM
+      1013.26.977, 5443426 bytes, by scripts/vendor/ckm-templates.sh), and the
+      performance workloads upload it. No workflow writes it inline: an
+      Arazzo 1.1.0 payload is a literal or a runtime expression, and no
+      released sentence assigns an upload a different answer by its size,
+      so the accepted upload of a valid OPT is the case that carries it.
   I_DEFINITION_ADL14.upload_opt-prefer_identifier:
     new: [template_adl14/upload_template-return_identifier]
     open: >-
@@ -1225,8 +1249,9 @@ cases:
       - template_adl14/upload_template-return_minimal
       - template_adl14/upload_template-return_minimal-location
   I_DEFINITION_ADL14.upload_opt-resource_meta_invalid:
-    new: []
-    open: *invalid_opt
+    new:
+      - template_adl14/upload_template-compact
+      - template_adl14/upload_template-invalid-lifecycle_state_missing
   I_DEFINITION_ADL14.upload_opt-unparseable_opt:
     new:
       - template_adl14/upload_template-empty_body
@@ -1248,8 +1273,10 @@ cases:
   I_DEFINITION_ADL14.upload_opt-wrong_media:
     new: [template_adl14/upload_template-json_content_type]
   I_DEFINITION_ADL14.validate_opt-invalid_opt:
-    new: []
-    open: *invalid_opt
+    new: *invalid_opt
+    open: >-
+      The release has no validation operation; validity is judged through
+      the upload, which refuses an invalid OPT with 400.
   I_DEFINITION_ADL14.validate_opt-valid_opt:
     new:
       - template_adl14/upload_template-obs_admin
@@ -1295,10 +1322,11 @@ cases:
   I_DEFINITION_ADL2.get_artefact-version_get:
     new: [template_adl2/get_template_adl2_version, template_adl2/get_template_adl2_version-unknown]
   I_DEFINITION_ADL2.get_artefact-version_prefix:
-    new: []
-    open: &adl2_versions >-
-      It needs a version prefix or several stored versions of one ADL 2
-      template. Not converted yet, tracked by #948.
+    new:
+      - template_adl2/get_template_adl2_version-older_of_two
+      - template_adl2/get_template_adl2_version-major_prefix
+      - template_adl2/get_template_adl2_version-minor_prefix
+      - template_adl2/get_template_adl2-partial_reference
   I_DEFINITION_ADL2.has_artefact-existing:
     new: [template_adl2/get_template_adl2-text]
     open: >-
@@ -1321,8 +1349,7 @@ cases:
     open: >-
       Realised as the listing filtered by the uploaded template_id.
   I_DEFINITION_ADL2.list_opts-absent_version_latest_only:
-    new: []
-    open: *adl2_versions
+    new: [template_adl2/list_templates_adl2-latest_version_only]
   I_DEFINITION_ADL2.list_opts-empty:
     new: []
     open: >-
@@ -1330,14 +1357,11 @@ cases:
   I_DEFINITION_ADL2.list_opts-non_empty:
     new: [template_adl2/list_templates_adl2, template_adl2/upload_template_adl2-minimal]
   I_DEFINITION_ADL2.list_opts-version_exact_axis:
-    new: []
-    open: *adl2_versions
+    new: [template_adl2/list_templates_adl2-version_exact]
   I_DEFINITION_ADL2.list_opts-version_prefix_glob:
-    new: []
-    open: *adl2_versions
+    new: [template_adl2/list_templates_adl2-version_prefix_glob]
   I_DEFINITION_ADL2.list_opts-version_star_all_versions:
-    new: []
-    open: *adl2_versions
+    new: [template_adl2/list_templates_adl2-version_star]
   I_DEFINITION_ADL2.list_templates-non_empty:
     new: [template_adl2/list_templates_adl2, template_adl2/upload_template_adl2-minimal]
   I_DEFINITION_ADL2.opts_count-unrealized:
@@ -1351,11 +1375,14 @@ cases:
   I_DEFINITION_ADL2.upload_artefact-duplicate_conflict:
     new: [template_adl2/upload_template_adl2-same_template_id_twice]
   I_DEFINITION_ADL2.upload_artefact-invalid_artefacts:
-    new: []
+    new: &adl2_invalid
+      - template_adl2/upload_template_adl2-minimal
+      - template_adl2/upload_template_adl2-invalid-unknown_rm_type
+      - template_adl2/upload_template_adl2-invalid-unknown_rm_attribute
     open: >-
-      The valid twin is template_adl2/upload_template_adl2-minimal; the
-      invalid source's defect needs the 400 or 422 adjudication of an
-      invalid template. Not converted yet, tracked by #949.
+      Each invalid template breaks one AOM2 validity rule (VCORM, VCARM) and
+      is refused with 400, the only refusal
+      definition_template_adl2_upload.yaml declares.
   I_DEFINITION_ADL2.upload_artefact-prefer_identifier:
     new: [template_adl2/upload_template_adl2-return_identifier]
   I_DEFINITION_ADL2.upload_artefact-prefer_minimal:
@@ -1377,11 +1404,10 @@ cases:
     open: >-
       The body is a header line of ADL text rather than a whole template.
   I_DEFINITION_ADL2.valid_artefact-invalid:
-    new: []
+    new: *adl2_invalid
     open: >-
-      The release has no validation operation, and the invalid source needs
-      the 400 or 422 adjudication of an invalid template. Not converted yet,
-      tracked by #949.
+      The release has no validation operation; validity is judged through
+      the upload, which refuses an invalid template with 400.
   I_DEFINITION_ADL2.valid_artefact-valid:
     new: [template_adl2/upload_template_adl2-minimal]
     open: >-
@@ -2231,8 +2257,8 @@ cases:
       - composition_read_xml/get_composition-at_time-xml
       - composition_read_xml_not_acceptable/get_composition-at_time-xml_not_acceptable
     open: &xml_part >-
-      The root element of the XML document is not judged: the evaluator
-      reads no XML body (#637).
+      The root element of the XML document is not judged: no workflow asserts
+      the `composition` document element of the ITS-XML Composition.xsd yet.
   I_EHR_COMPOSITION.get_composition_at_times:
     new: []
     open: >-
@@ -2262,8 +2288,8 @@ cases:
   I_EHR_COMPOSITION.get_composition_at_version-xml:
     new: &xml [composition_read_xml/get_composition-xml]
     open: &xml_root >-
-      The root element of the XML document is not judged: the evaluator
-      reads no XML body (#637).
+      The root element of the XML document is not judged: no workflow asserts
+      the `composition` document element of the ITS-XML Composition.xsd yet.
   I_EHR_COMPOSITION.get_composition_latest:
     new: [composition_read_container/get_composition-latest]
   I_EHR_COMPOSITION.get_composition_latest-bad_composition:
@@ -2798,9 +2824,8 @@ cases:
       - contribution_read_xml/get_contribution-xml
       - contribution_read_xml_not_acceptable/get_contribution-xml_not_acceptable
     open: &contribution_xml_root >-
-      The root element of the XML document is not judged: the evaluator reads
-      no XML body (#637), and no published XSD declares a document element for
-      CONTRIBUTION.
+      The root element of the XML document is not judged: no published XSD
+      declares a document element for CONTRIBUTION.
   I_EHR_CONTRIBUTION.has_contribution-bad_contribution:
     new: [contribution_read/get_contribution-unknown_contribution]
   I_EHR_CONTRIBUTION.has_contribution-bad_ehr:
@@ -2963,9 +2988,8 @@ cases:
       - directory_read_xml/get_directory-xml
       - directory_read_xml_not_acceptable/get_directory-xml_not_acceptable
     open: &directory_xml_root >-
-      The root element of the XML document is not judged: the evaluator reads
-      no XML body (#637), and no published XSD declares a document element for
-      FOLDER.
+      The root element of the XML document is not judged: no published XSD
+      declares a document element for FOLDER.
   I_EHR_DIRECTORY.get_directory-xml_not_acceptable:
     new: *directory_xml
     open: *directory_xml_root
@@ -3003,7 +3027,8 @@ cases:
     new: *directory_xml
     open: >-
       The XML read sends no version_at_time, and the root element of the XML
-      document is not judged: the evaluator reads no XML body (#637).
+      document is not judged: no published XSD declares a document element for
+      FOLDER.
   I_EHR_DIRECTORY.get_directory_at_version-bad_ehr:
     new: [directory_read/get_directory_version-unknown_ehr]
   I_EHR_DIRECTORY.get_directory_at_version-deleted_version:
@@ -3960,10 +3985,20 @@ cases:
       - deprecated_write_refused/create_composition-structured_deprecated_media_unsupported
       - deprecated_write/create_composition-structured_deprecated_media
   SF-EXAMPLE-accept_forms:
-    new: [template_adl14/get_template_example]
-    open: >-
-      The canonical JSON example is carried; its XML and simplified-format
-      Accept values are the example gaps of the templates, #947.
+    new:
+      - template_adl14/get_template_example
+      - template_example_xml/get_template_adl14_example-xml
+      - template_example_xml_not_acceptable/get_template_adl14_example-xml_not_acceptable
+      - template_example_flat/get_template_adl14_example-flat
+      - template_example_flat_not_acceptable/get_template_adl14_example-flat_not_acceptable
+      - template_example_structured/get_template_adl14_example-structured
+      - template_example_structured_not_acceptable/get_template_adl14_example-structured_not_acceptable
+      - template_example_xml/get_template_adl2_example-xml
+      - template_example_xml_not_acceptable/get_template_adl2_example-xml_not_acceptable
+      - template_example_flat/get_template_adl2_example-flat
+      - template_example_flat_not_acceptable/get_template_adl2_example-flat_not_acceptable
+      - template_example_structured/get_template_adl2_example-structured
+      - template_example_structured_not_acceptable/get_template_adl2_example-structured_not_acceptable
   SF-EXAMPLE-roundtrip:
     new: []
     open: >-
@@ -3984,7 +4019,7 @@ cases:
     open: &sf_adl2 >-
       The stored ADL 2 operational templates exist (the setup
       content_templates_adl2 uploads them), and no Simplified Flat workflow
-      commits against one yet, #947.
+      commits against one yet.
   SF-FLAT-adl2_reject_cardinality:
     new: []
     open: *sf_adl2

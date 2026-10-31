@@ -8,7 +8,7 @@
 //! renders the catalogue from this listing, so no consumer re-parses a
 //! workflow document. No openEHR spec governs this — our own design.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use crate::arazzo::capabilities::{CAPABILITIES_FILE, Capabilities};
@@ -16,6 +16,7 @@ use crate::arazzo::catalogue::document_paths;
 use crate::arazzo::cite::{Citation, citation_of};
 use crate::arazzo::document::ArazzoDocument;
 use crate::arazzo::gates::{GateFinding, check_catalogue};
+use crate::arazzo::source::{Base, split_qualified};
 use crate::pipeline::Error;
 
 /// One step of a listed workflow.
@@ -58,6 +59,28 @@ pub struct ListedDocument {
     pub option_arm: Option<(String, String)>,
     /// The workflows, in document order.
     pub workflows: Vec<ListedWorkflow>,
+    /// The top-level ITS-REST resources its steps call (`/ehr`,
+    /// `/definition`, …), each derived from a step's `operationId` through
+    /// the released OpenAPI source that declares it; a source marked as
+    /// Veredictum's own and a source on the SMART Platform base address none.
+    pub resources: BTreeSet<String>,
+}
+
+/// Returns the top-level resource a path template addresses.
+///
+/// The resource is the first segment with the leading `/`, as the
+/// `endpoints` member of the ITS-REST `Options` document spells one
+/// (`specifications/schemas/others/Options.yaml`, example `/ehr`). `None`
+/// for the API root `/`, which the System API serves.
+#[must_use]
+pub fn top_level_resource(path: &str) -> Option<&str> {
+    let rest = path.strip_prefix('/')?;
+    let end = rest.find('/').unwrap_or(rest.len());
+    let segment = rest.get(..end)?;
+    if segment.is_empty() {
+        return None;
+    }
+    path.get(..end.saturating_add(1))
 }
 
 /// The catalogue as read: its gate findings beside its listing.
@@ -87,6 +110,20 @@ impl Listing {
                 .entry(document.capability.as_str())
                 .or_default()
                 .push(document);
+        }
+        folders
+    }
+
+    /// Each capability folder with the top-level resources its documents
+    /// call, in folder order.
+    #[must_use]
+    pub fn capability_resources(&self) -> BTreeMap<&str, BTreeSet<&str>> {
+        let mut folders: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+        for document in &self.documents {
+            folders
+                .entry(document.capability.as_str())
+                .or_default()
+                .extend(document.resources.iter().map(String::as_str));
         }
         folders
     }
@@ -129,10 +166,16 @@ pub fn read(root: &Path, spec_root: Option<&Path>) -> Result<Listing, Error> {
     for found in document_paths(root)? {
         // NOTE: a document that does not load is a gate finding already, so
         // its absence from the listing's workflows loses nothing.
-        let workflows = ArazzoDocument::load(&found.path)
-            .map(|document| list_workflows(&found.id, &document))
+        let (workflows, resources) = ArazzoDocument::load(&found.path)
+            .map(|document| {
+                (
+                    list_workflows(&found.id, &document),
+                    resources_of(&document),
+                )
+            })
             .unwrap_or_default();
         documents.push(ListedDocument {
+            resources,
             option_arm: arms.get(&found.id).cloned(),
             id: found.id,
             capability: found.capability,
@@ -145,6 +188,30 @@ pub fn read(root: &Path, spec_root: Option<&Path>) -> Result<Listing, Error> {
         findings,
         documents,
     })
+}
+
+/// The top-level resources the steps of one loaded document call through a
+/// released OpenAPI source.
+fn resources_of(document: &ArazzoDocument) -> BTreeSet<String> {
+    let mut resources = BTreeSet::new();
+    for workflow in &document.description().workflows {
+        for step in &workflow.steps {
+            let Some(qualified) = step.operation_id.as_deref() else {
+                continue;
+            };
+            let released = split_qualified(qualified)
+                .and_then(|(source, _)| document.source(source))
+                .is_some_and(|source| !source.is_non_openehr());
+            if let Some(operation) = document.operation(qualified)
+                && released
+                && operation.base == Base::Rest
+                && let Some(resource) = top_level_resource(&operation.path)
+            {
+                resources.insert(resource.to_owned());
+            }
+        }
+    }
+    resources
 }
 
 /// The workflows of one loaded document, as listed.
@@ -181,6 +248,7 @@ fn list_workflows(document_id: &str, document: &ArazzoDocument) -> Vec<ListedWor
 )]
 mod tests {
     use super::read;
+    use std::collections::BTreeSet;
     use std::path::Path;
 
     fn repo_root() -> &'static Path {
@@ -222,6 +290,43 @@ mod tests {
         assert_eq!(
             document.option_arm,
             Some(("ehr-xml-read".to_owned(), "ehr-xml-supported".to_owned()))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_path_template_addresses_its_first_segment() {
+        assert_eq!(super::top_level_resource("/ehr/{ehr_id}"), Some("/ehr"));
+        assert_eq!(super::top_level_resource("/query/aql"), Some("/query"));
+        assert_eq!(super::top_level_resource("/admin"), Some("/admin"));
+        assert_eq!(super::top_level_resource("/"), None);
+        assert_eq!(super::top_level_resource("ehr"), None);
+    }
+
+    #[test]
+    fn each_capability_names_the_resources_its_operations_address()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let listing = read(&repo_root().join("catalogue"), None)?;
+        let resources = listing.capability_resources();
+        assert_eq!(
+            resources
+                .get("ehr")
+                .map(|r| r.iter().copied().collect::<Vec<_>>()),
+            Some(vec!["/ehr"])
+        );
+        assert!(
+            resources.get("query").is_some_and(|r| r.contains("/query")),
+            "{resources:?}"
+        );
+        assert!(
+            resources.get("system").is_some_and(BTreeSet::is_empty),
+            "the System API is served on the API root, which no endpoint names"
+        );
+        assert!(
+            resources
+                .get("demographic")
+                .is_some_and(|r| r.contains("/demographic")),
+            "{resources:?}"
         );
         Ok(())
     }

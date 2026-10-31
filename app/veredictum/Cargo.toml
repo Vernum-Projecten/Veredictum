@@ -82,11 +82,12 @@ regex = "1"
 # library, never `std::time::SystemTime` (clippy.toml `disallowed-methods`);
 # elapsed-time measurement stays on `std::time::Instant`.
 jiff = { version = "0.2.31", features = ["serde"] }
-# Canonical-XML response assertions (`xml_root`): the served document's root
-# element name and the namespace its prefix resolves to. A namespace-aware
-# parser is required — a regex cannot tell the root from a descendant, nor
-# relate a prefix to the URI in scope for it.
-quick-xml = "0.42.0"
+# Namespace-aware XML reading: the perf emulator reads the leaf constraints
+# of an operational template, resolving `xsi:type` (`perf_emulate/jitter.rs`);
+# `validate` finds the top-level definition an XSD citation names
+# (`arazzo/cite.rs`); and the canonical-XML assertions (`xml_root`) read the
+# served root element and the namespace its prefix resolves to.
+quick-xml = { version = "0.42.0", features = ["serialize"] }
 # Percent-encode path/query segments — never hand-roll a percent codec.
 urlencoding = "2.1.3"
 thiserror = "2"
@@ -134,6 +135,12 @@ enumset = "1.1.14"
 # The Arazzo `jsonpath` criterion: RFC 9535 queries over a response, the
 # JSONPath Arazzo 1.1.0 names (https://docs.rs/serde_json_path/0.7.2).
 serde_json_path = "0.7.2"
+# The Arazzo `xpath` criterion: XPath 3.1, the default Arazzo 1.1.0 names
+# (https://docs.rs/oxixml-xpath/0.1.2), over an XDM tree `oxixml-infoset`
+# builds from the response body. Pinned exactly: pure Rust, no unsafe, no
+# third-party dependency.
+oxixml-xpath = "=0.1.2"
+oxixml-infoset = "=0.1.2"
 # The condition profile's regex dialect: the parser behind `regex`, already in
 # the graph through it, read for its syntax tree so a pattern outside the
 # ECMA-262 and Rust shared subset is refused by construct.

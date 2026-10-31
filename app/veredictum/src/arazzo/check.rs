@@ -643,6 +643,7 @@ mod tests {
             status: 200,
             headers: BTreeMap::new(),
             body: Ok(Some(body.clone())),
+            text: body.to_string(),
         };
         let inputs: BTreeMap<String, Value> = inputs
             .iter()
