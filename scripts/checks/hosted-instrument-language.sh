@@ -10,9 +10,8 @@
 # words are refused on every surface a reader meets, and this guard is what
 # keeps them out after the prose is written.
 #
-# The refusal is narrow on purpose. `demonstration` is a real word this project
-# uses correctly (the POC performance class is a demonstration floor), and
-# `sandbox` is a Content-Security-Policy directive name. So the guard matches
+# The refusal is narrow on purpose. `demonstration` is an ordinary word that no
+# ruling refuses, and `sandbox` is a Content-Security-Policy directive name. So the guard matches
 # the WHOLE words `demo`, `demos`, `sandbox` and `sandboxes`, and carries an
 # allowlist of the adjudicated legitimate lines.
 #
