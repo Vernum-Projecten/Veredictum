@@ -142,7 +142,10 @@ pub fn router(
         // Also after the server functions, for the same reason: a layer placed
         // higher up would cover the three routes above and none of the
         // endpoints whose refusals it exists to rewrite (#484).
-        .layer(axum::middleware::from_fn(caller_faults_are_4xx))
+        .layer(axum::middleware::from_fn_with_state(
+            caps.server_fn,
+            caller_faults_are_4xx,
+        ))
         .with_state(leptos_options))
 }
 
@@ -151,14 +154,29 @@ pub fn router(
 /// `server_fn` answers every error it raises with 500, argument decoding
 /// included, and offers no hook to change it
 /// (<https://docs.rs/leptos/latest/leptos/server_fn/response/trait.Res.html>).
-/// So the encoded error is read back here: a decoding failure becomes 400 with
-/// this crate's own wording, and the server's own errors pass through with
-/// their status and body untouched.
+/// So the encoded error is read back here: a body past the transport cap
+/// becomes 413 and a decoding failure 400, each with this crate's own
+/// wording, and the server's own errors pass through with their status and
+/// body untouched. The two caller faults are told apart by the body bytes
+/// counted on the way in, below the framework's limited reader.
 async fn caller_faults_are_4xx(
+    axum::extract::State(cap): axum::extract::State<usize>,
     request: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
     use axum::response::IntoResponse as _;
+    use http_body_util::BodyExt as _;
+
+    let read = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let request = request.map(|body| {
+        let read = std::sync::Arc::clone(&read);
+        axum::body::Body::new(body.map_frame(move |frame| {
+            if let Some(data) = frame.data_ref() {
+                read.fetch_add(data.len(), std::sync::atomic::Ordering::Relaxed);
+            }
+            frame
+        }))
+    });
 
     let response = next.run(request).await;
     if response.status() != axum::http::StatusCode::INTERNAL_SERVER_ERROR {
@@ -176,8 +194,19 @@ async fn caller_faults_are_4xx(
     let Ok(encoded) = std::str::from_utf8(&bytes) else {
         return (parts, bytes).into_response();
     };
-    match crate::arg_refusal::caller_fault(encoded) {
-        Some(sentence) => (axum::http::StatusCode::BAD_REQUEST, sentence).into_response(),
+    let body_read = crate::arg_refusal::BodyRead {
+        bytes: read.load(std::sync::atomic::Ordering::Relaxed),
+        cap,
+    };
+    match crate::arg_refusal::caller_fault(encoded, body_read) {
+        // NOTE: RFC 9110 §15.5.14 — 413 is a refusal of content "larger than
+        // the server is willing or able to process".
+        Some(fault @ crate::arg_refusal::CallerFault::TooLarge { .. }) => {
+            (axum::http::StatusCode::PAYLOAD_TOO_LARGE, fault.sentence()).into_response()
+        }
+        Some(fault @ crate::arg_refusal::CallerFault::Undecodable { .. }) => {
+            (axum::http::StatusCode::BAD_REQUEST, fault.sentence()).into_response()
+        }
         None => (parts, bytes).into_response(),
     }
 }

@@ -5718,6 +5718,7 @@ dependencies = [
  "assert_fs",
  "axum",
  "console_error_panic_hook",
+ "http-body-util",
  "icondata_core",
  "icondata_lu",
  "insta",
