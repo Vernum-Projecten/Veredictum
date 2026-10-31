@@ -3985,10 +3985,20 @@ cases:
       - deprecated_write_refused/create_composition-structured_deprecated_media_unsupported
       - deprecated_write/create_composition-structured_deprecated_media
   SF-EXAMPLE-accept_forms:
-    new: [template_adl14/get_template_example]
-    open: >-
-      The canonical JSON example is carried; its XML and simplified-format
-      Accept values are the example gaps of the templates, #947.
+    new:
+      - template_adl14/get_template_example
+      - template_example_xml/get_template_adl14_example-xml
+      - template_example_xml_not_acceptable/get_template_adl14_example-xml_not_acceptable
+      - template_example_flat/get_template_adl14_example-flat
+      - template_example_flat_not_acceptable/get_template_adl14_example-flat_not_acceptable
+      - template_example_structured/get_template_adl14_example-structured
+      - template_example_structured_not_acceptable/get_template_adl14_example-structured_not_acceptable
+      - template_example_xml/get_template_adl2_example-xml
+      - template_example_xml_not_acceptable/get_template_adl2_example-xml_not_acceptable
+      - template_example_flat/get_template_adl2_example-flat
+      - template_example_flat_not_acceptable/get_template_adl2_example-flat_not_acceptable
+      - template_example_structured/get_template_adl2_example-structured
+      - template_example_structured_not_acceptable/get_template_adl2_example-structured_not_acceptable
   SF-EXAMPLE-roundtrip:
     new: []
     open: >-
@@ -4009,7 +4019,7 @@ cases:
     open: &sf_adl2 >-
       The stored ADL 2 operational templates exist (the setup
       content_templates_adl2 uploads them), and no Simplified Flat workflow
-      commits against one yet, #947.
+      commits against one yet.
   SF-FLAT-adl2_reject_cardinality:
     new: []
     open: *sf_adl2

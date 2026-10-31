@@ -67,15 +67,6 @@ gaps:
   - { api: ehr, operation: versioned_ehr_status_version_get_at_time, header: Content-Type, value: application/xml, issue: 687 }
   - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/json, issue: 687 }
   - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/xml, issue: 687 }
-# The template examples in XML and the Simplified Formats, ADL 1.4 and ADL 2
-# (#947): the example is a COMPOSITION each format serves under its own
-# option, and the example has no option arms yet.
-  - { api: definition, operation: definition_template_adl1.4_example_get, header: Accept, value: application/openehr.wt.flat+json, issue: 947 }
-  - { api: definition, operation: definition_template_adl1.4_example_get, header: Accept, value: application/openehr.wt.structured+json, issue: 947 }
-  - { api: definition, operation: definition_template_adl1.4_example_get, header: Accept, value: application/xml, issue: 947 }
-  - { api: definition, operation: definition_template_adl2_example_get, header: Accept, value: application/openehr.wt.flat+json, issue: 947 }
-  - { api: definition, operation: definition_template_adl2_example_get, header: Accept, value: application/openehr.wt.structured+json, issue: 947 }
-  - { api: definition, operation: definition_template_adl2_example_get, header: Accept, value: application/xml, issue: 947 }
 # Recorded boundaries of the template operations: the release assigns no
 # answer a workflow could assert, so each names no issue and its note quotes
 # the released text that leaves it open.

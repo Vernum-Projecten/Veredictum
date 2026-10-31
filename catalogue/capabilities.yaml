@@ -294,6 +294,54 @@ options:
       section: Data representation
       quote: "Additionally, the **Simplified Formats** format SHOULD be supported, while other alternative formats MAY be supported as well, depending on the use case."
       level: should
+  template-example-xml-read:
+    description: >-
+      Whether the service serves the example data instance of a stored ADL
+      1.4 or ADL 2 operational template in canonical XML when a client asks
+      for it with Accept application/xml.
+    arms:
+      template-example-xml-supported:
+        documents: [template_example_xml]
+      template-example-xml-unsupported:
+        documents: [template_example_xml_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Services MUST support at least one of the openEHR **XML** or **JSON** canonical formats for resource representation."
+  template-example-flat-read:
+    description: >-
+      Whether the service serves the example data instance of a stored ADL
+      1.4 or ADL 2 operational template in the Simplified Flat JSON format
+      when a client asks for it with Accept. The release recommends the
+      Simplified Formats, so a service that does not serve this one answers
+      406.
+    arms:
+      template-example-flat-supported:
+        documents: [template_example_flat]
+      template-example-flat-unsupported:
+        documents: [template_example_flat_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Additionally, the **Simplified Formats** format SHOULD be supported, while other alternative formats MAY be supported as well, depending on the use case."
+      level: should
+  template-example-structured-read:
+    description: >-
+      Whether the service serves the example data instance of a stored ADL
+      1.4 or ADL 2 operational template in the Simplified Structured JSON
+      format when a client asks for it with Accept. The release recommends
+      the Simplified Formats, so a service that does not serve this one
+      answers 406.
+    arms:
+      template-example-structured-supported:
+        documents: [template_example_structured]
+      template-example-structured-unsupported:
+        documents: [template_example_structured_not_acceptable]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: "Additionally, the **Simplified Formats** format SHOULD be supported, while other alternative formats MAY be supported as well, depending on the use case."
+      level: should
   contribution-xml-read:
     description: >-
       Whether the service serves a CONTRIBUTION in canonical XML when a client
@@ -761,6 +809,9 @@ documents:
   structured_commit: { formats: [canonical-json, wt-structured] }
   structured_read: { formats: [canonical-json, wt-structured] }
   template_adl14_web_template: { formats: [wt] }
+  template_example_xml: { formats: [canonical-xml] }
+  template_example_flat: { formats: [wt-flat] }
+  template_example_structured: { formats: [wt-structured] }
 # The documents whose only wire format is canonical JSON, sent by their own
 # steps or by a setup they name in `dependsOn`.
   admin_ehr_delete: { formats: [canonical-json] }
@@ -947,7 +998,7 @@ floors:
   composition: 207
   content: 444
   contribution: 69
-  definition: 63
+  definition: 75
   demographic: 369
   directory: 87
   ehr: 50

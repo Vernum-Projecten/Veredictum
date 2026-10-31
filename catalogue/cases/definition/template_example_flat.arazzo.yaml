@@ -1,0 +1,71 @@
+# Template examples read in the Simplified Flat JSON format, for a service that serves it:
+# the served arm of the `template-example-flat-read` option, whose refused arm is
+# `template_example_flat_not_acceptable.arazzo.yaml`. Every quote is copied verbatim from
+# the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Template examples in the Simplified Flat format
+  version: 0.1.0
+  description: >-
+    An example data instance of a stored ADL 1.4 and a stored ADL 2
+    template, read in the Simplified Flat JSON format from a service that serves it.
+sourceDescriptions:
+  - name: definition
+    url: ../../../specs/rest-oas/definition-validation.openapi.yaml
+    type: openapi
+  - name: templates
+    url: ../_setup/templates.arazzo.yaml
+    type: arazzo
+  - name: setup_adl2
+    url: ../_setup/content_templates_adl2.arazzo.yaml
+    type: arazzo
+workflows:
+  - workflowId: get_template_adl14_example-flat
+    summary: An example of a stored ADL 1.4 template asked for in the Simplified Flat format is served in it
+    description: >-
+      Reads an example data instance of the ADL 1.4 template
+      cnf.tpl.count_range with Accept application/openehr.wt.flat+json. The
+      answer is 200 with Content-Type application/openehr.wt.flat+json.
+    dependsOn: [$sourceDescriptions.templates.upload_template-count_range]
+    x-veredictum-cite: &cite
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: "To use these formats, content negotiation SHOULD be done in the same manner as for the canonical XML or JSON format above, but instead of `application/xml` or `application/json`, clients and servers MUST use:"
+    steps:
+      - stepId: example
+        description: Read an example of the template with Accept application/openehr.wt.flat+json.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_example_get
+        parameters:
+          - { name: template_id, in: path, value: cnf.tpl.count_range }
+          - { name: Accept, in: header, value: application/openehr.wt.flat+json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: &example_read
+              source: specs/openehr/ITS-REST/specifications/responses/200_Template_example_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the template is successfully retrieved."
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/openehr\.wt\.flat\+json'
+
+  - workflowId: get_template_adl2_example-flat
+    summary: An example of a stored ADL 2 template asked for in the Simplified Flat format is served in it
+    description: >-
+      Reads an example data instance of the ADL 2 template
+      openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 with Accept application/openehr.wt.flat+json. The
+      answer is 200 with Content-Type application/openehr.wt.flat+json.
+    dependsOn: [$sourceDescriptions.setup_adl2.upload_template-adl2_dv_count_range]
+    x-veredictum-cite: *cite
+    steps:
+      - stepId: example
+        description: Read an example of the template with Accept application/openehr.wt.flat+json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_example_get
+        parameters:
+          - { name: template_id, in: path, value: openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 }
+          - { name: Accept, in: header, value: application/openehr.wt.flat+json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite: *example_read
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/openehr\.wt\.flat\+json'
