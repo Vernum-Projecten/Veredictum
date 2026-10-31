@@ -22,6 +22,11 @@ the screen displays, never what is written. It exists so a capture pass over
 an unchanged interface produces identical images, which is what makes a
 screenshot diff mean something.
 
+For the same reason a capture pass reads a frozen excerpt of the catalogue
+(`fixtures/console/catalogue/`: four capability folders, 166 cases), not the
+catalogue itself. The counts and case lists in the screenshots are that
+excerpt's. A console you run reads the full catalogue and shows its counts.
+
 ## The landing
 
 The four counts are the catalogue's own: cases (one per Arazzo workflow), Arazzo

@@ -1,0 +1,1010 @@
+# The stored-query execution operations: the latest version, an exact version
+# and the version prefixes, the misses answered 404 and the reserved name, a
+# POST body the released schema refuses, and a fetch that is not an integer.
+# Each workflow that executes a stored query stores it under
+# a fresh qualified_query_name through the DEFINITION API and executes it over
+# the dataset `_setup/templates.arazzo.yaml` seeds. Every quote is copied
+# verbatim from the named vendored file.
+arazzo: "1.1.0"
+info:
+  title: Stored AQL execution
+  version: "0.1.0"
+  x-veredictum-section: stored-queries
+  description: >-
+    Executing a stored AQL query by name and by version, with GET and POST.
+sourceDescriptions:
+  - name: query
+    url: "../../../specs/rest-oas/query-validation.openapi.yaml"
+    type: openapi
+  - name: definition
+    url: "../../../specs/rest-oas/definition-validation.openapi.yaml"
+    type: openapi
+  - name: setup
+    url: "../_setup/templates.arazzo.yaml"
+    type: arazzo
+workflows:
+  - workflowId: post-latest
+    summary: A stored query executed by name runs its latest version
+    description: >-
+      Stores three versions of one query under a fresh name: 1.0.0 selects the
+      magnitude 12, 1.1.0 the magnitude 18 and 2.0.0 the magnitude 15 of the
+      dataset EHR, named by the $ehr_id parameter. Executing it by name with
+      POST runs 2.0.0, so the result is [15, 15].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/query_execute_stored_query_body.yaml
+      section: description
+      quote: "Execute a stored query, identified by the supplied `qualified_query_name` (at latest version)."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: >-
+          Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-1_1_0
+        description: >-
+          Store the query at version 1.1.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.1.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-2_0_0
+        description: >-
+          Store the query at version 2.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "2.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query by name.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_body
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            offset: 0
+            fetch: 10
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[15], [15]]
+
+  - workflowId: post-version_exact
+    summary: A stored query executed at 1.1.0 runs the version it selects
+    description: >-
+      Stores three versions of one query under a fresh name: 1.0.0 selects the
+      magnitude 12, 1.1.0 the magnitude 18 and 2.0.0 the magnitude 15 of the
+      dataset EHR, named by the $ehr_id parameter. Executing it at the exact
+      version 1.1.0 with POST gives [18].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/parameters/path/version.yaml
+      section: description
+      quote: "This can be an exact version (e.g. `1.7.1`), or a pattern as partial prefix, in a form of `{major}` or `{major}.{minor}` (e.g. `1` or `1.0`), in which case the highest (latest) version matching the prefix will be considered."
+      level: must
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: >-
+          Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-1_1_0
+        description: >-
+          Store the query at version 1.1.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.1.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-2_0_0
+        description: >-
+          Store the query at version 2.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "2.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query at 1.1.0.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_version_body
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.1.0" }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            offset: 0
+            fetch: 10
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[18]]
+
+  - workflowId: post-version_major
+    summary: A stored query executed at 1 runs the version it selects
+    description: >-
+      Stores three versions of one query under a fresh name: 1.0.0 selects the
+      magnitude 12, 1.1.0 the magnitude 18 and 2.0.0 the magnitude 15 of the
+      dataset EHR, named by the $ehr_id parameter. Executing it at the {major}
+      prefix 1, whose latest match is 1.1.0 with POST gives [18].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/parameters/path/version.yaml
+      section: description
+      quote: "This can be an exact version (e.g. `1.7.1`), or a pattern as partial prefix, in a form of `{major}` or `{major}.{minor}` (e.g. `1` or `1.0`), in which case the highest (latest) version matching the prefix will be considered."
+      level: must
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: >-
+          Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-1_1_0
+        description: >-
+          Store the query at version 1.1.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.1.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-2_0_0
+        description: >-
+          Store the query at version 2.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "2.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query at 1.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_version_body
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1" }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            offset: 0
+            fetch: 10
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[18]]
+
+  - workflowId: post-version_minor
+    summary: A stored query executed at 1.0 runs the version it selects
+    description: >-
+      Stores three versions of one query under a fresh name: 1.0.0 selects the
+      magnitude 12, 1.1.0 the magnitude 18 and 2.0.0 the magnitude 15 of the
+      dataset EHR, named by the $ehr_id parameter. Executing it at the
+      {major}.{minor} prefix 1.0, whose latest match is 1.0.0 with POST gives
+      [12].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/parameters/path/version.yaml
+      section: description
+      quote: "This can be an exact version (e.g. `1.7.1`), or a pattern as partial prefix, in a form of `{major}` or `{major}.{minor}` (e.g. `1` or `1.0`), in which case the highest (latest) version matching the prefix will be considered."
+      level: must
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: >-
+          Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-1_1_0
+        description: >-
+          Store the query at version 1.1.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.1.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-2_0_0
+        description: >-
+          Store the query at version 2.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "2.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query at 1.0.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_version_body
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0" }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            offset: 0
+            fetch: 10
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[12]]
+
+  - workflowId: post-version_unknown
+    summary: A stored query executed at a version it does not have is not found
+    description: >-
+      Stores three versions of one query under a fresh name: 1.0.0 selects the
+      magnitude 12, 1.1.0 the magnitude 18 and 2.0.0 the magnitude 15 of the
+      dataset EHR, named by the $ehr_id parameter. Executing it at the prefix
+      3, which no version matches, is answered 404.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_Query_version.yaml
+      section: description
+      quote: "`404 Not Found` is returned when a stored query with `qualified_query_name` and `version` does not exist."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: >-
+          Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-1_1_0
+        description: >-
+          Store the query at version 1.1.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.1.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-2_0_0
+        description: >-
+          Store the query at version 2.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "2.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query at 3.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_version_body
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "3" }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            offset: 0
+            fetch: 10
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 404"
+
+  - workflowId: post-name_unknown
+    summary: A stored query name that is not stored is not found
+    description: >-
+      Executes, with POST, a fresh qualified_query_name no query is stored
+      under. It is answered 404.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_Query.yaml
+      section: description
+      quote: "`404 Not Found` is returned when a stored query with `qualified_query_name` does not exist."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: execute
+        description: >-
+          Execute the unknown stored query.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_body
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload:
+            offset: 0
+            fetch: 10
+            query_parameters:
+              ehr_id: replaced with the dataset ehr_id
+          replacements:
+            - { target: /query_parameters/ehr_id, value: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id }
+        successCriteria:
+          - condition: "$statusCode == 404"
+
+  - workflowId: post-body_empty
+    x-veredictum-control: post-latest
+    summary: A stored-query POST body without its required members is refused with 400
+    description: >-
+      Stores a query under a fresh name, then executes it with POST and the
+      body {}. The Query body requires offset, fetch and query_parameters, so
+      a required parameter is missing.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+      section: description
+      quote: "`400 Bad Request` is returned when the server was unable to execute the query due to invalid input, e.g. a required parameter is missing, or at least one of the parameters has an invalid syntax."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: >-
+          Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr_id] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query with the body {}.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_body
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: {}
+        successCriteria:
+          - condition: "$statusCode == 400"
+
+  - workflowId: get-latest
+    summary: A stored query executed by name with GET runs its latest version
+    description: >-
+      Stores three versions of one query under a fresh name: 1.0.0 selects the
+      magnitude 12, 1.1.0 the magnitude 18 and 2.0.0 the magnitude 15 of the
+      EHR named by the $ehr parameter. Executing it by name with GET, the
+      dataset ehr_id sent as the query parameter ehr, runs 2.0.0, so the
+      result is [15, 15].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/query_execute_stored_query.yaml
+      section: description
+      quote: "Execute a stored query, identified by the supplied `qualified_query_name` (at latest version), fetching `fetch` numbers of rows from `offset` and passing `query_parameters` to the underlying query engine."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: >-
+          Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-1_1_0
+        description: >-
+          Store the query at version 1.1.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.1.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-2_0_0
+        description: >-
+          Store the query at version 2.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "2.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query by name, its parameter ehr in the URL.
+        operationId: $sourceDescriptions.query.query_execute_stored_query
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - name: query_parameters
+            in: query
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[15], [15]]
+
+  - workflowId: get-version_exact
+    summary: A stored query executed with GET at an exact version runs that version
+    description: >-
+      Stores three versions of one query under a fresh name: 1.0.0 selects the
+      magnitude 12, 1.1.0 the magnitude 18 and 2.0.0 the magnitude 15 of the
+      EHR named by the $ehr parameter. Executing it at 1.0.0 with GET, the
+      dataset ehr_id sent as the query parameter ehr, gives [12].
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/parameters/path/version.yaml
+      section: description
+      quote: "This can be an exact version (e.g. `1.7.1`), or a pattern as partial prefix, in a form of `{major}` or `{major}.{minor}` (e.g. `1` or `1.0`), in which case the highest (latest) version matching the prefix will be considered."
+      level: must
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: >-
+          Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-1_1_0
+        description: >-
+          Store the query at version 1.1.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.1.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 18
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: store-2_0_0
+        description: >-
+          Store the query at version 2.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "2.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 15
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query at 1.0.0, its parameter ehr in the URL.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_version
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - name: query_parameters
+            in: query
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_Query.yaml
+              section: description
+              quote: "`200 OK` is returned when the server is able to execute the query."
+          - condition: "$statusCode == 200"
+            x-veredictum-check:
+              judge: result_set
+              context: $response.body
+              match: set
+              rows: [[12]]
+
+  - workflowId: get-name_unknown
+    summary: A stored query name that is not stored is not found with GET
+    description: >-
+      Executes, with GET, a fresh qualified_query_name no query is stored
+      under. It is answered 404.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_Query.yaml
+      section: description
+      quote: "`404 Not Found` is returned when a stored query with `qualified_query_name` does not exist."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: execute
+        description: >-
+          Execute the unknown stored query.
+        operationId: $sourceDescriptions.query.query_execute_stored_query
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - name: query_parameters
+            in: query
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 404"
+
+  - workflowId: get-version_unknown
+    summary: A stored query executed with GET at a version it does not have is not found
+    description: >-
+      Stores 1.0.0 of a query under a fresh name, then executes it with GET at
+      2.0.0. It is answered 404.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/404_Query_version.yaml
+      section: description
+      quote: "`404 Not Found` is returned when a stored query with `qualified_query_name` and `version` does not exist."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - stepId: store-1_0_0
+        description: >-
+          Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query at 2.0.0.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_version
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "2.0.0" }
+          - name: query_parameters
+            in: query
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 404"
+
+  - workflowId: get-fetch_not_integer
+    x-veredictum-control: get-latest
+    summary: A stored query executed by name with a fetch that is not an integer is refused with 400
+    description: >-
+      Stores 1.0.0 of a query under a fresh name, then executes it by name
+      with GET and the fetch parameter abc. fetch is an integer, so the
+      parameter has an invalid syntax.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite: &invalid_input
+      source: specs/openehr/ITS-REST/specifications/responses/400_Query.yaml
+      section: description
+      quote: "`400 Bad Request` is returned when the server was unable to execute the query due to invalid input, e.g. a required parameter is missing, or at least one of the parameters has an invalid syntax."
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - &store_12
+        stepId: store-1_0_0
+        description: >-
+          Store the query at version 1.0.0.
+        operationId: $sourceDescriptions.definition.definition_query_version_store.yaml
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            SELECT o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude AS magnitude FROM EHR e[ehr_id/value=$ehr] CONTAINS COMPOSITION c CONTAINS OBSERVATION o[openEHR-EHR-OBSERVATION.minimal.v1] WHERE o/data[at0001]/events[at0002]/data[at0003]/items[at0004]/value/magnitude = 12
+        successCriteria:
+          - condition: "$statusCode == 200"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_StoredQuery_stored.yaml
+              section: description
+              quote: "`200 OK` is returned when the query was successfully stored."
+      - stepId: execute
+        description: >-
+          Execute the stored query by name with fetch abc: the fetch
+          parameter is not an integer, an invalid syntax.
+        operationId: $sourceDescriptions.query.query_execute_stored_query
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: fetch, in: query, value: abc }
+          - name: query_parameters
+            in: query
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 400"
+
+  - workflowId: get-version_fetch_not_integer
+    x-veredictum-control: get-version_exact
+    summary: A stored query executed at a version with a fetch that is not an integer is refused with 400
+    description: >-
+      Stores 1.0.0 of a query under a fresh name, then executes it at 1.0.0
+      with GET and the fetch parameter abc. fetch is an integer, so the
+      parameter has an invalid syntax.
+    dependsOn: [$sourceDescriptions.setup.seed_dataset-visits]
+    x-veredictum-cite: *invalid_input
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - *store_12
+      - stepId: execute
+        description: >-
+          Execute the stored query at 1.0.0 with fetch abc: the fetch
+          parameter is not an integer, an invalid syntax.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_version
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: fetch, in: query, value: abc }
+          - name: query_parameters
+            in: query
+            value:
+              ehr: $workflows.$sourceDescriptions.setup.seed_dataset-visits.outputs.ehr_id
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 400"
+
+  - workflowId: post-version_body_empty
+    x-veredictum-control: post-version_exact
+    summary: A stored-query POST at a version without its required body members is refused with 400
+    description: >-
+      Stores 1.0.0 of a query under a fresh name, then executes it at 1.0.0
+      with POST and the body {}. The Query body requires offset, fetch and
+      query_parameters, so a required parameter is missing.
+    x-veredictum-cite: *invalid_input
+    inputs:
+      type: object
+      properties:
+        run: { type: string, format: uuid }
+    steps:
+      - *store_12
+      - stepId: execute
+        description: >-
+          Execute the stored query at 1.0.0 with the body {}.
+        operationId: $sourceDescriptions.query.query_execute_stored_query_version_body
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql-{$inputs.run}" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/json
+          payload: {}
+        successCriteria:
+          - condition: "$statusCode == 400"
+
+  - workflowId: get-reserved_name
+    summary: A stored query under the reserved query-name aql is not found
+    description: >-
+      Executes, with GET, the qualified_query_name org.veredictum::aql. Its
+      query-name is the reserved aql, which no stored query may carry, so no
+      stored query with that name exists and it is answered 404.
+    x-veredictum-cite:
+      source: specs/rest-oas/query-validation.openapi.yaml
+      section: tags
+      quote: "The `query-name` value must not be `aql` (case-insensitive), as that is a reserved name."
+    steps:
+      - stepId: execute
+        description: >-
+          Execute the stored query org.veredictum::aql.
+        operationId: $sourceDescriptions.query.query_execute_stored_query
+        parameters:
+          - { name: qualified_query_name, in: path, value: "org.veredictum::aql" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: "$statusCode == 404"
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/404_Query.yaml
+              section: description
+              quote: "`404 Not Found` is returned when a stored query with `qualified_query_name` does not exist."

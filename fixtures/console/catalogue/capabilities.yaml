@@ -1,0 +1,243 @@
+# The console capture fixture's copy of the catalogue file of this name,
+# narrowed to the documents this fixture carries. Frozen on purpose: the
+# capture pass renders over this tree so a catalogue change moves no capture.
+# No openEHR spec governs this — our own design.
+options:
+  ehr-xml-read:
+    description: Whether the service serves the EHR resource in canonical XML, on
+      a read and as the representation of a create, when a client asks for it with
+      Accept application/xml.
+    arms:
+      ehr-xml-supported:
+        documents:
+        - ehr_xml
+        - ehr_xml_json_setup
+      ehr-xml-unsupported:
+        documents:
+        - ehr_xml_not_acceptable
+        - ehr_xml_not_acceptable_json_setup
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: Services MUST support at least one of the openEHR **XML** or **JSON**
+        canonical formats for resource representation.
+  ehr-xml-write:
+    description: 'Whether the service processes an EHR_STATUS sent as canonical XML
+      on the EHR creates. No published document schema reaches EHR_STATUS: the global
+      `items` element (LOCATABLE) of documents/Structure.xsd does not include Ehr.xsd,
+      which only the 2.0.0 lineage publishes, and no released sentence names the root
+      a service accepts (upstream report #759). The accepting arm sends an `items`
+      root typed EHR_STATUS in that lineage''s namespace, so its workflows rest on
+      that report.'
+    arms:
+      ehr-xml-write-accepted:
+        documents:
+        - ehr_xml_write
+      ehr-xml-write-refused:
+        documents:
+        - ehr_xml_write_refused
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: If the service cannot process the request payload as XML format, it MUST
+        respond with HTTP status code `415 Unsupported Media Type`.
+  ehr-status-xml-read:
+    description: Whether the service serves the EHR_STATUS resource family (the EHR_STATUS,
+      its VERSIONED_EHR_STATUS, their versions and the revision history) in canonical
+      XML when a client asks for it with Accept application/xml.
+    arms:
+      ehr-status-xml-supported:
+        documents:
+        - ehr_status_xml
+        - ehr_status_xml_json_setup
+      ehr-status-xml-unsupported:
+        documents:
+        - ehr_status_xml_not_acceptable
+        - ehr_status_xml_not_acceptable_json_setup
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: Services MUST support at least one of the openEHR **XML** or **JSON**
+        canonical formats for resource representation.
+  ehr-status-xml-write:
+    description: 'Whether the service processes an EHR_STATUS sent as canonical XML
+      on the EHR_STATUS update. No published document schema reaches EHR_STATUS: the
+      global `items` element (LOCATABLE) of documents/Structure.xsd does not include
+      Ehr.xsd, which only the 2.0.0 lineage publishes, and no released sentence names
+      the root a service accepts (upstream report #759). The accepting arm sends an
+      `items` root typed EHR_STATUS in that lineage''s namespace, so its workflow
+      rests on that report.'
+    arms:
+      ehr-status-xml-write-accepted:
+        documents:
+        - ehr_status_xml_write
+      ehr-status-xml-write-refused:
+        documents:
+        - ehr_status_xml_write_refused
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: If the service cannot process the request payload as XML format, it MUST
+        respond with HTTP status code `415 Unsupported Media Type`.
+  ehr-status-flat-write:
+    description: 'Whether the service processes an EHR_STATUS sent with Content-Type
+      application/openehr.wt.flat+json on the EHR creates and the EHR_STATUS update.
+      The release defines no EHR_STATUS form in the Simplified Flat JSON format (upstream
+      report #352), so the accepting arm has no document.'
+    arms:
+      ehr-status-flat-write-accepted:
+        documents: []
+      ehr-status-flat-write-refused:
+        documents:
+        - ehr_write_flat_unsupported
+        - ehr_status_write_flat_unsupported
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: If the service cannot process the request payload as the simplified format
+        is not supported, it MUST respond with HTTP status code `415 Unsupported Media
+        Type`.
+      report: 352
+  ehr-status-structured-write:
+    description: 'Whether the service processes an EHR_STATUS sent with Content-Type
+      application/openehr.wt.structured+json on the EHR creates and the EHR_STATUS
+      update. The release defines no EHR_STATUS form in the Simplified Structured
+      JSON format (upstream report #352), so the accepting arm has no document.'
+    arms:
+      ehr-status-structured-write-accepted:
+        documents: []
+      ehr-status-structured-write-refused:
+        documents:
+        - ehr_write_structured_unsupported
+        - ehr_status_write_structured_unsupported
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Simplified Formats
+      quote: If the service cannot process the request payload as the simplified format
+        is not supported, it MUST respond with HTTP status code `415 Unsupported Media
+        Type`.
+      report: 352
+  ehr-status-flat-read:
+    description: 'Whether the service serves an EHR_STATUS, on a read and as the representation
+      of an update, when a client asks for it with Accept application/openehr.wt.flat+json.
+      The release defines no EHR_STATUS form in the Simplified Flat JSON format (upstream
+      report #352), so the serving arm has no document.'
+    arms:
+      ehr-status-flat-supported:
+        documents: []
+      ehr-status-flat-unsupported:
+        documents:
+        - ehr_status_read_flat_not_acceptable
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: Additionally, the **Simplified Formats** format SHOULD be supported,
+        while other alternative formats MAY be supported as well, depending on the
+        use case.
+      level: should
+      report: 352
+  ehr-status-structured-read:
+    description: 'Whether the service serves an EHR_STATUS, on a read and as the representation
+      of an update, when a client asks for it with Accept application/openehr.wt.structured+json.
+      The release defines no EHR_STATUS form in the Simplified Structured JSON format
+      (upstream report #352), so the serving arm has no document.'
+    arms:
+      ehr-status-structured-supported:
+        documents: []
+      ehr-status-structured-unsupported:
+        documents:
+        - ehr_status_read_structured_not_acceptable
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: Data representation
+      quote: Additionally, the **Simplified Formats** format SHOULD be supported,
+        while other alternative formats MAY be supported as well, depending on the
+        use case.
+      level: should
+      report: 352
+documents:
+  ehr_xml:
+    formats:
+    - canonical-xml
+  ehr_xml_json_setup:
+    formats:
+    - canonical-json
+    - canonical-xml
+  ehr_status_xml:
+    formats:
+    - canonical-xml
+  ehr_status_xml_json_setup:
+    formats:
+    - canonical-json
+    - canonical-xml
+  ehr_xml_write:
+    formats:
+    - canonical-json
+    - canonical-xml
+  ehr_status_xml_write:
+    formats:
+    - canonical-json
+    - canonical-xml
+  aql_execute:
+    formats:
+    - canonical-json
+  aql_refused:
+    formats:
+    - canonical-json
+  aql_stored:
+    formats:
+    - canonical-json
+  aql_stored_top:
+    formats:
+    - canonical-json
+  ehr:
+    formats:
+    - canonical-json
+  ehr_bulk_load:
+    formats:
+    - canonical-json
+  ehr_committal:
+    formats:
+    - canonical-json
+  ehr_status:
+    formats:
+    - canonical-json
+  ehr_status_flags:
+    formats:
+    - canonical-json
+  ehr_status_read_flat_not_acceptable:
+    formats:
+    - canonical-json
+  ehr_status_read_structured_not_acceptable:
+    formats:
+    - canonical-json
+  ehr_status_update:
+    formats:
+    - canonical-json
+  ehr_status_versioned:
+    formats:
+    - canonical-json
+  ehr_status_write_flat_unsupported:
+    formats:
+    - canonical-json
+  ehr_status_write_structured_unsupported:
+    formats:
+    - canonical-json
+  ehr_status_xml_not_acceptable_json_setup:
+    formats:
+    - canonical-json
+  ehr_status_xml_write_refused:
+    formats:
+    - canonical-json
+  ehr_xml_not_acceptable_json_setup:
+    formats:
+    - canonical-json
+  system_options:
+    formats:
+    - canonical-json
+floors:
+  ehr: 50
+  ehr_status: 79
+  query: 34
+  system: 3
+extension-only: []

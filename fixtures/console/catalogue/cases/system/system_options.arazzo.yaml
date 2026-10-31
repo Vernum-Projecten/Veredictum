@@ -1,0 +1,78 @@
+# The System API's one operation, OPTIONS on the API base path, as Arazzo
+# 1.1.0 workflows over the released ITS-REST `-validation` OAS: the 200, the
+# Allow header, and the conformance manifest in JSON. The operation text says
+# a service SHOULD answer it, so every row here is a warning. Every criterion
+# resolves to an `x-veredictum-cite` (its own, else its step's, else its
+# workflow's), and every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: System OPTIONS
+  version: 0.1.0
+  x-veredictum-section: options
+  description: >-
+    The options and conformance information a service gives for OPTIONS on
+    its API base path.
+sourceDescriptions:
+  - name: system
+    url: ../../../specs/rest-oas/system-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: options
+    summary: OPTIONS on the API base path is answered 200
+    description: >-
+      Sends OPTIONS to the API base path with Accept application/json. The
+      response the operation declares is 200 OK with the options and
+      conformance statement.
+    x-veredictum-cite: &should_respond
+      source: specs/openehr/ITS-REST/specifications/operations/options.yaml
+      section: description
+      quote: "Services SHOULD respond to this method with the appropriate HTTP codes, headers and potentially with a payload revealing more details about themselves."
+      level: should
+    steps:
+      - stepId: options
+        description: Send OPTIONS to the API base path.
+        operationId: $sourceDescriptions.system.options
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+
+  - workflowId: options-allow
+    summary: The answer to OPTIONS on the API base path carries the Allow header
+    description: >-
+      Sends OPTIONS to the API base path. The 200 response the operation
+      declares carries the Allow header, which lists the methods the service
+      supports.
+    x-veredictum-cite: *should_respond
+    steps:
+      - stepId: options
+        description: Send OPTIONS to the API base path.
+        operationId: $sourceDescriptions.system.options
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.header.Allow != null
+
+  - workflowId: options-manifest
+    summary: The answer to OPTIONS on the API base path is a JSON conformance manifest
+    description: >-
+      Sends OPTIONS to the API base path with Accept application/json. The 200
+      response the operation declares is application/json, and its body is an
+      instance of the Options schema, whose members are all optional.
+    x-veredictum-cite: *should_respond
+    steps:
+      - stepId: options
+        description: Send OPTIONS to the API base path.
+        operationId: $sourceDescriptions.system.options
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+          - condition: $statusCode == 200
+            x-veredictum-check:
+              judge: schema
+              against: oas

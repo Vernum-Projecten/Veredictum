@@ -1,0 +1,22 @@
+# NOT AN openEHR SPECIFICATION. The deliberately wrong requests the
+# catalogue sends, which no released openEHR OpenAPI document defines an
+# operation for, declared here so an Arazzo step can address them. Nothing
+# in this file is an expectation: every expectation on a probe cites the
+# released openEHR text, never this document.
+openapi: 3.0.3
+info:
+  title: Veredictum probes (not an openEHR specification)
+  version: 0.1.0
+  description: >-
+    Requests the released openEHR ITS-REST OpenAPI documents define no
+    operation for, sent to check how a server refuses them. This document is
+    Veredictum's own and carries no openEHR authority.
+  x-veredictum-non-openehr: true
+paths:
+  /ehr:
+    delete:
+      operationId: probe_ehr_delete
+      summary: DELETE on the EHR collection, which the released EHR API assigns no operation
+      responses:
+        default:
+          description: Whatever the server answers.

@@ -110,6 +110,11 @@ Apple Silicon, so an author on an ARM machine renders the captures in CI:
 `gh run download <run-id> --name console-captures --dir website/book/src/console/img`.
 The lane never commits; review the image diff and commit it signed yourself.
 
+A capture pass serves the frozen `fixtures/console/catalogue/` in place of
+`catalogue/` (#980), so a case added to the catalogue moves no committed
+image; every other pass, and the console itself, read the real catalogue.
+`tests/it/captures.rs` pins both the selection and the fixture's isolation.
+
 That same flag serves the console with `VEREDICTUM_CAPTURE_MODE` set, and
 `src/capture.rs` then answers every fact a pass MEASURES OR MINTS as a fixed
 stand-in: the run clock and its estimate, the connect probe's round trip, the
