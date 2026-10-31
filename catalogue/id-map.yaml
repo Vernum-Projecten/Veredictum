@@ -4535,6 +4535,7 @@ cases:
   SMART-RESOURCE_SCOPES-granted_scope_permits:
     new:
       - smart_scopes/template_list-system_scope_granted
+      - smart_scopes/template_list-system_scope_read_search_granted
     open: >-
       The `user` compartment rows are not carried: master08 §Resource Scopes
       makes a user grant "subject to the user's security profile", so the

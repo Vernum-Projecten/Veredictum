@@ -915,7 +915,7 @@ floors:
   query: 194
   security: 11
   simplified_formats: 137
-  smart: 2
+  smart: 3
   system: 3
 # The capability folders verified only over the routes of the sources under
 # `sources/` whose `info` carries `x-veredictum-non-openehr: true`, which no

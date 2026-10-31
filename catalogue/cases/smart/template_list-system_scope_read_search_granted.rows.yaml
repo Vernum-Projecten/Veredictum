@@ -1,0 +1,11 @@
+# One row per scope set, each holding both `r` (Read) and `s` ("Search or
+# execute", master08-scopes.adoc §Resource Scopes), so it grants a template
+# list whichever permission the list is read as needing. `.rs` is the
+# permission tail of the chapter's own `patient/composition-*.rs` example,
+# and `.cruds` that of its maximal-table rows `user/aql-<queryName>.cruds`
+# and `system/aql-<queryName>.cruds`.
+workflow: smart_scopes/template_list-system_scope_read_search_granted
+iteration: reset_per_row
+rows:
+  - { scope: "system/template-*.rs" }
+  - { scope: "system/template-*.cruds" }

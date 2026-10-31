@@ -7,10 +7,11 @@
 # covers neither way is skipped as not-declared. Only the `system`
 # compartment is used: the released text grants it "access across all
 # data", while a `user` grant is "subject to the user's security profile"
-# and so does not by itself decide the outcome. The refusal of a scope that
-# does not grant the operation is not carried: no released chapter maps a
-# scope to an operation or assigns the refusal a status (upstream report
-# #758). Every quote is copied verbatim from the named vendored file.
+# and so does not by itself decide the outcome. No released chapter maps a
+# scope to an operation or assigns a refusal a status (upstream report
+# #758), so a scope set holding only one of `r` and `s` may be answered with
+# the list or refused, and only a set holding both must reach the list.
+# Every quote is copied verbatim from the named vendored file.
 arazzo: 1.1.0
 info:
   title: SMART on openEHR resource scopes
@@ -18,31 +19,61 @@ info:
   x-veredictum-section: resource-scopes
   description: >-
     Reading the ADL 1.4 template list with access tokens whose SMART
-    resource scope grants read access to every template.
+    resource scope grants access to every template.
 sourceDescriptions:
   - name: definition
     url: ../../../specs/rest-oas/definition-validation.openapi.yaml
     type: openapi
 workflows:
   - workflowId: template_list-system_scope_granted
-    summary: A system-compartment template scope with the read permission reaches the template list
+    summary: A system-compartment template scope with the read permission is answered with the list or a refusal
     description: >-
       Lists the ADL 1.4 templates with a token whose scope set is the row's
-      `system/template-*` scope, which grants read access to every
-      template in the system compartment. The list answers 200. That the
-      template list is a Read of the `template-` resource is the
-      instrument's reading: no released text maps a scope to an operation,
-      pending upstream report #758.
-    x-veredictum-cite:
+      `system/template-*` scope, which grants read access to every template
+      in the system compartment and no search. The chapter defines `r` as
+      Read and `s` as "Search or execute", and no released text says which
+      of the two a template list needs (upstream report #758), so the list
+      answers 200 or the service refuses the token with 403, and any other
+      status fails.
+    x-veredictum-cite: &system_scope
       source: specs/openehr/ITS-REST/docs/smart_app_launch/master08-scopes.adoc
       section: Resource Scopes
       quote: "`system`: For server-to-server integrations or backend services, typically using client credentials, based on pre-configured client-specific policy. Grants access across all data."
       report: 758
-    inputs:
+    inputs: &scope_input
       type: object
       required: [scope]
       properties:
         scope: { type: string }
+    steps:
+      - stepId: list
+        description: List the templates with a token carrying the row's scope set.
+        operationId: $sourceDescriptions.definition.definition_template_adl1.4_list
+        x-veredictum-scope: $inputs.scope
+        parameters:
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(200|403)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Requests_and_responses.md
+              section: Authentication and authorization
+              quote: "If authentication and authorization are required, services MUST properly use the `WWW-Authenticate` and/or `Proxy-Authenticate` response headers, returning `403 Forbidden`, `401 Unauthorized` or `407 Proxy Authentication` as applicable."
+              report: 758
+
+  - workflowId: template_list-system_scope_read_search_granted
+    summary: A system-compartment template scope with the read and search permissions reaches the template list
+    description: >-
+      Lists the ADL 1.4 templates with a token whose scope set is the row's
+      `system/template-*` scope holding both `r` (Read) and `s` ("Search or
+      execute"), so it grants the list whichever of the two permissions a
+      template list is read as needing. The list answers 200. That the
+      template list is an operation on the `template-` resource is the
+      instrument's reading: no released text maps a scope to an operation,
+      pending upstream report #758.
+    x-veredictum-cite: *system_scope
+    inputs: *scope_input
     steps:
       - stepId: list
         description: List the templates with a token carrying the row's scope set.

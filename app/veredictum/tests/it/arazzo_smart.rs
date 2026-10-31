@@ -13,7 +13,7 @@ use std::process::{Command, Output};
 
 use base64::Engine as _;
 use serde_json::{Value, json};
-use wiremock::matchers::{method, path};
+use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, ResponseTemplate};
 
 use crate::fake_sut::FakeSut;
@@ -28,6 +28,10 @@ const DOCUMENTS: [&str; 2] = ["smart_discovery", "smart_scopes"];
 const READ_SCOPE: &str = "system/template-*.r";
 const CRUD_SCOPE: &str = "system/template-*.crud";
 
+/// The scope sets of the read-and-search rows, in row order.
+const READ_SEARCH_SCOPE: &str = "system/template-*.rs";
+const CRUDS_SCOPE: &str = "system/template-*.cruds";
+
 /// The token supplied for [`READ_SCOPE`], from a variable.
 const READ_TOKEN: &str = "tok-read-7f3a";
 
@@ -36,7 +40,7 @@ const CRUD_TOKEN: &str = "tok-crud-91bc";
 
 /// Every variable a run reads a credential or the root from, removed so the
 /// developer's or the runner's own environment never reaches a test.
-const READ_VARS: [&str; 9] = [
+const READ_VARS: [&str; 13] = [
     "VEREDICTUM_CATALOGUE",
     "VEREDICTUM_CDR_TOKEN",
     "VEREDICTUM_CDR_TOKEN_FILE",
@@ -44,6 +48,10 @@ const READ_VARS: [&str; 9] = [
     "VEREDICTUM_SCOPED_TOKEN_READ_FILE",
     "VEREDICTUM_SCOPED_TOKEN_CRUD",
     "VEREDICTUM_SCOPED_TOKEN_CRUD_FILE",
+    "VEREDICTUM_SCOPED_TOKEN_SEARCH",
+    "VEREDICTUM_SCOPED_TOKEN_SEARCH_FILE",
+    "VEREDICTUM_SCOPED_TOKEN_CRUDS",
+    "VEREDICTUM_SCOPED_TOKEN_CRUDS_FILE",
     "VEREDICTUM_SCOPED_TOKEN_KEY",
     "VEREDICTUM_SCOPED_TOKEN_KEY_FILE",
 ];
@@ -245,6 +253,18 @@ fn each_scoped_row_presents_its_own_token_and_the_recording_holds_none() -> Fall
                 "passed".to_owned(),
                 None
             ),
+            (
+                "smart_scopes/template_list-system_scope_read_search_granted".to_owned(),
+                0,
+                "skipped".to_owned(),
+                Some("not-declared".to_owned())
+            ),
+            (
+                "smart_scopes/template_list-system_scope_read_search_granted".to_owned(),
+                1,
+                "skipped".to_owned(),
+                Some("not-declared".to_owned())
+            ),
         ]
     );
     assert_eq!(
@@ -327,7 +347,16 @@ fn what_the_party_does_not_declare_is_skipped_not_declared() -> Fallible {
         .map(|(_, _, status, reason)| (status, reason))
         .collect();
     let skipped = || ("skipped".to_owned(), Some("not-declared".to_owned()));
-    assert_eq!(outcome, [skipped(), ("passed".to_owned(), None), skipped()]);
+    assert_eq!(
+        outcome,
+        [
+            skipped(),
+            ("passed".to_owned(), None),
+            skipped(),
+            skipped(),
+            skipped()
+        ]
+    );
     assert_eq!(
         results.pointer("/rows/0/skip/why/section"),
         Some(&json!("Service Discovery"))
@@ -426,7 +455,15 @@ fn a_declared_test_issuer_mints_each_row_a_token_with_its_scope_claim() -> Falli
             Ok(claims.get("scope").cloned().unwrap_or(Value::Null))
         })
         .collect::<Result<_, _>>()?;
-    assert_eq!(scopes, [json!(READ_SCOPE), json!(CRUD_SCOPE)]);
+    assert_eq!(
+        scopes,
+        [
+            json!(READ_SCOPE),
+            json!(CRUD_SCOPE),
+            json!(READ_SEARCH_SCOPE),
+            json!(CRUDS_SCOPE)
+        ]
+    );
     let recording = std::fs::read_to_string(out.join("recording.har"))?;
     for token in sent.iter().flatten() {
         assert!(!recording.contains(token.as_str()));
@@ -464,5 +501,150 @@ fn an_ixit_naming_a_variable_outside_the_scoped_token_prefix_is_refused() -> Fal
     )?;
     assert_eq!(output.status.code(), Some(2), "{output:?}");
     assert!(sut.requests().is_empty());
+    Ok(())
+}
+/// A CDR answering the template list per presented token: one reading of
+/// master08-scopes.adoc §Resource Scopes, which maps no scope to an
+/// operation (upstream report #758).
+fn scope_reading_cdr(tokens: [(&str, u16); 4]) -> FakeSut {
+    let sut = FakeSut::start();
+    for (token, status) in tokens {
+        let answer = if status == 200 {
+            ResponseTemplate::new(200).set_body_raw("[]", "application/json")
+        } else {
+            ResponseTemplate::new(status)
+        };
+        sut.mount(
+            Mock::given(method("GET"))
+                .and(path("/openehr/v1/definition/template/adl1.4"))
+                .and(header("authorization", format!("Bearer {token}").as_str()))
+                .respond_with(answer),
+        );
+    }
+    sut
+}
+
+/// The token supplied for [`READ_SEARCH_SCOPE`].
+const SEARCH_TOKEN: &str = "tok-search-5d2e";
+
+/// The token supplied for [`CRUDS_SCOPE`].
+const CRUDS_TOKEN: &str = "tok-cruds-0a6f";
+
+/// Runs both SMART documents against `sut` with a token for every scope set,
+/// returning `(case, row, status)` of each scoped row and the exit code.
+fn every_scope_run(
+    sut: &FakeSut,
+) -> Result<(Vec<(String, u64, String)>, Option<i32>), Box<dyn std::error::Error>> {
+    let dir = assert_fs::TempDir::new()?;
+    let statement = statement(dir.path())?;
+    let ixit = write_json(
+        dir.path(),
+        "ixit.json",
+        &json!({ "scoped_tokens": { "issued": {
+            READ_SCOPE: "VEREDICTUM_SCOPED_TOKEN_READ",
+            CRUD_SCOPE: "VEREDICTUM_SCOPED_TOKEN_CRUD",
+            READ_SEARCH_SCOPE: "VEREDICTUM_SCOPED_TOKEN_SEARCH",
+            CRUDS_SCOPE: "VEREDICTUM_SCOPED_TOKEN_CRUDS"
+        }}}),
+    )?;
+    let out = dir.path().join("run");
+    let base_url = format!("{}/openehr/v1", sut.base_url());
+    let output = test_command(
+        &[
+            "--statement",
+            &statement,
+            "--ixit",
+            &ixit,
+            "--base-url",
+            &base_url,
+            "--out",
+            &out.to_string_lossy(),
+        ],
+        &[
+            ("VEREDICTUM_SCOPED_TOKEN_READ", READ_TOKEN),
+            ("VEREDICTUM_SCOPED_TOKEN_CRUD", CRUD_TOKEN),
+            ("VEREDICTUM_SCOPED_TOKEN_SEARCH", SEARCH_TOKEN),
+            ("VEREDICTUM_SCOPED_TOKEN_CRUDS", CRUDS_TOKEN),
+        ],
+    )?;
+    let results = read_json(&out.join("results.json"))?;
+    let scoped = rows(&results)
+        .into_iter()
+        .filter(|(case, ..)| case.starts_with("smart_scopes/"))
+        .map(|(case, row, status, _)| (case, row, status))
+        .collect();
+    Ok((scoped, output.status.code()))
+}
+
+/// `(case, row, status)` of one scoped row.
+fn scoped_row(workflow: &str, row: u64, status: &str) -> (String, u64, String) {
+    (format!("smart_scopes/{workflow}"), row, status.to_owned())
+}
+
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_cdr_that_lists_for_search_and_refuses_read_alone_passes_every_row() -> Fallible {
+    let sut = scope_reading_cdr([
+        (READ_TOKEN, 403),
+        (CRUD_TOKEN, 403),
+        (SEARCH_TOKEN, 200),
+        (CRUDS_TOKEN, 200),
+    ]);
+    let (scoped, code) = every_scope_run(&sut)?;
+    assert_eq!(code, Some(0));
+    assert_eq!(
+        scoped,
+        [
+            scoped_row("template_list-system_scope_granted", 0, "passed"),
+            scoped_row("template_list-system_scope_granted", 1, "passed"),
+            scoped_row(
+                "template_list-system_scope_read_search_granted",
+                0,
+                "passed"
+            ),
+            scoped_row(
+                "template_list-system_scope_read_search_granted",
+                1,
+                "passed"
+            ),
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn a_cdr_that_refuses_a_read_and_search_scope_or_errs_fails_the_row() -> Fallible {
+    let sut = scope_reading_cdr([
+        (READ_TOKEN, 403),
+        (CRUD_TOKEN, 500),
+        (SEARCH_TOKEN, 403),
+        (CRUDS_TOKEN, 200),
+    ]);
+    let (scoped, code) = every_scope_run(&sut)?;
+    assert_eq!(code, Some(1));
+    assert_eq!(
+        scoped,
+        [
+            scoped_row("template_list-system_scope_granted", 0, "passed"),
+            scoped_row("template_list-system_scope_granted", 1, "failed"),
+            scoped_row(
+                "template_list-system_scope_read_search_granted",
+                0,
+                "failed"
+            ),
+            scoped_row(
+                "template_list-system_scope_read_search_granted",
+                1,
+                "passed"
+            ),
+        ]
+    );
     Ok(())
 }
