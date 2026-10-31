@@ -42,7 +42,7 @@ and the container image through the pipeline the Releasing section describes.
 | `verification-pack/**` | the recorded HAR exchanges proving the evaluator re-judges them into their adjudicated results |
 | `specs/openehr/**` | the vendored released openEHR spec text: the oracle |
 | `specs/its-xml-schemas/**`, `specs/its-json-schemas/**`, `specs/rest-oas/**` | the machine-readable bundles; each is a root a citation may name beside `specs/openehr/`, and an ITS-JSON schema grounds an expectation only as the second ordered supplement (hard rule 1) |
-| `upstream/<openEHR repository>/**` | proposed fixes to a released specification, one patch per `upstream-report` issue, written against the vendored commit and never applied to `specs/` |
+| `upstream/<openEHR repository>/**` | proposed fixes to a released specification, one patch per `upstream-report` issue, written against the pinned `master` snapshot under `specs/openehr-development/`, checked by `scripts/checks/upstream-patches-apply.sh`, and never applied to `specs/` |
 | `deploy/docker/**` | the container image: its `Dockerfile`, the quickstart `docker-compose.yml`, the browser-journey SUT pairs, and the hadolint configuration |
 | `deploy/hosted/**` | the hosted instrument: the posture the image carries and the box's cloud-init |
 | `docs/**` | the design and governance record: `ARCHITECTURE.md`, `ASSURANCE_CASE.md`, `GOVERNANCE.md`, `MAINTAINERS.md`, `AI_STATEMENT.md` |
@@ -319,7 +319,9 @@ specification is an issue labeled `upstream-report`, and that issue **is** the
 report: a plain summary, then `## What the released spec says` with citations,
 `## What this implementation does`, `## Resolution sought upstream`,
 `## What the patch changes`, `## Points for the SEC to decide`, and it never
-exists without its patch under `upstream/<openEHR repository>/`. A citation
+exists without its patch under `upstream/<openEHR repository>/`, written
+against the pinned `master` snapshot, unless `master` already fixes the defect
+and the report records the fixing commit. A citation
 that rests on the defect names it in `report:`. A report is created unverified, gains
 `upstream-confirmed` once re-verified first-hand, and closes as the standing
 outbound record once its divergence is adjudicated here. A refuted one closes
