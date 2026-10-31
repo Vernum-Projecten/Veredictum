@@ -73,11 +73,11 @@ R55, which recorded t/2359 as unreadable, is replaced by the t/2359 rows.
 
 - **R1** Pablo Pazos, [post 1][1616-1]. POSITION: the suite design is technology agnostic, "it doesn’t mention any specific implementation or even a REST API".
 - **R2** Pablo Pazos, [post 1][1616-1]. POSITION: format independence; the SUT need only "should at least support one openEHR exchange/serialization format".
-- **R3** Pablo Pazos, [post 1][1616-1]. REQUIREMENT: conformance is defined against the Service Model, with cases over "each interface and function there".
+- **R3** Pablo Pazos, [post 1][1616-1]. ITEM: conformance is defined against the Service Model, with cases over "each interface and function there".
 - **R4** Pablo Pazos, [post 1][1616-1]. QUESTION: do serialization formats belong in a conformance suite at all?
 - **R5** Pablo Pazos, [post 1][1616-1]. QUESTION: should conformance have levels (functionality versus exchange formats)?
 - **R6** Pablo Pazos, [post 1][1616-1]. QUESTION: should conformance have scopes, formats being ITS-level specs?
-- **R7** Pablo Pazos, [post 1][1616-1]. REQUIREMENT: data-validation conformance is its own area: which errors a receiver checks and "how errors are reported back to the source", syntactic (schemas) and semantic (templates), over FOLDER, EHR_STATUS, EHR, CONTRIBUTION and PARTY as well as COMPOSITION.
+- **R7** Pablo Pazos, [post 1][1616-1]. ITEM: data-validation conformance is its own area: which errors a receiver checks and "how errors are reported back to the source", syntactic (schemas) and semantic (templates), over FOLDER, EHR_STATUS, EHR, CONTRIBUTION and PARTY as well as COMPOSITION.
 - **R8** Pablo Pazos, [post 1][1616-1]. OBJECTION: semantic validation of non-COMPOSITION classes is blocked by "the challenge of having templates for classes that are not COMPOSITION".
 - **R9** Pablo Pazos, [post 1][1616-1]. QUESTION: is technical conformance the same level as functional, or does conformance split by evaluator (developer, procurement)?
 - **R10** Pablo Pazos, [post 1][1616-1]. POSITION: for procurement, functional conformance is the key claim.
@@ -92,7 +92,7 @@ R55, which recorded t/2359 as unreadable, is replaced by the t/2359 rows.
 - **R19** Thomas Beale, [post 3][1616-3]. POSITION: a procurement technology profile spans OS, DB, virtualisation, "and arguably, serial formats".
 - **R20** Pablo Pazos, [post 4][1616-4]. OBJECTION: one universal CORE "is a little risky"; classify system kinds first (CDR, broker, analytics, recording app, visualization app), then define CORE per kind.
 - **R21** Pablo Pazos, [post 4][1616-4]. POSITION: "CONFORMANCE validation is more complicated than just creating a set of tests."
-- **R22** Pablo Pazos, [post 4][1616-4]. REQUIREMENT: no "hard rules on areas not all systems should implement"; the suite requires only "at least OPTs, 1.4 or 2" and one of XML or JSON.
+- **R22** Pablo Pazos, [post 4][1616-4]. ITEM: no "hard rules on areas not all systems should implement"; the suite requires only "at least OPTs, 1.4 or 2" and one of XML or JSON.
 - **R23** Pablo Pazos, [post 4][1616-4]. POSITION: per conformance item one success case, one failure case and the border cases, deliberately not every possibility; "verify a system complies with openEHR, not that a system is free of bugs".
 - **R24** Pablo Pazos, [post 5][1616-5]. POSITION: the definition is profile independent, the implementation is parameterized by a technology profile per run, and the output is "comparable between vendors that have different tech profiles".
 - **R25** Pablo Pazos, [post 5][1616-5]. POSITION: distinguish the procurement request (the CNF spec) from the vendor proposal (executed results under a named technology profile).
@@ -100,8 +100,8 @@ R55, which recorded t/2359 as unreadable, is replaced by the t/2359 rows.
 - **R27** Nataliya Fliusman, [post 6][1616-6]. QUESTION: can one standard format (canonical JSON) test all vendors?
 - **R28** Nataliya Fliusman, [post 6][1616-6]. QUESTION: what is the actual open problem, given that a CONFORMANCE spec exists?
 - **R29** Pablo Pazos, [post 7][1616-7]. POSITION: separate data from behaviour and internal from external; conformance tests external behaviour only, against the SM.
-- **R30** Pablo Pazos, [post 7][1616-7]. REQUIREMENT: the suite definition contains no ITS-specific cases and is platform independent.
-- **R31** Pablo Pazos, [post 7][1616-7]. REQUIREMENT: the definition has cases "for each conformance item defined in the SM, no more, no less".
+- **R30** Pablo Pazos, [post 7][1616-7]. ITEM: the suite definition contains no ITS-specific cases and is platform independent.
+- **R31** Pablo Pazos, [post 7][1616-7]. ITEM: the definition has cases "for each conformance item defined in the SM, no more, no less".
 - **R32** Pablo Pazos, [post 7][1616-7]. POSITION: technology profiles live in the implementation; one supported format suffices for external-behaviour conformance.
 - **R33** Pablo Pazos, [post 7][1616-7]. POSITION: the minimal verdict is pass or fail with a general reason; a malformed-UUID specific is unit-test territory.
 - **R34** Pablo Pazos, [post 7][1616-7]. POSITION: never add cases the SM does not state; a UUID-format case would bias against a legitimate implementation using OIDs.
@@ -134,48 +134,48 @@ R55, which recorded t/2359 as unreadable, is replaced by the t/2359 rows.
 Post numbers are those of t/17275. Post 1 is the move notice quoted above
 and carries no requirement.
 
-- **R55** Thomas Beale, [post 2][17275-2] (2022-02-14). REQUIREMENT: "finalise what a test report looks like".
-- **R56** Thomas Beale, [post 2][17275-2]. REQUIREMENT: "finalise a conformance certificate".
-- **R57** Thomas Beale, [post 2][17275-2]. REQUIREMENT: make the schedule runnable: "Most parties are going to say: how do I download and run this?", ideally runnable in a CI environment.
+- **R55** Thomas Beale, [post 2][17275-2] (2022-02-14). ITEM: "finalise what a test report looks like".
+- **R56** Thomas Beale, [post 2][17275-2]. ITEM: "finalise a conformance certificate".
+- **R57** Thomas Beale, [post 2][17275-2]. ITEM: make the schedule runnable: "Most parties are going to say: how do I download and run this?", ideally runnable in a CI environment.
 - **R58** Thomas Beale, [post 2][17275-2]. POSITION: implementers, assumed to be the industry partners, work on this together, with participation from the procurement side.
 - **R59** Thomas Beale, [post 2][17275-2]. OBJECTION: openEHR and EhrBase hold "an almost identical doc+code base" that is already diverging, "the standard danger of maintaining two copies of logically the same thing".
 - **R60** Thomas Beale, [post 2][17275-2]. POSITION: the openEHR tests carry "systematic unique identifiers", and content specific to one product is not needed in openEHR's copy.
-- **R61** Pablo Pazos, [post 3][17275-3]. REQUIREMENT: the report documents "the result for each test case + data set combination in an individual way".
-- **R62** Pablo Pazos, [post 3][17275-3]. REQUIREMENT: the report has "a processable expression" (a JSON document).
-- **R63** Pablo Pazos, [post 3][17275-3]. REQUIREMENT: the report carries product identification, the developer or provider and the per-case results, in a summarized view with metrics and a detailed view, after the FHIR Crucible and Inferno scorecards.
+- **R61** Pablo Pazos, [post 3][17275-3]. ITEM: the report documents "the result for each test case + data set combination in an individual way".
+- **R62** Pablo Pazos, [post 3][17275-3]. ITEM: the report has "a processable expression" (a JSON document).
+- **R63** Pablo Pazos, [post 3][17275-3]. ITEM: the report carries product identification, the developer or provider and the per-case results, in a summarized view with metrics and a detailed view, after the FHIR Crucible and Inferno scorecards.
 - **R64** Pablo Pazos, [post 4][17275-4]. POSITION: "A more ideal context would be to maintain everything at the openEHR repo and EHRBASE pulls the conformance test cases from there."
-- **R65** Pablo Pazos, [post 4][17275-4]. REQUIREMENT: functional conformance names its data sets, "which are required to any test cases related with providing content/payload to the SUT".
+- **R65** Pablo Pazos, [post 4][17275-4]. ITEM: functional conformance names its data sets, "which are required to any test cases related with providing content/payload to the SUT".
 - **R66** Pablo Pazos, [post 4][17275-4]. POSITION: content conformance is "data validation conformance"; archetypes and templates need a conformance area of their own.
 - **R67** Pablo Pazos, [post 4][17275-4]. POSITION: non-functional attributes belong in the Conformance Statement, "more a declaration from the provider than something that could be tested", which becomes part of the contract.
 - **R68** Thomas Beale, [post 5][17275-5]. POSITION: non-functional ("critical") attributes cover performance, reliability, security, scalability and others; "At some point we might want to specify criteria for security, maintainability and scalability."
 - **R69** Pablo Pazos, [post 7][17275-7]. POSITION: use the ISO/IEC 25010 quality vocabulary, "IMHO we should stick with international standard terminology."
-- **R70** Pablo Pazos, [post 8][17275-8]. REQUIREMENT: test data sets are identified, so results are reported "by test case and data set".
+- **R70** Pablo Pazos, [post 8][17275-8]. ITEM: test data sets are identified, so results are reported "by test case and data set".
 - **R71** Pablo Pazos, [post 8][17275-8]. QUESTION: an implementer's pipeline moves in days; can openEHR release conformance cases that fast?
 - **R72** Pablo Pazos, [post 9][17275-9]. POSITION: "for each test case there may be multiple test data sets"; suites, cases and data sets are each identified.
 - **R73** Pablo Pazos, [post 9][17275-9]. POSITION: three kinds of validation: RM or schema (structural), invariants (non-structural), and archetype or OPT (metamodel).
 - **R74** Pablo Pazos, [post 9][17275-9]. POSITION: the conformance specification depends on the Service Model, which depends on the RM and AOM.
 - **R75** Thomas Beale, [post 10][17275-10]. POSITION: "A 'test' is therefore the execution of a particular test case with a particular data set"; RM invariants count as structural, distinct from archetype rules "a whole level up"; a data-set identification system is needed.
-- **R76** Ian McNicoll, [post 11][17275-11] (2026-09-07). REQUIREMENT: a business reading of a result: "What does it mean to me as a potential CDR consumer if a CDR fails a particular test? […] Is this even a proper openEHR CDR or just a sham".
+- **R76** Ian McNicoll, [post 11][17275-11] (2026-09-07). ITEM: a business reading of a result: "What does it mean to me as a potential CDR consumer if a CDR fails a particular test? […] Is this even a proper openEHR CDR or just a sham".
 - **R77** Ian McNicoll, [post 11][17275-11]. POSITION: severity levels, after the Postman tests: "Level 0 fails as being so critical as telling the consumer that this fails to perform even basic CDR functionality", Level 1 for technical failures such as response codes, headers or a missing `archetype_details` on EHR_STATUS.
-- **R78** Ian McNicoll, [post 11][17275-11]. REQUIREMENT: the reading accounts for "different levels of support for different parts of the spec", naming Demographics, and for the maturity of parts of the spec "especially for AQL".
+- **R78** Ian McNicoll, [post 11][17275-11]. ITEM: the reading accounts for "different levels of support for different parts of the spec", naming Demographics, and for the maturity of parts of the spec "especially for AQL".
 - **R79** Pablo Pazos, [post 12][17275-12] (2026-09-09). POSITION: his conformance verification framework covers testing, reporting and certification, and "Maybe a second read with new eyes might resurrect my work into something that can be peer-checked and incorporated into the specs."
 
 ### t/1851: Conformance roadmap 2021
 
-- **R80** Thomas Beale, [post 1][1851-1]. REQUIREMENT: procuring organisations receive "'standard' (comprehensible) conformance statements" from tendering vendors.
-- **R81** Thomas Beale, [post 1][1851-1]. REQUIREMENT: procurers can test products themselves to check tender claims, including after integration.
-- **R82** Thomas Beale, [post 1][1851-1]. REQUIREMENT: vendors and implementers self-test "and initially self-certify".
-- **R83** Thomas Beale, [post 1][1851-1]. REQUIREMENT: "(eventually) enabling reliable 3rd party testing with certification".
+- **R80** Thomas Beale, [post 1][1851-1]. ITEM: procuring organisations receive "'standard' (comprehensible) conformance statements" from tendering vendors.
+- **R81** Thomas Beale, [post 1][1851-1]. ITEM: procurers can test products themselves to check tender claims, including after integration.
+- **R82** Thomas Beale, [post 1][1851-1]. ITEM: vendors and implementers self-test "and initially self-certify".
+- **R83** Thomas Beale, [post 1][1851-1]. ITEM: "(eventually) enabling reliable 3rd party testing with certification".
 - **R84** Thomas Beale, [post 1][1851-1]. POSITION: "conformance is concretely tested against ITS specifications"; a product claims conformance to "openEHR REST API v1.1.0, with e.g. JSON, XML etc payloads", and the SM names the capabilities.
 - **R85** Thomas Beale, [post 1][1851-1]. POSITION: the legal veracity of a claim is a matter for commercial contracts; the framework provides a technical basis, not a guarantee, until third-party certification exists.
 - **R86** Thomas Beale, [post 1][1851-1]. POSITION: four artefacts: Conformance Schedule, Profiles, Statement and Certificate.
-- **R87** Thomas Beale, [post 1][1851-1]. REQUIREMENT: "a CI-based tool environment that is either hosted & publicly usable and/or locally instantiable".
+- **R87** Thomas Beale, [post 1][1851-1]. ITEM: "a CI-based tool environment that is either hosted & publicly usable and/or locally instantiable".
 - **R88** Thomas Beale, [post 1][1851-1]. QUESTION: are the testing materials public and free, or free only to paying openEHR members?
 - **R89** Birger Haarbrandt, [post 2][1851-2]. POSITION: free access for member companies only, "as we need further incentives for the members".
 - **R90** Pablo Pazos, [post 3][1851-3]. POSITION: the Conformance Statement is a legal document in a tender and then in the contract, on the DICOM model, distinct from testing.
-- **R91** Pablo Pazos, [post 3][1851-3]. REQUIREMENT: guidance for procurers on what to ask and how, and a standard statement form vendors answer in comparable terms.
+- **R91** Pablo Pazos, [post 3][1851-3]. ITEM: guidance for procurers on what to ask and how, and a standard statement form vendors answer in comparable terms.
 - **R92** Pablo Pazos, [post 3][1851-3]. POSITION: conformance levels belong in the statement, because minor technical differences make levels hard to pull from test execution.
-- **R93** Pablo Pazos, [post 3][1851-3]. REQUIREMENT: the statement names the versions of every specification implemented (RM, AOM, OPT, schemas), so a procurer can require a minimum.
+- **R93** Pablo Pazos, [post 3][1851-3]. ITEM: the statement names the versions of every specification implemented (RM, AOM, OPT, schemas), so a procurer can require a minimum.
 - **R94** Pablo Pazos, [post 3][1851-3]. POSITION: a computable statement compared automatically and published "on a vendor-neutral site".
 - **R95** Thomas Beale, [post 4][1851-4]. POSITION: the SM is the basis of the capability list per service (the Conformance Schedule), and the four terms are agreed first.
 
@@ -185,7 +185,7 @@ and carries no requirement.
 
 ### t/2241: Conformance Guide - initial draft
 
-- **R97** Heather Grain, [post 2][2241-2]. REQUIREMENT: archetype specifications state SHALL, SHOULD and MAY plainly so content can be assessed for conformance; "It is vital that conformance is not only considered from the technical use perspective but also from the content".
+- **R97** Heather Grain, [post 2][2241-2]. ITEM: archetype specifications state SHALL, SHOULD and MAY plainly so content can be assessed for conformance; "It is vital that conformance is not only considered from the technical use perspective but also from the content".
 - **R98** Thomas Beale, [post 3][2241-3]. POSITION: the content test cases "all operate on a 'MUST' level of conformance, i.e. the idea is that the server cannot permit invalid data (data not conforming to its archetypes) to be committed".
 
 ### t/2285: openEHR conformance verification design document
@@ -554,9 +554,9 @@ with a proposed title and acceptance criteria.
   with what the result can and cannot show.
 - **C2. Map the CaboLabs conformance verification framework against the
   instrument** (R79, R14, R21). Criteria: the framework's design document is
-  read in full, every requirement is listed with attribution and assessed
-  MET, PARTLY or NOT MET with evidence, in the form of this register; each
-  gap gets its own issue.
+  read in full, and every item is listed with attribution and compared with
+  the instrument. The framework is a reference and never an authority, so
+  the comparison yields coverage ideas only.
 - **C3. State the instrument's scope boundary** (R14, R20, R66, R97, R101).
   Criteria: the book's methodology page says the instrument tests platform
   CDRs over ITS-REST, and names what it does not cover (brokers, analytics,
@@ -569,9 +569,14 @@ with a proposed title and acceptance criteria.
 
 ## The CaboLabs conformance verification framework
 
-Pablo Pazos's openEHR Conformance Framework Design is a body of requirements
-parallel to the forum's (R79, [t/17238 post 6][17238-6]). This section maps it
-the way the register maps the threads (#931). The source is the design
+Pablo Pazos's openEHR Conformance Framework Design (R79, [t/17238 post
+6][17238-6]) is a reference and never an authority (owner ruling 2026-10-31).
+Like the CNF schedule, it can point at a behaviour worth covering, and any case
+that follows is derived from the released specifications first-hand. The
+instrument's own design (the statement, the results document, the rows files
+and the verdict model) does not change to match it. This section records what
+the framework covers and where the instrument already overlaps it (#931).
+The source is the design
 document in his [openehr-conformance-verification][cvf] repository,
 `openEHR Conformance Framework Design (2023-11-21).pdf`, the latest of the two
 revisions there, read in full on 2026-10-31 from the repository's `master`
@@ -582,69 +587,73 @@ him and located by the document's own section number. Sections 3.7 to 3.22 of
 the document read "TBD" and carry no requirement. Nothing of the document's
 material is copied into this repository beyond the short quotes below.
 
-### The framework's requirements
+### What the framework covers
 
 Section 1.1, the stakeholders and what each needs:
 
-- **F1** §1.1.1. REQUIREMENT: a buyer can "Create tenders/biddings (RFI, RFT, RFP, RFQ, etc.)".
-- **F2** §1.1.1. REQUIREMENT: a buyer can "Evaluate offerings from vendors".
-- **F3** §1.1.2. REQUIREMENT: a vendor can "Create / deliver proposals / offers".
-- **F4** §1.1.2. REQUIREMENT: a vendor can "Test implementation (self compliance assessment)".
-- **F5** §1.1.3. REQUIREMENT: the openEHR Foundation can "Define tender / bidding guidelines for openEHR products".
-- **F6** §1.1.3. REQUIREMENT: the Foundation has custody of "the openEHR Conformance Specification and Conformance Framework Components".
-- **F7** §1.1.3. REQUIREMENT: the Foundation provides "implementation assets to verify conformance (runnable test suites, test data sets)".
-- **F8** §1.1.3. REQUIREMENT: the Foundation can "Certify openEHR Products".
-- **F9** §1.1.3. REQUIREMENT: the Foundation can "Endorse openEHR Conformance Experts".
+- **F1** §1.1.1. ITEM: a buyer can "Create tenders/biddings (RFI, RFT, RFP, RFQ, etc.)".
+- **F2** §1.1.1. ITEM: a buyer can "Evaluate offerings from vendors".
+- **F3** §1.1.2. ITEM: a vendor can "Create / deliver proposals / offers".
+- **F4** §1.1.2. ITEM: a vendor can "Test implementation (self compliance assessment)".
+- **F5** §1.1.3. ITEM: the openEHR Foundation can "Define tender / bidding guidelines for openEHR products".
+- **F6** §1.1.3. ITEM: the Foundation has custody of "the openEHR Conformance Specification and Conformance Framework Components".
+- **F7** §1.1.3. ITEM: the Foundation provides "implementation assets to verify conformance (runnable test suites, test data sets)".
+- **F8** §1.1.3. ITEM: the Foundation can "Certify openEHR Products".
+- **F9** §1.1.3. ITEM: the Foundation can "Endorse openEHR Conformance Experts".
 - **F10** §1.1.4. POSITION: a Conformance Expert "should be unrelated to the Software Providers to avoid conflict of interests", and one working for a customer should not work for a provider in the same tender.
-- **F11** §1.1.4. REQUIREMENT: the Expert supports customers creating tenders and evaluating proposals, and providers creating proposals.
-- **F12** §1.1.4. REQUIREMENT: the Expert can "Run Conformance Verification processes".
-- **F13** §1.1.4. REQUIREMENT: the Expert can formally notify the Foundation whether a product complies, for certification.
+- **F11** §1.1.4. ITEM: the Expert supports customers creating tenders and evaluating proposals, and providers creating proposals.
+- **F12** §1.1.4. ITEM: the Expert can "Run Conformance Verification processes".
+- **F13** §1.1.4. ITEM: the Expert can formally notify the Foundation whether a product complies, for certification.
 
 Section 1.2, product classification:
 
-- **F14** §1.2. REQUIREMENT: products are classified by type (programming tool, user facing application, knowledge artifact tool, integration and middleware, openEHR data repository, testing and verification), and each type is verified with its own test suite and has "one Test Report structure".
-- **F15** §1.2, §1.3.5. REQUIREMENT: each product type has a Reference Architecture whose components' interfaces, taken from the Service Model, decide which test cases apply.
+- **F14** §1.2. ITEM: products are classified by type (programming tool, user facing application, knowledge artifact tool, integration and middleware, openEHR data repository, testing and verification), and each type is verified with its own test suite and has "one Test Report structure".
+- **F15** §1.2, §1.3.5. ITEM: each product type has a Reference Architecture whose components' interfaces, taken from the Service Model, decide which test cases apply.
 
 Section 1.3, the materials:
 
-- **F16** §1.3.1. REQUIREMENT: a Conformance Specification, the "glue spec" for the context, goals, processes, rules, criteria and assets of verification.
-- **F17** §1.3.2. REQUIREMENT: "the Conformance Testing Specification should rely only on the Service Model and avoid any references to the REST API", so non-REST products can be verified.
-- **F18** §1.3.3. REQUIREMENT: each test case has a precondition (the state of the SUT), a flow, and a postcondition, and the last step specifies the expected result, "this includes success cases and error cases".
+- **F16** §1.3.1. ITEM: a Conformance Specification, the "glue spec" for the context, goals, processes, rules, criteria and assets of verification.
+- **F17** §1.3.2. ITEM: "the Conformance Testing Specification should rely only on the Service Model and avoid any references to the REST API", so non-REST products can be verified.
+- **F18** §1.3.3. ITEM: each test case has a precondition (the state of the SUT), a flow, and a postcondition, and the last step specifies the expected result, "this includes success cases and error cases".
 - **F19** §1.3.3. POSITION: the initial suites are EHR, CONTRIBUTION, COMPOSITION, DIRECTORY, KNOWLEDGE, VALIDATION_STRUCTURE and VALIDATION_DATATYPES, designed for a CDR.
-- **F20** §1.3.4. REQUIREMENT: a Conformance Statement with a defined structure carries the provider's claims, forms part of the contract, and states "any design considerations and deviations from the openEHR specification".
+- **F20** §1.3.4. ITEM: a Conformance Statement with a defined structure carries the provider's claims, forms part of the contract, and states "any design considerations and deviations from the openEHR specification".
 - **F21** §1.3.4. POSITION: "Customers shouldn't accept an offering of a product if it doesn't have the matching Conformance Statement."
-- **F22** §1.3.6, §4.2. REQUIREMENT: a detailed report lists each test case and data set, each uniquely named, with a result per combination, "accepted" or "rejected", and optional metadata and traces.
-- **F23** §1.3.6, §4.3. REQUIREMENT: a summarized report gives the totals of test suites, test cases, data sets, accepted and rejected results, optionally per suite.
-- **F24** §1.3.7. REQUIREMENT: every document and asset is strictly versioned, and the report "will explicitly state which Conformance Verification Asset versions were used", so results compare over time and between systems.
+- **F22** §1.3.6, §4.2. ITEM: a detailed report lists each test case and data set, each uniquely named, with a result per combination, "accepted" or "rejected", and optional metadata and traces.
+- **F23** §1.3.6, §4.3. ITEM: a summarized report gives the totals of test suites, test cases, data sets, accepted and rejected results, optionally per suite.
+- **F24** §1.3.7. ITEM: every document and asset is strictly versioned, and the report "will explicitly state which Conformance Verification Asset versions were used", so results compare over time and between systems.
 
 Section 1.4, the process:
 
-- **F25** §1.4. REQUIREMENT: the verification is run by a Conformance Expert and may be triggered by the provider or by the consumer.
-- **F26** §1.4. REQUIREMENT: the provider writes the statement first, and the Expert adapts the test suites to the design decisions it declares; every adaptation is documented in the final report "allowing external reviewers to verify the whole process was fair and unbiased", and none may help the provider pass a test it should fail.
-- **F27** §1.4. REQUIREMENT: the Expert repeats adaptation and interpretation until "any test failures or successes are not because of how the tests were designed but are because of how the system being tested was implemented".
-- **F28** §1.4. REQUIREMENT: the statement is bound to a specific version of the system, and a new version needs an updated statement.
-- **F29** §1.4. REQUIREMENT: a consumer-triggered verification runs against the provider's systems, for example a test server, which the provider grants access to.
+- **F25** §1.4. ITEM: the verification is run by a Conformance Expert and may be triggered by the provider or by the consumer.
+- **F26** §1.4. ITEM: the provider writes the statement first, and the Expert adapts the test suites to the design decisions it declares; every adaptation is documented in the final report "allowing external reviewers to verify the whole process was fair and unbiased", and none may help the provider pass a test it should fail.
+- **F27** §1.4. ITEM: the Expert repeats adaptation and interpretation until "any test failures or successes are not because of how the tests were designed but are because of how the system being tested was implemented".
+- **F28** §1.4. ITEM: the statement is bound to a specific version of the system, and a new version needs an updated statement.
+- **F29** §1.4. ITEM: a consumer-triggered verification runs against the provider's systems, for example a test server, which the provider grants access to.
 
 Section 2, the statement:
 
-- **F30** §2.2.1. REQUIREMENT: the statement identifies the product's name, ID and version, its type, and where applicable its RM, AOM, REST API and query formalism versions.
-- **F31** §2.2.2. REQUIREMENT: it lists the RM packages and classes supported and not supported, with the reason, and every deviation in a supported class.
-- **F32** §2.2.3. REQUIREMENT: it states the versioning scheme supported (sequential or branched, §2.3.7) and which classes are versioned.
-- **F33** §2.2.4. REQUIREMENT: it states the change types and lifecycle states supported, and how the system reacts to unsupported codes.
-- **F34** §2.2.5, §2.3.9, §2.3.10. REQUIREMENT: it describes the product's architecture and its openEHR components.
-- **F35** §2.2.6. REQUIREMENT: its sections and diagrams are standardized so statements compare across products.
-- **F36** §2.2.7.1. REQUIREMENT: it states template delete behaviour: whether supported, who may delete, what happens to existing data, whether new data referencing a deleted template is accepted, and physical or logical deletion.
-- **F37** §2.2.7.2. REQUIREMENT: it states COMPOSITION delete behaviour: who may delete, and whether an undelete is supported.
-- **F38** §2.2.7.3. REQUIREMENT: it states EHR delete behaviour: whether supported, who may delete, and physical or logical deletion.
-- **F39** §2.3.6. REQUIREMENT: it states whether the product uses archetypes, templates or both, their version, and whether they validate data.
+- **F30** §2.2.1. ITEM: the statement identifies the product's name, ID and version, its type, and where applicable its RM, AOM, REST API and query formalism versions.
+- **F31** §2.2.2. ITEM: it lists the RM packages and classes supported and not supported, with the reason, and every deviation in a supported class.
+- **F32** §2.2.3. ITEM: it states the versioning scheme supported (sequential or branched, §2.3.7) and which classes are versioned.
+- **F33** §2.2.4. ITEM: it states the change types and lifecycle states supported, and how the system reacts to unsupported codes.
+- **F34** §2.2.5, §2.3.9, §2.3.10. ITEM: it describes the product's architecture and its openEHR components.
+- **F35** §2.2.6. ITEM: its sections and diagrams are standardized so statements compare across products.
+- **F36** §2.2.7.1. ITEM: it states template delete behaviour: whether supported, who may delete, what happens to existing data, whether new data referencing a deleted template is accepted, and physical or logical deletion.
+- **F37** §2.2.7.2. ITEM: it states COMPOSITION delete behaviour: who may delete, and whether an undelete is supported.
+- **F38** §2.2.7.3. ITEM: it states EHR delete behaviour: whether supported, who may delete, and physical or logical deletion.
+- **F39** §2.3.6. ITEM: it states whether the product uses archetypes, templates or both, their version, and whether they validate data.
 
 Section 4, the test report:
 
-- **F40** §4.1. REQUIREMENT: the report carries the SUT's name, version and type and the specification versions it implements, in a standardized structure, JSON first.
-- **F41** §4.2, §4.3. REQUIREMENT: the detailed and summarized views are also JSON, so reports are processed and compared automatically.
-- **F42** §4.4. REQUIREMENT: a hierarchical view drills down from suites to cases to data sets.
+- **F40** §4.1. ITEM: the report carries the SUT's name, version and type and the specification versions it implements, in a standardized structure, JSON first.
+- **F41** §4.2, §4.3. ITEM: the detailed and summarized views are also JSON, so reports are processed and compared automatically.
+- **F42** §4.4. ITEM: a hierarchical view drills down from suites to cases to data sets.
 
-### The assessment
+### Where the instrument overlaps it
+
+Each heading below says how far the instrument already overlaps a group of
+items. A PARTLY or NOT MET names a difference from the framework, never a
+defect in the instrument, and none of them is a gap to close.
 
 #### A. Tenders and evaluation (F1, F2, F21): MET
 
@@ -737,8 +746,8 @@ delete processing through the `admin-ehr-delete-processing` and
 `admin-ehr-delete-all` options; a computable, schema'd structure that compares
 across products (F35).
 
-Not met: the statement cannot declare the RM classes a product supports and
-does not (F31), its versioning scheme (F32), the change types and lifecycle
+Not declared: the statement cannot declare the RM classes a product supports
+and does not (F31), its versioning scheme (F32), the change types and lifecycle
 states it accepts (F33), its architecture (F34), or the template, COMPOSITION
 and EHR delete behaviours beyond the two options (F36–F38). It also has no
 product type (F30), which matters only once a second product class is in
@@ -764,33 +773,14 @@ folder and section to the row (F42, `catalogue/chapters.yaml`).
 A row is named by its case id and its index in the workflow's rows file, so a
 data set is addressed by position. A rows file's rows carry no names of their
 own, so a reordered rows file renames its data sets. The framework asks for a
-unique name per data set.
+unique name per data set. The positional rows format stays as it is.
 
-### Candidate issues from the framework
+### What came out of the framework
 
-Nothing below was filed from this record.
-
-- **C5. Declaration-only statement members for the framework's
-  implementation facts** (F31–F34, F36–F38). Criteria: the statement schema
-  gains declaration-only members for the RM classes supported and not
-  supported with a reason, the versioning scheme and the versioned classes,
-  the change types and lifecycle states accepted and the reaction to others,
-  the architecture's openEHR components, and the template, COMPOSITION and
-  EHR delete behaviour; none is ever a verdict input; `validate --statement`
-  checks their shape; the book documents each.
-- **C6. Adjudicate the framework's delete and versioning questions against the
-  released text** (F32, F33, F36–F38). Criteria: each question is read
-  first-hand against ITS-REST, RM and the Admin API; where the release
-  defines the behaviour on the wire a case asserts it, where it leaves it open
-  it is an option, and where it is silent an `upstream-report` issue records
-  it.
-- **C7. Record a witnessed re-run in the result** (F10, F12, F13). Criteria: a
-  results document can name the witness, their role and the run it
-  reproduces, as a member that changes no verdict; the certificate and the
-  views show it; the book tells a procurer how to commission one.
-- **C8. Name each data set** (F22). Criteria: a rows file's rows carry a
-  stable name unique within their workflow, the results row carries it, and
-  `validate` refuses a missing or duplicated name.
+One coverage check came out of the reading, and it is decided by the released
+text alone: the delete and versioning behaviours ITS-REST, the RM and the
+Admin API define on the wire, each without a case yet, become cases (#957).
+The other differences above are kept, by owner ruling.
 
 [t1616]: https://discourse.openehr.org/t/openehr-conformance-conformance-levels-conformance-scopes/1616
 [t2373]: https://discourse.openehr.org/t/conformance-testing-implementation-alternatives/2373
