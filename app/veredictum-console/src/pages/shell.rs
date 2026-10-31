@@ -94,13 +94,13 @@ fn stamp_hydrated() {
 
 /// Sets the hydration marker once every hydrated listener is attached.
 ///
-/// Called from an effect the chrome creates after its whole subtree, the
-/// routed page included, has run its setup, so the effect runs after the
-/// synchronous hydration walk and after every effect created before it (the
-/// persisted theme among them). A `Suspend` whose data is still streaming
-/// hydrates later, from a task of its own, so the stamp waits for the
-/// document's `load` event, which fires only once the whole streamed response
-/// has arrived, and then one timer turn, after the tasks that data woke
+/// The ordering comes from the deferral, not from where the effect is
+/// created: `<Outlet/>` renders the routed page lazily, and a `Suspend` whose
+/// data is still streaming hydrates later from a task of its own, so neither
+/// is guaranteed to have attached its listeners when an effect first runs.
+/// The stamp therefore waits for the document's `load` event, which fires
+/// only once the whole streamed response has arrived, and then one timer
+/// turn, after the tasks that data woke
 /// (<https://html.spec.whatwg.org/multipage/parsing.html#the-end>).
 fn stamp_when_settled() {
     let stamp = || set_timeout(stamp_hydrated, Duration::ZERO);
@@ -219,9 +219,9 @@ pub fn Chrome(
             <ToastHost />
         </div>
     };
-    // Created after the view above, so after every component in the framed
-    // subtree has run its setup (#377); the 404 fallback wears this chrome
-    // too, so it carries the marker as well.
+    // The deferral inside orders the stamp after every hydrated listener
+    // (#377); the 404 fallback wears this chrome too, so it carries the
+    // marker as well.
     Effect::new(move |_| stamp_when_settled());
     chrome
 }

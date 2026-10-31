@@ -292,9 +292,11 @@ is the precedent to imitate, not a path in this tree.
   fixed, never `#[ignore]`d or retried-by-default. NOT Playwright/JS (the
   no-JS mandate covers the test suite). A journey drives a control only
   after `body[data-hydrated]` appears: a click landing earlier is silently
-  lost. The shell's `Chrome` stamps it from an effect created after its whole
-  subtree, deferred past the document's `load` and one timer turn, so it
-  follows every hydrated listener, the streamed `Suspend`s included (#377).
+  lost. The shell's `Chrome` stamps it from an effect deferred past the
+  document's `load` and one timer turn. The deferral is what orders it after
+  every hydrated listener (`<Outlet/>` renders the routed page lazily, and a
+  streamed `Suspend` hydrates from its own task), not where the effect is
+  created (#377).
 - **The capture pass is the visual feedback loop.** With
   `UI_E2E_DOCS_SHOTS=1` the journeys photograph every surface in one fixed
   1440×900 window, light and dark, into `website/book/src/console/img/`,
