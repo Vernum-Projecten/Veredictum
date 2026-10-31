@@ -11,6 +11,7 @@
   - [The GitHub Action](github-action.md)
   - [GitLab CI](gitlab-ci.md)
   - [Badges](badges.md)
+  - [Reading a result](reading-results.md)
 - [The web console](console.md)
 - [The conformance method](methodology.md)
 - [Performance workloads](perf-workloads.md)
