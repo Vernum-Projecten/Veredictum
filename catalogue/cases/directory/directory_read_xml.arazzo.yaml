@@ -8,7 +8,8 @@ info:
   version: 0.1.0
   description: >-
     Reading the directory FOLDER, latest and by version_uid, with Accept
-    application/xml from a service that serves it in canonical XML.
+    application/xml from a service that serves it in canonical XML, as the
+    items document element the ITS-XML Structure.xsd declares, typed FOLDER.
 sourceDescriptions:
   - name: ehr
     url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
@@ -19,7 +20,8 @@ workflows:
     description: >-
       Creates an EHR and its directory FOLDER, then retrieves the latest
       directory asking for canonical XML. The answer is 200 with Content-Type
-      application/xml.
+      application/xml, and its document element is an items element typed
+      FOLDER carrying the members the ITS-XML schema requires.
     x-veredictum-cite: &served
       source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
       section: XML Format
@@ -88,13 +90,68 @@ workflows:
             context: $response.header.Content-Type
             type: regex
             condition: '^application/xml'
+          # NOTE: ITS-REST overview Resources.md §XML Format names no namespace, so either published
+          # ITS-XML lineage's (v1 Release-1.0.2, v2 Release-2.0.0) holds.
+          - &folder_root
+            context: $response.body
+            type: xpath
+            condition: exists(/oe:items) or exists(/oe2:items)
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
+              section: element items
+              quote: '<xs:element name="items" type="LOCATABLE"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/documents/Structure.xsd
+                section: element items
+                quote: '<xs:element name="items" type="LOCATABLE"/>'
+          # NOTE: XML Schema Part 1 §3.3.4 (Element Locally Valid) refuses an element of abstract type
+          # LOCATABLE, so the document element names its concrete type FOLDER in xsi:type.
+          - &folder_type
+            context: $response.body
+            type: xpath
+            condition: >-
+              (some $t in /oe:items/@xsi:type satisfies resolve-QName(string($t), $t/..) eq QName('http://schemas.openehr.org/v1', 'FOLDER'))
+              or (some $t in /oe2:items/@xsi:type satisfies resolve-QName(string($t), $t/..) eq QName('http://schemas.openehr.org/v2', 'FOLDER'))
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
+              section: complexType FOLDER
+              quote: '<xs:extension base="LOCATABLE">'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
+                section: complexType FOLDER
+                quote: '<xs:extension base="LOCATABLE">'
+          - &folder_archetype_node_id
+            context: $response.body
+            type: xpath
+            condition: exists(/oe:items/@archetype_node_id) or exists(/oe2:items/@archetype_node_id)
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
+              section: complexType LOCATABLE
+              quote: '<xs:attribute name="archetype_node_id" type="archetypeNodeId" use="required"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
+                section: complexType LOCATABLE
+                quote: '<xs:attribute name="archetype_node_id" type="archetypeNodeId" use="required"/>'
+          - &folder_name
+            context: $response.body
+            type: xpath
+            condition: count(/oe:items/oe:name) eq 1 or count(/oe2:items/oe2:name) eq 1
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Structure.xsd
+              section: complexType LOCATABLE
+              quote: '<xs:element name="name" type="DV_TEXT"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
+                section: complexType LOCATABLE
+                quote: '<xs:element name="name" type="DV_TEXT"/>'
 
   - workflowId: get_directory_version-xml
     summary: A directory version read with Accept application/xml is answered in XML
     description: >-
       Creates an EHR and its directory FOLDER, then retrieves the version of
       the create asking for canonical XML. The answer is 200 with
-      Content-Type application/xml.
+      Content-Type application/xml, and its document element is an items
+      element typed FOLDER carrying the members the ITS-XML schema requires.
     x-veredictum-cite: *served
     inputs: *ehr_input
     steps:
@@ -110,3 +167,7 @@ workflows:
         successCriteria:
           - *ok
           - *xml
+          - *folder_root
+          - *folder_type
+          - *folder_archetype_node_id
+          - *folder_name

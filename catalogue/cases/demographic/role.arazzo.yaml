@@ -728,15 +728,19 @@ workflows:
           - condition: $statusCode == 204
 
   - workflowId: delete_role-read_after
-    summary: A ROLE read by versioned_object_uid after a delete is answered 204
+    summary: A ROLE read by versioned_object_uid after a delete serves no ROLE
     description: >-
       Creates a ROLE and deletes it, then retrieves it by the
       versioned_object_uid of its container. The latest version is the deleted
-      one, so the read is answered 204 No Content.
+      one and holds no data, so the read is not answered 200 with a ROLE.
+      The operation declares 200, 204 and 404; no released sentence assigns
+      204 outside a version_at_time read (upstream report #752), so either
+      204 or 404 holds.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/204_deleted_at_time.yaml
       section: description
       quote: "`204 No Content` is returned when the resource identified by the request parameters (at specified `version_at_time`) time has been deleted."
+      report: 752
     steps:
       - *performer
       - *create
@@ -748,7 +752,13 @@ workflows:
           - { name: uid_based_id, in: path, value: $steps.create.outputs.versioned_object_uid }
           - { name: Accept, in: header, value: application/json }
         successCriteria:
-          - condition: $statusCode == 204
+          - context: $statusCode
+            type: regex
+            condition: '^(204|404)$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Logical Deletion
+              quote: "delete its `_data_` (which will by default be a copy of the data of the previous Version);"
 
   - workflowId: delete_role-already_deleted
     summary: A second delete of a deleted ROLE is refused
