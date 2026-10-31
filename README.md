@@ -26,12 +26,12 @@
 
 **Quality and security**<br>
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/Vernum-Projecten/Veredictum/codeql.yml?branch=main&logo=github&label=CodeQL)](https://github.com/Vernum-Projecten/Veredictum/actions/workflows/codeql.yml)
-[![Quality gate](https://img.shields.io/sonar/quality_gate/rubentalstra_Veredictum?server=https%3A%2F%2Fsonarcloud.io&logo=sonarqubecloud&label=quality%20gate)](https://sonarcloud.io/summary/new_code?id=rubentalstra_Veredictum)
-[![Coverage](https://img.shields.io/sonar/coverage/rubentalstra_Veredictum?server=https%3A%2F%2Fsonarcloud.io&logo=sonarqubecloud&label=coverage)](https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=coverage)
-[![Reliability rating](https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=reliability_rating)](https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=reliability_rating)
-[![Security rating](https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=security_rating)](https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=security_rating)
-[![Maintainability rating](https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=sqale_rating)](https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=sqale_rating)
-[![Duplicated lines](https://sonarcloud.io/api/project_badges/measure?project=rubentalstra_Veredictum&metric=duplicated_lines_density)](https://sonarcloud.io/component_measures?id=rubentalstra_Veredictum&metric=duplicated_lines_density)
+[![Quality gate](https://img.shields.io/sonar/quality_gate/Vernum-Projecten_Veredictum?server=https%3A%2F%2Fsonarcloud.io&logo=sonarqubecloud&label=quality%20gate)](https://sonarcloud.io/summary/new_code?id=Vernum-Projecten_Veredictum)
+[![Coverage](https://img.shields.io/sonar/coverage/Vernum-Projecten_Veredictum?server=https%3A%2F%2Fsonarcloud.io&logo=sonarqubecloud&label=coverage)](https://sonarcloud.io/component_measures?id=Vernum-Projecten_Veredictum&metric=coverage)
+[![Reliability rating](https://sonarcloud.io/api/project_badges/measure?project=Vernum-Projecten_Veredictum&metric=reliability_rating)](https://sonarcloud.io/component_measures?id=Vernum-Projecten_Veredictum&metric=reliability_rating)
+[![Security rating](https://sonarcloud.io/api/project_badges/measure?project=Vernum-Projecten_Veredictum&metric=security_rating)](https://sonarcloud.io/component_measures?id=Vernum-Projecten_Veredictum&metric=security_rating)
+[![Maintainability rating](https://sonarcloud.io/api/project_badges/measure?project=Vernum-Projecten_Veredictum&metric=sqale_rating)](https://sonarcloud.io/component_measures?id=Vernum-Projecten_Veredictum&metric=sqale_rating)
+[![Duplicated lines](https://sonarcloud.io/api/project_badges/measure?project=Vernum-Projecten_Veredictum&metric=duplicated_lines_density)](https://sonarcloud.io/component_measures?id=Vernum-Projecten_Veredictum&metric=duplicated_lines_density)
 <br>
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Vernum-Projecten/Veredictum/badge)](https://scorecard.dev/viewer/?uri=github.com/Vernum-Projecten/Veredictum)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14252/badge)](https://www.bestpractices.dev/projects/14252)

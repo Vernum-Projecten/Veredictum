@@ -174,7 +174,7 @@ jobs:
         if: github.event_name == 'push'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: bash scripts/sonar/issues-to-sarif.sh rubentalstra_Veredictum sonar-findings.sarif
+        run: bash scripts/sonar/issues-to-sarif.sh Vernum-Projecten_Veredictum sonar-findings.sarif
       - name: Upload the findings to code scanning
         if: github.event_name == 'push'
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
