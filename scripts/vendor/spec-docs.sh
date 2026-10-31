@@ -49,12 +49,17 @@ INCLUDE_EXT=(adoc md txt csv json yaml yml robot xml opt g4)
 # PROVENANCE.md — CNF is a coverage guide and never an authority, ITS-JSON is
 # the development pin specs/its-json-schemas/ is fetched at. SM is not vendored:
 # it was never released, and it is no part of the oracle (#604).
+# A `Release-X.Y.ZvN` re-tag is openEHR's corrected text of the SAME release,
+# and specifications.openehr.org/releases serves it as that release, so the
+# re-tag is the oracle and the pin follows it (#979: RM 1.1.0v2, BASE 1.2.0v2,
+# LANG 1.0.0v1). Those three re-tags are annotated, so each pin is the PEELED
+# commit, the `^{}` line of `git ls-remote --tags`.
 COMPONENTS=(
-  "BASE|specifications-BASE|Release-1.2.0|fba868df1fad9fe15ae0483f3e3ac1c3fa94d735"
-  "RM|specifications-RM|Release-1.1.0|355eb63e201c6b805c44c8809c70d63f79d54f92"
+  "BASE|specifications-BASE|Release-1.2.0v2|906441385b7c6cb54f1e281f7417a48381c5f057"
+  "RM|specifications-RM|Release-1.1.0v2|3cbd85bee59c48649548ec06b0dac6abd1bf45f0"
   "AM|specifications-AM|Release-2.3.0|244baee6761a2c024944c122f261088975c2720b"
   "TERM|specifications-TERM|Release-3.0.0|d45ef3e21a05d3759101ae7bdb260e8193a3d0da"
-  "LANG|specifications-LANG|Release-1.0.0|096932fc6c8fb90f7e5bb52f1a118b4a0234e916"
+  "LANG|specifications-LANG|Release-1.0.0v1|2d28dedf2040a1c0137d8d877526d4282a1de229"
   "QUERY|specifications-QUERY|Release-1.1.0|a87bb51fa1c515b863c9610a9444a2d5570dc05a"
   "CNF|specifications-CNF|master (never released; guide only, frozen SHA)|33251d2abe5a75c042e11c9385d2e9a79aa15904"
   "ITS-REST|specifications-ITS-REST|Release-1.1.0 (released 19-Jul-2026; matches the vendored OAS identity)|24058992d5fa96e8dfbd855d9c133f328387fc09"
