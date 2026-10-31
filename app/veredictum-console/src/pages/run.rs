@@ -1177,6 +1177,7 @@ fn capability_picker(
                 {move || Suspend::new(async move {
                     match capability_rows.await {
                         Ok(rows) => {
+                            let listed = rows.clone();
                             let boxes = rows
                                 .into_iter()
                                 .map(|row| {
@@ -1219,28 +1220,27 @@ fn capability_picker(
                                     }
                                 })
                                 .collect_view();
-                            view! { <div class="mt-2 grid gap-2 sm:grid-cols-2">{boxes}</div> }
+                            view! {
+                                <div class="mt-2 grid gap-2 sm:grid-cols-2">{boxes}</div>
+                                <div class="mt-3 flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        class=BTN_SECONDARY
+                                        on:click=move |_| {
+                                            compose
+                                                .dispatch(checked_names(&listed, &checked.get_untracked()));
+                                        }
+                                    >
+                                        "Compose the claim"
+                                    </button>
+                                </div>
+                            }
                                 .into_any()
                         }
                         Err(e) => inline_error(&e.to_string()).into_any(),
                     }
                 })}
             </Suspense>
-            <div class="mt-3 flex items-center gap-2">
-                <button
-                    type="button"
-                    class=BTN_SECONDARY
-                    on:click=move |_| {
-                        let rows = capability_rows
-                            .get_untracked()
-                            .and_then(Result::ok)
-                            .unwrap_or_default();
-                        compose.dispatch(checked_names(&rows, &checked.get_untracked()));
-                    }
-                >
-                    "Compose the claim"
-                </button>
-            </div>
             {move || {
                 composed_note
                     .get()
