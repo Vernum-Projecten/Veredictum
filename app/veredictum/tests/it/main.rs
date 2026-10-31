@@ -24,6 +24,7 @@ mod arazzo_derive;
 mod arazzo_exclusive;
 mod arazzo_pack;
 mod arazzo_smart;
+mod badges;
 mod certificate_cli;
 mod defect_rejection;
 mod env_coupled;

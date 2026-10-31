@@ -19,8 +19,9 @@ use serde::Deserialize;
 use crate::arazzo::export::{ctrf, junit, markdown};
 use crate::arazzo::results::Results;
 use crate::arazzo::terminal::{ShowOptions, render};
+use crate::badge::{Badge, badges, perf_badge};
 use crate::perf_result::{PerfResult, view};
-use crate::pipeline::{Error, read_json};
+use crate::pipeline::{Error, RenderedFile, read_json};
 
 /// The three views of one results document.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -151,6 +152,38 @@ pub fn export_document(path: &Path) -> Result<Exports, Error> {
             markdown: view::markdown(&record),
         }),
     }
+}
+
+/// Reads a document of either family and draws its badges.
+///
+/// Each badge is `<name>.svg` and `<name>.json`: the five of a results document in
+/// [`crate::badge::BadgeName::CONFORMANCE`] order, or the one `perf` badge of
+/// a `perf-result`.
+///
+/// # Errors
+/// Every error of [`read_document`], and [`Error::Serialize`] when an
+/// endpoint document cannot be written.
+pub fn badge_files(path: &Path) -> Result<Vec<RenderedFile>, Error> {
+    let drawn: Vec<Badge> = match read_document(path)? {
+        Document::Results(results) => badges(&results),
+        Document::Perf(record) => vec![perf_badge(&record)],
+    };
+    let mut files = Vec::new();
+    for badge in drawn {
+        let name = badge.name.token();
+        files.push(RenderedFile {
+            name: format!("{name}.svg"),
+            body: badge.svg(),
+        });
+        files.push(RenderedFile {
+            name: format!("{name}.json"),
+            body: badge.endpoint_json().map_err(|source| Error::Serialize {
+                context: format!("the {name} badge"),
+                source,
+            })?,
+        });
+    }
+    Ok(files)
 }
 
 /// Reads a document of either family and renders its terminal view.

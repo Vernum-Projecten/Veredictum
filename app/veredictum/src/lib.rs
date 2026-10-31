@@ -29,6 +29,7 @@
               carries inputs, payloads and extensions as JSON values"
 )]
 pub mod arazzo;
+pub mod badge;
 pub mod certificate;
 pub mod exec;
 pub mod identity;

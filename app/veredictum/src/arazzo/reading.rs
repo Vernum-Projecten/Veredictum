@@ -359,6 +359,24 @@ impl OptionsTree<'_> {
             .flat_map(|c| c.bands.iter().flat_map(|b| b.options.iter()))
             .chain(self.unanchored.iter())
     }
+
+    /// The counts of the arms the statement selected and of the cases
+    /// resting on TRIAL text, each case once; an unselected arm's rows are
+    /// left out.
+    #[must_use]
+    pub fn selected_tally(&self) -> Tally {
+        let trial = self
+            .chapters
+            .iter()
+            .flat_map(|c| c.bands.iter().flat_map(|b| b.trial.iter()))
+            .flat_map(|t| t.cases.iter());
+        distinct_tally(
+            self.options()
+                .flat_map(|g| g.arms.iter().filter(|a| a.selected))
+                .flat_map(|a| a.cases.iter())
+                .chain(trial),
+        )
+    }
 }
 
 /// The cases resting on text one upstream report records as defective.
