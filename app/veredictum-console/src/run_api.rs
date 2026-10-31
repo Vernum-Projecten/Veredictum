@@ -79,17 +79,21 @@ pub enum ConnectRefusal {
     Label,
     /// There is no connection draft to continue from.
     NoDraft,
-    /// The draft could not be stored or read.
+    /// The form could not be read, or named something the console cannot
+    /// use.
+    Form,
+    /// This instance failed to store or read the draft.
     Store,
 }
 
 impl ConnectRefusal {
     /// Every refusal, in declaration order.
-    pub const ALL: [ConnectRefusal; 5] = [
+    pub const ALL: [ConnectRefusal; 6] = [
         ConnectRefusal::Budget,
         ConnectRefusal::Target,
         ConnectRefusal::Label,
         ConnectRefusal::NoDraft,
+        ConnectRefusal::Form,
         ConnectRefusal::Store,
     ];
 
@@ -101,6 +105,7 @@ impl ConnectRefusal {
             Self::Target => "target",
             Self::Label => "label",
             Self::NoDraft => "no-draft",
+            Self::Form => "form",
             Self::Store => "store",
         }
     }
@@ -127,13 +132,16 @@ impl ConnectRefusal {
                 "The probe was refused: this instance's connection-probe budget for your address is spent. Nothing was contacted. Wait a few minutes, then probe again."
             }
             Self::Target => {
-                "The probe was refused: this instance does not connect to that address, or could not read it as one. Nothing was contacted and no connection was stored. Name a target reachable from this instance and probe again."
+                "The probe was refused: this instance does not connect to that address, could not read it as one, or found a user name or password in it. Nothing was contacted and no connection was stored. Name a target reachable from this instance, with any credential in the credential fields, and probe again."
             }
             Self::Label => {
                 "The form was refused: a display name or version label is longer than this console accepts. Shorten it and probe again."
             }
             Self::NoDraft => {
                 "There is no connection to continue from: it was never probed, or this instance has since forgotten it. Probe the connection again."
+            }
+            Self::Form => {
+                "The form was refused: this instance could not read it, or it named something this console cannot use. Nothing was contacted and no connection was stored. Check the fields and probe again."
             }
             Self::Store => {
                 "This instance could not store the connection. Probe again; if it persists, the console needs a restart."
@@ -156,11 +164,12 @@ impl From<&crate::error::ConsoleError> for ConnectRefusal {
             | ConsoleError::Invalid { .. }
             | ConsoleError::RunInFlight { .. }
             | ConsoleError::NotFound { .. }
-            | ConsoleError::CatalogueUnavailable { .. }
-            | ConsoleError::Internal { .. }
             | ConsoleError::CallTooLarge { .. }
             | ConsoleError::CallUndecodable { .. }
-            | ConsoleError::Transport(_) => Self::Store,
+            | ConsoleError::Transport(_) => Self::Form,
+            ConsoleError::CatalogueUnavailable { .. } | ConsoleError::Internal { .. } => {
+                Self::Store
+            }
         }
     }
 }
@@ -512,8 +521,9 @@ pub fn declared_postures(
 
     fn capped(field: &str, value: &str, cap: u64) -> Result<Option<String>, ConsoleError> {
         let value = value.trim();
-        if u64::try_from(value.len()).unwrap_or(u64::MAX) > cap {
-            return Err(ConsoleError::too_long(field, value.len(), cap));
+        let bytes = read::count(value.len());
+        if bytes > cap {
+            return Err(ConsoleError::too_long(field, bytes, cap));
         }
         Ok((!value.is_empty()).then(|| value.to_owned()))
     }
@@ -884,7 +894,7 @@ pub mod read {
         CapabilityRow, ClaimSummary, ConnectAnswer, ConnectRecord, DraftView, RecordedResults,
         RecordedRun, RunDraft, RunScreen, ScopePreview, StartOutcome,
     };
-    use crate::error::ConsoleError;
+    use crate::error::{ConsoleError, InternalCause};
     use crate::run_job::{Latest, RunId};
     use crate::state::ConsoleState;
     use crate::submitter::Submitter;
@@ -897,7 +907,7 @@ pub mod read {
 
     /// NOTE: no openEHR spec governs this — our own design; usize → u64 is
     /// lossless on every supported target (see `catalogue_api::read::count`).
-    fn count(n: usize) -> u64 {
+    pub(crate) fn count(n: usize) -> u64 {
         u64::try_from(n).unwrap_or(u64::MAX)
     }
 
@@ -925,10 +935,11 @@ pub mod read {
     /// [`ConsoleError::TooLong`] naming the field, its size and the cap.
     pub fn check_labels(sut_name: &str, sut_version: &str) -> Result<(), ConsoleError> {
         for (field, value) in [("display name", sut_name), ("version label", sut_version)] {
-            if count(value.len()) > super::IDENTITY_LABEL_CAP_BYTES {
+            let bytes = count(value.len());
+            if bytes > super::IDENTITY_LABEL_CAP_BYTES {
                 return Err(ConsoleError::too_long(
                     field,
-                    value.len(),
+                    bytes,
                     super::IDENTITY_LABEL_CAP_BYTES,
                 ));
             }
@@ -941,10 +952,11 @@ pub mod read {
     /// # Errors
     /// [`ConsoleError::TooLong`] naming the filter, its size and the cap.
     pub fn check_filter(filter: &str) -> Result<(), ConsoleError> {
-        if count(filter.len()) > super::FILTER_CAP_BYTES {
+        let bytes = count(filter.len());
+        if bytes > super::FILTER_CAP_BYTES {
             return Err(ConsoleError::too_long(
                 "filter",
-                filter.len(),
+                bytes,
                 super::FILTER_CAP_BYTES,
             ));
         }
@@ -1031,7 +1043,10 @@ pub mod read {
                 .map_err(|e: veredictum::arazzo::spec_profile::UnknownProfile| {
                     ConsoleError::invalid(e)
                 })?;
-        let mut guard = state.draft.lock().map_err(ConsoleError::internal)?;
+        let mut guard = state
+            .draft
+            .lock()
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
         let draft = guard.get_mut(submitter).ok_or(ConsoleError::NoDraft)?;
         draft.profile = profile;
         Ok(())
@@ -1050,7 +1065,10 @@ pub mod read {
         submitter: Submitter,
         draft: RunDraft,
     ) -> Result<(), ConsoleError> {
-        let mut guard = state.draft.lock().map_err(ConsoleError::internal)?;
+        let mut guard = state
+            .draft
+            .lock()
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
         guard.insert(submitter, draft);
         Ok(())
     }
@@ -1102,9 +1120,10 @@ pub mod read {
                 // the engine emits and loads by — before the typed parse.
                 let validator = jsonschema::validator_for(&veredictum::schema::statement_schema())
                     .map_err(|e| {
-                        ConsoleError::internal(format!(
-                            "the statement schema itself failed to compile: {e}"
-                        ))
+                        ConsoleError::internal(
+                            InternalCause::Document,
+                            format!("the statement schema itself failed to compile: {e}"),
+                        )
                     })?;
                 if let Some(finding) = validator.iter_errors(&value).next() {
                     refused(crate::metrics::StatementReason::SchemaInvalid);
@@ -1127,7 +1146,10 @@ pub mod read {
         // Narrowed BEFORE the draft is touched, so a refused declaration
         // leaves the stored scope exactly as it was.
         let declared = super::declared_postures(postures)?;
-        let mut guard = state.draft.lock().map_err(ConsoleError::internal)?;
+        let mut guard = state
+            .draft
+            .lock()
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
         let draft = guard.get_mut(submitter).ok_or(ConsoleError::NoDraft)?;
         draft.statement_product = summary.as_ref().map(|claim| claim.product.clone());
         draft.statement_json = statement_json;
@@ -1268,7 +1290,10 @@ pub mod read {
             )));
         }
         let (resolved, vendor) = {
-            let guard = state.draft.lock().map_err(ConsoleError::internal)?;
+            let guard = state
+                .draft
+                .lock()
+                .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
             let draft = guard.get(submitter).ok_or(ConsoleError::NoDraft)?;
             let vendor = draft
                 .identity
@@ -1290,7 +1315,10 @@ pub mod read {
             .map(|name| veredictum::ids::CapabilityName::parse(name))
             .collect::<Result<_, _>>()
             .map_err(|e| {
-                ConsoleError::internal(format!("a capability folder is not a claimable name: {e}"))
+                ConsoleError::internal(
+                    InternalCause::Document,
+                    format!("a capability folder is not a claimable name: {e}"),
+                )
             })?;
         let statement = veredictum::party::Statement {
             product: veredictum::party::Product {
@@ -1309,7 +1337,10 @@ pub mod read {
             attestation: None,
         };
         let mut document = serde_json::to_string_pretty(&statement).map_err(|e| {
-            ConsoleError::internal(format!("the composed claim did not serialize: {e}"))
+            ConsoleError::internal(
+                InternalCause::Document,
+                format!("the composed claim did not serialize: {e}"),
+            )
         })?;
         document.push('\n');
         Ok(document)
@@ -1468,7 +1499,10 @@ pub mod read {
             signing,
         };
         let mut rendered = serde_json::to_string_pretty(&document).map_err(|e| {
-            ConsoleError::internal(format!("the composed ixit did not serialize: {e}"))
+            ConsoleError::internal(
+                InternalCause::Document,
+                format!("the composed ixit did not serialize: {e}"),
+            )
         })?;
         rendered.push('\n');
         // The composed bytes are held to the engine's OWN reader before a run
@@ -1476,7 +1510,10 @@ pub mod read {
         // defect, and it is refused here rather than at the spawned engine's
         // first line.
         serde_json::from_str::<veredictum::ixit::Ixit>(&rendered).map_err(|e| {
-            ConsoleError::internal(format!("the composed ixit does not parse: {e}"))
+            ConsoleError::internal(
+                InternalCause::Document,
+                format!("the composed ixit does not parse: {e}"),
+            )
         })?;
         Ok(rendered)
     }
@@ -1506,7 +1543,7 @@ pub mod read {
         let drafted = state
             .draft
             .lock()
-            .map_err(ConsoleError::internal)?
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?
             .get(submitter)
             .map(|draft| draft.base_url.clone());
         let Some(base_url) = drafted else {
@@ -1517,7 +1554,8 @@ pub mod read {
         // instance refuses an address only it can reach, resolving the name
         // first. The local posture refuses nothing.
         guard_target(state, &base_url).await?;
-        let engine = crate::engine::locate().map_err(ConsoleError::internal)?;
+        let engine =
+            crate::engine::locate().map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
         start_run_with(state, submitter, &engine)
     }
 
@@ -1547,7 +1585,9 @@ pub mod read {
                         detail: refusal.to_string(),
                     }
                 }
-                crate::rate_limit::RateRefusal::Poisoned(_) => ConsoleError::internal(refusal),
+                crate::rate_limit::RateRefusal::Poisoned(_) => {
+                    ConsoleError::internal(InternalCause::Lock, refusal)
+                }
             })
     }
 
@@ -1566,9 +1606,10 @@ pub mod read {
                 ));
                 match refusal {
                     crate::target_safety::TargetRefusal::Unchecked(_) => {
-                        ConsoleError::internal(refusal)
+                        ConsoleError::internal(InternalCause::TargetCheck, refusal)
                     }
                     crate::target_safety::TargetRefusal::Unreadable { .. }
+                    | crate::target_safety::TargetRefusal::Credentials
                     | crate::target_safety::TargetRefusal::NoHost { .. }
                     | crate::target_safety::TargetRefusal::Unresolvable { .. }
                     | crate::target_safety::TargetRefusal::Refused { .. } => ConsoleError::Target {
@@ -1612,16 +1653,27 @@ pub mod read {
                 .refused(crate::metrics::Refusal::AlreadyInFlight);
             return Ok(StartOutcome::AlreadyInFlight(existing));
         }
-        let mut guard = state.draft.lock().map_err(ConsoleError::internal)?;
+        let mut guard = state
+            .draft
+            .lock()
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
         let draft = guard.get_mut(submitter).ok_or(ConsoleError::NoDraft)?;
         let documents = filtered_documents(state, draft.filter.as_deref().unwrap_or_default())?;
         let id = state.jobs.allocate_id();
         let out_dir = crate::run_job::job_dir(&state.out, id);
-        std::fs::create_dir_all(&out_dir)
-            .map_err(|e| ConsoleError::internal(format!("{}: {e}", out_dir.display())))?;
+        std::fs::create_dir_all(&out_dir).map_err(|e| {
+            ConsoleError::internal(
+                InternalCause::Storage,
+                format!("{}: {e}", out_dir.display()),
+            )
+        })?;
         let ixit_path = out_dir.join("ixit.json");
-        std::fs::write(&ixit_path, ixit_document(draft)?)
-            .map_err(|e| ConsoleError::internal(format!("{}: {e}", ixit_path.display())))?;
+        std::fs::write(&ixit_path, ixit_document(draft)?).map_err(|e| {
+            ConsoleError::internal(
+                InternalCause::Storage,
+                format!("{}: {e}", ixit_path.display()),
+            )
+        })?;
         // The claim travels WITH the run: the job directory carries the exact
         // bytes the engine selected by, never the mutable draft.
         let statement_path = draft
@@ -1629,8 +1681,12 @@ pub mod read {
             .as_deref()
             .map(|body| {
                 let path = out_dir.join("statement.json");
-                std::fs::write(&path, body)
-                    .map_err(|e| ConsoleError::internal(format!("{}: {e}", path.display())))?;
+                std::fs::write(&path, body).map_err(|e| {
+                    ConsoleError::internal(
+                        InternalCause::Storage,
+                        format!("{}: {e}", path.display()),
+                    )
+                })?;
                 Ok::<_, ConsoleError>(path)
             })
             .transpose()?;
@@ -1718,7 +1774,10 @@ pub mod read {
             })));
         }
         let unreadable = |e: &dyn std::fmt::Display| {
-            ConsoleError::internal(format!("{}: {e}", results_path.display()))
+            ConsoleError::internal(
+                InternalCause::Storage,
+                format!("{}: {e}", results_path.display()),
+            )
         };
         let body = std::fs::read_to_string(&results_path).map_err(|e| unreadable(&e))?;
         let results: veredictum::arazzo::results::Results =
@@ -1783,7 +1842,10 @@ pub mod read {
         sut_version: String,
     ) -> Result<(), ConsoleError> {
         check_labels(&sut_name, &sut_version)?;
-        let mut guard = state.draft.lock().map_err(ConsoleError::internal)?;
+        let mut guard = state
+            .draft
+            .lock()
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
         let draft = guard.get_mut(submitter).ok_or(ConsoleError::NoDraft)?;
         let (sut_name, sut_version) =
             crate::identity::entered_labels(draft.identity.as_ref(), sut_name, sut_version);
@@ -1942,10 +2004,11 @@ pub mod fns {
     /// connect step at [`super::PROBED_PATH`], which reads the stored answer.
     ///
     /// # Errors
-    /// An identity label past its cap, the rate ledger's refusal with its
-    /// retry, the target guard's refusal naming the address family, and the
-    /// draft-store failure — each verbatim, and each forgetting the answer an
-    /// earlier probe stored. A plain form post is also redirected to
+    /// [`ConsoleError::TooLong`] for an identity label past its cap,
+    /// [`ConsoleError::RateBudget`] with its retry, [`ConsoleError::Target`]
+    /// naming the address family or a credential in the address, and
+    /// [`ConsoleError::Internal`] for the draft store. Each forgets the answer
+    /// an earlier probe stored, and a plain form post is also redirected to
     /// [`super::ConnectRefusal::path`]. An unreachable server is an ANSWER,
     /// not an error.
     #[server]
@@ -2050,8 +2113,9 @@ pub mod fns {
     /// the client bundle (<https://book.leptos.dev/server/27_response.html>).
     ///
     /// # Errors
-    /// "no connection draft" before a probe, a label past its cap, and the
-    /// draft-store failure, each verbatim.
+    /// [`ConsoleError::NoDraft`] before a probe, [`ConsoleError::TooLong`] for
+    /// a label past its cap, and [`ConsoleError::Internal`] for the draft
+    /// store.
     #[server]
     pub async fn save_identity(sut_name: String, sut_version: String) -> Result<(), ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
@@ -2076,7 +2140,8 @@ pub mod fns {
     /// The scope preview for a filter.
     ///
     /// # Errors
-    /// The verbatim load failure when the catalogue is absent.
+    /// [`ConsoleError::TooLong`] for a filter past its cap, and
+    /// [`ConsoleError::CatalogueUnavailable`] when the catalogue is absent.
     #[server]
     pub async fn fetch_scope_preview(filter: String) -> Result<ScopePreview, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
@@ -2090,9 +2155,10 @@ pub mod fns {
     /// run's id and nothing is started, so the screen can send them to it.
     ///
     /// # Errors
-    /// "no connection draft" before S3, the start budget's refusal, the
-    /// target guard's refusal, the engine's refusals, and filesystem
-    /// failures — each verbatim.
+    /// [`ConsoleError::NoDraft`] before S3, [`ConsoleError::RateBudget`],
+    /// [`ConsoleError::Target`], [`ConsoleError::Invalid`] for a filter that
+    /// selects nothing, and [`ConsoleError::Internal`] for the engine and the
+    /// output mount.
     #[server]
     pub async fn start_run() -> Result<StartOutcome, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
@@ -2107,8 +2173,8 @@ pub mod fns {
     /// under the mounted output root.
     ///
     /// # Errors
-    /// The map's poisoned-state diagnostic, or a results document that
-    /// exists and cannot be read.
+    /// [`ConsoleError::Internal`]: the job map's poisoned lock, or a results
+    /// document that exists and cannot be read.
     #[server]
     pub async fn fetch_run(id: Option<RunId>) -> Result<RunScreen, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
@@ -2120,8 +2186,8 @@ pub mod fns {
     /// Cancels the NAMED run.
     ///
     /// # Errors
-    /// "no run is in flight" when this process is not driving that run, or
-    /// the kill's own failure.
+    /// [`ConsoleError::NotFound`] when this process is not driving that run,
+    /// or [`ConsoleError::Internal`] for the kill's own failure.
     #[server]
     pub async fn cancel_run(id: RunId) -> Result<(), ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
@@ -2132,8 +2198,10 @@ pub mod fns {
     /// the claim's summary (`None` for an honest no-claim run).
     ///
     /// # Errors
-    /// "no connection draft" when S3 has not run, the statement reader's
-    /// refusal verbatim, or the draft-store failure.
+    /// [`ConsoleError::NoDraft`] when S3 has not run,
+    /// [`ConsoleError::Statement`] carrying the statement reader's finding,
+    /// [`ConsoleError::TooLong`] or [`ConsoleError::Invalid`] for the filter
+    /// or a posture, and [`ConsoleError::Internal`] for the draft store.
     #[server]
     pub async fn save_scope(
         statement_json: Option<String>,
@@ -2155,8 +2223,9 @@ pub mod fns {
     /// `development` (the default) or `released`.
     ///
     /// # Errors
-    /// The refusal of a token that names no profile, "no connection draft"
-    /// when S3 has not run, or the draft-store failure.
+    /// [`ConsoleError::Invalid`] for a token that names no profile,
+    /// [`ConsoleError::NoDraft`] when S3 has not run, or
+    /// [`ConsoleError::Internal`] for the draft store.
     #[server]
     pub async fn save_profile(profile: String) -> Result<(), ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
@@ -2167,7 +2236,7 @@ pub mod fns {
     /// The capability folders with the documents and workflows each holds.
     ///
     /// # Errors
-    /// The catalogue's verbatim load failure.
+    /// [`ConsoleError::CatalogueUnavailable`], the load failure verbatim.
     #[server]
     pub async fn fetch_capability_rows() -> Result<Vec<CapabilityRow>, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
@@ -2188,8 +2257,9 @@ pub mod fns {
     /// deserialization error.
     ///
     /// # Errors
-    /// An empty selection, an unknown folder, a missing connection draft, and
-    /// the catalogue's load failure, each verbatim.
+    /// [`ConsoleError::Invalid`] for an empty selection, an unknown folder or
+    /// a missing product identity, [`ConsoleError::NoDraft`], and
+    /// [`ConsoleError::CatalogueUnavailable`].
     #[server]
     pub async fn compose_claim(capabilities: Option<Vec<String>>) -> Result<String, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();

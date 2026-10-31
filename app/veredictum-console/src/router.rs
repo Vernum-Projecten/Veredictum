@@ -225,6 +225,14 @@ async fn caller_faults_are_4xx(
     let mut parts = parts;
     parts.status = error.status();
     parts.headers.remove(axum::http::header::CONTENT_LENGTH);
+    if let ConsoleError::RateBudget { retry_in_secs, .. } = error {
+        // NOTE: RFC 6585 §4 — a 429 MAY carry `Retry-After` saying how long
+        // to wait, and the ledger knows exactly when the budget reopens.
+        parts.headers.insert(
+            axum::http::header::RETRY_AFTER,
+            axum::http::HeaderValue::from(retry_in_secs),
+        );
+    }
     if matches!(error, ConsoleError::CallTooLarge { .. }) {
         // NOTE: RFC 9112 §9.6 — a server that closes the connection after a
         // response SHOULD send `Connection: close`, and the body left unread

@@ -524,17 +524,7 @@ fn answer_view(result: Result<ConnectAnswer, ConsoleError>, controls: ConnectCon
             </div>
         }
         .into_any(),
-        Err(e) => {
-            // The same sentence the page states for a refusal posted without
-            // the client bundle, chosen by the refusal's variant.
-            let sentence = ConnectRefusal::from(&e).sentence();
-            view! {
-                <div class="space-y-2">
-                    {inline_error(&e.to_string())} <p class="text-sm text-ink-muted">{sentence}</p>
-                </div>
-            }
-            .into_any()
-        }
+        Err(e) => refusal_view(&e).into_any(),
     }
 }
 
@@ -643,11 +633,12 @@ pub fn Connect() -> impl IntoView {
         }
     });
     let (probed, refused) = connect_from_url();
-    // A page a form came back to, probed or refused, reads the stored draft:
-    // its address and labels refill the form, so a page without script can
-    // probe again from what it shows (#936).
+    // A page a probe came back to reads the stored draft: its address and
+    // labels refill the form, so a page without script can probe again from
+    // what it shows (#936). A refused form stored nothing, so its page offers
+    // no earlier draft's address as if the operator had just entered it.
     let stored = Resource::new(
-        move || probed.get() || refused.with(Option::is_some),
+        move || probed.get() && refused.with(Option::is_none),
         |returned| async move {
             if returned {
                 fetch_connect().await
