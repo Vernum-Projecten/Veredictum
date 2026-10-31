@@ -11,8 +11,8 @@ commit `15d7a3589d52e33aebd5efb97c321b2498407d6b`, the snapshot vendored under
 | Patch | Report |
 |---|---|
 | `0939-opt-specialisation-statement.patch` | #939 |
-| `0000a-opt-example-binding-namespace.patch` | not filed yet; renamed to its number when filed |
-| `0000b-quantity-property-examples.patch` | not filed yet; renamed to its number when filed |
+| `0945-opt-example-binding-namespace.patch` | #945 |
+| `0946-quantity-property-examples.patch` | #946 |
 
 A patch is named after its report's number.
 `scripts/checks/upstream-patches-apply.sh` checks on every pull request that
