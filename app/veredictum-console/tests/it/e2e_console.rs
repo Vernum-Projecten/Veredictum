@@ -163,8 +163,10 @@ impl Harness {
             .expect("navigate");
     }
 
-    /// Waits until the client has taken over the page (`app.rs` stamps
-    /// `data-hydrated` on `<body>` from a browser-only effect).
+    /// Waits until the client has taken over the page: the shell's chrome
+    /// stamps `data-hydrated` on `<body>` once every hydrated listener is
+    /// attached and the streamed response has settled (#377), so a click
+    /// after this wait cannot land before the listener it targets.
     ///
     /// # Panics
     /// When the marker never appears within [`HYDRATION_WAIT`].

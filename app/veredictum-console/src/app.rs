@@ -8,8 +8,8 @@
 //! chrome rendering exactly once around the `<Outlet/>`.
 
 use leptos::prelude::{
-    AutoReload, ClassAttribute, Effect, ElementChild, GlobalAttributes, HydrationScripts, IntoView,
-    LeptosOptions, component, document, view,
+    AutoReload, ClassAttribute, ElementChild, GlobalAttributes, HydrationScripts, IntoView,
+    LeptosOptions, component, view,
 };
 use leptos_meta::{Link, Meta, MetaTags, Title, provide_meta_context};
 use leptos_router::{
@@ -82,18 +82,6 @@ pub fn DocumentHead(
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
-
-    // The hydration marker every browser journey waits on before driving a
-    // control: a click landing before hydration attaches its listener is
-    // silently lost. On the root component, so the 404 fallback carries it.
-    Effect::new(|_| {
-        if let Some(body) = document().body() {
-            let outcome = body.set_attribute("data-hydrated", "");
-            // NOTE: no openEHR spec governs this — our own design; a failed
-            // attribute write on a live document has nothing to recover from.
-            drop(outcome);
-        }
-    });
 
     view! {
         // `favicon.ico` is declared because a browser probes that path on every

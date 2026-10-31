@@ -12,10 +12,12 @@
 //! hydration inside an `Effect` for the same reason
 //! (<https://book.leptos.dev/ssr/24_hydration_bugs.html>).
 
+use std::time::Duration;
+
 use leptos::prelude::{
     AddAnyAttr, AriaAttributes, Children, ClassAttribute, CollectView, Effect, ElementChild, Get,
     GlobalAttributes, IntoAny, IntoView, OnAttribute, Resource, RwSignal, Set, Suspend, Suspense,
-    Update, component, view,
+    Update, component, document, on_cleanup, set_timeout, view, window_event_listener,
 };
 use leptos_icons::Icon;
 use leptos_router::components::{A, Outlet};
@@ -79,6 +81,37 @@ pub fn Shell() -> impl IntoView {
     }
 }
 
+/// Stamps `data-hydrated` on `<body>`: the marker every browser journey
+/// waits on before it drives a control.
+fn stamp_hydrated() {
+    if let Some(body) = document().body() {
+        let outcome = body.set_attribute("data-hydrated", "");
+        // NOTE: no openEHR spec governs this — our own design; a failed
+        // attribute write on a live document has nothing to recover from.
+        drop(outcome);
+    }
+}
+
+/// Sets the hydration marker once every hydrated listener is attached.
+///
+/// Called from an effect the chrome creates after its whole subtree, the
+/// routed page included, has run its setup, so the effect runs after the
+/// synchronous hydration walk and after every effect created before it (the
+/// persisted theme among them). A `Suspend` whose data is still streaming
+/// hydrates later, from a task of its own, so the stamp waits for the
+/// document's `load` event, which fires only once the whole streamed response
+/// has arrived, and then one timer turn, after the tasks that data woke
+/// (<https://html.spec.whatwg.org/multipage/parsing.html#the-end>).
+fn stamp_when_settled() {
+    let stamp = || set_timeout(stamp_hydrated, Duration::ZERO);
+    if document().ready_state() == "complete" {
+        stamp();
+    } else {
+        let handle = window_event_listener(leptos::ev::load, move |_| stamp());
+        on_cleanup(move || handle.remove());
+    }
+}
+
 /// The chrome itself: sidebar, toast host, and whatever content it frames.
 ///
 /// Taking the content as `children` rather than rendering `<Outlet/>` itself
@@ -130,7 +163,7 @@ pub fn Chrome(
             .collect_view()
     };
 
-    view! {
+    let chrome = view! {
         <div class="flex min-h-screen bg-surface">
             // The scrim behind the mobile drawer; clicking it closes.
             <div
@@ -185,7 +218,12 @@ pub fn Chrome(
             </div>
             <ToastHost />
         </div>
-    }
+    };
+    // Created after the view above, so after every component in the framed
+    // subtree has run its setup (#377); the 404 fallback wears this chrome
+    // too, so it carries the marker as well.
+    Effect::new(move |_| stamp_when_settled());
+    chrome
 }
 
 /// The instrument status banner: the linked engine's approval status, read

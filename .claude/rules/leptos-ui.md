@@ -291,8 +291,10 @@ is the precedent to imitate, not a path in this tree.
   Explicit waits on elements/conditions, never `sleep`; a flaky journey is
   fixed, never `#[ignore]`d or retried-by-default. NOT Playwright/JS (the
   no-JS mandate covers the test suite). A journey drives a control only
-  after `body[data-hydrated]` appears (`app.rs` stamps it from a
-  browser-only effect): a click landing earlier is silently lost.
+  after `body[data-hydrated]` appears: a click landing earlier is silently
+  lost. The shell's `Chrome` stamps it from an effect created after its whole
+  subtree, deferred past the document's `load` and one timer turn, so it
+  follows every hydrated listener, the streamed `Suspend`s included (#377).
 - **The capture pass is the visual feedback loop.** With
   `UI_E2E_DOCS_SHOTS=1` the journeys photograph every surface in one fixed
   1440×900 window, light and dark, into `website/book/src/console/img/`,
