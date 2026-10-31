@@ -857,7 +857,11 @@ fn perf_judge_command(path: &Path) -> ExitCode {
 }
 
 fn emit_schemas_command(out: &Path) -> ExitCode {
-    match emit(out, &schema_files()) {
+    let files = match schema_files() {
+        Ok(files) => files,
+        Err(e) => return fail(&e),
+    };
+    match emit(out, &files) {
         Ok(()) => ExitCode::SUCCESS,
         Err(code) => code,
     }

@@ -53,13 +53,20 @@ pub fn perf_result_assets(path: &Path) -> Result<PerfResultAssets, Error> {
 ///
 /// The rendering is byte-deterministic, so the emitted set is diffable
 /// against the committed one.
-#[must_use]
-pub fn schema_files() -> Vec<RenderedFile> {
+///
+/// # Errors
+/// [`Error::Serialize`] naming the schema file the serializer refused.
+pub fn schema_files() -> Result<Vec<RenderedFile>, Error> {
     crate::schema::emit_all()
         .into_iter()
-        .map(|(name, schema)| RenderedFile {
-            name: name.to_owned(),
-            body: crate::schema::render(&schema),
+        .map(|(name, schema)| {
+            Ok(RenderedFile {
+                name: name.to_owned(),
+                body: crate::schema::render(&schema).map_err(|source| Error::Serialize {
+                    context: name.to_owned(),
+                    source,
+                })?,
+            })
         })
         .collect()
 }

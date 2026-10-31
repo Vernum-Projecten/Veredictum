@@ -23,6 +23,7 @@
 #   IN_ADMIN_AUTH   none | basic | bearer, checked by the engine
 #   IN_DOCUMENTS    document ids separated by white space (optional)
 #   IN_PROFILE      development | released, checked by the engine
+#   IN_PLATFORM_URL the SMART Platform base URL (optional)
 #   IN_OUT_DIR      the output directory, created when missing
 #   IN_IMAGE        the image reference; empty means the release image of the
 #                   version this action's own tree carries
@@ -38,6 +39,11 @@
 # repository expands to an empty string, and the run must then stop on a
 # missing credential rather than present an empty one.
 #
+# The SMART scoped-token variables travel the same way: every variable named
+# VEREDICTUM_SCOPED_TOKEN_<NAME>, which covers the test issuer's key
+# (VEREDICTUM_SCOPED_TOKEN_KEY) and each token an IXIT's `issued` member names,
+# and each of them with `_FILE` appended.
+#
 # Usage:
 #   scripts/action/run.sh               # as the action runs it
 #   scripts/action/run.sh --self-test   # against a stub `docker`, no runtime
@@ -51,6 +57,7 @@ readonly CREDENTIALS=(
   VEREDICTUM_CDR_ADMIN_PASSWORD
   VEREDICTUM_CDR_ADMIN_TOKEN
 )
+readonly SCOPED_TOKEN_PREFIX=VEREDICTUM_SCOPED_TOKEN_
 readonly RELEASE_IMAGE=ghcr.io/vernum-projecten/veredictum
 
 # output <name> <value>: a step output, when the runner provides the file.
@@ -162,9 +169,19 @@ main() {
   for document in ${documents[@]+"${documents[@]}"}; do
     test_args+=(--document "$document")
   done
+  if [[ -n "${IN_PLATFORM_URL:-}" ]]; then
+    test_args+=(--platform-url "$IN_PLATFORM_URL")
+  fi
 
+  # The scoped-token names are whatever the caller set under the prefix, each
+  # reduced to its base name so a `_FILE` variable and its value variable are
+  # one secret.
   local name file_var
-  for name in "${CREDENTIALS[@]}"; do
+  local -a secrets=("${CREDENTIALS[@]}")
+  while IFS= read -r name; do
+    [[ -n "$name" ]] && secrets+=("$name")
+  done < <(compgen -e | grep -E "^${SCOPED_TOKEN_PREFIX}[A-Z0-9_]+\$" | sed -E 's/_FILE$//' | LC_ALL=C sort -u)
+  for name in "${secrets[@]}"; do
     if [[ -n "${!name:-}" ]]; then
       run_args+=(-e "$name")
     fi
@@ -324,6 +341,24 @@ STUB
     'IN_DOCUMENTS=ehr query'
   check "no profile input runs the development profile" 0 '--profile development ' ''
   check "the profile input reaches the engine" 0 '--profile released ' '' IN_PROFILE=released
+  check "no platform-url input passes no --platform-url" 0 '' '--platform-url'
+  check "the platform-url input reaches the engine" 0 \
+    '--platform-url https://platform\.example --out' '' IN_PLATFORM_URL=https://platform.example
+  check "the scoped-token key is passed by name, never by value" 0 \
+    '-e VEREDICTUM_SCOPED_TOKEN_KEY ' 'PRIVATE KEY' \
+    'VEREDICTUM_SCOPED_TOKEN_KEY=-----BEGIN PRIVATE KEY-----'
+  check "a scoped-token key _FILE is mounted and renamed" 0 \
+    'VEREDICTUM_SCOPED_TOKEN_KEY_FILE=/work/secrets/VEREDICTUM_SCOPED_TOKEN_KEY' 'from-a-file' \
+    VEREDICTUM_SCOPED_TOKEN_KEY_FILE=token
+  check "a missing scoped-token key _FILE is refused" 2 'not a file' '' \
+    VEREDICTUM_SCOPED_TOKEN_KEY_FILE=missing
+  check "an empty scoped-token key is not passed at all" 0 '' 'VEREDICTUM_SCOPED_TOKEN_KEY' \
+    VEREDICTUM_SCOPED_TOKEN_KEY=
+  check "an issued scoped token is passed by name" 0 \
+    '-e VEREDICTUM_SCOPED_TOKEN_TEMPLATE_READ ' 'issued-s3cr3t' \
+    VEREDICTUM_SCOPED_TOKEN_TEMPLATE_READ=issued-s3cr3t
+  check "a variable outside the credential names is not passed" 0 '' 'UNRELATED_SECRET' \
+    UNRELATED_SECRET=x
 
   if [[ "$fails" -gt 0 ]]; then
     echo "run.sh self-test: ${fails} case(s) failed" >&2

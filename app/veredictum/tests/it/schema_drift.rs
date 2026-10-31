@@ -15,7 +15,7 @@ fn committed_schemas_are_byte_identical_to_emission() {
             .unwrap_or_else(|e| panic!("{name} is not committed: {e}"));
         assert_eq!(
             committed,
-            render(&schema),
+            render(&schema).unwrap_or_else(|e| panic!("{name} does not render: {e}")),
             "{name} drifted — regenerate with `cargo run -- emit-schemas`"
         );
     }
