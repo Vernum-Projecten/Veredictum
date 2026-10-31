@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: Veredictum contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# A CDR in the SMART on openEHR posture (#921), so the SMART documents under
+# catalogue/cases/smart/ run end to end: FerroEHR as the resource server, a
+# Platform base URL its discovery document hangs off, and a static test
+# issuer it trusts, whose tokens the instrument mints per row from the IXIT's
+# `scoped_tokens.mint` (deploy/docker/smart/ixit.json). FerroEHR checks a
+# token's RS256 signature against the committed public JWKS and enforces the
+# SMART on openEHR scopes it carries (FerroEHR book, SMART App Launch).
+#
+# THE ISSUER IS COMMITTED TEST MATERIAL. catalogue/keys/smart-test-issuer/
+# holds a passphrase-less RSA key in public version control; only its public
+# half is mounted here. Never point a deployment holding real data at it.
+#
+# Both images are pinned by the digest of their multi-architecture index, so
+# a run names the exact server it drove; the comment above each names the tag
+# the digest was read from. The server configuration is the e2e pair's
+# (deploy/docker/e2e-ferroehr.toml): Basic auth for the ordinary principal,
+# RBAC off. The host port defaults to 8094, beside the e2e pair's 8090 and
+# 8093. scripts/smart-lane.sh brings it up, runs every SMART document against
+# it and holds the run to the lane's criteria; CI runs it in the `smart` job.
+#
+# No openEHR specification governs this environment. It is our own design;
+# the behaviour it exercises is ITS-REST docs/smart_app_launch/.
+
+services:
+  ferroehr-postgres:
+    # ghcr.io/ferrohealth/ferroehr-postgres:5.5.0
+    image: ghcr.io/ferrohealth/ferroehr-postgres@sha256:dfe1d5c1bb95d31d3f6ff00fec03cd76ae20d57d20e6225b31e5bc68adf7fa81
+    environment:
+      POSTGRES_PASSWORD: postgres
+      PG_INIT_USER: ferroehr
+      PG_INIT_PASSWORD: ferroehr
+      PG_INIT_DB: ferroehr
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ferroehr -d ferroehr"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  ferroehr:
+    # ghcr.io/ferrohealth/ferroehr:5.5.0
+    image: ghcr.io/ferrohealth/ferroehr@sha256:e1b15849a3792481a7f16680081b1ae6a2d7160d66e5cb1657fcef5cccfed0dc
+    depends_on:
+      ferroehr-postgres:
+        condition: service_healthy
+    environment:
+      FERROEHR__DB__URL: postgres://ferroehr:ferroehr@ferroehr-postgres:5432/ferroehr
+      FERROEHR__USAGE_REPORT__ENABLED: "false"
+      FERROEHR_CONFIG: /etc/ferroehr/ferroehr.toml
+      # The SMART resource-server role. The discovery document is built from
+      # the issuer's metadata, and a key-set file carries none, so the
+      # committed metadata document supplies its endpoints.
+      FERROEHR__SMART__ENABLED: "true"
+      FERROEHR__SMART__ISSUER_METADATA_FILE: /etc/ferroehr/smart-issuer-metadata.json
+      # Every services.*.baseUrl is absolute (master04 §Services), so the
+      # server needs the origin the instrument reaches it at.
+      FERROEHR__SMART__PUBLIC_BASE_URL: "http://127.0.0.1:${FERROEHR_SMART_PORT:-8094}"
+      # The test issuer the IXIT's `scoped_tokens.mint` signs as.
+      FERROEHR__AUTH__ISSUER: "https://issuer.veredictum.test"
+      FERROEHR__AUTH__AUDIENCE: "veredictum-smart-sut"
+      FERROEHR__AUTH__ALGORITHMS: "RS256"
+      FERROEHR__AUTH__TOKEN_PROFILE: "jwt"
+      FERROEHR__AUTH__JWKS_FILE: /etc/ferroehr/smart-jwks.json
+    volumes:
+      - ./e2e-ferroehr.toml:/etc/ferroehr/ferroehr.toml:ro
+      - ../../catalogue/keys/smart-test-issuer/jwks.json:/etc/ferroehr/smart-jwks.json:ro
+      - ./smart/issuer-metadata.json:/etc/ferroehr/smart-issuer-metadata.json:ro
+    ports:
+      - "127.0.0.1:${FERROEHR_SMART_PORT:-8094}:8080"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/ferroehr", "healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s

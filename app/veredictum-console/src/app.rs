@@ -8,12 +8,12 @@
 //! chrome rendering exactly once around the `<Outlet/>`.
 
 use leptos::prelude::{
-    AutoReload, ClassAttribute, Effect, ElementChild, GlobalAttributes, HydrationScripts, IntoView,
-    LeptosOptions, component, document, view,
+    AutoReload, ClassAttribute, ElementChild, GlobalAttributes, HydrationScripts, IntoView,
+    LeptosOptions, component, view,
 };
 use leptos_meta::{Link, Meta, MetaTags, Title, provide_meta_context};
 use leptos_router::{
-    ParamSegment, StaticSegment,
+    ParamSegment, SsrMode, StaticSegment,
     components::{ParentRoute, Route, Router, Routes},
 };
 
@@ -83,18 +83,6 @@ pub fn DocumentHead(
 pub fn App() -> impl IntoView {
     provide_meta_context();
 
-    // The hydration marker every browser journey waits on before driving a
-    // control: a click landing before hydration attaches its listener is
-    // silently lost. On the root component, so the 404 fallback carries it.
-    Effect::new(|_| {
-        if let Some(body) = document().body() {
-            let outcome = body.set_attribute("data-hydrated", "");
-            // NOTE: no openEHR spec governs this — our own design; a failed
-            // attribute write on a live document has nothing to recover from.
-            drop(outcome);
-        }
-    });
-
     view! {
         // `favicon.ico` is declared because a browser probes that path on every
         // load anyway, and the 404 it logs is a page error the journeys' console
@@ -124,7 +112,16 @@ pub fn App() -> impl IntoView {
                         view=Case
                     />
                     <Route path=StaticSegment("run") view=Run />
-                    <Route path=(StaticSegment("run"), StaticSegment("connect")) view=Connect />
+                    // In order (`ssr/23_ssr_modes`): the connect step must work
+                    // without the client bundle, and an out-of-order Suspense
+                    // still pending at its first poll streams a chunk only a
+                    // script swaps in. Partially blocked was measured to race
+                    // the same way, so every Suspense here renders in place.
+                    <Route
+                        path=(StaticSegment("run"), StaticSegment("connect"))
+                        view=Connect
+                        ssr=SsrMode::InOrder
+                    />
                     <Route path=(StaticSegment("run"), StaticSegment("scope")) view=Scope />
                     <Route path=(StaticSegment("run"), StaticSegment("live")) view=Live />
                     // A run's own address (#386). The same view: the bare path

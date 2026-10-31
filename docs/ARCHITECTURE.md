@@ -2,10 +2,10 @@
 root at the 2026-08-26 split, from FerroEHR's `docs/conformance/cnf-design.md`,
 where the instrument was built as a workspace member. It is the design record
 the runner implements — in particular the §8.14 performance machinery: the
-population-anchored volumetric class model (POC 2 · S 15 · L 150 · R 1,500
-peak arrivals/s floors, the p99 <= 1 s SLO), the workload derivation from
-OECD/Eurostat/NHS statistics, and the hospital-simulation journey
-decomposition.
+traffic emulation that walks a load ladder to the knee, the plateau limits
+(p99 <= 1 s), the population-anchored reading of a knee (≈13 peak
+arrivals/s per 100k population), and the workload derivation from
+OECD/Eurostat/NHS statistics.
 
 PERMANENT (owner rulings 2026-07-22 + 2026-07-23, carried across the split).
 Never delete it, and never file it under a plans directory: it is not
@@ -37,7 +37,8 @@ exactly as written. -->
 
 *The design record of the CNF 2.0 framework this repository implements:
 the machine-readable conformance schedule, the pure verdict pipeline, the
-profiles and certificate, and the measured performance-class model. Every
+BASE and OPTIONS reading of a result, the certificate, and the measured
+performance model. Every
 claim was verified 2026-07-21 against the sources in the Appendix (source
 register), through repeated independent audit rounds (openEHR spec
 conformance, ISO, legal/regulatory, internal consistency, implementability),
@@ -72,8 +73,9 @@ model that killed it:
 
 1. **Govern and resource it so it cannot stall again** (§12): a chartered
    maintainer group under openEHR International (voted decisions, no
-   single-vendor majority), openEHR International owning repo/registry/
-   trademark, recurring program funding, ≥2 competing vendors co-authoring
+   single-vendor majority), openEHR International owning the repository, the
+   hosted instrument with its signing key, and the trademark, recurring
+   program funding, ≥2 competing vendors co-authoring
    the schema before ratification.
 2. **A machine-readable Test Schedule as the single normative source**
    (§8): one versioned catalogue — in ISO terms the Abstract Test Suite —
@@ -180,10 +182,10 @@ with T Beale) and 0.8.6 (24 Mar 2022, "Improved headings based on openEHR
 Service Model", his alone). Those three revisions made master06–09 the
 fleshed core §8 draws on, and
 `guide/master00-amendment_record.adoc` names him with T Beale on the
-Conformance Guide's initial writing. Recounted against this repository on
-2026-08-29: **127 of the 1146 case cores cite master06, master07, master08 or
-master09** (22 / 31 / 40 / 34 respectively), and 349 cite some chapter of the
-Test Schedule.
+Conformance Guide's initial writing. Recounted on 2026-08-29 against the
+catalogue as it stood before the cut-over (#604): **127 of its 1146 case cores
+cited master06, master07, master08 or master09** (22 / 31 / 40 / 34
+respectively), and 349 cited some chapter of the Test Schedule.
 
 Pablo Pazos wrote the original EHRbase conformance tests in 2019 at Hannover
 Medical School. The Robot battery of §3.3 is that work: 179 of its 223 files
@@ -241,7 +243,7 @@ the 2021–22 era never carried forward, recovered into this design: the
 maximal-coverage end-to-end template test and scenario/lifecycle suites
 (§11.2–3), the Enterprise dimension — data portability, EHR
 merge/split/move, cross-enterprise sync (§11.11) — the performance/
-volumetric classes made testable (§8.14), and the Security & Privacy BASIC
+volumetric dimension made measurable (§8.14), and the Security & Privacy BASIC
 rung (§8.15). Its functional levels 1/2/3+O were superseded by the Profiles
 book's CORE/STANDARD/OPTIONS.
 
@@ -250,7 +252,8 @@ remains the oldest open requirements list; its asks are answered in the
 design: computable Conformance Statements as the first artifact (§8.10),
 certificate governance — who creates/grants/verifies (§9), scope discipline
 via ISO/IEC 25010 with no manual testing (§6.3, §7),
-no conceptual REST hard-coding (the §8.3/§8.4 case-core/binding split), and
+no conceptual REST hard-coding (a case's steps call the released ITS-REST
+operations by `operationId`, never a hand-written path, §15.2), and
 precise archetype-validation conformance points (§8.9 pilot 5, §11).
 
 ## 5. Prior art — how other standards run conformance
@@ -289,7 +292,7 @@ ISO/IEC 17067* rather than home-grown.
 | "The Statement selects which schedule cases apply" | **ICS-driven test selection**; checking the Statement's internal legality = **static conformance review** | ISO/IEC 9646-1/-7 |
 | The product / the deployed system | **IUT** / **SUT** | ISO/IEC 9646-1 |
 | A run's outcome | **verdicts** (pass / fail / inconclusive) + the **conformance test report** | ISO/IEC 9646-1; report shape per ISO/IEC/IEEE 29119-3 |
-| Registry / self-certification rungs | **First-party attestation** (SDoC) | ISO/IEC 17000; 17050-1/-2 |
+| Published-statement and self-declaration rungs (§9, rungs 0 and 1) | **First-party attestation** (SDoC) | ISO/IEC 17000; 17050-1/-2 |
 | Community verification rung | **Witnessed peer verification** — ISO defines no "second-party attestation"; genuinely second-party only when the witness is a purchaser/user | ISO/IEC 17000 (party definitions) |
 | Accredited assessment rung | **Third-party attestation → certification** by an **ISO/IEC 17065** body using an **ISO/IEC 17025** lab | ISO/IEC 17065; 17025 |
 | The program itself | A **conformity-assessment scheme** (ISO/IEC 17000 §3), openEHR International as **scheme owner**; only the third-party rung is an ISO/IEC 17067 product-certification scheme (Type 1a initially; **Type 5** — type testing + process assessment + surveillance — if ongoing certification ships) | ISO/IEC 17000; ISO/IEC 17067 (third-party rung only) |
@@ -314,12 +317,14 @@ Conformance under CNF 2.0 attests exactly two ISO/IEC 25010 characteristics
 - **Functional suitability** (completeness + correctness against the openEHR
   specifications) — the functional + content schedules (§8).
 - **Performance efficiency** — the performance & volumetrics schedule
-  (§8.14): measured pass/fail class ratings (POC/S/L/R) under normative
-  workloads on declared environments. NOTE: the current Conformance Guide
+  (§8.14): a measured reading under a declared traffic mix on a recorded
+  environment, written to a `perf-result` (the knee, its latency
+  percentiles and the population band it could serve), re-derived from its
+  histograms and never a pass or fail. NOTE: the current Conformance Guide
   excludes performance ("Non-functional conformance (performance, etc) is
   not addressed by this guide" — `guide/master03-overview.adoc`); CNF 2.0
-  deliberately extends the scope
-  here, siding with the 2017 schedule's multi-dimensional certificate — an
+  deliberately extends the scope here, as the 2017 schedule did, by
+  measuring performance beside the conformance result, never inside it — an
   explicit SEC decision item. Measures follow ISO/IEC 25023.
 
 The Security & Privacy family (§8.15) sits **inside** functional
@@ -418,11 +423,11 @@ Honest implications:
   never a competitor to it.
 - **Architectural alignment is free**: EHDS Art 40 mandates precisely the
   shape CNF 2.0 proposes (automated, open-source, self-run testing +
-  self-assessed declaration + public registry). Building CNF 2.0 in that shape
+  self-assessed declaration). Building CNF 2.0 in that shape
   makes openEHR conformance culturally and procedurally compatible with what
   every European vendor will be doing anyway from 2027.
-- **Timing**: the program needs to exist — visibly, with a registry and a
-  running suite — before the March 2027 implementing acts and the 2029/2031
+- **Timing**: the program needs to exist — visibly, with a running suite
+  and vendors publishing their own statements — before the March 2027 implementing acts and the 2029/2031
   application waves define "conformity" habits without openEHR in the room.
 
 ## 7. Design principles for CNF 2.0
@@ -453,8 +458,8 @@ Honest implications:
 3. **Harness independence by construction.** Catalogue + data sets + schemas +
    verdict rules are the contract; every runner is a downstream implementation
    verified against a shared reference pack (§8.12). No harness is normative.
-4. **Verdicts are computed, never asserted.** Profile verdicts derive
-   mechanically from the results file. A certificate row a human typed is a
+4. **Verdicts are computed, never asserted.** Verdicts, and the BASE and
+   OPTIONS reading of a result, derive mechanically from the results file. A certificate row a human typed is a
    defect.
 5. **Honesty is structural.** Coverage is a mandate, not a pass rate — every
    wire behaviour the spec defines is its own case, and the bounds + honest
@@ -462,8 +467,9 @@ Honest implications:
    cited; a spec silence or defect becomes an `upstream-report` issue or a
    declared option (§15.6), never a silent edit, and **every carried
    divergence is reported back upstream** (§13), never absorbed. Both directions are
-   published when comparing products; registry rows are labelled by attestation
-   level so self-declaration is never mistaken for certification.
+   published when comparing products; a published result names its
+   attestation rung (§9), so self-declaration is never mistaken for
+   certification.
 6. **Vendor neutrality is testable.** No vendor image names, endpoints, auth
    flows, or behavioural quirks in normative artifacts; fixtures carry spec
    citations, not `EhrBase ref:` markers; reference expectations are
@@ -1107,17 +1113,17 @@ Cross-cutting rules:
   rulings 2026-10-31, #919). Each badge says `self-run`, names the
   specification profile its result was judged under, and links to the run
   whose recorded results are its evidence. No badge is a certificate, and no
-  server draws one. The registry's mark, once a registry exists, is governed
-  as follows. **The badge is a licensed ordinary trademark, not a registered
-  certification mark**: an EU certification mark legally asserts that the
+  server draws one. An "openEHR Conformant" mark is the scheme owner's to
+  govern, as follows. **The mark is a licensed ordinary trademark, not a
+  registered certification mark**: an EU certification mark legally asserts that the
   proprietor *certifies* (EUTMR (EU) 2017/1001 Art 83) — incompatible with
   self-declared rungs — and its owner may not carry on business involving
   the certified goods (Art 83(2)). The OpenID model applies instead:
   revocable, royalty-free trademark licence with prescribed per-rung usage
   statements, goodwill to openEHR International, mandatory removal on
   supersession or withdrawal; wording implying certification is licensed at
-  rung 3 only. A rung-0/1 badge signifies a self-declaration *registered by*
-  openEHR International, never certification *by* it.
+  rung 3 only. A mark on a rung-0/1 result signifies a self-declaration,
+  never certification *by* openEHR International.
 - **No registry, so no registry terms**: Veredictum lists no product and
   publishes no result (§15.10). The hosted instrument issues and keeps the
   certificate of a vendor's run and gives the vendor a copy; the certificate
@@ -1140,7 +1146,7 @@ The deliverable a tendering authority can use the moment rung 0 exists:
   > *The offered product must demonstrate openEHR conformance to [CNF
   > schedule release ≥ R, capabilities C and option arms O, technology
   > profile including canonical JSON], evidenced by a published openEHR Conformance Statement
-  > at registry rung ≥ 1 for the product version offered, **or by equivalent
+  > at attestation rung ≥ 1 for the product version offered, **or by equivalent
   > means of proof** (including a manufacturer's technical dossier or an
   > equivalent conformance report) demonstrating conformity to the same test
   > cases. The awarding authority will accept any evidence that objectively
@@ -1159,22 +1165,24 @@ The deliverable a tendering authority can use the moment rung 0 exists:
   label conditions; the equivalence duty applies regardless. This replaces
   the Catalonia-style behavioural-SLA workaround with a lawful,
   referenceable requirement.
-- **Comparability**: the registry renders statements side-by-side per profile
-  and tech profile (mechanically comparable because the statements are
-  computable — the 2021 "vendor-neutral comparison site" idea, scoped to
-  what's honest).
+- **Comparability**: statements and results are computable documents with
+  published schemas, so an authority compares two vendors' submissions field
+  by field, capability by capability and tech profile by tech profile. The
+  instrument publishes no comparison itself (§15.10); the authority reads
+  the documents the vendors supplied.
 - **The dispute path** (§9) gives an authority a defined action when two green
   statements conflict with lived experience — the answer v1 lacked.
-- **Version discipline** (§8.10) tells the authority exactly what a listing
+- **Version discipline** (§8.10) tells the authority exactly what a statement
   covers when the vendor ships the next release.
 
 ## 11. Gap-fill roadmap (content plan for the schedule itself)
 
-Ordered by procurement value; each item is a bounded, assignable chapter task
-once §8.3 makes cases enumerable files:
+Ordered by procurement value; each item is a bounded, assignable chapter task,
+landing as Arazzo workflows in a capability folder under `catalogue/cases/`
+(§15.3):
 
 1. **Querying / AQL (master11 + master05)** — the flagship gap. The
-   result-set equivalence rules are **written, normative, and cited in §8.6**
+   result-set equivalence rules are **written, normative, and cited in §15.11**
    (spec-grounded rules marked [spec]; the four points the specs are silent
    on carried as [legislated] proposed defaults) — U5's gate is SEC
    ratification of the [legislated] points, not de-novo design. Seed
@@ -1191,10 +1199,10 @@ once §8.3 makes cases enumerable files:
 3. **Scenario/lifecycle suites** (the 2017 "EHR API lifecycle test"):
    realistic multi-contribution journeys — admission (admin COMPOSITION) →
    persistent medication list → event vital signs → update both → retrieve
-   all versions in both formats — encoded as ordinary §8.3 flows; these
+   all versions in both formats — encoded as ordinary workflows (§15.2); these
    catch cross-operation state defects the per-operation cases cannot.
 4. **The performance & volumetrics chapter** (§8.14): normative workload
-   definitions + the provisional class parameters now tabled in §8.14
+   definitions + the provisional reference mix and plateau limits now tabled in §8.14
    (derivation shown; SEC ratifies or amends), the synthesized scale corpora
    shared with §11.11, and the measurement schema. Ships after the functional pilot
    proves the artifact discipline; the schedule extension of the Guide's
@@ -1250,8 +1258,9 @@ once §8.3 makes cases enumerable files:
 The 2021–22 effort had board sponsorship and still stalled; this section is
 the difference between "nice idea, same risk" and "resourced program".
 
-- **Ownership**: the normative repo (specifications-CNF), the registry, the
-  "openEHR Conformant" wordmark/badge, and the scheme rules are owned by
+- **Ownership**: the normative repo (specifications-CNF), the hosted
+  instrument and its signing key (§15.10), the "openEHR Conformant"
+  wordmark, and the scheme rules are owned by
   **openEHR International** (the CIC already operating the specification
   program). No vendor owns any normative artifact.
 - **The CNF maintainer group**: chartered under the SEC; 5–7 seats with **no
@@ -1261,13 +1270,13 @@ the difference between "nice idea, same risk" and "resourced program".
   International's own staff. Charter published in the repo before the first
   normative merge.
 - **Change control**: RFC process for schema/scheme changes; schedule releases
-  cut like spec releases (versioned, changelogged); CI (§8.13) makes
-  community PRs safe to accept, which is what actually de-bottlenecks a
-  volunteer group.
+  cut like spec releases (versioned, changelogged); CI running the §15.9
+  gates makes community PRs safe to accept, which is what actually
+  de-bottlenecks a volunteer group.
 - **IP**: donated cases/schemas/corpus items enter under the spec repo's
   licence with contributor licence hygiene (no retained vendor copyright in
   normative artifacts, no patent encumbrance).
-- **Funding**: a recurring program line (registry hosting, CI, maintainer
+- **Funding**: a recurring program line (hosting the instrument, CI, maintainer
   coordination, event slots) funded from openEHR International's program
   budget + rung-1 attestation fees — explicitly *not* from one vendor's
   project budget, because §4 stall-cause 2 is how that ends. Gap-fill chapters can be
@@ -1281,7 +1290,7 @@ the difference between "nice idea, same risk" and "resourced program".
   2–3 maintainer volunteers — before the SEC agenda item, so the SEC decides
   on a resourced plan, not a hope.
 - **Impartiality by structure**: openEHR International is scheme owner and
-  registrar only. It never tests, never certifies (rung 3 is delegated to
+  rung-1 administrator only. It never tests, never certifies (rung 3 is delegated to
   accredited bodies; rung 1 is administrative). A spec author grading its own
   ecosystem is the 17065 impartiality failure the IHE/ONC split exists to
   avoid.
@@ -1294,9 +1303,8 @@ the difference between "nice idea, same risk" and "resourced program".
    artifact set and the eight encoded pilots.
 3. **SEC agenda item**: adopt-the-format decision, the maintainer-group
    charter, the AQL chapter blessed as the pilot.
-4. **Execution**: the §14.1 PR series; the registry the moment two products
-   publish (FerroEHR volunteers; upstream EHRbase, already assessed by this
-   instrument, is the natural second); an EHRCON26 conformance slot; EHDS liaison per
+4. **Execution**: the §14.1 PR series; two products publishing their own
+   statements and results (FerroEHR volunteers); an EHRCON26 conformance slot; EHDS liaison per
    §6.5 (track the Art 36/15 implementing acts; revisit the EEHRxF-seam
    profile when they land in 2027).
 
@@ -1314,14 +1322,14 @@ the spec's own defects, and reporting them back is how the standard improves.
 
 Success measures: SEC adopts the schedule + charter; ≥2 independent runners
 pass the §8.12 verification pack; the AQL chapter ships with normative
-equivalence rules; ≥3 products on the public registry; CNF Release 1.0.0
+equivalence rules; ≥3 products publishing their own statements and results; CNF Release 1.0.0
 finally cut — before the March 2027 EHDS implementing acts.
 
 ## 14. Production implementation — the plan, and what shipped
 
 Two tracks, both production-grade from day one — no throwaway prototype. The
 in-repo track did not wait for upstream adoption: the reference runner
-implements the §8 artifact set as its production format, which is
+implements the §15 catalogue design as its production format, which is
 simultaneously the proof the upstream proposal ships with. **Status
 (re-verified 2026-08-27): the in-repo track (§14.2) is DELIVERED and
 published; the upstream track (§14.1) has not started and remains the plan.**
@@ -1333,14 +1341,14 @@ acceptance gate:
 
 | PR | Content | Acceptance gate |
 |---|---|---|
-| U1 | The five schedule-artifact schema families (§8.2 #1–5: case cores, bindings, vocabularies incl. the capability options (`catalogue/capabilities.yaml`), corpus manifest, ambiguity register — a living artifact, each carried divergence linked via `upstream_issue` to its outbound report) + the §8.13 CI workflow | Schemas validate the §8.9 pilot files; CI runs on the repo |
-| U2 | master06 (EHR) converted: all 21 cases as case cores + the its-rest bindings for the EHR operations + corpus manifest over the existing EHR fixtures | Generated prose semantically equivalent to the current chapter (human-reviewed diff); zero information loss against the AsciiDoc tables |
-| U3 | master07/08/09 (COMPOSITION/CONTRIBUTION/DIRECTORY) conversion + bindings | Same gate; the versioning cases (§8.9 pilot 4 shape) round-trip |
-| U4 | Content chapters (master15–17) conversion — decision tables as data + the literal grammar + generation recipes | Every existing table row preserved verbatim; grammar parses 100% of existing literals |
-| U5 | **master11/AQL — the first new chapter**: the §8.6 equivalence rules as normative schema text + ~37 cases seeded from ECC QRY/SQR/AQT (25 QRY + 8 SQR + 4 AQT) + the EHRbase AQL corpus | SEC ratifies the §8.6 [legislated] defaults FIRST; every case spec-cited to AQL 1.1 |
-| U6 | **Simplified-Formats chapter** (new): the §8.7 fifteen categories, ~60 cases driven from the master04/05/06 spec-example blocks | Every case cites its simplified_formats section; OPTIONS-profile placement |
-| U7 | statement/results/ixit schemas + verdict rules + the reference verdict implementation + the runner verification pack (transcripts + adjudications) | Two independent runners (ECC + the rescued Robot suite or another vendor's) compute identical verdicts on the pack |
-| U8 | The registry (production, on openehr.org): statement rendering, attestation-level labels, badges, dispute log | First two products listed (FerroEHR + upstream EHRbase baselines) |
+| U1 | The catalogue format: the Arazzo profile with the `x-veredictum-*` extensions (§15.2, §15.4), the capability options (`catalogue/capabilities.yaml`), the condition profile (§15.6), and the §15.9 gates as the CI workflow; a defect or silence in the cited text is an `upstream-report` issue that the citation names in `report:` (§15.4) | The schemas validate this repository's catalogue at zero `validate` findings; CI runs on the repo |
+| U2 | master06 (EHR) converted: all 21 cases as Arazzo workflows in the `ehr` capability folder over the released EHR operations, each case id mapped in `catalogue/id-map.yaml` | Generated prose semantically equivalent to the current chapter (human-reviewed diff); zero information loss against the AsciiDoc tables |
+| U3 | master07/08/09 (COMPOSITION/CONTRIBUTION/DIRECTORY) converted the same way, one capability folder each | Same gate; the versioning cases round-trip |
+| U4 | Content chapters (master15–17) conversion — decision tables as rows files under the literal grammar (§15.7) + generation recipes | Every existing table row preserved verbatim; grammar parses 100% of existing literals |
+| U5 | **master11/AQL — the first new chapter**: the §15.11 equivalence rules as normative text + ~37 cases seeded from ECC QRY/SQR/AQT (25 QRY + 8 SQR + 4 AQT) + the EHRbase AQL corpus | SEC ratifies the §15.11 [legislated] defaults FIRST; every case spec-cited to AQL 1.1 |
+| U6 | **Simplified-Formats chapter** (new): the `simplified_formats` capability folder, cases driven from the master04/05/06 spec-example blocks | Every case cites its simplified_formats section; OPTIONS-profile placement |
+| U7 | statement/results/ixit schemas + verdict rules + the reference verdict implementation + the runner verification pack (recorded HAR exchanges + adjudications) | Two independent runners (ECC + the rescued Robot suite or another vendor's) compute identical verdicts on the pack |
+| U8 | The hosted instrument handed to openEHR International (§15.10): certificate issuance under a key the foundation generates, attestation-rung labels, the dispute path of §9 | Two vendors hold certificates of their own runs |
 
 The performance & volumetrics chapter (§8.14 + §11.4), Demographic
 (master10), and Admin/Messaging (master12/13) follow as U9+ per the §11
@@ -1363,18 +1371,19 @@ below shipped, in this order, first inside FerroEHR and then here:
 
 | WS | Workstream | Content | Done-gate |
 |---|---|---|---|
-| W1 | **Artifact schemas in Rust** | The typed model + validator (now `app/veredictum/src/`) for case cores, bindings, vocabularies (outcomes + the capability options), corpus manifest, ambiguity register; JSON-Schema emission so the same schemas ship upstream in U1. The §8.13 checks become `cargo nextest` guards alongside the existing coverage guard. Scope: assertion-machinery artifacts; the performance case-core schema lands with W7. | Validator rejects every seeded-defect artifact fixture; schemas byte-identical to the U1 set |
+| W1 | **Artifact schemas in Rust** | The typed model + validator (`app/veredictum/src/`) for the catalogue's documents, with JSON-Schema emission under `schemas/` so the same schemas ship upstream in U1. The catalogue checks run as `validate` (§15.9) and as `cargo nextest` guards. Done; the model is the Arazzo catalogue of §15 since #604. | Validator rejects every seeded-defect artifact fixture; schemas byte-identical to the U1 set |
 | W2 | **Catalogue authoring + comparison** | The CNF 2.0 catalogue authored per the framework: official schedule cases first (the §8.9 pilot encodings generalized across master04–09/15–17), then the ECC-original designs that fill genuine gaps — each re-adjudicated to spec-text-only evidence (§11.8) before entry, keeping an `ecc-` namespace pending upstream adoption. Official CNF ids primary; `inventory/ecc-catalog.tsv` retires with the old harness. | **Comparison gate** (not reproduction): committed ECC↔CNF coverage map + comparison report — every difference from the old baseline enumerated and justified against the framework, verdict regressions on equivalent coverage explained, official-schedule coverage ≥ the old harness; cutover, old-harness retirement, and the new baseline follow a reviewed report |
-| W3 | **Data-driven executor** | The engine executes functional case cores directly from the artifact files (flow interpreter: requires-setup, parameter iteration with reset_per_row, captures, outcome mapping via bindings, typed assertions). Hand-written Rust remains only for generation recipes and genuinely non-mechanizable glue — each such exception is registered. Content decision tables execute from the data. The AQL `result_set` assertions execute under the §8.6 equivalence rules (U5 ratifies the [legislated] defaults). | ≥90% of cases run through the interpreter; every exception listed in the report; the W2 comparison report stays green |
+| W3 | **Data-driven executor** | The engine executes the catalogue directly from its files: the Arazzo workflows (§15.2), their rows files (§15.7) and the condition profile (§15.6), with the AQL `result_set` assertions under the §15.11 equivalence rules (U5 ratifies the [legislated] defaults). Hand-written Rust remains only for generation recipes and genuinely non-mechanizable glue. Done; it executes the Arazzo catalogue since #604. | ≥90% of cases run through the interpreter; every exception listed in the report; the W2 comparison report stays green |
 | W4 | **Statement / results / ixit emission** | `results.json` is emitted in the §8.10 schema (per-row outcomes, ambiguity dispositions, runner verification status); `statement.json` (ICS) + `ixit.json` (formalizing `SutDescriptor`) emitted per SUT; the Certificate/Statement/Comparison artifacts render from them; verdict computation moves to the shared pure function. | All of FerroEHR's `docs/conformance/**` artifacts regenerate from the new schemas; the honesty blocks survive; badges derive from the new results |
 | W5 | **Simplified-formats deepening** | The §8.7 blueprint's gap categories 2–9 (node-id algorithm, level removal, the 43 suffix tables, `_`-attributes, `\|raw`, full ctx vocabulary, counters, STRUCTURED style) + deepened 1/10 — ~40 new SF cases, all spec-example-driven, all OPTIONS-profile. | Every master04/05/06 spec-example JSON block exercised; ECC baseline ratchets upward only |
 | W6 | **Runner verification pack** | Author the U7 transcripts + adjudications; ECC self-verifies against them in CI; publish the pack so the Robot suite (and any vendor runner) can prove itself. | ECC passes both pack parts; the pack rejects a deliberately-broken runner build |
-| W7 | **Performance schedule implementation** | The donated benchmark harness's workload generation, knee-finding ladder, and sustained-run procedure re-expressed as §8.14 performance cases + the measurement schema; class verdicts computed into results.json; environment block formalized in ixit.json. | An earned-class run against both SUTs committed; verdicts reproduce the published benchmark artifacts |
+| W7 | **Performance schedule implementation** | The donated benchmark harness's workload generation and knee-finding ladder re-expressed as the §8.14 workloads under `perf/`, the load ladder to the knee, and the measured-run schemas; the host recorded beside each run. Done; the measured run is the ladder to the knee since #892. | A measured run re-judges from its recorded histograms (§8.14) |
 
 Sequencing was W1 → W2 → {W3, W4} → {W5, W6, W7}, all delivered. The
 standing gates carried over and grew: the guard tier, the full Rust tier,
-`validate` at zero findings over 1103 cases / 247 bindings, the fuzz lane,
-and the ratchet rule (the baseline only moves upward).
+`validate` at zero findings over 1689 workflows in 219 documents (recounted
+2026-10-31), the fuzz lane, and the ratchet rule (the baseline only moves
+upward).
 
 **Shipped since the split, beyond the W-plan** (each on this repository's
 tracker): the deliberate library API (`veredictum::pipeline`, one seam per
@@ -2259,8 +2268,8 @@ embedded `{$…}` expression, which the parser check reads as a placeholder.
   the ITS-REST rule that a recognized but not allowed method "SHOULD be `405
   Method Not Allowed`". A rule only another standard states (an HTTP RFC) is
   asserted only where the openEHR text adopts it.
-- **One root.** `veredictum validate --root catalogue` checks the catalogue;
-  the former case-core format was retired at the cut-over (#604).
+- **One root.** `veredictum validate --root catalogue` checks the whole
+  catalogue, and no second catalogue format exists beside it.
 
 ## Appendix — source register
 

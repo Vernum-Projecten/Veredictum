@@ -505,6 +505,7 @@ mod tests {
             failed,
             warning,
             errored,
+            errored_against_server: 0,
             skipped,
         }
     }

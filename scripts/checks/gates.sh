@@ -86,6 +86,8 @@ gate guard "gates cover CI"           "bash scripts/checks/gates-cover-ci.sh"
 gate guard "gates self-test"          "bash scripts/checks/gates.sh --self-test"
 gate guard "the console's engine pin" "bash scripts/release/check-console-pin.sh"
 gate guard "engine pin self-test"     "bash scripts/release/check-console-pin.sh --self-test"
+gate guard "GitLab CI template"       "bash scripts/release/check-gitlab-template.sh" yq
+gate guard "GitLab template self-test" "bash scripts/release/check-gitlab-template.sh --self-test" yq
 gate guard "citation version"         "bash scripts/checks/citation-version.sh"
 gate guard "citation version self-test" "bash scripts/checks/citation-version.sh --self-test"
 gate guard "zenodo metadata"          "bash scripts/render/zenodo-json.sh --check" jq
@@ -135,6 +137,7 @@ gate slow  "console journeys"         "bash scripts/ui-e2e.sh" docker
 # The GitHub Action's CI job drives the action through the runner, which no
 # local command can; what runs here is the two images that job builds.
 gate slow  "action stand-in images"   "bash scripts/action/stand-in-image.sh" docker
+gate slow  "SMART lane"               "bash scripts/smart-lane.sh" docker
 gate slow  "fuzz harnesses build"     "cargo +nightly fuzz build --target \$(rustc -vV | sed -n 's|^host: ||p')" cargo-fuzz
 
 

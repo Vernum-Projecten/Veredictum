@@ -190,7 +190,12 @@ pub fn pin_run_screen(screen: RunScreen) -> RunScreen {
 
 /// The live run as a capture shows it.
 ///
-/// The clock, the estimate and the run's own address are stand-ins. The
+/// Capture mode changes only what a surface DISPLAYS. The run's id is both a
+/// displayed fact and the address every control on the screen posts back, so
+/// the view carries the two apart: [`JobView::shown_id`] is pinned, and
+/// [`JobView::id`] stays the run's own, so Cancel reaches the run it names.
+///
+/// The clock, the estimate and the displayed id are stand-ins. The
 /// counter, the case now driving, the engine's output and the finished tally
 /// are the run's own, with the minted id every path in them names rewritten
 /// to the pinned one: the output directory carries that id, so the tail and
@@ -199,7 +204,7 @@ pub fn pin_run_screen(screen: RunScreen) -> RunScreen {
 pub fn pin_job(view: JobView) -> JobView {
     let minted = view.id.to_string();
     JobView {
-        id: PINNED_RUN_ID,
+        shown_id: PINNED_RUN_ID,
         elapsed_ms: PINNED_ELAPSED_MS,
         eta_ms: view.eta_ms.map(|_| PINNED_ELAPSED_MS),
         tail: view
@@ -219,39 +224,33 @@ pub fn pin_job(view: JobView) -> JobView {
 ///
 /// Its directory and the document inside it are named by the run's own id, so
 /// both are re-derived from the pinned one; the tally the record carries is
-/// the record's own.
+/// the record's own. As for [`pin_job`], only the displayed id is pinned: the
+/// permalink still links to and copies the run's own address.
 #[must_use]
 pub fn pin_recorded(run: RecordedRun) -> RecordedRun {
     let minted = run.id.to_string();
     RecordedRun {
-        id: PINNED_RUN_ID,
+        shown_id: PINNED_RUN_ID,
         dir: pin_run_paths(&run.dir, &minted),
         results: run.results.map(|results| RecordedResults {
             base_url: String::from(PINNED_ENDPOINT),
             results_path: pin_run_paths(&results.results_path, &minted),
             ..results
         }),
+        ..run
     }
 }
 
 /// The results screen as a capture shows it.
 ///
 /// The screen prints the address the run drove, which is the fixture
-/// server's ephemeral port, and a certificate's download path names the
-/// run's id; the tallies and the rows are the run's own.
+/// server's ephemeral port; the tallies and the rows are the run's own. A
+/// certificate's download path is an address the link follows and the screen
+/// never prints, so it stays the run's own.
 #[must_use]
 pub fn pin_results(screen: ResultsScreen) -> ResultsScreen {
-    let certificate = match screen.certificate {
-        crate::record_api::CertificateNotice::Issued(_) => {
-            crate::record_api::CertificateNotice::Issued(crate::certificates::download_href(
-                &PINNED_RUN_ID.to_string(),
-            ))
-        }
-        other => other,
-    };
     ResultsScreen {
         base_url: String::from(PINNED_ENDPOINT),
-        certificate,
         ..screen
     }
 }
@@ -349,6 +348,7 @@ mod tests {
     fn driving() -> JobView {
         JobView {
             id: RunId::NIL,
+            shown_id: RunId::NIL,
             sut_name: String::from("example-cdr"),
             sut_version: String::from("1.0.0"),
             status: JobStatus::Running,
@@ -374,17 +374,42 @@ mod tests {
         let minted: RunId = MINTED.parse()?;
         let pinned = pin_job(JobView {
             id: minted,
+            shown_id: minted,
             ..driving()
         });
         assert_eq!(pinned.elapsed_ms, PINNED_ELAPSED_MS);
         assert_eq!(pinned.eta_ms, Some(PINNED_ELAPSED_MS));
-        assert_eq!(pinned.id, PINNED_RUN_ID, "the address is a fresh UUID");
+        assert_eq!(
+            pinned.shown_id, PINNED_RUN_ID,
+            "the displayed id is a fresh UUID"
+        );
         assert_eq!(pinned.completed, 7);
         assert_eq!(pinned.total, 11);
         assert_eq!(
             pinned.current_case.as_deref(),
             Some("I_EHR_SERVICE.create_ehr-main")
         );
+        Ok(())
+    }
+
+    /// Capture mode changes what is displayed, never an address a control
+    /// posts back: the pinned view still names the run, so its Cancel reaches
+    /// it (#404).
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    #[test]
+    fn a_pinned_job_keeps_the_address_its_controls_post() -> Result<(), crate::run_job::RunIdError>
+    {
+        let minted: RunId = MINTED.parse()?;
+        let pinned = pin_job(JobView {
+            id: minted,
+            shown_id: minted,
+            ..driving()
+        });
+        assert_eq!(pinned.id, minted, "Cancel posts the run's own id");
+        assert_ne!(pinned.id, pinned.shown_id, "only the display is pinned");
         Ok(())
     }
 
@@ -446,6 +471,7 @@ mod tests {
         let RunScreen::Recorded(pinned) =
             pin_run_screen(RunScreen::Recorded(Box::new(RecordedRun {
                 id: minted,
+                shown_id: minted,
                 dir: format!("target/out/console-job-{MINTED}"),
                 results: Some(RecordedResults {
                     base_url: String::from("http://cdr.test/openehr/v1"),
@@ -459,7 +485,8 @@ mod tests {
         else {
             panic!("a recorded run stays recorded");
         };
-        assert_eq!(pinned.id, PINNED_RUN_ID);
+        assert_eq!(pinned.shown_id, PINNED_RUN_ID, "the displayed id is pinned");
+        assert_eq!(pinned.id, minted, "the permalink links to the run itself");
         assert_eq!(
             pinned.dir,
             format!("target/out/console-job-{PINNED_RUN_ID}")

@@ -47,7 +47,8 @@ pub const EXCLUDED_ROOT: &str = "specs/openehr/SM/";
 pub struct Citation {
     /// The vendored file, relative to the repository root.
     pub source: String,
-    /// The element (an OAS file) or the section heading (a docs file).
+    /// The element (an OAS file), the named top-level definition (an XML
+    /// Schema file) or the section heading (a docs file).
     pub section: String,
     /// The sentence, copied verbatim from the source.
     pub quote: String,
@@ -528,7 +529,11 @@ impl<'a> QuoteChecker<'a> {
     /// `section` is a top-level key, or a JSON Pointer when it starts with
     /// `/`. The quote must occur in the string content of that element, or,
     /// when the element is a number, a boolean or `null`, the quote read as
-    /// JSON must be that value. Any other source is docs text:
+    /// JSON must be that value. In an XML Schema (`.xsd`) source, which has no
+    /// headings, `section` names one top-level `xs:element`,
+    /// `xs:complexType` or `xs:simpleType` by its `name`, optionally after
+    /// its kind (`complexType COMPOSITION`), and the quote must occur in that
+    /// definition's source text. Any other source is docs text:
     /// `section` must name exactly one of its headings, by title or by a
     /// `Parent > Child` path of titles, and the quote must occur under that
     /// heading, before the next heading of the same or a higher level.
@@ -678,7 +683,23 @@ impl<'a> QuoteChecker<'a> {
             })?),
             _ => None,
         };
-        let haystack = if let Some(document) = structured {
+        let haystack = if extension.as_deref() == Some("xsd") {
+            xsd_definition_text(&text, section).map_err(|miss| match miss {
+                XsdMiss::Malformed(reason) => CiteError::Unreadable {
+                    file: source.to_owned(),
+                    reason,
+                },
+                XsdMiss::Section(SectionMiss::NotFound) => CiteError::SectionNotFound {
+                    file: source.to_owned(),
+                    section: section.to_owned(),
+                },
+                XsdMiss::Section(SectionMiss::Ambiguous(headings)) => CiteError::AmbiguousSection {
+                    file: source.to_owned(),
+                    section: section.to_owned(),
+                    headings,
+                },
+            })?
+        } else if let Some(document) = structured {
             match element(&document, source, section)? {
                 leaf @ (Value::Null | Value::Bool(_) | Value::Number(_)) => {
                     return Ok(Resolved::Leaf(leaf.clone()));
@@ -956,6 +977,156 @@ fn heading_section_text(text: &str, section: &str) -> Result<String, SectionMiss
         .copied()
         .collect();
     Ok(body.join("\n"))
+}
+
+/// The kinds of top-level XML Schema definition an `.xsd` citation may name
+/// (W3C XML Schema 1.1 Part 1 §3.3.2, §3.4.2, and Part 2 §4.1.2: each is
+/// declared by an element item carrying a `name`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum XsdKind {
+    /// An `xs:element` declaration.
+    Element,
+    /// An `xs:complexType` definition.
+    ComplexType,
+    /// An `xs:simpleType` definition.
+    SimpleType,
+}
+
+impl XsdKind {
+    /// The kind whose element local name is `local`, if any.
+    fn of_local_name(local: &str) -> Option<Self> {
+        match local {
+            "element" => Some(Self::Element),
+            "complexType" => Some(Self::ComplexType),
+            "simpleType" => Some(Self::SimpleType),
+            _ => None,
+        }
+    }
+
+    /// The kind a section's leading word names, if any.
+    fn of_word(word: &str) -> Option<Self> {
+        Self::of_local_name(word)
+    }
+}
+
+/// Why an `.xsd` section resolves to no single definition.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum XsdMiss {
+    /// The schema is not well-formed XML.
+    Malformed(String),
+    /// No definition, or more than one, carries the name.
+    Section(SectionMiss),
+}
+
+/// One top-level definition of a schema: its kind, its `name`, and the byte
+/// span of its source text.
+struct XsdDefinition {
+    kind: XsdKind,
+    name: String,
+    start: usize,
+    end: usize,
+}
+
+/// The source text of the one top-level `xs:element`, `xs:complexType` or
+/// `xs:simpleType` of the schema `text` that `section` names.
+///
+/// `section` is a `name`, or a kind and a `name` separated by one space
+/// (`complexType COMPOSITION`), since an element declaration and a type
+/// definition may share a name. A name that matches more than one definition
+/// is refused as ambiguous rather than resolved to the first.
+fn xsd_definition_text(text: &str, section: &str) -> Result<String, XsdMiss> {
+    let (kind, name) = match section.split_once(' ') {
+        Some((word, name)) if XsdKind::of_word(word).is_some() => {
+            (XsdKind::of_word(word), name.trim())
+        }
+        _ => (None, section.trim()),
+    };
+    let matched: Vec<XsdDefinition> = xsd_definitions(text)?
+        .into_iter()
+        .filter(|d| d.name == name && kind.is_none_or(|k| k == d.kind))
+        .collect();
+    let found = match matched.as_slice() {
+        [] => return Err(XsdMiss::Section(SectionMiss::NotFound)),
+        [one] => one,
+        many => return Err(XsdMiss::Section(SectionMiss::Ambiguous(many.len()))),
+    };
+    text.get(found.start..found.end)
+        .map(str::to_owned)
+        .ok_or_else(|| {
+            XsdMiss::Malformed("a definition's span is not on a character boundary".to_owned())
+        })
+}
+
+/// Every top-level named definition of the schema `text`, in document order.
+fn xsd_definitions(text: &str) -> Result<Vec<XsdDefinition>, XsdMiss> {
+    use quick_xml::events::Event;
+    let malformed = |error: &dyn fmt::Display| XsdMiss::Malformed(error.to_string());
+    let position = |reader: &quick_xml::Reader<&[u8]>| {
+        usize::try_from(reader.buffer_position()).map_err(|e| malformed(&e))
+    };
+    let mut reader = quick_xml::Reader::from_str(text);
+    let mut depth: usize = 0;
+    let mut open: Option<(XsdKind, String, usize)> = None;
+    let mut out = Vec::new();
+    loop {
+        let before = position(&reader)?;
+        let event = reader.read_event().map_err(|e| malformed(&e))?;
+        match event {
+            Event::Start(start) => {
+                if depth == 1 {
+                    open = named_definition(&start)?.map(|(kind, name)| (kind, name, before));
+                }
+                depth = depth.saturating_add(1);
+            }
+            Event::Empty(start) if depth == 1 => {
+                if let Some((kind, name)) = named_definition(&start)? {
+                    out.push(XsdDefinition {
+                        kind,
+                        name,
+                        start: before,
+                        end: position(&reader)?,
+                    });
+                }
+            }
+            Event::End(_) => {
+                depth = depth
+                    .checked_sub(1)
+                    .ok_or_else(|| malformed(&"an end tag closes no element"))?;
+                if depth == 1
+                    && let Some((kind, name, start)) = open.take()
+                {
+                    out.push(XsdDefinition {
+                        kind,
+                        name,
+                        start,
+                        end: position(&reader)?,
+                    });
+                }
+            }
+            Event::Eof if depth == 0 => return Ok(out),
+            Event::Eof => return Err(malformed(&"the schema ends with elements still open")),
+            _ => {}
+        }
+    }
+}
+
+/// The kind and `name` of `start` when it is a named definition element.
+fn named_definition(
+    start: &quick_xml::events::BytesStart<'_>,
+) -> Result<Option<(XsdKind, String)>, XsdMiss> {
+    let Some(kind) = XsdKind::of_local_name(start.local_name().as_ref()) else {
+        return Ok(None);
+    };
+    let attribute = start
+        .try_get_attribute("name")
+        .map_err(|e| XsdMiss::Malformed(e.to_string()))?;
+    // NOTE: no openEHR spec governs this — our own design; an unnamed top-level
+    // definition (an anonymous type cannot be top-level) is legitimately not citable by name.
+    let Some(attribute) = attribute else {
+        return Ok(None);
+    };
+    let name = attribute.value.into_owned();
+    Ok(Some((kind, name)))
 }
 
 #[cfg(test)]
@@ -1872,5 +2043,133 @@ mod tests {
             citation_of(Some(&extensions)),
             Err(CiteError::Malformed(_))
         ));
+    }
+
+    const XSD: &str = "specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/X.xsd";
+
+    fn xsd_repo() -> assert_fs::TempDir {
+        use assert_fs::prelude::*;
+        let dir = assert_fs::TempDir::new().unwrap();
+        dir.child(XSD)
+            .write_str(concat!(
+                "<?xml version=\"1.0\"?>\n",
+                "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n",
+                "  <xs:element name=\"composition\" type=\"COMPOSITION\"/>\n",
+                "  <xs:complexType name=\"COMPOSITION\">\n",
+                "    <xs:sequence>\n",
+                "      <xs:element name=\"language\" type=\"CODE_PHRASE\"/>\n",
+                "    </xs:sequence>\n",
+                "  </xs:complexType>\n",
+                "  <xs:simpleType name=\"Shared\"><xs:restriction base=\"xs:string\"/></xs:simpleType>\n",
+                "  <xs:element name=\"Shared\" type=\"Shared\"/>\n",
+                "  <xs:complexType name=\"EVENT_CONTEXT\">\n",
+                "    <xs:sequence>\n",
+                "      <xs:element name=\"setting\" type=\"DV_CODED_TEXT\"/>\n",
+                "    </xs:sequence>\n",
+                "  </xs:complexType>\n",
+                "</xs:schema>\n",
+            ))
+            .unwrap();
+        dir.child("specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Broken.xsd")
+            .write_str(
+                "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:element name=\"a\">",
+            )
+            .unwrap();
+        dir
+    }
+
+    #[test]
+    fn an_xsd_citation_names_a_definition_and_quotes_inside_it() {
+        let dir = xsd_repo();
+        let mut checker = QuoteChecker::new(dir.path());
+        assert_eq!(
+            checker.check(&cite(
+                XSD,
+                "COMPOSITION",
+                "<xs:element name=\"language\" type=\"CODE_PHRASE\"/>"
+            )),
+            Ok(())
+        );
+        assert_eq!(
+            checker.check(&cite(XSD, "element composition", "type=\"COMPOSITION\"")),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn a_seeded_unknown_xsd_definition_is_refused() {
+        let dir = xsd_repo();
+        let mut checker = QuoteChecker::new(dir.path());
+        for section in [
+            "COMPOSITIONS",
+            "simpleType COMPOSITION",
+            "language",
+            "group COMPOSITION",
+        ] {
+            let refused = checker.check(&cite(XSD, section, "name"));
+            assert!(
+                matches!(&refused, Err(e @ CiteError::SectionNotFound { .. }) if e.is_absence()),
+                "{section}: {refused:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_seeded_quote_outside_the_named_xsd_definition_is_refused() {
+        let dir = xsd_repo();
+        let mut checker = QuoteChecker::new(dir.path());
+        let setting = "<xs:element name=\"setting\" type=\"DV_CODED_TEXT\"/>";
+        let refused = checker.check(&cite(XSD, "COMPOSITION", setting));
+        assert!(
+            matches!(refused, Err(CiteError::QuoteNotFound { .. })),
+            "{refused:?}"
+        );
+        assert_eq!(checker.check(&cite(XSD, "EVENT_CONTEXT", setting)), Ok(()));
+    }
+
+    #[test]
+    fn a_seeded_shared_xsd_name_needs_its_kind() {
+        let dir = xsd_repo();
+        let mut checker = QuoteChecker::new(dir.path());
+        assert!(matches!(
+            checker.check(&cite(XSD, "Shared", "Shared")),
+            Err(CiteError::AmbiguousSection { headings: 2, .. })
+        ));
+        assert_eq!(
+            checker.check(&cite(XSD, "simpleType Shared", "xs:restriction")),
+            Ok(())
+        );
+        assert!(matches!(
+            checker.check(&cite(XSD, "element Shared", "xs:restriction")),
+            Err(CiteError::QuoteNotFound { .. })
+        ));
+    }
+
+    #[test]
+    fn a_seeded_malformed_xsd_is_unreadable() {
+        let dir = xsd_repo();
+        let mut checker = QuoteChecker::new(dir.path());
+        assert!(matches!(
+            checker.check(&cite(
+                "specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Broken.xsd",
+                "a",
+                "a"
+            )),
+            Err(CiteError::Unreadable { .. })
+        ));
+    }
+
+    #[test]
+    fn the_released_composition_type_is_quotable_from_its_xsd() {
+        let root = vendored();
+        let mut checker = QuoteChecker::new(&root);
+        assert_eq!(
+            checker.check(&cite(
+                "specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Composition.xsd",
+                "complexType COMPOSITION",
+                "<xs:element name=\"category\" type=\"DV_CODED_TEXT\"/>"
+            )),
+            Ok(())
+        );
     }
 }

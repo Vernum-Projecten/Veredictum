@@ -95,12 +95,12 @@ hides its wishes is worth less than one that names them
   `app/veredictum/Cargo.toml`), and `print_stdout` and `print_stderr` are denied
   outside the binary's own root, so the surface this rule governs is small and
   reviewable. It is still a review rule.
-- **Two GitHub secret-scanning sub-settings are plan-gated off** (non-provider
-  patterns and validity checks; both ship as part of GitHub Secret Protection,
-  which needs a Team or Enterprise plan this user-owned repository does not
-  have — the adjudication and the docs citation are in SECURITY.md's posture
-  table and on #115). The credential class they would catch is covered only by
-  the baseline detector and push protection until the plan changes.
+- **Two GitHub secret-scanning sub-settings are off** (non-provider patterns
+  and validity checks; both ship as part of GitHub Secret Protection, which is
+  not enabled on this repository — the adjudication and the docs citation are
+  in SECURITY.md's posture table and on #115). The credential class they would
+  catch is covered only by the baseline detector and push protection until
+  Secret Protection is enabled.
 
 ## 5. What this case does not claim
 

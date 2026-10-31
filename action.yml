@@ -7,10 +7,12 @@
 # It runs the instrument's container image: `test` drives the Arazzo catalogue
 # the image ships, `export` writes JUnit XML, CTRF and a Markdown summary into
 # the output directory, `badge` writes the badges into its `badges/`
-# directory, and the summary is appended to the job summary. The step
-# fails when a verdict-bearing row failed or errored (exit status 1) or when the
-# run could not start (2). The work is `scripts/action/run.sh`, whose header
-# lists every input it reads.
+# directory, the summary is appended to the job summary, and each failed,
+# errored or warning row is annotated on the run. The step fails when a row
+# counts against the server (exit status 1), when the run could not start (2),
+# and, unless `fail-on-inconclusive` is false, when the only red rows are
+# inconclusive ones the instrument could not judge (3). The work is
+# `scripts/action/run.sh`, whose header lists every input it reads.
 #
 # A composite action rather than a Docker container action. A container action
 # fixes its image in this file, and this file at tag vX.Y.Z cannot name the
@@ -58,7 +60,7 @@
 name: Veredictum openEHR conformance
 description: >-
   Run Veredictum against an openEHR server and fail the job when a
-  verdict-bearing conformance row fails or errors.
+  conformance row counts against the server.
 author: Veredictum contributors
 branding:
   icon: check-square
@@ -157,13 +159,30 @@ inputs:
       then needs contents write. Empty pushes nothing.
     required: false
     default: ""
+  fail-on-inconclusive:
+    description: >-
+      true or false. With false, a run whose only red rows are inconclusive
+      (exit status 3: the instrument could not judge them, so they do not
+      count against the server) passes the step, and the job summary lists
+      those rows. Exit status 1 and 2 always fail the step.
+    required: false
+    default: "true"
+  annotations:
+    description: >-
+      true or false. With true, each failed or errored row is annotated as an
+      error and each warning row as a warning, at most 10 of each per step as
+      GitHub shows them; the job summary lists every row.
+    required: false
+    default: "true"
 
 outputs:
   exit-code:
     description: >-
-      The run's exit status: 0 when every row passed or was skipped, 1 when a
-      verdict-bearing row failed or errored, 2 when the run could not start or
-      finish.
+      The run's exit status: 0 when no row counts against the server and
+      none is inconclusive, 1 when a row counts against the server, 2 when
+      the run could not start or finish, 3 when the only red rows are
+      inconclusive. It reads 3 even when fail-on-inconclusive passed the
+      step.
     value: ${{ steps.run.outputs.exit-code }}
   results:
     description: The path of results.json.
@@ -208,4 +227,6 @@ runs:
         IN_PULL: ${{ inputs.pull }}
         IN_NETWORK: ${{ inputs.network }}
         IN_BADGE_BRANCH: ${{ inputs.badge-branch }}
+        IN_FAIL_ON_INCONCLUSIVE: ${{ inputs.fail-on-inconclusive }}
+        IN_ANNOTATIONS: ${{ inputs.annotations }}
       run: bash "${GITHUB_ACTION_PATH}/scripts/action/run.sh"

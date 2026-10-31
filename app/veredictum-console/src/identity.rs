@@ -202,6 +202,36 @@ pub fn resolve(
     }
 }
 
+/// One operator label as the raw draft keeps it: blank for a field the
+/// server stated, which no operator entered, and the operator's text
+/// otherwise.
+#[must_use]
+pub fn entered_label(entry: &FieldEntry, typed: String) -> String {
+    match entry {
+        FieldEntry::Reported(_) => String::new(),
+        FieldEntry::Entered => typed,
+    }
+}
+
+/// Returns the operator labels the raw draft keeps for an answer.
+///
+/// The answer is `None` when the identity was never read. Each field the
+/// server stated is blank, so the draft holds an operator identity only where
+/// an operator entered one.
+#[must_use]
+pub fn entered_labels(
+    answer: Option<&IdentityAnswer>,
+    name: String,
+    version: String,
+) -> (String, String) {
+    let name_entry = answer.map_or(FieldEntry::Entered, IdentityAnswer::name_entry);
+    let version_entry = answer.map_or(FieldEntry::Entered, IdentityAnswer::version_entry);
+    (
+        entered_label(&name_entry, name),
+        entered_label(&version_entry, version),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,5 +318,20 @@ mod tests {
         assert_eq!(resolved.name.as_deref(), Some("my-cdr"));
         assert_eq!(resolved.operator_name.as_deref(), Some("my-cdr"));
         assert_eq!(resolved.missing(), vec!["version label"]);
+    }
+
+    #[test]
+    fn a_stated_field_keeps_no_operator_label() {
+        let answer = stated_answer(Some("cdr"), None);
+        assert_eq!(
+            entered_labels(Some(&answer), String::from("my-cdr"), String::from("2.0")),
+            (String::new(), String::from("2.0")),
+            "the name was the server's, so no operator entered one"
+        );
+        assert_eq!(
+            entered_labels(None, String::from("my-cdr"), String::from("2.0")),
+            (String::from("my-cdr"), String::from("2.0")),
+            "before a read, every label is the operator's"
+        );
     }
 }

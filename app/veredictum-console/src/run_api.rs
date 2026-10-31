@@ -38,6 +38,108 @@ impl AuthChoice {
             Self::Bearer => "bearer",
         }
     }
+
+    /// The value a form control posts for this choice: the variant name the
+    /// URL-encoded server-function argument deserializes.
+    #[must_use]
+    pub fn form_value(self) -> &'static str {
+        match self {
+            Self::None => "None",
+            Self::Basic => "Basic",
+            Self::Bearer => "Bearer",
+        }
+    }
+}
+
+/// The address a probe posted without the client bundle answers to: the
+/// connect step again, told by its query that a stored answer is there to
+/// show.
+pub const PROBED_PATH: &str = "/run/connect?probed=1";
+
+/// The scope step, where a saved identity continues.
+pub const SCOPE_PATH: &str = "/run/scope";
+
+/// The query key naming a refused connect-step form, on the address a plain
+/// form post returns to.
+pub const REFUSED_KEY: &str = "refused";
+
+/// Why the connect step refused a form, as the page a plain form post returns
+/// to names it.
+///
+/// A closed vocabulary carried in the URL: the refusal's own diagnostic can
+/// name the address the operator typed, credentials and all, so the URL
+/// carries only the kind and the page states it in its own words.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectRefusal {
+    /// The submitter's probe budget is spent.
+    Budget,
+    /// The posture's target guard refused the address.
+    Target,
+    /// A display name or version label is past its cap.
+    Label,
+    /// There is no connection draft to continue from.
+    NoDraft,
+    /// The draft could not be stored or read.
+    Store,
+}
+
+impl ConnectRefusal {
+    /// Every refusal, in declaration order.
+    pub const ALL: [ConnectRefusal; 5] = [
+        ConnectRefusal::Budget,
+        ConnectRefusal::Target,
+        ConnectRefusal::Label,
+        ConnectRefusal::NoDraft,
+        ConnectRefusal::Store,
+    ];
+
+    /// The token the URL carries.
+    #[must_use]
+    pub fn token(self) -> &'static str {
+        match self {
+            Self::Budget => "budget",
+            Self::Target => "target",
+            Self::Label => "label",
+            Self::NoDraft => "no-draft",
+            Self::Store => "store",
+        }
+    }
+
+    /// The refusal a URL token names, `None` for a token naming none.
+    #[must_use]
+    pub fn from_token(token: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|refusal| refusal.token() == token)
+    }
+
+    /// The address a plain form post refused this way returns to.
+    #[must_use]
+    pub fn path(self) -> String {
+        format!("/run/connect?{REFUSED_KEY}={}", self.token())
+    }
+
+    /// What the connect step says about the refusal, and what to do next.
+    #[must_use]
+    pub fn sentence(self) -> &'static str {
+        match self {
+            Self::Budget => {
+                "The probe was refused: this instance's connection-probe budget for your address is spent. Nothing was contacted. Wait a few minutes, then probe again."
+            }
+            Self::Target => {
+                "The probe was refused: this instance does not connect to that address, or could not read it as one. Nothing was contacted and no connection was stored. Name a target reachable from this instance and probe again."
+            }
+            Self::Label => {
+                "The form was refused: a display name or version label is longer than this console accepts. Shorten it and probe again."
+            }
+            Self::NoDraft => {
+                "There is no connection to continue from: it was never probed, or this instance has since forgotten it. Probe the connection again."
+            }
+            Self::Store => {
+                "This instance could not store the connection. Probe again; if it persists, the console needs a restart."
+            }
+        }
+    }
 }
 
 /// One principal's credential as the connect form sends it: the mode and
@@ -454,6 +556,10 @@ pub struct RunDraft {
     pub credentials: Vec<crate::engine::Credential>,
     /// Whether the probe answered 2xx for these facts.
     pub probed_ok: bool,
+    /// The probe's own answer, kept so a connect step posted without the
+    /// client bundle can show it after the round trip; `None` on a draft no
+    /// probe wrote.
+    pub probe: Option<ProbeAnswer>,
     /// The pasted statement DOCUMENT (the vendor's own claim), when any —
     /// validated content, written into the job's output directory at start.
     pub statement_json: Option<String>,
@@ -631,6 +737,20 @@ pub enum ProbeAnswer {
     },
 }
 
+/// What a stored probe left for the connect step to show again: the answer,
+/// and the operator labels the draft keeps. No credential, by construction.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConnectRecord {
+    /// The probe's answer and the identity read, as the probe returned them.
+    pub answer: ConnectAnswer,
+    /// The display name the operator entered, blank where the server stated
+    /// its own.
+    pub sut_name: String,
+    /// The version label the operator entered, blank where the server stated
+    /// its own.
+    pub sut_version: String,
+}
+
 /// What the connect step's probe answered: the reachability probe and the
 /// engine's identity read.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -691,8 +811,12 @@ pub enum StartOutcome {
 /// A run read back from its own directory, never from this process's memory.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordedRun {
-    /// The run this directory belongs to.
+    /// The run this directory belongs to, and the address its permalink
+    /// links to.
     pub id: crate::run_job::RunId,
+    /// The id the screen prints: the run's own, or the capture stand-in
+    /// (`crate::capture::pin_recorded`). Display only, never linked to.
+    pub shown_id: crate::run_job::RunId,
     /// The artifacts directory, as the screen shows it.
     pub dir: String,
     /// What the results document says; `None` when the directory holds none.
@@ -721,8 +845,8 @@ pub mod read {
     //! The component-free ssr readers and writers behind the endpoints.
 
     use super::{
-        CapabilityRow, ClaimSummary, DraftView, RecordedResults, RecordedRun, RunDraft, RunScreen,
-        ScopePreview, StartOutcome,
+        CapabilityRow, ClaimSummary, ConnectAnswer, ConnectRecord, DraftView, RecordedResults,
+        RecordedRun, RunDraft, RunScreen, ScopePreview, StartOutcome,
     };
     use crate::run_job::{Latest, RunId};
     use crate::state::ConsoleState;
@@ -741,6 +865,100 @@ pub mod read {
     /// lossless on every supported target (see `catalogue_api::read::count`).
     fn count(n: usize) -> u64 {
         u64::try_from(n).unwrap_or(u64::MAX)
+    }
+
+    /// Whether the request being answered is a plain HTML form post: the way a
+    /// browser without the client bundle submits a form.
+    ///
+    /// NOTE: the same `Accept: text/html` test `leptos_axum::redirect` applies
+    /// (<https://docs.rs/leptos_axum/0.8/leptos_axum/fn.redirect.html>).
+    #[must_use]
+    pub fn plain_form_post() -> bool {
+        leptos::prelude::use_context::<axum::http::request::Parts>().is_some_and(|parts| {
+            parts
+                .headers
+                .get(axum::http::header::ACCEPT)
+                // NOTE: an Accept header that is not visible ASCII is no
+                // browser's form post, so it legitimately counts as not one.
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(|value| value.contains("text/html"))
+        })
+    }
+
+    /// A connect-step refusal: its kind, which the URL may carry, and its own
+    /// diagnostic, which only the response body does.
+    #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+    #[error("{message}")]
+    pub struct Refused {
+        /// What kind of refusal this is.
+        pub kind: super::ConnectRefusal,
+        /// The diagnostic, verbatim.
+        pub message: String,
+    }
+
+    impl Refused {
+        /// A refusal of `kind` with its diagnostic.
+        #[must_use]
+        pub fn new(kind: super::ConnectRefusal, message: impl std::fmt::Display) -> Self {
+            Self {
+                kind,
+                message: message.to_string(),
+            }
+        }
+    }
+
+    /// Refuses an identity label past its cap.
+    ///
+    /// # Errors
+    /// [`super::ConnectRefusal::Label`] naming the field, its size and the cap.
+    pub fn check_labels(sut_name: &str, sut_version: &str) -> Result<(), Refused> {
+        for (field, value) in [("display name", sut_name), ("version label", sut_version)] {
+            if count(value.len()) > super::IDENTITY_LABEL_CAP_BYTES {
+                return Err(Refused::new(
+                    super::ConnectRefusal::Label,
+                    format!(
+                        "the {field} is {} bytes; the cap is {}",
+                        value.len(),
+                        super::IDENTITY_LABEL_CAP_BYTES
+                    ),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Forgets the probe answer this submitter's draft keeps, so a refused
+    /// newer probe never leaves an older answer on show.
+    ///
+    /// A poisoned lock is recovered rather than skipped: clearing a field
+    /// cannot extend a half-done write, and skipping would leave the stale
+    /// answer on show (<https://doc.rust-lang.org/std/sync/struct.PoisonError.html>).
+    pub fn forget_probe(state: &ConsoleState, submitter: Submitter) {
+        let mut guard = state
+            .draft
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(draft) = guard.get_mut(submitter) {
+            draft.probe = None;
+        }
+    }
+
+    /// What this submitter's stored probe left for the connect step, when a
+    /// probe stored one.
+    #[must_use]
+    pub fn connect_record(state: &ConsoleState, submitter: Submitter) -> Option<ConnectRecord> {
+        let guard = state.draft.lock().ok()?;
+        let draft = guard.get(submitter)?;
+        let probe = draft.probe.clone()?;
+        let identity = draft.identity.clone()?;
+        Some(ConnectRecord {
+            answer: ConnectAnswer {
+                probe: crate::capture::probe_answer(state, probe),
+                identity,
+            },
+            sut_name: draft.sut_name.clone(),
+            sut_version: draft.sut_version.clone(),
+        })
     }
 
     /// The client-safe view of this submitter's draft.
@@ -1424,6 +1642,7 @@ pub mod read {
         if !results_path.is_file() {
             return Ok(RunScreen::Recorded(Box::new(RecordedRun {
                 id,
+                shown_id: id,
                 dir: dir.display().to_string(),
                 results: None,
             })));
@@ -1435,6 +1654,7 @@ pub mod read {
         let (passed, failed, errored, skipped) = crate::run_job::tally(&results);
         Ok(RunScreen::Recorded(Box::new(RecordedRun {
             id,
+            shown_id: id,
             dir: dir.display().to_string(),
             results: Some(RecordedResults {
                 base_url: results.base_url.clone(),
@@ -1477,28 +1697,28 @@ pub mod read {
     /// step shows when the operator continues, so an edit made after the
     /// probe reaches the run.
     ///
+    /// A field the server stated keeps no operator label, whatever the
+    /// request carried.
+    ///
     /// # Errors
     /// "no connection draft" before a probe, a label past its cap, and the
-    /// poisoned-lock diagnostic.
+    /// poisoned-lock diagnostic, each as its [`Refused`] kind.
     pub fn save_identity(
         state: &ConsoleState,
         submitter: Submitter,
         sut_name: String,
         sut_version: String,
-    ) -> Result<(), String> {
-        for (field, value) in [("display name", &sut_name), ("version label", &sut_version)] {
-            if count(value.len()) > super::IDENTITY_LABEL_CAP_BYTES {
-                return Err(format!(
-                    "the {field} is {} bytes; the cap is {}",
-                    value.len(),
-                    super::IDENTITY_LABEL_CAP_BYTES
-                ));
-            }
-        }
-        let mut guard = state.draft.lock().map_err(|e| e.to_string())?;
+    ) -> Result<(), Refused> {
+        check_labels(&sut_name, &sut_version)?;
+        let mut guard = state
+            .draft
+            .lock()
+            .map_err(|e| Refused::new(super::ConnectRefusal::Store, e))?;
         let draft = guard
             .get_mut(submitter)
-            .ok_or_else(|| String::from(NO_DRAFT))?;
+            .ok_or_else(|| Refused::new(super::ConnectRefusal::NoDraft, NO_DRAFT))?;
+        let (sut_name, sut_version) =
+            crate::identity::entered_labels(draft.identity.as_ref(), sut_name, sut_version);
         draft.sut_name = sut_name;
         draft.sut_version = sut_version;
         Ok(())
@@ -1618,11 +1838,26 @@ pub mod fns {
 
     use leptos::prelude::{ServerFnError, server};
 
+    #[cfg(feature = "ssr")]
+    use super::ConnectRefusal;
+    #[cfg(feature = "ssr")]
+    use super::read::Refused;
     use super::{
-        CapabilityRow, ClaimSummary, ConnectAnswer, CredentialForm, DraftView, PostureForm,
-        RunScreen, ScopePreview, StartOutcome,
+        CapabilityRow, ClaimSummary, ConnectAnswer, ConnectRecord, CredentialForm, DraftView,
+        PostureForm, RunScreen, ScopePreview, StartOutcome,
     };
     use crate::run_job::RunId;
+
+    /// The error a connect-step refusal answers with. A plain form post is
+    /// also sent back to the connect step with the refusal's kind in its
+    /// query, because the reloaded page holds no client state to read it from.
+    #[cfg(feature = "ssr")]
+    fn refusal(refused: Refused) -> ServerFnError {
+        if super::read::plain_form_post() {
+            leptos_axum::redirect(&refused.kind.path());
+        }
+        ServerFnError::new(refused)
+    }
 
     /// Probes the connection, reads the server's identity through the engine,
     /// and, on any answer, stores the draft with these facts (the probe
@@ -1637,10 +1872,17 @@ pub mod fns {
     /// submitter's probe budget is spent and the posture's guard runs BEFORE
     /// the request is built, and a refused target stores no draft at all.
     ///
+    /// The raw draft keeps an operator label only for a field the server did
+    /// not state. A plain form post (no client bundle) is sent back to the
+    /// connect step at [`super::PROBED_PATH`], which reads the stored answer.
+    ///
     /// # Errors
-    /// The rate ledger's refusal with its retry, the target guard's refusal
-    /// naming the address family, and the draft-store failure — each
-    /// verbatim. An unreachable server is an ANSWER, not an error.
+    /// An identity label past its cap, the rate ledger's refusal with its
+    /// retry, the target guard's refusal naming the address family, and the
+    /// draft-store failure — each verbatim, and each forgetting the answer an
+    /// earlier probe stored. A plain form post is also redirected to
+    /// [`super::ConnectRefusal::path`]. An unreachable server is an ANSWER,
+    /// not an error.
     #[server]
     pub async fn probe_and_save(
         base_url: String,
@@ -1657,11 +1899,16 @@ pub mod fns {
         } = server;
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
+        let refuse = |refused: Refused| {
+            super::read::forget_probe(&state, who);
+            refusal(refused)
+        };
+        super::read::check_labels(&sut_name, &sut_version).map_err(refuse)?;
         super::read::admit(&state, who, crate::rate_limit::Metered::Probe)
-            .map_err(ServerFnError::new)?;
+            .map_err(|e| refuse(Refused::new(ConnectRefusal::Budget, e)))?;
         super::read::guard_target(&state, &base_url)
             .await
-            .map_err(ServerFnError::new)?;
+            .map_err(|e| refuse(Refused::new(ConnectRefusal::Target, e)))?;
         let answer = super::read::probe(&base_url, auth, &user, &password, &token).await;
         let probed_ok = matches!(answer, super::ProbeAnswer::Answered { ok: true, .. });
         let identity = match answer {
@@ -1672,6 +1919,8 @@ pub mod fns {
                 error: String::from("nothing answered the reachability probe"),
             },
         };
+        let (sut_name, sut_version) =
+            crate::identity::entered_labels(Some(&identity), sut_name, sut_version);
         let mut credentials = super::read::credentials_of(
             auth,
             veredictum::arazzo::credential::Role::Ordinary,
@@ -1700,21 +1949,41 @@ pub mod fns {
                 admin_auth,
                 credentials,
                 probed_ok,
+                probe: Some(answer.clone()),
                 statement_json: None,
                 statement_product: None,
                 filter: None,
                 postures: super::DeclaredPostures::default(),
             },
         )
-        .map_err(ServerFnError::new)?;
+        .map_err(|e| refuse(Refused::new(ConnectRefusal::Store, e)))?;
+        if super::read::plain_form_post() {
+            leptos_axum::redirect(super::PROBED_PATH);
+        }
         Ok(ConnectAnswer {
             probe: crate::capture::probe_answer(&state, answer),
             identity,
         })
     }
 
+    /// What this submitter's stored probe left for the connect step: the
+    /// answer and the operator labels, never a credential.
+    ///
+    /// # Errors
+    /// The server-fn transport only.
+    #[server]
+    pub async fn fetch_connect() -> Result<Option<ConnectRecord>, ServerFnError> {
+        let state: crate::state::ConsoleState = leptos::prelude::expect_context();
+        let who = crate::submitter::current(&state);
+        Ok(super::read::connect_record(&state, who))
+    }
+
     /// Stores the identity labels the connect step shows when the operator
-    /// continues, so an edit made after the probe reaches the run.
+    /// continues, so an edit made after the probe reaches the run, and sends
+    /// the operator on to the scope step.
+    ///
+    /// The navigation is the server's redirect, so it holds with and without
+    /// the client bundle (<https://book.leptos.dev/server/27_response.html>).
     ///
     /// # Errors
     /// "no connection draft" before a probe, a label past its cap, and the
@@ -1723,7 +1992,9 @@ pub mod fns {
     pub async fn save_identity(sut_name: String, sut_version: String) -> Result<(), ServerFnError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
-        super::read::save_identity(&state, who, sut_name, sut_version).map_err(ServerFnError::new)
+        super::read::save_identity(&state, who, sut_name, sut_version).map_err(refusal)?;
+        leptos_axum::redirect(super::SCOPE_PATH);
+        Ok(())
     }
 
     /// The client-safe draft this submitter has, when they have one.
@@ -1864,5 +2135,25 @@ pub mod fns {
         let who = crate::submitter::current(&state);
         super::read::compose_claim(&state, who, &capabilities.unwrap_or_default())
             .map_err(ServerFnError::new)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde::Deserialize as _;
+    use serde::de::IntoDeserializer as _;
+
+    use super::AuthChoice;
+
+    /// The value a form control posts names the same choice once the
+    /// URL-encoded argument is deserialized, so a form posted without the
+    /// client bundle drives the mode the screen showed.
+    #[test]
+    fn every_auth_form_value_reads_back_as_its_own_choice() {
+        for choice in [AuthChoice::None, AuthChoice::Basic, AuthChoice::Bearer] {
+            let posted: serde::de::value::StrDeserializer<'_, serde::de::value::Error> =
+                choice.form_value().into_deserializer();
+            assert_eq!(AuthChoice::deserialize(posted), Ok(choice));
+        }
     }
 }

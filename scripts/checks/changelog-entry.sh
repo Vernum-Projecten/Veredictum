@@ -37,8 +37,9 @@
 #                   earlier record's case ids resolve to the ones a run
 #                   reports now, and `keys/` is the signing material the
 #                   catalogue's signature and SMART workflows present
-#   perf/           the performance schedule — a class case, a journey or a
-#                   payload changes what a measured run records
+#   perf/           the performance schedule — a workload, a host
+#                   prescription or a payload changes what a measured run
+#                   records
 #   schemas/        the published JSON Schemas an integrator authors against
 #   deploy/docker/  the container image, and the ignore file that decides what
 #   .dockerignore   its build can even see

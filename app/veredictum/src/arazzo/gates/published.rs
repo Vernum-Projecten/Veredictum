@@ -199,7 +199,7 @@ pub fn extensions_schema() -> Value {
                         "not": { "pattern": format!("^{}", regex_escape_prefix(EXCLUDED_ROOT)) }
                     },
                     "section": {
-                        "description": "A top-level key or a JSON Pointer in a YAML or JSON source; when the element is a number, a boolean or `null`, the quote is that value as JSON text and is matched by value. In a Markdown or AsciiDoc source, the title of exactly one heading, or a path of titles joined by ` > ` in which each heading sits directly under the one before it; a title that matches more than one heading is refused.",
+                        "description": "A top-level key or a JSON Pointer in a YAML or JSON source; when the element is a number, a boolean or `null`, the quote is that value as JSON text and is matched by value. In a Markdown or AsciiDoc source, the title of exactly one heading, or a path of titles joined by ` > ` in which each heading sits directly under the one before it; a title that matches more than one heading is refused. In an XML Schema (`.xsd`) source, the `name` of one top-level `xs:element`, `xs:complexType` or `xs:simpleType`, optionally after its kind and a space (`complexType COMPOSITION`); the quote is matched in that definition's source text.",
                         "type": "string",
                         "minLength": 1
                     },

@@ -298,8 +298,12 @@ pub struct FinishedView {
 /// What the live screen polls.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobView {
-    /// The run's identity, the address `/run/live/{run_id}` carries.
+    /// The run's identity, the address `/run/live/{run_id}` carries and every
+    /// control on the live screen posts back.
     pub id: RunId,
+    /// The id the live screen prints: the run's own, or the capture stand-in
+    /// (`crate::capture::pin_job`). Display only, never posted back.
+    pub shown_id: RunId,
     /// Where the job stands.
     pub status: JobStatus,
     /// The SUT display name the run records.
@@ -639,6 +643,7 @@ fn snapshot(jobs: &Jobs, job: &JobState) -> JobView {
     };
     JobView {
         id: job.id,
+        shown_id: job.id,
         status: job.status.clone(),
         sut_name: job.sut.name.value.clone(),
         sut_version: job.sut.version.value.clone(),

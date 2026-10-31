@@ -297,6 +297,8 @@ impl VerdictSummary {
             };
             *count = count.saturating_add(1);
         }
+        // NOTE: no openEHR spec governs this — our own design (#922); a certificate is red on
+        // any errored row, inconclusive ones included, deliberately stricter than the exit status.
         if summary.failed > 0 || summary.errored > 0 {
             summary.outcome = Outcome::Red;
         }

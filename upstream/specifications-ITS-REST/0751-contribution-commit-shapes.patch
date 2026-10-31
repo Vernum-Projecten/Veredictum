@@ -24,14 +24,21 @@ diff --git a/specifications/schemas/ehr/UpdateVersion.yaml b/specifications/sche
 index 550fe71..4b6a5d6 100644
 --- a/specifications/schemas/ehr/UpdateVersion.yaml
 +++ b/specifications/schemas/ehr/UpdateVersion.yaml
-@@ -1,8 +1,10 @@
+@@ -1,8 +1,16 @@
  title: UPDATE_VERSION
  type: object
 +description: |
-+  A new VERSION to commit. `data` is required unless `lifecycle_state` is `523|deleted|`, in which case it is
-+  omitted, because a logical deletion commits a VERSION whose data is deleted.
++  A member of a CONTRIBUTION commit. It commits a new VERSION, except for an attestation member.
++
++  `data` is required unless `lifecycle_state` is `523|deleted|`, in which case it is omitted, because a
++  logical deletion commits a VERSION whose data is deleted.
++
++  An attestation member, whose `commit_audit.change_type` is `666|attestation|`, commits no new VERSION:
++  it adds new ATTESTATION objects to the attestations list of an existing ORIGINAL_VERSION. It names that
++  version in `preceding_version_uid`, carries the new attestations in `attestations`, and carries neither
++  `data` nor `lifecycle_state`. Every other member carries `lifecycle_state`.
  required:
-   - lifecycle_state
+-  - lifecycle_state
 -  - data
    - commit_audit
  properties:

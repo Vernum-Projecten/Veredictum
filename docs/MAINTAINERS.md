@@ -17,8 +17,9 @@ it is on the day you read it in git history.
 **The bus factor of this project is one.** One person can cut a release and
 accept a pull request outside the AQL workflows. Sebastian Iancu owns the AQL
 workflows with him, so a change there asks both for review, and a release still
-needs the maintainer. No organisation stands behind the project, and no legal
-entity is a party to it.
+needs the maintainer. The repository belongs to the GitHub organisation
+`Vernum-Projecten`, the account of Vernum Projecten B.V., and the maintainer's
+account is that organisation's one owner and one member.
 
 The same person maintains [FerroEHR](https://github.com/rubentalstra/FerroEHR),
 one of the CDRs this instrument grades. That conflict of interest, and the
@@ -35,7 +36,7 @@ written down is an inventory nobody can hand over.
 
 | Identity | What it publishes | State today | Held by | Recovery if the holder is unavailable |
 |---|---|---|---|---|
-| The GitHub account `rubentalstra` | everything: the repository, releases, issues, settings, labels | live | the maintainer | none. The repository is user-owned, so GitHub's account-recovery process is the only route, and it is between GitHub and the account holder |
+| The GitHub account `rubentalstra`, the one owner of the `Vernum-Projecten` organisation | everything: the repository, releases, issues, settings, labels | live | the maintainer | none. The organisation has no second owner, so GitHub's account-recovery process is the only route, and it is between GitHub and the account holder |
 | The OpenPGP commit- and tag-signing key | the verified signature on every commit and every release tag | live | the maintainer, on his own hardware | none. The private key is not escrowed. A successor would publish a new key and re-establish trust from a signed statement on the repository; historical signatures stay verifiable regardless |
 | `GITHUB_TOKEN` (ephemeral, per workflow run) | the GitHub release and the GHCR container image (`ghcr.io/vernum-projecten/veredictum`) | live — the release pipeline (#12) has cut three alphas with it | GitHub, minted per run; nothing is stored | not applicable. There is no credential to lose |
 | Zenodo | the archived release deposit and its concept DOI (10.5281/zenodo.22113258) | live — connected and proven at v0.0.1-alpha.1 (version DOI 10.5281/zenodo.22113259) | the Zenodo account linked to the GitHub account | tied to GitHub account recovery |
@@ -44,9 +45,9 @@ written down is an inventory nobody can hand over.
 
 **The honest reading of that table:** every identity that exists today
 terminates at one person's GitHub account, one person's hardware, or one
-person's registrar login. Nothing here distributes authority, and no
-mitigation is available to a one-person project without a legal entity behind
-it. The publishing paths themselves store no secret — the release lane and
+person's registrar login. Nothing here distributes authority: the
+organisation that holds the repository has one owner, and that owner is the
+maintainer. The publishing paths themselves store no secret — the release lane and
 the crate publish both run on per-run tokens (ephemeral `GITHUB_TOKEN`,
 crates.io Trusted Publishing OIDC) — which removes the stored-secret risk
 without changing that sentence.

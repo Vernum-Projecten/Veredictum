@@ -5,7 +5,8 @@
 This repository is also a GitHub Action. One `uses:` step in a vendor's
 workflow runs the instrument against their server, writes the results and the
 CI views into a directory, puts the Markdown summary on the job's summary page,
-and fails the job when a row that counts against the server failed or errored.
+annotates each row that needs attention, and fails the job when a row counts
+against the server.
 
 The action is versioned by the same `vX.Y.Z` tags as the binary and the
 container image, and it lives in this repository so it cannot drift from the
@@ -16,7 +17,8 @@ runner has.
 
 The job below starts the vendor's server as a service container, runs the
 catalogue against it with the vendor's statement and IXIT, and keeps the three
-CI views as a workflow artifact. Pin every `uses:` to a full commit SHA, with
+CI views and the badges as a workflow artifact. Pin every `uses:` to a full
+commit SHA, with
 the tag in a trailing comment, so the workflow runs the bytes you reviewed.
 
 ```yaml
@@ -66,11 +68,12 @@ jobs:
             conformance-results/junit.xml
             conformance-results/ctrf.json
             conformance-results/summary.md
+            conformance-results/badges/
 ```
 
-The step fails the job on a failed or errored row. The upload still runs,
-because `!cancelled()` holds for a failed job, so the views are kept exactly
-when someone needs to read them.
+The step fails the job on a row that counts against the server. The upload
+still runs, because `!cancelled()` holds for a failed job, so the views are
+kept exactly when someone needs to read them.
 
 `conformance-results/recording.har` is left out of the upload on purpose. It
 holds the server's response bodies verbatim, and a CDR under test can hold real
@@ -88,18 +91,29 @@ JUnit view is read by most other CI systems.
 2. It runs `test` against `base-url`, with the statement, the IXIT and the
    credentials, writing `results.json` and `recording.har` into `out-dir`.
 3. It runs `export` over that `results.json`, writing `junit.xml`, `ctrf.json`
-   and `summary.md` beside it, and appends `summary.md` to the job summary
-   together with the image it ran.
+   and `summary.md` beside it, appends `summary.md` to the job summary
+   together with the image it ran, and [annotates](#annotations) the rows that
+   need attention.
 4. It runs `badge`, writing the [badges](#badges) into `badges/` in
    `out-dir`, and pushes them to `badge-branch` when that input is set and the
    run may push.
 5. It exits with the run's status.
 
-| Exit status | Meaning |
-|---|---|
-| `0` | every row passed or was skipped, or failed only as a warning |
-| `1` | a row that counts against the server failed or errored |
-| `2` | the run could not start or finish: a usage error, a catalogue gate finding, an unreadable file, a missing credential |
+Every failed or errored row records whose problem it is, and the exit status
+follows that record:
+
+| Exit status | Meaning | The step |
+|---|---|---|
+| `0` | no row counts against the server and none is inconclusive: every row passed or was skipped, or failed only as a warning | passes |
+| `1` | a row counts against the server: it failed (a warning row excepted), or errored with the server named, whatever else the run holds | fails |
+| `2` | the run could not start or finish: a usage error, a catalogue gate finding, an unreadable file, a missing credential | fails |
+| `3` | no row counts against the server, and at least one is inconclusive: the instrument could not judge it, so it does not count against the vendor | fails, or passes with `fail-on-inconclusive: false` |
+
+With `fail-on-inconclusive: false`, a run that exits `3` passes the step, its
+`exit-code` output still reads `3`, and the job summary lists each
+inconclusive row with what the instrument received. A vendor whose required
+check must not go red on rows the instrument cannot judge yet sets it;
+`1` and `2` fail the step either way.
 
 A run that could not start writes no results, so there is nothing to export;
 the job summary says so, and the step log names the reason. The action
@@ -124,6 +138,8 @@ document left by an earlier run is never exported as this one.
 | `pull` | `true` | `false` runs an image already on the runner, such as one built earlier in the job |
 | `network` | `host` | the container network the run joins |
 | `badge-branch` | none | a branch of your repository to push the badges to ([below](#badges)); with none, nothing is pushed |
+| `fail-on-inconclusive` | `true` | `false` lets exit status `3`, a run whose only red rows are inconclusive, pass the step ([above](#what-the-step-does)) |
+| `annotations` | `true` | `false` writes no [annotations](#annotations) |
 
 With `network: host` the run shares the runner's network, so a service
 container is reached at `127.0.0.1` on its published port, as above, and a
@@ -218,6 +234,13 @@ appending `_FILE`, and an empty one counts as unset, exactly as for the CDR
 credentials. The action hands every variable named
 `VEREDICTUM_SCOPED_TOKEN_<NAME>` to the container by name and no other.
 
+This repository's own CI runs every SMART document this way against a CDR in
+the SMART posture: `deploy/docker/e2e-ferroehr-smart.yml` brings up FerroEHR
+trusting a committed test issuer, and `deploy/docker/smart/` holds the
+statement and the IXIT whose `mint` member signs each row's token. They are a
+working example of the posture, never key material a production deployment
+may trust.
+
 ## Which image runs
 
 Left empty, `image` is `ghcr.io/vernum-projecten/veredictum:X.Y.Z`, where
@@ -243,6 +266,32 @@ docker buildx imagetools inspect ghcr.io/vernum-projecten/veredictum:X.Y.Z
 prints it for any release. Whichever reference you pass, the step runs both
 subcommands by the image ID it resolved, and writes that ID to the job summary
 and to its `image-id` output, so the run names the image it judged with.
+
+## Annotations
+
+The step puts each row that needs attention on the run as a GitHub
+annotation, which the pull request's checks and the workflow run's summary
+page show without opening the job summary: an error for each failed or
+errored row, and a warning for each warning row. Each is titled with the case
+id and its row, and says what was checked, the cited sentence with its source
+and section, what was expected and what was received:
+
+```text
+Error: ehr/create_ehr-same_ehr_twice-with_id row 1
+Failed: counts against the server.
+Checked: Create an EHR with the same ehr_id again.
+Cited: "Can happen when the supplied `ehr_id` is already used by an existing EHR." (specs/openehr/ITS-REST/specifications/responses/409_EHR_with_id.yaml, description)
+Expected: status 409
+Received: status 201
+```
+
+An errored row says whether it counts against the server or is inconclusive.
+GitHub shows at most 10 error and 10 warning annotations per step
+([GitHub's limits](https://docs.github.com/en/rest/checks/runs)), so the step
+writes the first 10 of each kind in row order and then one notice naming how
+many more rows the job summary lists. No annotation points at a file: the
+catalogue documents the rows come from ship in the image, not in your
+repository. Set `annotations: false` to write none.
 
 ## Badges
 

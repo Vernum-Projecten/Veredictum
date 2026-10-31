@@ -1,0 +1,21 @@
+{
+  "product": {
+    "name": "FerroEHR (SMART test environment)",
+    "version": "5.5.0",
+    "vendor": "Veredictum test environment",
+    "identifier": "urn:veredictum:environment:smart-ferroehr"
+  },
+  "schedule_release": "cnf-2.0-w2",
+  "claims": {
+    "capabilities": ["smart"]
+  },
+  "tech_profiles": [
+    { "its": "its-rest", "formats": ["canonical-json"] }
+  ],
+  "attestation": {
+    "signatory": "Veredictum test environment",
+    "role": "Test environment",
+    "date": "2026-10-31",
+    "statement": "This document is TEST MATERIAL for the SMART lane's own environment. It attests nothing about FerroEHR: no supplier has signed it, and it exists so the instrument's SMART documents run end to end against a server in the SMART on openEHR posture."
+  }
+}

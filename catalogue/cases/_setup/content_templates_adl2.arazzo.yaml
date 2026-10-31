@@ -1,0 +1,392 @@
+# The ADL 2 operational templates the ADL 2 content workflows commit against,
+# each uploaded once by its own workflow through the ADL 2 definition
+# operation. A content workflow names the one it needs in `dependsOn`
+# (Arazzo 1.1.0 Workflow Object). Each is a raw operational template written
+# here (AM OPT2 master03-opt_raw.adoc §Artefact Structure): a COMPOSITION of
+# category event holding an inlined minimal OBSERVATION down to one ELEMENT,
+# with one constraint the content workflows vary. Every quote is copied
+# verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: Content templates, ADL 2
+  version: 0.1.0
+  description: >-
+    The ADL 2 operational templates whose constraint every ADL 2 content
+    workflow shares.
+sourceDescriptions:
+  - name: definition
+    url: ../../../specs/rest-oas/definition-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: upload_template-adl2_dv_count_range
+    summary: The ADL 2 template openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 is on the server
+    description: >-
+      Uploads the ADL 2 operational template openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0. A server that
+      already holds a template with that template_id refuses the upload with
+      409, which leaves the same precondition in place.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/definition_template_adl2_upload.yaml
+      section: "description"
+      quote: "Upload a new ADL2 operational template."
+    steps:
+      - stepId: upload
+        description: Upload the template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+                openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"DV_COUNT whose magnitude is constrained to 10..20">
+                    >
+                >
+
+            definition
+                COMPOSITION[id1] matches {
+                    category matches {
+                        DV_CODED_TEXT[id2] matches {
+                            defining_code matches {[at1]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[id3, openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[id2] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[id3] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[id4] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[id5] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_COUNT[id6] matches {
+                                                                    magnitude matches {|10..20|}
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["id1"] = <
+                            text = <"CNF ADL 2 dv_count_range">
+                            description = <"DV_COUNT whose magnitude is constrained to 10..20">
+                        >
+                        ["id3"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                        ["at1"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at1"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["id1"] = <
+                                text = <"Minimal observation">
+                                description = <"An observation with one constrained element">
+                            >
+                            ["id3"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["id5"] = <
+                                text = <"Value">
+                                description = <"The constrained value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+
+  - workflowId: upload_template-adl2_dv_interval_count
+    summary: The ADL 2 template openEHR-EHR-COMPOSITION.cnf_adl2_dv_interval_count.v1.0.0 is on the server
+    description: >-
+      Uploads the ADL 2 operational template openEHR-EHR-COMPOSITION.cnf_adl2_dv_interval_count.v1.0.0. A server that
+      already holds a template with that template_id refuses the upload with
+      409, which leaves the same precondition in place.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/definition_template_adl2_upload.yaml
+      section: "description"
+      quote: "Upload a new ADL2 operational template."
+    steps:
+      - stepId: upload
+        description: Upload the template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+                openEHR-EHR-COMPOSITION.cnf_adl2_dv_interval_count.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"DV_INTERVAL of DV_COUNT whose limits are constrained to 0..10">
+                    >
+                >
+
+            definition
+                COMPOSITION[id1] matches {
+                    category matches {
+                        DV_CODED_TEXT[id2] matches {
+                            defining_code matches {[at1]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[id3, openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[id2] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[id3] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[id4] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[id5] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_INTERVAL<DV_COUNT>[id6] matches {
+                                                                    lower matches {
+                                                                        DV_COUNT[id7] matches {
+                                                                            magnitude matches {|0..10|}
+                                                                        }
+                                                                    }
+                                                                    upper matches {
+                                                                        DV_COUNT[id8] matches {
+                                                                            magnitude matches {|0..10|}
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["id1"] = <
+                            text = <"CNF ADL 2 dv_interval_count">
+                            description = <"DV_INTERVAL of DV_COUNT whose limits are constrained to 0..10">
+                        >
+                        ["id3"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                        ["at1"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at1"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["id1"] = <
+                                text = <"Minimal observation">
+                                description = <"An observation with one constrained element">
+                            >
+                            ["id3"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["id5"] = <
+                                text = <"Value">
+                                description = <"The constrained value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+
+  - workflowId: upload_template-adl2_items_cardinality
+    summary: The ADL 2 template openEHR-EHR-COMPOSITION.cnf_adl2_items_cardinality.v1.0.0 is on the server
+    description: >-
+      Uploads the ADL 2 operational template openEHR-EHR-COMPOSITION.cnf_adl2_items_cardinality.v1.0.0. A server that
+      already holds a template with that template_id refuses the upload with
+      409, which leaves the same precondition in place.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/operations/definition_template_adl2_upload.yaml
+      section: "description"
+      quote: "Upload a new ADL2 operational template."
+    steps:
+      - stepId: upload
+        description: Upload the template, or find it already there.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+                openEHR-EHR-COMPOSITION.cnf_adl2_items_cardinality.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"ITEM_TREE whose items hold one or two elements">
+                    >
+                >
+
+            definition
+                COMPOSITION[id1] matches {
+                    category matches {
+                        DV_CODED_TEXT[id2] matches {
+                            defining_code matches {[at1]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[id3, openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[id2] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[id3] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[id4] matches {
+                                                    items cardinality matches {1..2; unordered} matches {
+                                                        ELEMENT[id5] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_TEXT[id6]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["id1"] = <
+                            text = <"CNF ADL 2 items_cardinality">
+                            description = <"ITEM_TREE whose items hold one or two elements">
+                        >
+                        ["id3"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                        ["at1"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at1"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["id1"] = <
+                                text = <"Minimal observation">
+                                description = <"An observation with one constrained element">
+                            >
+                            ["id3"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["id5"] = <
+                                text = <"Value">
+                                description = <"The constrained value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - context: $statusCode
+            type: regex
+            condition: '^(201|409)$'
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+              section: "description"
+              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."

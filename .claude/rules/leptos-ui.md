@@ -200,6 +200,16 @@ is the precedent to imitate, not a path in this tree.
   `<ActionForm>`-compatible (default URL-encoded POST; nested structs use
   `name="arg[field]"` indexing; mind `serde_qs` Option/enum quirks —
   `server/25`).
+  Where the answer must be handled in the action's own continuation (a
+  toast, §2), the hand-written equivalent is sanctioned: a plain
+  `<form action=X::url() method="post" on:submit=…>` whose handler calls
+  `ev.prevent_default()`, parses `X::from_event(&ev)` (reporting a parse
+  error the way the action reports a refusal) and dispatches an `Action`
+  that calls the server fn. That is `<ActionForm>`'s own body (leptos
+  `form.rs`), so the no-WASM path is kept, and its server fn must answer a
+  refused plain post itself with `leptos_axum::redirect` to a page that
+  states the refusal by a closed kind, because leptos_axum otherwise 302s an
+  `Err` back to the `Referer` with nothing to show (`server/27`).
 
 ## 6. Async data (the server-function pattern)
 
@@ -291,8 +301,12 @@ is the precedent to imitate, not a path in this tree.
   Explicit waits on elements/conditions, never `sleep`; a flaky journey is
   fixed, never `#[ignore]`d or retried-by-default. NOT Playwright/JS (the
   no-JS mandate covers the test suite). A journey drives a control only
-  after `body[data-hydrated]` appears (`app.rs` stamps it from a
-  browser-only effect): a click landing earlier is silently lost.
+  after `body[data-hydrated]` appears: a click landing earlier is silently
+  lost. The shell's `Chrome` stamps it from an effect deferred past the
+  document's `load` and one timer turn. The deferral is what orders it after
+  every hydrated listener (`<Outlet/>` renders the routed page lazily, and a
+  streamed `Suspend` hydrates from its own task), not where the effect is
+  created (#377).
 - **The capture pass is the visual feedback loop.** With
   `UI_E2E_DOCS_SHOTS=1` the journeys photograph every surface in one fixed
   1440×900 window, light and dark, into `website/book/src/console/img/`,

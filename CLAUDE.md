@@ -470,7 +470,11 @@ pipeline is a `needs` edge, so no leg guesses whether an earlier one finished.
    commit: `cargo update -p veredictum --manifest-path fuzz/Cargo.toml`
    (add `--offline` when the local registry cache already holds the fuzz
    dependencies). `scripts/release/check-console-pin.sh` refuses a fuzz lock
-   on any other version, on every pull request and at tag time (#611).
+   on any other version, on every pull request and at tag time (#611). The
+   GitLab CI template's image tag moves with it too:
+   `bash scripts/release/check-gitlab-template.sh --pin X.Y.Z` rewrites it,
+   and the same script refuses any other tag on every pull request and in
+   `plan` (#920).
 3. `CITATION.cff`: `version` and `date-released`.
 4. `bash scripts/render/zenodo-json.sh` — `.zenodo.json` is GENERATED, because
    Zenodo ignores `CITATION.cff` completely whenever a `.zenodo.json` exists
