@@ -78,6 +78,7 @@ gate guard "hosted words self-test"   "bash scripts/checks/hosted-instrument-lan
 gate guard "hosted deploy script"     "bash scripts/checks/hosted-deploy-script.sh"
 gate guard "hosted deploy self-test"  "bash scripts/checks/hosted-deploy-script.sh --self-test"
 gate guard "issue fields self-test"   "bash scripts/gh/fields.sh --self-test" jq
+gate guard "upstream watch self-test" "bash scripts/gh/upstream-watch.sh --self-test" jq
 gate guard "action script self-test"  "bash scripts/action/run.sh --self-test"
 gate guard "action metadata"          "bash scripts/checks/action-metadata.sh" yq
 gate guard "action metadata self-test" "bash scripts/checks/action-metadata.sh --self-test" yq

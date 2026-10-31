@@ -338,6 +338,13 @@ jobs:
       - name: The issue-fields helper — stub-driven self-test
         run: bash scripts/gh/fields.sh --self-test
 
+      # The upstream watch (#975) files one issue per openEHR repository and
+      # signal. The self-test answers git and gh from stubs over seeded pin
+      # tables: no change writes nothing, a newer head rewrites and comments,
+      # a caught-up pin closes, a newer tag files, and the real tables parse.
+      - name: The upstream watch — stub-driven self-test
+        run: bash scripts/gh/upstream-watch.sh --self-test
+
       # The GitHub Action's script decides what reaches the container (#770):
       # credentials by name and never by value, an empty one not at all, a
       # `_FILE` one mounted, and the run's exit status passed through. The
