@@ -27,6 +27,7 @@ replaced the case-core catalogue (#604). Every claim below names a file on
 | [Conformance Guide - initial draft][t2241] (t/2241) | 2026-10-31 | all 3 |
 | [openEHR conformance verification design document][t2285] (t/2285) | 2026-10-31 | all 7 |
 | [Conformance Schedule progress - data types][t2358] (t/2358) | 2026-10-31 | all 1 |
+| [openEHR Conformance Framework Design (2023-11-21)][cvf], Pablo Pazos | 2026-10-31 | the whole document, mapped [below](#the-cabolabs-conformance-verification-framework) |
 
 Every topic was read through Discourse's public `/t/<id>.json` endpoint
 without an account. Nothing was posted anywhere.
@@ -308,7 +309,8 @@ claim only what it implements, so a server without AQL is not a failing CDR.
 What the instrument does not cover is any kind of system other than a
 platform CDR reached over ITS-REST: a broker, an analytics engine or a
 clinical application has no catalogue here (R14, R20, R101). That boundary
-is not written down anywhere a reader would find it (candidate C3 below).
+is stated on the book's methodology page, "What the instrument does not
+test", with the reason for each (#932, candidate C3 below).
 
 ### 5. Procurement and certification: PARTLY
 
@@ -460,8 +462,9 @@ What does not: Ian McNicoll's severity split (R77). The released texts grade
 requirements as MUST and SHOULD and nothing finer, so a "Level 0, not a CDR
 at all" verdict would rest on a judgement no citation carries, which the
 instrument refuses to make (hard rule 1). R76's question, what one failed row
-means to a buyer, has no answer written for that buyer: the book explains the
-mechanics of a result, not how a procurer should weigh it (candidate C1).
+means to a buyer, is answered by the book's Reading a result page
+(`website/book/src/reading-results.md`, #930, candidate C1), which also states
+why no severity beyond MUST and SHOULD is applied.
 
 ### 13. Runnable, downloadable, web-executable: MET
 
@@ -494,8 +497,9 @@ with a hand-over to openEHR International designed but not done (§12, §15.10).
 R58's joint work by industry partners has not happened at scale: one
 maintainer and one area maintainer. R79's framework (Pablo Pazos's
 `openehr-conformance-verification` repository) is credited in
-`website/book/src/about.md`, but no record here maps its requirements against
-the instrument the way this register maps the forum (candidate C2).
+`website/book/src/about.md`, and its design document is mapped against the
+instrument [below](#the-cabolabs-conformance-verification-framework) (#931,
+candidate C2).
 
 ### 15. The statement as a procurement instrument: PARTLY
 
@@ -512,8 +516,9 @@ option arms (in place of Profiles), the statement, and the certificate.
 
 Partly: R94's vendor-neutral comparison site does not exist, by decision
 (#592); comparison is left to whoever holds two vendors' documents. R91's
-procurement guidance exists only as the RFP clause in §10 of
-`docs/ARCHITECTURE.md`, not as a guide a procurer would find in the book.
+procurement guidance is the book's Procurement page
+(`website/book/src/procurement.md`, #933, candidate C4): the RFP clause of §10
+of `docs/ARCHITECTURE.md`, its five parameters and its equivalence duty.
 R83's third-party certification is rung 3 of §9, not offered. R56's
 certificate exists, and issuance waits on #825 (theme 5).
 
@@ -532,8 +537,8 @@ ISO/IEC 25010 is the scope vocabulary (§6.3), as R69 asked.
 
 Not met, and out of scope: conformance of archetypes and templates as
 artifacts (R66, R97) and of non-CDR components (R101). This instrument tests
-platform CDRs over their wire. The boundary is real, but it is not stated
-where a reader would look for it (candidate C3).
+platform CDRs over their wire, and the book's methodology page states the
+boundary with its reasons (#932, candidate C3).
 
 ## Candidate issues
 
@@ -561,6 +566,231 @@ with a proposed title and acceptance criteria.
   of `docs/ARCHITECTURE.md` §10 and the equivalence duty it carries are
   published as a book page a tendering authority can use, with the five
   parameters explained and an example statement requirement.
+
+## The CaboLabs conformance verification framework
+
+Pablo Pazos's openEHR Conformance Framework Design is a body of requirements
+parallel to the forum's (R79, [t/17238 post 6][17238-6]). This section maps it
+the way the register maps the threads (#931). The source is the design
+document in his [openehr-conformance-verification][cvf] repository,
+`openEHR Conformance Framework Design (2023-11-21).pdf`, the latest of the two
+revisions there, read in full on 2026-10-31 from the repository's `master`
+(last pushed 2024-03-24). Its revision table runs from a first release on
+2022-01-25 to the 2023-11-21 clarification of how test suites are adapted, and
+every entry names Pablo Pazos as author, so every row below is attributed to
+him and located by the document's own section number. Sections 3.7 to 3.22 of
+the document read "TBD" and carry no requirement. Nothing of the document's
+material is copied into this repository beyond the short quotes below.
+
+### The framework's requirements
+
+Section 1.1, the stakeholders and what each needs:
+
+- **F1** §1.1.1. REQUIREMENT: a buyer can "Create tenders/biddings (RFI, RFT, RFP, RFQ, etc.)".
+- **F2** §1.1.1. REQUIREMENT: a buyer can "Evaluate offerings from vendors".
+- **F3** §1.1.2. REQUIREMENT: a vendor can "Create / deliver proposals / offers".
+- **F4** §1.1.2. REQUIREMENT: a vendor can "Test implementation (self compliance assessment)".
+- **F5** §1.1.3. REQUIREMENT: the openEHR Foundation can "Define tender / bidding guidelines for openEHR products".
+- **F6** §1.1.3. REQUIREMENT: the Foundation has custody of "the openEHR Conformance Specification and Conformance Framework Components".
+- **F7** §1.1.3. REQUIREMENT: the Foundation provides "implementation assets to verify conformance (runnable test suites, test data sets)".
+- **F8** §1.1.3. REQUIREMENT: the Foundation can "Certify openEHR Products".
+- **F9** §1.1.3. REQUIREMENT: the Foundation can "Endorse openEHR Conformance Experts".
+- **F10** §1.1.4. POSITION: a Conformance Expert "should be unrelated to the Software Providers to avoid conflict of interests", and one working for a customer should not work for a provider in the same tender.
+- **F11** §1.1.4. REQUIREMENT: the Expert supports customers creating tenders and evaluating proposals, and providers creating proposals.
+- **F12** §1.1.4. REQUIREMENT: the Expert can "Run Conformance Verification processes".
+- **F13** §1.1.4. REQUIREMENT: the Expert can formally notify the Foundation whether a product complies, for certification.
+
+Section 1.2, product classification:
+
+- **F14** §1.2. REQUIREMENT: products are classified by type (programming tool, user facing application, knowledge artifact tool, integration and middleware, openEHR data repository, testing and verification), and each type is verified with its own test suite and has "one Test Report structure".
+- **F15** §1.2, §1.3.5. REQUIREMENT: each product type has a Reference Architecture whose components' interfaces, taken from the Service Model, decide which test cases apply.
+
+Section 1.3, the materials:
+
+- **F16** §1.3.1. REQUIREMENT: a Conformance Specification, the "glue spec" for the context, goals, processes, rules, criteria and assets of verification.
+- **F17** §1.3.2. REQUIREMENT: "the Conformance Testing Specification should rely only on the Service Model and avoid any references to the REST API", so non-REST products can be verified.
+- **F18** §1.3.3. REQUIREMENT: each test case has a precondition (the state of the SUT), a flow, and a postcondition, and the last step specifies the expected result, "this includes success cases and error cases".
+- **F19** §1.3.3. POSITION: the initial suites are EHR, CONTRIBUTION, COMPOSITION, DIRECTORY, KNOWLEDGE, VALIDATION_STRUCTURE and VALIDATION_DATATYPES, designed for a CDR.
+- **F20** §1.3.4. REQUIREMENT: a Conformance Statement with a defined structure carries the provider's claims, forms part of the contract, and states "any design considerations and deviations from the openEHR specification".
+- **F21** §1.3.4. POSITION: "Customers shouldn't accept an offering of a product if it doesn't have the matching Conformance Statement."
+- **F22** §1.3.6, §4.2. REQUIREMENT: a detailed report lists each test case and data set, each uniquely named, with a result per combination, "accepted" or "rejected", and optional metadata and traces.
+- **F23** §1.3.6, §4.3. REQUIREMENT: a summarized report gives the totals of test suites, test cases, data sets, accepted and rejected results, optionally per suite.
+- **F24** §1.3.7. REQUIREMENT: every document and asset is strictly versioned, and the report "will explicitly state which Conformance Verification Asset versions were used", so results compare over time and between systems.
+
+Section 1.4, the process:
+
+- **F25** §1.4. REQUIREMENT: the verification is run by a Conformance Expert and may be triggered by the provider or by the consumer.
+- **F26** §1.4. REQUIREMENT: the provider writes the statement first, and the Expert adapts the test suites to the design decisions it declares; every adaptation is documented in the final report "allowing external reviewers to verify the whole process was fair and unbiased", and none may help the provider pass a test it should fail.
+- **F27** §1.4. REQUIREMENT: the Expert repeats adaptation and interpretation until "any test failures or successes are not because of how the tests were designed but are because of how the system being tested was implemented".
+- **F28** §1.4. REQUIREMENT: the statement is bound to a specific version of the system, and a new version needs an updated statement.
+- **F29** §1.4. REQUIREMENT: a consumer-triggered verification runs against the provider's systems, for example a test server, which the provider grants access to.
+
+Section 2, the statement:
+
+- **F30** §2.2.1. REQUIREMENT: the statement identifies the product's name, ID and version, its type, and where applicable its RM, AOM, REST API and query formalism versions.
+- **F31** §2.2.2. REQUIREMENT: it lists the RM packages and classes supported and not supported, with the reason, and every deviation in a supported class.
+- **F32** §2.2.3. REQUIREMENT: it states the versioning scheme supported (sequential or branched, §2.3.7) and which classes are versioned.
+- **F33** §2.2.4. REQUIREMENT: it states the change types and lifecycle states supported, and how the system reacts to unsupported codes.
+- **F34** §2.2.5, §2.3.9, §2.3.10. REQUIREMENT: it describes the product's architecture and its openEHR components.
+- **F35** §2.2.6. REQUIREMENT: its sections and diagrams are standardized so statements compare across products.
+- **F36** §2.2.7.1. REQUIREMENT: it states template delete behaviour: whether supported, who may delete, what happens to existing data, whether new data referencing a deleted template is accepted, and physical or logical deletion.
+- **F37** §2.2.7.2. REQUIREMENT: it states COMPOSITION delete behaviour: who may delete, and whether an undelete is supported.
+- **F38** §2.2.7.3. REQUIREMENT: it states EHR delete behaviour: whether supported, who may delete, and physical or logical deletion.
+- **F39** §2.3.6. REQUIREMENT: it states whether the product uses archetypes, templates or both, their version, and whether they validate data.
+
+Section 4, the test report:
+
+- **F40** §4.1. REQUIREMENT: the report carries the SUT's name, version and type and the specification versions it implements, in a standardized structure, JSON first.
+- **F41** §4.2, §4.3. REQUIREMENT: the detailed and summarized views are also JSON, so reports are processed and compared automatically.
+- **F42** §4.4. REQUIREMENT: a hierarchical view drills down from suites to cases to data sets.
+
+### The assessment
+
+#### A. Tenders and evaluation (F1, F2, F21): MET
+
+The [Procurement](https://veredictum.eu/docs/procurement.html) book page
+(`website/book/src/procurement.md`) publishes the requirement clause, its five
+parameters mapped to the statement's fields, an example requirement and the
+equivalence duty. The clause requires a published statement for the product
+version offered, which is F21. [Reading a result](https://veredictum.eu/docs/reading-results.html)
+(`website/book/src/reading-results.md`) explains each kind of row for a
+buyer evaluating an offer, and statements and results compare field by field
+(§10 of `docs/ARCHITECTURE.md`).
+
+#### B. The vendor's side (F3, F4): MET
+
+The statement (`schemas/statement.schema.json`) is the vendor's proposal
+artifact, and a vendor self-tests with `veredictum test`, the container image,
+the GitHub Action, the GitLab template or the hosted console (theme 13).
+
+#### C. The Foundation's role (F5–F9): NOT MET, outside the instrument
+
+The catalogue and the guidance live in this repository, not with openEHR; the
+hand-over to openEHR International is designed and not done (§12, theme 14).
+The instrument provides the runnable suites and data sets F7 asks for, but not
+through the Foundation. Certification (F8) is rung 3 of §9, not offered, and no
+certificate is issued before the openEHR SEC approves the instrument. No
+expert-endorsement programme exists (F9); §9 names an assessor programme only
+as a service that may carry fees. These are governance acts only openEHR can
+perform, so the instrument records them and tracks nothing for them.
+
+#### D. The Conformance Expert (F10–F13, F25): PARTLY
+
+Anyone holding the vendor's IXIT can run the instrument against the vendor's
+deployment, and a rung-2 witnessed re-run is the defined way for a third party
+to reproduce a result (§9), so F12 and F25's consumer trigger are met. What is
+missing is the record: the results document has no member that names a
+witness or the run it reproduces, so a re-run cannot show that it was
+independent (F10) or carry the notification F13 describes. Supporting tenders
+and proposals (F11) is a service, outside the tool.
+
+#### E. Product classes and reference architectures (F14, F15): NOT MET, deliberately
+
+The instrument tests one product class, platform CDRs over ITS-REST, and states
+the boundary with its reasons (`website/book/src/methodology.md`, "What the
+instrument does not test", #932). A classification with one suite per class
+would need released wire contracts for the other classes, which do not exist.
+The mapping of cases to a product is the statement's capability claim and
+option arms rather than a reference architecture, and F15's Service Model
+interfaces are no part of the oracle (theme 2).
+
+#### F. The specification layer (F16, F17): NOT MET for F17, deliberately; PARTLY for F16
+
+The Service Model was never released, so no case rests on it, and every case
+is a workflow over the released ITS-REST operations (`CLAUDE.md` hard rule 1,
+theme 2). This is the opposite of F17, for the reason theme 2 gives. F16's glue
+specification exists as this instrument's design record (`docs/ARCHITECTURE.md`)
+and its book, not as an openEHR specification.
+
+#### G. The shape of a test case (F18, F19, F27): MET
+
+A case is an Arazzo workflow whose setup steps establish the state it needs,
+whose steps are the flow, and whose success criteria are the expected result,
+for refusals as much as successes: every refusal the specification requires
+has its own invalid-twin workflow (§15.2, `website/book/src/methodology.md`).
+The capability folders cover F19's suites: `ehr`, `contribution`,
+`composition`, `directory`, `definition` for KNOWLEDGE, and `content` for the
+two validation suites, among others. F27 is the attribution law: every red row
+is attributed to the server, the runner or the catalogue before anything
+changes, and the instrument is a suspect first (`CLAUDE.md` hard rule 2,
+theme 10).
+
+#### H. Adapting the suites to the statement (F26, F28): MET, by computation
+
+The framework has an expert adapt the suites by hand and document the
+adaptations. The instrument computes the same adaptation from the statement:
+the claimed capabilities, the option arms, the wire formats and the
+specification versions select what runs, and every row left out is a skipped
+row with a fixed reason and its citation (§8.11, `schemas/arazzo-results.schema.json`).
+No adaptation is hand-made, so none can help a provider pass, and a verdict is
+a pure function of the statement, the IXIT, the catalogue and the recording
+(§8.11). A behaviour the release leaves open is an option both of whose arms
+are conformant, which covers F20's "design considerations". The statement
+names the exact product version (F28, §8.10).
+
+#### I. The statement's declarations (F20, F30–F39): PARTLY
+
+Met: the product's name, version, vendor and identifier, and the RM, BASE, AM,
+AQL, TERM and ITS-REST versions (`product`, `spec_versions`); the template
+formalism through the ADL 1.4 and ADL 2 folders of the definition chapter; EHR
+delete processing through the `admin-ehr-delete-processing` and
+`admin-ehr-delete-all` options; a computable, schema'd structure that compares
+across products (F35).
+
+Not met: the statement cannot declare the RM classes a product supports and
+does not (F31), its versioning scheme (F32), the change types and lifecycle
+states it accepts (F33), its architecture (F34), or the template, COMPOSITION
+and EHR delete behaviours beyond the two options (F36–F38). It also has no
+product type (F30), which matters only once a second product class is in
+scope. Deviations (F20) are deliberately not declarable: a deviation from a
+MUST is a failed row, never a statement entry.
+
+#### J. The test report (F22–F24, F40–F42): MET
+
+`results.json` holds one row per workflow row, each a case id unique across the
+catalogue and a row index into its data set, with its status, its inputs, and
+for a red row the expected and received values and the recorded exchange
+(F22, §8.10). The totals of F23 are the counts `veredictum show`, the Markdown
+summary and the CTRF export print, BASE and OPTIONS apart. The results document
+names the engine version and the specification profile with its snapshot
+commits, and a certificate also names the catalogue revision (F24, §15.10). The
+server's own identity is read from ITS-REST System OPTIONS into the `server`
+member, and the statement names the product (F40). Every document is JSON with
+a published schema (F41), and the views drill down by chapter, capability
+folder and section to the row (F42, `catalogue/chapters.yaml`).
+
+#### K. Data sets named in the report (F22): PARTLY
+
+A row is named by its case id and its index in the workflow's rows file, so a
+data set is addressed by position. A rows file's rows carry no names of their
+own, so a reordered rows file renames its data sets. The framework asks for a
+unique name per data set.
+
+### Candidate issues from the framework
+
+Nothing below was filed from this record.
+
+- **C5. Declaration-only statement members for the framework's
+  implementation facts** (F31–F34, F36–F38). Criteria: the statement schema
+  gains declaration-only members for the RM classes supported and not
+  supported with a reason, the versioning scheme and the versioned classes,
+  the change types and lifecycle states accepted and the reaction to others,
+  the architecture's openEHR components, and the template, COMPOSITION and
+  EHR delete behaviour; none is ever a verdict input; `validate --statement`
+  checks their shape; the book documents each.
+- **C6. Adjudicate the framework's delete and versioning questions against the
+  released text** (F32, F33, F36–F38). Criteria: each question is read
+  first-hand against ITS-REST, RM and the Admin API; where the release
+  defines the behaviour on the wire a case asserts it, where it leaves it open
+  it is an option, and where it is silent an `upstream-report` issue records
+  it.
+- **C7. Record a witnessed re-run in the result** (F10, F12, F13). Criteria: a
+  results document can name the witness, their role and the run it
+  reproduces, as a member that changes no verdict; the certificate and the
+  views show it; the book tells a procurer how to commission one.
+- **C8. Name each data set** (F22). Criteria: a rows file's rows carry a
+  stable name unique within their workflow, the results row carries it, and
+  `validate` refuses a missing or duplicated name.
 
 [t1616]: https://discourse.openehr.org/t/openehr-conformance-conformance-levels-conformance-scopes/1616
 [t2373]: https://discourse.openehr.org/t/conformance-testing-implementation-alternatives/2373
@@ -599,6 +829,7 @@ with a proposed title and acceptance criteria.
 [2373-1]: https://discourse.openehr.org/t/conformance-testing-implementation-alternatives/2373/1
 [2373-2]: https://discourse.openehr.org/t/conformance-testing-implementation-alternatives/2373/2
 [2373-3]: https://discourse.openehr.org/t/conformance-testing-implementation-alternatives/2373/3
+[17238-6]: https://discourse.openehr.org/t/veredictum-a-machine-readable-conformance-framework-for-openehr/17238/6
 [17238-7]: https://discourse.openehr.org/t/veredictum-a-machine-readable-conformance-framework-for-openehr/17238/7
 [17275-2]: https://discourse.openehr.org/t/moved-conformance-roadmap-from-here/17275/2
 [17275-3]: https://discourse.openehr.org/t/moved-conformance-roadmap-from-here/17275/3
@@ -610,3 +841,4 @@ with a proposed title and acceptance criteria.
 [17275-10]: https://discourse.openehr.org/t/moved-conformance-roadmap-from-here/17275/10
 [17275-11]: https://discourse.openehr.org/t/moved-conformance-roadmap-from-here/17275/11
 [17275-12]: https://discourse.openehr.org/t/moved-conformance-roadmap-from-here/17275/12
+[cvf]: https://github.com/ppazos/openehr-conformance-verification
