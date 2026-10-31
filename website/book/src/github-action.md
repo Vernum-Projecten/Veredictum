@@ -234,6 +234,13 @@ appending `_FILE`, and an empty one counts as unset, exactly as for the CDR
 credentials. The action hands every variable named
 `VEREDICTUM_SCOPED_TOKEN_<NAME>` to the container by name and no other.
 
+This repository's own CI runs every SMART document this way against a CDR in
+the SMART posture: `deploy/docker/e2e-ferroehr-smart.yml` brings up FerroEHR
+trusting a committed test issuer, and `deploy/docker/smart/` holds the
+statement and the IXIT whose `mint` member signs each row's token. They are a
+working example of the posture, never key material a production deployment
+may trust.
+
 ## Which image runs
 
 Left empty, `image` is `ghcr.io/vernum-projecten/veredictum:X.Y.Z`, where

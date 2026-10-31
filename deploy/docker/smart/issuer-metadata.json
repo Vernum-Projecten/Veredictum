@@ -1,0 +1,7 @@
+{
+  "issuer": "https://issuer.veredictum.test",
+  "authorization_endpoint": "https://issuer.veredictum.test/authorize",
+  "token_endpoint": "https://issuer.veredictum.test/token",
+  "jwks_uri": "https://issuer.veredictum.test/jwks",
+  "grant_types_supported": ["client_credentials"]
+}

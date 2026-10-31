@@ -92,6 +92,7 @@ jobs:
       docker: ${{ steps.filter.outputs.docker }}
       image: ${{ steps.filter.outputs.image }}
       action: ${{ steps.filter.outputs.action }}
+      smart: ${{ steps.filter.outputs.smart }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -134,6 +135,7 @@ jobs:
               echo "docker=true"
               echo "image=true"
               echo "action=true"
+              echo "smart=true"
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -184,6 +186,14 @@ jobs:
             echo "action=true" >> "$GITHUB_OUTPUT"
           else
             echo "action=false" >> "$GITHUB_OUTPUT"
+          fi
+          # The SMART lane (#921): the SMART documents, the Platform source,
+          # the committed test issuer, the evaluator's token handling, the
+          # SMART-posture environment, the lane's script and this file.
+          if echo "$changed" | grep -qE '^(catalogue/cases/smart/|catalogue/sources/smart-platform\.openapi\.yaml$|catalogue/keys/smart-test-issuer/|app/veredictum/src/arazzo/(credential|scope|evaluate)\.rs$|app/veredictum/src/pipeline/arazzo_run\.rs$|deploy/docker/e2e-ferroehr-smart\.yml$|deploy/docker/e2e-ferroehr\.toml$|deploy/docker/smart/|scripts/smart-lane\.sh$|\.github/workflows/ci\.yml$)'; then
+            echo "smart=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "smart=false" >> "$GITHUB_OUTPUT"
           fi
 
   # ── The guard tier: prose, licensing, commit messages, changelog structure ──
@@ -1139,6 +1149,40 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # ── The SMART lane: every SMART document against a CDR in the SMART posture ─
+  # The SMART on openEHR documents need a Platform base URL and a CDR that
+  # trusts the issuer of the scoped tokens each row presents (#921). The lane
+  # composes FerroEHR, pinned by digest, as that resource server, trusting the
+  # committed static test issuer, and holds the run to exit status 0 with no
+  # SMART row skipped. A red row is attributed from the results and the
+  # recording, which are kept on failure; the key is committed test material,
+  # so they hold nothing secret.
+  smart:
+    name: SMART documents end to end
+    needs: changes
+    if: needs.changes.outputs.smart == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - run: bash scripts/smart-lane.sh
+
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smart-lane-run
+          path: target/smart-lane
+          if-no-files-found: ignore
+          retention-days: 7
+
   # The visual feedback loop's other half: a pull request that changes how the
   # console LOOKS must refresh the committed captures, so every UI change lands
   # as a reviewable image diff instead of a description of one. The escape is the
@@ -1382,6 +1426,7 @@ jobs:
       - ui-e2e
       - ui-screenshot-guard
       - action
+      - smart
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
