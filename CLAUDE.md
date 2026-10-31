@@ -465,7 +465,12 @@ pipeline is a `needs` edge, so no leg guesses whether an earlier one finished.
    perf-result embeds this version, so whichever PR moves the version also
    runs `cargo run --example make_example_perf_result` and commits the
    result — the PR-level path filter does not catch the drift, and the push
-   run to main does (#521).
+   run to main does (#521). The fuzz workspace's `fuzz/Cargo.lock` records
+   the engine version through its path dependency and moves in the same
+   commit: `cargo update -p veredictum --manifest-path fuzz/Cargo.toml`
+   (add `--offline` when the local registry cache already holds the fuzz
+   dependencies). `scripts/release/check-console-pin.sh` refuses a fuzz lock
+   on any other version, on every pull request and at tag time (#611).
 3. `CITATION.cff`: `version` and `date-released`.
 4. `bash scripts/render/zenodo-json.sh` — `.zenodo.json` is GENERATED, because
    Zenodo ignores `CITATION.cff` completely whenever a `.zenodo.json` exists

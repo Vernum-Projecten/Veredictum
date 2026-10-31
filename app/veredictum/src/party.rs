@@ -29,7 +29,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::ids::{CapabilityName, OptionTag};
-use crate::vocab::{FormatName, ItsName, Tier};
+use crate::vocab::{FormatName, ItsName};
 
 // ── the statement (ICS + SDoC) ──────────────────────────────────────────────
 
@@ -87,18 +87,13 @@ impl SpecVersions {
 }
 
 /// The verdict-bearing claims (the ICS core): the capabilities the supplier
-/// asserts, and any profile tier tokens it lists.
+/// asserts.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Claims {
     /// Verdict-bearing capability names, each the name of a capability
     /// folder under the catalogue's `cases/` (for example `ehr`).
     #[serde(default)]
     pub capabilities: Vec<CapabilityName>,
-    /// The profile tier tokens listed (e.g. `CORE`, `SEC-BASIC`), from the
-    /// [`Tier`] vocabulary. The catalogue assigns no capability to a tier, so
-    /// no selection, gate or verdict reads them.
-    #[serde(default)]
-    pub profiles: Vec<Tier>,
 }
 
 /// A declared technology profile: one ITS and the wire formats exercised on
@@ -413,7 +408,7 @@ mod tests {
                           "vendor": "Vernum Projecten B.V.", "identifier": "urn:rubentalstra:ferroehr" },
             "schedule_release": "CNF-2.0",
             "spec_versions": { "rm": "1.2.0", "its_rest": "1.1.0" },
-            "claims": { "capabilities": ["EhrOperations"], "profiles": ["CORE"] },
+            "claims": { "capabilities": ["EhrOperations"] },
             "tech_profiles": [ { "its": "its-rest", "formats": ["canonical-json"] } ],
             "options": ["adl14-duplicate-conflict"],
             "evidence": [ { "results_path": "results.json", "sha256": "abc" } ]

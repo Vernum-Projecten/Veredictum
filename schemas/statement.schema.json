@@ -82,20 +82,6 @@
             "type": "string",
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
           }
-        },
-        "profiles": {
-          "type": "array",
-          "items": {
-            "enum": [
-              "CORE",
-              "STANDARD",
-              "OPTIONS",
-              "SEC-BASIC",
-              "D",
-              "M",
-              "X"
-            ]
-          }
         }
       }
     },

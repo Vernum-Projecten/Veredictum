@@ -484,7 +484,8 @@ pub static MINIMAL_SIGNED_DIGEST: PostureProfile = PostureProfile {
 ///
 /// The second signature form the same RM sentence names, as its own profile
 /// rather than a variant of [`MINIMAL_SIGNED_DIGEST`]: the per-commit
-/// cryptography differs, and the board ranks only inside a profile.
+/// cryptography differs, and `perf-compare` names a posture mismatch between
+/// two records as one that makes their numbers describe different things.
 pub static MINIMAL_SIGNED_PGP: PostureProfile = PostureProfile {
     name: "minimal-signed-pgp",
     summary: "The minimal surface with openPGP version signing: no audit trail, openPGP-signed versions, commits validated against the operational template, uncompressed responses, one tenant.",

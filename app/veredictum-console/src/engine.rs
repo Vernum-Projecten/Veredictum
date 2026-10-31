@@ -788,7 +788,6 @@ mod tests {
             token(&veredictum::arazzo::results::SkipReason::NotClaimed)?,
             "not-claimed"
         );
-        assert_eq!(token(&veredictum::vocab::Tier::SecBasic)?, "SEC-BASIC");
         assert_eq!(token(&veredictum::vocab::FormatName::WtFlat)?, "wt-flat");
         Ok(())
     }

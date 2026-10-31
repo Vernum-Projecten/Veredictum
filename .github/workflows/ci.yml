@@ -342,6 +342,10 @@ jobs:
       # request that introduces it, which is the only place it is cheap to fix.
       - name: The console's engine pin names this tree's engine
         run: bash scripts/release/check-console-pin.sh
+      # The same check holds fuzz/Cargo.lock to the engine version (#611);
+      # its seeded trees prove each disagreement is refused.
+      - name: The console's engine pin — seeded self-test
+        run: bash scripts/release/check-console-pin.sh --self-test
 
       # CITATION.cff and the generated .zenodo.json carry the workspace engine
       # version (#812). The release `plan` compares CITATION.cff with the tag,
@@ -558,6 +562,11 @@ jobs:
       # red pull request. On 2026-08-31 that gap was 15 commands wide.
       - name: The local battery covers this workflow
         run: bash scripts/checks/gates-cover-ci.sh
+
+      # Every gate that runs an external tool names it, so a machine without
+      # the tool reads SKIPPED and never FAILED (#606).
+      - name: The local battery declares every tool it runs — seeded self-test
+        run: bash scripts/checks/gates.sh --self-test
 
       # The image's OCI metadata is declared in two places and must agree. It
       # lives in THIS job rather than the image tier because it reads

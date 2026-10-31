@@ -154,7 +154,7 @@ async fn a_body_in_the_band_axums_default_cut_off_reaches_the_handler()
     reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
 )]
 #[tokio::test(flavor = "multi_thread")]
-async fn a_body_past_the_transport_cap_is_refused_as_the_callers_fault()
+async fn a_body_past_the_transport_cap_is_refused_as_too_large_naming_the_cap()
 -> Result<(), Box<dyn std::error::Error>> {
     let bound = bind().await?;
     let (status, body) = save_scope_with_a_statement_of(&bound, 5 * 1024 * 1024).await?;
@@ -162,15 +162,23 @@ async fn a_body_past_the_transport_cap_is_refused_as_the_callers_fault()
     // The deliberate backstop. `server_fn` reads the body through axum's
     // limited reader and raises its `Deserialization` variant on the overrun
     // (<https://docs.rs/axum/latest/axum/struct.RequestExt.html#tymethod.into_limited_body>),
-    // which the caller-fault layer answers as a caller's mistake (#484).
+    // and the caller-fault layer tells the overrun apart by the bytes it
+    // counted, so the caller is told the size, not a decoding guess (#530).
     assert_eq!(
         status,
-        reqwest::StatusCode::BAD_REQUEST,
-        "a body past the transport cap is the caller's mistake: {body}"
+        reqwest::StatusCode::PAYLOAD_TOO_LARGE,
+        "a body past the transport cap is the caller's mistake, by its size: {body}"
+    );
+    let cap = veredictum_console::router::BodyCaps::derived()?.server_fn;
+    assert!(
+        body.contains(&format!(
+            "This call could not be read. Its body is larger than the {cap} bytes"
+        )),
+        "the backstop did not name the cap: {body}"
     );
     assert!(
-        body.contains("This call could not be read"),
-        "the backstop answered without a sentence: {body}"
+        !body.contains("could not be decoded"),
+        "the overrun was reported as a decoding failure: {body}"
     );
     assert!(
         !body.contains("the statement is"),

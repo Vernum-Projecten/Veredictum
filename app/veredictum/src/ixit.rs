@@ -168,9 +168,8 @@ impl TerminologyPosture {
 
 /// Which openEHR specification GENERATION SET a deployment runs.
 ///
-/// Not to be confused with the CNF conformance profiles a case lists under
-/// `profiles:` (CORE / STANDARD / OPTIONS): this is the openEHR RM/BASE
-/// generation set the server implements. The openEHR release strategy
+/// This is the openEHR RM/BASE generation set the server implements. The
+/// openEHR release strategy
 /// (<https://specifications.openehr.org/governance/release_strategy>) makes a
 /// minor release "significant additions that do not change the semantics of
 /// the existing part of the release", so a deployment on the RELEASED
