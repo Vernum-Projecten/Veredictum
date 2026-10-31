@@ -170,6 +170,17 @@ fn issued_ixit(dir: &Path) -> Result<String, Box<dyn std::error::Error>> {
     )
 }
 
+/// A read-and-search row skipped because the IXIT supplies no token for its
+/// scope set.
+fn undeclared_read_search(row: u64) -> (String, u64, String, Option<String>) {
+    (
+        "smart_scopes/template_list-system_scope_read_search_granted".to_owned(),
+        row,
+        "skipped".to_owned(),
+        Some("not-declared".to_owned()),
+    )
+}
+
 /// The run's recording, after checking that neither supplied token nor a
 /// scope marker reached it, the results or the run's own output.
 #[expect(
@@ -253,18 +264,8 @@ fn each_scoped_row_presents_its_own_token_and_the_recording_holds_none() -> Fall
                 "passed".to_owned(),
                 None
             ),
-            (
-                "smart_scopes/template_list-system_scope_read_search_granted".to_owned(),
-                0,
-                "skipped".to_owned(),
-                Some("not-declared".to_owned())
-            ),
-            (
-                "smart_scopes/template_list-system_scope_read_search_granted".to_owned(),
-                1,
-                "skipped".to_owned(),
-                Some("not-declared".to_owned())
-            ),
+            undeclared_read_search(0),
+            undeclared_read_search(1),
         ]
     );
     assert_eq!(
@@ -530,11 +531,12 @@ const SEARCH_TOKEN: &str = "tok-search-5d2e";
 /// The token supplied for [`CRUDS_SCOPE`].
 const CRUDS_TOKEN: &str = "tok-cruds-0a6f";
 
+/// `(case, row, status)` of each scoped row of a run, and its exit code.
+type ScopedRun = (Vec<(String, u64, String)>, Option<i32>);
+
 /// Runs both SMART documents against `sut` with a token for every scope set,
 /// returning `(case, row, status)` of each scoped row and the exit code.
-fn every_scope_run(
-    sut: &FakeSut,
-) -> Result<(Vec<(String, u64, String)>, Option<i32>), Box<dyn std::error::Error>> {
+fn every_scope_run(sut: &FakeSut) -> Result<ScopedRun, Box<dyn std::error::Error>> {
     let dir = assert_fs::TempDir::new()?;
     let statement = statement(dir.path())?;
     let ixit = write_json(
