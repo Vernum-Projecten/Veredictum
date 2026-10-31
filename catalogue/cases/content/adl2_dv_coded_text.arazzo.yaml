@@ -73,6 +73,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
 
   - workflowId: adl2-dv_coded_text-validate_value_set-c_terminology_code
     x-veredictum-control: adl2-dv_coded_text-validate_value_set-accepted

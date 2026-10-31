@@ -640,7 +640,7 @@ pub fn surface_schema() -> Value {
         "$schema": DRAFT,
         "$id": urn("arazzo-surface"),
         "title": "Surface coverage of the Arazzo catalogue",
-        "description": "Lives at `cases/surface.yaml`. `scope` names the operation families the catalogue has converted, each an ITS-REST API document and an OAS tag. Inside that scope every released operation, every response it declares and every value of its negotiation headers is covered by a step, or is listed in `gaps` with the issue that tracks it. A gap whose element is covered is refused, so the list only shrinks.",
+        "description": "Lives at `cases/surface.yaml`. `scope` names the operation families the catalogue has converted, each an ITS-REST API document and an OAS tag. Inside that scope every released operation, every response it declares and every value of its negotiation headers is covered by a step, or is listed in `gaps`: with the `issue` that tracks covering it, or, for a recorded boundary the release leaves uncoverable, with a `note` saying why and no issue. A gap whose element is covered is refused, so the list only shrinks.",
         "type": "object",
         "additionalProperties": false,
         "required": ["scope"],
@@ -663,7 +663,8 @@ pub fn surface_schema() -> Value {
                 "items": {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": ["api", "operation", "issue"],
+                    "required": ["api", "operation"],
+                    "anyOf": [{ "required": ["issue"] }, { "required": ["note"] }],
                     "oneOf": [
                         { "not": { "anyOf": [{ "required": ["status"] }, { "required": ["header"] }, { "required": ["value"] }] } },
                         { "required": ["status"], "not": { "anyOf": [{ "required": ["header"] }, { "required": ["value"] }] } },

@@ -551,3 +551,82 @@ workflows:
           - { name: Accept, in: header, value: application/openehr.wt+json }
         successCriteria:
           - condition: $statusCode == 406
+
+  - workflowId: get_template_adl2_version-malformed_version
+    x-veredictum-control: get_template_adl2_version
+    summary: Reading an ADL 2 template at a version that is not a SEMVER version is refused with 400
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id, then reads it through the deprecated read at a version
+      with the version v1.x, which is neither an exact SEMVER version nor a
+      major or major.minor prefix, so the version parameter is syntactically
+      invalid. The read is refused with 400.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/parameters/path/version.yaml
+      section: description
+      quote: "A SEMVER version number."
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - stepId: read
+        description: Read the template at the version v1.x with Accept application/json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_version_get
+        parameters:
+          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1" }
+          - { name: version, in: path, value: "v1.x" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
+  - workflowId: get_template_adl2_example-invalid_type
+    x-veredictum-control: get_template_adl2_example
+    summary: An ADL 2 example asked for with a type outside input and output is refused with 400
+    description: >-
+      Reads an example data instance of the ADL 2 template
+      openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 with the query
+      parameter type set to archive, a value outside the two the operation
+      declares, so the type parameter is invalid. The read is refused with
+      400.
+    dependsOn: [$sourceDescriptions.setup.upload_template-adl2_dv_count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/parameters/query/example_type.yaml
+      section: /schema/enum
+      quote: "input output"
+    steps:
+      - stepId: example
+        description: Read an example with type archive and Accept application/json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_example_get
+        parameters:
+          - { name: template_id, in: path, value: openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 }
+          - { name: type, in: query, value: archive }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
+  - workflowId: get_template_adl2_example-invalid_detail_level
+    x-veredictum-control: get_template_adl2_example
+    summary: An ADL 2 example asked for with a detail_level outside the declared three is refused with 400
+    description: >-
+      Reads an example data instance of the ADL 2 template
+      openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 with the query
+      parameter detail_level set to exhaustive, a value outside the three the
+      operation declares, so the detail_level parameter is invalid. The read
+      is refused with 400.
+    dependsOn: [$sourceDescriptions.setup.upload_template-adl2_dv_count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/parameters/query/example_detail_level.yaml
+      section: /schema/enum
+      quote: "required medium complete"
+    steps:
+      - stepId: example
+        description: Read an example with detail_level exhaustive and Accept application/json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_example_get
+        parameters:
+          - { name: template_id, in: path, value: openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 }
+          - { name: detail_level, in: query, value: exhaustive }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request

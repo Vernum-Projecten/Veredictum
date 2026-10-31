@@ -53,11 +53,11 @@ Query speed over one population, one set of percentiles per query class rather t
 | community.vital_signs | 223110 | openEHR CKM cid 1013.26.380 (Vital signs), the operational template the openEHR community's vital-signs benchmark harness uploads (<https://discourse.openehr.org/t/17224>); the CKM export vendored verbatim, pinned at the digest the community-vitals bench pack pinned |
 | community.vital_signs.example | 22637 | the composition attached to post 8 of the openEHR community's vital-signs benchmark thread (<https://discourse.openehr.org/t/17224>), vendored byte-identically: eight OBSERVATION entries under openEHR-EHR-COMPOSITION.encounter.v1, rm_version 1.0.2, template id 'Vital signs' |
 
-## clinical-mix v1 (Provisional)
+## clinical-mix v2 (Provisional)
 
 A hospital front end at its busy hour: clinicians opening charts (a partly-open session of subject lookup, summary query, document reads and an observation trend), ward boards and problem lists polling AQL, the monitoring, order, result and correction writes of ward work, and the definition, folder, tag, demographic and bootstrap traffic around them. Carried over from the 24 class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892) without their minute-scale offsets. Provisional, for SEC ratification.
 
-- File: `clinical-mix.yaml` (sha256 `cba7c50a44816151b007844df5bd2df48b8bcaab297511951c2b50bf1fb476cf`)
+- File: `clinical-mix.yaml` (sha256 `451becd97b546915f35ef74eb7b40c39c80931b0d53d9e29e44e1a686ed4f517`)
 - Seed: 20261030; arrivals: Poisson; samples per plateau: 5000
 - Corpus: S (100000 EHRs), 10 compositions per EHR
 - Planned run after seeding: 263 to 598 s (limit 600 s)
@@ -82,9 +82,9 @@ A hospital front end at its busy hour: clinicians opening charts (a partly-open 
 | contribution_read | 1.5% | contribution_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): audit_review (4%) and registry_submission, their contribution reads. |
 | correction | 2% | composition_update | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): correction (3%): about one amendment event per patient-day (PMC10148376), its update stage. |
 | deletion | 0.3% | composition_delete | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): deletion (0.3%): logical deletes are rare governance events (RM common change_control, the deleted lifecycle state). |
-| directory_read | 1% | directory_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
-| directory_update | 0.4% | directory_update | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
-| ehr_read | 1.5% | ehr_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
+| directory_read | 1% | directory_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge and chart_review, their directory reads. |
+| directory_update | 0.4% | directory_update | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge (0.8%), its directory update, held at half. |
+| ehr_read | 1.5% | ehr_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): audit_review (4%), its EHR read. |
 | flat_commit | 0.5% | composition_commit_flat | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): simplified_formats_exchange (0.5%): the declared FLAT share of composition commits, run only where Simplified Formats are claimed; the remaining commits are canonical JSON. |
 | imaging_report | 0.5% | composition_commit | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): imaging_pipeline (1%), its report stage (NHS DID 2023/24: 0.82 imaging tests per capita per year). |
 | lab_order | 1% | composition_commit | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): lab_pipeline (1.5%) and imaging_pipeline (1%), their order stage: 15 laboratory results per capita per year (RCPath) and 0.82 imaging tests per capita per year (NHS DID 2023/24). |
@@ -92,23 +92,23 @@ A hospital front end at its busy hour: clinicians opening charts (a partly-open 
 | medication_order | 1.5% | composition_commit | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): medication_round (1.5%): 21.8 prescription items per capita per year (NHS BSA Prescription Cost Analysis 2024/25). |
 | medicines_reconciliation | 1% | composition_update | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): medicines_reconciliation (1.5%): reconciliation on admission and transfer (NICE NG5), its update stage. |
 | party_create | 0.2% | party_create | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its registration: a person is registered once and admitted repeatedly. |
-| party_read | 0.2% | party_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
-| party_update | 0.1% | party_update | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
+| party_read | 0.2% | party_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its read. |
+| party_update | 0.1% | party_update | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its update, held at half. |
 | problem_list | 4% | aql:problem_list | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): ward_dashboard (12%), its stored-query half, as the per-patient list a ward front end shows beside the board. |
 | problem_list_terminology | 0.5% | aql:problem_list_terminology | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): analytics_review (1.5%), its terminology-expanded filter, held at a third of that journey's share because it runs only where the aql-terminology option arm is claimed. |
 | public_health_notification | 0.2% | composition_commit | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): public_health_notification (0.3%), its notification stage (UKHSA notifiable diseases reporting duty). |
 | registry_submission | 0.5% | contribution_commit | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): registry_submission (1.5%), its commit stage; its contribution read is part of audit_review here. |
 | revision_history | 2% | composition_revision_history | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): correction, specialist_report and signature_review, their revision-history stages. |
 | specialist_report | 0.5% | composition_commit | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): specialist_report (1.5%), its commit stage (RCPA cancer reporting protocols), held at a third because its revision history read is its own interaction here. |
-| status_read | 0.8% | ehr_status_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
-| status_update | 0.8% | ehr_status_update | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
+| status_read | 0.8% | ehr_status_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status reads. |
+| status_update | 0.8% | ehr_status_update | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status updates. |
 | system_options | 0.5% | system_options | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): platform_probe (0.5%): every integration client reads the service options before its first clinical call. |
-| tags_put | 1% | tags_put | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
-| tags_read | 1% | tags_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
-| template_adl2_list | 0.75% | template_adl2_list | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
-| template_example | 0.75% | template_example | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
-| template_get | 0.75% | template_get | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
-| template_list | 0.75% | template_list | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in |
+| tags_put | 1% | tags_put | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its write half. |
+| tags_read | 1% | tags_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its read half. |
+| template_adl2_list | 0.75% | template_adl2_list | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter. |
+| template_example | 0.75% | template_example | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter. |
+| template_get | 0.75% | template_get | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter. |
+| template_list | 0.75% | template_list | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter each to its four released reads. |
 | version_read | 1.5% | composition_version_read | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): signature_review (2%), its version read (RM common change_control, the version signature's carrier). |
 | vitals_round | 5% | composition_commit | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): vitals_round (6%): ward observation cadence of 4 to 6 observation sets per patient-day (RCP NEWS2 monitoring guidance), held slightly below the journey share so the expanded mix stays read-heavy. |
 | ward_board | 8% | aql:ward_board | From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): ward_dashboard (12%), its cross-EHR worklist query; busy-hour polling per the ITU-T E.500 convention the population model's peak factor cites. |

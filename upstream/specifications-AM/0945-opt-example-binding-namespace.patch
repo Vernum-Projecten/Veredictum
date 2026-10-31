@@ -1,0 +1,20 @@
+--- a/docs/ADL2/master10-templates.adoc
++++ b/docs/ADL2/master10-templates.adoc
+@@ -469,7 +469,7 @@
+ 	COMPOSITION[at0000.1] matches {	-- Clinical detail
+ 		category matches {
+ 			DV_CODED_TEXT[at0028] matches {
+-				defining_code matches {[at0009]}
++				defining_code matches {[at0009@openehr]}
+ 			}
+ 		}
+ 		context existence matches {0}
+@@ -571,7 +571,7 @@
+ 	COMPOSITION[id1.1] matches {	-- Clinical detail
+ 		category matches {
+ 			DV_CODED_TEXT[id29] matches {
+-				defining_code matches {[at10]}
++				defining_code matches {[at10@openehr]}
+ 			}
+ 		}
+ 		context existence matches {0}

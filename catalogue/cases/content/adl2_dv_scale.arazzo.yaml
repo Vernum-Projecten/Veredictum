@@ -71,6 +71,7 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945
 
   - workflowId: adl2-dv_scale-validate_constraint-c_real_list
     x-veredictum-control: adl2-dv_scale-validate_constraint-accepted
@@ -173,3 +174,4 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945

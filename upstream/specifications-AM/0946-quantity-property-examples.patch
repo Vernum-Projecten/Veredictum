@@ -1,0 +1,111 @@
+--- a/docs/ADL2/master04.4-cadl_second_order.adoc
++++ b/docs/ADL2/master04.4-cadl_second_order.adoc
+@@ -2,7 +2,7 @@
+ 
+ === Tuple Constraints
+ 
+-In realistic data, it is not uncommon to need to constrain multiple object properties that co-vary in a specific way. A simple example is the need to state range constraints on a temperature, represented as an openEHR `DV_QUANTITY` type, for both Centigrade and Fahrenheit scales. The default way to do this in ADL is as follows (the `DV_QUANTITY` class has `_property_`, `_units_` and `_magnitude_` attributes):
++In realistic data, it is not uncommon to need to constrain multiple object properties that co-vary in a specific way. A simple example is the need to state range constraints on a temperature, represented as an openEHR `DV_QUANTITY` type, for both Centigrade and Fahrenheit scales. The default way to do this in ADL is as follows (the `DV_QUANTITY` class has `_units_` and `_magnitude_` attributes):
+ 
+ [tabs,sync-group-id=adl-example]
+ ====
+@@ -15,12 +15,10 @@
+     --
+     value ∈ {
+         DV_QUANTITY [at9013] ∈ {
+-            property ∈ {[openehr::151|temperature|]}
+             units ∈ {"deg F"}
+             magnitude ∈ {|32.0..212.0|}
+         }
+         DV_QUANTITY [at9014] ∈ {
+-            property ∈ {[openehr::151|temperature|]}
+             units ∈ {"deg C"}
+             magnitude ∈ {|0.0..100.0|}
+         }
+@@ -36,12 +34,10 @@
+     --
+     value ∈ {
+         DV_QUANTITY [id14] ∈ {
+-            property ∈ {[openehr::151|temperature|]}
+             units ∈ {"deg F"}
+             magnitude ∈ {|32.0..212.0|}
+         }
+         DV_QUANTITY [id15] ∈ {
+-            property ∈ {[openehr::151|temperature|]}
+             units ∈ {"deg C"}
+             magnitude ∈ {|0.0..100.0|}
+         }
+@@ -74,7 +70,6 @@
+     --
+     value ∈ {
+         DV_QUANTITY[at9013] ∈ {
+-            property ∈ {[openehr::151|temperature|]}
+             [units, magnitude] ∈ {
+                 [{"deg F"}, {|32.0..212.0|}] ,
+                 [{"deg C"}, {|0.0..100.0|}]
+@@ -92,7 +87,6 @@
+     --
+     value ∈ {
+         DV_QUANTITY[id14] ∈ {
+-            property ∈ {[openehr::151|temperature|]}
+             [units, magnitude] ∈ {
+                 [{"deg F"}, {|32.0..212.0|}] ,
+                 [{"deg C"}, {|0.0..100.0|}]
+@@ -121,7 +115,6 @@
+     --
+     value ∈ {
+         DV_QUANTITY[at9007] ∈ {
+-            property ∈ {[openehr::151|temperature|]}
+             units ∈ {"deg F", "deg C"}
+             magnitude ∈ {|32.0..212.0|, |0.0..100.0|}
+         }
+@@ -137,7 +130,6 @@
+     --
+     value ∈ {
+         DV_QUANTITY[id14] ∈ {
+-            property ∈ {[openehr::151|temperature|]}
+             units ∈ {"deg F", "deg C"}
+             magnitude ∈ {|32.0..212.0|, |0.0..100.0|}
+         }
+--- a/docs/ADL2/master07.10-adl_definition.adoc
++++ b/docs/ADL2/master07.10-adl_definition.adoc
+@@ -42,8 +42,7 @@
+                                         value ∈ {
+                                             DV_QUANTITY[at9006] ∈ {
+                                                 magnitude ∈ {|0..1000|}
+-                                                property ∈ {[properties::944]}  -- "pressure"
+-                                                units ∈ {[units::387]}          -- "mm[Hg]"
++                                                units ∈ {"mm[Hg]"}               -- "mm[Hg]"
+                                             }
+                                         }
+                                     }
+@@ -58,8 +57,7 @@
+                                         value ∈ {
+                                             DV_QUANTITY[at9009] ∈ {
+                                                 magnitude ∈ {|0..1000|}
+-                                                property ∈ {[properties::944]}   -- "pressure"
+-                                                units ∈ {[units::387]}           -- "mm[Hg]"
++                                                units ∈ {"mm[Hg]"}                -- "mm[Hg]"
+                                             }
+                                         }
+                                     }
+@@ -106,8 +104,7 @@
+                                         value ∈ {
+                                             DV_QUANTITY[id12] ∈ {
+                                                 magnitude ∈ {|0..1000|}
+-                                                property ∈ {[properties::944]}  -- "pressure"
+-                                                units ∈ {[units::387]}          -- "mm[Hg]"
++                                                units ∈ {"mm[Hg]"}               -- "mm[Hg]"
+                                             }
+                                         }
+                                     }
+@@ -122,8 +119,7 @@
+                                         value ∈ {
+                                             DV_QUANTITY[id16] ∈ {
+                                                 magnitude ∈ {|0..1000|}
+-                                                property ∈ {[properties::944]}   -- "pressure"
+-                                                units ∈ {[units::387]}           -- "mm[Hg]"
++                                                units ∈ {"mm[Hg]"}                -- "mm[Hg]"
+                                             }
+                                         }
+                                     }

@@ -70,3 +70,4 @@ workflows:
               source: specs/openehr/ITS-REST/specifications/responses/201_COMPOSITION.yaml
               section: "description"
               quote: "`201 Created` is returned when the COMPOSITION is successfully created."
+              report: 945

@@ -1134,7 +1134,7 @@ cases:
       definition_template_adl1.4_example_get.yaml lets a server "fall back to
       the closest supported level, or it may return an error (typically `400
       Bad Request`)" for a detail_level it does not support, so the refusal
-      is not assigned. Not converted yet, tracked by #714.
+      is not assigned and no workflow asserts it.
   I_DEFINITION_ADL14.get_opt-example_type_output:
     new: [template_adl14/get_template_example]
   I_DEFINITION_ADL14.get_opt-flat_not_acceptable:
@@ -1144,7 +1144,7 @@ cases:
     open: &adl14_version >-
       BASE TEMPLATE_ID leaves the lexical form of an ADL 1.4 template_id "to
       be determined", so the release does not say which part of one is a
-      version (upstream report #715). Not converted yet, tracked by #714.
+      version (upstream report #715).
   I_DEFINITION_ADL14.get_opt-retrieve_fail:
     new: [template_adl14/get_template-unknown]
   I_DEFINITION_ADL14.get_opt-retrieve_latest_version:
@@ -1209,12 +1209,12 @@ cases:
       Each invalid OPT needs its own adjudication: 400 where the body is
       invalid against the published OPT XSD, 422 where it is valid against
       it and breaks an AM or BASE invariant. Not converted yet, tracked by
-      #714.
+      #949.
   I_DEFINITION_ADL14.upload_opt-largest_published:
     new: []
     open: >-
       The 5.2 MB OPT is too large to write inline, and the catalogue has no
-      payload references yet. Not converted yet, tracked by #714.
+      payload references yet. Not converted yet, tracked by #949.
   I_DEFINITION_ADL14.upload_opt-prefer_identifier:
     new: [template_adl14/upload_template-return_identifier]
     open: >-
@@ -1298,7 +1298,7 @@ cases:
     new: []
     open: &adl2_versions >-
       It needs a version prefix or several stored versions of one ADL 2
-      template. Not converted yet, tracked by #714.
+      template. Not converted yet, tracked by #948.
   I_DEFINITION_ADL2.has_artefact-existing:
     new: [template_adl2/get_template_adl2-text]
     open: >-
@@ -1355,7 +1355,7 @@ cases:
     open: >-
       The valid twin is template_adl2/upload_template_adl2-minimal; the
       invalid source's defect needs the 400 or 422 adjudication of an
-      invalid template. Not converted yet, tracked by #714.
+      invalid template. Not converted yet, tracked by #949.
   I_DEFINITION_ADL2.upload_artefact-prefer_identifier:
     new: [template_adl2/upload_template_adl2-return_identifier]
   I_DEFINITION_ADL2.upload_artefact-prefer_minimal:
@@ -1381,7 +1381,7 @@ cases:
     open: >-
       The release has no validation operation, and the invalid source needs
       the 400 or 422 adjudication of an invalid template. Not converted yet,
-      tracked by #714.
+      tracked by #949.
   I_DEFINITION_ADL2.valid_artefact-valid:
     new: [template_adl2/upload_template_adl2-minimal]
     open: >-
@@ -3963,7 +3963,7 @@ cases:
     new: [template_adl14/get_template_example]
     open: >-
       The canonical JSON example is carried; its XML and simplified-format
-      Accept values are the example gaps of the ADL 1.4 templates, #714.
+      Accept values are the example gaps of the templates, #947.
   SF-EXAMPLE-roundtrip:
     new: []
     open: >-
@@ -3982,8 +3982,9 @@ cases:
   SF-FLAT-adl2_commit:
     new: []
     open: &sf_adl2 >-
-      Needs a stored ADL 2 operational template, and none of the committed
-      ADL 2 sources is valid by AM; the ADL 2 template work is #714.
+      The stored ADL 2 operational templates exist (the setup
+      content_templates_adl2 uploads them), and no Simplified Flat workflow
+      commits against one yet, #947.
   SF-FLAT-adl2_reject_cardinality:
     new: []
     open: *sf_adl2
@@ -4259,8 +4260,8 @@ cases:
     open: >-
       No released schema defines a JSON form of an ADL 1.4 operational
       template, so no sentence assigns the answer to Accept
-      application/json on a template read; the branch is a gap of the ADL
-      1.4 templates, #714.
+      application/json on a template read; the branch is a recorded
+      boundary of the ADL 1.4 templates.
   I_EHR_EXTRACT_SERVICE.export_ehr_extracts-by_spec:
     new: []
     open: &no_extract_route >-

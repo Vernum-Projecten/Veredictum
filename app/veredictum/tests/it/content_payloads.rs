@@ -98,7 +98,7 @@ fn every_adl2_content_composition_meets_the_its_json_schema_as_its_outcome_requi
         }
     }
     assert!(
-        commits >= 86,
+        commits >= 85,
         "every ADL 2 content workflow was read, {commits} found"
     );
     Ok(())

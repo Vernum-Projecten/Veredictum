@@ -5,7 +5,9 @@
 //!
 //! Inside the operation families the catalogue has converted, every released
 //! operation, every response it declares and every value of its negotiation
-//! headers is covered by a step, or is a gap with the issue that tracks it.
+//! headers is covered by a step, or is a gap: one with the issue that tracks
+//! it, or a recorded boundary whose `note` says why the release leaves it
+//! uncoverable.
 //!
 //! The surface is enumerated from the decomposed ITS-REST 1.1.0 OAS under
 //! `specs/openehr/ITS-REST/specifications/`: each API document's `paths`
@@ -104,9 +106,11 @@ pub struct Gap {
     pub header: Option<NegotiationHeader>,
     /// The header value, beside `header`.
     pub value: Option<String>,
-    /// The issue in this repository that tracks covering the element.
-    pub issue: NonZeroU64,
-    /// Why it is not covered yet.
+    /// The issue in this repository that tracks covering the element, when
+    /// covering it is planned work.
+    pub issue: Option<NonZeroU64>,
+    /// Why it is not covered: required on a recorded boundary, a gap the
+    /// release leaves uncoverable, which names no issue.
     pub note: Option<String>,
 }
 
@@ -640,9 +644,11 @@ pub fn judge(
                 "gaps[{index}]: `{element}` is not an element of the scoped surface"
             ));
         } else if covered.contains(&element) {
+            let tracked = gap
+                .issue
+                .map_or_else(String::new, |issue| format!(" (#{issue})"));
             out.push(format!(
-                "gaps[{index}]: `{element}` is covered, so the gap (#{}) is closed and must go",
-                gap.issue
+                "gaps[{index}]: `{element}` is covered, so the gap{tracked} is closed and must go"
             ));
         }
         if !gapped.insert(element.clone()) {
@@ -751,7 +757,7 @@ mod tests {
             status: status.map(str::to_owned),
             header: None,
             value: None,
-            issue: NonZeroU64::MIN,
+            issue: Some(NonZeroU64::MIN),
             note: None,
         }
     }
@@ -896,9 +902,16 @@ mod tests {
             json!({ "scope": [{ "api": "ehr", "tag": "EHR" }], "gaps": [{ "api": "ehr", "operation": "a", "issue": 1, "header": "Accept" }] }),
             json!({ "scope": [{ "api": "ehr", "tag": "EHR" }], "gaps": [{ "api": "ehr", "operation": "a", "issue": 1, "header": "If-Match", "value": "x" }] }),
             json!({ "scope": [{ "api": "ehr", "tag": "EHR" }], "gaps": [{ "api": "ehr", "operation": "a", "issue": 1, "status": "404", "header": "Accept", "value": "x" }] }),
+            json!({ "scope": [{ "api": "ehr", "tag": "EHR" }], "gaps": [{ "api": "ehr", "operation": "a", "status": "400", "note": "" }] }),
         ] {
             assert!(parse(&seeded).is_err(), "{seeded}");
         }
+        let boundary = parse(&json!({
+            "scope": [{ "api": "ehr", "tag": "EHR" }],
+            "gaps": [{ "api": "ehr", "operation": "a", "status": "400", "note": "No request is assigned 400." }]
+        }))
+        .unwrap();
+        assert_eq!(boundary.gaps.first().and_then(|g| g.issue), None);
         let good = parse(&json!({
             "scope": [{ "api": "ehr", "tag": "EHR" }],
             "gaps": [{ "api": "ehr", "operation": "a", "issue": 603, "header": "Accept", "value": "application/xml" }]

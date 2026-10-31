@@ -13,7 +13,7 @@
 # operations, every other interaction one, and the expanded per-operation mix
 # must sit inside the 10:1 to 50:1 read band of the population model.
 id: clinical-mix
-version: 1
+version: 2
 status: provisional
 description: >-
   A hospital front end at its busy hour: clinicians opening charts (a
@@ -289,7 +289,8 @@ interactions:
   ehr_read:
     share: 1.5%
     description: The EHR a contribution belongs to read by id.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): audit_review (4%), its EHR read.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): audit_review (4%), its EHR read.
     op: ehr_read
 
   # ── ADT and folders ─────────────────────────────────────────────────────
@@ -303,54 +304,64 @@ interactions:
   status_read:
     share: 0.8%
     description: The EHR_STATUS read at admission or discharge.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status reads.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status reads.
     op: ehr_status_read
   status_update:
     share: 0.8%
     description: The EHR_STATUS updated at admission or discharge.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status updates.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): admission and discharge (0.8% each), their status updates.
     op: ehr_status_update
   directory_read:
     share: 1%
     description: The episode folder tree read.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge and chart_review, their directory reads.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge and chart_review, their directory reads.
     op: directory_read
   directory_update:
     share: 0.4%
     description: The episode folder tree updated.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge (0.8%), its directory update, held at half.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): discharge (0.8%), its directory update, held at half.
     op: directory_update
 
   # ── tags, definitions, demographics, bootstrap ──────────────────────────
   tags_put:
     share: 1%
     description: The tag set of a hot composition replaced.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its write half.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its write half.
     op: tags_put
   tags_read:
     share: 1%
     description: The tag set of a composition read.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its read half.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): tagging (2%), its read half.
     op: tags_read
   template_list:
     share: 0.75%
     description: The ADL 1.4 template store listed.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter each to its four released reads.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter each to its four released reads.
     op: template_list
   template_get:
     share: 0.75%
     description: One ADL 1.4 template fetched.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
     op: template_get
   template_example:
     share: 0.75%
     description: The generated example of one template fetched.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
     op: template_example
   template_adl2_list:
     share: 0.75%
     description: The ADL 2 template store listed.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): integration_poll (4%), a quarter.
     op: template_adl2_list
   party_create:
     share: 0.2%
@@ -363,12 +374,14 @@ interactions:
   party_read:
     share: 0.2%
     description: A registered person read back.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its read.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its read.
     op: party_read
   party_update:
     share: 0.1%
     description: A registered identity amended as a new version.
-    derivation: From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its update, held at half.
+    derivation: >-
+      From the class-run journeys of perf/journeys.yaml at commit 20864091 (removed in #892): demographic_admission (0.4%), its update, held at half.
     op: party_update
     payload: cnf.demographic.person.v2
   system_options:

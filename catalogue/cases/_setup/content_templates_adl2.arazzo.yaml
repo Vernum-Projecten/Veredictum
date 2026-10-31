@@ -3896,10 +3896,10 @@ workflows:
               section: "description"
               quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
 
-  - workflowId: upload_template-adl2_dv_interval_quantity_temperature
-    summary: The ADL 2 template openEHR-EHR-COMPOSITION.cnf_adl2_dv_interval_quantity_temperature.v1.0.0 is on the server
+  - workflowId: upload_template-adl2_dv_interval_quantity_celsius
+    summary: The ADL 2 template openEHR-EHR-COMPOSITION.cnf_adl2_dv_interval_quantity_celsius.v1.0.0 is on the server
     description: >-
-      Uploads the ADL 2 operational template openEHR-EHR-COMPOSITION.cnf_adl2_dv_interval_quantity_temperature.v1.0.0. A server that
+      Uploads the ADL 2 operational template openEHR-EHR-COMPOSITION.cnf_adl2_dv_interval_quantity_celsius.v1.0.0. A server that
       already holds a template with that template_id refuses the upload with
       409, which leaves the same precondition in place.
     x-veredictum-cite:
@@ -3917,7 +3917,7 @@ workflows:
           contentType: text/plain
           payload: |-
             operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
-                openEHR-EHR-COMPOSITION.cnf_adl2_dv_interval_quantity_temperature.v1.0.0
+                openEHR-EHR-COMPOSITION.cnf_adl2_dv_interval_quantity_celsius.v1.0.0
 
             language
                 original_language = <[ISO_639-1::en]>
@@ -3930,7 +3930,7 @@ workflows:
                 details = <
                     ["en"] = <
                         language = <[ISO_639-1::en]>
-                        purpose = <"DV_INTERVAL of DV_QUANTITY whose limits are temperatures from 0.0 to 100.0 Cel">
+                        purpose = <"DV_INTERVAL of DV_QUANTITY whose limits are from 0.0 to 100.0 Cel">
                     >
                 >
 
@@ -3955,7 +3955,6 @@ workflows:
                                                                             DV_INTERVAL<DV_QUANTITY>[id6] matches {
                                                                                 lower matches {
                                                                                     DV_QUANTITY[id7] matches {
-                                                                                        property matches {[at12]}
                                                                                         [units, magnitude] matches {
                                                                                             [{"Cel"}, {|0.0..100.0|}]
                                                                                         }
@@ -3963,7 +3962,6 @@ workflows:
                                                                                 }
                                                                                 upper matches {
                                                                                     DV_QUANTITY[id8] matches {
-                                                                                        property matches {[at12]}
                                                                                         [units, magnitude] matches {
                                                                                             [{"Cel"}, {|0.0..100.0|}]
                                                                                         }
@@ -3987,8 +3985,8 @@ workflows:
                 term_definitions = <
                     ["en"] = <
                         ["id1"] = <
-                            text = <"CNF ADL 2 dv_interval_quantity_temperature">
-                            description = <"DV_INTERVAL of DV_QUANTITY whose limits are temperatures from 0.0 to 100.0 Cel">
+                            text = <"CNF ADL 2 dv_interval_quantity_celsius">
+                            description = <"DV_INTERVAL of DV_QUANTITY whose limits are from 0.0 to 100.0 Cel">
                         >
                         ["id3"] = <
                             text = <"Minimal observation">
@@ -4022,15 +4020,6 @@ workflows:
                                 text = <"Value">
                                 description = <"The constrained value">
                             >
-                            ["at12"] = <
-                                text = <"Temperature">
-                                description = <"The openEHR property Temperature">
-                            >
-                        >
-                    >
-                    term_bindings = <
-                        ["openehr"] = <
-                            ["at12"] = <http://openehr.org/id/127>
                         >
                     >
                 >
@@ -5657,10 +5646,10 @@ workflows:
               section: "description"
               quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
 
-  - workflowId: upload_template-adl2_dv_quantity_property
-    summary: The ADL 2 template openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_property.v1.0.0 is on the server
+  - workflowId: upload_template-adl2_dv_quantity_units
+    summary: The ADL 2 template openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_units.v1.0.0 is on the server
     description: >-
-      Uploads the ADL 2 operational template openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_property.v1.0.0. A server that
+      Uploads the ADL 2 operational template openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_units.v1.0.0. A server that
       already holds a template with that template_id refuses the upload with
       409, which leaves the same precondition in place.
     x-veredictum-cite:
@@ -5678,7 +5667,7 @@ workflows:
           contentType: text/plain
           payload: |-
             operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
-                openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_property.v1.0.0
+                openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_units.v1.0.0
 
             language
                 original_language = <[ISO_639-1::en]>
@@ -5691,7 +5680,7 @@ workflows:
                 details = <
                     ["en"] = <
                         language = <[ISO_639-1::en]>
-                        purpose = <"DV_QUANTITY whose property is Length">
+                        purpose = <"DV_QUANTITY in cm or m">
                     >
                 >
 
@@ -5714,139 +5703,6 @@ workflows:
                                                         ELEMENT[id5] occurrences matches {0..*} matches {
                                                             value matches {
                                                                             DV_QUANTITY[id6] matches {
-                                                                                property matches {[at12]}
-                                                                            }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-            terminology
-                term_definitions = <
-                    ["en"] = <
-                        ["id1"] = <
-                            text = <"CNF ADL 2 dv_quantity_property">
-                            description = <"DV_QUANTITY whose property is Length">
-                        >
-                        ["id3"] = <
-                            text = <"Minimal observation">
-                            description = <"The observation the composition holds">
-                        >
-                        ["at1"] = <
-                            text = <"event">
-                            description = <"The openEHR composition category event">
-                        >
-                    >
-                >
-                term_bindings = <
-                    ["openehr"] = <
-                        ["at1"] = <http://openehr.org/id/433>
-                    >
-                >
-
-            component_terminologies
-                ["openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0"] = <
-                    term_definitions = <
-                        ["en"] = <
-                            ["id1"] = <
-                                text = <"Minimal observation">
-                                description = <"An observation with one constrained element">
-                            >
-                            ["id3"] = <
-                                text = <"Any event">
-                                description = <"Any event">
-                            >
-                            ["id5"] = <
-                                text = <"Value">
-                                description = <"The constrained value">
-                            >
-                            ["at12"] = <
-                                text = <"Length">
-                                description = <"The openEHR property Length">
-                            >
-                        >
-                    >
-                    term_bindings = <
-                        ["openehr"] = <
-                            ["at12"] = <http://openehr.org/id/122>
-                        >
-                    >
-                >
-        successCriteria:
-          - context: $statusCode
-            type: regex
-            condition: '^(201|409)$'
-            x-veredictum-cite:
-              source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
-              section: "description"
-              quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
-
-  - workflowId: upload_template-adl2_dv_quantity_property_units
-    summary: The ADL 2 template openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_property_units.v1.0.0 is on the server
-    description: >-
-      Uploads the ADL 2 operational template openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_property_units.v1.0.0. A server that
-      already holds a template with that template_id refuses the upload with
-      409, which leaves the same precondition in place.
-    x-veredictum-cite:
-      source: specs/openehr/ITS-REST/specifications/operations/definition_template_adl2_upload.yaml
-      section: "description"
-      quote: "Upload a new ADL2 operational template."
-      report: 939
-    steps:
-      - stepId: upload
-        description: Upload the template, or find it already there.
-        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
-        parameters:
-          - { name: Content-Type, in: header, value: text/plain }
-        requestBody:
-          contentType: text/plain
-          payload: |-
-            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
-                openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_property_units.v1.0.0
-
-            language
-                original_language = <[ISO_639-1::en]>
-
-            description
-                original_author = <
-                    ["name"] = <"Veredictum contributors">
-                >
-                lifecycle_state = <"unmanaged">
-                details = <
-                    ["en"] = <
-                        language = <[ISO_639-1::en]>
-                        purpose = <"DV_QUANTITY of property Length in cm or m">
-                    >
-                >
-
-            definition
-                COMPOSITION[id1] matches {
-                    category matches {
-                        DV_CODED_TEXT[id2] matches {
-                            defining_code matches {[at1]}
-                        }
-                    }
-                    content cardinality matches {0..*; unordered} matches {
-                        OBSERVATION[id3, openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0] occurrences matches {0..*} matches {
-                            data matches {
-                                HISTORY[id2] matches {
-                                    events cardinality matches {1..*; unordered} matches {
-                                        EVENT[id3] occurrences matches {0..*} matches {
-                                            data matches {
-                                                ITEM_TREE[id4] matches {
-                                                    items cardinality matches {0..*; unordered} matches {
-                                                        ELEMENT[id5] occurrences matches {0..*} matches {
-                                                            value matches {
-                                                                            DV_QUANTITY[id6] matches {
-                                                                                property matches {[at12]}
                                                                                 units matches {"cm", "m"}
                                                                             }
                                                             }
@@ -5866,8 +5722,8 @@ workflows:
                 term_definitions = <
                     ["en"] = <
                         ["id1"] = <
-                            text = <"CNF ADL 2 dv_quantity_property_units">
-                            description = <"DV_QUANTITY of property Length in cm or m">
+                            text = <"CNF ADL 2 dv_quantity_units">
+                            description = <"DV_QUANTITY in cm or m">
                         >
                         ["id3"] = <
                             text = <"Minimal observation">
@@ -5901,15 +5757,6 @@ workflows:
                                 text = <"Value">
                                 description = <"The constrained value">
                             >
-                            ["at12"] = <
-                                text = <"Length">
-                                description = <"The openEHR property Length">
-                            >
-                        >
-                    >
-                    term_bindings = <
-                        ["openehr"] = <
-                            ["at12"] = <http://openehr.org/id/122>
                         >
                     >
                 >
@@ -5922,10 +5769,10 @@ workflows:
               section: "description"
               quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
 
-  - workflowId: upload_template-adl2_dv_quantity_property_units_mag
-    summary: The ADL 2 template openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_property_units_mag.v1.0.0 is on the server
+  - workflowId: upload_template-adl2_dv_quantity_units_mag
+    summary: The ADL 2 template openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_units_mag.v1.0.0 is on the server
     description: >-
-      Uploads the ADL 2 operational template openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_property_units_mag.v1.0.0. A server that
+      Uploads the ADL 2 operational template openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_units_mag.v1.0.0. A server that
       already holds a template with that template_id refuses the upload with
       409, which leaves the same precondition in place.
     x-veredictum-cite:
@@ -5943,7 +5790,7 @@ workflows:
           contentType: text/plain
           payload: |-
             operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
-                openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_property_units_mag.v1.0.0
+                openEHR-EHR-COMPOSITION.cnf_adl2_dv_quantity_units_mag.v1.0.0
 
             language
                 original_language = <[ISO_639-1::en]>
@@ -5956,7 +5803,7 @@ workflows:
                 details = <
                     ["en"] = <
                         language = <[ISO_639-1::en]>
-                        purpose = <"DV_QUANTITY of property Length in cm from 5.0 to 10.0">
+                        purpose = <"DV_QUANTITY in cm from 5.0 to 10.0">
                     >
                 >
 
@@ -5979,7 +5826,6 @@ workflows:
                                                         ELEMENT[id5] occurrences matches {0..*} matches {
                                                             value matches {
                                                                             DV_QUANTITY[id6] matches {
-                                                                                property matches {[at12]}
                                                                                 [units, magnitude] matches {
                                                                                     [{"cm"}, {|5.0..10.0|}]
                                                                                 }
@@ -6001,8 +5847,8 @@ workflows:
                 term_definitions = <
                     ["en"] = <
                         ["id1"] = <
-                            text = <"CNF ADL 2 dv_quantity_property_units_mag">
-                            description = <"DV_QUANTITY of property Length in cm from 5.0 to 10.0">
+                            text = <"CNF ADL 2 dv_quantity_units_mag">
+                            description = <"DV_QUANTITY in cm from 5.0 to 10.0">
                         >
                         ["id3"] = <
                             text = <"Minimal observation">
@@ -6036,15 +5882,6 @@ workflows:
                                 text = <"Value">
                                 description = <"The constrained value">
                             >
-                            ["at12"] = <
-                                text = <"Length">
-                                description = <"The openEHR property Length">
-                            >
-                        >
-                    >
-                    term_bindings = <
-                        ["openehr"] = <
-                            ["at12"] = <http://openehr.org/id/122>
                         >
                     >
                 >
