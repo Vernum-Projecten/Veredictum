@@ -275,15 +275,20 @@ workflows:
               quote: "The service cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, syntactically invalid content)"
 
   - workflowId: get_directory-deleted
-    summary: The latest directory read after a delete is answered 204
+    summary: The latest directory read after a delete serves no FOLDER
     description: >-
       Creates an EHR and its directory FOLDER, deletes the directory under
       the version_uid of the create, then retrieves the latest directory. The
-      latest version is deleted, so the read is answered 204 No Content.
+      latest version is deleted and holds no data, so the read is not
+      answered 200 with a FOLDER.
+      The operation declares 200, 204 and 404; no released sentence assigns
+      204 outside a version_at_time read (upstream report #752), so either
+      204 or 404 holds.
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/204_deleted_at_time.yaml
       section: description
       quote: "`204 No Content` is returned when the resource identified by the request parameters (at specified `version_at_time`) time has been deleted."
+      report: 752
     inputs: *ehr_input
     steps:
       - *create_ehr
@@ -308,7 +313,13 @@ workflows:
           - { name: ehr_id, in: path, value: $inputs.ehr_id }
           - { name: Accept, in: header, value: application/json }
         successCriteria:
-          - condition: $statusCode == 204
+          - context: $statusCode
+            type: regex
+            condition: '^(204|404)$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/common/master06-change_control_package.adoc
+              section: Logical Deletion
+              quote: "delete its `_data_` (which will by default be a copy of the data of the previous Version);"
 
   - workflowId: get_directory-deleted_at_future_time
     summary: A directory read at a time after its delete is answered 204
