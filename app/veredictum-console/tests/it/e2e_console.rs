@@ -100,6 +100,23 @@ impl Harness {
     /// When the environment IS set but the browser session cannot start —
     /// that is a failure, never a skip.
     async fn start(journey: &'static str) -> Option<Self> {
+        Self::start_with(journey, true).await
+    }
+
+    /// Starts a journey in a browser that runs no script at all, so the page
+    /// is what a reader receives before the client bundle loads.
+    ///
+    /// # Panics
+    /// As [`Self::start`].
+    async fn start_without_javascript(journey: &'static str) -> Option<Self> {
+        Self::start_with(journey, false).await
+    }
+
+    /// Starts a journey, with or without the browser's script engine.
+    ///
+    /// # Panics
+    /// As [`Self::start`].
+    async fn start_with(journey: &'static str, javascript: bool) -> Option<Self> {
         let (Some(base), Some(webdriver_url)) =
             (env("UI_E2E_BASE_URL"), env("UI_E2E_WEBDRIVER_URL"))
         else {
@@ -130,6 +147,18 @@ impl Harness {
         // gate below silently passes on every page.
         caps.set_logging_prefs("browser", thirtyfour::LoggingPrefsLogLevel::All)
             .expect("logging prefs");
+        if !javascript {
+            // Chromium's content-settings preference: 2 blocks script on
+            // every site (<https://chromeenterprise.google/policies/#DefaultJavaScriptSetting>).
+            caps.add_experimental_option(
+                "prefs",
+                std::collections::BTreeMap::from([(
+                    "profile.managed_default_content_settings.javascript",
+                    2_u8,
+                )]),
+            )
+            .expect("the no-script preference");
+        }
         let driver = WebDriver::new(&webdriver_url, caps)
             .await
             .expect("a WebDriver session (is the browser endpoint up?)");
@@ -163,8 +192,10 @@ impl Harness {
             .expect("navigate");
     }
 
-    /// Waits until the client has taken over the page (`app.rs` stamps
-    /// `data-hydrated` on `<body>` from a browser-only effect).
+    /// Waits until the client has taken over the page: the shell's chrome
+    /// stamps `data-hydrated` on `<body>` once every hydrated listener is
+    /// attached and the streamed response has settled (#377), so a click
+    /// after this wait cannot land before the listener it targets.
     ///
     /// # Panics
     /// When the marker never appears within [`HYDRATION_WAIT`].
@@ -968,6 +999,86 @@ async fn e2e_connect_shows_the_identity_the_server_states() {
     h.finish().await;
 }
 
+/// The connect step works before the client bundle loads (#847): with the
+/// browser's script engine off, Probe posts the form and the server answers
+/// with the connect step again, showing the stored probe, and Continue posts
+/// its own form, which the server redirects to Scope. A refused probe comes
+/// back stating its refusal and offers no Continue.
+///
+/// # Panics
+/// When either form does nothing without script, a refusal is lost or shown
+/// beside a Continue, or the page was hydrated
+/// after all (which would mean the journey never tested what it claims).
+#[tokio::test(flavor = "multi_thread")]
+async fn e2e_connect_probes_and_continues_without_javascript() {
+    let Some(h) = Harness::start_without_javascript("connect-no-js").await else {
+        return;
+    };
+    let Ok(port) = fixture_sut() else {
+        panic!("the fixture SUT could not bind");
+    };
+    // A refused probe comes back stating its refusal, with no Continue: a
+    // display name past the label cap is refused before anything is
+    // contacted.
+    h.goto_unhydrated("/run/connect").await;
+    h.wait_css("input#base-url")
+        .await
+        .send_keys(&format!("http://127.0.0.1:{port}"))
+        .await
+        .expect("type the base URL");
+    let name = h.wait_css("input#sut-name").await;
+    name.clear().await.expect("clear the name");
+    name.send_keys(&"x".repeat(1_100))
+        .await
+        .expect("type an oversized name");
+    h.wait_xpath("//button[contains(., 'Probe connection')]")
+        .await
+        .click()
+        .await
+        .expect("probe with an oversized name");
+    h.wait_url_contains("refused=label").await;
+    h.wait_css("#connect-refused").await;
+    assert!(
+        h.driver
+            .find_all(By::Css("button#connect-continue"))
+            .await
+            .expect("query the continue control")
+            .is_empty(),
+        "no Continue over a refusal"
+    );
+
+    h.goto_unhydrated("/run/connect").await;
+    h.wait_css("input#base-url")
+        .await
+        .send_keys(&format!("http://127.0.0.1:{port}"))
+        .await
+        .expect("type the base URL");
+    h.wait_xpath("//button[contains(., 'Probe connection')]")
+        .await
+        .click()
+        .await
+        .expect("probe");
+    h.wait_url_contains("probed").await;
+    h.wait_xpath("//body[contains(., 'HTTP 500')]").await;
+    h.wait_xpath("//button[@id='connect-continue' and contains(., 'Continue anyway')]")
+        .await
+        .click()
+        .await
+        .expect("continue");
+    h.wait_url_contains("/run/scope").await;
+    h.wait_xpath("//h1[contains(., 'Scope')]").await;
+    assert!(
+        h.driver
+            .find_all(By::Css("body[data-hydrated]"))
+            .await
+            .expect("query the hydration marker")
+            .is_empty(),
+        "the page hydrated, so script was not off"
+    );
+    h.assert_console_clean(&[]).await;
+    h.finish().await;
+}
+
 /// The whole pipeline through the real UI: connect → probe → scope with a
 /// statement → start → live to finished → results with a detail — capturing
 /// every record surface, light and dark, against the hermetic in-process
@@ -1414,13 +1525,22 @@ async fn e2e_two_visitors_drive_two_runs_at_once() {
         .await;
 
     // No run may outlive the journey: the instance has two slots, and the
-    // queued one is dropped first so freeing a slot promotes nothing. Every
-    // run is ended by ADDRESS rather than through the screen's own control,
-    // because documentation capture mode pins the id the live view carries
-    // and that control would dispatch the pinned one.
+    // queued one is dropped first so freeing a slot promotes nothing.
     h.wait_xpath("//h1[contains(., 'Live run')]").await;
     third.stop(&waiting).await;
-    second.stop(&first).await;
+    // The browser's own run ends through the screen's own control (#404).
+    // Under documentation capture mode the page DISPLAYS a pinned id, and the
+    // control still posts the run's real one, so the cancel is accepted and
+    // the console gate below stays clean.
+    h.goto(&first).await;
+    h.wait_xpath("//button[contains(., 'Cancel run')]")
+        .await
+        .click()
+        .await
+        .expect("cancel the browser's run");
+    h.wait_xpath("//body[contains(., 'Cancel requested')]")
+        .await;
+    h.wait_xpath("//span[normalize-space()='cancelled']").await;
     second.stop(&other).await;
 
     h.assert_console_clean(&[]).await;

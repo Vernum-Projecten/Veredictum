@@ -405,6 +405,223 @@ async fn an_identity_label_edited_after_the_probe_reaches_the_draft()
     Ok(())
 }
 
+/// The head of every request a recording fixture received.
+type Heads = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
+
+/// A fixture SUT that answers every request `500` and keeps the head of each
+/// request it received, so a test can read what reached the wire.
+fn recording_fixture_sut() -> Result<(u16, Heads), std::io::Error> {
+    use std::io::{Read as _, Write as _};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
+    let port = listener.local_addr()?.port();
+    let heads: Heads = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let kept = std::sync::Arc::clone(&heads);
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(mut stream) = stream else { continue };
+            let mut scratch = [0_u8; 8192];
+            let read = stream.read(&mut scratch).unwrap_or(0);
+            let head = String::from_utf8_lossy(scratch.get(..read).unwrap_or_default());
+            if let Ok(mut heads) = kept.lock() {
+                heads.push(head.into_owned());
+            }
+            let _write = stream.write_all(
+                b"HTTP/1.1 500 Internal Server Error\r\ncontent-length: 2\r\nconnection: close\r\n\r\nno",
+            );
+        }
+    });
+    Ok((port, heads))
+}
+
+/// Standard base64 with padding (RFC 4648 §4), which is how a Basic
+/// credential crosses the wire (RFC 7617 §2).
+fn base64(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::new();
+    for chunk in bytes.chunks(3) {
+        let at = |i: usize| u32::from(chunk.get(i).copied().unwrap_or(0));
+        let n = (at(0) << 16) | (at(1) << 8) | at(2);
+        for (i, shift) in [18_u32, 12, 6, 0].into_iter().enumerate() {
+            if i <= chunk.len() {
+                let index = usize::try_from((n >> shift) & 63).unwrap_or(0);
+                out.push(char::from(ALPHABET.get(index).copied().unwrap_or(b'=')));
+            } else {
+                out.push('=');
+            }
+        }
+    }
+    out
+}
+
+/// An administrative credential posted through the probe reaches only the
+/// server-side draft, under the administrative variable names (#847).
+///
+/// It is in no value a browser can read back, and neither the probe nor the
+/// identity read ever presents it to the server.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test]
+async fn administrative_secrets_reach_no_client_value_and_never_identify()
+-> Result<(), Box<dyn std::error::Error>> {
+    use veredictum::arazzo::credential::Role;
+    use veredictum_console::run_api::{AuthChoice, CredentialForm, fns};
+    use veredictum_console::submitter::Submitter;
+
+    let scratch = assert_fs::TempDir::new()?;
+    let state = state_over(scratch.path());
+    let _owner = provide(&state);
+    let (port, heads) = recording_fixture_sut()?;
+    let base_url = format!("http://127.0.0.1:{port}");
+
+    let credential = |auth, user: &str, password: &str, token: &str| CredentialForm {
+        auth,
+        user: user.to_owned(),
+        password: password.to_owned(),
+        token: token.to_owned(),
+    };
+    let server = credential(AuthChoice::Basic, "clinical", "s3cret", "");
+    let admin_basic = credential(AuthChoice::Basic, "root-admin", "adm1n-pass", "");
+    let admin_bearer = credential(AuthChoice::Bearer, "", "", "adm1n-t0ken");
+    let secrets = [
+        String::from("s3cret"),
+        String::from("adm1n-pass"),
+        String::from("adm1n-t0ken"),
+        base64(b"clinical:s3cret"),
+        base64(b"root-admin:adm1n-pass"),
+    ];
+    let (admin_user, admin_password, admin_token) = Role::Administrative.variables();
+    let (user, password, _) = Role::Ordinary.variables();
+
+    for (admin, expected) in [
+        (
+            admin_basic,
+            vec![user, password, admin_user, admin_password],
+        ),
+        (admin_bearer, vec![user, password, admin_token]),
+    ] {
+        let mode = admin.auth;
+        let answer = fns::probe_and_save(
+            base_url.clone(),
+            String::from("fixture-sut"),
+            String::from("1.0.0"),
+            server.clone(),
+            admin,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        let draft = fns::fetch_draft()
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or("the probe stored a draft")?;
+        let record = fns::fetch_connect()
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or("the probe stored an answer to show again")?;
+        assert_eq!(draft.admin_auth, mode.token());
+        for readable in [
+            serde_json::to_string(&answer)?,
+            serde_json::to_string(&draft)?,
+            serde_json::to_string(&record)?,
+        ] {
+            for secret in &secrets {
+                assert!(
+                    !readable.contains(secret.as_str()),
+                    "a credential reached a client-readable value: {readable}"
+                );
+            }
+        }
+
+        let names: Vec<String> = {
+            let guard = state.draft.lock().map_err(|e| e.to_string())?;
+            let stored = guard
+                .get(Submitter::Unknown)
+                .ok_or("the probe stored a draft")?;
+            stored
+                .credentials
+                .iter()
+                .map(|credential| credential.name.clone())
+                .collect()
+        };
+        assert_eq!(
+            names, expected,
+            "each principal's values sit under its own role's variable names"
+        );
+    }
+
+    let seen = heads.lock().map_err(|e| e.to_string())?.join("\n");
+    assert!(
+        seen.contains(&base64(b"clinical:s3cret")),
+        "the server credential reaches the wire, so the recording is live: {seen}"
+    );
+    for secret in [
+        String::from("adm1n-pass"),
+        String::from("adm1n-t0ken"),
+        base64(b"root-admin:adm1n-pass"),
+    ] {
+        assert!(
+            !seen.contains(&secret),
+            "the probe or the identity read presented the administrative credential: {seen}"
+        );
+    }
+    Ok(())
+}
+
+/// A label the server stated is not the operator's, so the raw draft keeps
+/// none for it, whatever the continue request carried (#847).
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test]
+async fn the_raw_draft_keeps_only_the_labels_an_operator_entered()
+-> Result<(), Box<dyn std::error::Error>> {
+    use veredictum_console::identity::{IdentityAnswer, StatedIdentity};
+    use veredictum_console::run_api::{CredentialForm, fns};
+    use veredictum_console::submitter::Submitter;
+
+    let scratch = assert_fs::TempDir::new()?;
+    let state = state_over(scratch.path());
+    let _owner = provide(&state);
+    let port = engine_gate::fixture_sut()?;
+    fns::probe_and_save(
+        format!("http://127.0.0.1:{port}"),
+        String::from("my-cdr"),
+        String::from("unknown"),
+        CredentialForm::none(),
+        CredentialForm::none(),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    // The fixture states nothing, so the stand-in is a server that stated
+    // its name and left its version to the operator.
+    {
+        let mut guard = state.draft.lock().map_err(|e| e.to_string())?;
+        let draft = guard
+            .get_mut(Submitter::Unknown)
+            .ok_or("the probe stored a draft")?;
+        draft.identity = Some(IdentityAnswer::Stated(StatedIdentity {
+            name: Some(String::from("stated-cdr")),
+            ..StatedIdentity::default()
+        }));
+    }
+
+    fns::save_identity(String::from("my-cdr"), String::from("2.0"))
+        .await
+        .map_err(|e| e.to_string())?;
+    let guard = state.draft.lock().map_err(|e| e.to_string())?;
+    let draft = guard
+        .get(Submitter::Unknown)
+        .ok_or("the draft survives the save")?;
+    assert_eq!(
+        (draft.sut_name.as_str(), draft.sut_version.as_str()),
+        ("", "2.0"),
+        "the stated name keeps no operator label; the entered version stays"
+    );
+    assert_eq!(draft.resolved().name.as_deref(), Some("stated-cdr"));
+    Ok(())
+}
 /// The scope step over a real connection draft: a committed statement is
 /// accepted and summarized, an oversized one and a non-statement are refused
 /// with the reason, and a capability selection composes a claim the published

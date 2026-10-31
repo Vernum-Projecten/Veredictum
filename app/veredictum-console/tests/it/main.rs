@@ -16,6 +16,8 @@ mod bundle_names;
 mod captures;
 #[cfg(feature = "ssr")]
 mod certificates_http;
+#[cfg(feature = "ssr")]
+mod connect_forms;
 
 mod e2e_console;
 #[cfg(feature = "ssr")]
