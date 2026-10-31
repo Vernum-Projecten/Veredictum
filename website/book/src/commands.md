@@ -44,7 +44,7 @@ The results record, under `server`, what the server stated through ITS-REST Syst
 
 A credential is read from the environment, never from an argument: from the variables `--auth` and `--admin-auth` name, or from the file named by the same variable with `_FILE` appended. Neither credential is recorded. The recording holds the server's response bodies verbatim, so it belongs where the operator keeps the run.
 
-Exit status: `0` when every row passed or was skipped, or failed only as a warning (a SHOULD, which never counts against a capability); `1` when any other row failed or errored; `2` when the run could not start or finish: a usage error, a gate finding, an unreadable file, a missing credential, or a recording that does not replay.
+Exit status follows whose problem each red row's record names. `1` when any row counts against the server: it failed (a warning row excepted) or errored with the server named, whatever else the run holds. `3` when no row counts against the server and at least one is inconclusive: it failed or errored with the instrument named, because the instrument could not judge it. `0` when every row passed or was skipped, or failed only as a warning (a SHOULD, which never counts against a capability). `2` when the run could not start or finish: a usage error, a gate finding, an unreadable file, a missing credential, or a recording that does not replay. The line before the exit names both counts. `--rejudge` exits the same way.
 
 Usage: veredictum test [OPTIONS]
 

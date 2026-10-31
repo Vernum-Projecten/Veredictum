@@ -108,11 +108,17 @@ enum Command {
     /// recorded. The recording holds the server's response bodies verbatim,
     /// so it belongs where the operator keeps the run.
     ///
-    /// Exit status: `0` when every row passed or was skipped, or failed only
-    /// as a warning (a SHOULD, which never counts against a capability); `1`
-    /// when any other row failed or errored; `2` when the run could not start
-    /// or finish: a usage error, a gate finding, an unreadable file, a missing
-    /// credential, or a recording that does not replay.
+    /// Exit status follows whose problem each red row's record names. `1`
+    /// when any row counts against the server: it failed (a warning row
+    /// excepted) or errored with the server named, whatever else the run
+    /// holds. `3` when no row counts against the server and at least one is
+    /// inconclusive: it failed or errored with the instrument named, because
+    /// the instrument could not judge it. `0` when every row passed or was
+    /// skipped, or failed only as a warning (a SHOULD, which never counts
+    /// against a capability). `2` when the run could not start or finish: a
+    /// usage error, a gate finding, an unreadable file, a missing credential,
+    /// or a recording that does not replay. The line before the exit names
+    /// both counts. `--rejudge` exits the same way.
     Test {
         /// The catalogue root, holding `capabilities.yaml` and `cases/`. Its
         /// parent holds the vendored `specs/` tree its citations and OAS
@@ -1120,13 +1126,10 @@ fn test_command(
             return code;
         }
     }
-    let red = outcome.red_rows().count();
-    if red == 0 {
-        ExitCode::SUCCESS
-    } else {
-        eprintln!("{red} row(s) failed or errored");
-        ExitCode::from(1)
-    }
+    let verdict = outcome.verdict();
+    let status = verdict.exit_status();
+    eprintln!("{verdict}: exit status {status}");
+    ExitCode::from(status)
 }
 
 fn identify_command(base_url: &str, auth: &str) -> ExitCode {

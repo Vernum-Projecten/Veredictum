@@ -89,9 +89,11 @@ sentence), what was expected and what came back. The recording holds the
 server's response bodies verbatim, so it stays where you keep the run.
 
 The exit status is `0` when every row passed or was skipped, `1` when a row
-failed or errored, and `2` when the run could not start, so a CI job goes red
-on a failed row. A warning row, a SHOULD the server did not follow, is
-reported and leaves the status at `0`. [`export`](commands.md#export) turns
+counts against the server, `3` when no row does but at least one is
+inconclusive (the instrument could not judge it, and the row says so), and
+`2` when the run could not start, so a CI job goes red on a failed row. A
+warning row, a SHOULD the server did not follow, is reported and leaves the
+status at `0`. [`export`](commands.md#export) turns
 `results.json` into JUnit XML, CTRF and a Markdown summary for that job.
 
 `--document <ID>` narrows the run to named documents, which is how you re-drive

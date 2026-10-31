@@ -228,6 +228,11 @@ fn a_failed_row_exits_one_and_its_rejudgement_writes_the_same_bytes() -> Fallibl
     let results = read_json(&out.join("results.json"))?;
     assert_eq!(statuses(&results), vec!["failed"; 5]);
     assert_eq!(whose(&results), vec!["server"; 5]);
+    let stderr = String::from_utf8(output.stderr.clone())?;
+    assert!(
+        stderr.contains("5 row(s) against the server, 0 inconclusive row(s): exit status 1"),
+        "{stderr}"
+    );
     let stdout = String::from_utf8(output.stdout)?;
     assert!(stdout.contains("Expected status 401"), "{stdout}");
 
@@ -247,18 +252,23 @@ fn a_failed_row_exits_one_and_its_rejudgement_writes_the_same_bytes() -> Fallibl
     clippy::panic_in_result_fn,
     reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
 )]
-fn an_errored_row_exits_one_and_never_counts_as_failed() -> Fallible {
+fn a_run_with_only_instrument_errored_rows_exits_three_and_never_counts_as_failed() -> Fallible {
     let dir = assert_fs::TempDir::new()?;
     let out = dir.path().join("run");
     let output = drive_authentication(dir.path(), &closed_port_url(), &out)?;
-    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    assert_eq!(output.status.code(), Some(3), "{output:?}");
     let results = read_json(&out.join("results.json"))?;
     assert_eq!(statuses(&results), vec!["errored"; 5]);
     assert_eq!(whose(&results), vec!["instrument"; 5]);
+    let stderr = String::from_utf8(output.stderr.clone())?;
+    assert!(
+        stderr.contains("0 row(s) against the server, 5 inconclusive row(s): exit status 3"),
+        "{stderr}"
+    );
 
     let again = dir.path().join("rejudged");
     let rejudged = rejudge(dir.path(), AUTHENTICATION, &out, &again)?;
-    assert_eq!(rejudged.status.code(), Some(1), "{rejudged:?}");
+    assert_eq!(rejudged.status.code(), Some(3), "{rejudged:?}");
     assert_eq!(
         std::fs::read(again.join("results.json"))?,
         std::fs::read(out.join("results.json"))?
