@@ -33,30 +33,68 @@ pub const SCHEMA_VERSION: &str = "0.1.0";
 
 const DRAFT: &str = "https://json-schema.org/draft/2020-12/schema";
 
-/// Serde token of one enum variant.
-fn token<T: Serialize>(v: &T) -> Value {
-    match serde_json::to_value(v) {
-        Ok(Value::String(s)) => Value::String(s),
-        // Unreachable for the vocab enums (all serialize to strings); a
-        // non-string token would be a defect in this module, surfaced by the
-        // emission tests, never silently emitted.
-        _ => Value::Null,
-    }
+/// A closed vocabulary whose serde token is a JSON string.
+///
+/// Implemented only for fieldless enums with a derived `Serialize`, which
+/// `serde_json` writes as the variant's (renamed) name, a JSON string
+/// (<https://serde.rs/enum-representations.html>). The list below is the whole
+/// set, so a type outside it does not compile at a call site.
+trait VocabToken: Serialize {}
+
+macro_rules! vocab_tokens {
+    ($($vocabulary:ty),* $(,)?) => {
+        $(impl VocabToken for $vocabulary {})*
+    };
 }
 
-/// Serde tokens of a whole vocabulary.
-fn tokens<T: Serialize>(all: &[T]) -> Value {
+vocab_tokens!(
+    ItsName,
+    FormatName,
+    SpecComponent,
+    Tier,
+    IdentitySource,
+    InstrumentStatus,
+    crate::ixit::SpecProfile,
+    crate::ixit::TerminologyPosture,
+    crate::workload::CorpusScale,
+    crate::perf_gen::arrivals::ArrivalProcess,
+    crate::arazzo::results::Status,
+    crate::arazzo::results::SkipReason,
+    crate::arazzo::results::Whose,
+    crate::arazzo::results::ReviewKind,
+    crate::arazzo::structure::Theme,
+    crate::arazzo::structure::Tier,
+    crate::arazzo::structure::ReportState,
+    crate::arazzo::structure::Formalism,
+    crate::certificate::Outcome,
+);
+
+/// Returns the serde token of one vocabulary member as an owned `String`.
+///
+/// # Panics
+/// Never for a [`VocabToken`]: each implementor serializes as a string.
+#[expect(
+    clippy::expect_used,
+    reason = "every VocabToken implementor is a fieldless enum with a derived Serialize, which \
+              serde_json serializes as the variant name, a string; the module tests drive every \
+              call site through emit_all"
+)]
+fn token_str<T: VocabToken>(v: &T) -> String {
+    match serde_json::to_value(v) {
+        Ok(Value::String(s)) => Some(s),
+        Ok(_) | Err(_) => None,
+    }
+    .expect("a VocabToken should serialize to a JSON string")
+}
+
+/// Returns the serde token of one vocabulary member as a JSON string.
+fn token<T: VocabToken>(v: &T) -> Value {
+    Value::String(token_str(v))
+}
+
+/// Returns the serde tokens of a whole vocabulary.
+fn tokens<T: VocabToken>(all: &[T]) -> Value {
     Value::Array(all.iter().map(token).collect())
-}
-
-/// The serde token of one enum variant, as an owned `String` (for building
-/// property-name maps). Non-string tokens are a defect surfaced by the
-/// emission tests, never silently emitted.
-fn token_str<T: Serialize>(v: &T) -> String {
-    match serde_json::to_value(v) {
-        Ok(Value::String(s)) => s,
-        _ => String::new(),
-    }
 }
 
 fn urn(name: &str) -> String {
@@ -2600,13 +2638,15 @@ pub fn emit_all() -> Vec<(&'static str, Value)> {
     ]
 }
 
-/// Render a schema document to its canonical published text
-/// (two-space pretty print + trailing newline).
-#[must_use]
-pub fn render(schema: &Value) -> String {
-    let mut text = serde_json::to_string_pretty(schema).unwrap_or_default();
+/// Renders a schema document to its canonical published text: a two-space
+/// pretty print with a trailing newline.
+///
+/// # Errors
+/// The serializer's own error, should `serde_json` refuse the document.
+pub fn render(schema: &Value) -> Result<String, serde_json::Error> {
+    let mut text = serde_json::to_string_pretty(schema)?;
     text.push('\n');
-    text
+    Ok(text)
 }
 
 #[cfg(test)]
@@ -2622,21 +2662,90 @@ mod tests {
     }
 
     #[test]
-    fn rendering_is_deterministic() {
-        let a = render(&statement_schema());
-        let b = render(&statement_schema());
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn rendering_is_deterministic() -> Result<(), serde_json::Error> {
+        let a = render(&statement_schema())?;
+        let b = render(&statement_schema())?;
         assert_eq!(a, b);
         assert!(a.ends_with('\n'));
+        Ok(())
     }
 
     #[test]
-    fn no_null_tokens_leak() {
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+    )]
+    fn no_null_tokens_leak() -> Result<(), serde_json::Error> {
         for (name, schema) in emit_all() {
-            let text = render(&schema);
+            let text = render(&schema)?;
             assert!(
                 !text.contains(": null,"),
                 "{name} leaked a null vocabulary token"
             );
         }
+        Ok(())
+    }
+
+    /// Collects every `enum` member and every property name that is not a
+    /// non-empty string, each named by its JSON Pointer.
+    fn non_string_tokens(value: &Value, pointer: &str, found: &mut Vec<String>) {
+        match value {
+            Value::Object(map) => {
+                for (key, child) in map {
+                    let at = format!("{pointer}/{key}");
+                    if key == "enum" {
+                        for (i, member) in child.as_array().into_iter().flatten().enumerate() {
+                            if member.as_str().is_none_or(str::is_empty) {
+                                found.push(format!("{at}/{i} = {member}"));
+                            }
+                        }
+                    }
+                    if key == "properties" {
+                        for name in child.as_object().into_iter().flat_map(|m| m.keys()) {
+                            if name.is_empty() {
+                                found.push(format!("{at} has an empty property name"));
+                            }
+                        }
+                    }
+                    non_string_tokens(child, &at, found);
+                }
+            }
+            Value::Array(items) => {
+                for (i, item) in items.iter().enumerate() {
+                    non_string_tokens(item, &format!("{pointer}/{i}"), found);
+                }
+            }
+            Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
+        }
+    }
+
+    #[test]
+    fn every_emitted_vocabulary_token_is_a_non_empty_string() {
+        for (name, schema) in emit_all() {
+            let mut found = Vec::new();
+            non_string_tokens(&schema, "", &mut found);
+            assert_eq!(
+                found,
+                Vec::<String>::new(),
+                "{name} carries a non-string token"
+            );
+        }
+    }
+
+    /// A vocabulary whose serde token is a number, which no real implementor is.
+    #[derive(Serialize)]
+    struct NumericToken(u8);
+
+    impl VocabToken for NumericToken {}
+
+    #[test]
+    #[should_panic(expected = "a VocabToken should serialize to a JSON string")]
+    fn a_non_string_token_stops_emission_instead_of_reaching_a_schema() {
+        let emitted = tokens(&[NumericToken(7)]);
+        assert_eq!(emitted, Value::Null, "unreachable: tokens panics first");
     }
 }
