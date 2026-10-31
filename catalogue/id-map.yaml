@@ -1215,17 +1215,30 @@ cases:
     new: []
     open: *adl14_archetype
   I_DEFINITION_ADL14.upload_opt-invalid_opt:
-    new: []
-    open: &invalid_opt >-
-      Each invalid OPT needs its own adjudication: 400 where the body is
-      invalid against the published OPT XSD, 422 where it is valid against
-      it and breaks an AM or BASE invariant. Not converted yet, tracked by
-      #949.
-  I_DEFINITION_ADL14.upload_opt-largest_published:
-    new: []
+    new: &invalid_opt
+      - template_adl14/upload_template-compact
+      - template_adl14/upload_template-invalid-template_id_missing
+      - template_adl14/upload_template-invalid-concept_missing
+      - template_adl14/upload_template-invalid-definition_missing
+      - template_adl14/upload_template-invalid-concept_twice
+      - template_adl14/upload_template-invalid-template_id_twice
     open: >-
-      The 5.2 MB OPT is too large to write inline, and the catalogue has no
-      payload references yet. Not converted yet, tracked by #949.
+      Each invalid OPT is refused with 400, the only refusal
+      definition_template_adl1.4_upload.yaml declares: every carried defect
+      makes the body invalid against the ITS-XML Template.xsd. An empty
+      template_id value is not carried: the schema types it xs:token, and
+      BASE template_id.adoc leaves its lexical form "to be determined"
+      (upstream report #715).
+  I_DEFINITION_ADL14.upload_opt-largest_published:
+    new: [template_adl14/upload_template-obs_inst]
+    open: >-
+      The largest published OPT is vendored as
+      perf/payloads/ckm/congenital-syphilis-case-investigation.opt (CKM
+      1013.26.977, 5443426 bytes, by scripts/vendor/ckm-templates.sh), and the
+      performance workloads upload it. No workflow writes it inline: an
+      Arazzo 1.1.0 payload is a literal or a runtime expression, and no
+      released sentence assigns an upload a different answer by its size,
+      so the accepted upload of a valid OPT is the case that carries it.
   I_DEFINITION_ADL14.upload_opt-prefer_identifier:
     new: [template_adl14/upload_template-return_identifier]
     open: >-
@@ -1236,8 +1249,9 @@ cases:
       - template_adl14/upload_template-return_minimal
       - template_adl14/upload_template-return_minimal-location
   I_DEFINITION_ADL14.upload_opt-resource_meta_invalid:
-    new: []
-    open: *invalid_opt
+    new:
+      - template_adl14/upload_template-compact
+      - template_adl14/upload_template-invalid-lifecycle_state_missing
   I_DEFINITION_ADL14.upload_opt-unparseable_opt:
     new:
       - template_adl14/upload_template-empty_body
@@ -1259,8 +1273,10 @@ cases:
   I_DEFINITION_ADL14.upload_opt-wrong_media:
     new: [template_adl14/upload_template-json_content_type]
   I_DEFINITION_ADL14.validate_opt-invalid_opt:
-    new: []
-    open: *invalid_opt
+    new: *invalid_opt
+    open: >-
+      The release has no validation operation; validity is judged through
+      the upload, which refuses an invalid OPT with 400.
   I_DEFINITION_ADL14.validate_opt-valid_opt:
     new:
       - template_adl14/upload_template-obs_admin
@@ -1359,11 +1375,14 @@ cases:
   I_DEFINITION_ADL2.upload_artefact-duplicate_conflict:
     new: [template_adl2/upload_template_adl2-same_template_id_twice]
   I_DEFINITION_ADL2.upload_artefact-invalid_artefacts:
-    new: []
+    new: &adl2_invalid
+      - template_adl2/upload_template_adl2-minimal
+      - template_adl2/upload_template_adl2-invalid-unknown_rm_type
+      - template_adl2/upload_template_adl2-invalid-unknown_rm_attribute
     open: >-
-      The valid twin is template_adl2/upload_template_adl2-minimal; the
-      invalid source's defect needs the 400 or 422 adjudication of an
-      invalid template. Not converted yet, tracked by #949.
+      Each invalid template breaks one AOM2 validity rule (VCORM, VCARM) and
+      is refused with 400, the only refusal
+      definition_template_adl2_upload.yaml declares.
   I_DEFINITION_ADL2.upload_artefact-prefer_identifier:
     new: [template_adl2/upload_template_adl2-return_identifier]
   I_DEFINITION_ADL2.upload_artefact-prefer_minimal:
@@ -1385,11 +1404,10 @@ cases:
     open: >-
       The body is a header line of ADL text rather than a whole template.
   I_DEFINITION_ADL2.valid_artefact-invalid:
-    new: []
+    new: *adl2_invalid
     open: >-
-      The release has no validation operation, and the invalid source needs
-      the 400 or 422 adjudication of an invalid template. Not converted yet,
-      tracked by #949.
+      The release has no validation operation; validity is judged through
+      the upload, which refuses an invalid template with 400.
   I_DEFINITION_ADL2.valid_artefact-valid:
     new: [template_adl2/upload_template_adl2-minimal]
     open: >-

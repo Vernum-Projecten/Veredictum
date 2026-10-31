@@ -295,6 +295,246 @@ workflows:
         successCriteria:
           - condition: $statusCode == 400
 
+  - workflowId: upload_template_adl2-invalid-unknown_rm_type
+    x-veredictum-control: upload_template_adl2-minimal
+    summary: An ADL 2 template that names an object type the RM does not define is refused with 400
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id with one defect: the DV_TEXT leaf of the minimal template renamed to DV_NO_SUCH_TYPE, a type no openEHR RM defines. The template breaks an AOM2
+      validity rule, so the request is invalid and the upload is refused
+      with 400, the refusal the operation declares.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/AOM2/master04.5-constraint_model-class_definitions.adoc
+      section: "Validity Rules: C_OBJECT"
+      quote: "*VCORM* object constraint type name existence: a type name introducing an object constraint block must be defined in the underlying information model."
+    inputs: *run_input
+    steps:
+      - stepId: upload
+        description: Upload the template that names an object type the RM does not define.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+                openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"A minimal operational template for conformance testing">
+                    >
+                >
+
+            definition
+                COMPOSITION[id1] matches {
+                    category matches {
+                        DV_CODED_TEXT[id2] matches {
+                            defining_code matches {[at1]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[id3, openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[id2] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[id3] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[id4] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[id5] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_NO_SUCH_TYPE[id6]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["id1"] = <
+                            text = <"Minimal">
+                            description = <"A minimal event composition">
+                        >
+                        ["id3"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                        ["at1"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at1"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["id1"] = <
+                                text = <"Minimal observation">
+                                description = <"An observation with one text element">
+                            >
+                            ["id3"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["id5"] = <
+                                text = <"Value">
+                                description = <"A text value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
+  - workflowId: upload_template_adl2-invalid-unknown_rm_attribute
+    x-veredictum-control: upload_template_adl2-minimal
+    summary: An ADL 2 template that constrains an attribute the RM type does not have is refused with 400
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id with one defect: the DV_TEXT leaf of the minimal template constraining no_such_attribute, which RM DV_TEXT does not define. The template breaks an AOM2
+      validity rule, so the request is invalid and the upload is refused
+      with 400, the refusal the operation declares.
+    x-veredictum-cite:
+      source: specs/openehr/AM/docs/AOM2/master04.5-constraint_model-class_definitions.adoc
+      section: "Validity Rules: C_ATTRIBUTE"
+      quote: "*VCARM*: attribute name reference model validity: an attribute name introducing an attribute constraint block must be defined in the underlying information model as an attribute (stored or computed) of the type which introduces the enclosing object block."
+    inputs: *run_input
+    steps:
+      - stepId: upload
+        description: Upload the template that constrains an attribute the RM type does not have.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: text/plain
+          payload: |-
+            operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
+                openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0
+
+            language
+                original_language = <[ISO_639-1::en]>
+
+            description
+                original_author = <
+                    ["name"] = <"Veredictum contributors">
+                >
+                lifecycle_state = <"unmanaged">
+                details = <
+                    ["en"] = <
+                        language = <[ISO_639-1::en]>
+                        purpose = <"A minimal operational template for conformance testing">
+                    >
+                >
+
+            definition
+                COMPOSITION[id1] matches {
+                    category matches {
+                        DV_CODED_TEXT[id2] matches {
+                            defining_code matches {[at1]}
+                        }
+                    }
+                    content cardinality matches {0..*; unordered} matches {
+                        OBSERVATION[id3, openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0] occurrences matches {0..*} matches {
+                            data matches {
+                                HISTORY[id2] matches {
+                                    events cardinality matches {1..*; unordered} matches {
+                                        EVENT[id3] occurrences matches {0..*} matches {
+                                            data matches {
+                                                ITEM_TREE[id4] matches {
+                                                    items cardinality matches {0..*; unordered} matches {
+                                                        ELEMENT[id5] occurrences matches {0..*} matches {
+                                                            value matches {
+                                                                DV_TEXT[id6] matches {
+                                                                    no_such_attribute matches {"x"}
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            terminology
+                term_definitions = <
+                    ["en"] = <
+                        ["id1"] = <
+                            text = <"Minimal">
+                            description = <"A minimal event composition">
+                        >
+                        ["id3"] = <
+                            text = <"Minimal observation">
+                            description = <"The observation the composition holds">
+                        >
+                        ["at1"] = <
+                            text = <"event">
+                            description = <"The openEHR composition category event">
+                        >
+                    >
+                >
+                term_bindings = <
+                    ["openehr"] = <
+                        ["at1"] = <http://openehr.org/id/433>
+                    >
+                >
+
+            component_terminologies
+                ["openEHR-EHR-OBSERVATION.cnf_minimal.v1.0.0"] = <
+                    term_definitions = <
+                        ["en"] = <
+                            ["id1"] = <
+                                text = <"Minimal observation">
+                                description = <"An observation with one text element">
+                            >
+                            ["id3"] = <
+                                text = <"Any event">
+                                description = <"Any event">
+                            >
+                            ["id5"] = <
+                                text = <"Value">
+                                description = <"A text value">
+                            >
+                        >
+                    >
+                >
+        successCriteria:
+          - condition: $statusCode == 400
+            x-veredictum-cite: *bad_request
+
   - workflowId: upload_template_adl2-xml_content_type
     summary: An ADL 2 upload declared as XML is refused with 415
     description: >-
