@@ -1,5 +1,8 @@
 # The rows of CONT-DV_EHR_URI-validate_pattern this workflow carries; the recipe builds each
-# row's composition from its literals.
+# row's composition from its literals. Each value is an ehr URI of the local
+# form RM master10-uri_package.adoc §DV_EHR_URI Syntax lists (`ehr:/ehr_id`,
+# `ehr:/ehr_id/top_level_structure_locator`), so it keeps the Scheme_valid
+# invariant and breaks only the C_STRING pattern, which wants `ehr://`.
 workflow: dv_ehr_uri/dv_ehr_uri-validate_pattern-c_string_pattern
 iteration: reset_per_row
 literals: ["value", "C_STRING.pattern"]
@@ -9,5 +12,5 @@ recipe:
   template_id: cnf.tpl.dv_ehr_uri_c_string
   input: composition
 rows:
-  - {"value": "xyz", "C_STRING.pattern": "ehr://.*"}
-  - {"value": "https://cabolabs.com", "C_STRING.pattern": "ehr://.*"}
+  - {"value": "ehr:/347a5490-55ee-4da9-b91a-9bba710f730e", "C_STRING.pattern": "ehr://.*"}
+  - {"value": "ehr:/347a5490-55ee-4da9-b91a-9bba710f730e/directory", "C_STRING.pattern": "ehr://.*"}

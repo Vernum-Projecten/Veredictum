@@ -1,5 +1,8 @@
 # The rows of CONT-DV_EHR_URI-validate_list this workflow carries; the recipe builds each
-# row's composition from its literals.
+# row's composition from its literals. Each value is an ehr URI of a form RM
+# master10-uri_package.adoc §DV_EHR_URI Syntax lists (`ehr:/ehr_id`,
+# `ehr://system_id/ehr_id`), so it keeps the Scheme_valid invariant and breaks
+# only the C_STRING list.
 workflow: dv_ehr_uri/dv_ehr_uri-validate_list-c_string_list
 iteration: reset_per_row
 literals: ["value", "C_STRING.list"]
@@ -9,5 +12,5 @@ recipe:
   template_id: cnf.tpl.dv_ehr_uri_list
   input: composition
 rows:
-  - {"value": "xyz", "C_STRING.list": "[ehr:/89c0752e-0815-47d7-8b3c-b3aaea2cea7a, ehr://CLOUD_EHRSERVER/89c0752e-0815-47d7-8b3c-b3aaea2cea7a]"}
-  - {"value": "https://cabolabs.com", "C_STRING.list": "[ehr:/89c0752e-0815-47d7-8b3c-b3aaea2cea7a, ehr://CLOUD_EHRSERVER/89c0752e-0815-47d7-8b3c-b3aaea2cea7a]"}
+  - {"value": "ehr:/347a5490-55ee-4da9-b91a-9bba710f730e", "C_STRING.list": "[ehr:/89c0752e-0815-47d7-8b3c-b3aaea2cea7a, ehr://CLOUD_EHRSERVER/89c0752e-0815-47d7-8b3c-b3aaea2cea7a]"}
+  - {"value": "ehr://rmh.nhs.net/347a5490-55ee-4da9-b91a-9bba710f730e", "C_STRING.list": "[ehr:/89c0752e-0815-47d7-8b3c-b3aaea2cea7a, ehr://CLOUD_EHRSERVER/89c0752e-0815-47d7-8b3c-b3aaea2cea7a]"}

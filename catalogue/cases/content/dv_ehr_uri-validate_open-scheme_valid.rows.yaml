@@ -12,6 +12,7 @@ rows:
   - {"value": "xyz"}
   - {"value": "ftp://ftp.is.co.za/rfc/rfc1808.txt"}
   - {"value": "http://www.ietf.org/rfc/rfc2396.txt"}
+  - {"value": "https://cabolabs.com"}
   - {"value": "ldap://[2001:db8::7]/c=GB?objectClass?one"}
   - {"value": "mailto:John.Doe@example.com"}
   - {"value": "news:comp.infosystems.www.servers.unix"}
