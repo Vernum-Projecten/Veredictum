@@ -3982,8 +3982,9 @@ cases:
   SF-FLAT-adl2_commit:
     new: []
     open: &sf_adl2 >-
-      Needs a stored ADL 2 operational template, and none of the committed
-      ADL 2 sources is valid by AM; the ADL 2 template work is #714.
+      The stored ADL 2 operational templates exist (the setup
+      content_templates_adl2 uploads them), and no Simplified Flat workflow
+      commits against one yet; the ADL 2 template work is #714.
   SF-FLAT-adl2_reject_cardinality:
     new: []
     open: *sf_adl2

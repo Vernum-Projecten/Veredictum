@@ -67,29 +67,39 @@ gaps:
   - { api: ehr, operation: versioned_ehr_status_version_get_at_time, header: Content-Type, value: application/xml, issue: 687 }
   - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/json, issue: 687 }
   - { api: ehr, operation: versioned_ehr_status_version_get_by_id, header: Content-Type, value: application/xml, issue: 687 }
-# The ADL 1.4 template gaps, covered by #714: the 400 of a template read and
-# of an example request (a server may fall back to the closest supported
-# detail level), the JSON read of an ADL 1.4 OPT (no released schema gives
-# one), and the XML and simplified-format examples.
+# The ADL 1.4 template gaps, #714. The example in XML and the Simplified
+# Formats has no option arms yet. The 400 of an example request is not
+# assigned: definition_template_adl1.4_example_get.yaml lets a server "fall
+# back to the closest supported level, or it may return an error". The 400
+# of a read is not assigned: template_id is a free string whose unknown value
+# answers 404, and an unserved Accept answers 406. The JSON read of an ADL 1.4
+# OPT has no released schema that gives one.
   - { api: definition, operation: definition_template_adl1.4_example_get, header: Accept, value: application/openehr.wt.flat+json, issue: 714 }
   - { api: definition, operation: definition_template_adl1.4_example_get, header: Accept, value: application/openehr.wt.structured+json, issue: 714 }
   - { api: definition, operation: definition_template_adl1.4_example_get, header: Accept, value: application/xml, issue: 714 }
   - { api: definition, operation: definition_template_adl1.4_example_get, status: "400", issue: 714 }
   - { api: definition, operation: definition_template_adl1.4_get, header: Accept, value: application/json, issue: 714 }
   - { api: definition, operation: definition_template_adl1.4_get, status: "400", issue: 714 }
-# The ADL 2 template gaps, covered by #714: the 400 of a read and of an
-# example request, the XML read and upload answers (no released schema gives
-# an ADL 2 operational template an XML form), and the XML and
-# simplified-format examples.
+# The ADL 2 template gaps, #714. The example in XML and the Simplified
+# Formats is a COMPOSITION each format serves under its own option, and the
+# example has no option arms yet.
   - { api: definition, operation: definition_template_adl2_example_get, header: Accept, value: application/openehr.wt.flat+json, issue: 714 }
   - { api: definition, operation: definition_template_adl2_example_get, header: Accept, value: application/openehr.wt.structured+json, issue: 714 }
   - { api: definition, operation: definition_template_adl2_example_get, header: Accept, value: application/xml, issue: 714 }
-  - { api: definition, operation: definition_template_adl2_example_get, status: "400", issue: 714 }
-  - { api: definition, operation: definition_template_adl2_get, header: Accept, value: application/xml, issue: 714 }
+# The 400 of the latest read: its only parameters are template_id, a free
+# string ("Template identifier or partial reference") whose unknown value
+# answers 404 ("a template with the specified `template_id` does not
+# exist"), and Accept, whose unserved value answers 406 (Resources.md: "it
+# MUST respond with HTTP status code `406 Not Acceptable`"), so no request is
+# assigned 400.
   - { api: definition, operation: definition_template_adl2_get, status: "400", issue: 714 }
+# The XML forms of an ADL 2 operational template: no released XSD declares an
+# element of an OPERATIONAL_TEMPLATE type. AM 2 Archetype.xsd defines no such
+# type, and archie.xsd, which does, marks itself "Status: Draft" and declares
+# only `archetype` as xs:anyType.
+  - { api: definition, operation: definition_template_adl2_get, header: Accept, value: application/xml, issue: 714 }
   - { api: definition, operation: definition_template_adl2_upload, header: Accept, value: application/xml, issue: 714 }
   - { api: definition, operation: definition_template_adl2_version_get, header: Accept, value: application/xml, issue: 714 }
-  - { api: definition, operation: definition_template_adl2_version_get, status: "400", issue: 714 }
 # The 408 of a query that times out. The release names no maximum execution
 # time and gives a client no parameter or header to set one, so no workflow
 # can provoke the branch on demand: upstream report #754.
