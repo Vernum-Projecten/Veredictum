@@ -33,11 +33,12 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
 declare -a NAMES=() CMDS=() TIERS=() NEEDS=() VERSIONS=()
-# gate <tier> <name> <command> [required-tool] [version-command]
+# gate <tier> <name> <command> [required-tools] [version-command]
 #
-# A gate naming a tool the machine does not have is SKIPPED and says so by
-# name. A silent skip and a pass print the same thing, which is the defect
-# class this script exists to close, so the summary lists every skip.
+# The required tools are one word or a space-separated list ("gh yq"), and
+# each is checked. A gate naming a tool the machine does not have is SKIPPED
+# and says so by name. A silent skip and a pass print the same thing, which is
+# the defect class this script exists to close, so the summary lists every skip.
 #
 # A version command prints which build of the tool ran, before the gate runs.
 # It exists for tools CI pins while a local run takes whatever is installed:
@@ -50,7 +51,7 @@ gate guard "comment style"            "bash scripts/checks/comment-style.sh --al
 gate guard "comment style self-test"  "bash scripts/checks/comment-style.sh --self-test"
 gate guard "TODO issue refs"          "bash scripts/checks/todo-issue-refs.sh"
 gate guard "TODO refs self-test"      "bash scripts/checks/todo-issue-refs.sh --self-test"
-gate guard "report numbers"           "bash scripts/checks/report-refs.sh" gh
+gate guard "report numbers"           "bash scripts/checks/report-refs.sh" "gh yq"
 gate guard "report numbers self-test" "bash scripts/checks/report-refs.sh --self-test" yq
 gate guard "pending numbers"          "bash scripts/checks/pending-refs.sh" gh
 gate guard "pending numbers self-test" "bash scripts/checks/pending-refs.sh --self-test"
@@ -176,7 +177,7 @@ audit_tools() {
   local i want status=0
   for i in "${!NAMES[@]}"; do
     want="$(gate_tool "${CMDS[$i]}")"
-    if [[ -n "$want" && "$want" != "${NEEDS[$i]}" ]]; then
+    if [[ -n "$want" && " ${NEEDS[$i]} " != *" ${want} "* ]]; then
       echo "gates: '${NAMES[$i]}' runs ${want} but declares '${NEEDS[$i]}'; name ${want} as its required tool so a machine without it reads SKIPPED" >&2
       status=1
     fi
@@ -187,15 +188,21 @@ audit_tools() {
 # run_gates <tiers>: runs every gate of the named tiers and prints the summary.
 run_gates() {
   local want="$1" i need log
-  local -a failed=() skipped=()
+  local -a failed=() skipped=() needs=() missing=()
   log="$(mktemp)"
   for i in "${!NAMES[@]}"; do
     case " $want " in *" ${TIERS[$i]} "*) ;; *) continue ;; esac
     printf '\033[1m==>\033[0m %s\n' "${NAMES[$i]}"
-    need="${NEEDS[$i]}"
-    if [[ -n "$need" ]] && ! command -v "$need" >/dev/null 2>&1; then
-      printf '    SKIPPED: %s is not installed\n' "$need"
-      skipped+=("${NAMES[$i]} (no ${need})")
+    read -r -a needs <<<"${NEEDS[$i]}"
+    missing=()
+    for need in ${needs[@]+"${needs[@]}"}; do
+      if ! command -v "$need" >/dev/null 2>&1; then
+        printf '    SKIPPED: %s is not installed\n' "$need"
+        missing+=("$need")
+      fi
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+      skipped+=("${NAMES[$i]} (no ${missing[*]})")
       continue
     fi
     if [[ -n "${VERSIONS[$i]}" ]]; then
@@ -257,6 +264,8 @@ self_test() {
   expect_audit 1 "SHELLCHECK_OPTS='-e SC2016' actionlint"
   expect_audit 0 "SHELLCHECK_OPTS='-e SC2016' actionlint" actionlint
   expect_audit 0 "bash scripts/checks/junit-schema.sh" xmllint
+  expect_audit 0 "cargo machete" "jq cargo-machete"
+  expect_audit 1 "cargo machete" "jq cargo-deny"
 
   status=0
   out="$(
@@ -285,6 +294,22 @@ self_test() {
   )" || status=$?
   if [[ "$status" -ne 0 ]] || ! grep -q 'every gate RUN in \[seeded\] passed; 1 skipped' <<<"$out"; then
     echo "self-test: a skip beside a pass did not read as a counted skip (exit $status):" >&2
+    indent "$out" >&2
+    fail=1
+  fi
+
+  status=0
+  out="$(
+    TIERS=() NAMES=() CMDS=() NEEDS=() VERSIONS=()
+    gate seeded "one of two tools" "true" "bash veredictum-no-such-tool"
+    gate seeded "both tools" "true" "bash env"
+    run_gates seeded 2>&1
+  )" || status=$?
+  if [[ "$status" -ne 0 ]] \
+    || ! grep -q 'SKIPPED: veredictum-no-such-tool is not installed' <<<"$out" \
+    || grep -q 'SKIPPED: bash ' <<<"$out" \
+    || ! grep -q 'gates: 1 skipped:.*one of two tools (no veredictum-no-such-tool)' <<<"$out"; then
+    echo "self-test: a gate missing one of its two tools did not read as a skip naming it (exit $status):" >&2
     indent "$out" >&2
     fail=1
   fi
