@@ -11,9 +11,9 @@
 #
 # The graph:
 #
-#   plan ─┬─ github-release ── binaries ── finalize ──┐
-#         └─ image-binary ─── image ─┬─ scan-and-tag ─┴─ publish-crate
-#                                    └─ image-smoke
+#   plan ─┬─ github-release ── binaries ── finalize ─────────────────┐
+#         └─ image-binary ─── image ── image-smoke ── scan-and-tag ──┴─ publish-crate
+#                                                                └─ hosted
 #   announce ── needs everything, if: always()
 #
 # `publish-crate` stays LAST although the console consumes the engine from
@@ -761,9 +761,12 @@ jobs:
             || { echo "::error::the re-judgement did not write the recorded run's bytes"; exit 1; }
 
   # ── The gate that makes the pushed digest referencable ──────────────────────
+  # It needs every image smoke leg, so a digest that does not run is never
+  # tagged, and the hosted deploy that rides this job never ships it.
+  # `scripts/checks/release-tags-after-smoke.sh` refuses this job without them.
   scan-and-tag:
     name: scan + tag
-    needs: image
+    needs: [image, image-smoke]
     permissions:
       contents: read
       packages: write # pull the pushed digest, then tag it

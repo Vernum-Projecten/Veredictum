@@ -34,7 +34,7 @@ fn repo_root() -> PathBuf {
 )]
 fn the_schema_seam_serves_the_committed_published_set() -> Fallible {
     let dir = repo_root().join("schemas");
-    let files = assets::schema_files();
+    let files = assets::schema_files()?;
     assert!(!files.is_empty());
     for file in &files {
         let committed = std::fs::read_to_string(dir.join(&file.name))?;

@@ -25,15 +25,19 @@ error.
 | `hosted-deploy-script.sh` | the hosted box's `deploy.sh` is shellcheck-clean, extracted from the `write_files` block it lives in | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 | `vendored-trees.sh` | every vendored tree (a directory holding a `PROVENANCE.md`, and every directory under `specs/` and `specs/openehr/`) names an existing `scripts/vendor/` script that writes it, and carries the upstream `LICENSE` that script fetches | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 | `junit-schema.sh` | every pinned JUnit view holds to the published JUnit XML schemas: the document to the Jenkins xUnit plugin's `junit-10.xsd`, each `<testsuite>` to Apache Maven Surefire's test report schema, both vendored by `scripts/vendor/junit-schemas.sh` and checked with `xmllint` | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
+| `test-modules-declared.sh` | every `.rs` file of a one-binary integration-test tree (`tests/<dir>/main.rs`) is declared by its parent module, so no topic file is silently never compiled | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
+| `release-tags-after-smoke.sh` | every release job that applies the image tags needs, directly or transitively, every image smoke job, so a digest that does not run is never tagged or deployed | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 | `upstream-patches-apply.sh` | every proposed fix under `upstream/<repository>/` applies with `git apply --check` to the pinned `master` snapshot of that repository under `specs/openehr-development/<repository>/`, and no patch names a repository without a snapshot | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 
-Six of these take a single file or no argument rather than the three modes
+Eight of these take a single file or no argument rather than the three modes
 above: `changelog-structure.sh` reads one changelog,
 `ci-conclusion-complete.sh` reads one workflow,
 `citation-version.sh` reads the three files that carry the version,
 `hosted-deploy-script.sh` reads one cloud-init document,
-`vendored-trees.sh` reads the vendored trees and `scripts/vendor/`, and
-`upstream-patches-apply.sh` reads `upstream/` and the snapshots. The mode contract
+`release-tags-after-smoke.sh` reads one workflow, `test-modules-declared.sh`
+walks the integration-test trees, `upstream-patches-apply.sh` reads `upstream/`
+and the snapshots, and `vendored-trees.sh` reads the vendored trees and
+`scripts/vendor/`. The mode contract
 applies to guards that scan a file set.
 
 Guards still to port with the code: the spec-citation resolver, the
