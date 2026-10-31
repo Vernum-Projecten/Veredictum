@@ -43,6 +43,7 @@ pub mod chart;
 pub mod components;
 #[cfg(feature = "ssr")]
 pub mod engine;
+pub mod error;
 pub mod identity;
 #[cfg(feature = "ssr")]
 pub mod linger;

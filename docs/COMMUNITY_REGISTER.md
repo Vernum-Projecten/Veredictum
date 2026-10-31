@@ -258,8 +258,7 @@ Rows R23, R26, R33, R34.
 
 An expectation exists only with a released citation, checked by `validate`:
 the citation gate, plus the level gate, which requires `level: should` for a
-SHOULD quote and refuses a MAY quote outright, "because permission is never
-asserted" (§15.9). A failing `should` criterion makes the row a warning that
+SHOULD quote and `level: may` for a quote that only permits (§15.9). A failing `should` criterion makes the row a warning that
 never counts against the server (§8.11; the `warnings` badge in
 `website/book/src/badges.md`). A spec silence is never asserted: it becomes
 an `upstream-report` issue with its patch under `upstream/`, and behaviour the

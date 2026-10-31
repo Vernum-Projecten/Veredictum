@@ -996,14 +996,14 @@ documents:
 # change that adds workflows raises the floor in the same change.
 floors:
   admin: 17
-  composition: 207
+  composition: 209
   content: 444
   contribution: 69
   definition: 75
   demographic: 369
   directory: 87
   ehr: 50
-  ehr_status: 77
+  ehr_status: 79
   item_tags: 71
   query: 194
   security: 11

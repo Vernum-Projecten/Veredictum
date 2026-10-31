@@ -24,25 +24,7 @@ use crate::engine_gate;
 
 /// A console state over the committed mounts, writing into `out`.
 fn state_over(out: &Path) -> ConsoleState {
-    let root = engine_gate::repo_root().join("catalogue");
-    let specs = engine_gate::repo_root().join("specs/openehr");
-    let catalogue =
-        veredictum::pipeline::listing::read(&root, Some(&specs)).map_err(|e| e.to_string());
-    ConsoleState {
-        root,
-        specs,
-        out: out.to_path_buf(),
-        catalogue: std::sync::Arc::new(catalogue),
-        draft: std::sync::Arc::new(std::sync::Mutex::new(
-            veredictum_console::run_api::Drafts::new(),
-        )),
-        client_ip_header: None,
-        jobs: veredictum_console::run_job::JobSlot::default(),
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
-    }
+    crate::support::state(out, crate::support::validated_listing())
 }
 
 /// Installs `state` as the request context the endpoints read, and hands back
@@ -261,6 +243,62 @@ async fn the_scope_reads_come_off_the_committed_trees() -> Result<(), Box<dyn st
         preview.total > 0 && preview.total < everything.total,
         "a filter narrows the selection: {preview:?} of {everything:?}"
     );
+    Ok(())
+}
+
+/// A filter past its cap is refused before any document is matched, by the
+/// endpoint's own sentence, and a filter exactly at the cap is read (#533).
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test]
+async fn a_filter_past_its_cap_is_refused_by_the_endpoint() -> Result<(), Box<dyn std::error::Error>>
+{
+    use veredictum_console::error::ConsoleError;
+    use veredictum_console::run_api::{FILTER_CAP_BYTES, PostureForm, fns};
+
+    let scratch = assert_fs::TempDir::new()?;
+    // No catalogue: a refusal that came after the match would name the
+    // missing catalogue instead of the cap.
+    let state = crate::support::state(
+        scratch.path(),
+        crate::support::absent("no catalogue: the cap is checked first"),
+    );
+    let _owner = provide(&state);
+    let cap = usize::try_from(FILTER_CAP_BYTES)?;
+    let past = "x".repeat(cap + 1);
+    let too_long = ConsoleError::TooLong {
+        field: String::from("filter"),
+        bytes: FILTER_CAP_BYTES + 1,
+        cap: FILTER_CAP_BYTES,
+    };
+
+    let refused = fns::fetch_scope_preview(past.clone())
+        .await
+        .expect_err("a filter past the cap is refused");
+    assert_eq!(refused, too_long);
+    assert_eq!(
+        refused.to_string(),
+        format!(
+            "the filter is {} bytes; the cap is {FILTER_CAP_BYTES}",
+            cap + 1
+        )
+    );
+
+    let at_cap = fns::fetch_scope_preview("x".repeat(cap))
+        .await
+        .expect_err("no catalogue is mounted");
+    assert!(
+        matches!(at_cap, ConsoleError::CatalogueUnavailable { .. }),
+        "a filter at the cap reaches the catalogue: {at_cap:?}"
+    );
+
+    // The saved filter is the one a run selects by, so it carries the same cap.
+    let saved = fns::save_scope(None, Some(past), PostureForm::default())
+        .await
+        .expect_err("a saved filter past the cap is refused");
+    assert_eq!(saved, too_long);
     Ok(())
 }
 
@@ -703,8 +741,9 @@ async fn the_scope_step_accepts_a_claim_and_refuses_a_non_claim()
     assert!(!not_a_statement.is_empty(), "{not_a_statement}");
 
     // The cap is checked before the parse, so an abusive body never reaches
-    // the schema validator at all.
-    let oversized = fns::save_scope(Some("0".repeat(4 * 1024 * 1024)), None, bare)
+    // the schema validator at all. One byte past the cap the code enforces.
+    let past_the_cap = usize::try_from(veredictum_console::run_api::read::STATEMENT_CAP_BYTES)? + 1;
+    let oversized = fns::save_scope(Some("0".repeat(past_the_cap)), None, bare)
         .await
         .expect_err("a body past the cap is refused")
         .to_string();

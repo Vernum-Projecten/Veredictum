@@ -10,11 +10,13 @@
 //! router's, so every request here travels a socket into the router the
 //! server binary builds.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use leptos::prelude::FromServerFnError;
 use leptos::server_fn::ServerFn;
 use reqwest::StatusCode;
 use reqwest::header::LOCATION;
+use veredictum_console::error::ConsoleError;
 use veredictum_console::posture::Posture;
 use veredictum_console::run_api::fns::{ProbeAndSave, SaveIdentity};
 use veredictum_console::run_api::{AuthChoice, ConnectRefusal, PROBED_PATH, SCOPE_PATH};
@@ -49,25 +51,18 @@ async fn bind_with(
     rates: veredictum_console::rate_limit::Rates,
 ) -> Result<Bound, Box<dyn std::error::Error>> {
     let scratch = assert_fs::TempDir::new()?;
+    // The connect step reads no catalogue, so a stated absence keeps this
+    // gate off the validation pass.
     let state = ConsoleState {
-        root: crate::engine_gate::repo_root().join("catalogue"),
-        specs: crate::engine_gate::repo_root().join("specs/openehr"),
-        out: scratch.path().to_path_buf(),
-        // The connect step reads no catalogue, so a stated absence keeps this
-        // gate off the validation pass.
-        catalogue: Arc::new(Err(String::from(
-            "no catalogue: this gate drives the connect forms",
-        ))),
-        draft: Arc::new(Mutex::new(veredictum_console::run_api::Drafts::new())),
-        jobs: veredictum_console::run_job::JobSlot::default(),
-        client_ip_header: None,
-        metrics: veredictum_console::metrics::Metrics::default(),
         posture,
         rates: veredictum_console::rate_limit::RateLimiter::with(
             rates,
             veredictum_console::rate_limit::Clock::manual(),
         ),
-        capture: false,
+        ..crate::support::state(
+            scratch.path(),
+            crate::support::absent("no catalogue: this gate drives the connect forms"),
+        )
     };
     let options = leptos::prelude::LeptosOptions::builder()
         .output_name("veredictum-console")
@@ -104,6 +99,8 @@ struct Answer {
     status: StatusCode,
     location: Option<String>,
     navigates: bool,
+    retry_after: Option<String>,
+    body: String,
 }
 
 /// Posts a URL-encoded form to a server function, asking for `accept`.
@@ -131,6 +128,12 @@ async fn post(
         navigates: response
             .headers()
             .contains_key(leptos::server_fn::redirect::REDIRECT_HEADER),
+        retry_after: response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned),
+        body: response.text().await?,
     })
 }
 
@@ -194,6 +197,84 @@ async fn a_plain_probe_returns_to_its_stored_answer_and_a_client_probe_stays()
         "the hydrated page does not navigate"
     );
     assert!(!client_call.navigates);
+    Ok(())
+}
+
+/// The connect step a probe returns to offers the stored address again, as
+/// the input's server-rendered `value` (#936). A refused probe stores nothing,
+/// so its page offers no address: the earlier draft's would read as the one
+/// the operator just entered.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test(flavor = "multi_thread")]
+async fn the_page_a_probe_returns_to_offers_the_stored_address()
+-> Result<(), Box<dyn std::error::Error>> {
+    let bound = bind(Posture::Local).await?;
+    let port = crate::engine_gate::fixture_sut()?;
+    let address = format!("http://127.0.0.1:{port}");
+    let target = format!("http%3A%2F%2F127.0.0.1%3A{port}");
+    let seeded = format!(r#"value="{address}""#);
+    let page = |path: String| {
+        let origin = bound.origin.clone();
+        async move {
+            client()?
+                .get(format!("{origin}{path}"))
+                .send()
+                .await?
+                .text()
+                .await
+        }
+    };
+
+    let fresh = page(String::from("/run/connect")).await?;
+    assert!(
+        !fresh.contains(&seeded),
+        "a page no form returned to offers no address"
+    );
+
+    let form = probe_form(&target, "my-cdr", AuthChoice::None, AuthChoice::None);
+    let probed = post(&bound, <ProbeAndSave as ServerFn>::PATH, HTML, form).await?;
+    assert_eq!(probed.location.as_deref(), Some(PROBED_PATH));
+    let shown = page(String::from(PROBED_PATH)).await?;
+    assert!(
+        shown.contains(&seeded),
+        "the probed page offers the address it probed: {shown}"
+    );
+
+    // A second probe from what the page shows reaches the same target.
+    let again = probe_form(&target, "my-cdr", AuthChoice::None, AuthChoice::None);
+    let second = post(&bound, <ProbeAndSave as ServerFn>::PATH, HTML, again).await?;
+    assert_eq!(second.location.as_deref(), Some(PROBED_PATH));
+
+    // A probe of a DIFFERENT address the target guard refuses: its page
+    // offers neither that address nor the earlier draft's.
+    let elsewhere = probe_form(
+        "http%3A%2F%2Fclinical%3As3cret%40cdr.example%2Fopenehr%2Fv1",
+        "my-cdr",
+        AuthChoice::None,
+        AuthChoice::None,
+    );
+    let plain = post(&bound, <ProbeAndSave as ServerFn>::PATH, HTML, elsewhere).await?;
+    assert_eq!(plain.location, Some(ConnectRefusal::Target.path()));
+    let restated = page(ConnectRefusal::Target.path()).await?;
+    assert!(
+        !restated.contains(&seeded),
+        "a refused page offers no earlier draft's address: {restated}"
+    );
+    assert!(
+        !restated.contains("s3cret"),
+        "the refused address came back: {restated}"
+    );
+    assert!(
+        restated.contains("connect-refused"),
+        "the refusal is stated"
+    );
+    assert!(
+        !restated.contains("connect-continue"),
+        "no Continue over a refusal"
+    );
     Ok(())
 }
 
@@ -285,6 +366,19 @@ async fn a_refused_plain_form_returns_to_the_connect_step_naming_its_refusal()
         client_call.location, None,
         "the client reads the refusal from the body"
     );
+    // The variant the client decodes, end to end over the wire, and the 4xx
+    // it answers with (#401).
+    assert_eq!(client_call.status, StatusCode::UNPROCESSABLE_ENTITY);
+    let decoded = <ConsoleError as FromServerFnError>::de(client_call.body.into());
+    assert_eq!(
+        decoded,
+        ConsoleError::TooLong {
+            field: String::from("display name"),
+            bytes: 2_000,
+            cap: veredictum_console::run_api::IDENTITY_LABEL_CAP_BYTES,
+        }
+    );
+    assert_eq!(ConnectRefusal::from(&decoded), ConnectRefusal::Label);
 
     let page = client()?
         .get(format!("{}{}", bound.origin, ConnectRefusal::Label.path()))
@@ -473,5 +567,118 @@ async fn the_identity_inputs_render_without_script_on_every_connect_address()
 
     let refused = ConnectRefusal::Label.path();
     assert_identity_inline(&refused, &page(&bound, &refused).await?);
+    Ok(())
+}
+
+/// Every refusal family passes the refusal layer with its own status and a
+/// body the client decodes into its variant (#401): a missing draft 409, an
+/// idle run 404, a spent budget 429 with `Retry-After`, and the instance's
+/// own failure 500 re-encoded rather than rewritten.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test(flavor = "multi_thread")]
+async fn each_refusal_family_answers_its_own_status_and_variant()
+-> Result<(), Box<dyn std::error::Error>> {
+    use veredictum_console::run_api::fns::{CancelRun, FetchCapabilityRows};
+
+    let rates = veredictum_console::rate_limit::Rates {
+        probes: 1,
+        ..veredictum_console::rate_limit::Rates::default()
+    };
+    let bound = bind_with(Posture::Local, rates).await?;
+    let decode = |body: String| <ConsoleError as FromServerFnError>::de(body.into());
+
+    let no_draft = post(
+        &bound,
+        <SaveIdentity as ServerFn>::PATH,
+        JSON,
+        String::from("sut_name=a&sut_version=b"),
+    )
+    .await?;
+    assert_eq!(no_draft.status, StatusCode::CONFLICT);
+    assert_eq!(decode(no_draft.body), ConsoleError::NoDraft);
+
+    let idle = post(
+        &bound,
+        <CancelRun as ServerFn>::PATH,
+        JSON,
+        String::from("id=3f2504e0-4f89-41d3-9a0c-0305e82c3301"),
+    )
+    .await?;
+    assert_eq!(idle.status, StatusCode::NOT_FOUND);
+    assert!(
+        matches!(decode(idle.body), ConsoleError::NotFound { .. }),
+        "cancelling a run this process is not driving names nothing found"
+    );
+
+    let unavailable = post(
+        &bound,
+        <FetchCapabilityRows as ServerFn>::PATH,
+        JSON,
+        String::new(),
+    )
+    .await?;
+    assert_eq!(unavailable.status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(
+        decode(unavailable.body),
+        ConsoleError::CatalogueUnavailable {
+            detail: String::from("no catalogue: this gate drives the connect forms"),
+        }
+    );
+
+    let target = fixture()?;
+    let form = probe_form(&target, "my-cdr", AuthChoice::None, AuthChoice::None);
+    let first = post(&bound, <ProbeAndSave as ServerFn>::PATH, JSON, form.clone()).await?;
+    assert_eq!(first.status, StatusCode::OK);
+    let spent = post(&bound, <ProbeAndSave as ServerFn>::PATH, JSON, form).await?;
+    assert_eq!(spent.status, StatusCode::TOO_MANY_REQUESTS);
+    let ConsoleError::RateBudget { retry_in_secs, .. } = decode(spent.body) else {
+        panic!("a spent budget decodes as RateBudget");
+    };
+    assert_eq!(
+        spent.retry_after,
+        Some(retry_in_secs.to_string()),
+        "RFC 6585 §4: the 429 says when the budget reopens"
+    );
+    Ok(())
+}
+
+/// A credential typed into the address is refused under the local posture
+/// too, stores no draft, and never comes back in the refusal (#401 review).
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test(flavor = "multi_thread")]
+async fn an_address_carrying_a_credential_is_refused_and_never_repeated()
+-> Result<(), Box<dyn std::error::Error>> {
+    let bound = bind(Posture::Local).await?;
+    let form = probe_form(
+        "http%3A%2F%2Fclinical%3As3cret%40127.0.0.1%3A9%2Fopenehr%2Fv1",
+        "my-cdr",
+        AuthChoice::None,
+        AuthChoice::None,
+    );
+    let refused = post(&bound, <ProbeAndSave as ServerFn>::PATH, JSON, form).await?;
+    assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        !refused.body.contains("s3cret") && !refused.body.contains("clinical"),
+        "the credential came back: {}",
+        refused.body
+    );
+    assert!(
+        matches!(
+            <ConsoleError as FromServerFnError>::de(refused.body.into()),
+            ConsoleError::Target { .. }
+        ),
+        "a credential in the address is the target guard's refusal"
+    );
+    let drafts = bound.state.draft.lock().map_err(|e| e.to_string())?;
+    assert!(
+        drafts.get(me()).is_none(),
+        "a refused address stores no draft"
+    );
     Ok(())
 }

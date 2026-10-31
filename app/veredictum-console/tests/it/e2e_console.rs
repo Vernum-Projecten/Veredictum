@@ -27,7 +27,7 @@
     reason = "the skip-with-reason and capture lines ARE this suite's report"
 )]
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 
 use leptos::server_fn::ServerFn;
@@ -69,8 +69,7 @@ fn env(name: &str) -> Option<String> {
 /// The book's console screenshot directory, resolved from this crate's
 /// manifest directory.
 fn book_img_dir() -> PathBuf {
-    let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
-    Path::new(root)
+    crate::support::repo_root()
         .join("website")
         .join("book")
         .join("src")
@@ -292,6 +291,23 @@ impl Harness {
         panic!("the URL never contained `{fragment}` (last: {url})");
     }
 
+    /// Waits until the current URL no longer contains `fragment`: the page a
+    /// form posted from has been left.
+    ///
+    /// # Panics
+    /// When the URL still contains it after the polling budget.
+    async fn wait_url_lacks(&self, fragment: &str) {
+        for _ in 0..POLLS {
+            let url = self.driver.current_url().await.expect("current url");
+            if !url.as_str().contains(fragment) {
+                return;
+            }
+            tokio::time::sleep(POLL).await;
+        }
+        let url = self.driver.current_url().await.expect("current url");
+        panic!("the URL still contained `{fragment}` (last: {url})");
+    }
+
     /// Clicks the shell's theme control and waits until the root class has
     /// caught up, returning once dark mode is on.
     ///
@@ -318,6 +334,20 @@ impl Harness {
             return;
         };
         let out = dir.join(format!("{slug}.png"));
+        // A capture photographs the top of the screen, whatever the journey
+        // scrolled to before it (#147). The page heading sits in the first
+        // screenful, so centring it on view clamps the scroll to offset zero.
+        let headings = self
+            .driver
+            .find_all(By::Css("h1"))
+            .await
+            .expect("query the page heading");
+        if let Some(heading) = headings.first() {
+            heading
+                .scroll_into_view()
+                .await
+                .expect("scroll to the top before the shot");
+        }
         self.driver
             .screenshot(&out)
             .await
@@ -630,14 +660,17 @@ async fn e2e_run_wizard_reaches_connect_and_scope() {
         .expect("compose with nothing checked");
     h.wait_xpath("//body[contains(., 'check at least one capability')]")
         .await;
+    // The refusal's variant chooses the next step the screen offers (#401).
+    h.wait_xpath("//body[contains(., 'Correct it and try again.')]")
+        .await;
     // The connection pane resolves either way — a draft summary labelled
     // `connection`, or the honest "No connection draft" answer — so what is
     // asserted is that the Suspense RESOLVED, never which of the two it
     // landed on.
     h.wait_xpath("//body[contains(., 'connection')]").await;
-    // A refused server function answers 500, which the browser logs as a
-    // failed resource: the refusal above is the assertion, and this ONE
-    // endpoint's status line is what driving it deliberately costs.
+    // A refused server function answers its 4xx (#401), which the browser
+    // logs as a failed resource: the refusal above is the assertion, and this
+    // ONE endpoint's status line is what driving it deliberately costs.
     h.assert_console_clean(&["/api/compose_claim"]).await;
     h.finish().await;
 }
@@ -1060,6 +1093,29 @@ async fn e2e_connect_probes_and_continues_without_javascript() {
         .expect("probe");
     h.wait_url_contains("probed").await;
     h.wait_xpath("//body[contains(., 'HTTP 500')]").await;
+    // The page the probe returned to offers the address it posted, and a
+    // second probe from it reaches the same target rather than a blank one
+    // (#936). The marker query parameter tells the reloaded page apart.
+    let address = format!("http://127.0.0.1:{port}");
+    h.goto_unhydrated("/run/connect?probed=1&again=1").await;
+    let field = h.wait_css("input#base-url").await;
+    assert_eq!(
+        field.attr("value").await.expect("read the base URL"),
+        Some(address.clone()),
+        "the probed page offers the address it probed"
+    );
+    h.wait_xpath("//button[contains(., 'Probe connection')]")
+        .await
+        .click()
+        .await
+        .expect("probe again");
+    h.wait_url_lacks("again").await;
+    assert_eq!(
+        h.current_path().await,
+        "/run/connect?probed=1",
+        "the second probe reached a target and returned to the probed page"
+    );
+    h.wait_xpath("//body[contains(., 'HTTP 500')]").await;
     h.wait_xpath("//button[@id='connect-continue' and contains(., 'Continue anyway')]")
         .await
         .click()
@@ -1462,7 +1518,8 @@ async fn e2e_two_visitors_drive_two_runs_at_once() {
     // Every `#[server]` fn is a public endpoint, so this is part of the
     // interface: the same form with `postures` left out, which server_fn
     // answers with 500 and its own serializer's phrasing unless something
-    // rewrites it.
+    // rewrites it. The rewrite is the console's own encoded error, so the
+    // variant is what a caller decodes.
     let (status, body) = second
         .call_expecting_a_refusal(<SaveScope as ServerFn>::PATH, "filter=")
         .await;
@@ -1471,13 +1528,16 @@ async fn e2e_two_visitors_drive_two_runs_at_once() {
         reqwest::StatusCode::BAD_REQUEST,
         "a caller's mistake is 4xx, not 5xx: {body}"
     );
-    assert!(
-        body.contains("`postures`"),
-        "the refusal names the argument: {body}"
-    );
-    assert!(
-        !body.contains("Args|"),
-        "the serializer's own phrasing does not reach a caller: {body}"
+    let refusal =
+        <veredictum_console::error::ConsoleError as leptos::prelude::FromServerFnError>::de(
+            body.clone().into(),
+        );
+    assert_eq!(
+        refusal,
+        veredictum_console::error::ConsoleError::CallUndecodable {
+            missing: Some(String::from("postures"))
+        },
+        "the refusal names the argument, and the serializer's own phrasing does not reach a caller: {body}"
     );
 
     // Visitor two is this journey, over the same public endpoints.

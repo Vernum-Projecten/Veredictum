@@ -930,9 +930,11 @@ Draw the static badges of a result document, for a README.
 
 Each badge is written as `<name>.svg`, a flat badge drawn without a font or the network, and as `<name>.json`, a Shields.io endpoint document (<https://shields.io/badges/endpoint-badge>), and each is a byte-deterministic function of the document. Every badge reports the vendor's own run, and none is a certificate.
 
-An Arazzo results document draws four: `base` (the BASE rows), `options` (the rows of the selected option arms and of the cases resting on TRIAL text), `profile` (the specification profile) and `instrument` (the version, and `self-run`). A counting badge reads passed out of the rows that bear on the verdict (passed, failed, errored), then its failed, errored and warning counts; a warning row, a SHOULD the server did not follow, is neither a pass nor a failure and stays out of the ratio. Each counting badge names the profile in its label, so a development tally never reads as a released one. A counting badge is green only when no row failed or errored: red when a row counts against the server (it failed, or errored with the server or no one named), orange when none does but an errored row is inconclusive, grey when nothing passed. A warning changes no colour.
+Each badge carries one fact: the label names the subject and the message gives one short value. The SVG title and `aria-label` carry the full text.
 
-A `perf-result` draws one, `perf`: the workload in the label and the knee as the record states it, in a neutral colour, because a knee is a reading and never a pass or a failure.
+An Arazzo results document draws four: `base` (the BASE rows), `options` (the rows of the selected option arms and of the cases resting on TRIAL text), `profile` (the specification profile) and `instrument` (`self-run` and the version). A counting badge reads passed out of the rows that bear on the verdict (passed, failed, errored), then its warning count; its title adds the failed and errored counts. A warning row, a SHOULD the server did not follow, is neither a pass nor a failure and stays out of the ratio. A counting badge of a development result says `dev` in its label, so a development tally never reads as a released one. A counting badge is green only when no row failed or errored: red when a row counts against the server (it failed, or errored with the server or no one named), orange when none does but an errored row is inconclusive, grey when nothing passed. A warning changes no colour.
+
+A `perf-result` draws three: `perf` (the workload in the label, the knee in whole requests per second, rounded outward), `noise` (whether an A/A floor is attached) and `instrument`. A knee is a reading and never a pass or a failure, so it is drawn in a neutral colour.
 
 Exit status: `0` when every badge was written; `2` when the document cannot be read or a file cannot be written.
 
@@ -957,7 +959,7 @@ with a fixed table of character widths, so no font and no network is read.
 | Document | Files written |
 |---|---|
 | an Arazzo `results.json` | `base`, `options`, `profile` and `instrument`, each `.svg` and `.json` |
-| a `perf-result.json` | `perf.svg` and `perf.json` |
+| a `perf-result.json` | `perf`, `noise` and `instrument`, each `.svg` and `.json` |
 
 ```bash
 veredictum badge --results conformance/results.json --out conformance/badges

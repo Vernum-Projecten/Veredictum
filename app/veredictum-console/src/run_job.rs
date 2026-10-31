@@ -547,6 +547,22 @@ pub enum JobError {
     Engine(#[from] crate::engine::Error),
 }
 
+#[cfg(feature = "ssr")]
+impl From<JobError> for crate::error::ConsoleError {
+    fn from(error: JobError) -> Self {
+        match error {
+            JobError::Busy(run) => Self::RunInFlight {
+                run: run.to_string(),
+            },
+            JobError::Idle => Self::NotFound {
+                detail: error.to_string(),
+            },
+            JobError::Poisoned(_) => Self::internal(crate::error::InternalCause::Lock, error),
+            JobError::Engine(_) => Self::internal(crate::error::InternalCause::Engine, error),
+        }
+    }
+}
+
 /// Records one streamed engine line on `job`.
 ///
 /// A `--progress` line (#81's grammar) moves the counters and the per-case
@@ -1193,25 +1209,23 @@ impl JobSlot {
     }
 }
 
-/// The engine's own tally over the typed results: passed / failed / errored
-/// / skipped rows, counted on the lib's status enum itself.
+/// The live and recorded run summaries' passed / failed / errored / skipped
+/// counts, read through the results screen's own tally (#151).
 ///
-/// The match is exhaustive on purpose: a status the engine adds later breaks
-/// this build instead of being counted by a catch-all.
+/// One reader for both surfaces: the engine's reading tally, carried on the
+/// wire by [`crate::record_api::read::tally_of`]. A summary counts by status,
+/// so a failed row whose server missed only a SHOULD (a warning in the
+/// reading) is one of its failed rows.
 #[cfg(feature = "ssr")]
 pub(crate) fn tally(results: &veredictum::arazzo::results::Results) -> (u64, u64, u64, u64) {
-    use veredictum::arazzo::results::Status;
-
-    let mut counts = (0_u64, 0_u64, 0_u64, 0_u64);
-    for row in &results.rows {
-        match row.status {
-            Status::Passed => counts.0 += 1,
-            Status::Failed => counts.1 += 1,
-            Status::Errored => counts.2 += 1,
-            Status::Skipped => counts.3 += 1,
-        }
-    }
-    counts
+    let tally =
+        crate::record_api::read::tally_of(&veredictum::arazzo::reading::Tally::of(&results.rows));
+    (
+        u64::from(tally.passed),
+        u64::from(tally.failed.saturating_add(tally.warning)),
+        u64::from(tally.errored),
+        u64::from(tally.skipped),
+    )
 }
 
 #[cfg(test)]

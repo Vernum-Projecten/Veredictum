@@ -24,57 +24,73 @@ that drew it.
 
 A passing result judged against the release, with one BASE warning:
 
-![openEHR BASE · released: 3/3 passed · 1 warning](badges/passing/base.svg)
-![openEHR options · released: 1/1 passed](badges/passing/options.svg)
+![openEHR BASE: 3/3 passed, 1 warning](badges/passing/base.svg)
+![openEHR options: 1/1 passed](badges/passing/options.svg)
 ![specification: released](badges/passing/profile.svg)
-![veredictum: self-run · v0.3.1](badges/passing/instrument.svg)
+![veredictum: self-run v0.3.1](badges/passing/instrument.svg)
 
 ```markdown
-![openEHR BASE · released: 3/3 passed · 1 warning](badges/passing/base.svg)
-![openEHR options · released: 1/1 passed](badges/passing/options.svg)
+![openEHR BASE: 3/3 passed, 1 warning](badges/passing/base.svg)
+![openEHR options: 1/1 passed](badges/passing/options.svg)
 ![specification: released](badges/passing/profile.svg)
-![veredictum: self-run · v0.3.1](badges/passing/instrument.svg)
+![veredictum: self-run v0.3.1](badges/passing/instrument.svg)
 ```
 
 A failing result: one BASE row failed against the server, and one BASE row
-and one option row errored without a verdict:
+and one option row errored without a verdict. The message keeps the ratio and
+the colour shows the failure; hover a badge, or read it with a screen reader,
+for the failed and errored counts:
 
-![openEHR BASE · released: 2/4 passed · 1 failed · 1 errored](badges/failing/base.svg)
-![openEHR options · released: 0/1 passed · 1 errored](badges/failing/options.svg)
+![openEHR BASE: 2/4 passed, 1 failed, 1 errored](badges/failing/base.svg)
+![openEHR options: 0/1 passed, 1 errored](badges/failing/options.svg)
 ![specification: released](badges/failing/profile.svg)
-![veredictum: self-run · v0.3.1](badges/failing/instrument.svg)
+![veredictum: self-run v0.3.1](badges/failing/instrument.svg)
 
 ```markdown
-![openEHR BASE · released: 2/4 passed · 1 failed · 1 errored](badges/failing/base.svg)
-![openEHR options · released: 0/1 passed · 1 errored](badges/failing/options.svg)
+![openEHR BASE: 2/4 passed, 1 failed, 1 errored](badges/failing/base.svg)
+![openEHR options: 0/1 passed, 1 errored](badges/failing/options.svg)
 ![specification: released](badges/failing/profile.svg)
-![veredictum: self-run · v0.3.1](badges/failing/instrument.svg)
+![veredictum: self-run v0.3.1](badges/failing/instrument.svg)
 ```
 
 The passing result judged against the development snapshot:
 
-![openEHR BASE · development: 3/3 passed · 1 warning](badges/development/base.svg)
-![openEHR options · development: 1/1 passed](badges/development/options.svg)
+![openEHR BASE dev: 3/3 passed, 1 warning](badges/development/base.svg)
+![openEHR options dev: 1/1 passed](badges/development/options.svg)
 ![specification: development (master)](badges/development/profile.svg)
-![veredictum: self-run · v0.3.1](badges/development/instrument.svg)
+![veredictum: self-run v0.3.1](badges/development/instrument.svg)
 
 ```markdown
-![openEHR BASE · development: 3/3 passed · 1 warning](badges/development/base.svg)
-![openEHR options · development: 1/1 passed](badges/development/options.svg)
+![openEHR BASE dev: 3/3 passed, 1 warning](badges/development/base.svg)
+![openEHR options dev: 1/1 passed](badges/development/options.svg)
 ![specification: development (master)](badges/development/profile.svg)
-![veredictum: self-run · v0.3.1](badges/development/instrument.svg)
+![veredictum: self-run v0.3.1](badges/development/instrument.svg)
 ```
 
-A performance record whose knee is a bracket, and one whose every plateau
-qualified:
+The committed example performance record, whose knee is a bracket and which
+carries no A/A floor:
 
-![openEHR perf · custom: knee 180.8–210.9/s, self-run](badges/perf/bracket.svg)
-
-![openEHR perf · ehr-mix@2: knee ≥ 1,250.0/s, self-run](badges/perf/lower-bound.svg)
+![perf custom: knee 180.8–210.9/s](badges/perf/bracket/perf.svg)
+![A/A floor: not measured](badges/perf/bracket/noise.svg)
+![veredictum: self-run v0.3.1](badges/perf/bracket/instrument.svg)
 
 ```markdown
-![openEHR perf · custom: knee 180.8–210.9/s, self-run](badges/perf/bracket.svg)
-![openEHR perf · ehr-mix@2: knee ≥ 1,250.0/s, self-run](badges/perf/lower-bound.svg)
+![perf custom: knee 180.8–210.9/s](badges/perf/bracket/perf.svg)
+![A/A floor: not measured](badges/perf/bracket/noise.svg)
+![veredictum: self-run v0.3.1](badges/perf/bracket/instrument.svg)
+```
+
+The same record read as a lower bound of a pinned workload, every plateau
+qualified, with an A/A floor attached:
+
+![perf ehr-mix@2: knee ≥ 1,250.0/s](badges/perf/lower-bound/perf.svg)
+![A/A floor: attached](badges/perf/lower-bound/noise.svg)
+![veredictum: self-run v0.3.1](badges/perf/lower-bound/instrument.svg)
+
+```markdown
+![perf ehr-mix@2: knee ≥ 1,250.0/s](badges/perf/lower-bound/perf.svg)
+![A/A floor: attached](badges/perf/lower-bound/noise.svg)
+![veredictum: self-run v0.3.1](badges/perf/lower-bound/instrument.svg)
 ```
 
 In a README each badge is the same Markdown image, pointed at wherever you
@@ -82,7 +98,7 @@ publish it ([GitHub](#github), [GitLab](#gitlab)) and linked to the run that
 drew it. The first badge above becomes:
 
 ```markdown
-[![openEHR BASE · released: 3/3 passed · 1 warning](https://raw.githubusercontent.com/<owner>/<repo>/veredictum-badges/base.svg)](https://github.com/<owner>/<repo>/actions/workflows/conformance.yml?query=branch%3Amain)
+[![openEHR BASE: 3/3 passed, 1 warning](https://raw.githubusercontent.com/<owner>/<repo>/veredictum-badges/base.svg)](https://github.com/<owner>/<repo>/actions/workflows/conformance.yml?query=branch%3Amain)
 ```
 
 The gallery is redrawn by `scripts/render/book-badges.sh`, and CI fails when
@@ -90,26 +106,43 @@ the committed images differ from what the current binary draws
 (`scripts/checks/book-badges.sh`). [Reading a result](reading-results.md)
 explains what the rows behind these numbers mean for a buyer.
 
+## One design for every badge
+
+Every badge carries one fact. The label names the subject in at most three
+words, and the message gives one short value. Neither part holds a separator
+character, so a badge stays short enough to sit in a row of others.
+
+The message keeps the headline. The SVG's title and its `aria-label` carry the
+full text, so hovering a badge, or reading it with a screen reader, still
+gives every count: the BASE badge that reads `2/4 passed` has the title
+`openEHR BASE: 2/4 passed, 1 failed, 1 errored`. The `.json` endpoint file
+carries the short message, the one Shields draws.
+
 ## The four conformance badges
 
-A conformance result (`results.json`) draws four badges, one fact each, so a
-README can show the ones it needs.
+A conformance result (`results.json`) draws four badges, so a README can show
+the ones it needs.
 
 | Badge | Label | Message |
 |---|---|---|
-| `base` | `openEHR BASE · <profile>` | passed out of the BASE rows and the rows the outline places nowhere that bear on the verdict (passed, failed and errored), then the failed, errored and warning counts when there are any: `312/318 passed · 2 failed · 1 warning` |
-| `options` | `openEHR options · <profile>` | the same count over the option arms the statement selected and the cases resting on TRIAL text, which are read with the options |
+| `base` | `openEHR BASE`, or `openEHR BASE dev` | passed out of the BASE rows and the rows the outline places nowhere that bear on the verdict (passed, failed and errored), then the warning count when there is one: `312/318 passed`, `312/318 passed, 1 warning`, `312/318 passed, 2 warnings` |
+| `options` | `openEHR options`, or `openEHR options dev` | the same count over the option arms the statement selected and the cases resting on TRIAL text, which are read with the options |
 | `profile` | `specification` | `released`, or `development (master)` with the branch the snapshot was taken from |
-| `instrument` | `veredictum` | `self-run · v<version>` |
+| `instrument` | `veredictum` | `self-run v<version>` |
+
+The title of a counting badge adds the failed and errored counts after the
+ratio: `312/318 passed, 2 failed, 4 errored, 1 warning`. A result without an
+outline places no row, and both counting badges then read `no outline`.
 
 A warning row is a SHOULD the server did not follow. It is neither a pass nor
 a failure, so it stays out of the ratio and is named after it, on the badge of
 the BASE or option row it belongs to. A skipped row is not in the ratio either.
 
 The counts are the ones [`show`](commands.md#show) and the Markdown summary
-print, read from the same outline. A badge can be embedded alone, so every
-counting badge names its profile in its own label: a tally judged against the
-development snapshot never reads as a released one.
+print, read from the same outline. A badge can be embedded alone, so a counting
+badge drawn from the development profile always says `dev` in its label. A
+released one carries no marker, because an unqualified `openEHR BASE` already
+means the release, and a development tally can never read as a released one.
 
 The colours follow one rule: a badge is green only when nothing it counts
 failed or errored. A warning never changes a colour.
@@ -124,24 +157,29 @@ failed or errored. A warning never changes a colour.
 | purple | | `development` |
 
 The `instrument` badge is the brand's deep teal. Every mark is in the text as
-well as the colour, so a failed or errored row reads the same in greyscale.
+well as the colour, so a failed or errored row reads the same in greyscale:
+the ratio counts it as not passed, and the title names it.
 
-## The performance badge
+## The performance badges
 
-A `perf-result.json` draws one badge, `perf`, and nothing else.
+A `perf-result.json` draws three badges: `perf`, `noise` and `instrument`.
 
-| Label | Message |
-|---|---|
-| `openEHR perf · <workload>` | the knee as the record states it, then `self-run` and how many passes measured it |
+| Badge | Label | Message |
+|---|---|---|
+| `perf` | `perf <workload>` | `knee 180–211/s` for a bracket, `knee ≥ 1,250/s` when every plateau qualified, `below ladder` when the lowest plateau failed, `no plateau` when the run had none |
+| `noise` | `A/A floor` | `attached` when the record carries an A/A floor, `not measured` when it does not |
+| `instrument` | `veredictum` | `self-run v<version>`, the version that wrote the record |
 
 The workload is the record's label: `<id>@<version>` for a workload the
-instrument pins, `custom` for any other document. The knee reads
-`knee 180.8–210.9/s` for a bracket, `knee ≥ 1,250.0/s` when every plateau
-qualified, `below ladder` when the lowest plateau failed, and `no plateau` when
-the run had none. The message closes with `1 pass, noise unmeasured`, or
-`1 pass, A/A floor attached` when the record carries an A/A floor. A knee is a
-reading of capacity, never a pass or a failure, so the badge is always slate
-grey-blue.
+instrument pins, `custom` for any other document. The message gives the rates
+as whole numbers, and rounds them outward: a lower bound rounds down and an
+upper bound rounds up, so a bracket of `180.8–210.9` reads `180–211` and only
+ever widens. The title keeps the rates as the record states them, to one
+decimal.
+
+A knee is a reading of capacity, never a pass or a failure, so the `perf`
+badge is always slate grey-blue. The `noise` badge is the same slate when a
+floor is attached, and grey when it is not measured.
 
 ## The icon
 
@@ -157,7 +195,8 @@ by openEHR.
 veredictum badge --results conformance/results.json --out conformance/badges
 ```
 
-writes `base.svg`, `base.json` and the same pair for each other badge. The SVG
+writes `base.svg`, `base.json` and the same pair for each other badge. A
+`perf-result.json` writes `perf`, `noise` and `instrument` the same way. The SVG
 is complete in itself and needs no font download. The `.json` file is a
 [Shields.io endpoint](https://shields.io/badges/endpoint-badge) document, so a
 README can also point Shields at it:

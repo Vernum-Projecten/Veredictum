@@ -5,9 +5,10 @@
 //! and as a Shields.io endpoint document for a passing, a failing and a
 //! development-profile result; a failed or errored row never drawn in a
 //! passing colour; a warning counted on its own badge, outside the ratio and
-//! out of the colour; the profile named in every counting badge; and the
-//! command writing the files and drawing only the perf badge for a
-//! `perf-result`.
+//! out of the colour; the full count breakdown in the title; `dev` in every
+//! counting badge of a development result; no separator character in any
+//! label or message; and the command writing the files and drawing the perf,
+//! noise and instrument badges for a `perf-result`.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -20,10 +21,12 @@ use veredictum::arazzo::structure::{
     ArmRef, ChapterDecl, FolderDecl, Outline, OutlineArm, OutlineOption, Place, SectionDecl,
     Standing, Theme, Tier,
 };
-use veredictum::badge::{Badge, BadgeColour, BadgeName, badges, perf_badge};
+use veredictum::badge::{Badge, BadgeColour, BadgeName, badges, perf_badges};
 use veredictum::party::InstrumentStatus;
 use veredictum::perf_result::PerfResult;
 use veredictum::perf_result::capacity::Knee;
+use veredictum::perf_result::compare::{AaFloor, CompareMetric};
+use veredictum::perf_result::derive::BetweenRunNoise;
 use veredictum::pipeline::export::badge_files;
 
 fn row(case: &str, index: usize, status: Status, whose: Option<Whose>) -> ResultRow {
@@ -241,8 +244,9 @@ fn the_badge_fixtures_are_pinned_as_documents() {
     ] {
         insta::assert_snapshot!(format!("{kind}-results.json"), results.to_text().unwrap());
     }
-    let [_, (_, lower)] = perf_records().unwrap();
-    insta::assert_snapshot!("perf-lower-bound-record.json", lower.render().unwrap());
+    for (kind, record) in perf_records().unwrap() {
+        insta::assert_snapshot!(format!("perf-{kind}-record.json"), record.render().unwrap());
+    }
 }
 
 #[test]
@@ -272,7 +276,7 @@ fn a_failed_or_errored_row_is_never_drawn_in_a_passing_colour() {
     );
     assert_eq!(
         badge(&passing(), BadgeName::Base).unwrap().message,
-        "3/3 passed \u{b7} 1 warning",
+        "3/3 passed, 1 warning",
         "the warning row is named after the ratio, never inside it"
     );
 }
@@ -280,7 +284,7 @@ fn a_failed_or_errored_row_is_never_drawn_in_a_passing_colour() {
 #[test]
 fn a_base_warning_leaves_the_ratio_all_passed_and_the_badge_green() {
     let base = badge(&passing(), BadgeName::Base).unwrap();
-    assert_eq!(base.message, "3/3 passed \u{b7} 1 warning");
+    assert_eq!(base.message, "3/3 passed, 1 warning");
     assert_eq!(base.colour, BadgeColour::Passing);
     let mut unwarned = passing();
     unwarned.rows.retain(|r| r.explanation.is_none());
@@ -300,7 +304,7 @@ fn an_option_warning_is_counted_on_the_options_badge_only() {
         Some(Whose::Warning),
     ));
     let options = badge(&results, BadgeName::Options).unwrap();
-    assert_eq!(options.message, "1/1 passed \u{b7} 1 warning");
+    assert_eq!(options.message, "1/1 passed, 1 warning");
     assert_eq!(options.colour, BadgeColour::Passing);
     assert_eq!(
         badge(&results, BadgeName::Base).unwrap().message,
@@ -317,16 +321,12 @@ fn warnings_in_base_and_options_are_counted_on_each_badge_apart() {
             .push(row(case, index, Status::Failed, Some(Whose::Warning)));
     }
     let base = badge(&results, BadgeName::Base).unwrap();
-    assert_eq!(
-        base.message,
-        "2/4 passed \u{b7} 1 failed \u{b7} 1 errored \u{b7} 2 warnings"
-    );
+    assert_eq!(base.message, "2/4 passed, 2 warnings");
+    assert_eq!(base.detail, "2/4 passed, 1 failed, 1 errored, 2 warnings");
     assert_eq!(base.colour, BadgeColour::Failing);
     let options = badge(&results, BadgeName::Options).unwrap();
-    assert_eq!(
-        options.message,
-        "0/1 passed \u{b7} 1 errored \u{b7} 1 warning"
-    );
+    assert_eq!(options.message, "0/1 passed, 1 warning");
+    assert_eq!(options.detail, "0/1 passed, 1 errored, 1 warning");
     assert_eq!(options.colour, BadgeColour::Errored);
 }
 
@@ -339,10 +339,8 @@ fn a_server_attributed_errored_row_makes_the_base_badge_red() {
             .push(row("ehr/create", 2, Status::Errored, whose));
         let base = badge(&results, BadgeName::Base).unwrap();
         assert_eq!(base.colour, BadgeColour::Failing, "{whose:?}");
-        assert_eq!(
-            base.message, "3/4 passed \u{b7} 1 errored \u{b7} 1 warning",
-            "{whose:?}"
-        );
+        assert_eq!(base.message, "3/4 passed, 1 warning", "{whose:?}");
+        assert_eq!(base.detail, "3/4 passed, 1 errored, 1 warning", "{whose:?}");
     }
     let mut inconclusive = passing();
     inconclusive.rows.push(row(
@@ -388,6 +386,68 @@ fn a_red_row_the_outline_places_nowhere_never_leaves_the_base_badge_green() {
 }
 
 #[test]
+fn the_title_carries_the_full_count_breakdown() {
+    let base = badge(&failing(), BadgeName::Base).unwrap();
+    assert_eq!(base.message, "2/4 passed");
+    let full = "openEHR BASE: 2/4 passed, 1 failed, 1 errored";
+    assert_eq!(base.title(), full);
+    let svg = base.svg();
+    assert!(svg.contains(&format!(r#"aria-label="{full}""#)), "{svg}");
+    assert!(svg.contains(&format!("<title>{full}</title>")), "{svg}");
+    let json: Value = serde_json::from_str(&base.endpoint_json().unwrap()).unwrap();
+    assert_eq!(
+        json["message"], "2/4 passed",
+        "the endpoint keeps the message"
+    );
+}
+
+#[test]
+fn every_counting_badge_of_a_development_result_says_dev() {
+    let mut warned_options = development();
+    warned_options.rows.push(row(
+        "xml-supported/read",
+        1,
+        Status::Failed,
+        Some(Whose::Warning),
+    ));
+    let mut unplaced = development();
+    unplaced.outline = None;
+    for results in [development(), warned_options, unplaced] {
+        let drawn = badges(&results);
+        let counting: Vec<&Badge> = drawn
+            .iter()
+            .filter(|b| matches!(b.name, BadgeName::Base | BadgeName::Options))
+            .collect();
+        assert_eq!(counting.len(), 2);
+        for badge in counting {
+            assert!(badge.label.ends_with(" dev"), "{badge:?}");
+        }
+    }
+    for results in [passing(), failing()] {
+        for badge in badges(&results) {
+            assert!(!badge.label.contains("dev"), "{badge:?}");
+        }
+    }
+}
+
+#[test]
+fn no_label_or_message_carries_a_separator() {
+    let mut drawn = Vec::new();
+    for results in [passing(), failing(), development()] {
+        drawn.extend(badges(&results));
+    }
+    for (_, record) in perf_records().unwrap() {
+        drawn.extend(perf_badges(&record));
+    }
+    for badge in drawn {
+        for text in [&badge.label, &badge.message, &badge.detail] {
+            assert!(!text.contains('\u{b7}'), "{badge:?}");
+            assert!(!text.contains('|'), "{badge:?}");
+        }
+    }
+}
+
+#[test]
 fn every_counting_badge_names_its_profile_and_the_profiles_never_draw_alike() {
     for name in [BadgeName::Base, BadgeName::Options, BadgeName::Profile] {
         let released = badge(&passing(), name).unwrap();
@@ -400,11 +460,8 @@ fn every_counting_badge_names_its_profile_and_the_profiles_never_draw_alike() {
             name.token()
         );
         if name != BadgeName::Profile {
-            assert!(released.label.ends_with("\u{b7} released"), "{released:?}");
-            assert!(
-                development.label.ends_with("\u{b7} development"),
-                "{development:?}"
-            );
+            assert!(!released.label.ends_with(" dev"), "{released:?}");
+            assert_eq!(development.label, format!("{} dev", released.label));
         }
     }
     assert_eq!(
@@ -435,7 +492,7 @@ fn the_endpoint_document_follows_the_shields_schema_with_the_icon() {
     )
     .unwrap();
     assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["label"], "openEHR BASE \u{b7} released");
+    assert_eq!(json["label"], "openEHR BASE");
     assert_eq!(json["color"], "e05d44");
     let logo = json["logoSvg"].as_str().unwrap();
     assert!(logo.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\""));
@@ -481,51 +538,95 @@ fn perf_example() -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/perf-result.example.json")
 }
 
-/// The committed example, whose knee is a bracket and whose workload is
-/// custom, and the same record read as a lower bound of a pinned workload.
+/// The committed example, whose knee is a bracket, whose workload is custom
+/// and which carries no A/A floor, and the same record read as a lower bound
+/// of a pinned workload with a floor attached. Both name the fixtures'
+/// instrument version, 0.3.1, so a release that moves the example's version
+/// leaves the pinned badges alone.
 fn perf_records() -> Result<[(&'static str, PerfResult); 2], Box<dyn std::error::Error>> {
-    let bracket = PerfResult::read(&std::fs::read_to_string(perf_example())?)?;
+    let mut bracket = PerfResult::read(&std::fs::read_to_string(perf_example())?)?;
+    "0.3.1".clone_into(&mut bracket.raw.instrument.version);
     let mut lower = bracket.clone();
     lower.derived.knee = Knee::LowerBound {
         qualified_rate: 1_250.0,
         achieved_per_s: 1_249.5,
     };
     "ehr-mix@2".clone_into(&mut lower.raw.workload.label);
+    lower.derived.between_run_noise = BetweenRunNoise::AaFloor(AaFloor {
+        ratios: BTreeMap::from([(CompareMetric::P95, 1.04), (CompareMetric::Achieved, 1.01)]),
+        pairs: 12,
+    });
     Ok([("bracket", bracket), ("lower-bound", lower)])
 }
 
+fn perf_badge(record: &PerfResult, name: BadgeName) -> Option<Badge> {
+    perf_badges(record).into_iter().find(|b| b.name == name)
+}
+
 #[test]
-fn the_perf_badge_is_pinned_for_a_bracket_and_a_lower_bound() {
+fn the_perf_badges_are_pinned_for_a_bracket_and_a_lower_bound() {
     for (kind, record) in perf_records().unwrap() {
-        let badge = perf_badge(&record);
-        assert_eq!(badge.name, BadgeName::Perf);
+        let drawn = perf_badges(&record);
         assert_eq!(
-            badge.colour,
-            BadgeColour::Reading,
-            "a knee is never pass or fail"
+            drawn.iter().map(|b| b.name).collect::<Vec<_>>(),
+            BadgeName::PERF.to_vec()
         );
-        assert_eq!(badge, perf_badge(&record), "byte-deterministic");
-        insta::assert_snapshot!(format!("perf-{kind}.svg"), badge.svg());
-        insta::assert_snapshot!(format!("perf-{kind}.json"), badge.endpoint_json().unwrap());
+        assert_eq!(drawn, perf_badges(&record), "byte-deterministic");
+        for badge in drawn {
+            let name = badge.name.token();
+            insta::assert_snapshot!(format!("perf-{kind}-{name}.svg"), badge.svg());
+            insta::assert_snapshot!(
+                format!("perf-{kind}-{name}.json"),
+                badge.endpoint_json().unwrap()
+            );
+        }
     }
     let [(_, bracket), (_, lower)] = perf_records().unwrap();
-    assert_eq!(perf_badge(&bracket).label, "openEHR perf \u{b7} custom");
+    let knee = perf_badge(&bracket, BadgeName::Perf).unwrap();
+    assert_eq!(knee.label, "perf custom");
+    assert_eq!(knee.message, "knee 180\u{2013}211/s", "rounded outward");
+    assert_eq!(knee.detail, "knee 180.8\u{2013}210.9/s");
     assert_eq!(
-        perf_badge(&bracket).message,
-        "knee 180.8\u{2013}210.9/s \u{b7} self-run \u{b7} 1 pass, noise unmeasured"
+        knee.colour,
+        BadgeColour::Reading,
+        "a knee is never pass or fail"
     );
-    assert_eq!(perf_badge(&lower).label, "openEHR perf \u{b7} ehr-mix@2");
-    assert!(
-        perf_badge(&lower)
-            .message
-            .starts_with("knee \u{2265} 1,250.0/s"),
-        "{}",
-        perf_badge(&lower).message
+    let knee = perf_badge(&lower, BadgeName::Perf).unwrap();
+    assert_eq!(knee.label, "perf ehr-mix@2");
+    assert_eq!(knee.message, "knee \u{2265} 1,250/s");
+    assert_eq!(knee.colour, BadgeColour::Reading);
+}
+
+#[test]
+fn the_noise_badge_says_whether_an_aa_floor_is_attached() {
+    let [(_, bracket), (_, lower)] = perf_records().unwrap();
+    let unmeasured = perf_badge(&bracket, BadgeName::Noise).unwrap();
+    assert_eq!(
+        (unmeasured.label.as_str(), unmeasured.message.as_str()),
+        ("A/A floor", "not measured")
+    );
+    assert_eq!(unmeasured.colour, BadgeColour::Empty);
+    let attached = perf_badge(&lower, BadgeName::Noise).unwrap();
+    assert_eq!(attached.message, "attached");
+    assert_eq!(attached.colour, BadgeColour::Reading);
+}
+
+#[test]
+fn the_perf_instrument_badge_names_the_version_that_wrote_the_record() {
+    let [(_, mut bracket), _] = perf_records().unwrap();
+    "9.8.7".clone_into(&mut bracket.raw.instrument.version);
+    let instrument = perf_badge(&bracket, BadgeName::Instrument).unwrap();
+    assert_eq!(instrument.label, "veredictum");
+    assert_eq!(instrument.message, "self-run v9.8.7");
+    assert_eq!(instrument.colour, BadgeColour::Instrument);
+    assert_eq!(
+        badge(&passing(), BadgeName::Instrument).unwrap().message,
+        "self-run v0.3.1"
     );
 }
 
 #[test]
-fn the_command_draws_only_the_perf_badge_for_a_perf_result() {
+fn the_command_draws_the_perf_noise_and_instrument_badges_for_a_perf_result() {
     let dir = assert_fs::TempDir::new().unwrap();
     let output = badge_command(&perf_example(), dir.path()).unwrap();
     assert!(output.status.success(), "{output:?}");
@@ -534,10 +635,24 @@ fn the_command_draws_only_the_perf_badge_for_a_perf_result() {
         .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
         .collect();
     written.sort();
-    assert_eq!(written, ["perf.json", "perf.svg"]);
-    let [(_, bracket), _] = perf_records().unwrap();
     assert_eq!(
-        std::fs::read_to_string(dir.path().join("perf.svg")).unwrap(),
-        perf_badge(&bracket).svg()
+        written,
+        [
+            "instrument.json",
+            "instrument.svg",
+            "noise.json",
+            "noise.svg",
+            "perf.json",
+            "perf.svg"
+        ]
     );
+    let example = PerfResult::read(&std::fs::read_to_string(perf_example()).unwrap()).unwrap();
+    for badge in perf_badges(&example) {
+        let name = badge.name.token();
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join(format!("{name}.svg"))).unwrap(),
+            badge.svg(),
+            "{name}"
+        );
+    }
 }
