@@ -1073,9 +1073,9 @@ attestation level so no rung can masquerade as a higher one:
 
 | Rung | Name | ISO frame | Mechanism | Who grants |
 |---|---|---|---|---|
-| 0 | **Published statement** | First-party attestation, registered | Vendor publishes `statement.json` + `results.json`. **Listing preconditions**: the results come from a runner that has passed the §8.12 verification pack, and the statement passes static conformance review. Registry rows display runner identity + verification status and are visually labelled **self-published**. | Nobody — registration only |
+| 0 | **Published statement** | First-party attestation | Vendor publishes `statement.json` + `results.json` itself; Veredictum publishes no results and keeps no registry (§15.10). **Preconditions for the claim**: the results come from a runner that has passed the §8.12 verification pack, and the statement passes static conformance review (`validate --statement`). The results name the runner that produced them. | Nobody — publication only |
 | 1 | **Self-declared (signed SDoC)** | First-party attestation with signed SDoC (ISO/IEC 17050-1/-2) — "self-certification" in industry usage (OpenID); ISO reserves "certification" for third-party attestation, which is rung 3 alone | Rung 0 + a signed legal attestation of result accuracy by an authorized officer (+ modest fee funding the program). The §6.4 responsibility sentence appears on the certificate. | openEHR International (administrative + static review only) |
-| 2 | **Community-verified** | Witnessed peer verification (genuinely second-party only when the witness is a procurer/user of the product) | Results reproduced at a supervised conformance-thon (EHRCON slot) or by a named community witness re-running the suite from the vendor's `ixit.json` against a vendor-provided deployment. Witness identity on the registry row. | Event organizers / named witnesses |
+| 2 | **Community-verified** | Witnessed peer verification (genuinely second-party only when the witness is a procurer/user of the product) | Results reproduced at a supervised conformance-thon (EHRCON slot) or by a named community witness re-running the suite from the vendor's `ixit.json` against a vendor-provided deployment. The witness is named beside the re-run results. | Event organizers / named witnesses |
 | 3 | **Certified** | Third-party attestation → certification | An **ISO/IEC 17025**-accredited lab runs the suite; an **ISO/IEC 17065**-accredited certification body reviews and certifies, with surveillance obligations. Both roles **delegated to independent accredited bodies** (the IHE/ONC model) — openEHR International remains scheme owner only, because a spec author certifying its own ecosystem fails 17065 impartiality. **This rung is not offered until surveillance is funded**; advertising it earlier would be dishonest. | Accredited certification bodies |
 
 Cross-cutting rules:
@@ -1091,12 +1091,13 @@ Cross-cutting rules:
   release + spec versions + tech profile + exact product version. It never
   expires by clock alone; it is **superseded** when a newer schedule release
   changes the cases it rests on or when the product version moves without a
-  new statement/attestation (§8.10), and the registry shows currency —
-  answering Alkmaar's expiry question without inventing a revocation
-  bureaucracy.
+  new statement/attestation (§8.10). A certificate's payload names the
+  product version, the catalogue revision and the engine version (§15.10),
+  so any reader judges currency from the certificate itself — answering
+  Alkmaar's expiry question without inventing a revocation bureaucracy.
 - **Disputes**: when a procurer or competitor contests a published result, the
   named path is a rung-2 witnessed re-run (same schedule release, same
-  `ixit.json` shape); the registry records the dispute and its outcome. Below
+  `ixit.json` shape), whose results stand beside the contested ones. Below
   rung 3, legal veracity remains a commercial-contract matter between vendor
   and procurer (ISO/IEC 17050 framing, §6.4) — stated plainly, as the 2021
   roadmap did.
@@ -1112,18 +1113,13 @@ Cross-cutting rules:
   supersession or withdrawal; wording implying certification is licensed at
   rung 3 only. A rung-0/1 badge signifies a self-declaration *registered by*
   openEHR International, never certification *by* it.
-- **Registry Terms of Use** (binding every submitter; drafting precedent:
-  the OpenID Certification Terms & Conditions): the registry publishes
-  **"as is," without warranty**; openEHR International has **no obligation
-  to validate** any claim and may reject or remove entries; the submitter
-  **represents and warrants** accuracy and must promptly update or withdraw
-  on material change; the submitter **indemnifies** openEHR International
-  and liability is capped; entries are removed or labelled
-  **Withdrawn / Superseded / Disputed** (the takedown mechanic the dispute
-  path feeds); the badge licence terminates with the listing. Privacy: the
-  17050-1 signatory name/role is personal data — openEHR International acts
-  as controller under a registry privacy notice (legitimate
-  interest/contract; retention tied to statement currency).
+- **No registry, so no registry terms**: Veredictum lists no product and
+  publishes no result (§15.10). The hosted instrument issues and keeps the
+  certificate of a vendor's run and gives the vendor a copy; the certificate
+  states what that one run recorded. The accuracy of a statement is the
+  supplier's own declaration under ISO/IEC 17050-1, carrying the §6.4
+  responsibility sentence, and the signatory's name and role appear only in
+  the documents the supplier publishes.
 - **Access**: schedule, schemas, corpus, and runners are public and free
   (Inferno/OpenID lesson: adoption dies behind paywalls). Rungs 1–3 may carry
   fees; the 2021 members-only idea applies to *services* (attestation
@@ -1388,11 +1384,9 @@ published crate (#6; the ratified screen record is #61; shipped so far:
 wizard with the live screen, and the results and verdicts surfaces — plus
 the catalogue's CNF profile language #87, the E2E harness #69 with its
 real-CDR mode #99, and the pasted-statement scope #101; the container image
-now carries the console). **Open and release-blocking for v0.1.0** (the
-first stable release, per the 2026-08-27 milestone renumbering): the export
-and verify surfaces (#68) and #6's other open children, and the recorded
-findings #74–#76. The tracker is the plan
-from here; this section stays as the record.
+now carries the console). Exports are the `veredictum export` command, and a
+certificate is checked with `veredictum verify` from the CLI alone (§15.10).
+The tracker is the plan from here; this section stays as the record.
 
 ### 14.3 Runner technology — why the reference runner is Rust
 

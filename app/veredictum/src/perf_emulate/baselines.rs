@@ -12,7 +12,7 @@
 //! stack down with its volumes, so the next baseline starts from an empty
 //! database; `perf-compare --with-baselines` drives it.
 //!
-//! Every reference image is pinned BY DIGEST, never by tag, so two submitters
+//! Every reference image is pinned BY DIGEST, never by tag, so two operators
 //! measure the same bytes (docker's own guidance for a reproducible build,
 //! <https://docs.docker.com/build/building/best-practices/>). The compose
 //! document is written by this module rather than fetched, and each pin
