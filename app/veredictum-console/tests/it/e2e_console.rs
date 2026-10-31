@@ -291,6 +291,23 @@ impl Harness {
         panic!("the URL never contained `{fragment}` (last: {url})");
     }
 
+    /// Waits until the current URL no longer contains `fragment`: the page a
+    /// form posted from has been left.
+    ///
+    /// # Panics
+    /// When the URL still contains it after the polling budget.
+    async fn wait_url_lacks(&self, fragment: &str) {
+        for _ in 0..POLLS {
+            let url = self.driver.current_url().await.expect("current url");
+            if !url.as_str().contains(fragment) {
+                return;
+            }
+            tokio::time::sleep(POLL).await;
+        }
+        let url = self.driver.current_url().await.expect("current url");
+        panic!("the URL still contained `{fragment}` (last: {url})");
+    }
+
     /// Clicks the shell's theme control and waits until the root class has
     /// caught up, returning once dark mode is on.
     ///
@@ -1075,6 +1092,29 @@ async fn e2e_connect_probes_and_continues_without_javascript() {
         .await
         .expect("probe");
     h.wait_url_contains("probed").await;
+    h.wait_xpath("//body[contains(., 'HTTP 500')]").await;
+    // The page the probe returned to offers the address it posted, and a
+    // second probe from it reaches the same target rather than a blank one
+    // (#936). The marker query parameter tells the reloaded page apart.
+    let address = format!("http://127.0.0.1:{port}");
+    h.goto_unhydrated("/run/connect?probed=1&again=1").await;
+    let field = h.wait_css("input#base-url").await;
+    assert_eq!(
+        field.attr("value").await.expect("read the base URL"),
+        Some(address.clone()),
+        "the probed page offers the address it probed"
+    );
+    h.wait_xpath("//button[contains(., 'Probe connection')]")
+        .await
+        .click()
+        .await
+        .expect("probe again");
+    h.wait_url_lacks("again").await;
+    assert_eq!(
+        h.current_path().await,
+        "/run/connect?probed=1",
+        "the second probe reached a target and returned to the probed page"
+    );
     h.wait_xpath("//body[contains(., 'HTTP 500')]").await;
     h.wait_xpath("//button[@id='connect-continue' and contains(., 'Continue anyway')]")
         .await

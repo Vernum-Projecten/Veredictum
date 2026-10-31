@@ -194,6 +194,73 @@ async fn a_plain_probe_returns_to_its_stored_answer_and_a_client_probe_stays()
     Ok(())
 }
 
+/// The connect step a plain form returns to offers the stored address again,
+/// as the input's server-rendered `value`: after a probe, and after a refused
+/// newer probe, which stores nothing and keeps the earlier draft (#936).
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test(flavor = "multi_thread")]
+async fn the_page_a_plain_form_returns_to_offers_the_stored_address()
+-> Result<(), Box<dyn std::error::Error>> {
+    let bound = bind(Posture::Local).await?;
+    let port = crate::engine_gate::fixture_sut()?;
+    let address = format!("http://127.0.0.1:{port}");
+    let target = format!("http%3A%2F%2F127.0.0.1%3A{port}");
+    let seeded = format!(r#"value="{address}""#);
+    let page = |path: String| {
+        let origin = bound.origin.clone();
+        async move {
+            client()?
+                .get(format!("{origin}{path}"))
+                .send()
+                .await?
+                .text()
+                .await
+        }
+    };
+
+    let fresh = page(String::from("/run/connect")).await?;
+    assert!(
+        !fresh.contains(&seeded),
+        "a page no form returned to offers no address"
+    );
+
+    let form = probe_form(&target, "my-cdr", AuthChoice::None, AuthChoice::None);
+    let probed = post(&bound, <ProbeAndSave as ServerFn>::PATH, HTML, form).await?;
+    assert_eq!(probed.location.as_deref(), Some(PROBED_PATH));
+    let shown = page(String::from(PROBED_PATH)).await?;
+    assert!(
+        shown.contains(&seeded),
+        "the probed page offers the address it probed: {shown}"
+    );
+
+    // A second probe from what the page shows reaches the same target.
+    let again = probe_form(&target, "my-cdr", AuthChoice::None, AuthChoice::None);
+    let second = post(&bound, <ProbeAndSave as ServerFn>::PATH, HTML, again).await?;
+    assert_eq!(second.location.as_deref(), Some(PROBED_PATH));
+
+    let refused = probe_form(
+        &target,
+        &"x".repeat(2_000),
+        AuthChoice::None,
+        AuthChoice::None,
+    );
+    let plain = post(&bound, <ProbeAndSave as ServerFn>::PATH, HTML, refused).await?;
+    assert_eq!(plain.location, Some(ConnectRefusal::Label.path()));
+    let restated = page(ConnectRefusal::Label.path()).await?;
+    assert!(
+        restated.contains(&seeded),
+        "the refused page offers the stored address again: {restated}"
+    );
+    assert!(
+        !restated.contains("connect-continue"),
+        "no Continue over a refusal"
+    );
+    Ok(())
+}
+
 /// Continue posted without script is redirected to Scope; from the client
 /// bundle it answers with the redirect header the router navigates by.
 #[expect(

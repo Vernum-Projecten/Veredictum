@@ -769,12 +769,16 @@ pub enum ProbeAnswer {
     },
 }
 
-/// What a stored probe left for the connect step to show again: the answer,
-/// and the operator labels the draft keeps. No credential, by construction.
+/// What a stored draft left for the connect step to show again: the address
+/// it probed, the answer when one is still kept, and the operator labels. No
+/// credential, by construction.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConnectRecord {
-    /// The probe's answer and the identity read, as the probe returned them.
-    pub answer: ConnectAnswer,
+    /// The base URL the draft probed, which the connect form offers again.
+    pub base_url: String,
+    /// The probe's answer and the identity read, as the probe returned them;
+    /// `None` once a refused newer probe forgot it.
+    pub answer: Option<ConnectAnswer>,
     /// The display name the operator entered, blank where the server stated
     /// its own.
     pub sut_name: String,
@@ -963,19 +967,26 @@ pub mod read {
         }
     }
 
-    /// What this submitter's stored probe left for the connect step, when a
+    /// What this submitter's stored draft left for the connect step, when a
     /// probe stored one.
+    ///
+    /// NOTE: no openEHR spec governs this — our own design; the address is the
+    /// operator's own entry and is never pinned, so a re-probe reaches it.
     #[must_use]
     pub fn connect_record(state: &ConsoleState, submitter: Submitter) -> Option<ConnectRecord> {
         let guard = state.draft.lock().ok()?;
         let draft = guard.get(submitter)?;
-        let probe = draft.probe.clone()?;
-        let identity = draft.identity.clone()?;
-        Some(ConnectRecord {
-            answer: ConnectAnswer {
+        let answer = draft
+            .probe
+            .clone()
+            .zip(draft.identity.clone())
+            .map(|(probe, identity)| ConnectAnswer {
                 probe: crate::capture::probe_answer(state, probe),
                 identity,
-            },
+            });
+        Some(ConnectRecord {
+            base_url: draft.base_url.clone(),
+            answer,
             sut_name: draft.sut_name.clone(),
             sut_version: draft.sut_version.clone(),
         })

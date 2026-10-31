@@ -643,21 +643,24 @@ pub fn Connect() -> impl IntoView {
         }
     });
     let (probed, refused) = connect_from_url();
+    // A page a form came back to, probed or refused, reads the stored draft:
+    // its address and labels refill the form, so a page without script can
+    // probe again from what it shows (#936).
     let stored = Resource::new(
-        move || probed.get() && refused.with(Option::is_none),
-        |probed| async move {
-            if probed {
+        move || probed.get() || refused.with(Option::is_some),
+        |returned| async move {
+            if returned {
                 fetch_connect().await
             } else {
                 Ok(None)
             }
         },
     );
-    // Seeds the editable labels from a probe an earlier request stored, once
+    // Seeds the editable fields from a draft an earlier request stored, once
     // it has loaded: they render in the form and in the stored answer's
     // Continue, outside any one Suspend, which is the sanctioned one-shot
     // resource-seeding effect (`reactivity/working_with_signals`). Until it
-    // runs, the shown labels read the stored record itself.
+    // runs, the shown values read the stored record itself.
     let seeded = RwSignal::new(false);
     Effect::new(move |_| {
         if seeded.get_untracked() {
@@ -665,6 +668,7 @@ pub fn Connect() -> impl IntoView {
         }
         if let Some(loaded) = stored.get() {
             if let Ok(Some(record)) = loaded {
+                base_url.set(record.base_url);
                 sut_name.set(record.sut_name);
                 sut_version.set(record.sut_version);
             }
@@ -699,6 +703,7 @@ pub fn Connect() -> impl IntoView {
             shown: shown(sut_version, |record| &record.sut_version),
         },
     );
+    let shown_base_url = shown(base_url, |record| &record.base_url);
     let controls = ConnectControls {
         labels,
         gates: ConnectGates {
@@ -723,7 +728,13 @@ pub fn Connect() -> impl IntoView {
                     });
                 let loaded = stored.await;
                 let identity = live
-                    .or_else(|| { loaded.ok().flatten().map(|record| record.answer.identity) });
+                    .or_else(|| {
+                        loaded
+                            .ok()
+                            .flatten()
+                            .and_then(|record| record.answer)
+                            .map(|stored| stored.identity)
+                    });
                 identity_fields(identity.as_ref(), labels)
             })}
         </Suspense>
@@ -754,10 +765,10 @@ pub fn Connect() -> impl IntoView {
     let recalled = view! {
         <Suspense fallback=|| ()>
             {move || Suspend::new(async move {
-                let superseded = answer.with(Option::is_some);
+                let superseded = answer.with(Option::is_some) || refused.with(Option::is_some);
                 let record = stored.await;
-                match record {
-                    Ok(Some(record)) if !superseded => answer_view(Ok(record.answer), controls),
+                match record.map(|record| record.and_then(|record| record.answer)) {
+                    Ok(Some(stored)) if !superseded => answer_view(Ok(stored), controls),
                     Ok(_) => ().into_any(),
                     Err(e) => inline_error(&e.to_string()).into_any(),
                 }
@@ -775,25 +786,40 @@ pub fn Connect() -> impl IntoView {
             Err(e) => report_probe_refusal(answer, unreadable_form(e)),
         }
     };
+    // The address reads the stored draft too, so its server HTML carries the
+    // stored value as the `value` attribute and hydration keeps it live
+    // through `prop:value` (#936).
+    let address = view! {
+        <Suspense fallback=|| ()>
+            {move || Suspend::new(async move {
+                let _loaded = stored.await;
+                view! {
+                    <div>
+                        <label class=LABEL for="base-url">
+                            "CDR base URL"
+                        </label>
+                        <input
+                            id="base-url"
+                            name="base_url"
+                            type="url"
+                            class=format!("{INPUT} mt-1 w-full")
+                            placeholder="https://cdr.example/ehrbase/rest/openehr/v1"
+                            value=shown_base_url.get_untracked()
+                            prop:value=move || shown_base_url.get()
+                            on:input:target=move |ev| {
+                                base_url.set(ev.target().value());
+                                edited.set(true);
+                            }
+                        />
+                    </div>
+                }
+            })}
+        </Suspense>
+    }
+    .into_any();
     let form = view! {
         <form action=ProbeAndSave::url() method="post" class="space-y-4" on:submit=on_probe>
-            <div>
-                <label class=LABEL for="base-url">
-                    "CDR base URL"
-                </label>
-                <input
-                    id="base-url"
-                    name="base_url"
-                    type="url"
-                    class=format!("{INPUT} mt-1 w-full")
-                    placeholder="https://cdr.example/ehrbase/rest/openehr/v1"
-                    prop:value=move || base_url.get()
-                    on:input:target=move |ev| {
-                        base_url.set(ev.target().value());
-                        edited.set(true);
-                    }
-                />
-            </div>
+            {address}
             {identity}
             {credentials}
             <div class="flex items-center gap-2">
