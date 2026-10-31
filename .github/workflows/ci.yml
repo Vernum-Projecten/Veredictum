@@ -935,6 +935,12 @@ jobs:
       # cargo-free guards tier.
       - name: The documented CLI surface matches the binary
         run: bash scripts/checks/cli-surface.sh
+      # The Badges page shows badges the binary drew from the golden tests'
+      # fixtures. This redraws them and compares the committed gallery, so the
+      # page never shows a badge the instrument no longer draws. It needs the
+      # built binary, as the step above does.
+      - name: The book's badge gallery matches the binary
+        run: bash scripts/checks/book-badges.sh
       # The committed example results document is generated too (#466), and
       # carried a version two releases old before this step existed. A cargo
       # example is a binary no integration test can import, so the drift gate

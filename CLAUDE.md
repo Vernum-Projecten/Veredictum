@@ -77,7 +77,10 @@ and quote the sentence that assigns the value.
 - **Never authority:** the CNF Platform Conformance Test Schedule (openEHR CNF
   never released a stable version, so it says which behaviours to cover, not
   what the correct answer is), the upstream Robot suites and their data sets
-  (stalled), any CDR's behaviour, and any prior harness. Where one of these
+  (stalled), outside conformance frameworks such as Pablo Pazos's CaboLabs
+  conformance verification framework (read for what to cover, never
+  graded against, never a reason to reshape the instrument), any CDR's
+  behaviour, and any prior harness. Where one of these
   conflicts with a released component, the released component wins.
 - **Maturity inside the release** (owner ruling 2026-10-30, #872): each
   document's status is read from the vendored manifests, never declared. A

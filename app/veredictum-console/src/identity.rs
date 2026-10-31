@@ -25,6 +25,8 @@ pub struct StatedIdentity {
     pub vendor: Option<String>,
     /// The `restapi_specs_version` member.
     pub restapi_specs_version: Option<String>,
+    /// The `endpoints` member: the top-level resources the server lists.
+    pub endpoints: Option<Vec<String>>,
 }
 
 /// What the server answered to the identity read.
@@ -112,6 +114,12 @@ impl IdentityAnswer {
     pub fn restapi_specs_version(&self) -> Option<&str> {
         self.stated()
             .and_then(|s| stated(s.restapi_specs_version.as_ref()))
+    }
+
+    /// The endpoints the server listed, when it listed any member at all.
+    #[must_use]
+    pub fn endpoints(&self) -> Option<&[String]> {
+        self.stated().and_then(|s| s.endpoints.as_deref())
     }
 
     /// One line saying why the operator enters the identity, or `None` when
@@ -242,6 +250,7 @@ mod tests {
             version: version.map(str::to_owned),
             vendor: Some(String::from("Vendor")),
             restapi_specs_version: Some(String::from("1.1.0")),
+            endpoints: None,
         })
     }
 

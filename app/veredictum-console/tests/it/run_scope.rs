@@ -273,8 +273,9 @@ fn a_pasted_claim_is_schema_validated_before_it_is_stored() -> Result<(), Box<dy
 fn the_capability_rows_are_the_listings_own_folders() -> Result<(), Box<dyn std::error::Error>> {
     let state = drafted_state();
     let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
-    let rows = veredictum_console::run_api::read::capability_rows(&state)
-        .map_err(|e| format!("capability rows: {e}"))?;
+    let rows =
+        veredictum_console::run_api::read::capability_rows(&state, engine_gate::gate_submitter())
+            .map_err(|e| format!("capability rows: {e}"))?;
     let folders = listing.capabilities();
     assert_eq!(rows.len(), folders.len(), "one row per capability folder");
     for row in &rows {
@@ -289,6 +290,103 @@ fn the_capability_rows_are_the_listings_own_folders() -> Result<(), Box<dyn std:
             row.name
         );
     }
+    Ok(())
+}
+
+/// The capability rows of a drafted state whose server answered System
+/// OPTIONS with `endpoints`, or never stated the member when `None`.
+fn rows_with_endpoints(
+    endpoints: Option<&[&str]>,
+) -> Result<Vec<veredictum_console::run_api::CapabilityRow>, Box<dyn std::error::Error>> {
+    use veredictum_console::identity::{IdentityAnswer, StatedIdentity};
+
+    let state = drafted_state();
+    {
+        let mut guard = state.draft.lock().map_err(|e| e.to_string())?;
+        let draft = guard
+            .get_mut(engine_gate::gate_submitter())
+            .ok_or("the drafted state holds the gate submitter's draft")?;
+        draft.identity = Some(IdentityAnswer::Stated(StatedIdentity {
+            endpoints: endpoints.map(|list| list.iter().map(|e| (*e).to_owned()).collect()),
+            ..StatedIdentity::default()
+        }));
+    }
+    Ok(veredictum_console::run_api::read::capability_rows(
+        &state,
+        engine_gate::gate_submitter(),
+    )?)
+}
+
+/// The names of the rows that start checked.
+fn started(rows: &[veredictum_console::run_api::CapabilityRow]) -> Vec<&str> {
+    rows.iter()
+        .filter(|row| row.starts_checked)
+        .map(|row| row.name.as_str())
+        .collect()
+}
+
+/// #669: a server listing every top-level resource of the released
+/// `Options.yaml` example starts every capability checked.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn a_full_endpoint_list_starts_every_capability_checked() -> Result<(), Box<dyn std::error::Error>>
+{
+    let rows = rows_with_endpoints(Some(&[
+        "/ehr",
+        "/demographic",
+        "/definition",
+        "/query",
+        "/admin",
+    ]))?;
+    assert!(!rows.is_empty());
+    assert_eq!(started(&rows).len(), rows.len(), "{rows:?}");
+    Ok(())
+}
+
+/// #669: a server listing only `/ehr` starts the capabilities addressing only
+/// `/ehr` (or the API root) checked, and every other one unchecked.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn a_partial_endpoint_list_starts_only_the_listed_capabilities_checked()
+-> Result<(), Box<dyn std::error::Error>> {
+    let rows = rows_with_endpoints(Some(&["/ehr/"]))?;
+    for row in &rows {
+        let only_ehr = row.resources.iter().all(|resource| resource == "/ehr");
+        assert_eq!(row.starts_checked, only_ehr, "{row:?}");
+    }
+    let checked = started(&rows);
+    assert!(checked.contains(&"ehr"), "{checked:?}");
+    assert!(!checked.contains(&"query"), "{checked:?}");
+    assert!(!checked.contains(&"demographic"), "{checked:?}");
+    Ok(())
+}
+
+/// #669: a server that lists no endpoints, by an empty list or by leaving the
+/// member out, starts every capability that addresses a resource unchecked,
+/// and one that never stated the member starts every capability unchecked.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn a_server_listing_no_endpoints_starts_nothing_checked() -> Result<(), Box<dyn std::error::Error>>
+{
+    let rows = rows_with_endpoints(Some(&[]))?;
+    for row in &rows {
+        assert_eq!(row.starts_checked, row.resources.is_empty(), "{row:?}");
+    }
+    let unstated = rows_with_endpoints(None)?;
+    assert_eq!(started(&unstated), Vec::<&str>::new());
+    let state = drafted_state();
+    let never_read =
+        veredictum_console::run_api::read::capability_rows(&state, engine_gate::gate_submitter())?;
+    assert_eq!(started(&never_read), Vec::<&str>::new());
     Ok(())
 }
 

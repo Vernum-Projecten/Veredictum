@@ -53,7 +53,10 @@ preview. CI runs all three, and `scripts/checks/gates.sh` runs them locally.
 fragment here when a change touches a user-visible path, and the `no-changelog`
 label waives that requirement. It also refuses any change that adds a line under
 the Unreleased heading of `CHANGELOG.md`, and no label waives that refusal: a
-new entry is always a fragment.
+new entry is always a fragment. Run locally with no head ref, as
+`scripts/checks/gates.sh` runs it, it judges the working tree (committed,
+staged, unstaged and untracked) against its merge base with `origin/main`, so
+it can be run before the commit that adds the fragment.
 
 ## The release cut
 

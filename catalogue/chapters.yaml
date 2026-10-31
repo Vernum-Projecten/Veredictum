@@ -149,6 +149,9 @@ options:
   composition-structured-write: { theme: simplified-formats, tier: recommended }
   content-unmatched-member: { theme: left-open, tier: spec-boundary }
   template-web-template: { theme: simplified-formats, tier: recommended }
+  template-example-xml-read: { theme: canonical-xml, tier: options }
+  template-example-flat-read: { theme: simplified-formats, tier: recommended }
+  template-example-structured-read: { theme: simplified-formats, tier: recommended }
   contribution-xml-read: { theme: canonical-xml, tier: options }
   contribution-xml-write: { theme: canonical-xml, tier: options }
   directory-xml-read: { theme: canonical-xml, tier: options }

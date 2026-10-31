@@ -103,10 +103,7 @@ impl CellComparator {
     pub fn equal(&mut self, a: &Value, b: &Value) -> bool {
         match (a, b) {
             // numeric-value equality, not lexeme (\[legislated\])
-            (Value::Number(x), Value::Number(y)) => match (x.as_f64(), y.as_f64()) {
-                (Some(x), Some(y)) => (x - y).abs() == 0.0,
-                _ => x == y,
-            },
+            (Value::Number(x), Value::Number(y)) => same_number(x, y),
             // void equals only void (\[legislated\])
             (Value::Null, Value::Null) => true,
             // structural equality, numeric leaves by value, recursively
@@ -185,6 +182,49 @@ impl CellComparator {
     fn rollback(&mut self, mark: usize) {
         self.divergences.truncate(mark);
     }
+}
+
+/// Whether two JSON numbers denote the same value exactly, with no tolerance.
+///
+/// No openEHR spec governs this — our own design: QUERY
+/// `master04-result_structure.adoc` types a cell as `Any` and says nothing of
+/// numeric equality, so a numeric cell equals another only when both denote
+/// one value, whatever the lexeme (`140` and `140.0`). Integers compare as
+/// integers, so two that differ beyond the 53-bit `f64` mantissa stay
+/// distinct, and an integer equals a float only when the float is integral
+/// and denotes that same integer. A JSON number is never NaN (RFC 8259 §6),
+/// so no NaN reaches this comparison.
+fn same_number(x: &serde_json::Number, y: &serde_json::Number) -> bool {
+    let integer = |n: &serde_json::Number| {
+        n.as_i64()
+            .map(i128::from)
+            .or_else(|| n.as_u64().map(i128::from))
+    };
+    match (integer(x), integer(y), x.as_f64(), y.as_f64()) {
+        (Some(a), Some(b), _, _) => a == b,
+        (Some(int), None, _, Some(float)) | (None, Some(int), Some(float), _) => {
+            integral_value(float) == Some(int)
+        }
+        #[expect(
+            clippy::float_cmp,
+            reason = "exact equality is the adjudicated rule for a numeric cell; no tolerance applies"
+        )]
+        (None, None, Some(a), Some(b)) => a == b,
+        _ => false,
+    }
+}
+
+/// The integer a float denotes, when it is integral and inside `i128`.
+///
+/// Rust prints a float's exact decimal value, so the integral float's `{:.0}`
+/// text parses to the integer it denotes, and to nothing outside `i128`.
+fn integral_value(float: f64) -> Option<i128> {
+    if !float.is_finite() || float.fract() != 0.0 {
+        return None;
+    }
+    // NOTE: no openEHR spec governs this — our own design; a float beyond `i128` denotes no
+    // integer cell a server can serve, which is the absence this `Option` records.
+    format!("{float:.0}").parse::<i128>().ok()
 }
 
 /// Cell equality under rule 3, with exact lexeme comparison
@@ -383,6 +423,29 @@ mod tests {
         assert!(!cells_equal(&json!(140), &json!(140.5)));
         assert!(cells_equal(&json!(null), &json!(null)));
         assert!(!cells_equal(&json!(null), &json!(0)));
+    }
+
+    #[test]
+    fn numeric_cells_compare_exactly_with_no_tolerance() {
+        assert!(cells_equal(&json!(0.1), &json!(0.1)));
+        assert!(cells_equal(&json!(-7), &json!(-7.0)));
+        assert!(cells_equal(&json!(u64::MAX), &json!(u64::MAX)));
+        assert!(!cells_equal(&json!(0.1), &json!(0.1_f64.next_up())));
+        assert!(!cells_equal(&json!(1.0), &json!(1.0_f64 + f64::EPSILON)));
+        assert!(!cells_equal(
+            &json!(9_007_199_254_740_993_i64),
+            &json!(9_007_199_254_740_992_i64)
+        ));
+        assert!(!cells_equal(&json!(140), &json!(140.000_000_001)));
+    }
+
+    #[test]
+    fn nan_never_reaches_a_numeric_cell() {
+        assert!(serde_json::Number::from_f64(f64::NAN).is_none());
+        assert_eq!(json!(f64::NAN), Value::Null);
+        assert!(serde_json::from_str::<Value>("NaN").is_err());
+        assert!(!cells_equal(&json!("NaN"), &json!(0)));
+        assert!(cells_equal(&json!("NaN"), &json!("NaN")));
     }
 
     #[test]

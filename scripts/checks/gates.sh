@@ -109,6 +109,7 @@ gate rust  "build"                    "cargo build --workspace --all-targets"
 # After `build`, never in the guard tier: the page is compared with the help
 # of `target/debug/veredictum`, so it must be this tree's binary.
 gate rust  "the command reference"    "bash scripts/checks/cli-surface.sh"
+gate rust  "the book's badge gallery" "bash scripts/checks/book-badges.sh"
 gate rust  "tests"                    "cargo nextest run --workspace" cargo-nextest
 gate rust  "clippy"                   "cargo clippy --workspace --all-targets -- -D warnings"
 gate rust  "fmt"                      "cargo fmt --all --check"

@@ -5,7 +5,14 @@
 # fragment under `changelog.d/`, and nothing writes under the Unreleased
 # heading of `CHANGELOG.md` any more (#10, #766).
 #
-# Two rules, checked over the merge-base diff of the change:
+# Two rules, checked over the change as measured from its merge base with the
+# base branch. In CI that change is the pull request's committed range, head
+# against base. Run locally with at most one ref, it is the WORKING TREE:
+# everything committed on the branch plus what is staged, unstaged and
+# untracked (ignored files aside), against the merge base of the base ref and
+# HEAD (#665). The gate a contributor runs before committing therefore judges
+# the change being made, and commits that reached `origin/main` through
+# another worktree's fetch are never counted against it.
 #
 #   1. REFUSED, whatever the labels: a non-blank line added under the
 #      `## [Unreleased]` heading of `CHANGELOG.md`. Entries are fragments
@@ -53,8 +60,11 @@
 # its own script), `scripts/` other than the action's script, `.github/`,
 # `.claude/`, and prose.
 #
-# Usage:  changelog-entry.sh [<base-ref> [<head-ref>]] [--no-changelog-label]
-#                                                 (default: origin/main HEAD)
+# Usage:  changelog-entry.sh [<base-ref>] [--no-changelog-label]
+#                         the working tree against its merge base with
+#                         <base-ref> (default: origin/main)
+#         changelog-entry.sh <base-ref> <head-ref> [--no-changelog-label]
+#                         the committed range, as CI runs it
 #         changelog-entry.sh --self-test          seeded changes in a scratch repository
 #
 # Exits 0 when both rules hold, 1 otherwise, naming the lines or paths that
@@ -94,17 +104,43 @@ unreleased_lines() {
   '
 }
 
+# head_changelog <repo> <head>: CHANGELOG.md as the change leaves it, from the
+# named commit, or from the working tree when <head> is empty.
+head_changelog() {
+  if [[ -n "$2" ]]; then
+    git -C "$1" show "$2:CHANGELOG.md"
+  else
+    cat "$1/CHANGELOG.md"
+  fi
+}
+
 # guard <repo> <base> <head> <waived: 0|1>
+# An empty <head> judges the working tree of <repo> against the merge base of
+# <base> and HEAD; a named <head> judges the committed range <base>...<head>.
 guard() {
   local repo="$1" base="$2" head="$3" waived="$4" status=0
-  local pattern changed touched merge_base under cut fragments
+  local pattern changed touched merge_base under cut fragments untracked range
 
   pattern="$(printf '%s|' "${USER_VISIBLE_PATHS[@]}")"
   pattern="^(${pattern%|})"
-  # Three dots: the change as the pull request made it, measured from the merge
-  # base, so commits that reached the base branch afterwards are not counted
-  # against it.
-  changed="$(git -C "$repo" diff --name-only "$base...$head")"
+  # The change is always measured from the merge base, so commits that reached
+  # the base branch afterwards are not counted against it. A committed range
+  # spells that with three dots. The working tree is diffed against the merge
+  # base itself, which takes in staged and unstaged edits, and untracked files
+  # are listed beside it because `git diff` never sees them.
+  if [[ -n "$head" ]]; then
+    merge_base="$(git -C "$repo" merge-base "$base" "$head")"
+    range="$base...$head"
+    untracked=""
+  else
+    merge_base="$(git -C "$repo" merge-base "$base" HEAD)"
+    range="$merge_base"
+    untracked="$(git -C "$repo" ls-files --others --exclude-standard)"
+  fi
+  changed="$(
+    git -C "$repo" diff --name-only "$range"
+    [[ -z "$untracked" ]] || printf '%s\n' "$untracked"
+  )"
 
   # Rule 1. The Unreleased section runs from its heading to the next `## `
   # heading. A non-blank line in it at head that it did not hold at the merge
@@ -113,16 +149,15 @@ guard() {
   # the Unreleased entries and writes the same lines again under its own
   # heading, and a diff may place either copy on its `+` side.
   if printf '%s\n' "$changed" | grep -qx 'CHANGELOG.md'; then
-    if ! git -C "$repo" show "$head:CHANGELOG.md" | unreleased_lines >/dev/null; then
-      echo "::error::CHANGELOG.md at ${head} has no '## [Unreleased]' heading; the release cut re-adds it, and nothing else may remove it." >&2
+    if ! head_changelog "$repo" "$head" | unreleased_lines >/dev/null; then
+      echo "::error::CHANGELOG.md at ${head:-the working tree} has no '## [Unreleased]' heading; the release cut re-adds it, and nothing else may remove it." >&2
       return 1
     fi
-    merge_base="$(git -C "$repo" merge-base "$base" "$head")"
     under="$(
       {
         git -C "$repo" show "$merge_base:CHANGELOG.md" 2>/dev/null | unreleased_lines || true
         echo '--head--'
-        git -C "$repo" show "$head:CHANGELOG.md" | unreleased_lines
+        head_changelog "$repo" "$head" | unreleased_lines
       } | awk '
         $0 == "--head--" { head = 1; next }
         { split($0, field, "\t"); text = substr($0, length(field[1]) + 2) }
@@ -136,7 +171,7 @@ guard() {
       printf '%s\n' "$under" >&2
       status=1
     fi
-    cut="$(git -C "$repo" diff -U0 "$base...$head" -- CHANGELOG.md |
+    cut="$(git -C "$repo" diff -U0 "$range" -- CHANGELOG.md |
       grep -cE '^\+## \[[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?\] - ' || true)"
   else
     cut=0
@@ -158,8 +193,12 @@ guard() {
     echo "changelog-entry: a release cut — the fragments move into the new CHANGELOG.md section."
     return "$status"
   fi
-  fragments="$(git -C "$repo" diff --name-only --no-renames --diff-filter=A "$base...$head" -- changelog.d/ |
-    grep -vx 'changelog.d/README.md' || true)"
+  fragments="$(
+    {
+      git -C "$repo" diff --name-only --no-renames --diff-filter=A "$range" -- changelog.d/
+      printf '%s\n' "$untracked" | grep '^changelog\.d/' || true
+    } | grep -vx 'changelog.d/README.md' | grep . || true
+  )"
   if [[ -n "$fragments" ]]; then
     echo "changelog-entry: fragment(s) added — OK:"
     printf '%s\n' "$fragments" | sed 's/^/  /'
@@ -284,6 +323,48 @@ awk '/^## \[0\.1\.0\]/ { print "## [0.2.0-beta1] - 2026-10-28"; print ""; print 
 NOTCUT
 )"
 
+  # The working tree, judged before a commit (#665). Each case starts a branch
+  # from main, leaves its change uncommitted, and is wiped afterwards. A
+  # non-empty <move-base> shell is committed on a branch past main first, and
+  # that branch is the base the guard reads: it has moved past the branch
+  # point the way another worktree's fetch moves origin/main.
+  # wt_case_ <label> <want exit> <move-base shell, or ""> <shell for the tree>
+  wt_case_() {
+    local label="$1" want="$2" got=0 base=main
+    n=$((n + 1))
+    if [[ -n "$3" ]]; then
+      git -C "$repo" checkout -q -b "moved$n" main
+      (cd "$repo" && eval "$3")
+      commit "base moved $n"
+      base="moved$n"
+    fi
+    git -C "$repo" checkout -q -b "wt$n" main
+    (cd "$repo" && eval "$4")
+    guard "$repo" "$base" "" 0 >"$tmp/out" 2>&1 || got=$?
+    if [[ "$got" -ne "$want" ]]; then
+      echo "self-test: '$label' exited $got, wanted $want:" >&2
+      sed 's/^/  /' "$tmp/out" >&2
+      fail=1
+    fi
+    git -C "$repo" reset -q --hard
+    git -C "$repo" clean -qfd
+    git -C "$repo" checkout -q main
+  }
+  local stage='git add -A'
+  local moved_src='echo "// upstream" >> app/veredictum/src/main.rs'
+  local moved_frag='printf -- "- Upstream.\n" > changelog.d/8-upstream.fixed.md'
+
+  wt_case_ "an uncommitted change with no fragment" 1 "" "$src"
+  wt_case_ "an uncommitted change with an untracked fragment" 0 "" "$src && $frag"
+  wt_case_ "a staged change with a staged fragment" 0 "" "$src && $frag && $stage"
+  wt_case_ "an uncommitted line under Unreleased" 1 "" "$frag && $under"
+  wt_case_ "uncommitted prose only" 0 "" "echo more >> README.md"
+  wt_case_ "prose only, after origin/main moved a user-visible path" 0 "$moved_src" \
+    "echo more >> README.md"
+  wt_case_ "a change with no fragment, after origin/main gained one" 1 \
+    "$moved_src && $moved_frag" "$src"
+  wt_case_ "a change with a fragment, after origin/main moved" 0 "$moved_src" "$src && $frag"
+
   [[ "$fail" -eq 0 ]] || { echo "changelog-entry: self-test FAILED" >&2; return 1; }
   echo "changelog-entry: self-test OK ($n seeded changes judged as expected)."
 }
@@ -304,6 +385,6 @@ for arg in "$@"; do
   esac
 done
 [[ ${#refs[@]} -le 2 ]] || { echo "changelog-entry: at most two refs, <base> and <head>" >&2; exit 2; }
-# The refs default to the shape a local run wants, so the same invocation
-# works from a working tree and from the workflow, which passes both.
-guard "$(cd "$(dirname "$SELF")/../.." && pwd)" "${refs[0]:-origin/main}" "${refs[1]:-HEAD}" "$waived"
+# No head ref is the local run: the working tree, before or after a commit.
+# The workflow passes both refs and judges the pull request's committed range.
+guard "$(cd "$(dirname "$SELF")/../.." && pwd)" "${refs[0]:-origin/main}" "${refs[1]:-}" "$waived"

@@ -892,6 +892,7 @@ impl<'d> Evaluator<'d> {
                     .map(Some)
                     .map_err(|error| error.to_string())
             },
+            text: raw.text.clone(),
         };
         let scope = Scope {
             exchange: Some((&composed.request, &response)),
@@ -1109,6 +1110,7 @@ fn judge(
         CriterionPlan::Simple(simple) => simple.judge(scope, condition),
         CriterionPlan::Regex(regex) => regex.judge(scope),
         CriterionPlan::JsonPath(query) => query.judge(scope),
+        CriterionPlan::XPath(query) => query.judge(scope),
         CriterionPlan::Checked(inner, check) => {
             let judged = judge(inner, scope, condition, env)?;
             if !judged.holds {
@@ -2416,14 +2418,18 @@ workflows:
         }
     }
 
-    #[test]
-    fn an_xpath_criterion_is_errored_never_failed() {
-        let doc = DOC.replace(
+    /// Drives the first step of the `twice` workflow with one `xpath`
+    /// criterion against `body`.
+    fn run_xpath(condition: &str, body: &'static str) -> ResultRow {
+        let first_step = DOC.split("      - stepId: create-again").next().unwrap();
+        let doc = first_step.replace(
             "successCriteria: [{ condition: $statusCode == 201 }]",
-            "successCriteria: [{ context: $response.body, type: xpath, condition: /ehr }]",
+            &format!(
+                "successCriteria: [{{ context: $response.body, type: xpath, condition: \"{condition}\" }}]"
+            ),
         );
         let (dir, document) = load(&doc);
-        let mut transport = Scripted::new(&[(201, "")]);
+        let mut transport = Scripted::new(&[(201, body)]);
         let (results, _) = run_document(
             &document,
             "ehr",
@@ -2433,12 +2439,35 @@ workflows:
             &mut transport,
         )
         .unwrap();
-        let row = only(&results);
-        assert_eq!(row.status, Status::Errored);
+        only(&results).clone()
+    }
+
+    const EHR_XML: &str = r#"<ehr xmlns="http://schemas.openehr.org/v1"><ehr_id><value>7d44b88c</value></ehr_id></ehr>"#;
+
+    #[test]
+    fn a_holding_xpath_criterion_passes() {
+        let row = run_xpath("/oe:ehr/oe:ehr_id/oe:value = '7d44b88c'", EHR_XML);
+        assert_eq!(row.status, Status::Passed, "{row:?}");
+    }
+
+    #[test]
+    fn a_failing_xpath_criterion_fails() {
+        let row = run_xpath("/oe:ehr/oe:ehr_id/oe:value = 'other'", EHR_XML);
+        assert_eq!(row.status, Status::Failed, "{row:?}");
+        let row = run_xpath("/oe2:ehr", EHR_XML);
+        assert_eq!(row.status, Status::Failed, "{row:?}");
+    }
+
+    #[test]
+    fn an_unparsable_xpath_criterion_is_errored_never_failed() {
+        let row = run_xpath("/oe:ehr[", EHR_XML);
+        assert_eq!(row.status, Status::Errored, "{row:?}");
         assert!(
-            row.explanation.as_ref().unwrap().received.contains("xpath"),
+            row.explanation.as_ref().unwrap().received.contains("XPath"),
             "{row:?}"
         );
+        let unreadable = run_xpath("/oe:ehr", r#"{"ehr_id": {"value": "7d44b88c"}}"#);
+        assert_eq!(unreadable.status, Status::Errored, "{unreadable:?}");
     }
 
     #[test]

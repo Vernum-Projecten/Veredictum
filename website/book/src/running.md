@@ -87,6 +87,8 @@ failed, errored or skipped, and `out/recording.har`, every exchange as HAR 1.2.
 A failed or errored row carries four parts: what was checked, why (the quoted
 sentence), what was expected and what came back. The recording holds the
 server's response bodies verbatim, so it stays where you keep the run.
+[Reading a result](reading-results.md) explains what each kind of row means
+for someone deciding whether to buy the server.
 
 The exit status is `0` when every row passed or was skipped, `1` when a row
 counts against the server, `3` when no row does but at least one is

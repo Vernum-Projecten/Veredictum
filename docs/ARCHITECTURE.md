@@ -212,6 +212,32 @@ its author's permission first. And its demographic tests target his own
 demographic-API proposal rather than the demographic API openEHR has since
 published, so they do not transfer to master10 unread.
 
+The reuse licence was re-read first-hand on 2026-10-31 (#217), and public
+text does not settle it. GitHub reports no licence for the repository, its
+tree holds no LICENSE file, and its last push was on 2024-03-24. The one
+licence statement in it is the last slide of
+`openEHR Conformance (SEC presentation 2019).pdf`: "Code and documents will
+be available soon! With Apache 2 license". That announces an intention and
+grants nothing. What is missing is a grant: a licence file in the repository,
+or a written permission from its author recorded beside any material taken
+from it. Until one exists nothing is imported, each import is re-adjudicated
+against a released component, and its provenance names him.
+
+The QUERY test-case document was followed up the same day. The 2019 slides
+introduce it as "Test cases for QUERY (a complex one)" and count "76
+different alternatives until now" over 24 of its query cases; it is the Google
+document they link, `13TuxEX1T0ZBlguLBfMkulP-3iFUFFyBejbM2aUTxb1M`, and that
+document now answers HTTP 410, as does the OPT test-case document linked
+beside it. Its public successor is
+`conformance_testing_specification/datasets/query/` in the framework
+repository: 121 valid queries in four groups (EHRs, COMPOSITIONs, ENTRYs,
+DATA_VALUEs), where "Some queries are the same query written in different
+ways, trying to cover what is allowed by the AQL syntax". Its README says the
+expected results were made "by using EHRSCAPE as the reference
+implementation", so they record one server's behaviour and ground no
+expectation here (§7), and the queries carry the same missing licence. The
+master11 expansion therefore stays grounded on the released AQL text (§15.11).
+
 ## 4. History distilled — what carries forward, and why it stalled
 
 The 2021–2022 community design era (Discourse threads 1616/1851/2239/2285/
@@ -1652,8 +1678,8 @@ when both the condition and the judge hold:
 | `json_type` | The value at a runtime expression is one of the six JSON types of RFC 8259 §3 (§15.6 rule 11) |
 
 Every other check is a standard Arazzo criterion. Field values use `jsonpath`
-or `regex`; status codes and counts use `simple`. An XML document's `xpath`
-criteria are refused until #637 (§15.6 rule 4).
+or `regex`; status codes and counts use `simple`. An XML document is judged
+with `xpath` criteria under §15.6 rule 4.
 Response-schema validation runs only where a case asks for it, through the
 `schema` judge on a criterion that carries its own citation, like every other
 expectation. It never runs on every response by default: an OAS schema can
@@ -1810,8 +1836,43 @@ enforced by `validate` and the evaluator. Every rule stays inside what Arazzo
    backreferences, which `validate` refuses. A value substituted into a
    pattern through `{$…}` is a literal: its metacharacters are escaped.
 3. **`jsonpath`** is RFC 9535.
-4. **`xpath`** criteria are refused until a vetted XPath 3.1 engine judges them
-   (#637); a document that needs one is a gate finding, never a skipped check.
+4. **`xpath`** is XPath 3.1, the default Arazzo 1.1.0 names: an Expression
+   Type Object naming `xpath-30`, `xpath-20` or `xpath-10` is refused. The
+   `context` is the whole `$response.body`, parsed as XML, and the condition
+   holds when the Effective Boolean Value of its result is true (Arazzo 1.1.0
+   §XPath Conditions, XPath 3.1 §2.4.3). Three prefixes are bound for every
+   condition, whatever prefixes the server's document declares: `oe` to
+   `http://schemas.openehr.org/v1` (ITS-XML Release-1.0.2, the stable
+   lineage), `oe2` to `http://schemas.openehr.org/v2` (ITS-XML Release-2.0.0,
+   `specs/openehr/ITS-XML/README.adoc` §Releases and IM Versions) and `xsi` to
+   `http://www.w3.org/2001/XMLSchema-instance`; XPath 3.1 binds `xs`, `fn`,
+   `map`, `array` and `math` itself. `validate` compiles every condition, so
+   a syntax error, an unknown function or an unbound prefix is a gate
+   finding. A value substituted through `{$…}` inside a string literal has its
+   delimiter doubled (XPath 3.1 §A.2.1); outside a literal only a numeric
+   literal is placed, and any other value makes the row *errored*. An empty
+   body fails the criterion, and a body that is not well-formed XML, a
+   dynamic error and a result with no Effective Boolean Value (`FORG0006`)
+   make the row *errored* (rules 6 and 8).
+
+   The engine is `oxixml-xpath` 0.1.2 with its `oxixml-infoset` XML reader,
+   pinned exactly, chosen on 2026-10-31 (#637) against three criteria.
+   *Coverage:* the W3C QT3 suite at `w3c/qt3tests` commit `201a6e4`, run with
+   the crate's own harness, passed 20,028 of 20,207 attempted cases (99.1%;
+   operators and productions 99.8%, functions, maps and arrays 98.3%).
+   *Licence and advisories:* Apache-2.0, and `cargo deny check` against this
+   repository's `deny.toml` passes with no exception; the eleven crates it
+   adds are one workspace's, with no third-party dependency and
+   `#![forbid(unsafe_code)]` in each. *Maintenance:* the weakest of the
+   three, a single-maintainer project first published 2026-07-29 with three
+   releases. The alternatives were refused: `xee-xpath` 0.1.5, the only other
+   XPath 3.1 engine, fails `cargo deny` on RUSTSEC-2022-0081 (`json`,
+   unmaintained, at run time) and RUSTSEC-2024-0370 (`proc-macro-error`) and
+   adds about 200 crates; `xrust`, `oxml`, `sxd-xpath` and their kin are XPath
+   1.0. Known gaps: the harness skips 11,614 QT3 cases needing schema
+   awareness, serialization, XSLT or XQuery-only constructs, none of which a
+   condition here uses; the reader refuses an external entity and caps
+   entity expansion, so a document that relies on either is *errored*.
 5. **Headers.** A step may send any header, including `Accept`, `Content-Type`
    and `Authorization`, whether or not the operation declares it. OAS 3.0.3
    tells a tool to ignore those three as declared parameters, and content
