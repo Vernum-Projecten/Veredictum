@@ -929,10 +929,16 @@ pub mod read {
 
     /// Forgets the probe answer this submitter's draft keeps, so a refused
     /// newer probe never leaves an older answer on show.
+    ///
+    /// A poisoned lock is recovered rather than skipped: clearing a field
+    /// cannot extend a half-done write, and skipping would leave the stale
+    /// answer on show (<https://doc.rust-lang.org/std/sync/struct.PoisonError.html>).
     pub fn forget_probe(state: &ConsoleState, submitter: Submitter) {
-        if let Ok(mut guard) = state.draft.lock()
-            && let Some(draft) = guard.get_mut(submitter)
-        {
+        let mut guard = state
+            .draft
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(draft) = guard.get_mut(submitter) {
             draft.probe = None;
         }
     }

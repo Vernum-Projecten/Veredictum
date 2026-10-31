@@ -420,7 +420,7 @@ fn continue_view(identity: &IdentityAnswer, ok: bool, controls: ConnectControls)
             Ok(input) => {
                 save.dispatch(input);
             }
-            Err(e) => save_refused.set(Some(e.to_string())),
+            Err(e) => report_save_refusal(save_refused, e.to_string()),
         }
     };
     let blocked = move || {
@@ -549,11 +549,36 @@ fn connect_from_url() -> (Memo<bool>, Memo<Option<String>>) {
 }
 
 /// The sentence a refusal named by the URL reads as.
-fn refusal_sentence(token: &str) -> String {
-    ConnectRefusal::from_token(token).map_or_else(
-        || format!("This address names a refusal the console does not know ({token:?}). Probe the connection again."),
-        |refusal| refusal.sentence().to_owned(),
+fn refusal_sentence(token: &str) -> &'static str {
+    ConnectRefusal::from_token(token).map_or(
+        "The connection was refused for a reason this address does not name. Probe the connection again.",
+        ConnectRefusal::sentence,
     )
+}
+
+/// Reports a refused probe: the notification and the inline answer, for a
+/// refusal from the server and for a form that would not parse alike (the
+/// way `<ActionForm>` reports both, in leptos `form.rs`).
+///
+/// The body says only what is true of every refusal: no connection was
+/// stored. A refusal after the server was reached (the draft store) did
+/// contact it, so "nothing was contacted" is not said here.
+fn report_probe_refusal(answer: RwSignal<Option<Result<ConnectAnswer, String>>>, body: String) {
+    toast::error(
+        "The connection was refused",
+        &format!("No connection was stored: {body}"),
+    );
+    answer.set(Some(Err(body)));
+}
+
+/// Reports a refused Continue: the notification and the inline line, for a
+/// refusal from the server and for a form that would not parse alike.
+fn report_save_refusal(save_refused: RwSignal<Option<String>>, body: String) {
+    toast::error(
+        "The identity was not saved",
+        &format!("The connection draft is unchanged: {body}"),
+    );
+    save_refused.set(Some(body));
 }
 
 /// S3 — the connection form and the probe.
@@ -598,14 +623,7 @@ pub fn Connect() -> impl IntoView {
             .await
             {
                 Ok(connected) => answer.set(Some(Ok(connected))),
-                Err(e) => {
-                    let body = e.to_string();
-                    toast::error(
-                        "The connection was refused",
-                        &format!("Nothing was contacted: {body}"),
-                    );
-                    answer.set(Some(Err(body)));
-                }
+                Err(e) => report_probe_refusal(answer, e.to_string()),
             }
         }
     });
@@ -616,12 +634,7 @@ pub fn Connect() -> impl IntoView {
         let input = input.clone();
         async move {
             if let Err(e) = save_identity(input.sut_name, input.sut_version).await {
-                let body = e.to_string();
-                toast::error(
-                    "The identity was not saved",
-                    &format!("The connection draft is unchanged: {body}"),
-                );
-                save_refused.set(Some(body));
+                report_save_refusal(save_refused, e.to_string());
             }
         }
     });
@@ -728,7 +741,7 @@ pub fn Connect() -> impl IntoView {
             .get()
             .filter(|_| answer.with(Option::is_none))
             .map(|token| {
-                view! { <div id="connect-refused">{inline_error(&refusal_sentence(&token))}</div> }
+                view! { <div id="connect-refused">{inline_error(refusal_sentence(&token))}</div> }
             })
     };
     // A probe stored by an earlier request, shown until this page probes
@@ -755,7 +768,7 @@ pub fn Connect() -> impl IntoView {
             Ok(input) => {
                 probe.dispatch(input);
             }
-            Err(e) => answer.set(Some(Err(e.to_string()))),
+            Err(e) => report_probe_refusal(answer, e.to_string()),
         }
     };
     let form = view! {

@@ -40,6 +40,14 @@ struct Bound {
 /// Binds the router the server binary builds, under `posture`, on an
 /// ephemeral loopback port.
 async fn bind(posture: Posture) -> Result<Bound, Box<dyn std::error::Error>> {
+    bind_with(posture, veredictum_console::rate_limit::Rates::default()).await
+}
+
+/// [`bind`] under explicit rates, so a test can spend a budget in one call.
+async fn bind_with(
+    posture: Posture,
+    rates: veredictum_console::rate_limit::Rates,
+) -> Result<Bound, Box<dyn std::error::Error>> {
     let scratch = assert_fs::TempDir::new()?;
     let state = ConsoleState {
         root: crate::engine_gate::repo_root().join("catalogue"),
@@ -54,7 +62,10 @@ async fn bind(posture: Posture) -> Result<Bound, Box<dyn std::error::Error>> {
         jobs: veredictum_console::run_job::JobSlot::default(),
         client_ip_header: None,
         posture,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
+        rates: veredictum_console::rate_limit::RateLimiter::with(
+            rates,
+            veredictum_console::rate_limit::Clock::manual(),
+        ),
         capture: false,
     };
     let options = leptos::prelude::LeptosOptions::builder()
@@ -330,4 +341,83 @@ async fn every_connect_redirect_names_a_served_route() -> Result<(), Box<dyn std
         );
     }
     Ok(())
+}
+
+/// Reads the refused page a plain form post landed on, and holds it to
+/// stating the refusal with no Continue.
+async fn assert_refused_page(
+    bound: &Bound,
+    location: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let location = location.ok_or("a refused plain post is redirected")?;
+    let page = client()?
+        .get(format!("{}{location}", bound.origin))
+        .send()
+        .await?
+        .text()
+        .await?;
+    assert!(page.contains("connect-refused"), "the refusal is stated");
+    assert!(
+        !page.contains("connect-continue"),
+        "no Continue over a refusal"
+    );
+    Ok(())
+}
+
+/// A spent probe budget refuses a plain probe by kind, and the page it lands
+/// on offers no Continue.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_spent_probe_budget_returns_to_the_connect_step_naming_the_budget()
+-> Result<(), Box<dyn std::error::Error>> {
+    let rates = veredictum_console::rate_limit::Rates {
+        probes: 1,
+        ..veredictum_console::rate_limit::Rates::default()
+    };
+    let bound = bind_with(Posture::Local, rates).await?;
+    let target = fixture()?;
+    let form = probe_form(&target, "my-cdr", AuthChoice::None, AuthChoice::None);
+    let first = post(&bound, <ProbeAndSave as ServerFn>::PATH, HTML, form.clone()).await?;
+    assert_eq!(first.location.as_deref(), Some(PROBED_PATH));
+
+    let spent = post(&bound, <ProbeAndSave as ServerFn>::PATH, HTML, form).await?;
+    assert_eq!(spent.status, StatusCode::FOUND);
+    assert_eq!(spent.location, Some(ConnectRefusal::Budget.path()));
+    {
+        let drafts = bound.state.draft.lock().map_err(|e| e.to_string())?;
+        let draft = drafts.get(me()).ok_or("the first probe's draft stays")?;
+        assert!(draft.probe.is_none(), "the older answer is forgotten");
+    }
+    assert_refused_page(&bound, spent.location.as_deref()).await
+}
+
+/// A draft store that cannot be written refuses a plain probe by kind, after
+/// the server was probed, and the page it lands on offers no Continue.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_failed_draft_store_returns_to_the_connect_step_naming_the_store()
+-> Result<(), Box<dyn std::error::Error>> {
+    let bound = bind(Posture::Local).await?;
+    // A writer that panics while holding the lock poisons it, which is the
+    // one way the in-memory store fails.
+    let draft = Arc::clone(&bound.state.draft);
+    let poisoned = std::thread::spawn(move || {
+        let _held = draft.lock();
+        panic!("poisons the draft lock on purpose");
+    })
+    .join();
+    assert!(poisoned.is_err(), "the writer panicked holding the lock");
+
+    let target = fixture()?;
+    let form = probe_form(&target, "my-cdr", AuthChoice::None, AuthChoice::None);
+    let refused = post(&bound, <ProbeAndSave as ServerFn>::PATH, HTML, form).await?;
+    assert_eq!(refused.status, StatusCode::FOUND);
+    assert_eq!(refused.location, Some(ConnectRefusal::Store.path()));
+    assert_refused_page(&bound, refused.location.as_deref()).await
 }
