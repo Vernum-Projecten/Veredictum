@@ -66,12 +66,12 @@ pub struct ListedDocument {
     pub resources: BTreeSet<String>,
 }
 
-/// The top-level resource a path template addresses: its first segment with
-/// the leading `/`, as the `endpoints` member of the ITS-REST `Options`
-/// document spells one (`specifications/schemas/others/Options.yaml`,
-/// example `/ehr`).
+/// Returns the top-level resource a path template addresses.
 ///
-/// `None` for the API root `/`, which the System API serves.
+/// The resource is the first segment with the leading `/`, as the
+/// `endpoints` member of the ITS-REST `Options` document spells one
+/// (`specifications/schemas/others/Options.yaml`, example `/ehr`). `None`
+/// for the API root `/`, which the System API serves.
 #[must_use]
 pub fn top_level_resource(path: &str) -> Option<&str> {
     let rest = path.strip_prefix('/')?;
