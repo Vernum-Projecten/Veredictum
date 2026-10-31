@@ -317,6 +317,20 @@ impl Harness {
             return;
         };
         let out = dir.join(format!("{slug}.png"));
+        // A capture photographs the top of the screen, whatever the journey
+        // scrolled to before it (#147). The page heading sits in the first
+        // screenful, so centring it on view clamps the scroll to offset zero.
+        let headings = self
+            .driver
+            .find_all(By::Css("h1"))
+            .await
+            .expect("query the page heading");
+        if let Some(heading) = headings.first() {
+            heading
+                .scroll_into_view()
+                .await
+                .expect("scroll to the top before the shot");
+        }
         self.driver
             .screenshot(&out)
             .await

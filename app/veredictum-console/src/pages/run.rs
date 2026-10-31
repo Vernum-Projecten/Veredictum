@@ -872,35 +872,16 @@ pub fn Scope() -> impl IntoView {
             }
         }
     });
-    // Every mutation below reports BOTH outcomes as a toast and keeps its
-    // inline pane. The answers land in each action's own async continuation,
-    // so no signal-writing Effect mediates
+    // The preview is a pure read, so it answers inline only, in its own
+    // pane. Every mutation below reports BOTH outcomes as a toast and keeps
+    // its inline pane. The answers land in each action's own async
+    // continuation, so no signal-writing Effect mediates
     // (<https://book.leptos.dev/reactivity/working_with_signals.html>).
     let previewed = RwSignal::new(None::<Result<ScopePreview, ConsoleError>>);
     let preview = Action::new(move |filter: &String| {
         let filter = filter.clone();
         async move {
-            match fetch_scope_preview(filter).await {
-                Ok(scope) => {
-                    toast::success(
-                        "Selection previewed",
-                        &format!(
-                            "{} cases are in scope; every one of them lands as a row of the results.",
-                            scope.total
-                        ),
-                    );
-                    previewed.set(Some(Ok(scope)));
-                }
-                Err(e) => {
-                    toast::error(
-                        "The preview was refused",
-                        &format!(
-                            "The catalogue could not be counted: {e}. Check the mounted catalogue root."
-                        ),
-                    );
-                    previewed.set(Some(Err(e)));
-                }
-            }
+            previewed.set(Some(fetch_scope_preview(filter).await));
         }
     });
     let saved = RwSignal::new(None::<Result<Option<ClaimSummary>, ConsoleError>>);
