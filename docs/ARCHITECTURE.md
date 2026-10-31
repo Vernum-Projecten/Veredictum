@@ -225,7 +225,7 @@ against a released component, and its provenance names him.
 
 The QUERY test-case document was followed up the same day. The 2019 slides
 introduce it as "Test cases for QUERY (a complex one)" and count "76
-different alternatives until now for 24 test cases"; it is the Google
+different alternatives until now" over 24 of its query cases; it is the Google
 document they link, `13TuxEX1T0ZBlguLBfMkulP-3iFUFFyBejbM2aUTxb1M`, and that
 document now answers HTTP 410, as does the OPT test-case document linked
 beside it. Its public successor is
