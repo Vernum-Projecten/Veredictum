@@ -14,6 +14,7 @@
   - [Reading a result](reading-results.md)
 - [The web console](console.md)
 - [The conformance method](methodology.md)
+- [Procurement](procurement.md)
 - [Performance workloads](perf-workloads.md)
 - [Authoring the catalogue](catalogue.md)
 - [Glossary](glossary.md)
