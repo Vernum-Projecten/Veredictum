@@ -7,21 +7,26 @@
 //! Shields.io endpoint JSON document
 //! (<https://shields.io/badges/endpoint-badge>). An Arazzo [`Results`]
 //! document draws four badges ([`BadgeName::CONFORMANCE`]); a [`PerfResult`]
-//! draws one, its knee as the record states it ([`perf_badge`]).
+//! draws three ([`BadgeName::PERF`]): its knee, its between-run noise and the
+//! instrument ([`perf_badges`]).
+//!
+//! The label names the subject in a few words and the message gives one
+//! short value, with no separator character in either. The SVG `<title>` and
+//! `aria-label` carry the full text ([`Badge::detail`]), so a hover or a screen
+//! reader still gets every count the message leaves out.
 //!
 //! Every badge is a pure function of the document, so drawing the same
 //! document twice writes the same bytes: text is measured with a fixed
 //! per-character width table, never with a font, and nothing is read from a
 //! clock or the network. The BASE and OPTIONS counts come from the reading
 //! every other view prints ([`crate::arazzo::reading::read`]), so a badge never
-//! counts a row differently from `show` or `export`. Every counting badge names
-//! the specification profile in its own label, because a badge can be embedded
-//! alone and a development tally must never read as a released one. Every
-//! badge reports the vendor's own run, `self-run`, and no badge says
-//! certified. No openEHR spec governs badges — our own design.
+//! counts a row differently from `show` or `export`. A counting badge drawn
+//! from the development profile says `dev` in its own label, because a badge
+//! can be embedded alone and a development tally must never read as a released
+//! one. Every badge reports the vendor's own run, `self-run`, and no badge
+//! says certified. No openEHR spec governs badges — our own design.
 
 use std::collections::BTreeSet;
-use std::fmt::Write as _;
 
 use serde::Serialize;
 
@@ -31,7 +36,7 @@ use crate::arazzo::spec_profile::Specification;
 use crate::perf_result::PerfResult;
 use crate::perf_result::capacity::Knee;
 use crate::perf_result::derive::BetweenRunNoise;
-use crate::perf_result::view::format_rate;
+use crate::perf_result::view::{format_rate, format_rate_ceil, format_rate_floor};
 
 /// One badge the instrument draws, by the file name it is written under.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -47,13 +52,19 @@ pub enum BadgeName {
     Profile,
     /// The instrument and its version, and that the run is the vendor's own.
     Instrument,
-    /// A `perf-result`'s knee, as the record states it.
+    /// A `perf-result`'s knee, in whole requests per second.
     Perf,
+    /// Whether a `perf-result` carries an A/A floor for the noise between
+    /// runs.
+    Noise,
 }
 
 impl BadgeName {
     /// Every badge of a conformance result, in the order they are drawn.
     pub const CONFORMANCE: [Self; 4] = [Self::Base, Self::Options, Self::Profile, Self::Instrument];
+
+    /// Every badge of a `perf-result`, in the order they are drawn.
+    pub const PERF: [Self; 3] = [Self::Perf, Self::Noise, Self::Instrument];
 
     /// The file stem the badge is written under (`base` for `base.svg` and
     /// `base.json`).
@@ -65,6 +76,7 @@ impl BadgeName {
             Self::Profile => "profile",
             Self::Instrument => "instrument",
             Self::Perf => "perf",
+            Self::Noise => "noise",
         }
     }
 }
@@ -82,7 +94,7 @@ pub enum BadgeColour {
     /// green.
     Errored,
     /// Nothing passed and nothing failed or errored (no rows, or every row
-    /// skipped): grey.
+    /// skipped), or a measurement the record does not carry: grey.
     Empty,
     /// The released profile: blue.
     Released,
@@ -90,7 +102,8 @@ pub enum BadgeColour {
     Development,
     /// The instrument badge: the brand's deep teal.
     Instrument,
-    /// A reading that is neither passed nor failed, such as a knee: slate.
+    /// A reading that is neither passed nor failed, such as a knee or an
+    /// attached A/A floor: slate.
     Reading,
 }
 
@@ -128,15 +141,20 @@ impl BadgeColour {
     }
 }
 
-/// One drawn badge: its label, its message and the message's colour.
+/// One drawn badge: its label, its message, the message in full, and the
+/// message's colour.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Badge {
     /// Which badge it is.
     pub name: BadgeName,
-    /// The left-hand text.
+    /// The left-hand text: the subject, in a few words.
     pub label: String,
-    /// The right-hand text.
+    /// The right-hand text: one short value.
     pub message: String,
+    /// The message in full, which the SVG `<title>` and `aria-label` carry:
+    /// every count of a tally, or a knee at the precision the record states
+    /// it. Equal to [`Badge::message`] when the message leaves nothing out.
+    pub detail: String,
     /// The colour of the right-hand part.
     pub colour: BadgeColour,
 }
@@ -250,10 +268,11 @@ struct Endpoint<'a> {
 }
 
 impl Badge {
-    /// The text a screen reader announces and the SVG's `<title>` holds.
+    /// The text a screen reader announces and the SVG's `<title>` holds: the
+    /// label and the message in full.
     #[must_use]
     pub fn title(&self) -> String {
-        format!("{}: {}", self.label, self.message)
+        format!("{}: {}", self.label, self.detail)
     }
 
     /// The badge as a flat two-part SVG: the icon and the label on the left
@@ -329,13 +348,9 @@ impl Badge {
     }
 }
 
-/// The message of a counting badge: passed out of the rows that bear on the
-/// verdict (passed, failed and errored), then the failed, errored and warning
-/// counts when there are any.
-///
-/// A warning row is a SHOULD the server did not follow: it is neither a pass
-/// nor a failure, so it stays out of the ratio and is named after it.
-fn tally_message(tally: Tally) -> String {
+/// The headline of a tally: passed out of the rows that bear on the verdict
+/// (passed, failed and errored), `none judged` when none does, or `no rows`.
+fn tally_ratio(tally: Tally) -> String {
     if tally.tests == 0 {
         return String::from("no rows");
     }
@@ -343,25 +358,48 @@ fn tally_message(tally: Tally) -> String {
         .passed
         .saturating_add(tally.failed)
         .saturating_add(tally.errored);
-    let mut message = if judged == 0 {
+    if judged == 0 {
         String::from("none judged")
     } else {
         format!("{}/{judged} passed", tally.passed)
-    };
+    }
+}
+
+/// The warning count of a tally, when there is one: `1 warning`, `N warnings`.
+fn tally_warnings(tally: Tally) -> Option<String> {
+    match tally.warning {
+        0 => None,
+        1 => Some(String::from("1 warning")),
+        n => Some(format!("{n} warnings")),
+    }
+}
+
+/// The message of a counting badge: the ratio, then the warning count when
+/// there is one.
+///
+/// A warning row is a SHOULD the server did not follow: it is neither a pass
+/// nor a failure, so it stays out of the ratio and is named after it. The
+/// failed and errored counts show in the colour and in [`tally_detail`].
+fn tally_message(tally: Tally) -> String {
+    let ratio = tally_ratio(tally);
+    match tally_warnings(tally) {
+        Some(warnings) => format!("{ratio}, {warnings}"),
+        None => ratio,
+    }
+}
+
+/// The full text of a counting badge: the ratio, then the failed, errored
+/// and warning counts when there are any.
+fn tally_detail(tally: Tally) -> String {
+    let mut parts = vec![tally_ratio(tally)];
     if tally.failed > 0 {
-        let _ = write!(message, " \u{b7} {} failed", tally.failed);
+        parts.push(format!("{} failed", tally.failed));
     }
     if tally.errored > 0 {
-        let _ = write!(message, " \u{b7} {} errored", tally.errored);
+        parts.push(format!("{} errored", tally.errored));
     }
-    match tally.warning {
-        0 => {}
-        1 => message.push_str(" \u{b7} 1 warning"),
-        n => {
-            let _ = write!(message, " \u{b7} {n} warnings");
-        }
-    }
-    message
+    parts.extend(tally_warnings(tally));
+    parts.join(", ")
 }
 
 /// The profile badge's message: `released`, or `development` with the
@@ -386,65 +424,105 @@ fn profile_message(specification: &Specification) -> String {
 /// Draws every badge of `results`, in [`BadgeName::CONFORMANCE`] order.
 ///
 /// A results document without an outline places no row in BASE or OPTIONS,
-/// so both counting badges then read `no outline` in grey.
+/// so both counting badges then read `no outline` in grey. A counting badge of
+/// a development result says `dev` in its label.
 #[must_use]
 pub fn badges(results: &Results) -> Vec<Badge> {
     let reading = read(results);
-    let profile = results.specification.profile().token();
-    let placed = results.outline.is_some();
-    let counted = |tally: Tally| {
-        if placed {
-            (tally_message(tally), BadgeColour::of(tally))
+    let released = results.specification.is_released();
+    let counted = |name: BadgeName, subject: &str, tally: Tally| {
+        let label = if released {
+            format!("openEHR {subject}")
         } else {
-            (String::from("no outline"), BadgeColour::Empty)
-        }
-    };
-    // NOTE: no openEHR spec governs this — our own design; a row the outline places
-    // nowhere counts on the BASE badge, so a red unplaced row never leaves it green.
-    let (base_message, base_colour) = counted(reading.base_total.plus(reading.unplaced_total));
-    let (options_message, options_colour) = counted(reading.options.selected_tally());
-    BadgeName::CONFORMANCE
-        .into_iter()
-        .map(|name| {
-            let (label, message, colour) = match name {
-                BadgeName::Base => (
-                    format!("openEHR BASE \u{b7} {profile}"),
-                    base_message.clone(),
-                    base_colour,
-                ),
-                BadgeName::Options => (
-                    format!("openEHR options \u{b7} {profile}"),
-                    options_message.clone(),
-                    options_colour,
-                ),
-                BadgeName::Profile => (
-                    String::from("specification"),
-                    profile_message(&results.specification),
-                    if results.specification.is_released() {
-                        BadgeColour::Released
-                    } else {
-                        BadgeColour::Development
-                    },
-                ),
-                BadgeName::Instrument | BadgeName::Perf => (
-                    String::from("veredictum"),
-                    format!("self-run \u{b7} v{}", results.engine.version),
-                    BadgeColour::Instrument,
-                ),
-            };
+            format!("openEHR {subject} dev")
+        };
+        if results.outline.is_some() {
             Badge {
                 name,
                 label,
-                message,
-                colour,
+                message: tally_message(tally),
+                detail: tally_detail(tally),
+                colour: BadgeColour::of(tally),
             }
-        })
-        .collect()
+        } else {
+            Badge {
+                name,
+                label,
+                message: String::from("no outline"),
+                detail: String::from("no outline"),
+                colour: BadgeColour::Empty,
+            }
+        }
+    };
+    let profile = profile_message(&results.specification);
+    vec![
+        // NOTE: no openEHR spec governs this — our own design; a row the outline places
+        // nowhere counts on the BASE badge, so a red unplaced row never leaves it green.
+        counted(
+            BadgeName::Base,
+            "BASE",
+            reading.base_total.plus(reading.unplaced_total),
+        ),
+        counted(
+            BadgeName::Options,
+            "options",
+            reading.options.selected_tally(),
+        ),
+        Badge {
+            name: BadgeName::Profile,
+            label: String::from("specification"),
+            message: profile.clone(),
+            detail: profile,
+            colour: if released {
+                BadgeColour::Released
+            } else {
+                BadgeColour::Development
+            },
+        },
+        instrument_badge(&results.engine.version),
+    ]
 }
 
-/// The knee as the record states it: the bracket, the lower bound, or the
-/// state the ladder ended in.
+/// The instrument badge: the vendor's own run, drawn by `version`.
+fn instrument_badge(version: &str) -> Badge {
+    let message = format!("self-run v{version}");
+    Badge {
+        name: BadgeName::Instrument,
+        label: String::from("veredictum"),
+        detail: message.clone(),
+        message,
+        colour: BadgeColour::Instrument,
+    }
+}
+
+/// The knee in whole requests per second: the bracket, the lower bound, or
+/// the state the ladder ended in.
+///
+/// A lower end rounds down and an upper end rounds up, so a rounded bracket
+/// only ever widens and a rounded lower bound never claims more than the
+/// record.
 fn knee_message(knee: &Knee) -> String {
+    match knee {
+        Knee::Bracket {
+            qualified_rate,
+            failing_rate,
+            ..
+        } => format!(
+            "knee {}\u{2013}{}/s",
+            format_rate_floor(*qualified_rate),
+            format_rate_ceil(*failing_rate)
+        ),
+        Knee::LowerBound { qualified_rate, .. } => {
+            format!("knee \u{2265} {}/s", format_rate_floor(*qualified_rate))
+        }
+        Knee::BelowLadder { .. } => String::from("below ladder"),
+        Knee::NoPlateau => String::from("no plateau"),
+    }
+}
+
+/// The knee as the record states it, to one decimal: the full text of the
+/// perf badge.
+fn knee_detail(knee: &Knee) -> String {
     match knee {
         Knee::Bracket {
             qualified_rate,
@@ -458,34 +536,43 @@ fn knee_message(knee: &Knee) -> String {
         Knee::LowerBound { qualified_rate, .. } => {
             format!("knee \u{2265} {}/s", format_rate(*qualified_rate))
         }
-        Knee::BelowLadder { .. } => String::from("below ladder"),
-        Knee::NoPlateau => String::from("no plateau"),
+        Knee::BelowLadder { .. } | Knee::NoPlateau => knee_message(knee),
     }
 }
 
-/// Draws the one badge of a `perf-result`: its workload in the label, and the
-/// knee, that the run is the vendor's own single pass, and whether an A/A
-/// floor measured the noise between runs in the message.
+/// Draws every badge of a `perf-result`, in [`BadgeName::PERF`] order.
 ///
-/// The colour is [`BadgeColour::Reading`] whatever the knee, because a knee
-/// is a reading of capacity and never a pass or a failure. The workload is
-/// its recorded label: `<id>@<version>` for a workload the instrument pins,
-/// `custom` for any other.
+/// `perf` carries the workload in its label and the knee in whole requests
+/// per second, `noise` whether an A/A floor measured the noise between runs,
+/// and `instrument` the version that wrote the record. The knee and an
+/// attached floor are [`BadgeColour::Reading`], because a knee is a reading of
+/// capacity and never a pass or a failure; a floor the record does not carry
+/// is [`BadgeColour::Empty`]. The workload is its recorded label:
+/// `<id>@<version>` for a workload the instrument pins, `custom` for any other.
 #[must_use]
-pub fn perf_badge(record: &PerfResult) -> Badge {
-    let noise = match record.derived.between_run_noise {
-        BetweenRunNoise::Unmeasured => "1 pass, noise unmeasured",
-        BetweenRunNoise::AaFloor(_) => "1 pass, A/A floor attached",
+pub fn perf_badges(record: &PerfResult) -> Vec<Badge> {
+    let knee = &record.derived.knee;
+    let (noise, noise_colour) = match record.derived.between_run_noise {
+        BetweenRunNoise::Unmeasured => ("not measured", BadgeColour::Empty),
+        BetweenRunNoise::AaFloor(_) => ("attached", BadgeColour::Reading),
     };
-    Badge {
-        name: BadgeName::Perf,
-        label: format!("openEHR perf \u{b7} {}", record.raw.workload.label),
-        message: format!(
-            "{} \u{b7} self-run \u{b7} {noise}",
-            knee_message(&record.derived.knee)
-        ),
-        colour: BadgeColour::Reading,
-    }
+    vec![
+        Badge {
+            name: BadgeName::Perf,
+            label: format!("perf {}", record.raw.workload.label),
+            message: knee_message(knee),
+            detail: knee_detail(knee),
+            colour: BadgeColour::Reading,
+        },
+        Badge {
+            name: BadgeName::Noise,
+            label: String::from("A/A floor"),
+            message: noise.to_owned(),
+            detail: noise.to_owned(),
+            colour: noise_colour,
+        },
+        instrument_badge(&record.raw.instrument.version),
+    ]
 }
 
 #[cfg(test)]
@@ -544,58 +631,109 @@ mod tests {
     }
 
     #[test]
-    fn a_tally_message_names_failed_and_errored_rows() {
+    fn a_tally_detail_names_failed_and_errored_rows_and_the_message_keeps_the_ratio() {
         assert_eq!(tally_message(tally(9, 0, 0, 1)), "9/9 passed");
+        assert_eq!(tally_detail(tally(9, 0, 0, 1)), "9/9 passed");
         assert_eq!(
-            tally_message(tally(7, 2, 1, 0)),
-            "7/10 passed \u{b7} 2 failed \u{b7} 1 errored"
+            tally_detail(tally(7, 2, 1, 0)),
+            "7/10 passed, 2 failed, 1 errored"
         );
+        assert_eq!(tally_message(tally(7, 2, 1, 0)), "7/10 passed");
         assert_eq!(tally_message(tally(0, 0, 0, 0)), "no rows");
+        assert_eq!(tally_detail(tally(0, 0, 0, 0)), "no rows");
         assert_eq!(tally_message(tally(0, 0, 0, 2)), "none judged");
+        assert_eq!(tally_detail(tally(0, 0, 0, 2)), "none judged");
     }
 
     #[test]
     fn a_warning_is_named_after_the_ratio_and_never_inside_it() {
         assert_eq!(
             tally_message(warned(tally(3, 0, 0, 0), 1)),
-            "3/3 passed \u{b7} 1 warning"
+            "3/3 passed, 1 warning"
+        );
+        assert_eq!(
+            tally_detail(warned(tally(2, 1, 1, 0), 1)),
+            "2/4 passed, 1 failed, 1 errored, 1 warning"
         );
         assert_eq!(
             tally_message(warned(tally(2, 1, 1, 0), 1)),
-            "2/4 passed \u{b7} 1 failed \u{b7} 1 errored \u{b7} 1 warning"
+            "2/4 passed, 1 warning"
         );
         assert_eq!(
             tally_message(warned(tally(5, 0, 0, 1), 2)),
-            "5/5 passed \u{b7} 2 warnings"
+            "5/5 passed, 2 warnings"
         );
         assert_eq!(
             tally_message(warned(tally(0, 0, 0, 0), 1)),
-            "none judged \u{b7} 1 warning"
+            "none judged, 1 warning"
         );
     }
 
     #[test]
-    fn every_knee_state_reads_as_the_record_states_it() {
+    fn every_knee_state_reads_in_whole_rates_and_in_full_as_the_record_states_it() {
+        let bracket = Knee::Bracket {
+            qualified_rate: 100.0,
+            achieved_per_s: 99.9,
+            failing_rate: 150.0,
+        };
+        assert_eq!(knee_message(&bracket), "knee 100\u{2013}150/s");
+        assert_eq!(knee_detail(&bracket), "knee 100.0\u{2013}150.0/s");
+        let lower = Knee::LowerBound {
+            qualified_rate: 200.0,
+            achieved_per_s: 199.0,
+        };
+        assert_eq!(knee_message(&lower), "knee \u{2265} 200/s");
+        assert_eq!(knee_detail(&lower), "knee \u{2265} 200.0/s");
+        let below = Knee::BelowLadder { failing_rate: 5.0 };
+        assert_eq!(knee_message(&below), "below ladder");
+        assert_eq!(knee_detail(&below), "below ladder");
+        assert_eq!(knee_message(&Knee::NoPlateau), "no plateau");
+        assert_eq!(knee_detail(&Knee::NoPlateau), "no plateau");
+    }
+
+    #[test]
+    fn a_whole_rate_rounds_outward_so_a_bracket_only_widens() {
         assert_eq!(
             knee_message(&Knee::Bracket {
-                qualified_rate: 100.0,
-                achieved_per_s: 99.9,
-                failing_rate: 150.0,
+                qualified_rate: 180.8,
+                achieved_per_s: 180.1,
+                failing_rate: 210.1,
             }),
-            "knee 100.0\u{2013}150.0/s"
+            "knee 180\u{2013}211/s"
         );
         assert_eq!(
             knee_message(&Knee::LowerBound {
-                qualified_rate: 200.0,
-                achieved_per_s: 199.0,
+                qualified_rate: 1_250.9,
+                achieved_per_s: 1_249.5,
             }),
-            "knee \u{2265} 200.0/s"
+            "knee \u{2265} 1,250/s",
+            "a lower bound never claims more than the record"
         );
         assert_eq!(
-            knee_message(&Knee::BelowLadder { failing_rate: 5.0 }),
-            "below ladder"
+            knee_message(&Knee::Bracket {
+                qualified_rate: 1_999.2,
+                achieved_per_s: 1_999.0,
+                failing_rate: 1_000_000.4,
+            }),
+            "knee 1,999\u{2013}1,000,001/s"
         );
-        assert_eq!(knee_message(&Knee::NoPlateau), "no plateau");
+    }
+
+    #[test]
+    fn the_title_carries_the_full_text_and_the_message_carries_no_separator() {
+        let badge = Badge {
+            name: BadgeName::Base,
+            label: String::from("openEHR BASE"),
+            message: tally_message(warned(tally(2, 1, 1, 0), 1)),
+            detail: tally_detail(warned(tally(2, 1, 1, 0), 1)),
+            colour: BadgeColour::Failing,
+        };
+        let full = "openEHR BASE: 2/4 passed, 1 failed, 1 errored, 1 warning";
+        assert_eq!(badge.title(), full);
+        let svg = badge.svg();
+        assert!(svg.contains(&format!("aria-label=\"{full}\"")), "{svg}");
+        assert!(svg.contains(&format!("<title>{full}</title>")), "{svg}");
+        assert!(!svg.contains('\u{b7}'), "{svg}");
     }
 
     #[test]

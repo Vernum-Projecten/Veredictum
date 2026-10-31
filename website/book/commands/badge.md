@@ -6,7 +6,7 @@ with a fixed table of character widths, so no font and no network is read.
 | Document | Files written |
 |---|---|
 | an Arazzo `results.json` | `base`, `options`, `profile` and `instrument`, each `.svg` and `.json` |
-| a `perf-result.json` | `perf.svg` and `perf.json` |
+| a `perf-result.json` | `perf`, `noise` and `instrument`, each `.svg` and `.json` |
 
 ```bash
 veredictum badge --results conformance/results.json --out conformance/badges
