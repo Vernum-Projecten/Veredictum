@@ -16,6 +16,9 @@ sourceDescriptions:
   - name: definition
     url: ../../../specs/rest-oas/definition-validation.openapi.yaml
     type: openapi
+  - name: setup
+    url: ../_setup/content_templates_adl2.arazzo.yaml
+    type: arazzo
 workflows:
   - workflowId: list_templates_adl2
     summary: The ADL 2 template list answers 200 in JSON
@@ -119,7 +122,8 @@ workflows:
       quote: "Upload a new ADL2 operational template."
     inputs: *run_input
     steps:
-      - stepId: upload
+      - &upload_minimal
+        stepId: upload
         description: Upload the operational template under a fresh template_id.
         operationId: $sourceDescriptions.definition.definition_template_adl2_upload
         parameters:
@@ -129,7 +133,7 @@ workflows:
           contentType: text/plain
           # NOTE: AM OPT2 master03-opt_raw.adoc §Artefact Structure gives the
           # outer structure; ADL2 master07.08 §Description Section the minimal description.
-          payload: |-
+          payload: &minimal_opt |-
             operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)
                 openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0
 
@@ -224,7 +228,7 @@ workflows:
                 >
         successCriteria:
           - condition: $statusCode == 201
-            x-veredictum-cite:
+            x-veredictum-cite: &uploaded
               source: specs/openehr/ITS-REST/specifications/responses/201_Template_adl2_upload.yaml
               section: description
               quote: "`201 Created` is returned when the template has been successfully uploaded."
@@ -311,3 +315,238 @@ workflows:
           payload: "operational_template (adl_version=2.0.6; rm_release=1.0.2; generated)"
         successCriteria:
           - condition: $statusCode == 415
+
+  - workflowId: upload_template_adl2-return_minimal
+    summary: An ADL 2 upload with Prefer return=minimal answers 201 with no body
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id with Prefer return=minimal. The answer is 201 with an
+      empty body.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/201_Template_adl2_upload.yaml
+      section: description
+      quote: "If the `Prefer` header is missing or set to `return=minimal`, the body is empty."
+    inputs: *run_input
+    steps:
+      - stepId: upload
+        description: Upload the template with Prefer return=minimal.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: text/plain
+          payload: *minimal_opt
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *uploaded
+          - condition: $response.body == null
+
+  - workflowId: upload_template_adl2-return_identifier
+    summary: An ADL 2 upload with Prefer return=identifier answers the template_id
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id with Prefer return=identifier and Accept application/json.
+      The answer is 201 and its body carries the template_id.
+    x-veredictum-cite: &identifier_or_representation
+      source: specs/openehr/ITS-REST/specifications/responses/201_Template_adl2_upload.yaml
+      section: description
+      quote: "If `Prefer` header is `return=representation`, the full resource is included in the response body; if is `return=identifier`, only its unique identifier is included."
+    inputs: *run_input
+    steps:
+      - stepId: upload
+        description: Upload the template with Prefer return=identifier.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=identifier }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: text/plain
+          payload: *minimal_opt
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *uploaded
+          - context: $response.body#/template_id
+            type: regex
+            condition: '^openEHR-EHR-COMPOSITION\.vdef-{$inputs.run}\.v1\.0\.0$'
+
+  - workflowId: upload_template_adl2-return_representation
+    summary: An ADL 2 upload with Prefer return=representation answers the template in its body
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id with Prefer return=representation and Accept text/plain.
+      The answer is 201 and carries the template in its body.
+    x-veredictum-cite: *identifier_or_representation
+    inputs: *run_input
+    steps:
+      - stepId: upload
+        description: Upload the template with Prefer return=representation.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: text/plain }
+        requestBody:
+          contentType: text/plain
+          payload: *minimal_opt
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *uploaded
+          - condition: $response.body != null
+
+  - workflowId: upload_template_adl2-same_template_id_twice
+    summary: A second ADL 2 upload under a stored template_id is refused with 409
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id, then uploads it again. The second upload is refused with
+      409.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/409_template_already_exists.yaml
+      section: description
+      quote: "`409 Conflict` is returned when a template with same `template_id` already exists."
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - stepId: upload-again
+        description: Upload the same template a second time.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_upload
+        parameters:
+          - { name: Content-Type, in: header, value: text/plain }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: text/plain
+          payload: *minimal_opt
+        successCriteria:
+          - condition: $statusCode == 409
+
+  - workflowId: get_template_adl2-text
+    summary: An uploaded ADL 2 template is read back as ADL text
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id, then reads it by that template_id with Accept
+      text/plain. The read answers 200.
+    x-veredictum-cite: &template_read
+      source: specs/openehr/ITS-REST/specifications/responses/200_Template_adl2_retrieved.yaml
+      section: description
+      quote: "`200 OK` is returned when the template is successfully retrieved."
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - stepId: read
+        description: Read the template with Accept text/plain.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_get
+        parameters:
+          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0" }
+          - { name: Accept, in: header, value: text/plain }
+        successCriteria:
+          - condition: $statusCode == 200
+
+  - workflowId: get_template_adl2-json
+    summary: An uploaded ADL 2 template is read back in JSON
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id, then reads it by that template_id with Accept
+      application/json. The read answers 200 with Content-Type
+      application/json.
+    x-veredictum-cite: *template_read
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - stepId: read
+        description: Read the template with Accept application/json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_get
+        parameters:
+          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1.0.0" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+            x-veredictum-cite: &json_content_type
+              source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+              section: JSON Format
+              quote: "Proper header `Content-Type: application/json` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+
+  - workflowId: get_template_adl2_version
+    summary: An uploaded ADL 2 template is read back at its version in JSON
+    description: >-
+      Uploads the minimal ADL 2 operational template under a fresh
+      template_id, then reads it through the deprecated read at a version,
+      naming the template by its major version and the version 1.0.0 its
+      identifier carries, with Accept application/json. The read answers 200
+      with Content-Type application/json.
+    x-veredictum-cite: *template_read
+    inputs: *run_input
+    steps:
+      - *upload_minimal
+      - stepId: read
+        description: Read the template at version 1.0.0 with Accept application/json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_version_get
+        parameters:
+          - { name: template_id, in: path, value: "openEHR-EHR-COMPOSITION.vdef-{$inputs.run}.v1" }
+          - { name: version, in: path, value: "1.0.0" }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+            x-veredictum-cite: *json_content_type
+
+  - workflowId: get_template_adl2_example
+    summary: An example of a stored ADL 2 template is a COMPOSITION rooted at its archetype
+    description: >-
+      Reads an example data instance of the ADL 2 template
+      openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 with Accept
+      application/json. The answer is 200 in JSON, and its root carries the
+      template's root archetype id as archetype_node_id.
+    dependsOn: [$sourceDescriptions.setup.upload_template-adl2_dv_count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/200_Template_example_retrieved.yaml
+      section: description
+      quote: "`200 OK` is returned when the template is successfully retrieved."
+    steps:
+      - stepId: example
+        description: Read an example of the template with Accept application/json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_example_get
+        parameters:
+          - { name: template_id, in: path, value: openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/json'
+            x-veredictum-cite: *json_content_type
+          - context: $response.body#/archetype_node_id
+            type: regex
+            condition: '^openEHR-EHR-COMPOSITION\.cnf_adl2_dv_count_range\.v1\.0\.0$'
+            x-veredictum-cite:
+              source: specs/openehr/RM/docs/UML/classes/locatable.adoc
+              section: LOCATABLE Class
+              quote: "At an archetype root point, the value of this attribute is always the stringified form of the `_archetype_id_` found in the `_archetype_details_` object."
+
+  - workflowId: get_template_adl2_example-web_template_not_acceptable
+    summary: An ADL 2 example asked for in the Web Template format is refused with 406
+    description: >-
+      Reads an example data instance of the ADL 2 template
+      openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 with Accept
+      application/openehr.wt+json. The release names that type for the
+      Operational Template definition, and a data instance has no
+      representation in it, so the read is refused with 406.
+    dependsOn: [$sourceDescriptions.setup.upload_template-adl2_dv_count_range]
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/responses/406.yaml
+      section: description
+      quote: "`406 Not Acceptable` is returned when the service cannot produce a response matching `Accept` request header, i.e. content type or format is not supported."
+    steps:
+      - stepId: example
+        description: Read an example with Accept application/openehr.wt+json.
+        operationId: $sourceDescriptions.definition.definition_template_adl2_example_get
+        parameters:
+          - { name: template_id, in: path, value: openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 }
+          - { name: Accept, in: header, value: application/openehr.wt+json }
+        successCriteria:
+          - condition: $statusCode == 406

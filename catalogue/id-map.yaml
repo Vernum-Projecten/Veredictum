@@ -1285,30 +1285,24 @@ cases:
     new: []
     open: *no_artefact_delete
   I_DEFINITION_ADL2.get_artefact-example:
-    new: []
-    open: &adl2_source >-
-      It needs a stored ADL 2 template, and no committed ADL 2 source is a
-      valid operational template: AM operational_template.adoc requires
-      `Specialisation_validity: is_specialised`, and the sources have no
-      specialize section. Not converted yet, tracked by #714.
+    new: [template_adl2/get_template_adl2_example]
   I_DEFINITION_ADL2.get_artefact-example_unknown:
     new: [template_adl2/get_template_adl2_example-unknown]
   I_DEFINITION_ADL2.get_artefact-retrieve:
-    new: []
-    open: *adl2_source
+    new: [template_adl2/get_template_adl2-text, template_adl2/get_template_adl2-json]
   I_DEFINITION_ADL2.get_artefact-unknown:
     new: [template_adl2/get_template_adl2-unknown]
   I_DEFINITION_ADL2.get_artefact-version_get:
-    new: [template_adl2/get_template_adl2_version-unknown]
-    open: >-
-      The 404 of a version that names nothing; the 200 of a stored version
-      needs a valid ADL 2 source. Not converted yet, tracked by #714.
+    new: [template_adl2/get_template_adl2_version, template_adl2/get_template_adl2_version-unknown]
   I_DEFINITION_ADL2.get_artefact-version_prefix:
     new: []
-    open: *adl2_source
+    open: &adl2_versions >-
+      It needs a version prefix or several stored versions of one ADL 2
+      template. Not converted yet, tracked by #714.
   I_DEFINITION_ADL2.has_artefact-existing:
-    new: []
-    open: *adl2_source
+    new: [template_adl2/get_template_adl2-text]
+    open: >-
+      Realised as a read of a stored template_id.
   I_DEFINITION_ADL2.has_artefact-non_existing:
     new: [template_adl2/get_template_adl2-unknown]
     open: >-
@@ -1323,34 +1317,29 @@ cases:
     new: []
     open: *adl2_archetype
   I_DEFINITION_ADL2.list_matching_artefacts-filter:
-    new: []
-    open: *adl2_source
+    new: [template_adl2/upload_template_adl2-minimal]
+    open: >-
+      Realised as the listing filtered by the uploaded template_id.
   I_DEFINITION_ADL2.list_opts-absent_version_latest_only:
     new: []
-    open: *adl2_source
+    open: *adl2_versions
   I_DEFINITION_ADL2.list_opts-empty:
     new: []
     open: >-
       An empty listing of the whole server, which a shared server cannot be.
   I_DEFINITION_ADL2.list_opts-non_empty:
-    new: [template_adl2/list_templates_adl2]
-    open: >-
-      The listing's status and Content-Type; the stored template it should
-      hold needs a valid ADL 2 source. Not converted yet, tracked by #714.
+    new: [template_adl2/list_templates_adl2, template_adl2/upload_template_adl2-minimal]
   I_DEFINITION_ADL2.list_opts-version_exact_axis:
     new: []
-    open: *adl2_source
+    open: *adl2_versions
   I_DEFINITION_ADL2.list_opts-version_prefix_glob:
     new: []
-    open: *adl2_source
+    open: *adl2_versions
   I_DEFINITION_ADL2.list_opts-version_star_all_versions:
     new: []
-    open: *adl2_source
+    open: *adl2_versions
   I_DEFINITION_ADL2.list_templates-non_empty:
-    new: [template_adl2/list_templates_adl2]
-    open: >-
-      The listing's status and Content-Type; the stored template it should
-      hold needs a valid ADL 2 source. Not converted yet, tracked by #714.
+    new: [template_adl2/list_templates_adl2, template_adl2/upload_template_adl2-minimal]
   I_DEFINITION_ADL2.opts_count-unrealized:
     new: []
     open: &no_count >-
@@ -1360,20 +1349,17 @@ cases:
     new: []
     open: *no_count
   I_DEFINITION_ADL2.upload_artefact-duplicate_conflict:
-    new: []
-    open: *adl2_source
+    new: [template_adl2/upload_template_adl2-same_template_id_twice]
   I_DEFINITION_ADL2.upload_artefact-invalid_artefacts:
     new: []
     open: >-
-      The invalid source is judged against a valid twin that does not exist
-      yet, and its defect needs the 400 or 422 adjudication of an invalid
-      template. Not converted yet, tracked by #714.
+      The valid twin is template_adl2/upload_template_adl2-minimal; the
+      invalid source's defect needs the 400 or 422 adjudication of an
+      invalid template. Not converted yet, tracked by #714.
   I_DEFINITION_ADL2.upload_artefact-prefer_identifier:
-    new: []
-    open: *adl2_source
+    new: [template_adl2/upload_template_adl2-return_identifier]
   I_DEFINITION_ADL2.upload_artefact-prefer_minimal:
-    new: []
-    open: *adl2_source
+    new: [template_adl2/upload_template_adl2-return_minimal]
   I_DEFINITION_ADL2.upload_artefact-readonly_forbidden:
     new: []
     open: >-
@@ -1385,8 +1371,7 @@ cases:
       - template_adl2/upload_template_adl2-empty_body
       - template_adl2/upload_template_adl2-unparseable
   I_DEFINITION_ADL2.upload_artefact-valid_opt:
-    new: []
-    open: *adl2_source
+    new: [template_adl2/upload_template_adl2-minimal]
   I_DEFINITION_ADL2.upload_artefact-wrong_media:
     new: [template_adl2/upload_template_adl2-xml_content_type]
     open: >-
@@ -1398,8 +1383,10 @@ cases:
       the 400 or 422 adjudication of an invalid template. Not converted yet,
       tracked by #714.
   I_DEFINITION_ADL2.valid_artefact-valid:
-    new: []
-    open: *adl2_source
+    new: [template_adl2/upload_template_adl2-minimal]
+    open: >-
+      The release has no validation operation; validity is judged through
+      the upload, which answers 201 only for a template it accepted.
   I_DEFINITION_QUERY.delete_query-delete_existing:
     new: []
     open: >-
