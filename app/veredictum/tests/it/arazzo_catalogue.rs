@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 use serde_json::{Value, json};
-use veredictum::arazzo::cite::citation_of;
+use veredictum::arazzo::cite::{Level, citation_of};
 use veredictum::arazzo::document::ArazzoDocument;
 use veredictum::arazzo::expr::{JsonPathCriterion, RequestView, ResponseView, Scope};
 
@@ -380,5 +380,44 @@ fn the_item_tag_target_criterion_holds_for_both_released_shapes()
             "{id}: another uid, OAS shape"
         );
     }
+    Ok(())
+}
+#[test]
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book's Result-test shape: assertions panic, plumbing propagates with `?`"
+)]
+fn the_empty_folders_refusal_rests_on_a_should_and_is_a_warning()
+-> Result<(), Box<dyn std::error::Error>> {
+    // NOTE: ITS-REST Resources.md §JSON Format: a request payload "SHOULD be valid against
+    // published JSON-Schemas", so a server that takes the body fails no `must` criterion.
+    let path = repo_root().join("catalogue/cases/directory/directory_create_refused.arazzo.yaml");
+    let document = ArazzoDocument::load(&path)?;
+    let workflow = document
+        .description()
+        .workflows
+        .iter()
+        .find(|w| w.workflow_id == "create_directory-folders_empty")
+        .ok_or("no workflow create_directory-folders_empty")?;
+    let inherited = citation_of(workflow.extensions.as_ref())?;
+    let mut judged = 0;
+    for step in workflow.steps.iter().filter(|s| s.step_id != "create-ehr") {
+        let step_cite = citation_of(step.extensions.as_ref())?.or_else(|| inherited.clone());
+        for criterion in &step.success_criteria {
+            let cite = citation_of(criterion.extensions.as_ref())?
+                .or_else(|| step_cite.clone())
+                .ok_or_else(|| format!("{}: a criterion has no citation", step.step_id))?;
+            assert_eq!(
+                cite.level(),
+                Level::Should,
+                "{}: {}",
+                step.step_id,
+                criterion.condition
+            );
+            assert!(cite.quote.contains("SHOULD"), "{}", cite.quote);
+            judged += 1;
+        }
+    }
+    assert_eq!(judged, 2, "the create and the no-directory read");
     Ok(())
 }

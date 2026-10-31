@@ -220,14 +220,23 @@ workflows:
 
   - workflowId: create_directory-folders_empty
     x-veredictum-control: $sourceDescriptions.directory_create.create_directory
-    summary: A directory FOLDER whose folders list is present but empty is refused with 400
+    summary: A directory FOLDER whose folders list is present but empty is refused with 400, a SHOULD
     description: >-
       Creates an EHR, then creates a directory FOLDER whose folders list is
       present and empty. The published ITS-JSON schema
       (openehr_rm_1.1.0_all.json, FOLDER.folders, minItems 1) refuses the
-      body, so it is syntactically invalid content and the create is answered
-      400, and the EHR still has no directory.
-    x-veredictum-cite: *invalid_content
+      body, and a request payload SHOULD be valid against that schema
+      (Resources.md, JSON Format), so the create is answered 400 and the EHR
+      still has no directory. The requirement is that SHOULD and no stronger:
+      the same section says an empty list SHOULD be absent, and the RM
+      invariant `Folders_valid: not folders.is_empty` lacks the guard its
+      0..1 cardinality needs (upstream report #167). A server that takes the
+      body records a warning, never a failure.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: JSON Format
+      quote: "When resources are serialized as **canonical JSON**, the request payload as well as the result SHOULD be valid against [published JSON-Schemas](https://specifications.openehr.org/releases/ITS-JSON/latest)."
+      level: should
     inputs: *ehr_input
     steps:
       - *create_ehr
@@ -249,7 +258,14 @@ workflows:
             folders: []
         successCriteria:
           - *bad_request
-      - *no_directory
+      - stepId: no-directory
+        description: Read the directory; the EHR still has none, because the SHOULD-refused create created nothing.
+        operationId: $sourceDescriptions.ehr.directory_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 404
 
   - workflowId: create_directory-items_by_value
     x-veredictum-control: $sourceDescriptions.directory_create.create_directory-with_items
