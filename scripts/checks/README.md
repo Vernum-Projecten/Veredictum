@@ -25,12 +25,15 @@ error.
 | `hosted-deploy-script.sh` | the hosted box's `deploy.sh` is shellcheck-clean, extracted from the `write_files` block it lives in | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 | `vendored-trees.sh` | every vendored tree (a directory holding a `PROVENANCE.md`, and every directory under `specs/` and `specs/openehr/`) names an existing `scripts/vendor/` script that writes it, and carries the upstream `LICENSE` that script fetches | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 | `junit-schema.sh` | every pinned JUnit view holds to the published JUnit XML schemas: the document to the Jenkins xUnit plugin's `junit-10.xsd`, each `<testsuite>` to Apache Maven Surefire's test report schema, both vendored by `scripts/vendor/junit-schemas.sh` and checked with `xmllint` | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
+| `test-modules-declared.sh` | every `.rs` file of a one-binary integration-test tree (`tests/<dir>/main.rs`) is declared by its parent module, so no topic file is silently never compiled | the `guards` job in `.github/workflows/ci.yml`, with `--self-test` beside it |
 
-Five of these take a single file or no argument rather than the three modes
+Six of these take a single file or no argument rather than the three modes
 above: `changelog-structure.sh` reads one changelog,
 `ci-conclusion-complete.sh` reads one workflow,
 `citation-version.sh` reads the three files that carry the version,
-`hosted-deploy-script.sh` reads one cloud-init document, and
+`hosted-deploy-script.sh` reads one cloud-init document,
+`test-modules-declared.sh`
+walks the integration-test trees, and
 `vendored-trees.sh` reads the vendored trees and `scripts/vendor/`. The mode contract
 applies to guards that scan a file set.
 

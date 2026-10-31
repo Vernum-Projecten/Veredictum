@@ -248,6 +248,16 @@ jobs:
       - name: Vendored trees — seeded-violation proof
         run: bash scripts/checks/vendored-trees.sh --self-test
 
+      # Cargo compiles only the modules an integration-test binary's main.rs
+      # declares, so a topic file without its `mod` line never runs and every
+      # gate stays green (#907).
+      - name: Every integration-test file is a declared module
+        run: bash scripts/checks/test-modules-declared.sh
+
+      - name: Integration-test modules — seeded-violation proof
+        run: bash scripts/checks/test-modules-declared.sh --self-test
+
+
       # JUnit XML has no single owner, so the export is held to the schemas
       # the tools that read it publish: Jenkins xUnit junit-10 for the
       # document and Apache Maven Surefire for each testsuite. xmllint
