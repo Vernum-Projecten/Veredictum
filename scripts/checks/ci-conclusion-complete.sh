@@ -22,10 +22,30 @@ cd "$(dirname "$0")/../.."
 
 readonly WORKFLOW='.github/workflows/ci.yml'
 
+# A job that reports without gating names itself so, with its reason, in a
+# job-level `env.NON_GATING`. It is the only way out of `conclusion.needs`, and
+# it is checked from both sides: the reason must be stated, and a job that
+# claims not to gate must not be in `needs`.
+non_gating=$(yq -o=json '.jobs | to_entries | map(select(.value.env.NON_GATING != null)) | map(.key)' "$WORKFLOW" | jq -r '.[]' | sort)
+for job in $non_gating; do
+  reason=$(yq -r ".jobs[\"$job\"].env.NON_GATING" "$WORKFLOW")
+  if [[ -z "${reason// /}" ]]; then
+    echo "error: job '$job' declares NON_GATING without a reason" >&2
+    exit 1
+  fi
+done
+
 jobs=$(yq -o=json '.jobs | keys' "$WORKFLOW" | jq -r '.[]' | grep -vx 'conclusion' | sort)
+gating=$(comm -23 <(echo "$jobs") <(echo "$non_gating"))
 needs=$(yq -o=json '.jobs.conclusion.needs' "$WORKFLOW" | jq -r '.[]' | sort)
 
-if missing=$(comm -23 <(echo "$jobs") <(echo "$needs")) && [[ -n "$missing" ]]; then
+if claimed=$(comm -12 <(echo "$non_gating") <(echo "$needs")) && [[ -n "$claimed" ]]; then
+  echo "error: jobs declare NON_GATING and are in conclusion.needs" >&2
+  echo "$claimed" | sed 's/^/  - /' >&2
+  exit 1
+fi
+
+if missing=$(comm -23 <(echo "$gating") <(echo "$needs")) && [[ -n "$missing" ]]; then
   echo "error: CI jobs that do not gate the merge" >&2
   echo >&2
   echo "$missing" | sed 's/^/  - /' >&2
@@ -38,10 +58,13 @@ fi
 
 # The mirror direction: a needs entry naming a job that no longer exists makes
 # `conclusion` fail permanently on an unresolvable dependency.
-if stale=$(comm -13 <(echo "$jobs") <(echo "$needs")) && [[ -n "$stale" ]]; then
+if stale=$(comm -13 <(echo "$gating") <(echo "$needs")) && [[ -n "$stale" ]]; then
   echo "error: conclusion.needs names jobs that do not exist" >&2
   echo "$stale" | sed 's/^/  - /' >&2
   exit 1
 fi
 
-echo "ok: all $(echo "$jobs" | wc -l | tr -d ' ') CI jobs gate the merge"
+echo "ok: all $(echo "$gating" | wc -l | tr -d ' ') gating CI jobs gate the merge"
+for job in $non_gating; do
+  echo "    non-gating: $job ($(yq -r ".jobs[\"$job\"].env.NON_GATING" "$WORKFLOW"))"
+done
