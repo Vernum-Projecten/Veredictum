@@ -1231,8 +1231,6 @@ fn capability_picker(
                     type="button"
                     class=BTN_SECONDARY
                     on:click=move |_| {
-                        // NOTE: no openEHR spec governs this — our own design; rows not yet
-                        // loaded show no box to check, so nothing is checked.
                         let rows = capability_rows
                             .get_untracked()
                             .and_then(Result::ok)
