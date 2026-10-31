@@ -966,7 +966,7 @@ fn grouped_view(reading: &ReadingView, ctx: &Ctx) -> AnyView {
             Some(String::from(
                 "Rows the results document places in no chapter or option.",
             )),
-            &Tally::of_rows(&reading.unplaced),
+            &reading.unplaced_tally,
             &reading.unplaced,
             ctx,
         )

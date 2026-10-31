@@ -48,22 +48,6 @@ impl Tally {
             .saturating_add(self.warning)
             .saturating_add(self.errored)
     }
-
-    /// The counts of `rows`, read from the mark the engine gave each.
-    #[must_use]
-    pub fn of_rows(rows: &[ResultRow]) -> Self {
-        rows.iter().fold(Self::default(), |tally, row| {
-            let one = |mark: &str| u32::from(row.mark == mark);
-            tally.plus(Self {
-                tests: 1,
-                passed: one("passed"),
-                failed: one("failed"),
-                warning: one("warning"),
-                errored: one("errored"),
-                skipped: one("skipped"),
-            })
-        })
-    }
 }
 
 /// One results row as every group lists it.
@@ -307,6 +291,9 @@ pub struct ReadingView {
     pub options: OptionsView,
     /// The rows the results place nowhere.
     pub unplaced: Vec<ResultRow>,
+    /// The counts of [`ReadingView::unplaced`], as the engine's reading
+    /// tallies them.
+    pub unplaced_tally: Tally,
 }
 
 impl ReadingView {
@@ -433,6 +420,7 @@ pub mod read {
     };
     use crate::certificates::CertificateStatus;
     use crate::engine::token;
+    use crate::error::ConsoleError;
     use crate::state::ConsoleState;
     use veredictum::arazzo::har::{Entry, Har, NameValue};
     use veredictum::arazzo::reading::{
@@ -450,24 +438,23 @@ pub mod read {
     fn finished_results(
         state: &ConsoleState,
         submitter: crate::submitter::Submitter,
-    ) -> Result<Option<(Results, std::path::PathBuf, CertificateNotice)>, String> {
+    ) -> Result<Option<(Results, std::path::PathBuf, CertificateNotice)>, ConsoleError> {
         let latest = state
             .jobs
-            .latest_of(submitter, crate::run_job::Latest::Finished)
-            .map_err(|e| e.to_string())?;
+            .latest_of(submitter, crate::run_job::Latest::Finished)?;
         let Some(id) = latest else {
             return Ok(None);
         };
-        let view = state.jobs.view_of(id).map_err(|e| e.to_string())?;
+        let view = state.jobs.view_of(id)?;
         let Some(finished) = view.and_then(|view| view.finished) else {
             return Ok(None);
         };
         // The engine's own recorded path, never a second derivation of it.
         let path = std::path::PathBuf::from(finished.results_path);
-        let body =
-            std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-        let results: Results =
-            serde_json::from_str(&body).map_err(|e| format!("{}: {e}", path.display()))?;
+        let unreadable =
+            |e: &dyn std::fmt::Display| ConsoleError::internal(format!("{}: {e}", path.display()));
+        let body = std::fs::read_to_string(&path).map_err(|e| unreadable(&e))?;
+        let results: Results = serde_json::from_str(&body).map_err(|e| unreadable(&e))?;
         let certificate = match finished.certificate {
             CertificateStatus::Trial => CertificateNotice::Trial,
             CertificateStatus::Issued => {
@@ -486,8 +473,9 @@ pub mod read {
         u32::try_from(n).unwrap_or(u32::MAX)
     }
 
-    /// The engine's tally on the wire.
-    fn tally_of(tally: &EngineTally) -> Tally {
+    /// The engine's tally on the wire: the one reader every surface counts
+    /// rows through.
+    pub(crate) fn tally_of(tally: &EngineTally) -> Tally {
         Tally {
             tests: count(tally.tests),
             passed: count(tally.passed),
@@ -735,6 +723,7 @@ pub mod read {
             chapters,
             options: options_of(&reading.options)?,
             unplaced: rows_of(&reading.unplaced)?,
+            unplaced_tally: tally_of(&reading.unplaced_total),
         })
     }
 
@@ -745,12 +734,12 @@ pub mod read {
     pub fn results_screen(
         state: &ConsoleState,
         submitter: crate::submitter::Submitter,
-    ) -> Result<Option<ResultsScreen>, String> {
+    ) -> Result<Option<ResultsScreen>, ConsoleError> {
         let Some((results, _, certificate)) = finished_results(state, submitter)? else {
             return Ok(None);
         };
-        let reading =
-            reading_view(&results).map_err(|e| format!("a result row did not render: {e}"))?;
+        let reading = reading_view(&results)
+            .map_err(|e| ConsoleError::internal(format!("a result row did not render: {e}")))?;
         Ok(Some(ResultsScreen {
             base_url: results.base_url.clone(),
             specification: results.specification.label(),
@@ -829,7 +818,7 @@ pub mod read {
         submitter: crate::submitter::Submitter,
         case: &str,
         row: u32,
-    ) -> Result<Option<ResultDetail>, String> {
+    ) -> Result<Option<ResultDetail>, ConsoleError> {
         let Some((results, results_path, _)) = finished_results(state, submitter)? else {
             return Ok(None);
         };
@@ -848,7 +837,8 @@ pub mod read {
         let place = results.outline.as_ref().and_then(|o| o.place(case));
         let explanation = found.explanation.as_ref();
         Ok(Some(ResultDetail {
-            row: row_of(found, place).map_err(|e| format!("a result row did not render: {e}"))?,
+            row: row_of(found, place)
+                .map_err(|e| ConsoleError::internal(format!("a result row did not render: {e}")))?,
             summary: listed.and_then(|(_, workflow)| workflow.summary.clone()),
             catalogue: listed.map(|(document, workflow)| {
                 format!("/catalogue/{}/{}", document.capability, workflow.case)
@@ -886,7 +876,8 @@ pub mod fns {
         reason = "fires only in some #[server] expansions; see catalogue_api::fns"
     )]
 
-    use leptos::prelude::{ServerFnError, server};
+    use crate::error::ConsoleError;
+    use leptos::prelude::server;
 
     use super::{ResultDetail, ResultsScreen};
 
@@ -895,12 +886,11 @@ pub mod fns {
     /// # Errors
     /// The verbatim read failures.
     #[server]
-    pub async fn fetch_results() -> Result<Option<ResultsScreen>, ServerFnError> {
+    pub async fn fetch_results() -> Result<Option<ResultsScreen>, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
         super::read::results_screen(&state, who)
             .map(|screen| crate::capture::results(&state, screen))
-            .map_err(ServerFnError::new)
     }
 
     /// One row's detail; `None` for a row the results document does not
@@ -912,12 +902,11 @@ pub mod fns {
     pub async fn fetch_result_detail(
         case: String,
         row: u32,
-    ) -> Result<Option<ResultDetail>, ServerFnError> {
+    ) -> Result<Option<ResultDetail>, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
         super::read::result_detail(&state, who, &case, row)
             .map(|detail| crate::capture::detail(&state, detail))
-            .map_err(ServerFnError::new)
     }
 }
 

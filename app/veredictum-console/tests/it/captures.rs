@@ -31,6 +31,10 @@ const SLUG_OF: &[(&str, &str)] = &[
 /// delivers them. An entry here is a debt with an owner, never a waiver.
 const PENDING: &[(&str, &str)] = &[];
 
+/// Routes that render no surface of their own, each naming where it sends the
+/// visitor: nothing to photograph, so no capture is owed (#151).
+const REDIRECTS: &[(&str, &str)] = &[("run", "/run/connect")];
+
 /// The tags that open a route declaration.
 ///
 /// `<Routes …>` is deliberately absent: it is the fallback container, and a
@@ -159,8 +163,7 @@ fn every_routed_surface_has_its_captures() -> Result<(), std::io::Error> {
 
     let mut missing = Vec::new();
     for route in &routes {
-        // The bare /run entry is a redirect, not a surface.
-        if route == "run" {
+        if REDIRECTS.iter().any(|(redirect, _)| redirect == route) {
             continue;
         }
         let Some((_, slug)) = SLUG_OF.iter().find(|(path, _)| path == route) else {
@@ -180,6 +183,13 @@ fn every_routed_surface_has_its_captures() -> Result<(), std::io::Error> {
                     "route /{route}: {slug}-{theme}.png is absent from website/book/src/console/img"
                 ));
             }
+        }
+    }
+    for (redirect, target) in REDIRECTS {
+        if !routes.contains(*redirect) {
+            missing.push(format!(
+                "/{redirect} is listed as a redirect to {target} but the router has no such route"
+            ));
         }
     }
     assert!(
