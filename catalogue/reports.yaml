@@ -24,3 +24,4 @@ reports:
   939: { title: "AM: OPT2 says an operational template has no specialisation statement, while AOM2 and the ADL2 example require one", state: open }
   945: { title: "AM: the ADL2 operational template example binds its category at-code without the operational binding namespace", state: open }
   946: { title: "AM: ADL2 examples constrain the DV_QUANTITY property the RM removed, with external codes AOM2 cannot hold", state: open }
+  984: { title: "BASE: ARCHETYPE_ID admits only a major version, while AM Identification and ADL 2 require the three-part version", state: open }

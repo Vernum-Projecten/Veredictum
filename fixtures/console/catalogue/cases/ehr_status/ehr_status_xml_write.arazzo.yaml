@@ -1,0 +1,100 @@
+# The EHR_STATUS update with a canonical-XML body, for a service that
+# processes an XML request payload for the EHR_STATUS resource: the accepting
+# arm of the `ehr-status-xml-write` option, whose refused arm is
+# `ehr_status_xml_write_refused`. Every quote is copied verbatim from the
+# named vendored file.
+arazzo: 1.1.0
+info:
+  title: EHR_STATUS update with an XML payload
+  version: 0.1.0
+  description: >-
+    Updating an EHR_STATUS with a body sent as canonical XML, then reading it
+    back as JSON. No published document schema reaches the EHR_STATUS type
+    (upstream report #759): the one global element of a type it extends is
+    `items` (LOCATABLE) in the ITS-XML documents/Structure.xsd, and
+    EHR_STATUS is in Ehr.xsd, which only the 2.0.0 lineage publishes. The body
+    is therefore an `items` element typed EHR_STATUS with xsi:type in the
+    namespace of that lineage, and the workflow rests on report #759.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: update_ehr_status-xml
+    summary: An EHR_STATUS updated from canonical XML reads back as sent
+    description: >-
+      Creates an EHR, then updates its EHR_STATUS with a canonical XML body
+      that clears is_queryable and renames it, under the current version in
+      If-Match. The latest EHR_STATUS read back as JSON is the one sent: not
+      queryable, modifiable, and named as the XML body named it.
+    x-veredictum-cite:
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "When resources are serialized in **canonical XML** format, both request payloads and responses MUST conform to the [published XSDs](https://specifications.openehr.org/releases/ITS-XML/latest)."
+      report: 759
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the EHR with the client-supplied ehr_id and the default EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: current
+        description: Read the latest version of the EHR_STATUS for its version_uid.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/versioned_ehr_status_version_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the VERSION extant _at specified time_, otherwise retrieves the _latest_ VERSION."
+        outputs:
+          version_uid: $response.body#/uid/value
+      - stepId: update
+        description: Update the EHR_STATUS from canonical XML and ask for the minimal response.
+        operationId: $sourceDescriptions.ehr.ehr_status_update
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: If-Match, in: header, value: '"{$steps.current.outputs.version_uid}"' }
+          - { name: Content-Type, in: header, value: application/xml }
+          - { name: Prefer, in: header, value: return=minimal }
+        requestBody:
+          contentType: application/xml
+          payload: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <items xmlns="http://schemas.openehr.org/v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="EHR_STATUS" archetype_node_id="openEHR-EHR-EHR_STATUS.generic.v1"><name><value>EHR status from XML</value></name><archetype_details><archetype_id><value>openEHR-EHR-EHR_STATUS.generic.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><subject/><is_queryable>false</is_queryable><is_modifiable>true</is_modifiable></items>
+        successCriteria:
+          - condition: $statusCode == 204
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/204_version_updated.yaml
+              section: description
+              quote: "`204 No Content` is returned when the update operation was successful and the `Prefer` header is missing or is set to `return=minimal`."
+      - stepId: read-back
+        description: Read the latest EHR_STATUS back as JSON.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria:
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/operations/ehr_status_get_at_time.yaml
+              section: description
+              quote: "If `version_at_time` is supplied, retrieves the version extant _at specified time_, otherwise retrieves the _latest_ EHR_STATUS version."
+          - condition: $response.body#/is_queryable == false
+          - condition: $response.body#/is_modifiable == true
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^EHR status from XML$'

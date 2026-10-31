@@ -1,0 +1,69 @@
+# The EHR create with a canonical-XML EHR_STATUS, for a service that cannot
+# process an XML request payload for the EHR resource. Whether a service
+# processes XML payloads is its choice, so a statement selects this document.
+# Every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: EHR create with an XML payload, refused
+  version: 0.1.0
+  description: >-
+    Creating an EHR with Content-Type application/xml on both wire forms of
+    the create, against a service that cannot process XML request payloads.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_ehr-xml_unsupported_media
+    summary: An EHR create with an XML EHR_STATUS is refused as unsupported media
+    description: >-
+      Creates an EHR with a client-supplied ehr_id and then without one, each
+      time sending an EHR_STATUS as application/xml. Both creates are refused
+      with 415 Unsupported Media Type, and no EHR exists under the
+      client-supplied ehr_id afterwards.
+    x-veredictum-cite: &xml_payload_refused
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "If the service cannot process the request payload as XML format, it MUST respond with HTTP status code `415 Unsupported Media Type`."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create-with-id
+        description: Create the EHR with the client-supplied ehr_id and an XML EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        requestBody:
+          contentType: application/xml
+          payload: &xml_status |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ehr_status xmlns="http://schemas.openehr.org/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" archetype_node_id="openEHR-EHR-EHR_STATUS.generic.v1">
+              <name><value>EHR status</value></name>
+              <archetype_details><archetype_id><value>openEHR-EHR-EHR_STATUS.generic.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details>
+              <subject xsi:type="PARTY_SELF"/>
+              <is_queryable>true</is_queryable>
+              <is_modifiable>true</is_modifiable>
+            </ehr_status>
+        successCriteria:
+          - condition: $statusCode == 415
+      - stepId: create
+        description: Create an EHR without an ehr_id and with the same XML EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        requestBody:
+          contentType: application/xml
+          payload: *xml_status
+        successCriteria:
+          - condition: $statusCode == 415
+      - stepId: read-back
+        description: No EHR exists under the client-supplied ehr_id.
+        operationId: $sourceDescriptions.ehr.ehr_get_by_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 404
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/404_unknown_ehr_id.yaml
+              section: description
+              quote: "`404 Not Found` is returned when an EHR with `ehr_id` does not exist."

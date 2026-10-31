@@ -1,0 +1,116 @@
+# The EHR creates with a canonical-XML EHR_STATUS, for a service that
+# processes an XML request payload for the EHR resource: the accepting arm of
+# the `ehr-xml-write` option, whose refused arm is `ehr_xml_write_refused`.
+# Every quote is copied verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: EHR create with an XML payload
+  version: 0.1.0
+  description: >-
+    Creating an EHR on both wire forms of the create with an EHR_STATUS sent
+    as canonical XML, then reading the EHR_STATUS back as JSON. No published
+    document schema reaches the EHR_STATUS type (upstream report #759): the
+    one global element of a type it extends is `items` (LOCATABLE) in the
+    ITS-XML documents/Structure.xsd, and EHR_STATUS is in Ehr.xsd, which only
+    the 2.0.0 lineage publishes. Each body is therefore an `items` element
+    typed EHR_STATUS with xsi:type in the namespace of that lineage, and each
+    workflow rests on report #759.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: create_ehr-xml-with_id
+    summary: An EHR created with a client-supplied ehr_id and an XML EHR_STATUS uses that EHR_STATUS
+    description: >-
+      Creates an EHR under a client-supplied ehr_id, sending an EHR_STATUS as
+      canonical XML that is not queryable, then reads the EHR_STATUS back as
+      JSON. It is the EHR_STATUS sent: not queryable, modifiable, and named
+      as the XML body named it.
+    x-veredictum-cite: &xml_conforms
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "When resources are serialized in **canonical XML** format, both request payloads and responses MUST conform to the [published XSDs](https://specifications.openehr.org/releases/ITS-XML/latest)."
+      report: 759
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - stepId: create
+        description: Create the EHR with the client-supplied ehr_id and an XML EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Content-Type, in: header, value: application/xml }
+        requestBody:
+          contentType: application/xml
+          payload: &xml_status |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <items xmlns="http://schemas.openehr.org/v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="EHR_STATUS" archetype_node_id="openEHR-EHR-EHR_STATUS.generic.v1"><name><value>EHR status from XML</value></name><archetype_details><archetype_id><value>openEHR-EHR-EHR_STATUS.generic.v1</value></archetype_id><rm_version>1.1.0</rm_version></archetype_details><subject/><is_queryable>false</is_queryable><is_modifiable>true</is_modifiable></items>
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: &ehr_created
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: read-status
+        description: Read the latest EHR_STATUS of the created EHR as JSON.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria: &status_as_sent
+          - condition: $statusCode == 200
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/200_EHR_STATUS_retrieved.yaml
+              section: description
+              quote: "`200 OK` is returned when the requested EHR_STATUS is successfully retrieved."
+          - condition: $response.body#/is_queryable == false
+            x-veredictum-cite: &status_supplied
+              source: specs/openehr/RM/docs/ehr/master04-ehr_package.adoc
+              section: EHR Creation
+              quote: "The initial creation operation has to supply sufficient parameters for creation of these two objects, including:"
+          - condition: $response.body#/is_modifiable == true
+            x-veredictum-cite: *status_supplied
+          - context: $response.body#/name/value
+            type: regex
+            condition: '^EHR status from XML$'
+            x-veredictum-cite: *status_supplied
+
+  - workflowId: create_ehr-xml
+    summary: An EHR created with a server-assigned ehr_id and an XML EHR_STATUS uses that EHR_STATUS
+    description: >-
+      Creates an EHR without naming an ehr_id, sending the same canonical XML
+      EHR_STATUS and asking for the full representation as JSON, then reads
+      the EHR_STATUS back as JSON under the ehr_id the server assigned. It is
+      the EHR_STATUS sent.
+    x-veredictum-cite: *xml_conforms
+    steps:
+      - stepId: create
+        description: Create an EHR with the XML EHR_STATUS and keep the ehr_id the server assigned.
+        operationId: $sourceDescriptions.ehr.ehr_create
+        parameters:
+          - { name: Content-Type, in: header, value: application/xml }
+          - { name: Prefer, in: header, value: return=representation }
+          - { name: Accept, in: header, value: application/json }
+        requestBody:
+          contentType: application/xml
+          payload: *xml_status
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite: *ehr_created
+          - condition: $response.body#/ehr_id/value != null
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "with the full resource in the body when `Prefer` header is `return=representation`"
+        outputs:
+          ehr_id: $response.body#/ehr_id/value
+      - stepId: read-status
+        description: Read the latest EHR_STATUS of the created EHR as JSON.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $steps.create.outputs.ehr_id }
+          - { name: Accept, in: header, value: application/json }
+        successCriteria: *status_as_sent

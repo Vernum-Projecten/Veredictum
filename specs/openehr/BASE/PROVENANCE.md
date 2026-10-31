@@ -1,8 +1,8 @@
 # Vendored openEHR spec docs: BASE
 
 - Source: https://github.com/openEHR/specifications-BASE
-- Ref: Release-1.2.0
-- Commit: `fba868df1fad9fe15ae0483f3e3ac1c3fa94d735`
+- Ref: Release-1.2.0v2
+- Commit: `906441385b7c6cb54f1e281f7417a48381c5f057`
 - License: CC-BY-SA 3.0 Unported — the upstream `LICENSE` is vendored verbatim alongside
   this file, from the same pinned commit. Root reference copies:
   `LICENSE-CC-BY-SA-3.0` / `LICENSE-APACHE-2.0`.

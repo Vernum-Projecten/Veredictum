@@ -33,7 +33,8 @@
 #                         capture directory that is clean before the pass.
 #   UI_E2E_DOCS_SHOTS     when set, the journeys also write the book's
 #                         screenshots into website/book/src/console/img, and
-#                         the console is served in capture mode: every fact a
+#                         the console is served in capture mode over the
+#                         frozen fixtures/console/catalogue: every fact a
 #                         pass measures or mints (the run clock, the probe's
 #                         round trip, the record digest, the signing time, the
 #                         run's id and the address the fixture SUT bound)
@@ -256,7 +257,16 @@ fi
 rm -rf "$ROOT/target/ui-e2e/out"
 mkdir -p "$ROOT/target/ui-e2e/out"
 
-echo "── serving the console on $CONSOLE_ADDR over the repository mounts"
+# A capture pass renders over the frozen fixture catalogue, so a case added to
+# catalogue/ moves no committed capture (#980); every other pass serves the
+# catalogue itself.
+if [[ -n "${UI_E2E_DOCS_SHOTS:-}" ]]; then
+  CATALOGUE_ROOT="fixtures/console/catalogue"
+else
+  CATALOGUE_ROOT="catalogue"
+fi
+
+echo "── serving the console on $CONSOLE_ADDR over $CATALOGUE_ROOT"
 # The bundle carries content-hashed names (#450) and the server reads them back
 # from the hash file cargo-leptos wrote beside the binary it built. The copy
 # served here runs from target/ui-e2e, so the file is named by absolute path
@@ -269,7 +279,7 @@ LEPTOS_SITE_ADDR="$CONSOLE_ADDR" \
 LEPTOS_OUTPUT_NAME="veredictum-console" \
 LEPTOS_HASH_FILES="true" \
 LEPTOS_HASH_FILE_NAME="$ROOT/target/debug/hash.txt" \
-VEREDICTUM_ROOT="catalogue" \
+VEREDICTUM_ROOT="$CATALOGUE_ROOT" \
 VEREDICTUM_SPECS="specs/openehr" \
 VEREDICTUM_OUT="target/ui-e2e/out" \
 VEREDICTUM_ENGINE="$ENGINE_BIN" \

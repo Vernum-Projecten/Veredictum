@@ -242,3 +242,131 @@ fn every_route_tag_is_read_including_a_second_parent() {
         .collect();
     assert_eq!(routed_paths(ROUTER_SHAPE), expected);
 }
+
+/// The catalogue the capture pass renders over (#980), relative to the
+/// repository root: a frozen subset, so a case added to `catalogue/` moves no
+/// committed capture.
+const CAPTURE_CATALOGUE: &str = "fixtures/console/catalogue";
+
+/// The capture pass serves the fixture catalogue and every other pass serves
+/// the real one: the harness picks the root once, from the capture flag, and
+/// hands the console nothing else.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+)]
+#[test]
+fn the_capture_pass_serves_the_fixture_catalogue() -> Result<(), std::io::Error> {
+    let script = std::fs::read_to_string(crate::support::repo_root().join("scripts/ui-e2e.sh"))?;
+    let selection = format!(
+        "if [[ -n \"${{UI_E2E_DOCS_SHOTS:-}}\" ]]; then\n  CATALOGUE_ROOT=\"{CAPTURE_CATALOGUE}\"\nelse\n  CATALOGUE_ROOT=\"catalogue\"\nfi\n"
+    );
+    assert!(
+        script.contains(&selection),
+        "scripts/ui-e2e.sh must pick {CAPTURE_CATALOGUE} under UI_E2E_DOCS_SHOTS and catalogue otherwise"
+    );
+    let roots: Vec<&str> = script
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with("VEREDICTUM_ROOT="))
+        .collect();
+    assert_eq!(
+        roots,
+        ["VEREDICTUM_ROOT=\"$CATALOGUE_ROOT\" \\"],
+        "the console's catalogue root is the selected one, and only that"
+    );
+    Ok(())
+}
+
+/// The fixture loads exactly as the console's startup reads a catalogue, with
+/// citations resolved and no gate finding, and carries what the captured
+/// screens and the capture journeys need: the four capability folders the
+/// scope journey checks for, and an `ehr` folder whose run fills more than
+/// one screen of result rows.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+)]
+#[test]
+fn the_capture_catalogue_loads_clean_with_realistic_counts()
+-> Result<(), Box<dyn std::error::Error>> {
+    let repo = crate::support::repo_root();
+    let listing = veredictum::pipeline::listing::read(
+        &repo.join(CAPTURE_CATALOGUE),
+        Some(&repo.join("specs/openehr")),
+    )?;
+    let findings: Vec<String> = listing.findings.iter().map(ToString::to_string).collect();
+    assert!(
+        findings.is_empty(),
+        "the capture catalogue must load with no gate finding:\n  {}",
+        findings.join("\n  ")
+    );
+    let capabilities = listing.capabilities();
+    let folders: Vec<&str> = capabilities.keys().copied().collect();
+    assert_eq!(folders, ["ehr", "ehr_status", "query", "system"]);
+    let ehr_cases: usize = capabilities
+        .get("ehr")
+        .map(|documents| documents.iter().map(|d| d.workflows.len()).sum())
+        .unwrap_or_default();
+    assert!(
+        ehr_cases > 30,
+        "the result-row journey needs more than 30 ehr cases, found {ehr_cases}"
+    );
+    Ok(())
+}
+
+/// Nothing the fixture reads lies under `catalogue/`: every document it
+/// carries is its own file, and every relative `url:` a document names
+/// resolves inside the fixture or the vendored specification trees. That is
+/// what keeps a catalogue change from moving a capture.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ?"
+)]
+#[test]
+fn a_catalogue_change_cannot_reach_the_capture_catalogue() -> Result<(), std::io::Error> {
+    let repo = crate::support::repo_root().canonicalize()?;
+    let fixture = repo.join(CAPTURE_CATALOGUE);
+    let catalogue = repo.join("catalogue");
+    let specs = repo.join("specs");
+    let mut pending = vec![fixture.clone()];
+    let mut escapes = Vec::new();
+    let mut urls = 0_u32;
+    while let Some(dir) = pending.pop() {
+        for entry in std::fs::read_dir(&dir)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                pending.push(path);
+                continue;
+            }
+            if path.extension().is_none_or(|ext| ext != "yaml") {
+                continue;
+            }
+            for line in std::fs::read_to_string(&path)?.lines() {
+                let line = line.trim().trim_start_matches("- ").trim();
+                let Some(url) = line.strip_prefix("url:") else {
+                    continue;
+                };
+                let url = url.trim().trim_matches('"');
+                if url.contains("://") {
+                    continue;
+                }
+                urls += 1;
+                let base = path.parent().unwrap_or(&fixture);
+                let target = base.join(url).canonicalize()?;
+                if target.starts_with(&catalogue)
+                    || !(target.starts_with(&fixture) || target.starts_with(&specs))
+                {
+                    escapes.push(format!("{}: {url}", path.display()));
+                }
+            }
+        }
+    }
+    assert!(urls > 0, "the fixture's documents name their sources");
+    assert!(
+        escapes.is_empty(),
+        "the capture catalogue reaches outside itself:\n  {}",
+        escapes.join("\n  ")
+    );
+    Ok(())
+}

@@ -1,0 +1,30 @@
+# Eighteen EHRs created
+# against one shared server state; after the last row no two share an
+# ehr_id.
+workflow: ehr/create_ehr-distinct_ids
+iteration: single_pass
+aggregate:
+  - distinct: ehr_id
+    x-veredictum-cite:
+      source: specs/openehr/RM/docs/UML/classes/ehr.adoc
+      section: EHR Class
+      quote: "The unique identifier of this EHR."
+rows:
+  - { load_index: 1 }
+  - { load_index: 2 }
+  - { load_index: 3 }
+  - { load_index: 4 }
+  - { load_index: 5 }
+  - { load_index: 6 }
+  - { load_index: 7 }
+  - { load_index: 8 }
+  - { load_index: 9 }
+  - { load_index: 10 }
+  - { load_index: 11 }
+  - { load_index: 12 }
+  - { load_index: 13 }
+  - { load_index: 14 }
+  - { load_index: 15 }
+  - { load_index: 16 }
+  - { load_index: 17 }
+  - { load_index: 18 }

@@ -1,0 +1,21 @@
+# The console capture fixture's copy of the catalogue file of this name,
+# narrowed to the documents this fixture carries. Frozen on purpose: the
+# capture pass renders over this tree so a catalogue change moves no capture.
+# No openEHR spec governs this — our own design.
+reports:
+  352:
+    title: ITS-REST declares the Simplified Formats for EHR_STATUS, FOLDER and the
+      PARTY kinds, which the Simplified Formats specification never maps
+    state: open
+  661:
+    title: 'RM: REVISION_HISTORY.items is most-recent-first in the class purpose and
+      most-recent-last everywhere else'
+    state: open
+  673:
+    title: 'ITS-REST: return=identifier is a SHOULD in one section and "never 204"
+      with no keyword in another'
+    state: open
+  759:
+    title: 'ITS-REST: the Simplified Formats and canonical XML chapters require what
+      they leave undefined'
+    state: open

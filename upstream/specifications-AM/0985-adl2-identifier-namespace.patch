@@ -1,0 +1,68 @@
+diff --git a/docs/ADL2/master07.05-adl_identification.adoc b/docs/ADL2/master07.05-adl_identification.adoc
+--- a/docs/ADL2/master07.05-adl_identification.adoc
++++ b/docs/ADL2/master07.05-adl_identification.adoc
+@@ -5,7 +5,7 @@
+ [source, adl]
+ --------
+ archetype (adl_version=2.4.0; rm_release=1.0.3; provenance_id=15E82D77-7DB7-4F70-8D8E-EED6FF241B2D; build_uid=E163E472-3E90-409C-9803-0668A7DA48CE; generated; controlled)
+-    openEHR-EHR-OBSERVATION.haematology_result.v0.1.9
++    com.ehrvendor::openEHR-EHR-OBSERVATION.haematology_result.v0.1.9
+ --------
+ 
+ === ADL Version Indicator
+@@ -51,18 +51,18 @@
+ 
+ === Human Readable Archetype Identifier
+ 
+-The archetype identifier may include a namespace, in the form of a reverse domain name, which denotes the original authoring organisation. The lack of a namespace in the identifier indicates an ad hoc, uncontrolled artefact, not formally associated with any organisation, typical for experimental archetypes, and pre-ADL 1.5 archetypes not yet upgraded to have a namespace. The main part of the identifier is multi-axial concept identifier.
++The archetype identifier always includes a namespace, in the form of a reverse domain name, which denotes the organisation that created the artefact, as the {openehr_base_artefact_identification}[openEHR Artefact Identification Specification^] requires. Only a legacy (ADL 1.4) identifier has no namespace, and an archetype acquires one when it is migrated to ADL 2. The main part of the identifier is multi-axial concept identifier.
+ 
+-A typical identification section for an ad hoc archetype is as follows:
++A typical identification section for an archetype created by a vendor is as follows:
+ 
+ [source, adl]
+ --------
+ archetype (adl_version=2.4.0; rm_release=1.0.2)
+-    openEHR-EHR-OBSERVATION.haematology_result.v0.1.9
++    com.ehrvendor::openEHR-EHR-OBSERVATION.haematology_result.v0.1.9
+ --------
+ 
+ [.deprecated]
+-*Deprecated*: In ADL 1.4 and transitional forms of ADL 1.5, archetype identifiers included only a single version number, and this typically started at 1. Tools that deal with older archetypes should accept these identifiers, and convert the version part to 'v1.0.0' or any other appropriate identifier, obeying the openEHR Artefact Knowledge Identification specification.
++*Deprecated*: In ADL 1.4 and transitional forms of ADL 1.5, archetype identifiers included only a single version number, and this typically started at 1. Tools that deal with older archetypes should accept these identifiers, and convert the version part to 'v1.0.0' or any other appropriate identifier and assign a namespace, obeying the {openehr_base_artefact_identification}[openEHR Artefact Identification Specification^].
+ 
+ The multi-axial archetype identifier identifies archetypes in a global concept space within a given namespace. It is also known as an 'ontological' identifier, since the concept space can be understood as an ontology of informational concepts on which the archetypes are based. The syntax of the identifier is described in the {openehr_base_artefact_identification}[openEHR Artefact Identification Specification^]. The structure of the concept space is essentially two-level, with the first level being a reference model class (e.g. openEHR `OBSERVATION` class) and the second being a domain concept (e.g. 'haematology result').
+ 
+@@ -77,7 +77,7 @@
+ 
+ === Version Identifiers
+ 
+-ADL 2 Archetypes contain 3-part version identifiers, with optional qualifiers, following the openEHR Archetype Identification specification. Examples below:
++ADL 2 Archetypes contain 3-part version identifiers, with optional qualifiers, following the {openehr_base_artefact_identification}[openEHR Artefact Identification Specification^]. Examples below:
+ 
+ [source, adl]
+ --------
+diff --git a/docs/Overview/master04-semantic_overview.adoc b/docs/Overview/master04-semantic_overview.adoc
+--- a/docs/Overview/master04-semantic_overview.adoc
++++ b/docs/Overview/master04-semantic_overview.adoc
+@@ -28,7 +28,7 @@
+ 
+ Namespacing of archetypes has an important practical consequence: differently namespaced archetypes can co-exist within the same Library workspace (see below for definition). This situation can come about due to archetypes being transferred or forked from an original custodian to another.
+ 
+-An Archetype HRID may legally have no namespace. This means it is uncontrolled and not managed by any organisation.
++An Archetype HRID always has a namespace, that of the organisation that created the artefact. Only a legacy (ADL 1.4) identifier has no namespace.
+ 
+ The last part of the archetype identifier is the version. Logical archetype identifiers include the major version i.e. first number of a 3-part version (e.g. 1.5.0), on the basis that a change in major version number is generally understood in IT to be a breaking change to the artefact. Accordingly, different major versions are considered different artefacts from a computational point of view. The full version can also be used to construct an identifier useful for physical resources, e.g. files or version system references.
+ 
+diff --git a/docs/UML/classes/org.openehr.am.aom2.archetype_hrid.adoc b/docs/UML/classes/org.openehr.am.aom2.archetype_hrid.adoc
+--- a/docs/UML/classes/org.openehr.am.aom2.archetype_hrid.adoc
++++ b/docs/UML/classes/org.openehr.am.aom2.archetype_hrid.adoc
+@@ -12,7 +12,7 @@
+ ^h|*Signature*
+ ^h|*Meaning*
+ 
+-h|*0..1*
++h|*1..1*
+ |*namespace*: `link:/releases/BASE/{base_release}/foundation_types.html#_string_class[String^]`
+ a|Reverse domain name namespace identifier.
+ 

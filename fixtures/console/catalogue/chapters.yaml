@@ -1,0 +1,73 @@
+# The console capture fixture's copy of the catalogue file of this name,
+# narrowed to the documents this fixture carries. Frozen on purpose: the
+# capture pass renders over this tree so a catalogue change moves no capture.
+# No openEHR spec governs this — our own design.
+chapters:
+- chapter: ehr
+  title: EHR
+  folders:
+  - folder: ehr
+    title: EHR
+    sections:
+    - section: create-and-read
+      title: Create and read
+    - section: committal-headers
+      title: Committal headers
+    - section: bulk-load
+      title: Bulk load
+  - folder: ehr_status
+    title: EHR_STATUS
+    sections:
+    - section: read
+      title: Read
+    - section: update
+      title: Update
+    - section: versioning-and-history
+      title: Versioning and history
+    - section: flags
+      title: Flags
+- chapter: query
+  title: Query
+  folders:
+  - folder: query
+    title: AQL and stored queries
+    sections:
+    - section: ad-hoc-aql-execution
+      title: Ad-hoc AQL execution
+    - section: stored-queries
+      title: Stored queries
+    - section: refusals
+      title: Refusals
+- chapter: system
+  title: System
+  folders:
+  - folder: system
+    title: System
+    sections:
+    - section: options
+      title: OPTIONS
+options:
+  ehr-xml-read:
+    theme: canonical-xml
+    tier: options
+  ehr-xml-write:
+    theme: canonical-xml
+    tier: options
+  ehr-status-xml-read:
+    theme: canonical-xml
+    tier: options
+  ehr-status-xml-write:
+    theme: canonical-xml
+    tier: options
+  ehr-status-flat-write:
+    theme: simplified-formats
+    tier: spec-boundary
+  ehr-status-structured-write:
+    theme: simplified-formats
+    tier: spec-boundary
+  ehr-status-flat-read:
+    theme: simplified-formats
+    tier: spec-boundary
+  ehr-status-structured-read:
+    theme: simplified-formats
+    tier: spec-boundary

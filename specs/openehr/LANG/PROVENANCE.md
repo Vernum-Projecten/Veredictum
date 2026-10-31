@@ -1,8 +1,8 @@
 # Vendored openEHR spec docs: LANG
 
 - Source: https://github.com/openEHR/specifications-LANG
-- Ref: Release-1.0.0
-- Commit: `096932fc6c8fb90f7e5bb52f1a118b4a0234e916`
+- Ref: Release-1.0.0v1
+- Commit: `2d28dedf2040a1c0137d8d877526d4282a1de229`
 - License: CC-BY-SA 3.0 Unported — the upstream `LICENSE` is vendored verbatim alongside
   this file, from the same pinned commit. Root reference copies:
   `LICENSE-CC-BY-SA-3.0` / `LICENSE-APACHE-2.0`.

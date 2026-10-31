@@ -1,0 +1,128 @@
+# The EHR_STATUS family read in canonical XML, for a service that serves it
+# in XML: the served arm of the `ehr-status-xml-read` option, whose refused
+# arm is `ehr_status_xml_not_acceptable.arazzo.yaml`. Every quote is copied
+# verbatim from the named vendored file.
+arazzo: 1.1.0
+info:
+  title: EHR_STATUS reads in canonical XML
+  version: 0.1.0
+  description: >-
+    Reading an EHR_STATUS, its versions, its VERSIONED_EHR_STATUS and its
+    revision history with Accept application/xml from a service that
+    serves them in canonical XML.
+sourceDescriptions:
+  - name: ehr
+    url: ../../../specs/rest-oas/ehr-validation.openapi.yaml
+    type: openapi
+workflows:
+  - workflowId: get_ehr_status-xml
+    summary: An EHR_STATUS read with Accept application/xml is answered in XML
+    description: >-
+      Creates an EHR, then retrieves the EHR_STATUS asking for canonical XML.
+      The answer is 200 with Content-Type application/xml.
+    x-veredictum-cite: &served
+      source: specs/openehr/ITS-REST/specifications/docs/overview/Resources.md
+      section: XML Format
+      quote: "Proper header `Content-Type: application/xml` MUST be present in the response of the service unless the response has no content body (HTTP status code `204`)."
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - &create
+        stepId: create
+        description: Create the EHR with the client-supplied ehr_id and the default EHR_STATUS.
+        operationId: $sourceDescriptions.ehr.ehr_create_with_id
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+        successCriteria:
+          - condition: $statusCode == 201
+            x-veredictum-cite:
+              source: specs/openehr/ITS-REST/specifications/responses/201_EHR.yaml
+              section: description
+              quote: "`201 Created` is returned when the EHR has been successfully created,"
+      - stepId: get
+        description: Retrieve the EHR_STATUS in canonical XML.
+        operationId: $sourceDescriptions.ehr.ehr_status_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/xml'
+
+  - workflowId: get_versioned_ehr_status-xml
+    summary: A VERSIONED_EHR_STATUS read with Accept application/xml is answered in XML
+    description: >-
+      Creates an EHR, then retrieves the VERSIONED_EHR_STATUS asking for
+      canonical XML. The answer is 200 with Content-Type application/xml.
+    x-veredictum-cite: *served
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the VERSIONED_EHR_STATUS in canonical XML.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_get
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/xml'
+
+  - workflowId: get_versioned_ehr_status_version-xml
+    summary: A VERSION read at a time with Accept application/xml is answered in XML
+    description: >-
+      Creates an EHR, then retrieves the latest VERSION of the EHR_STATUS
+      asking for canonical XML. The answer is 200 with Content-Type
+      application/xml.
+    x-veredictum-cite: *served
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the latest VERSION of the EHR_STATUS in canonical XML.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_version_get_at_time
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/xml'
+
+  - workflowId: get_versioned_ehr_status-revision_history-xml
+    summary: A revision history read with Accept application/xml is answered in XML
+    description: >-
+      Creates an EHR, then retrieves the revision history of the
+      VERSIONED_EHR_STATUS asking for canonical XML. The answer is 200 with
+      Content-Type application/xml.
+    x-veredictum-cite: *served
+    inputs:
+      type: object
+      properties:
+        ehr_id: { type: string, format: uuid }
+    steps:
+      - *create
+      - stepId: get
+        description: Retrieve the revision history of the VERSIONED_EHR_STATUS in canonical XML.
+        operationId: $sourceDescriptions.ehr.versioned_ehr_status_revision_history
+        parameters:
+          - { name: ehr_id, in: path, value: $inputs.ehr_id }
+          - { name: Accept, in: header, value: application/xml }
+        successCriteria:
+          - condition: $statusCode == 200
+          - context: $response.header.Content-Type
+            type: regex
+            condition: '^application/xml'
