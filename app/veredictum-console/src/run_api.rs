@@ -467,6 +467,11 @@ const PGP_KEY_CAP_BYTES: u64 = 65_536;
 #[cfg(feature = "ssr")]
 pub const IDENTITY_LABEL_CAP_BYTES: u64 = 1_024;
 
+/// A document-id filter, capped far above any document id the catalogue
+/// carries: the preview runs one substring match per document with it.
+#[cfg(feature = "ssr")]
+pub const FILTER_CAP_BYTES: u64 = 256;
+
 /// Every input cap a `#[server]` function in this crate enforces.
 ///
 /// The router sizes ONE transport cap for all of them, from the largest, so
@@ -480,6 +485,7 @@ pub const SERVER_FN_INPUT_CAPS: &[u64] = &[
     DIGEST_PREFIX_CAP_BYTES,
     PGP_KEY_CAP_BYTES,
     IDENTITY_LABEL_CAP_BYTES,
+    FILTER_CAP_BYTES,
 ];
 
 /// The postures the flat form declares, or the refusal naming the one field
@@ -926,6 +932,21 @@ pub mod read {
         Ok(())
     }
 
+    /// Refuses a document-id filter past its cap (#533).
+    ///
+    /// # Errors
+    /// [`ConsoleError::TooLong`] naming the filter, its size and the cap.
+    pub fn check_filter(filter: &str) -> Result<(), ConsoleError> {
+        if count(filter.len()) > super::FILTER_CAP_BYTES {
+            return Err(ConsoleError::too_long(
+                "filter",
+                filter.len(),
+                super::FILTER_CAP_BYTES,
+            ));
+        }
+        Ok(())
+    }
+
     /// Forgets the probe answer this submitter's draft keeps, so a refused
     /// newer probe never leaves an older answer on show.
     ///
@@ -1046,6 +1067,7 @@ pub mod read {
         filter: Option<String>,
         postures: &super::PostureForm,
     ) -> Result<Option<ClaimSummary>, ConsoleError> {
+        check_filter(filter.as_deref().unwrap_or_default())?;
         let summary = statement_json
             .as_deref()
             .map(|body| {
@@ -1148,8 +1170,11 @@ pub mod read {
     /// drive-time selection.
     ///
     /// # Errors
+    /// [`ConsoleError::TooLong`] for a filter past [`super::FILTER_CAP_BYTES`],
+    /// checked before any document is matched, and
     /// [`ConsoleError::CatalogueUnavailable`] when the catalogue is absent.
     pub fn scope_preview(state: &ConsoleState, filter: &str) -> Result<ScopePreview, ConsoleError> {
+        check_filter(filter)?;
         let listing = state.listing()?;
         let mut chapters: std::collections::BTreeMap<String, u64> =
             std::collections::BTreeMap::new();

@@ -243,6 +243,62 @@ async fn the_scope_reads_come_off_the_committed_trees() -> Result<(), Box<dyn st
     Ok(())
 }
 
+/// A filter past its cap is refused before any document is matched, by the
+/// endpoint's own sentence, and a filter exactly at the cap is read (#533).
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test]
+async fn a_filter_past_its_cap_is_refused_by_the_endpoint() -> Result<(), Box<dyn std::error::Error>>
+{
+    use veredictum_console::error::ConsoleError;
+    use veredictum_console::run_api::{FILTER_CAP_BYTES, PostureForm, fns};
+
+    let scratch = assert_fs::TempDir::new()?;
+    // No catalogue: a refusal that came after the match would name the
+    // missing catalogue instead of the cap.
+    let state = crate::support::state(
+        scratch.path(),
+        crate::support::absent("no catalogue: the cap is checked first"),
+    );
+    let _owner = provide(&state);
+    let cap = usize::try_from(FILTER_CAP_BYTES)?;
+    let past = "x".repeat(cap + 1);
+    let too_long = ConsoleError::TooLong {
+        field: String::from("filter"),
+        bytes: FILTER_CAP_BYTES + 1,
+        cap: FILTER_CAP_BYTES,
+    };
+
+    let refused = fns::fetch_scope_preview(past.clone())
+        .await
+        .expect_err("a filter past the cap is refused");
+    assert_eq!(refused, too_long);
+    assert_eq!(
+        refused.to_string(),
+        format!(
+            "the filter is {} bytes; the cap is {FILTER_CAP_BYTES}",
+            cap + 1
+        )
+    );
+
+    let at_cap = fns::fetch_scope_preview("x".repeat(cap))
+        .await
+        .expect_err("no catalogue is mounted");
+    assert!(
+        matches!(at_cap, ConsoleError::CatalogueUnavailable { .. }),
+        "a filter at the cap reaches the catalogue: {at_cap:?}"
+    );
+
+    // The saved filter is the one a run selects by, so it carries the same cap.
+    let saved = fns::save_scope(None, Some(past), PostureForm::default())
+        .await
+        .expect_err("a saved filter past the cap is refused");
+    assert_eq!(saved, too_long);
+    Ok(())
+}
+
 /// The connect step stores what it probed, and the probe's own answer is the
 /// server's verbatim words — never a judgement.
 ///
