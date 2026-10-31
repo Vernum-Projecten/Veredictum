@@ -95,7 +95,6 @@ gaps:
   - { api: definition, operation: definition_template_adl2_upload, header: Accept, value: text/plain, issue: 714 }
   - { api: definition, operation: definition_template_adl2_upload, header: Prefer, value: return=identifier, issue: 714 }
   - { api: definition, operation: definition_template_adl2_upload, header: Prefer, value: return=representation, issue: 714 }
-  - { api: definition, operation: definition_template_adl2_upload, status: "409", issue: 714 }
   - { api: definition, operation: definition_template_adl2_version_get, header: Accept, value: application/json, issue: 714 }
   - { api: definition, operation: definition_template_adl2_version_get, header: Accept, value: application/xml, issue: 714 }
   - { api: definition, operation: definition_template_adl2_version_get, status: "200", issue: 714 }

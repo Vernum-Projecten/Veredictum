@@ -822,6 +822,9 @@ documents:
   content_item_unmatched_accepted: { formats: [canonical-json] }
   content_item_unmatched_refused: { formats: [canonical-json] }
   dv_coded_text_ext_term_accepted: { formats: [canonical-json] }
+  adl2_dv_count: { formats: [canonical-json] }
+  adl2_dv_interval_count: { formats: [canonical-json] }
+  adl2_item_tree: { formats: [canonical-json] }
   content_observation: { formats: [canonical-json] }
   contribution_create: { formats: [canonical-json] }
   contribution_create_refused: { formats: [canonical-json] }
