@@ -1884,7 +1884,12 @@ enforced by `validate` and the evaluator. Every rule stays inside what Arazzo
    should have produced the output failed only `level: should` criteria:
    then the row takes the warning outcome of the first of them, naming it
    (rule 10, #674), because the instrument did judge the exchange. `simple`
-   compares against integers, booleans and `null`.
+   compares against integers, booleans and `null`. A whole-body
+   `$response.body`, with no JSON Pointer, reads a body whose `Content-Type`
+   is not a JSON media type (`application/json` or a `+json` suffix) as its
+   text, so a criterion can judge an ADL or plain-text answer. A body labelled
+   JSON that does not parse, a body with no `Content-Type`, and a pointer into
+   a text body stay unreadable.
 7. **Generated inputs.** An input of `format: uuid` with no supplied value is a
    fresh random UUID per row, recorded in the results so a replay reuses it.
 8. **Evaluation errors.** Arazzo says an evaluation error evaluates to *fail*.
