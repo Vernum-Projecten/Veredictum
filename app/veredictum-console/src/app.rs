@@ -13,7 +13,7 @@ use leptos::prelude::{
 };
 use leptos_meta::{Link, Meta, MetaTags, Title, provide_meta_context};
 use leptos_router::{
-    ParamSegment, StaticSegment,
+    ParamSegment, SsrMode, StaticSegment,
     components::{ParentRoute, Route, Router, Routes},
 };
 
@@ -112,7 +112,16 @@ pub fn App() -> impl IntoView {
                         view=Case
                     />
                     <Route path=StaticSegment("run") view=Run />
-                    <Route path=(StaticSegment("run"), StaticSegment("connect")) view=Connect />
+                    // In order (`ssr/23_ssr_modes`): the connect step must work
+                    // without the client bundle, and an out-of-order Suspense
+                    // still pending at its first poll streams a chunk only a
+                    // script swaps in. Partially blocked was measured to race
+                    // the same way, so every Suspense here renders in place.
+                    <Route
+                        path=(StaticSegment("run"), StaticSegment("connect"))
+                        view=Connect
+                        ssr=SsrMode::InOrder
+                    />
                     <Route path=(StaticSegment("run"), StaticSegment("scope")) view=Scope />
                     <Route path=(StaticSegment("run"), StaticSegment("live")) view=Live />
                     // A run's own address (#386). The same view: the bare path

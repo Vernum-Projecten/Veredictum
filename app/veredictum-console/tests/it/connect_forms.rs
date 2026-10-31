@@ -421,3 +421,56 @@ async fn a_failed_draft_store_returns_to_the_connect_step_naming_the_store()
     assert_eq!(refused.location, Some(ConnectRefusal::Store.path()));
     assert_refused_page(&bound, refused.location.as_deref()).await
 }
+/// Fetches a page as a browser without script does: the whole response, with
+/// nothing run on it.
+async fn page(bound: &Bound, address: &str) -> Result<String, Box<dyn std::error::Error>> {
+    Ok(client()?
+        .get(format!("{}{address}", bound.origin))
+        .header("accept", HTML)
+        .send()
+        .await?
+        .text()
+        .await?)
+}
+
+/// Holds the identity inputs to the markup a browser without script renders:
+/// both present, and both ahead of the first streamed chunk. A streamed
+/// Suspense arrives as a `<template>` only a script swaps in, so an input
+/// inside one never exists for such a browser.
+fn assert_identity_inline(address: &str, html: &str) {
+    let streamed = html.find("<template").unwrap_or(html.len());
+    for id in ["id=\"sut-name\"", "id=\"sut-version\""] {
+        let at = html.find(id);
+        assert!(
+            at.is_some_and(|at| at < streamed),
+            "{address}: {id} is not in the markup a browser without script renders"
+        );
+    }
+}
+
+/// The connect step's identity inputs are in the initial HTML on every
+/// address it answers at, so the step works without script on all of them.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[tokio::test(flavor = "multi_thread")]
+async fn the_identity_inputs_render_without_script_on_every_connect_address()
+-> Result<(), Box<dyn std::error::Error>> {
+    let bound = bind(Posture::Local).await?;
+    let target = fixture()?;
+    assert_identity_inline("/run/connect", &page(&bound, "/run/connect").await?);
+
+    let form = probe_form(&target, "typed-cdr", AuthChoice::None, AuthChoice::None);
+    post(&bound, <ProbeAndSave as ServerFn>::PATH, HTML, form).await?;
+    let probed = page(&bound, PROBED_PATH).await?;
+    assert_identity_inline(PROBED_PATH, &probed);
+    assert!(
+        probed.contains("value=\"typed-cdr\""),
+        "{PROBED_PATH}: the stored label is the one rendered"
+    );
+
+    let refused = ConnectRefusal::Label.path();
+    assert_identity_inline(&refused, &page(&bound, &refused).await?);
+    Ok(())
+}
