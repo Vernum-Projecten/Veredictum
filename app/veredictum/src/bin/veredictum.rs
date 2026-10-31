@@ -539,8 +539,9 @@ enum Command {
     /// specification profile) and `instrument` (the version, and `self-run`).
     /// Each counting badge names the profile in its label, so a development
     /// tally never reads as a released one. A counting badge is green only
-    /// when no row failed or errored: red when a row failed, orange when none
-    /// failed but one errored, grey when nothing passed.
+    /// when no row failed or errored: red when a row counts against the server
+    /// (it failed, or errored with the server or no one named), orange when
+    /// none does but an errored row is inconclusive, grey when nothing passed.
     ///
     /// A `perf-result` draws one, `perf`: the workload in the label and the
     /// knee as the record states it, in a neutral colour, because a knee is a

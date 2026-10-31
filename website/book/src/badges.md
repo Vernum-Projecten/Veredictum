@@ -38,8 +38,8 @@ failed or errored.
 | Colour | `base` and `options` | `warnings` | `profile` |
 |---|---|---|---|
 | green | rows passed, none failed or errored | no warning row | |
-| red | at least one row failed | | |
-| orange | none failed, at least one errored (the instrument could not judge it) | | |
+| red | at least one row counts against the server: it failed, or errored with the server (or no one) named in its record | | |
+| orange | none counts against the server, and at least one errored row is inconclusive (the instrument could not judge it) | | |
 | grey | nothing passed: no rows, or every row skipped | | |
 | yellow | | at least one warning row | |
 | blue | | | `released` |

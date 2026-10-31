@@ -9,3 +9,8 @@
   The GitHub Action takes a `fail-on-inconclusive` input (default `true`);
   with `false`, exit status `3` passes the step and the job summary lists the
   inconclusive rows, while `1` and `2` always fail it.
+- The `base` and `options` badges follow the same attribution: an errored row
+  whose record names the server, or no one, counts against the server and
+  draws the badge red like a failed row; orange is left for a badge whose
+  only red rows are inconclusive. The Markdown summary's note says which
+  errored rows count against the server.

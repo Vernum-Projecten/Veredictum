@@ -1181,10 +1181,11 @@ fn md_summary(out: &mut String, reading: &Reading<'_>, placed: bool) {
         total.passed, total.failed, total.warning, total.errored, total.skipped, total.tests
     );
     out.push_str(
-        "\n> [!NOTE]\n> Only a **failed** row counts against the server. A **warning** row \
-         is a SHOULD the server did not follow, and it never counts against the server. An \
-         **errored** row is one the instrument could not judge, and a **skipped** row was \
-         not run.\n",
+        "\n> [!NOTE]\n> A **failed** row counts against the server. A **warning** row is a \
+         SHOULD the server did not follow, and it never counts against the server. An \
+         **errored** row is inconclusive when its record names the instrument, which could \
+         not judge it, and counts against the server when its record names the server or no \
+         one. A **skipped** row was not run.\n",
     );
 }
 

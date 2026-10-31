@@ -264,6 +264,31 @@ fn a_failed_or_errored_row_is_never_drawn_in_a_passing_colour() {
 }
 
 #[test]
+fn a_server_attributed_errored_row_makes_the_base_badge_red() {
+    for whose in [Some(Whose::Server), None] {
+        let mut results = passing();
+        results
+            .rows
+            .push(row("ehr/create", 2, Status::Errored, whose));
+        let base = badge(&results, BadgeName::Base).unwrap();
+        assert_eq!(base.colour, BadgeColour::Failing, "{whose:?}");
+        assert_eq!(base.message, "3/5 passed \u{b7} 1 errored", "{whose:?}");
+    }
+    let mut inconclusive = passing();
+    inconclusive.rows.push(row(
+        "ehr/create",
+        2,
+        Status::Errored,
+        Some(Whose::Instrument),
+    ));
+    assert_eq!(
+        badge(&inconclusive, BadgeName::Base).unwrap().colour,
+        BadgeColour::Errored,
+        "an inconclusive row alone stays orange"
+    );
+}
+
+#[test]
 fn a_red_row_the_outline_places_nowhere_never_leaves_the_base_badge_green() {
     for (status, whose, colour) in [
         (Status::Failed, Whose::Server, BadgeColour::Failing),

@@ -20,6 +20,7 @@ use std::num::NonZeroU64;
 
 use crate::arazzo::results::{ResultRow, Results, Status, Whose};
 use crate::arazzo::structure::{Formalism, Outline, Place, ReportState, Standing, Theme, Tier};
+use crate::pipeline::arazzo_run::Bearing;
 
 /// The row counts of one group of rows.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -33,8 +34,13 @@ pub struct Tally {
     /// The failed rows whose server did not follow a SHOULD; they never
     /// count against a capability.
     pub warning: usize,
-    /// The rows the instrument could not judge.
+    /// The errored rows: the inconclusive ones, which the instrument could
+    /// not judge, and those whose record names the server or no one, which
+    /// count against the server ([`Tally::errored_against_server`]).
     pub errored: usize,
+    /// The errored rows among [`Tally::errored`] that count against the
+    /// server, as [`crate::pipeline::arazzo_run::Bearing`] reads them.
+    pub errored_against_server: usize,
     /// The rows not run.
     pub skipped: usize,
 }
@@ -59,8 +65,18 @@ impl Tally {
             failed: self.failed.saturating_add(other.failed),
             warning: self.warning.saturating_add(other.warning),
             errored: self.errored.saturating_add(other.errored),
+            errored_against_server: self
+                .errored_against_server
+                .saturating_add(other.errored_against_server),
             skipped: self.skipped.saturating_add(other.skipped),
         }
+    }
+
+    /// The rows that count against the server: the failed ones and the
+    /// errored ones against the server.
+    #[must_use]
+    pub const fn against_server(self) -> usize {
+        self.failed.saturating_add(self.errored_against_server)
     }
 
     /// Counts one more row.
@@ -70,7 +86,12 @@ impl Tally {
             Status::Passed => self.passed += 1,
             Status::Failed if is_warning(row) => self.warning += 1,
             Status::Failed => self.failed += 1,
-            Status::Errored => self.errored += 1,
+            Status::Errored => {
+                self.errored += 1;
+                if Bearing::of(row) == Bearing::AgainstServer {
+                    self.errored_against_server += 1;
+                }
+            }
             Status::Skipped => self.skipped += 1,
         }
     }
@@ -1000,27 +1021,46 @@ mod tests {
             failed: 1,
             warning: 0,
             errored: 1,
+            errored_against_server: 1,
             skipped: 0,
         };
         let b = Tally {
-            tests: 2,
+            tests: 3,
             passed: 0,
             failed: 0,
             warning: 1,
-            errored: 0,
+            errored: 1,
+            errored_against_server: 0,
             skipped: 1,
         };
         assert_eq!(
             a.plus(b),
             Tally {
-                tests: 5,
+                tests: 6,
                 passed: 1,
                 failed: 1,
                 warning: 1,
-                errored: 1,
+                errored: 2,
+                errored_against_server: 1,
                 skipped: 1,
             }
         );
+        assert_eq!(a.plus(b).against_server(), 2);
+    }
+
+    #[test]
+    fn an_errored_row_counts_against_the_server_by_its_attribution() {
+        let tally = Tally::of(&[
+            row("c/a", Status::Errored, Some(Whose::Instrument)),
+            row("c/b", Status::Errored, Some(Whose::Server)),
+            row("c/c", Status::Errored, None),
+        ]);
+        assert_eq!(tally.errored, 3);
+        assert_eq!(
+            tally.errored_against_server, 2,
+            "server-named and unattributed"
+        );
+        assert_eq!(tally.against_server(), 2);
     }
 
     #[test]
