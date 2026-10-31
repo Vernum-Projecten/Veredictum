@@ -7,15 +7,16 @@
 //! wizard's memory is the server-side draft (`run_api`), and the secret
 //! values the connect form collects reach only that draft.
 
+use leptos::form::ActionForm;
 use leptos::prelude::{
     Action, AddAnyAttr, AnyView, ClassAttribute, CollectView, Effect, ElementChild, Get,
     GetUntracked, GlobalAttributes, IntoAny, IntoView, Memo, OnAttribute, OnTargetAttribute,
-    PropAttribute, Resource, RwSignal, ServerFnError, Set, Show, StyleAttribute, Suspend, Suspense,
-    Transition, Update, With, component, view,
+    PropAttribute, Resource, RwSignal, ServerAction, ServerFnError, Set, Show, Signal,
+    StyleAttribute, Suspend, Suspense, Transition, Update, With, component, view,
 };
 use leptos_meta::Title;
 use leptos_router::components::{A, Redirect};
-use leptos_router::hooks::use_params_map;
+use leptos_router::hooks::{use_params_map, use_query_map};
 use leptos_use_clipboard::{UseClipboardReturn, use_clipboard};
 
 use crate::components::field::{BTN_PRIMARY, BTN_SECONDARY, INPUT, LABEL, TEXTAREA};
@@ -23,15 +24,15 @@ use crate::components::format_view::{Pane, inline_error};
 use crate::components::page_header::{Crumb, PageHeader};
 use crate::components::surface::{CARD_PAD, CARD_TITLE};
 use crate::components::toast;
-use crate::identity::{FieldEntry, IdentityAnswer, resolve};
+use crate::identity::{FieldEntry, IdentityAnswer, entered_label, resolve};
 use crate::run_api::fns::{
-    cancel_run, compose_claim, fetch_capability_rows, fetch_draft, fetch_run, fetch_scope_preview,
-    probe_and_save, save_identity, save_profile, save_scope, start_run,
+    ProbeAndSave, SaveIdentity, cancel_run, compose_claim, fetch_capability_rows, fetch_connect,
+    fetch_draft, fetch_run, fetch_scope_preview, save_profile, save_scope, start_run,
 };
 use crate::run_api::{
-    AuthChoice, CapabilityRow, ClaimSummary, ConnectAnswer, CredentialForm, DigestEncoding,
-    PostureForm, ProbeAnswer, RecordedRun, RunScreen, ScopePreview, SigningChoice,
-    SpecProfileChoice, StartOutcome,
+    AuthChoice, CapabilityRow, ClaimSummary, ConnectAnswer, DigestEncoding, PostureForm,
+    ProbeAnswer, RecordedRun, RunScreen, ScopePreview, SigningChoice, SpecProfileChoice,
+    StartOutcome,
 };
 use crate::run_job::{JobStatus, JobView, RunId};
 
@@ -60,24 +61,6 @@ pub(crate) fn steps(active: &'static str) -> impl IntoView + use<> {
         .collect_view()
 }
 
-/// The connect form's values, snapshotted when the probe is dispatched.
-///
-/// The action reads this rather than the signals, so the request carries what
-/// the form said at the click and never what a later keystroke changed.
-#[derive(Debug, Clone)]
-struct ProbeInput {
-    /// The CDR base URL.
-    base_url: String,
-    /// The SUT display name for the record.
-    sut_name: String,
-    /// The SUT version label for the record.
-    sut_version: String,
-    /// The server credential.
-    server: CredentialForm,
-    /// The administrative credential, separate from the server's.
-    admin: CredentialForm,
-}
-
 /// One principal's credential controls: the mode and its secret fields.
 ///
 /// Every write marks the connection edited, because a credential is a fact
@@ -94,49 +77,35 @@ struct CredentialSignals {
     token: RwSignal<String>,
     /// The control ids' prefix: `sut` or `admin`.
     prefix: &'static str,
+    /// The server-function argument the controls post as: `server` or
+    /// `admin`.
+    arg: &'static str,
 }
 
 impl CredentialSignals {
-    /// Empty controls under `prefix`, in mode `none`.
-    fn new(prefix: &'static str) -> Self {
+    /// Empty controls under `prefix`, in mode `none`, posting as `arg`.
+    fn new(prefix: &'static str, arg: &'static str) -> Self {
         Self {
             auth: RwSignal::new(AuthChoice::None),
             user: RwSignal::new(String::new()),
             password: RwSignal::new(String::new()),
             token: RwSignal::new(String::new()),
             prefix,
+            arg,
         }
     }
 
-    /// The values the controls hold now.
-    fn read(self) -> CredentialForm {
-        let auth = self.auth.get();
-        let basic = matches!(auth, AuthChoice::Basic);
-        let bearer = matches!(auth, AuthChoice::Bearer);
-        CredentialForm {
-            auth,
-            user: if basic {
-                self.user.get()
-            } else {
-                String::new()
-            },
-            password: if basic {
-                self.password.get()
-            } else {
-                String::new()
-            },
-            token: if bearer {
-                self.token.get()
-            } else {
-                String::new()
-            },
-        }
+    /// The form field name of one member of this principal's argument.
+    fn field(self, member: &str) -> String {
+        format!("{}[{member}]", self.arg)
     }
 }
 
-/// One secret input, writing `value` and marking the connection edited.
+/// One secret input, posting as `name`, writing `value` and marking the
+/// connection edited.
 fn secret_input(
     id: String,
+    name: String,
     label: &'static str,
     kind: &'static str,
     value: RwSignal<String>,
@@ -149,6 +118,7 @@ fn secret_input(
             </label>
             <input
                 id=id
+                name=name
                 type=kind
                 autocomplete="off"
                 class=format!("{INPUT} mt-1 w-full")
@@ -163,7 +133,18 @@ fn secret_input(
     .into_any()
 }
 
+/// An empty hidden field, so the posted form names every member of the
+/// argument whatever the mode shows.
+fn blank_field(name: String) -> AnyView {
+    view! { <input type="hidden" name=name value="" /> }.into_any()
+}
+
 /// One principal's mode buttons and the secret fields its mode reads.
+///
+/// The form posts the mode through a hidden field and every secret member,
+/// blank for the ones the mode does not read, so the argument deserializes
+/// whichever mode is chosen. The hidden fields come first: a hidden element
+/// takes no box, so the stack's spacing is the visible children's alone.
 fn credential_controls(
     credential: CredentialSignals,
     label: &'static str,
@@ -194,13 +175,37 @@ fn credential_controls(
             </button>
         }
     };
+    let hidden = move || {
+        let auth = credential.auth.get();
+        let blanks = match auth {
+            AuthChoice::None => vec!["user", "password", "token"],
+            AuthChoice::Basic => vec!["token"],
+            AuthChoice::Bearer => vec!["user", "password"],
+        }
+        .into_iter()
+        .map(|member| blank_field(credential.field(member)))
+        .collect_view();
+        view! {
+            <input type="hidden" name=credential.field("auth") value=auth.form_value() />
+            {blanks}
+        }
+        .into_any()
+    };
     let fields = move || match credential.auth.get() {
         AuthChoice::None => ().into_any(),
         AuthChoice::Basic => view! {
             <div class="grid grid-cols-2 gap-3">
-                {secret_input(format!("{prefix}-user"), "User", "text", credential.user, edited)}
+                {secret_input(
+                    format!("{prefix}-user"),
+                    credential.field("user"),
+                    "User",
+                    "text",
+                    credential.user,
+                    edited,
+                )}
                 {secret_input(
                     format!("{prefix}-pass"),
+                    credential.field("password"),
                     "Password",
                     "password",
                     credential.password,
@@ -211,6 +216,7 @@ fn credential_controls(
         .into_any(),
         AuthChoice::Bearer => secret_input(
             format!("{prefix}-token"),
+            credential.field("token"),
             "Bearer token",
             "password",
             credential.token,
@@ -219,14 +225,13 @@ fn credential_controls(
     };
     view! {
         <div class="space-y-2">
-            <div>
+            {hidden} <div>
                 <span class=LABEL>{label}</span>
                 <div class="mt-1 flex items-center gap-2">
                     {button(AuthChoice::None, "None")} {button(AuthChoice::Basic, "Basic")}
                     {button(AuthChoice::Bearer, "Bearer")}
                 </div>
-            </div>
-            {fields}
+            </div> {fields}
         </div>
     }
     .into_any()
@@ -234,10 +239,13 @@ fn credential_controls(
 
 /// One identity field: the server's value read-only when it stated one, the
 /// operator's input otherwise, each labelled with its source.
+///
+/// The field posts as `name` either way: a stated field posts blank, because
+/// no operator entered it.
 fn identity_cell(
     entry: FieldEntry,
     label: &'static str,
-    id: &'static str,
+    (id, name): (&'static str, &'static str),
     value: RwSignal<String>,
 ) -> AnyView {
     match entry {
@@ -245,6 +253,7 @@ fn identity_cell(
             let reported_id = format!("{id}-reported");
             view! {
                 <div>
+                    <input type="hidden" name=name value="" />
                     <span class=LABEL>{label}</span>
                     <p id=reported_id class="mt-1 text-sm font-medium text-ink">
                         {stated}
@@ -261,8 +270,10 @@ fn identity_cell(
                 </label>
                 <input
                     id=id
+                    name=name
                     type="text"
                     class=format!("{INPUT} mt-1 w-full")
+                    value=value.get_untracked()
                     prop:value=move || value.get()
                     on:input:target=move |ev| value.set(ev.target().value())
                 />
@@ -283,13 +294,13 @@ fn identity_fields(
     let name = identity_cell(
         identity.map_or(FieldEntry::Entered, IdentityAnswer::name_entry),
         "Display name",
-        "sut-name",
+        ("sut-name", "sut_name"),
         sut_name,
     );
     let version = identity_cell(
         identity.map_or(FieldEntry::Entered, IdentityAnswer::version_entry),
         "Version label",
-        "sut-version",
+        ("sut-version", "sut_version"),
         sut_version,
     );
     let mut stated: Vec<(&'static str, &'static str, String)> = Vec::new();
@@ -329,6 +340,11 @@ fn identity_fields(
     .into_any()
 }
 
+/// The identity labels the continue control carries: the screen's own
+/// inputs after a probe on this page, or the stored labels when the page
+/// shows a probe stored by an earlier request.
+type Labels = (Signal<String>, Signal<String>);
+
 /// What the connect step offers after a probe the server answered: the
 /// continue control over the labels as the screen shows them now, or why
 /// there is none yet.
@@ -337,12 +353,16 @@ fn identity_fields(
 /// so they stay editable after the probe. The address and the credentials are
 /// facts the probe tested and stored, so an edit to one of them asks for a
 /// new probe before the run can use it.
+///
+/// Continue is a form posting `save_identity`, which redirects to Scope, so
+/// it works before the client bundle loads. A label the server stated posts
+/// blank.
 fn continue_view(
     identity: &IdentityAnswer,
     ok: bool,
-    labels: (RwSignal<String>, RwSignal<String>),
+    labels: Labels,
     gates: ConnectGates,
-    proceed: Action<(String, String), ()>,
+    save: ServerAction<SaveIdentity>,
 ) -> AnyView {
     let (sut_name, sut_version) = labels;
     if gates.probing.get() {
@@ -366,26 +386,38 @@ fn continue_view(
         );
         return view! { <p class="text-sm text-ink">{body}</p> }.into_any();
     }
+    let name_entry = identity.name_entry();
+    let version_entry = identity.version_entry();
+    let sent_name = move || entered_label(&name_entry, sut_name.get());
+    let sent_version = move || entered_label(&version_entry, sut_version.get());
+    let refusal = move || {
+        save.value().with(|answer| match answer {
+            Some(Err(e)) => Some(inline_error(&e.to_string())),
+            _ => None,
+        })
+    };
     view! {
-        <button
-            id="connect-continue"
-            type="button"
-            class=BTN_PRIMARY
-            prop:disabled=move || proceed.pending().get()
-            on:click=move |_| {
-                proceed.dispatch((sut_name.get(), sut_version.get()));
-            }
-        >
-            {move || {
-                if proceed.pending().get() {
-                    "Saving…"
-                } else if ok {
-                    "Continue"
-                } else {
-                    "Continue anyway"
-                }
-            }}
-        </button>
+        <ActionForm action=save>
+            <input type="hidden" name="sut_name" value=sent_name() prop:value=sent_name />
+            <input type="hidden" name="sut_version" value=sent_version() prop:value=sent_version />
+            <button
+                id="connect-continue"
+                type="submit"
+                class=BTN_PRIMARY
+                prop:disabled=move || save.pending().get()
+            >
+                {move || {
+                    if save.pending().get() {
+                        "Saving…"
+                    } else if ok {
+                        "Continue"
+                    } else {
+                        "Continue anyway"
+                    }
+                }}
+            </button>
+        </ActionForm>
+        {refusal}
     }
     .into_any()
 }
@@ -402,9 +434,9 @@ struct ConnectGates {
 /// The probe's answer: the status line and what comes next.
 fn answer_view(
     result: Result<ConnectAnswer, String>,
-    labels: (RwSignal<String>, RwSignal<String>),
+    labels: Labels,
     gates: ConnectGates,
-    proceed: Action<(String, String), ()>,
+    save: ServerAction<SaveIdentity>,
 ) -> AnyView {
     match result {
         Ok(ConnectAnswer {
@@ -427,7 +459,7 @@ fn answer_view(
                 }
                 .into_any()
             };
-            let next = move || continue_view(&identity, ok, labels, gates, proceed);
+            let next = move || continue_view(&identity, ok, labels, gates, save);
             view! {
                 <div class="space-y-2">
                     <Pane label="probe answer" body=line />
@@ -461,7 +493,22 @@ fn answer_view(
     }
 }
 
+/// Whether the URL says a probe was stored for this page to show: the
+/// address a probe posted without the client bundle redirects to.
+///
+/// A helper rather than the component body, for the reason [`requested_run`]
+/// gives.
+fn probed_in_url() -> Memo<bool> {
+    let query = use_query_map();
+    Memo::new(move |_| query.with(|map| map.get("probed").is_some()))
+}
+
 /// S3 — the connection form and the probe.
+///
+/// Probe and Continue are `<ActionForm>`s, so the step works before the
+/// client bundle loads: a probe posted without it is redirected back here
+/// with `?probed`, and the page reads the stored answer; Continue's server
+/// function redirects to Scope.
 #[expect(
     clippy::must_use_candidate,
     reason = "a Leptos component is mounted by the framework, never consumed as a value"
@@ -475,70 +522,56 @@ pub fn Connect() -> impl IntoView {
     let base_url = RwSignal::new(String::new());
     let sut_name = RwSignal::new(String::from("my-cdr"));
     let sut_version = RwSignal::new(String::from("unknown"));
-    let server = CredentialSignals::new("sut");
-    let admin = CredentialSignals::new("admin");
+    let server = CredentialSignals::new("sut", "server");
+    let admin = CredentialSignals::new("admin", "admin");
     // Whether the address or a credential changed since the last probe: those
     // are the facts the probe stored, so the run cannot drive the edit until
     // a new probe stores it.
     let edited = RwSignal::new(false);
-    // The probe both contacts a server and stores the draft, so it reports
-    // its refusal as a notification the way every other mutation here does —
-    // a target the posture refuses, or a spent probe budget, must never look
-    // like nothing happened.
-    let answer = RwSignal::new(None::<Result<ConnectAnswer, String>>);
-    let probe = Action::new(move |input: &ProbeInput| {
-        let input = input.clone();
-        async move {
-            match probe_and_save(
-                input.base_url,
-                input.sut_name,
-                input.sut_version,
-                input.server,
-                input.admin,
-            )
-            .await
-            {
-                Ok(connected) => answer.set(Some(Ok(connected))),
-                Err(e) => {
-                    let body = e.to_string();
-                    toast::error(
-                        "The connection was refused",
-                        &format!("Nothing was contacted: {body}"),
-                    );
-                    answer.set(Some(Err(body)));
-                }
+    let probe = ServerAction::<ProbeAndSave>::new();
+    let save = ServerAction::<SaveIdentity>::new();
+    // A refusal of either mutation is also a notification (the console's
+    // toast-and-inline rule). A ServerAction has no continuation of its own to
+    // write it from, so the completed version is watched; the inline pane
+    // carries the same refusal without the client bundle.
+    Effect::watch(
+        move || probe.version().get(),
+        move |_, _, _: Option<()>| {
+            if let Some(Err(e)) = probe.value().get_untracked() {
+                toast::error(
+                    "The connection was refused",
+                    &format!("Nothing was contacted: {e}"),
+                );
             }
-        }
-    });
-    // Continuing stores the identity labels as the screen shows them, so an
-    // edit made after the probe is the one the run records.
-    let continued = RwSignal::new(false);
-    let proceed = Action::new(move |(name, version): &(String, String)| {
-        let (name, version) = (name.clone(), version.clone());
-        async move {
-            match save_identity(name, version).await {
-                Ok(()) => continued.set(true),
-                Err(e) => toast::error(
+        },
+        false,
+    );
+    Effect::watch(
+        move || save.version().get(),
+        move |_, _, _: Option<()>| {
+            if let Some(Err(e)) = save.value().get_untracked() {
+                toast::error(
                     "The identity was not saved",
                     &format!("The connection draft is unchanged: {e}"),
-                ),
+                );
             }
-        }
-    });
-
-    let dispatch_probe = move |_| {
-        edited.set(false);
-        probe.dispatch(ProbeInput {
-            base_url: base_url.get(),
-            sut_name: sut_name.get(),
-            sut_version: sut_version.get(),
-            server: server.read(),
-            admin: admin.read(),
-        });
-    };
+        },
+        false,
+    );
+    let probed = probed_in_url();
+    let stored = Resource::new(
+        move || probed.get(),
+        |probed| async move {
+            if probed {
+                fetch_connect().await.map_err(|e| e.to_string())
+            } else {
+                Ok(None)
+            }
+        },
+    );
 
     let identity = move || {
-        let identity = answer.with(|answered| {
+        let identity = probe.value().with(|answered| {
             answered
                 .as_ref()
                 .and_then(|result| result.as_ref().ok())
@@ -560,11 +593,72 @@ pub fn Connect() -> impl IntoView {
         probing: probe.pending(),
         edited,
     };
-    let probed = move || {
-        answer
+    let live_labels: Labels = (sut_name.into(), sut_version.into());
+    let answered = move || {
+        probe
+            .value()
             .get()
-            .map(|result| answer_view(result, (sut_name, sut_version), gates, proceed))
+            .map(|result| answer_view(result.map_err(|e| e.to_string()), live_labels, gates, save))
     };
+    // A probe stored by an earlier request, shown until this page probes
+    // again. Read under its own Suspense so the server pass and hydration
+    // agree on it.
+    let recalled = view! {
+        <Suspense fallback=|| ()>
+            {move || Suspend::new(async move {
+                let superseded = probe.value().with(Option::is_some);
+                let record = stored.await;
+                match record {
+                    Ok(Some(record)) if !superseded => {
+                        answer_view(
+                            Ok(record.answer),
+                            (Signal::stored(record.sut_name), Signal::stored(record.sut_version)),
+                            gates,
+                            save,
+                        )
+                    }
+                    Ok(_) => ().into_any(),
+                    Err(e) => inline_error(&e).into_any(),
+                }
+            })}
+        </Suspense>
+    }
+    .into_any();
+    let form = view! {
+        <ActionForm action=probe attr:class="space-y-4" on:submit=move |_| edited.set(false)>
+            <div>
+                <label class=LABEL for="base-url">
+                    "CDR base URL"
+                </label>
+                <input
+                    id="base-url"
+                    name="base_url"
+                    type="url"
+                    class=format!("{INPUT} mt-1 w-full")
+                    placeholder="https://cdr.example/ehrbase/rest/openehr/v1"
+                    prop:value=move || base_url.get()
+                    on:input:target=move |ev| {
+                        base_url.set(ev.target().value());
+                        edited.set(true);
+                    }
+                />
+            </div>
+            {identity}
+            {credentials}
+            <div class="flex items-center gap-2">
+                <button
+                    type="submit"
+                    class=BTN_SECONDARY
+                    prop:disabled=move || probe.pending().get()
+                >
+                    {move || {
+                        if probe.pending().get() { "Probing…" } else { "Probe connection" }
+                    }}
+                </button>
+            </div>
+        </ActionForm>
+    }
+    .into_any();
 
     view! {
         <Title text="Connect · Run · Veredictum console" />
@@ -576,40 +670,7 @@ pub fn Connect() -> impl IntoView {
             <div class="flex items-center gap-1">{steps("connect")}</div>
         </PageHeader>
         <section class=format!("{CARD_PAD} max-w-2xl")>
-            <div class="space-y-4">
-                <div>
-                    <label class=LABEL for="base-url">
-                        "CDR base URL"
-                    </label>
-                    <input
-                        id="base-url"
-                        type="url"
-                        class=format!("{INPUT} mt-1 w-full")
-                        placeholder="https://cdr.example/ehrbase/rest/openehr/v1"
-                        prop:value=move || base_url.get()
-                        on:input:target=move |ev| {
-                            base_url.set(ev.target().value());
-                            edited.set(true);
-                        }
-                    />
-                </div>
-                {identity}
-                {credentials}
-                <div class="flex items-center gap-2">
-                    <button
-                        type="button"
-                        class=BTN_SECONDARY
-                        prop:disabled=move || probe.pending().get()
-                        on:click=dispatch_probe
-                    >
-                        {move || {
-                            if probe.pending().get() { "Probing…" } else { "Probe connection" }
-                        }}
-                    </button>
-                </div>
-                {probed}
-                {move || continued.get().then(|| view! { <Redirect path="/run/scope" /> })}
-            </div>
+            <div class="space-y-4">{form}{answered}{recalled}</div>
         </section>
     }
 }

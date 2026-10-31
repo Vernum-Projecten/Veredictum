@@ -100,6 +100,23 @@ impl Harness {
     /// When the environment IS set but the browser session cannot start —
     /// that is a failure, never a skip.
     async fn start(journey: &'static str) -> Option<Self> {
+        Self::start_with(journey, true).await
+    }
+
+    /// Starts a journey in a browser that runs no script at all, so the page
+    /// is what a reader receives before the client bundle loads.
+    ///
+    /// # Panics
+    /// As [`Self::start`].
+    async fn start_without_javascript(journey: &'static str) -> Option<Self> {
+        Self::start_with(journey, false).await
+    }
+
+    /// Starts a journey, with or without the browser's script engine.
+    ///
+    /// # Panics
+    /// As [`Self::start`].
+    async fn start_with(journey: &'static str, javascript: bool) -> Option<Self> {
         let (Some(base), Some(webdriver_url)) =
             (env("UI_E2E_BASE_URL"), env("UI_E2E_WEBDRIVER_URL"))
         else {
@@ -130,6 +147,18 @@ impl Harness {
         // gate below silently passes on every page.
         caps.set_logging_prefs("browser", thirtyfour::LoggingPrefsLogLevel::All)
             .expect("logging prefs");
+        if !javascript {
+            // Chromium's content-settings preference: 2 blocks script on
+            // every site (<https://chromeenterprise.google/policies/#DefaultJavaScriptSetting>).
+            caps.add_experimental_option(
+                "prefs",
+                std::collections::BTreeMap::from([(
+                    "profile.managed_default_content_settings.javascript",
+                    2_u8,
+                )]),
+            )
+            .expect("the no-script preference");
+        }
         let driver = WebDriver::new(&webdriver_url, caps)
             .await
             .expect("a WebDriver session (is the browser endpoint up?)");
@@ -966,6 +995,54 @@ async fn e2e_connect_shows_the_identity_the_server_states() {
         .await;
     h.wait_xpath("//button[contains(., 'Continue anyway')]")
         .await;
+    h.assert_console_clean(&[]).await;
+    h.finish().await;
+}
+
+/// The connect step works before the client bundle loads (#847): with the
+/// browser's script engine off, Probe posts the form and the server answers
+/// with the connect step again, showing the stored probe, and Continue posts
+/// its own form, which the server redirects to Scope.
+///
+/// # Panics
+/// When either form does nothing without script, or the page was hydrated
+/// after all (which would mean the journey never tested what it claims).
+#[tokio::test(flavor = "multi_thread")]
+async fn e2e_connect_probes_and_continues_without_javascript() {
+    let Some(h) = Harness::start_without_javascript("connect-no-js").await else {
+        return;
+    };
+    let Ok(port) = fixture_sut() else {
+        panic!("the fixture SUT could not bind");
+    };
+    h.goto_unhydrated("/run/connect").await;
+    h.wait_css("input#base-url")
+        .await
+        .send_keys(&format!("http://127.0.0.1:{port}"))
+        .await
+        .expect("type the base URL");
+    h.wait_xpath("//button[contains(., 'Probe connection')]")
+        .await
+        .click()
+        .await
+        .expect("probe");
+    h.wait_url_contains("probed").await;
+    h.wait_xpath("//body[contains(., 'HTTP 500')]").await;
+    h.wait_xpath("//button[@id='connect-continue' and contains(., 'Continue anyway')]")
+        .await
+        .click()
+        .await
+        .expect("continue");
+    h.wait_url_contains("/run/scope").await;
+    h.wait_xpath("//h1[contains(., 'Scope')]").await;
+    assert!(
+        h.driver
+            .find_all(By::Css("body[data-hydrated]"))
+            .await
+            .expect("query the hydration marker")
+            .is_empty(),
+        "the page hydrated, so script was not off"
+    );
     h.assert_console_clean(&[]).await;
     h.finish().await;
 }
