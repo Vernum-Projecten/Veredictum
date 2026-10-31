@@ -617,7 +617,8 @@ workflows:
     description: >-
       Uploads the minimal ADL 2 operational template under a fresh
       template_id with Prefer return=representation and Accept text/plain.
-      The answer is 201 and carries the template in its body.
+      The answer is 201 and carries the template in its body, which names the
+      uploaded template_id.
     x-veredictum-cite: *identifier_or_representation
     inputs: *run_input
     steps:
@@ -634,7 +635,9 @@ workflows:
         successCriteria:
           - condition: $statusCode == 201
             x-veredictum-cite: *uploaded
-          - condition: $response.body != null
+          - context: $response.body
+            type: regex
+            condition: 'openEHR-EHR-COMPOSITION\.vdef-{$inputs.run}\.v1\.0\.0'
 
   - workflowId: upload_template_adl2-same_template_id_twice
     summary: A second ADL 2 upload under a stored template_id is refused with 409
@@ -742,7 +745,9 @@ workflows:
       Reads an example data instance of the ADL 2 template
       openEHR-EHR-COMPOSITION.cnf_adl2_dv_count_range.v1.0.0 with Accept
       application/json. The answer is 200 in JSON, and its root carries the
-      template's root archetype id as archetype_node_id.
+      template's root archetype id as archetype_node_id: the stringified
+      archetype_details.archetype_id (RM LOCATABLE), whose ARCHETYPE_ID
+      lexical form ends in the major version alone (BASE).
     dependsOn: [$sourceDescriptions.setup.upload_template-adl2_dv_count_range]
     x-veredictum-cite:
       source: specs/openehr/ITS-REST/specifications/responses/200_Template_example_retrieved.yaml
@@ -763,11 +768,11 @@ workflows:
             x-veredictum-cite: *json_content_type
           - context: $response.body#/archetype_node_id
             type: regex
-            condition: '^openEHR-EHR-COMPOSITION\.cnf_adl2_dv_count_range\.v1\.0\.0$'
+            condition: '^openEHR-EHR-COMPOSITION\.cnf_adl2_dv_count_range\.v1$'
             x-veredictum-cite:
-              source: specs/openehr/RM/docs/UML/classes/locatable.adoc
-              section: LOCATABLE Class
-              quote: "At an archetype root point, the value of this attribute is always the stringified form of the `_archetype_id_` found in the `_archetype_details_` object."
+              source: specs/openehr/BASE/docs/UML/classes/archetype_id.adoc
+              section: ARCHETYPE_ID Class
+              quote: "Lexical form: `rm_originator  '-' rm_name  '-' rm_entity  '.' concept_name {  '-' specialisation }*  '.v' number`."
 
   - workflowId: get_template_adl2_example-web_template_not_acceptable
     summary: An ADL 2 example asked for in the Web Template format is refused with 406

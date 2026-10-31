@@ -285,6 +285,27 @@ pub struct ResponseView {
     pub text: String,
 }
 
+impl ResponseView {
+    /// Whether the response names a `Content-Type` that is not a JSON media
+    /// type, so its whole body is text rather than an unparsable JSON value.
+    ///
+    /// A JSON media type is `application/json` or any `+json` suffix
+    /// (<https://www.rfc-editor.org/rfc/rfc6839#section-3.1>). An absent
+    /// `Content-Type` declares nothing, so the body stays unreadable.
+    #[must_use]
+    pub fn declares_non_json(&self) -> bool {
+        self.headers.get("content-type").is_some_and(|value| {
+            let essence = value
+                .split(';')
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_ascii_lowercase();
+            essence != "application/json" && !essence.ends_with("+json")
+        })
+    }
+}
+
 /// Everything an expression may read at one point of a workflow run.
 #[derive(Debug, Clone, Copy)]
 pub struct Scope<'a> {
@@ -347,11 +368,17 @@ impl Scope<'_> {
                 .get(&name.to_ascii_lowercase())
                 .cloned()
                 .map(Value::String),
-            Expr::ResponseBody(pointer) => match &exchange()?.1.body {
-                Err(reason) => return Err(EvalError::UnreadableBody(reason.clone())),
-                Ok(None) => None,
-                Ok(Some(body)) => body.pointer(pointer).cloned(),
-            },
+            Expr::ResponseBody(pointer) => {
+                let response = exchange()?.1;
+                match &response.body {
+                    Err(_) if pointer.is_empty() && response.declares_non_json() => {
+                        Some(Value::String(response.text.clone()))
+                    }
+                    Err(reason) => return Err(EvalError::UnreadableBody(reason.clone())),
+                    Ok(None) => None,
+                    Ok(Some(body)) => body.pointer(pointer).cloned(),
+                }
+            }
         })
     }
 
@@ -959,6 +986,72 @@ mod tests {
         assert!(matches!(
             judge_simple("$response.body#/a == 3", 200, body),
             Err(EvalError::Incomparable(..))
+        ));
+    }
+
+    fn judge_typed(
+        condition: &str,
+        content_type: &str,
+        body: &str,
+    ) -> Result<Judgement, EvalError> {
+        let (request, mut response) = exchange(201, body);
+        response
+            .headers
+            .insert("content-type".to_owned(), content_type.to_owned());
+        let inputs = BTreeMap::new();
+        let outputs = BTreeMap::new();
+        let scope = Scope {
+            inputs: &inputs,
+            outputs: &outputs,
+            workflows: &outputs,
+            exchange: Some((&request, &response)),
+        };
+        SimpleCondition::parse(condition)?.judge(&scope, condition)
+    }
+
+    #[test]
+    fn a_whole_text_body_reads_as_its_text() {
+        let adl = "operational_template (adl_version=2.0.6)";
+        assert!(
+            judge_typed("$response.body != null", "text/plain", adl)
+                .unwrap()
+                .holds
+        );
+        let (request, mut response) = exchange(201, adl);
+        response.headers.insert(
+            "content-type".to_owned(),
+            "text/plain; charset=utf-8".to_owned(),
+        );
+        let inputs = BTreeMap::new();
+        let outputs = BTreeMap::new();
+        let scope = Scope {
+            inputs: &inputs,
+            outputs: &outputs,
+            workflows: &outputs,
+            exchange: Some((&request, &response)),
+        };
+        let regex = RegexCriterion::parse("$response.body", "adl_version=2\\.0\\.6").unwrap();
+        assert!(regex.judge(&scope).unwrap().holds);
+    }
+
+    #[test]
+    fn a_body_labelled_json_that_does_not_parse_stays_unreadable() {
+        for content_type in [
+            "application/json",
+            "application/openehr.wt+json; charset=utf-8",
+        ] {
+            assert!(matches!(
+                judge_typed("$response.body != null", content_type, "garbled {"),
+                Err(EvalError::UnreadableBody(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn a_pointer_into_a_text_body_stays_unreadable() {
+        assert!(matches!(
+            judge_typed("$response.body#/a != null", "text/plain", "plain text"),
+            Err(EvalError::UnreadableBody(_))
         ));
     }
 
