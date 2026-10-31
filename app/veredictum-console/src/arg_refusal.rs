@@ -64,12 +64,21 @@ pub fn caller_fault(error: &ConsoleError, read: BodyRead) -> Option<ConsoleError
     };
     if read.overran() {
         return Some(ConsoleError::CallTooLarge {
-            cap: u64::try_from(read.cap).unwrap_or(u64::MAX),
+            cap: cap_bytes(read.cap),
         });
     }
     Some(ConsoleError::CallUndecodable {
         missing: missing_field(detail).map(str::to_owned),
     })
+}
+
+/// The transport cap as the refusal carries it.
+#[expect(
+    clippy::expect_used,
+    reason = "usize is at most 64 bits on every target this console builds for, so a usize always fits a u64"
+)]
+fn cap_bytes(cap: usize) -> u64 {
+    u64::try_from(cap).expect("a usize cap should fit a u64")
 }
 
 /// The field name out of serde's own phrasing, when it carries one.
@@ -165,7 +174,15 @@ mod tests {
             None
         );
         assert_eq!(caller_fault(&ConsoleError::NoDraft, READ), None);
-        assert_eq!(caller_fault(&ConsoleError::internal("refused"), READ), None);
+        assert_eq!(
+            caller_fault(
+                &ConsoleError::Internal {
+                    cause: crate::error::InternalCause::Lock
+                },
+                READ
+            ),
+            None
+        );
     }
 
     /// The overrun is told apart by the bytes the transport read, never by

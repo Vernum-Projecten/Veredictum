@@ -420,7 +420,7 @@ pub mod read {
     };
     use crate::certificates::CertificateStatus;
     use crate::engine::token;
-    use crate::error::ConsoleError;
+    use crate::error::{ConsoleError, InternalCause};
     use crate::state::ConsoleState;
     use veredictum::arazzo::har::{Entry, Har, NameValue};
     use veredictum::arazzo::reading::{
@@ -451,8 +451,9 @@ pub mod read {
         };
         // The engine's own recorded path, never a second derivation of it.
         let path = std::path::PathBuf::from(finished.results_path);
-        let unreadable =
-            |e: &dyn std::fmt::Display| ConsoleError::internal(format!("{}: {e}", path.display()));
+        let unreadable = |e: &dyn std::fmt::Display| {
+            ConsoleError::internal(InternalCause::Storage, format!("{}: {e}", path.display()))
+        };
         let body = std::fs::read_to_string(&path).map_err(|e| unreadable(&e))?;
         let results: Results = serde_json::from_str(&body).map_err(|e| unreadable(&e))?;
         let certificate = match finished.certificate {
@@ -738,8 +739,12 @@ pub mod read {
         let Some((results, _, certificate)) = finished_results(state, submitter)? else {
             return Ok(None);
         };
-        let reading = reading_view(&results)
-            .map_err(|e| ConsoleError::internal(format!("a result row did not render: {e}")))?;
+        let reading = reading_view(&results).map_err(|e| {
+            ConsoleError::internal(
+                InternalCause::Document,
+                format!("a result row did not render: {e}"),
+            )
+        })?;
         Ok(Some(ResultsScreen {
             base_url: results.base_url.clone(),
             specification: results.specification.label(),
@@ -837,8 +842,12 @@ pub mod read {
         let place = results.outline.as_ref().and_then(|o| o.place(case));
         let explanation = found.explanation.as_ref();
         Ok(Some(ResultDetail {
-            row: row_of(found, place)
-                .map_err(|e| ConsoleError::internal(format!("a result row did not render: {e}")))?,
+            row: row_of(found, place).map_err(|e| {
+                ConsoleError::internal(
+                    InternalCause::Document,
+                    format!("a result row did not render: {e}"),
+                )
+            })?,
             summary: listed.and_then(|(_, workflow)| workflow.summary.clone()),
             catalogue: listed.map(|(document, workflow)| {
                 format!("/catalogue/{}/{}", document.capability, workflow.case)

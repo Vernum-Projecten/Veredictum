@@ -910,3 +910,43 @@ fn the_start_seam_answers_with_the_run_already_in_flight() -> Result<(), Box<dyn
     drop(state.jobs.cancel(first));
     Ok(())
 }
+
+/// A results document the instance cannot read is its own failure, and the
+/// browser is told its kind only: the path names the host's layout, which a
+/// public instance does not show its visitors.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn an_unreadable_results_document_names_no_host_path() -> Result<(), Box<dyn std::error::Error>> {
+    use veredictum_console::error::{ConsoleError, InternalCause};
+
+    let scratch = assert_fs::TempDir::new()?;
+    let state = state_over(scratch.path());
+    let id = state.jobs.allocate_id();
+    let dir = veredictum_console::run_job::job_dir(scratch.path(), id);
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(
+        dir.join(veredictum::pipeline::arazzo_run::RESULTS_FILE),
+        "not a results document",
+    )?;
+
+    let refused = read::run_screen(&state, Submitter::Unknown, Some(id))
+        .expect_err("a results document that does not parse is refused");
+    assert_eq!(
+        refused,
+        ConsoleError::Internal {
+            cause: InternalCause::Storage
+        }
+    );
+    let scratch_path = scratch.path().display().to_string();
+    for shown in [
+        refused.to_string(),
+        String::from_utf8_lossy(&leptos::prelude::FromServerFnError::ser(&refused)).into_owned(),
+    ] {
+        assert!(!shown.contains(&scratch_path), "{shown}");
+        assert!(!shown.contains("results"), "{shown}");
+    }
+    Ok(())
+}

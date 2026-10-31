@@ -557,7 +557,8 @@ impl From<JobError> for crate::error::ConsoleError {
             JobError::Idle => Self::NotFound {
                 detail: error.to_string(),
             },
-            JobError::Poisoned(_) | JobError::Engine(_) => Self::internal(error),
+            JobError::Poisoned(_) => Self::internal(crate::error::InternalCause::Lock, error),
+            JobError::Engine(_) => Self::internal(crate::error::InternalCause::Engine, error),
         }
     }
 }

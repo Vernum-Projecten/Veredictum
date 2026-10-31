@@ -130,6 +130,8 @@ pub enum TargetReason {
     Refused(RefusedFamily),
     /// The check itself could not run.
     Unchecked,
+    /// The URL carried a user name or password.
+    Credentials,
 }
 
 impl From<&TargetRefusal> for TargetReason {
@@ -140,6 +142,7 @@ impl From<&TargetRefusal> for TargetReason {
             TargetRefusal::Unresolvable { .. } => Self::Unresolvable,
             TargetRefusal::Refused { family, .. } => Self::Refused(*family),
             TargetRefusal::Unchecked(_) => Self::Unchecked,
+            TargetRefusal::Credentials => Self::Credentials,
         }
     }
 }
@@ -153,6 +156,7 @@ impl TargetReason {
             Self::NoHost => "no_host",
             Self::Unresolvable => "unresolvable",
             Self::Unchecked => "unchecked",
+            Self::Credentials => "credentials",
             Self::Refused(family) => match family {
                 RefusedFamily::Loopback => "loopback",
                 RefusedFamily::Private => "private",

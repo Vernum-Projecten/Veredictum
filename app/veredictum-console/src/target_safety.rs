@@ -131,6 +131,29 @@ pub enum TargetRefusal {
     /// The check itself could not run, so nothing was connected.
     #[error("the target check could not run ({0}); this instance opened no connection")]
     Unchecked(String),
+    /// The URL carries a user name or password. Refused under every posture,
+    /// and the URL is never repeated, because what it carries is a secret.
+    #[error(
+        "the address carries a user name or password, which this instance does not take in a URL; enter the address without them, and the credentials in the credential fields"
+    )]
+    Credentials,
+}
+
+/// Refuses a base URL that carries userinfo (RFC 3986 §3.2.1), whatever the
+/// posture: a credential typed into the address would otherwise travel on in
+/// the draft, the stored record and the probe's own error text.
+///
+/// A URL that does not parse carries no userinfo to refuse, and is left to the
+/// posture's own check.
+fn refuse_userinfo(base_url: &str) -> Result<(), TargetRefusal> {
+    // NOTE: an unparsable URL legitimately has no userinfo component, so the
+    // parse failure is not this check's to report.
+    match reqwest::Url::parse(base_url) {
+        Ok(url) if !url.username().is_empty() || url.password().is_some() => {
+            Err(TargetRefusal::Credentials)
+        }
+        Ok(_) | Err(_) => Ok(()),
+    }
 }
 
 /// The family that refuses this address, or `None` when nothing does.
@@ -211,9 +234,12 @@ fn refused_v6(address: Ipv6Addr) -> Option<RefusedFamily> {
 ///
 /// # Errors
 /// [`TargetRefusal`], naming the family and the address it refused, or the
-/// URL or resolution failure that left nothing checkable. Under
-/// [`Posture::Local`] this never refuses and never resolves anything.
+/// URL or resolution failure that left nothing checkable.
+/// [`TargetRefusal::Credentials`] under every posture for a URL carrying
+/// userinfo; otherwise, under [`Posture::Local`] this never refuses and never
+/// resolves anything.
 pub fn check_blocking(posture: Posture, base_url: &str) -> Result<(), TargetRefusal> {
+    refuse_userinfo(base_url)?;
     if !posture.guards_targets() {
         return Ok(());
     }
@@ -295,6 +321,7 @@ fn decide(host: &str, address: IpAddr) -> Result<(), TargetRefusal> {
 /// [`TargetRefusal::Unchecked`] when the blocking task itself could not run —
 /// a check that did not happen refuses, never admits.
 pub async fn check(posture: Posture, base_url: &str) -> Result<(), TargetRefusal> {
+    refuse_userinfo(base_url)?;
     if !posture.guards_targets() {
         return Ok(());
     }
@@ -311,6 +338,30 @@ mod tests {
         Posture, RefusedFamily, TargetRefusal, check_blocking, check_host_blocking, refused_family,
     };
     use std::net::IpAddr;
+
+    /// A URL carrying userinfo is refused under both postures, and the
+    /// refusal repeats none of it.
+    #[test]
+    fn a_url_carrying_a_credential_is_refused_without_repeating_it() {
+        for posture in [Posture::Local, Posture::Hosted] {
+            for url in [
+                "http://clinical:s3cret@cdr.example/openehr/v1",
+                "https://clinical@cdr.example/openehr/v1",
+            ] {
+                let refusal = check_blocking(posture, url).expect_err("userinfo is refused");
+                assert_eq!(refusal, TargetRefusal::Credentials);
+                let shown = refusal.to_string();
+                assert!(
+                    !shown.contains("s3cret") && !shown.contains("clinical"),
+                    "{shown}"
+                );
+            }
+        }
+        assert_eq!(
+            check_blocking(Posture::Local, "http://cdr.example/openehr/v1"),
+            Ok(())
+        );
+    }
 
     /// A refused target has to tell the visitor what to do instead: name a
     /// public target, or run the console themselves against the private one.

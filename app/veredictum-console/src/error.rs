@@ -89,10 +89,16 @@ pub enum ConsoleError {
     },
     /// This instance failed: a poisoned lock, a file it could not write, an
     /// engine it could not start.
-    #[error("{detail}")]
+    ///
+    /// The detail stays in the instance's log: it names paths on the host,
+    /// which a public instance does not show its visitors.
+    #[error(
+        "This instance could not complete the request ({}); the detail is in its log.",
+        cause.phrase()
+    )]
     Internal {
-        /// The failure, verbatim.
-        detail: String,
+        /// What kind of failure it was, never the detail itself.
+        cause: InternalCause,
     },
     /// The call's body is larger than the transport cap, so none of its
     /// arguments were decoded.
@@ -115,6 +121,36 @@ pub enum ConsoleError {
     Transport(ServerFnErrorErr),
 }
 
+/// What kind of failure an [`ConsoleError::Internal`] was, as a visitor may
+/// read it: the kind names no path, no address and no body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InternalCause {
+    /// A lock a panicking thread poisoned.
+    Lock,
+    /// A file under the output mount that could not be written or read.
+    Storage,
+    /// The engine binary could not be found, started or read.
+    Engine,
+    /// A document this instance composes or reads did not serialize or parse.
+    Document,
+    /// The target guard could not run.
+    TargetCheck,
+}
+
+impl InternalCause {
+    /// The phrase the public sentence carries.
+    #[must_use]
+    pub fn phrase(self) -> &'static str {
+        match self {
+            Self::Lock => "its shared state is poisoned",
+            Self::Storage => "a file under its output mount failed",
+            Self::Engine => "the engine failed",
+            Self::Document => "a document it composes or reads failed",
+            Self::TargetCheck => "the target check could not run",
+        }
+    }
+}
+
 /// The sentence an undecodable call reads as.
 fn undecodable(missing: Option<&str>) -> String {
     let named = missing.map_or_else(
@@ -122,9 +158,24 @@ fn undecodable(missing: Option<&str>) -> String {
         |argument| format!(" The argument `{argument}` is required and was not supplied."),
     );
     format!(
-        "This call could not be read.{named} Every argument of a console endpoint is required: a value that is not being declared has its own spelling — an empty string, or the `Undeclared` member of its vocabulary — so that an omitted argument can never read as a declared absence."
+        "This call could not be read.{named} Every argument of a console endpoint is required: a value that is not being declared has its own spelling (an empty string, or the `Undeclared` member of its vocabulary), so that an omitted argument can never read as a declared absence."
     )
 }
+
+/// Writes an internal failure's detail to standard error, which the host's
+/// log driver keeps, at warn level.
+#[cfg(feature = "ssr")]
+#[expect(
+    clippy::print_stderr,
+    reason = "the container's log stream is the instance's log; the line carries this instance's own diagnostic and never a body a server under test sent"
+)]
+fn log_warn(cause: InternalCause, detail: &str) {
+    eprintln!("veredictum-console: warn: {}: {detail}", cause.phrase());
+}
+
+/// The browser keeps no log of the instance's own failures.
+#[cfg(not(feature = "ssr"))]
+fn log_warn(_cause: InternalCause, _detail: &str) {}
 
 impl FromServerFnError for ConsoleError {
     type Encoder = JsonEncoding;
@@ -135,12 +186,15 @@ impl FromServerFnError for ConsoleError {
 }
 
 impl ConsoleError {
-    /// An [`ConsoleError::Internal`] carrying `detail`.
+    /// An [`ConsoleError::Internal`] of `cause`, with `detail` written to the
+    /// instance's log at warn level and nowhere else.
+    ///
+    /// The detail is this instance's own diagnostic (a path, a lock, a parse
+    /// failure), never a body a server under test sent.
     #[must_use]
-    pub fn internal(detail: impl std::fmt::Display) -> Self {
-        Self::Internal {
-            detail: detail.to_string(),
-        }
+    pub fn internal(cause: InternalCause, detail: impl std::fmt::Display) -> Self {
+        log_warn(cause, &detail.to_string());
+        Self::Internal { cause }
     }
 
     /// An [`ConsoleError::Invalid`] carrying `detail`.
@@ -161,10 +215,10 @@ impl ConsoleError {
 
     /// A [`ConsoleError::TooLong`] for `field` at `bytes` against `cap`.
     #[must_use]
-    pub fn too_long(field: &str, bytes: usize, cap: u64) -> Self {
+    pub fn too_long(field: &str, bytes: u64, cap: u64) -> Self {
         Self::TooLong {
             field: field.to_owned(),
-            bytes: u64::try_from(bytes).unwrap_or(u64::MAX),
+            bytes,
             cap,
         }
     }
@@ -315,7 +369,9 @@ mod tests {
             ConsoleError::CatalogueUnavailable {
                 detail: String::from("no catalogue"),
             },
-            ConsoleError::internal("poisoned"),
+            ConsoleError::Internal {
+                cause: super::InternalCause::Lock,
+            },
             ConsoleError::CallTooLarge { cap: 4_194_304 },
             ConsoleError::CallUndecodable {
                 missing: Some(String::from("postures")),
@@ -345,6 +401,23 @@ mod tests {
             ),
             "{decoded:?}"
         );
+    }
+
+    /// An internal failure tells a visitor its kind and nothing it carried:
+    /// the detail, a host path here, goes to the instance's log only.
+    #[test]
+    fn an_internal_failure_carries_no_detail_to_the_browser() {
+        let error = ConsoleError::internal(
+            super::InternalCause::Storage,
+            "/srv/veredictum/out/3f25/ixit.json: permission denied",
+        );
+        let shown = error.to_string();
+        let encoded = String::from_utf8_lossy(&error.ser()).into_owned();
+        for leaked in ["/srv", "ixit.json", "permission denied"] {
+            assert!(!shown.contains(leaked), "{shown}");
+            assert!(!encoded.contains(leaked), "{encoded}");
+        }
+        assert!(shown.contains("output mount"), "{shown}");
     }
 
     #[test]
