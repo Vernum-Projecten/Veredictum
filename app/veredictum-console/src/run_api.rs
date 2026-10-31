@@ -79,17 +79,21 @@ pub enum ConnectRefusal {
     Label,
     /// There is no connection draft to continue from.
     NoDraft,
-    /// The draft could not be stored or read.
+    /// The form could not be read, or named something the console cannot
+    /// use.
+    Form,
+    /// This instance failed to store or read the draft.
     Store,
 }
 
 impl ConnectRefusal {
     /// Every refusal, in declaration order.
-    pub const ALL: [ConnectRefusal; 5] = [
+    pub const ALL: [ConnectRefusal; 6] = [
         ConnectRefusal::Budget,
         ConnectRefusal::Target,
         ConnectRefusal::Label,
         ConnectRefusal::NoDraft,
+        ConnectRefusal::Form,
         ConnectRefusal::Store,
     ];
 
@@ -101,6 +105,7 @@ impl ConnectRefusal {
             Self::Target => "target",
             Self::Label => "label",
             Self::NoDraft => "no-draft",
+            Self::Form => "form",
             Self::Store => "store",
         }
     }
@@ -127,7 +132,7 @@ impl ConnectRefusal {
                 "The probe was refused: this instance's connection-probe budget for your address is spent. Nothing was contacted. Wait a few minutes, then probe again."
             }
             Self::Target => {
-                "The probe was refused: this instance does not connect to that address, or could not read it as one. Nothing was contacted and no connection was stored. Name a target reachable from this instance and probe again."
+                "The probe was refused: this instance does not connect to that address, could not read it as one, or found a user name or password in it. Nothing was contacted and no connection was stored. Name a target reachable from this instance, with any credential in the credential fields, and probe again."
             }
             Self::Label => {
                 "The form was refused: a display name or version label is longer than this console accepts. Shorten it and probe again."
@@ -135,8 +140,35 @@ impl ConnectRefusal {
             Self::NoDraft => {
                 "There is no connection to continue from: it was never probed, or this instance has since forgotten it. Probe the connection again."
             }
+            Self::Form => {
+                "The form was refused: this instance could not read it, or it named something this console cannot use. Nothing was contacted and no connection was stored. Check the fields and probe again."
+            }
             Self::Store => {
                 "This instance could not store the connection. Probe again; if it persists, the console needs a restart."
+            }
+        }
+    }
+}
+
+impl From<&crate::error::ConsoleError> for ConnectRefusal {
+    /// The kind a connect-step refusal is named by in the URL a plain form
+    /// post returns to.
+    fn from(error: &crate::error::ConsoleError) -> Self {
+        use crate::error::ConsoleError;
+        match error {
+            ConsoleError::RateBudget { .. } => Self::Budget,
+            ConsoleError::Target { .. } => Self::Target,
+            ConsoleError::TooLong { .. } => Self::Label,
+            ConsoleError::NoDraft => Self::NoDraft,
+            ConsoleError::Statement { .. }
+            | ConsoleError::Invalid { .. }
+            | ConsoleError::RunInFlight { .. }
+            | ConsoleError::NotFound { .. }
+            | ConsoleError::CallTooLarge { .. }
+            | ConsoleError::CallUndecodable { .. }
+            | ConsoleError::Transport(_) => Self::Form,
+            ConsoleError::CatalogueUnavailable { .. } | ConsoleError::Internal { .. } => {
+                Self::Store
             }
         }
     }
@@ -444,6 +476,11 @@ const PGP_KEY_CAP_BYTES: u64 = 65_536;
 #[cfg(feature = "ssr")]
 pub const IDENTITY_LABEL_CAP_BYTES: u64 = 1_024;
 
+/// A document-id filter, capped far above any document id the catalogue
+/// carries: the preview runs one substring match per document with it.
+#[cfg(feature = "ssr")]
+pub const FILTER_CAP_BYTES: u64 = 256;
+
 /// Every input cap a `#[server]` function in this crate enforces.
 ///
 /// The router sizes ONE transport cap for all of them, from the largest, so
@@ -457,6 +494,7 @@ pub const SERVER_FN_INPUT_CAPS: &[u64] = &[
     DIGEST_PREFIX_CAP_BYTES,
     PGP_KEY_CAP_BYTES,
     IDENTITY_LABEL_CAP_BYTES,
+    FILTER_CAP_BYTES,
 ];
 
 /// The postures the flat form declares, or the refusal naming the one field
@@ -468,20 +506,24 @@ pub const SERVER_FN_INPUT_CAPS: &[u64] = &[
 /// judged without, is the defect this whole seam exists to close.
 ///
 /// # Errors
-/// A value past its cap, a pgp mode with no armored key, and a digest prefix
-/// past its cap — each naming the field.
+/// [`ConsoleError::TooLong`](crate::error::ConsoleError::TooLong) naming a
+/// value past its cap, and
+/// [`ConsoleError::Invalid`](crate::error::ConsoleError::Invalid) for a pgp
+/// mode with no usable armored key.
 #[cfg(feature = "ssr")]
-pub fn declared_postures(form: &PostureForm) -> Result<DeclaredPostures, String> {
+pub fn declared_postures(
+    form: &PostureForm,
+) -> Result<DeclaredPostures, crate::error::ConsoleError> {
+    use crate::error::ConsoleError;
+
     /// What the engine's own openPGP reader needs to see first.
     const PGP_ARMOR_HEADER: &str = "-----BEGIN PGP PUBLIC KEY BLOCK-----";
 
-    fn capped(field: &str, value: &str, cap: u64) -> Result<Option<String>, String> {
+    fn capped(field: &str, value: &str, cap: u64) -> Result<Option<String>, ConsoleError> {
         let value = value.trim();
-        if u64::try_from(value.len()).unwrap_or(u64::MAX) > cap {
-            return Err(format!(
-                "{field} is {} bytes; the cap is {cap}",
-                value.len()
-            ));
+        let bytes = read::count(value.len());
+        if bytes > cap {
+            return Err(ConsoleError::too_long(field, bytes, cap));
         }
         Ok((!value.is_empty()).then(|| value.to_owned()))
     }
@@ -491,7 +533,7 @@ pub fn declared_postures(form: &PostureForm) -> Result<DeclaredPostures, String>
         SigningChoice::Digest => Some(SigningPosture::Digest {
             encoding: form.digest_encoding,
             prefix: capped(
-                "the digest prefix",
+                "digest prefix",
                 &form.digest_prefix,
                 DIGEST_PREFIX_CAP_BYTES,
             )?
@@ -499,29 +541,29 @@ pub fn declared_postures(form: &PostureForm) -> Result<DeclaredPostures, String>
         }),
         SigningChoice::Pgp => {
             let key = capped(
-                "the openPGP public key",
+                "openPGP public key",
                 &form.pgp_public_key,
                 PGP_KEY_CAP_BYTES,
             )?
             .ok_or_else(|| {
-                String::from(
+                ConsoleError::invalid(
                     "the openPGP signing posture declares no public key: paste the \
                      armored key the deployment signs with, or leave the posture undeclared",
                 )
             })?;
             if !key.contains(PGP_ARMOR_HEADER) {
-                return Err(format!(
+                return Err(ConsoleError::invalid(format!(
                     "the openPGP public key carries no {PGP_ARMOR_HEADER} line, so the run's \
                      verifier cannot read it"
-                ));
+                )));
             }
             Some(SigningPosture::Pgp { public_key: key })
         }
     };
     Ok(DeclaredPostures {
-        system_id: capped("the system id", &form.system_id, SYSTEM_ID_CAP_BYTES)?,
+        system_id: capped("system id", &form.system_id, SYSTEM_ID_CAP_BYTES)?,
         dump_location: capped(
-            "the dump location",
+            "dump location",
             &form.dump_location,
             DUMP_LOCATION_CAP_BYTES,
         )?,
@@ -742,12 +784,16 @@ pub enum ProbeAnswer {
     },
 }
 
-/// What a stored probe left for the connect step to show again: the answer,
-/// and the operator labels the draft keeps. No credential, by construction.
+/// What a stored draft left for the connect step to show again: the address
+/// it probed, the answer when one is still kept, and the operator labels. No
+/// credential, by construction.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConnectRecord {
-    /// The probe's answer and the identity read, as the probe returned them.
-    pub answer: ConnectAnswer,
+    /// The base URL the draft probed, which the connect form offers again.
+    pub base_url: String,
+    /// The probe's answer and the identity read, as the probe returned them;
+    /// `None` once a refused newer probe forgot it.
+    pub answer: Option<ConnectAnswer>,
     /// The display name the operator entered, blank where the server stated
     /// its own.
     pub sut_name: String,
@@ -853,6 +899,7 @@ pub mod read {
         CapabilityRow, ClaimSummary, ConnectAnswer, ConnectRecord, DraftView, RecordedResults,
         RecordedRun, RunDraft, RunScreen, ScopePreview, StartOutcome,
     };
+    use crate::error::{ConsoleError, InternalCause};
     use crate::run_job::{Latest, RunId};
     use crate::state::ConsoleState;
     use crate::submitter::Submitter;
@@ -863,12 +910,9 @@ pub mod read {
     /// so a paste past it reads this module's own sentence.
     pub const STATEMENT_CAP_BYTES: u64 = 1_048_576;
 
-    /// The refusal every step past Connect gives when no draft exists.
-    const NO_DRAFT: &str = "no connection draft: complete the Connect step first";
-
     /// NOTE: no openEHR spec governs this — our own design; usize → u64 is
     /// lossless on every supported target (see `catalogue_api::read::count`).
-    fn count(n: usize) -> u64 {
+    pub(crate) fn count(n: usize) -> u64 {
         u64::try_from(n).unwrap_or(u64::MAX)
     }
 
@@ -890,44 +934,36 @@ pub mod read {
         })
     }
 
-    /// A connect-step refusal: its kind, which the URL may carry, and its own
-    /// diagnostic, which only the response body does.
-    #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-    #[error("{message}")]
-    pub struct Refused {
-        /// What kind of refusal this is.
-        pub kind: super::ConnectRefusal,
-        /// The diagnostic, verbatim.
-        pub message: String,
-    }
-
-    impl Refused {
-        /// A refusal of `kind` with its diagnostic.
-        #[must_use]
-        pub fn new(kind: super::ConnectRefusal, message: impl std::fmt::Display) -> Self {
-            Self {
-                kind,
-                message: message.to_string(),
-            }
-        }
-    }
-
     /// Refuses an identity label past its cap.
     ///
     /// # Errors
-    /// [`super::ConnectRefusal::Label`] naming the field, its size and the cap.
-    pub fn check_labels(sut_name: &str, sut_version: &str) -> Result<(), Refused> {
+    /// [`ConsoleError::TooLong`] naming the field, its size and the cap.
+    pub fn check_labels(sut_name: &str, sut_version: &str) -> Result<(), ConsoleError> {
         for (field, value) in [("display name", sut_name), ("version label", sut_version)] {
-            if count(value.len()) > super::IDENTITY_LABEL_CAP_BYTES {
-                return Err(Refused::new(
-                    super::ConnectRefusal::Label,
-                    format!(
-                        "the {field} is {} bytes; the cap is {}",
-                        value.len(),
-                        super::IDENTITY_LABEL_CAP_BYTES
-                    ),
+            let bytes = count(value.len());
+            if bytes > super::IDENTITY_LABEL_CAP_BYTES {
+                return Err(ConsoleError::too_long(
+                    field,
+                    bytes,
+                    super::IDENTITY_LABEL_CAP_BYTES,
                 ));
             }
+        }
+        Ok(())
+    }
+
+    /// Refuses a document-id filter past its cap (#533).
+    ///
+    /// # Errors
+    /// [`ConsoleError::TooLong`] naming the filter, its size and the cap.
+    pub fn check_filter(filter: &str) -> Result<(), ConsoleError> {
+        let bytes = count(filter.len());
+        if bytes > super::FILTER_CAP_BYTES {
+            return Err(ConsoleError::too_long(
+                "filter",
+                bytes,
+                super::FILTER_CAP_BYTES,
+            ));
         }
         Ok(())
     }
@@ -948,19 +984,26 @@ pub mod read {
         }
     }
 
-    /// What this submitter's stored probe left for the connect step, when a
+    /// What this submitter's stored draft left for the connect step, when a
     /// probe stored one.
+    ///
+    /// NOTE: no openEHR spec governs this — our own design; the address is the
+    /// operator's own entry and is never pinned, so a re-probe reaches it.
     #[must_use]
     pub fn connect_record(state: &ConsoleState, submitter: Submitter) -> Option<ConnectRecord> {
         let guard = state.draft.lock().ok()?;
         let draft = guard.get(submitter)?;
-        let probe = draft.probe.clone()?;
-        let identity = draft.identity.clone()?;
-        Some(ConnectRecord {
-            answer: ConnectAnswer {
+        let answer = draft
+            .probe
+            .clone()
+            .zip(draft.identity.clone())
+            .map(|(probe, identity)| ConnectAnswer {
                 probe: crate::capture::probe_answer(state, probe),
                 identity,
-            },
+            });
+        Some(ConnectRecord {
+            base_url: draft.base_url.clone(),
+            answer,
             sut_name: draft.sut_name.clone(),
             sut_version: draft.sut_version.clone(),
         })
@@ -991,20 +1034,25 @@ pub mod read {
     /// token.
     ///
     /// # Errors
-    /// The engine's refusal of a token that names no profile, "no connection
-    /// draft" when S3 has not run, or the poisoned-lock diagnostic.
+    /// [`ConsoleError::Invalid`] carrying the engine's refusal of a token that
+    /// names no profile, [`ConsoleError::NoDraft`] when S3 has not run, or the
+    /// poisoned lock as [`ConsoleError::Internal`].
     pub fn save_profile(
         state: &ConsoleState,
         submitter: Submitter,
         token: &str,
-    ) -> Result<(), String> {
-        let profile: veredictum::arazzo::spec_profile::SpecProfile = token
-            .parse()
-            .map_err(|e: veredictum::arazzo::spec_profile::UnknownProfile| e.to_string())?;
-        let mut guard = state.draft.lock().map_err(|e| e.to_string())?;
-        let draft = guard
-            .get_mut(submitter)
-            .ok_or_else(|| String::from(NO_DRAFT))?;
+    ) -> Result<(), ConsoleError> {
+        let profile: veredictum::arazzo::spec_profile::SpecProfile =
+            token
+                .parse()
+                .map_err(|e: veredictum::arazzo::spec_profile::UnknownProfile| {
+                    ConsoleError::invalid(e)
+                })?;
+        let mut guard = state
+            .draft
+            .lock()
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
+        let draft = guard.get_mut(submitter).ok_or(ConsoleError::NoDraft)?;
         draft.profile = profile;
         Ok(())
     }
@@ -1016,13 +1064,16 @@ pub mod read {
     /// other.
     ///
     /// # Errors
-    /// The poisoned-lock diagnostic, verbatim.
+    /// The poisoned lock, as [`ConsoleError::Internal`].
     pub fn save_connection(
         state: &ConsoleState,
         submitter: Submitter,
         draft: RunDraft,
-    ) -> Result<(), String> {
-        let mut guard = state.draft.lock().map_err(|e| e.to_string())?;
+    ) -> Result<(), ConsoleError> {
+        let mut guard = state
+            .draft
+            .lock()
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
         guard.insert(submitter, draft);
         Ok(())
     }
@@ -1034,8 +1085,11 @@ pub mod read {
     /// with the reader's finding verbatim — never stored unvalidated.
     ///
     /// # Errors
-    /// "no connection draft" when S3 has not run, the size cap, the
-    /// statement reader's finding verbatim, or the poisoned-lock diagnostic.
+    /// [`ConsoleError::NoDraft`] when S3 has not run,
+    /// [`ConsoleError::Statement`] for the size cap and the statement
+    /// reader's finding verbatim, [`ConsoleError::TooLong`] for a filter or
+    /// posture past its cap, [`ConsoleError::Invalid`] for an unusable
+    /// posture, or the poisoned lock as [`ConsoleError::Internal`].
     #[expect(
         clippy::disallowed_types,
         reason = "the artifact-loader family: schema validation runs over the raw JSON value before the typed parse, exactly as the engine's own loaders do"
@@ -1046,7 +1100,8 @@ pub mod read {
         statement_json: Option<String>,
         filter: Option<String>,
         postures: &super::PostureForm,
-    ) -> Result<Option<ClaimSummary>, String> {
+    ) -> Result<Option<ClaimSummary>, ConsoleError> {
+        check_filter(filter.as_deref().unwrap_or_default())?;
         let summary = statement_json
             .as_deref()
             .map(|body| {
@@ -1057,30 +1112,35 @@ pub mod read {
                 };
                 if count(body.len()) > STATEMENT_CAP_BYTES {
                     refused(crate::metrics::StatementReason::TooLarge);
-                    return Err(format!(
+                    return Err(ConsoleError::statement(format!(
                         "the statement is {} bytes; the cap is {STATEMENT_CAP_BYTES}",
                         body.len()
-                    ));
+                    )));
                 }
                 let value: serde_json::Value = serde_json::from_str(body).map_err(|e| {
                     refused(crate::metrics::StatementReason::NotJson);
-                    format!("the statement is not JSON: {e}")
+                    ConsoleError::statement(format!("the statement is not JSON: {e}"))
                 })?;
                 // Held to the PUBLISHED statement schema — the same document
                 // the engine emits and loads by — before the typed parse.
                 let validator = jsonschema::validator_for(&veredictum::schema::statement_schema())
-                    .map_err(|e| format!("the statement schema itself failed to compile: {e}"))?;
+                    .map_err(|e| {
+                        ConsoleError::internal(
+                            InternalCause::Document,
+                            format!("the statement schema itself failed to compile: {e}"),
+                        )
+                    })?;
                 if let Some(finding) = validator.iter_errors(&value).next() {
                     refused(crate::metrics::StatementReason::SchemaInvalid);
-                    return Err(format!(
+                    return Err(ConsoleError::statement(format!(
                         "the statement fails its published schema at {}: {finding}",
                         finding.instance_path()
-                    ));
+                    )));
                 }
                 let statement: veredictum::party::Statement = serde_json::from_value(value)
                     .map_err(|e| {
                         refused(crate::metrics::StatementReason::Unparsable);
-                        format!("the statement does not parse: {e}")
+                        ConsoleError::statement(format!("the statement does not parse: {e}"))
                     })?;
                 Ok(ClaimSummary {
                     product: format!("{} {}", statement.product.name, statement.product.version),
@@ -1091,10 +1151,11 @@ pub mod read {
         // Narrowed BEFORE the draft is touched, so a refused declaration
         // leaves the stored scope exactly as it was.
         let declared = super::declared_postures(postures)?;
-        let mut guard = state.draft.lock().map_err(|e| e.to_string())?;
-        let draft = guard
-            .get_mut(submitter)
-            .ok_or_else(|| String::from(NO_DRAFT))?;
+        let mut guard = state
+            .draft
+            .lock()
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
+        let draft = guard.get_mut(submitter).ok_or(ConsoleError::NoDraft)?;
         draft.statement_product = summary.as_ref().map(|claim| claim.product.clone());
         draft.statement_json = statement_json;
         draft.filter = filter;
@@ -1118,20 +1179,24 @@ pub mod read {
     /// empty, which runs every document, when the filter is empty.
     ///
     /// # Errors
-    /// The verbatim load failure when the catalogue is absent, and a filter
-    /// no document id contains, which would otherwise run nothing.
-    pub fn filtered_documents(state: &ConsoleState, filter: &str) -> Result<Vec<String>, String> {
+    /// [`ConsoleError::CatalogueUnavailable`] when the catalogue is absent,
+    /// and [`ConsoleError::Invalid`] for a filter no document id contains,
+    /// which would otherwise run nothing.
+    pub fn filtered_documents(
+        state: &ConsoleState,
+        filter: &str,
+    ) -> Result<Vec<String>, ConsoleError> {
         if filter.is_empty() {
             return Ok(Vec::new());
         }
-        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+        let listing = state.listing()?;
         let documents: Vec<String> = filtered(listing, filter)
             .map(|document| document.id.clone())
             .collect();
         if documents.is_empty() {
-            return Err(format!(
+            return Err(ConsoleError::invalid(format!(
                 "no document id contains `{filter}`, so the run would drive nothing"
-            ));
+            )));
         }
         Ok(documents)
     }
@@ -1143,9 +1208,12 @@ pub mod read {
     /// drive-time selection.
     ///
     /// # Errors
-    /// The verbatim load failure when the catalogue is absent.
-    pub fn scope_preview(state: &ConsoleState, filter: &str) -> Result<ScopePreview, String> {
-        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+    /// [`ConsoleError::TooLong`] for a filter past [`super::FILTER_CAP_BYTES`],
+    /// checked before any document is matched, and
+    /// [`ConsoleError::CatalogueUnavailable`] when the catalogue is absent.
+    pub fn scope_preview(state: &ConsoleState, filter: &str) -> Result<ScopePreview, ConsoleError> {
+        check_filter(filter)?;
+        let listing = state.listing()?;
         let mut chapters: std::collections::BTreeMap<String, u64> =
             std::collections::BTreeMap::new();
         let mut total = 0_usize;
@@ -1167,14 +1235,18 @@ pub mod read {
     /// its System OPTIONS document ([`starts_checked`]).
     ///
     /// # Errors
-    /// The catalogue's verbatim load failure, and a poisoned draft lock.
+    /// [`ConsoleError::CatalogueUnavailable`], the load failure verbatim, and
+    /// the poisoned draft lock as [`ConsoleError::Internal`].
     pub fn capability_rows(
         state: &ConsoleState,
         submitter: Submitter,
-    ) -> Result<Vec<CapabilityRow>, String> {
-        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+    ) -> Result<Vec<CapabilityRow>, ConsoleError> {
+        let listing = state.listing()?;
         let endpoints = {
-            let guard = state.draft.lock().map_err(|e| e.to_string())?;
+            let guard = state
+                .draft
+                .lock()
+                .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
             guard
                 .get(submitter)
                 .and_then(|draft| draft.identity.as_ref())
@@ -1250,32 +1322,36 @@ pub mod read {
     /// operator saves like a pasted one.
     ///
     /// # Errors
-    /// An empty selection, a name that is not a capability folder of the
-    /// catalogue, a missing connection draft or product identity, and the
-    /// catalogue's load failure, each verbatim.
+    /// [`ConsoleError::Invalid`] for an empty selection, a name that is not a
+    /// capability folder of the catalogue, or a missing product identity;
+    /// [`ConsoleError::NoDraft`]; [`ConsoleError::CatalogueUnavailable`]; and
+    /// [`ConsoleError::Internal`] for a lock or serializer failure.
     pub fn compose_claim(
         state: &ConsoleState,
         submitter: Submitter,
         selected: &[String],
-    ) -> Result<String, String> {
+    ) -> Result<String, ConsoleError> {
         if selected.is_empty() {
-            return Err(String::from(
+            return Err(ConsoleError::invalid(
                 "check at least one capability: a claim with no capability claims nothing",
             ));
         }
-        let listing = state.catalogue.as_ref().as_ref().map_err(Clone::clone)?;
+        let listing = state.listing()?;
         let folders = listing.capabilities();
         if let Some(unknown) = selected
             .iter()
             .find(|name| !folders.contains_key(name.as_str()))
         {
-            return Err(format!(
+            return Err(ConsoleError::invalid(format!(
                 "`{unknown}` is not a capability folder of the catalogue"
-            ));
+            )));
         }
         let (resolved, vendor) = {
-            let guard = state.draft.lock().map_err(|e| e.to_string())?;
-            let draft = guard.get(submitter).ok_or_else(|| String::from(NO_DRAFT))?;
+            let guard = state
+                .draft
+                .lock()
+                .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
+            let draft = guard.get(submitter).ok_or(ConsoleError::NoDraft)?;
             let vendor = draft
                 .identity
                 .as_ref()
@@ -1284,7 +1360,7 @@ pub mod read {
             (draft.resolved(), vendor)
         };
         let (Some(name), Some(version)) = (resolved.name, resolved.version) else {
-            return Err(String::from(
+            return Err(ConsoleError::invalid(
                 "the composed claim's product identity is the server's stated name and version, or the Connect step's entries where it stated none: fill both in first",
             ));
         };
@@ -1295,7 +1371,12 @@ pub mod read {
             .filter(|name| selected.iter().any(|held| held == *name))
             .map(|name| veredictum::ids::CapabilityName::parse(name))
             .collect::<Result<_, _>>()
-            .map_err(|e| format!("a capability folder is not a claimable name: {e}"))?;
+            .map_err(|e| {
+                ConsoleError::internal(
+                    InternalCause::Document,
+                    format!("a capability folder is not a claimable name: {e}"),
+                )
+            })?;
         let statement = veredictum::party::Statement {
             product: veredictum::party::Product {
                 identifier: identifier_of(&name, &version),
@@ -1312,8 +1393,12 @@ pub mod read {
             evidence: Vec::new(),
             attestation: None,
         };
-        let mut document = serde_json::to_string_pretty(&statement)
-            .map_err(|e| format!("the composed claim did not serialize: {e}"))?;
+        let mut document = serde_json::to_string_pretty(&statement).map_err(|e| {
+            ConsoleError::internal(
+                InternalCause::Document,
+                format!("the composed claim did not serialize: {e}"),
+            )
+        })?;
         document.push('\n');
         Ok(document)
     }
@@ -1427,9 +1512,9 @@ pub mod read {
     /// guess.
     ///
     /// # Errors
-    /// The serializer's verbatim failure, and the engine reader's refusal of a
-    /// document the instrument cannot read.
-    pub fn ixit_document(draft: &RunDraft) -> Result<String, String> {
+    /// [`ConsoleError::Internal`]: the serializer's verbatim failure, and the
+    /// engine reader's refusal of a document the instrument cannot read.
+    pub fn ixit_document(draft: &RunDraft) -> Result<String, ConsoleError> {
         use veredictum::arazzo::credential::Role;
 
         let instance = |auth: IxitAuth| IxitInstance {
@@ -1470,15 +1555,23 @@ pub mod read {
                 .map(veredictum::ixit::SpecProfile::token),
             signing,
         };
-        let mut rendered = serde_json::to_string_pretty(&document)
-            .map_err(|e| format!("the composed ixit did not serialize: {e}"))?;
+        let mut rendered = serde_json::to_string_pretty(&document).map_err(|e| {
+            ConsoleError::internal(
+                InternalCause::Document,
+                format!("the composed ixit did not serialize: {e}"),
+            )
+        })?;
         rendered.push('\n');
         // The composed bytes are held to the engine's OWN reader before a run
         // is built on them: a document the instrument cannot read is a console
         // defect, and it is refused here rather than at the spawned engine's
         // first line.
-        serde_json::from_str::<veredictum::ixit::Ixit>(&rendered)
-            .map_err(|e| format!("the composed ixit does not parse: {e}"))?;
+        serde_json::from_str::<veredictum::ixit::Ixit>(&rendered).map_err(|e| {
+            ConsoleError::internal(
+                InternalCause::Document,
+                format!("the composed ixit does not parse: {e}"),
+            )
+        })?;
         Ok(rendered)
     }
 
@@ -1490,16 +1583,16 @@ pub mod read {
     /// [`start_run_with`].
     ///
     /// # Errors
-    /// "no connection draft" before S3, the rate ledger's refusal with its
-    /// retry, the target guard's refusal naming the address family, the
-    /// engine's own locate/spawn refusals, and the filesystem's verbatim
-    /// failures. The per-submitter concurrency refusal is an ANSWER
+    /// [`ConsoleError::NoDraft`] before S3, [`ConsoleError::RateBudget`] with
+    /// its retry, [`ConsoleError::Target`] naming the address family, and
+    /// [`ConsoleError::Internal`] for the engine's own locate/spawn refusals
+    /// and the filesystem's verbatim failures. The per-submitter concurrency refusal is an ANSWER
     /// ([`StartOutcome::AlreadyInFlight`]), not an error, because it names
     /// the run the screen must link to.
     pub async fn start_run(
         state: &ConsoleState,
         submitter: Submitter,
-    ) -> Result<StartOutcome, String> {
+    ) -> Result<StartOutcome, ConsoleError> {
         // The no-draft refusal precedes engine discovery, so an unconnected
         // wizard is refused for what it is on a host with no engine mounted.
         // The guard's lock is released before the awaits below: nothing here
@@ -1507,18 +1600,19 @@ pub mod read {
         let drafted = state
             .draft
             .lock()
-            .map_err(|e| e.to_string())?
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?
             .get(submitter)
             .map(|draft| draft.base_url.clone());
         let Some(base_url) = drafted else {
-            return Err(String::from(NO_DRAFT));
+            return Err(ConsoleError::NoDraft);
         };
         admit(state, submitter, crate::rate_limit::Metered::Start)?;
         // The target guard (#390), before the engine is spawned: a hosted
         // instance refuses an address only it can reach, resolving the name
         // first. The local posture refuses nothing.
         guard_target(state, &base_url).await?;
-        let engine = crate::engine::locate().map_err(|e| e.to_string())?;
+        let engine =
+            crate::engine::locate().map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
         start_run_with(state, submitter, &engine)
     }
 
@@ -1526,33 +1620,59 @@ pub mod read {
     /// it metered.
     ///
     /// # Errors
-    /// The rate ledger's refusal, verbatim.
+    /// [`ConsoleError::RateBudget`] carrying the ledger's sentence and its
+    /// retry, or a poisoned ledger as [`ConsoleError::Internal`].
     pub fn admit(
         state: &ConsoleState,
         submitter: Submitter,
         what: crate::rate_limit::Metered,
-    ) -> Result<(), String> {
-        state.rates.admit(submitter, what).map_err(|refusal| {
-            if let crate::rate_limit::RateRefusal::TooMany { what, .. } = refusal {
-                state.metrics.refused(crate::metrics::Refusal::Rate(what));
-            }
-            refusal.to_string()
-        })
+    ) -> Result<(), ConsoleError> {
+        state
+            .rates
+            .admit(submitter, what)
+            .map_err(|refusal| match refusal {
+                crate::rate_limit::RateRefusal::TooMany {
+                    what,
+                    retry_in_secs,
+                    ..
+                } => {
+                    state.metrics.refused(crate::metrics::Refusal::Rate(what));
+                    ConsoleError::RateBudget {
+                        retry_in_secs,
+                        detail: refusal.to_string(),
+                    }
+                }
+                crate::rate_limit::RateRefusal::Poisoned(_) => {
+                    ConsoleError::internal(InternalCause::Lock, refusal)
+                }
+            })
     }
 
     /// Puts a visitor-named target through the posture's guard, counting a
     /// refusal by its reason and never by the address it refused.
     ///
     /// # Errors
-    /// The target guard's refusal, verbatim.
-    pub async fn guard_target(state: &ConsoleState, base_url: &str) -> Result<(), String> {
+    /// [`ConsoleError::Target`] carrying the guard's refusal verbatim, or
+    /// [`ConsoleError::Internal`] when the check itself could not run.
+    pub async fn guard_target(state: &ConsoleState, base_url: &str) -> Result<(), ConsoleError> {
         crate::target_safety::check(state.posture, base_url)
             .await
             .map_err(|refusal| {
                 state.metrics.refused(crate::metrics::Refusal::Target(
                     crate::metrics::TargetReason::from(&refusal),
                 ));
-                refusal.to_string()
+                match refusal {
+                    crate::target_safety::TargetRefusal::Unchecked(_) => {
+                        ConsoleError::internal(InternalCause::TargetCheck, refusal)
+                    }
+                    crate::target_safety::TargetRefusal::Unreadable { .. }
+                    | crate::target_safety::TargetRefusal::Credentials
+                    | crate::target_safety::TargetRefusal::NoHost { .. }
+                    | crate::target_safety::TargetRefusal::Unresolvable { .. }
+                    | crate::target_safety::TargetRefusal::Refused { .. } => ConsoleError::Target {
+                        detail: refusal.to_string(),
+                    },
+                }
             })
     }
 
@@ -1569,8 +1689,9 @@ pub mod read {
     /// `PATH`.
     ///
     /// # Errors
-    /// "no connection draft" before S3, a document filter that selects
-    /// nothing, the engine's own spawn refusals, and the filesystem's verbatim
+    /// [`ConsoleError::NoDraft`] before S3, [`ConsoleError::Invalid`] for a
+    /// document filter that selects nothing, and [`ConsoleError::Internal`]
+    /// for the engine's own spawn refusals and the filesystem's verbatim
     /// failures. A submitter who already has a run
     /// in flight gets [`StartOutcome::AlreadyInFlight`], which is an answer
     /// naming that run rather than an error.
@@ -1578,32 +1699,38 @@ pub mod read {
         state: &ConsoleState,
         submitter: Submitter,
         engine: &crate::engine::Engine,
-    ) -> Result<StartOutcome, String> {
+    ) -> Result<StartOutcome, ConsoleError> {
         // The pre-flight, so nothing is written for a run that will be
         // refused. The AUTHORITATIVE check is inside the job map's own lock;
         // if a second start from this submitter wins the race in between, its
         // answer still names their run and the cost is a re-probe.
-        if let Some(existing) = state
-            .jobs
-            .in_flight_of(submitter)
-            .map_err(|e| e.to_string())?
-        {
+        if let Some(existing) = state.jobs.in_flight_of(submitter)? {
             state
                 .metrics
                 .refused(crate::metrics::Refusal::AlreadyInFlight);
             return Ok(StartOutcome::AlreadyInFlight(existing));
         }
-        let mut guard = state.draft.lock().map_err(|e| e.to_string())?;
-        let draft = guard
-            .get_mut(submitter)
-            .ok_or_else(|| String::from(NO_DRAFT))?;
+        let mut guard = state
+            .draft
+            .lock()
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
+        let draft = guard.get_mut(submitter).ok_or(ConsoleError::NoDraft)?;
         let documents = filtered_documents(state, draft.filter.as_deref().unwrap_or_default())?;
         let id = state.jobs.allocate_id();
         let out_dir = crate::run_job::job_dir(&state.out, id);
-        std::fs::create_dir_all(&out_dir).map_err(|e| format!("{}: {e}", out_dir.display()))?;
+        std::fs::create_dir_all(&out_dir).map_err(|e| {
+            ConsoleError::internal(
+                InternalCause::Storage,
+                format!("{}: {e}", out_dir.display()),
+            )
+        })?;
         let ixit_path = out_dir.join("ixit.json");
-        std::fs::write(&ixit_path, ixit_document(draft)?)
-            .map_err(|e| format!("{}: {e}", ixit_path.display()))?;
+        std::fs::write(&ixit_path, ixit_document(draft)?).map_err(|e| {
+            ConsoleError::internal(
+                InternalCause::Storage,
+                format!("{}: {e}", ixit_path.display()),
+            )
+        })?;
         // The claim travels WITH the run: the job directory carries the exact
         // bytes the engine selected by, never the mutable draft.
         let statement_path = draft
@@ -1611,8 +1738,13 @@ pub mod read {
             .as_deref()
             .map(|body| {
                 let path = out_dir.join("statement.json");
-                std::fs::write(&path, body).map_err(|e| format!("{}: {e}", path.display()))?;
-                Ok::<_, String>(path)
+                std::fs::write(&path, body).map_err(|e| {
+                    ConsoleError::internal(
+                        InternalCause::Storage,
+                        format!("{}: {e}", path.display()),
+                    )
+                })?;
+                Ok::<_, ConsoleError>(path)
             })
             .transpose()?;
         let spec = crate::engine::RunSpec {
@@ -1637,7 +1769,7 @@ pub mod read {
                     .refused(crate::metrics::Refusal::AlreadyInFlight);
                 Ok(StartOutcome::AlreadyInFlight(existing))
             }
-            Err(e) => Err(e.to_string()),
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -1655,25 +1787,22 @@ pub mod read {
     /// here is gated on who started it.
     ///
     /// # Errors
-    /// The map's verbatim refusal, and the verbatim read or parse failure of
-    /// a results document that exists but cannot be read.
+    /// [`ConsoleError::Internal`]: the map's verbatim refusal, and the
+    /// verbatim read or parse failure of a results document that exists but
+    /// cannot be read.
     pub fn run_screen(
         state: &ConsoleState,
         submitter: Submitter,
         id: Option<RunId>,
-    ) -> Result<RunScreen, String> {
+    ) -> Result<RunScreen, ConsoleError> {
         let named = match id {
             Some(named) => named,
-            None => match state
-                .jobs
-                .latest_of(submitter, Latest::Any)
-                .map_err(|e| e.to_string())?
-            {
+            None => match state.jobs.latest_of(submitter, Latest::Any)? {
                 Some(current) => current,
                 None => return Ok(RunScreen::NoRunNamed),
             },
         };
-        if let Some(view) = state.jobs.view_of(named).map_err(|e| e.to_string())? {
+        if let Some(view) = state.jobs.view_of(named)? {
             return Ok(RunScreen::Live(Box::new(view)));
         }
         recorded_run(state, named)
@@ -1685,8 +1814,9 @@ pub mod read {
     /// is the same one a live finished view carries.
     ///
     /// # Errors
-    /// The verbatim read or parse failure of a results document that exists.
-    fn recorded_run(state: &ConsoleState, id: RunId) -> Result<RunScreen, String> {
+    /// [`ConsoleError::Internal`]: the verbatim read or parse failure of a
+    /// results document that exists.
+    fn recorded_run(state: &ConsoleState, id: RunId) -> Result<RunScreen, ConsoleError> {
         let dir = crate::run_job::job_dir(&state.out, id);
         if !dir.is_dir() {
             return Ok(RunScreen::Unknown(id));
@@ -1700,10 +1830,15 @@ pub mod read {
                 results: None,
             })));
         }
-        let body = std::fs::read_to_string(&results_path)
-            .map_err(|e| format!("{}: {e}", results_path.display()))?;
+        let unreadable = |e: &dyn std::fmt::Display| {
+            ConsoleError::internal(
+                InternalCause::Storage,
+                format!("{}: {e}", results_path.display()),
+            )
+        };
+        let body = std::fs::read_to_string(&results_path).map_err(|e| unreadable(&e))?;
         let results: veredictum::arazzo::results::Results =
-            serde_json::from_str(&body).map_err(|e| format!("{}: {e}", results_path.display()))?;
+            serde_json::from_str(&body).map_err(|e| unreadable(&e))?;
         let (passed, failed, errored, skipped) = crate::run_job::tally(&results);
         Ok(RunScreen::Recorded(Box::new(RecordedRun {
             id,
@@ -1754,22 +1889,21 @@ pub mod read {
     /// request carried.
     ///
     /// # Errors
-    /// "no connection draft" before a probe, a label past its cap, and the
-    /// poisoned-lock diagnostic, each as its [`Refused`] kind.
+    /// [`ConsoleError::NoDraft`] before a probe, [`ConsoleError::TooLong`] for
+    /// a label past its cap, and the poisoned lock as
+    /// [`ConsoleError::Internal`].
     pub fn save_identity(
         state: &ConsoleState,
         submitter: Submitter,
         sut_name: String,
         sut_version: String,
-    ) -> Result<(), Refused> {
+    ) -> Result<(), ConsoleError> {
         check_labels(&sut_name, &sut_version)?;
         let mut guard = state
             .draft
             .lock()
-            .map_err(|e| Refused::new(super::ConnectRefusal::Store, e))?;
-        let draft = guard
-            .get_mut(submitter)
-            .ok_or_else(|| Refused::new(super::ConnectRefusal::NoDraft, NO_DRAFT))?;
+            .map_err(|e| ConsoleError::internal(InternalCause::Lock, e))?;
+        let draft = guard.get_mut(submitter).ok_or(ConsoleError::NoDraft)?;
         let (sut_name, sut_version) =
             crate::identity::entered_labels(draft.identity.as_ref(), sut_name, sut_version);
         draft.sut_name = sut_name;
@@ -1889,27 +2023,24 @@ pub mod fns {
         reason = "fires only in some #[server] expansions; see catalogue_api::fns"
     )]
 
-    use leptos::prelude::{ServerFnError, server};
+    use leptos::prelude::server;
 
-    #[cfg(feature = "ssr")]
-    use super::ConnectRefusal;
-    #[cfg(feature = "ssr")]
-    use super::read::Refused;
     use super::{
         CapabilityRow, ClaimSummary, ConnectAnswer, ConnectRecord, CredentialForm, DraftView,
         PostureForm, RunScreen, ScopePreview, StartOutcome,
     };
+    use crate::error::ConsoleError;
     use crate::run_job::RunId;
 
     /// The error a connect-step refusal answers with. A plain form post is
     /// also sent back to the connect step with the refusal's kind in its
     /// query, because the reloaded page holds no client state to read it from.
     #[cfg(feature = "ssr")]
-    fn refusal(refused: Refused) -> ServerFnError {
+    fn refusal(error: ConsoleError) -> ConsoleError {
         if super::read::plain_form_post() {
-            leptos_axum::redirect(&refused.kind.path());
+            leptos_axum::redirect(&super::ConnectRefusal::from(&error).path());
         }
-        ServerFnError::new(refused)
+        error
     }
 
     /// Probes the connection, reads the server's identity through the engine,
@@ -1930,10 +2061,11 @@ pub mod fns {
     /// connect step at [`super::PROBED_PATH`], which reads the stored answer.
     ///
     /// # Errors
-    /// An identity label past its cap, the rate ledger's refusal with its
-    /// retry, the target guard's refusal naming the address family, and the
-    /// draft-store failure — each verbatim, and each forgetting the answer an
-    /// earlier probe stored. A plain form post is also redirected to
+    /// [`ConsoleError::TooLong`] for an identity label past its cap,
+    /// [`ConsoleError::RateBudget`] with its retry, [`ConsoleError::Target`]
+    /// naming the address family or a credential in the address, and
+    /// [`ConsoleError::Internal`] for the draft store. Each forgets the answer
+    /// an earlier probe stored, and a plain form post is also redirected to
     /// [`super::ConnectRefusal::path`]. An unreachable server is an ANSWER,
     /// not an error.
     #[server]
@@ -1943,7 +2075,7 @@ pub mod fns {
         sut_version: String,
         server: CredentialForm,
         admin: CredentialForm,
-    ) -> Result<ConnectAnswer, ServerFnError> {
+    ) -> Result<ConnectAnswer, ConsoleError> {
         let CredentialForm {
             auth,
             user,
@@ -1952,16 +2084,15 @@ pub mod fns {
         } = server;
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
-        let refuse = |refused: Refused| {
+        let refuse = |error: ConsoleError| {
             super::read::forget_probe(&state, who);
-            refusal(refused)
+            refusal(error)
         };
         super::read::check_labels(&sut_name, &sut_version).map_err(refuse)?;
-        super::read::admit(&state, who, crate::rate_limit::Metered::Probe)
-            .map_err(|e| refuse(Refused::new(ConnectRefusal::Budget, e)))?;
+        super::read::admit(&state, who, crate::rate_limit::Metered::Probe).map_err(refuse)?;
         super::read::guard_target(&state, &base_url)
             .await
-            .map_err(|e| refuse(Refused::new(ConnectRefusal::Target, e)))?;
+            .map_err(refuse)?;
         let answer = super::read::probe(&base_url, auth, &user, &password, &token).await;
         let probed_ok = matches!(answer, super::ProbeAnswer::Answered { ok: true, .. });
         let identity = match answer {
@@ -2009,7 +2140,7 @@ pub mod fns {
                 postures: super::DeclaredPostures::default(),
             },
         )
-        .map_err(|e| refuse(Refused::new(ConnectRefusal::Store, e)))?;
+        .map_err(refuse)?;
         if super::read::plain_form_post() {
             leptos_axum::redirect(super::PROBED_PATH);
         }
@@ -2025,7 +2156,7 @@ pub mod fns {
     /// # Errors
     /// The server-fn transport only.
     #[server]
-    pub async fn fetch_connect() -> Result<Option<ConnectRecord>, ServerFnError> {
+    pub async fn fetch_connect() -> Result<Option<ConnectRecord>, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
         Ok(super::read::connect_record(&state, who))
@@ -2039,10 +2170,11 @@ pub mod fns {
     /// the client bundle (<https://book.leptos.dev/server/27_response.html>).
     ///
     /// # Errors
-    /// "no connection draft" before a probe, a label past its cap, and the
-    /// draft-store failure, each verbatim.
+    /// [`ConsoleError::NoDraft`] before a probe, [`ConsoleError::TooLong`] for
+    /// a label past its cap, and [`ConsoleError::Internal`] for the draft
+    /// store.
     #[server]
-    pub async fn save_identity(sut_name: String, sut_version: String) -> Result<(), ServerFnError> {
+    pub async fn save_identity(sut_name: String, sut_version: String) -> Result<(), ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
         super::read::save_identity(&state, who, sut_name, sut_version).map_err(refusal)?;
@@ -2055,7 +2187,7 @@ pub mod fns {
     /// # Errors
     /// The server-fn transport only.
     #[server]
-    pub async fn fetch_draft() -> Result<Option<DraftView>, ServerFnError> {
+    pub async fn fetch_draft() -> Result<Option<DraftView>, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
         let view = super::read::draft_view(&state, who);
@@ -2065,11 +2197,12 @@ pub mod fns {
     /// The scope preview for a filter.
     ///
     /// # Errors
-    /// The verbatim load failure when the catalogue is absent.
+    /// [`ConsoleError::TooLong`] for a filter past its cap, and
+    /// [`ConsoleError::CatalogueUnavailable`] when the catalogue is absent.
     #[server]
-    pub async fn fetch_scope_preview(filter: String) -> Result<ScopePreview, ServerFnError> {
+    pub async fn fetch_scope_preview(filter: String) -> Result<ScopePreview, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        super::read::scope_preview(&state, &filter).map_err(ServerFnError::new)
+        super::read::scope_preview(&state, &filter)
     }
 
     /// Starts this submitter's drafted run and answers with the run's id,
@@ -2079,16 +2212,15 @@ pub mod fns {
     /// run's id and nothing is started, so the screen can send them to it.
     ///
     /// # Errors
-    /// "no connection draft" before S3, the start budget's refusal, the
-    /// target guard's refusal, the engine's refusals, and filesystem
-    /// failures — each verbatim.
+    /// [`ConsoleError::NoDraft`] before S3, [`ConsoleError::RateBudget`],
+    /// [`ConsoleError::Target`], [`ConsoleError::Invalid`] for a filter that
+    /// selects nothing, and [`ConsoleError::Internal`] for the engine and the
+    /// output mount.
     #[server]
-    pub async fn start_run() -> Result<StartOutcome, ServerFnError> {
+    pub async fn start_run() -> Result<StartOutcome, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
-        super::read::start_run(&state, who)
-            .await
-            .map_err(ServerFnError::new)
+        super::read::start_run(&state, who).await
     }
 
     /// What the live screen is looking at, for the run the URL names.
@@ -2098,39 +2230,41 @@ pub mod fns {
     /// under the mounted output root.
     ///
     /// # Errors
-    /// The map's poisoned-state diagnostic, or a results document that
-    /// exists and cannot be read.
+    /// [`ConsoleError::Internal`]: the job map's poisoned lock, or a results
+    /// document that exists and cannot be read.
     #[server]
-    pub async fn fetch_run(id: Option<RunId>) -> Result<RunScreen, ServerFnError> {
+    pub async fn fetch_run(id: Option<RunId>) -> Result<RunScreen, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
-        let screen = super::read::run_screen(&state, who, id).map_err(ServerFnError::new)?;
+        let screen = super::read::run_screen(&state, who, id)?;
         Ok(crate::capture::run_screen(&state, screen))
     }
 
     /// Cancels the NAMED run.
     ///
     /// # Errors
-    /// "no run is in flight" when this process is not driving that run, or
-    /// the kill's own failure.
+    /// [`ConsoleError::NotFound`] when this process is not driving that run,
+    /// or [`ConsoleError::Internal`] for the kill's own failure.
     #[server]
-    pub async fn cancel_run(id: RunId) -> Result<(), ServerFnError> {
+    pub async fn cancel_run(id: RunId) -> Result<(), ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
-        state.jobs.cancel(id).map_err(ServerFnError::new)
+        state.jobs.cancel(id).map_err(ConsoleError::from)
     }
 
     /// Validates and stores the scope half onto the draft, answering with
     /// the claim's summary (`None` for an honest no-claim run).
     ///
     /// # Errors
-    /// "no connection draft" when S3 has not run, the statement reader's
-    /// refusal verbatim, or the draft-store failure.
+    /// [`ConsoleError::NoDraft`] when S3 has not run,
+    /// [`ConsoleError::Statement`] carrying the statement reader's finding,
+    /// [`ConsoleError::TooLong`] or [`ConsoleError::Invalid`] for the filter
+    /// or a posture, and [`ConsoleError::Internal`] for the draft store.
     #[server]
     pub async fn save_scope(
         statement_json: Option<String>,
         filter: Option<String>,
         postures: PostureForm,
-    ) -> Result<Option<ClaimSummary>, ServerFnError> {
+    ) -> Result<Option<ClaimSummary>, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
         super::read::save_scope(
@@ -2140,31 +2274,31 @@ pub mod fns {
             filter.filter(|f| !f.is_empty()),
             &postures,
         )
-        .map_err(ServerFnError::new)
     }
 
     /// Stores the specification profile the run is judged under:
     /// `development` (the default) or `released`.
     ///
     /// # Errors
-    /// The refusal of a token that names no profile, "no connection draft"
-    /// when S3 has not run, or the draft-store failure.
+    /// [`ConsoleError::Invalid`] for a token that names no profile,
+    /// [`ConsoleError::NoDraft`] when S3 has not run, or
+    /// [`ConsoleError::Internal`] for the draft store.
     #[server]
-    pub async fn save_profile(profile: String) -> Result<(), ServerFnError> {
+    pub async fn save_profile(profile: String) -> Result<(), ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
-        super::read::save_profile(&state, who, &profile).map_err(ServerFnError::new)
+        super::read::save_profile(&state, who, &profile)
     }
 
     /// The capability folders with the documents and workflows each holds.
     ///
     /// # Errors
-    /// The catalogue's verbatim load failure.
+    /// [`ConsoleError::CatalogueUnavailable`], the load failure verbatim.
     #[server]
-    pub async fn fetch_capability_rows() -> Result<Vec<CapabilityRow>, ServerFnError> {
+    pub async fn fetch_capability_rows() -> Result<Vec<CapabilityRow>, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
-        super::read::capability_rows(&state, who).map_err(ServerFnError::new)
+        super::read::capability_rows(&state, who)
     }
 
     /// Composes the ad-hoc claim for a capability selection, answering with
@@ -2181,14 +2315,14 @@ pub mod fns {
     /// deserialization error.
     ///
     /// # Errors
-    /// An empty selection, an unknown folder, a missing connection draft, and
-    /// the catalogue's load failure, each verbatim.
+    /// [`ConsoleError::Invalid`] for an empty selection, an unknown folder or
+    /// a missing product identity, [`ConsoleError::NoDraft`], and
+    /// [`ConsoleError::CatalogueUnavailable`].
     #[server]
-    pub async fn compose_claim(capabilities: Option<Vec<String>>) -> Result<String, ServerFnError> {
+    pub async fn compose_claim(capabilities: Option<Vec<String>>) -> Result<String, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         let who = crate::submitter::current(&state);
         super::read::compose_claim(&state, who, &capabilities.unwrap_or_default())
-            .map_err(ServerFnError::new)
     }
 }
 

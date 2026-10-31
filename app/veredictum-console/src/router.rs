@@ -16,6 +16,7 @@ use leptos::prelude::LeptosOptions;
 use leptos_axum::{LeptosRoutes as _, generate_route_list};
 
 use crate::app::{App, shell};
+use crate::error::ConsoleError;
 use crate::state::ConsoleState;
 
 /// How far URL encoding can inflate the payload a server function judges.
@@ -167,16 +168,17 @@ pub fn router(
         .with_state(leptos_options))
 }
 
-/// Gives a malformed call a caller's status and a caller's sentence (#484).
+/// Gives every server-function refusal its own status (#484, #401).
 ///
 /// `server_fn` answers every error it raises with 500, argument decoding
 /// included, and offers no hook to change it
 /// (<https://docs.rs/leptos/latest/leptos/server_fn/response/trait.Res.html>).
-/// So the encoded error is read back here: a body past the transport cap
-/// becomes 413 and a decoding failure 400, each with this crate's own
-/// wording, and the server's own errors pass through with their status and
-/// body untouched. The two caller faults are told apart by the body bytes
-/// counted on the way in, below the framework's limited reader.
+/// So the encoded [`ConsoleError`] is read back here: a decoding failure
+/// becomes the caller's refusal (a body past the transport cap
+/// [`ConsoleError::CallTooLarge`], an argument that would not decode
+/// [`ConsoleError::CallUndecodable`]), and every variant then answers with
+/// [`ConsoleError::status`]. The two caller faults are told apart by the body
+/// bytes counted on the way in, below the framework's limited reader.
 async fn caller_faults_are_4xx(
     axum::extract::State(cap): axum::extract::State<usize>,
     request: axum::extract::Request,
@@ -184,6 +186,7 @@ async fn caller_faults_are_4xx(
 ) -> axum::response::Response {
     use axum::response::IntoResponse as _;
     use http_body_util::BodyExt as _;
+    use leptos::prelude::FromServerFnError as _;
 
     let read = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let request = request.map(|body| {
@@ -209,24 +212,37 @@ async fn caller_faults_are_4xx(
         return axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
 
-    let Ok(encoded) = std::str::from_utf8(&bytes) else {
+    // NOTE: a body that is not the console's own JSON encoding is no refusal
+    // this crate raised, so it legitimately passes through as it came.
+    let Ok(error) = serde_json::from_slice::<ConsoleError>(&bytes) else {
         return (parts, bytes).into_response();
     };
     let body_read = crate::arg_refusal::BodyRead {
         bytes: read.load(std::sync::atomic::Ordering::Relaxed),
         cap,
     };
-    match crate::arg_refusal::caller_fault(encoded, body_read) {
-        // NOTE: RFC 9110 §15.5.14 — 413 is a refusal of content "larger than
-        // the server is willing or able to process".
-        Some(fault @ crate::arg_refusal::CallerFault::TooLarge { .. }) => {
-            (axum::http::StatusCode::PAYLOAD_TOO_LARGE, fault.sentence()).into_response()
-        }
-        Some(fault @ crate::arg_refusal::CallerFault::Undecodable { .. }) => {
-            (axum::http::StatusCode::BAD_REQUEST, fault.sentence()).into_response()
-        }
-        None => (parts, bytes).into_response(),
+    let error = crate::arg_refusal::caller_fault(&error, body_read).unwrap_or(error);
+    let mut parts = parts;
+    parts.status = error.status();
+    parts.headers.remove(axum::http::header::CONTENT_LENGTH);
+    if let ConsoleError::RateBudget { retry_in_secs, .. } = error {
+        // NOTE: RFC 6585 §4 — a 429 MAY carry `Retry-After` saying how long
+        // to wait, and the ledger knows exactly when the budget reopens.
+        parts.headers.insert(
+            axum::http::header::RETRY_AFTER,
+            axum::http::HeaderValue::from(retry_in_secs),
+        );
     }
+    if matches!(error, ConsoleError::CallTooLarge { .. }) {
+        // NOTE: RFC 9112 §9.6 — a server that closes the connection after a
+        // response SHOULD send `Connection: close`, and the body left unread
+        // past the cap is what makes hyper close this one (#784).
+        parts.headers.insert(
+            axum::http::header::CONNECTION,
+            axum::http::HeaderValue::from_static("close"),
+        );
+    }
+    (parts, error.ser()).into_response()
 }
 
 /// The largest error body the refusal layer reads back before giving up.

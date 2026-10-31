@@ -385,13 +385,6 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
     )?;
 
     let state = veredictum_console::state::ConsoleState {
-        root: engine_gate::repo_root().join("catalogue"),
-        specs: engine_gate::repo_root().join("specs/openehr"),
-        out: scratch.path().to_path_buf(),
-        catalogue: std::sync::Arc::new(
-            veredictum::pipeline::listing::read(&engine_gate::repo_root().join("catalogue"), None)
-                .map_err(|e| e.to_string()),
-        ),
         draft: std::sync::Arc::new(std::sync::Mutex::new(engine_gate::drafts_of(RunDraft {
             profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             base_url: String::from("http://unused"),
@@ -408,12 +401,7 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
             filter: None,
             postures: DeclaredPostures::default(),
         }))),
-        jobs: JobSlot::default(),
-        client_ip_header: None,
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
+        ..crate::support::state(scratch.path(), crate::support::committed_listing())
     };
     let id = state.jobs.allocate_id();
     state
@@ -518,21 +506,7 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
 /// A console state over one scratch output tree, with no catalogue: the live
 /// screen's resolver reads the slot and the output mount, and nothing else.
 fn state_over(out: &std::path::Path) -> veredictum_console::state::ConsoleState {
-    veredictum_console::state::ConsoleState {
-        root: engine_gate::repo_root().join("catalogue"),
-        specs: engine_gate::repo_root().join("specs/openehr"),
-        out: out.to_path_buf(),
-        catalogue: std::sync::Arc::new(Err(String::from("unused by the live screen"))),
-        draft: std::sync::Arc::new(std::sync::Mutex::new(
-            veredictum_console::run_api::Drafts::new(),
-        )),
-        client_ip_header: None,
-        jobs: JobSlot::default(),
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
-    }
+    crate::support::state(out, crate::support::absent("unused by the live screen"))
 }
 
 /// The #386 gate: the live screen has three honest answers about a run this
@@ -901,13 +875,6 @@ fn the_start_seam_answers_with_the_run_already_in_flight() -> Result<(), Box<dyn
     let port = engine_gate::slow_fixture_sut(std::time::Duration::from_millis(400))?;
 
     let state = veredictum_console::state::ConsoleState {
-        root: engine_gate::repo_root().join("catalogue"),
-        specs: engine_gate::repo_root().join("specs/openehr"),
-        out: scratch.path().to_path_buf(),
-        catalogue: std::sync::Arc::new(
-            veredictum::pipeline::listing::read(&engine_gate::repo_root().join("catalogue"), None)
-                .map_err(|e| e.to_string()),
-        ),
         draft: std::sync::Arc::new(std::sync::Mutex::new(engine_gate::drafts_of(RunDraft {
             profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             base_url: format!("http://127.0.0.1:{port}"),
@@ -924,12 +891,7 @@ fn the_start_seam_answers_with_the_run_already_in_flight() -> Result<(), Box<dyn
             filter: Some(String::from(engine_gate::GATE_DOCUMENT)),
             postures: DeclaredPostures::default(),
         }))),
-        jobs: JobSlot::default(),
-        client_ip_header: None,
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
+        ..crate::support::state(scratch.path(), crate::support::committed_listing())
     };
 
     let who = engine_gate::gate_submitter();
@@ -946,5 +908,45 @@ fn the_start_seam_answers_with_the_run_already_in_flight() -> Result<(), Box<dyn
     );
 
     drop(state.jobs.cancel(first));
+    Ok(())
+}
+
+/// A results document the instance cannot read is its own failure, and the
+/// browser is told its kind only: the path names the host's layout, which a
+/// public instance does not show its visitors.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn an_unreadable_results_document_names_no_host_path() -> Result<(), Box<dyn std::error::Error>> {
+    use veredictum_console::error::{ConsoleError, InternalCause};
+
+    let scratch = assert_fs::TempDir::new()?;
+    let state = state_over(scratch.path());
+    let id = state.jobs.allocate_id();
+    let dir = veredictum_console::run_job::job_dir(scratch.path(), id);
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(
+        dir.join(veredictum::pipeline::arazzo_run::RESULTS_FILE),
+        "not a results document",
+    )?;
+
+    let refused = read::run_screen(&state, Submitter::Unknown, Some(id))
+        .expect_err("a results document that does not parse is refused");
+    assert_eq!(
+        refused,
+        ConsoleError::Internal {
+            cause: InternalCause::Storage
+        }
+    );
+    let scratch_path = scratch.path().display().to_string();
+    for shown in [
+        refused.to_string(),
+        String::from_utf8_lossy(&leptos::prelude::FromServerFnError::ser(&refused)).into_owned(),
+    ] {
+        assert!(!shown.contains(&scratch_path), "{shown}");
+        assert!(!shown.contains("results"), "{shown}");
+    }
     Ok(())
 }

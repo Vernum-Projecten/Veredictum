@@ -12,16 +12,10 @@
 //! and whether the extraction works on the box belongs to a real deploy. The
 //! shell itself is linted by `scripts/checks/hosted-deploy-script.sh`.
 //!
-//! Feature-independent on purpose: everything here is a committed file, so the
-//! module carries its own repository root rather than riding the `ssr` gate the
-//! engine-gate helper sits behind.
+//! Feature-independent on purpose: everything here is a committed file, read
+//! from the suite's one repository root.
 
-use std::path::{Path, PathBuf};
-
-/// The repository root, from this crate's manifest directory.
-fn repo_root() -> &'static Path {
-    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-}
+use std::path::PathBuf;
 
 /// The posture files `deploy/docker/Dockerfile` COPYs into the image, as
 /// `(build-context source, container path)` pairs.
@@ -29,7 +23,8 @@ fn repo_root() -> &'static Path {
 /// READ out of the Dockerfile, because a constant restating the paths here
 /// would prove nothing about what the image ships.
 fn baked_posture() -> Result<Vec<(PathBuf, String)>, Box<dyn std::error::Error>> {
-    let dockerfile = std::fs::read_to_string(repo_root().join("deploy/docker/Dockerfile"))?;
+    let dockerfile =
+        std::fs::read_to_string(crate::support::repo_root().join("deploy/docker/Dockerfile"))?;
     Ok(dockerfile
         .lines()
         .filter_map(|line| line.trim().strip_prefix("COPY "))
@@ -53,7 +48,7 @@ fn baked_posture() -> Result<Vec<(PathBuf, String)>, Box<dyn std::error::Error>>
 /// true statement about the script.
 fn cloud_init() -> Result<String, Box<dyn std::error::Error>> {
     Ok(std::fs::read_to_string(
-        repo_root().join("deploy/hosted/cloud-init.yaml"),
+        crate::support::repo_root().join("deploy/hosted/cloud-init.yaml"),
     )?)
 }
 
@@ -90,7 +85,7 @@ fn the_image_bakes_the_posture_the_hosted_deploy_extracts() -> Result<(), Box<dy
             "the baked posture must be the committed hosted posture, not a second copy: {}",
             source.display()
         );
-        let in_context = repo_root().join(source);
+        let in_context = crate::support::repo_root().join(source);
         assert!(
             in_context.is_file(),
             "the build context has no {}, so that COPY would fail the build",
@@ -124,7 +119,8 @@ fn the_image_bakes_the_posture_the_hosted_deploy_extracts() -> Result<(), Box<dy
 #[test]
 fn the_bundle_floor_is_no_cache_and_the_hashed_override_follows_it()
 -> Result<(), Box<dyn std::error::Error>> {
-    let caddyfile = std::fs::read_to_string(repo_root().join("deploy/hosted/Caddyfile"))?;
+    let caddyfile =
+        std::fs::read_to_string(crate::support::repo_root().join("deploy/hosted/Caddyfile"))?;
 
     let floor = caddyfile
         .find("header @bundle Cache-Control \"no-cache\"")
@@ -158,7 +154,7 @@ fn the_bundle_floor_is_no_cache_and_the_hashed_override_follows_it()
 )]
 #[test]
 fn the_build_context_ignore_file_keeps_the_posture() -> Result<(), Box<dyn std::error::Error>> {
-    let ignore = std::fs::read_to_string(repo_root().join(".dockerignore"))?;
+    let ignore = std::fs::read_to_string(crate::support::repo_root().join(".dockerignore"))?;
     for line in ignore.lines() {
         let pattern = line.trim();
         if pattern.is_empty() || pattern.starts_with('#') || pattern.starts_with('!') {
@@ -181,7 +177,9 @@ fn the_build_context_ignore_file_keeps_the_posture() -> Result<(), Box<dyn std::
 )]
 #[test]
 fn the_run_record_outlives_the_container() -> Result<(), Box<dyn std::error::Error>> {
-    let compose = std::fs::read_to_string(repo_root().join("deploy/hosted/docker-compose.yml"))?;
+    let compose = std::fs::read_to_string(
+        crate::support::repo_root().join("deploy/hosted/docker-compose.yml"),
+    )?;
     let console = compose
         .split("\n  caddy:")
         .next()

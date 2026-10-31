@@ -125,7 +125,7 @@ fn the_served_head_names_only_files_the_build_emitted() -> Result<(), Box<dyn st
 #[test]
 fn the_image_serves_with_the_hashing_the_manifest_builds_with()
 -> Result<(), Box<dyn std::error::Error>> {
-    let repo_root = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
+    let repo_root = crate::support::repo_root();
     let manifest = std::fs::read_to_string(repo_root.join("app/veredictum-console/Cargo.toml"))?;
     let dockerfile = std::fs::read_to_string(repo_root.join("deploy/docker/Dockerfile"))?;
 

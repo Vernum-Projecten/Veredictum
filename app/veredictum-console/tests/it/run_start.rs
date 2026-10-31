@@ -166,16 +166,9 @@ fn starting_a_run_writes_the_ixit_and_moves_the_credentials()
     let (port, seen) = recording_sut()?;
 
     let claim = String::from(CLAIM);
+    // The start seam reads the listing only to turn the filter into the
+    // documents it names; the engine reads the mounted root itself.
     let state = ConsoleState {
-        root: engine_gate::repo_root().join("catalogue"),
-        specs: engine_gate::repo_root().join("specs/openehr"),
-        out: out.clone(),
-        // The start seam reads the listing only to turn the filter into the
-        // documents it names; the engine reads the mounted root itself.
-        catalogue: Arc::new(
-            veredictum::pipeline::listing::read(&engine_gate::repo_root().join("catalogue"), None)
-                .map_err(|e| e.to_string()),
-        ),
         draft: Arc::new(Mutex::new(engine_gate::drafts_of(RunDraft {
             profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             base_url: format!("http://127.0.0.1:{port}"),
@@ -201,12 +194,7 @@ fn starting_a_run_writes_the_ixit_and_moves_the_credentials()
             filter: Some(String::from(FILTER)),
             postures: DeclaredPostures::default(),
         }))),
-        jobs: JobSlot::default(),
-        client_ip_header: None,
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
+        ..crate::support::state(&out, crate::support::committed_listing())
     };
 
     let veredictum_console::run_api::StartOutcome::Accepted(id) =
@@ -319,24 +307,19 @@ fn starting_a_run_writes_the_ixit_and_moves_the_credentials()
 #[tokio::test]
 async fn starting_without_a_draft_is_refused_by_name() -> Result<(), Box<dyn std::error::Error>> {
     let scratch = assert_fs::TempDir::new()?;
-    let state = ConsoleState {
-        root: engine_gate::repo_root().join("catalogue"),
-        specs: engine_gate::repo_root().join("specs/openehr"),
-        out: scratch.path().to_path_buf(),
-        catalogue: Arc::new(Err(String::from("unused by the start seam"))),
-        draft: Arc::new(Mutex::new(veredictum_console::run_api::Drafts::new())),
-        jobs: JobSlot::default(),
-        client_ip_header: None,
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
-    };
+    let state = crate::support::state(
+        scratch.path(),
+        crate::support::absent("unused by the start seam"),
+    );
     let refusal =
         veredictum_console::run_api::read::start_run(&state, engine_gate::gate_submitter())
             .await
             .expect_err("no draft must refuse");
-    assert!(refusal.contains("no connection draft"), "{refusal}");
+    assert_eq!(
+        refusal,
+        veredictum_console::error::ConsoleError::NoDraft,
+        "{refusal}"
+    );
     // And nothing was written: no job directory, no ixit.
     assert_eq!(
         std::fs::read_dir(scratch.path())?.count(),
@@ -361,10 +344,6 @@ async fn a_hosted_instance_refuses_a_private_target_at_the_start_seam()
 -> Result<(), Box<dyn std::error::Error>> {
     let scratch = assert_fs::TempDir::new()?;
     let state = ConsoleState {
-        root: engine_gate::repo_root().join("catalogue"),
-        specs: engine_gate::repo_root().join("specs/openehr"),
-        out: scratch.path().to_path_buf(),
-        catalogue: Arc::new(Err(String::from("unused by the start seam"))),
         draft: Arc::new(Mutex::new(engine_gate::drafts_of(RunDraft {
             profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
             base_url: String::from("http://127.0.0.1:8080/ehrbase/rest/openehr/v1"),
@@ -381,17 +360,24 @@ async fn a_hosted_instance_refuses_a_private_target_at_the_start_seam()
             filter: Some(String::from(FILTER)),
             postures: DeclaredPostures::default(),
         }))),
-        jobs: JobSlot::default(),
-        client_ip_header: None,
         posture: veredictum_console::posture::Posture::Hosted,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
+        ..crate::support::state(
+            scratch.path(),
+            crate::support::absent("unused by the start seam"),
+        )
     };
     let refusal =
         veredictum_console::run_api::read::start_run(&state, engine_gate::gate_submitter())
             .await
             .expect_err("a hosted instance must refuse a loopback target");
+    assert!(
+        matches!(
+            refusal,
+            veredictum_console::error::ConsoleError::Target { .. }
+        ),
+        "{refusal:?}"
+    );
+    let refusal = refusal.to_string();
     assert!(refusal.contains("127.0.0.1"), "{refusal}");
     assert!(refusal.contains("loopback"), "{refusal}");
     assert!(refusal.contains("RFC 1122"), "{refusal}");

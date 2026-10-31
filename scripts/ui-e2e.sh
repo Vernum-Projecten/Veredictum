@@ -8,6 +8,11 @@
 # Usage:
 #   scripts/ui-e2e.sh [FILTER]      # FILTER = a nextest -E test(...) substring
 #
+# Leave the working tree alone while a pass runs. The pass compares the tree
+# before and after (step 4) and fails on any change outside the capture
+# directory, naming every changed path: it cannot tell its own residue from an
+# edit made beside it, so it reports the paths and says both are possible.
+#
 # The browser: ONE primary path, a digest-pinned `selenium/standalone-chromium`
 # container, because it locks the Chromium and driver versions to bytes rather
 # than to whatever the host happens to have installed. Its browser lives in the
@@ -21,6 +26,11 @@
 # Env:
 #   UI_E2E_CHROMEDRIVER   path to a local chromedriver; selects the loopback
 #                         alternative described above instead of the container.
+#   UI_E2E_COMPARE_SHOTS  with UI_E2E_DOCS_SHOTS, fail when the pass rewrote
+#                         any committed capture, naming each one, and never
+#                         keep the bytes it rendered: the check that the
+#                         committed set matches the tree (#509). It needs a
+#                         capture directory that is clean before the pass.
 #   UI_E2E_DOCS_SHOTS     when set, the journeys also write the book's
 #                         screenshots into website/book/src/console/img, and
 #                         the console is served in capture mode: every fact a
@@ -99,6 +109,22 @@ git_tree_state() {
   git -C "$ROOT" status --porcelain -- . ':(exclude)website/book/src/console/img' 2>/dev/null || true
 }
 TREE_STATE_BEFORE="$(git_tree_state)"
+
+# The capture comparison (#509) needs a clean capture directory to compare
+# against: a pass over uncommitted captures would compare them, not the tree.
+CAPTURE_DIR="website/book/src/console/img"
+captures_state() {
+  git -C "$ROOT" status --porcelain --untracked-files=all -- "$CAPTURE_DIR" 2>/dev/null || true
+}
+if [[ -n "${UI_E2E_COMPARE_SHOTS:-}" ]]; then
+  [[ -n "${UI_E2E_DOCS_SHOTS:-}" ]] \
+    || { echo "FATAL: UI_E2E_COMPARE_SHOTS compares a capture pass; set UI_E2E_DOCS_SHOTS too." >&2; exit 2; }
+  if [[ -n "$(captures_state)" ]]; then
+    echo "FATAL: $CAPTURE_DIR has uncommitted changes, so there is nothing committed to compare against:" >&2
+    captures_state >&2
+    exit 2
+  fi
+fi
 
 # ── One run at a time ───────────────────────────────────────────────────────
 # The console port, the driver port and the browser container's name are all
@@ -356,10 +382,30 @@ UI_E2E_HOST_URL="$PROBE_URL" \
 # ── 4. Nothing may have leaked into the checkout ────────────────────────────
 TREE_STATE_AFTER="$(git_tree_state)"
 if [[ "$TREE_STATE_AFTER" != "$TREE_STATE_BEFORE" ]]; then
-  echo "FATAL: the harness left residue in the working tree:" >&2
-  diff <(printf '%s\n' "$TREE_STATE_BEFORE") <(printf '%s\n' "$TREE_STATE_AFTER") >&2 || true
+  # The paths whose status line appeared, vanished or changed, each once.
+  CHANGED="$({ diff <(printf '%s\n' "$TREE_STATE_BEFORE") <(printf '%s\n' "$TREE_STATE_AFTER") || true; } \
+    | sed -nE 's/^[<>] .{3}//p' | LC_ALL=C sort -u)"
+  echo "FATAL: the working tree changed during the pass. Either the harness left these" >&2
+  echo "behind, or something edited them while it ran (the tree must stay untouched" >&2
+  echo "for a pass's duration). The changed paths:" >&2
+  while IFS= read -r path; do printf '  %s\n' "$path" >&2; done <<<"$CHANGED"
   exit 1
 fi
-echo "── working tree clean of run residue"
+echo "── working tree unchanged by the pass"
+
+# ── 5. The captures match the tree (#509) ───────────────────────────────────
+if [[ -n "${UI_E2E_COMPARE_SHOTS:-}" ]]; then
+  DRIFTED="$(captures_state)"
+  if [[ -n "$DRIFTED" ]]; then
+    echo "FATAL: the committed captures do not match what this tree renders. Refresh them" >&2
+    echo "(gh workflow run ui-captures.yml --ref <branch>, review, commit signed):" >&2
+    printf '%s\n' "$DRIFTED" >&2
+    # The rendered bytes were looked at by nobody, so none of them is kept.
+    git -C "$ROOT" checkout -- "$CAPTURE_DIR"
+    git -C "$ROOT" clean -fdq -- "$CAPTURE_DIR"
+    exit 1
+  fi
+  echo "── the committed captures match the tree"
+fi
 
 echo "── journeys complete; failure evidence would be in $SHOTS_DIR"

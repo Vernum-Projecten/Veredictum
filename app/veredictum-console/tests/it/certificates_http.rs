@@ -5,8 +5,6 @@
 //! binary builds: the published JWK Set is the committed one byte for byte,
 //! and a run with no certificate downloads none.
 
-use std::sync::{Arc, Mutex};
-
 /// A bound console in trial mode, and the scratch tree its state points at.
 struct Bound {
     origin: String,
@@ -16,21 +14,10 @@ struct Bound {
 
 async fn bind() -> Result<Bound, Box<dyn std::error::Error>> {
     let scratch = assert_fs::TempDir::new()?;
-    let state = veredictum_console::state::ConsoleState {
-        root: crate::engine_gate::repo_root().join("catalogue"),
-        specs: crate::engine_gate::repo_root().join("specs/openehr"),
-        out: scratch.path().to_path_buf(),
-        catalogue: Arc::new(Err(String::from(
-            "no catalogue: this gate drives the certificate routes",
-        ))),
-        draft: Arc::new(Mutex::new(veredictum_console::run_api::Drafts::new())),
-        jobs: veredictum_console::run_job::JobSlot::default(),
-        client_ip_header: None,
-        posture: veredictum_console::posture::Posture::Local,
-        rates: veredictum_console::rate_limit::RateLimiter::default(),
-        capture: false,
-        metrics: veredictum_console::metrics::Metrics::default(),
-    };
+    let state = crate::support::state(
+        scratch.path(),
+        crate::support::absent("no catalogue: this gate drives the certificate routes"),
+    );
     let options = leptos::prelude::LeptosOptions::builder()
         .output_name("veredictum-console")
         .build();
@@ -71,7 +58,7 @@ async fn the_served_key_set_is_the_committed_copy() -> Result<(), Box<dyn std::e
         Some(&b"application/jwk-set+json"[..])
     );
     let served = response.bytes().await?;
-    let committed = std::fs::read(crate::engine_gate::repo_root().join("deploy/hosted/jwks.json"))?;
+    let committed = std::fs::read(crate::support::repo_root().join("deploy/hosted/jwks.json"))?;
     assert_eq!(
         served.as_ref(),
         committed.as_slice(),

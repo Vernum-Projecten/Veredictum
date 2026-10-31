@@ -8,7 +8,7 @@
 //! a context queue plus one fixed host region the shell mounts.
 
 use leptos::prelude::{
-    AriaAttributes, ClassAttribute, CollectView, ElementChild, Get, GlobalAttributes, IntoView,
+    AriaAttributes, ClassAttribute, ElementChild, For, Get, GlobalAttributes, IntoView,
     OnAttribute, RwSignal, Set, Update, component, expect_context, provide_context, set_timeout,
     view,
 };
@@ -25,7 +25,7 @@ pub enum Intent {
     Error,
 }
 
-/// One queued toast.
+/// One queued toast; its `id` is the stable key the host renders it under.
 #[derive(Debug, Clone)]
 struct Item {
     id: u64,
@@ -85,6 +85,13 @@ pub fn error(title: &str, body: &str) {
     push(Intent::Error, title, body);
 }
 
+/// Dispatches the error toast for a refused `act`: its title, what it left
+/// unchanged, the diagnostic verbatim, and the next step, all worded by
+/// [`crate::error`].
+pub fn refused(act: crate::error::Act, refusal: &crate::error::ConsoleError) {
+    error(act.title(), &act.refusal(refusal));
+}
+
 /// The fixed host region rendering the queue; the shell mounts exactly one.
 #[expect(
     clippy::must_use_candidate,
@@ -95,44 +102,39 @@ pub fn ToastHost() -> impl IntoView {
     let toasts: Toasts = expect_context();
     view! {
         <div class="pointer-events-none fixed right-4 top-4 z-50 flex w-80 flex-col gap-2">
-            {move || {
-                toasts
-                    .items
-                    .get()
-                    .into_iter()
-                    .map(|item| {
-                        let accent = match item.intent {
-                            Intent::Success => "border-l-4 border-l-ok",
-                            Intent::Error => "border-l-4 border-l-danger",
-                        };
-                        let id = item.id;
-                        view! {
-                            <div
-                                role="status"
-                                class=format!(
-                                    "pointer-events-auto rounded-card border border-edge bg-raised p-3 shadow-card {accent}",
-                                )
-                            >
-                                <div class="flex items-start justify-between gap-2">
-                                    <p class="text-sm font-semibold text-ink-heading">
-                                        {item.title}
-                                    </p>
-                                    <button
-                                        class="text-ink-faint hover:text-ink"
-                                        aria-label="Dismiss"
-                                        on:click=move |_| {
-                                            toasts.items.update(|items| items.retain(|i| i.id != id));
-                                        }
-                                    >
-                                        "×"
-                                    </button>
-                                </div>
-                                <p class="mt-0.5 text-sm text-ink-muted">{item.body}</p>
+            <For
+                each=move || toasts.items.get()
+                key=|item| item.id
+                children=move |item| {
+                    let accent = match item.intent {
+                        Intent::Success => "border-l-4 border-l-ok",
+                        Intent::Error => "border-l-4 border-l-danger",
+                    };
+                    let id = item.id;
+                    view! {
+                        <div
+                            role="status"
+                            class=format!(
+                                "pointer-events-auto rounded-card border border-edge bg-raised p-3 shadow-card {accent}",
+                            )
+                        >
+                            <div class="flex items-start justify-between gap-2">
+                                <p class="text-sm font-semibold text-ink-heading">{item.title}</p>
+                                <button
+                                    class="text-ink-faint hover:text-ink"
+                                    aria-label="Dismiss"
+                                    on:click=move |_| {
+                                        toasts.items.update(|items| items.retain(|i| i.id != id));
+                                    }
+                                >
+                                    "×"
+                                </button>
                             </div>
-                        }
-                    })
-                    .collect_view()
-            }}
+                            <p class="mt-0.5 text-sm text-ink-muted">{item.body}</p>
+                        </div>
+                    }
+                }
+            />
         </div>
     }
 }

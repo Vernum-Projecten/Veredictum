@@ -365,8 +365,8 @@ With no token in `.env` the route answers 404. A wrong or missing header gets
 | `veredictum_run_duration_seconds` | a histogram of engine drive time, buckets up to the 30-minute cap |
 | `veredictum_run_cases_completed_total` | cases the engines reported complete |
 | `veredictum_runs_running`, `_queued`, `_max_concurrent` | the queue now, beside the cap |
-| `veredictum_refusals_total{guard,reason}` | the rate ledger (`probe`, `start`), the target guard (`unreadable`, `no_host`, `unresolvable`, `unchecked`, or the refused family such as `private`), the statement validator (`too_large`, `not_json`, `schema_invalid`, `unparsable`), and the one-run-per-visitor cap |
-| `veredictum_server_fn_responses_total{class}` | server-function answers by status class; a refusal a server function raises answers 5xx, so subtract the refusals to read the fault rate |
+| `veredictum_refusals_total{guard,reason}` | the rate ledger (`probe`, `start`), the target guard (`unreadable`, `no_host`, `unresolvable`, `unchecked`, `credentials`, or the refused family such as `private`), the statement validator (`too_large`, `not_json`, `schema_invalid`, `unparsable`), and the one-run-per-visitor cap |
+| `veredictum_server_fn_responses_total{class}` | server-function answers by status class; a refusal answers 4xx, so the 5xx count is the instance's own failures |
 | `veredictum_container_*` | the container's cgroup: memory now, peak and limit, anonymous memory, CPU seconds, process count, OOM kills |
 
 The counters are process memory. A restart zeroes them, the same as the job

@@ -7,7 +7,6 @@
 //! CHANGED; this gate catches captures that do not EXIST.
 
 use std::collections::BTreeSet;
-use std::path::PathBuf;
 
 /// Maps the router's leaf routes to the capture slugs the book carries.
 ///
@@ -32,16 +31,9 @@ const SLUG_OF: &[(&str, &str)] = &[
 /// delivers them. An entry here is a debt with an owner, never a waiver.
 const PENDING: &[(&str, &str)] = &[];
 
-/// The repository root, from this crate's manifest directory.
-///
-/// # Errors
-/// The canonicalize failure when the crate does not live two levels under
-/// the repository root.
-fn repo_root() -> Result<PathBuf, std::io::Error> {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-}
+/// Routes that render no surface of their own, each naming where it sends the
+/// visitor: nothing to photograph, so no capture is owed (#151).
+const REDIRECTS: &[(&str, &str)] = &[("run", "/run/connect")];
 
 /// The tags that open a route declaration.
 ///
@@ -157,7 +149,7 @@ fn path_segments(decl: &str) -> Vec<String> {
 )]
 #[test]
 fn every_routed_surface_has_its_captures() -> Result<(), std::io::Error> {
-    let root = repo_root()?;
+    let root = crate::support::repo_root();
     let app_rs = std::fs::read_to_string(root.join("app/veredictum-console/src/app.rs"))?;
     let img = root.join("website/book/src/console/img");
 
@@ -171,8 +163,7 @@ fn every_routed_surface_has_its_captures() -> Result<(), std::io::Error> {
 
     let mut missing = Vec::new();
     for route in &routes {
-        // The bare /run entry is a redirect, not a surface.
-        if route == "run" {
+        if REDIRECTS.iter().any(|(redirect, _)| redirect == route) {
             continue;
         }
         let Some((_, slug)) = SLUG_OF.iter().find(|(path, _)| path == route) else {
@@ -192,6 +183,13 @@ fn every_routed_surface_has_its_captures() -> Result<(), std::io::Error> {
                     "route /{route}: {slug}-{theme}.png is absent from website/book/src/console/img"
                 ));
             }
+        }
+    }
+    for (redirect, target) in REDIRECTS {
+        if !routes.contains(*redirect) {
+            missing.push(format!(
+                "/{redirect} is listed as a redirect to {target} but the router has no such route"
+            ));
         }
     }
     assert!(

@@ -12,8 +12,8 @@ use leptos::form::FromFormData;
 use leptos::prelude::{
     Action, AddAnyAttr, AnyView, ClassAttribute, CollectView, Effect, ElementChild, Get,
     GetUntracked, GlobalAttributes, IntoAny, IntoView, Memo, OnAttribute, OnTargetAttribute,
-    PropAttribute, Read, Resource, RwSignal, ServerFnError, Set, Show, Signal, StyleAttribute,
-    Suspend, Suspense, Transition, Update, With, component, untrack, view,
+    PropAttribute, Read, Resource, RwSignal, Set, Show, Signal, StyleAttribute, Suspend, Suspense,
+    Transition, Update, With, component, untrack, view,
 };
 use leptos::server_fn::ServerFn;
 use leptos_meta::Title;
@@ -22,10 +22,11 @@ use leptos_router::hooks::{use_params_map, use_query_map};
 use leptos_use_clipboard::{UseClipboardReturn, use_clipboard};
 
 use crate::components::field::{BTN_PRIMARY, BTN_SECONDARY, INPUT, LABEL, TEXTAREA};
-use crate::components::format_view::{Pane, inline_error};
+use crate::components::format_view::{Pane, inline_error, refusal_view};
 use crate::components::page_header::{Crumb, PageHeader};
 use crate::components::surface::{CARD_PAD, CARD_TITLE};
 use crate::components::toast;
+use crate::error::{Act, ConsoleError};
 use crate::identity::{FieldEntry, IdentityAnswer, entered_label, resolve};
 use crate::run_api::fns::{
     ProbeAndSave, SaveIdentity, cancel_run, compose_claim, fetch_capability_rows, fetch_connect,
@@ -366,7 +367,7 @@ struct ConnectControls {
     /// Continue: stores the labels, then the server redirects to Scope.
     save: Action<SaveIdentity, ()>,
     /// Why the last Continue was refused, when it was.
-    save_refused: RwSignal<Option<String>>,
+    save_refused: RwSignal<Option<ConsoleError>>,
 }
 
 /// What the connect step offers after a probe the server answered: the
@@ -420,7 +421,7 @@ fn continue_view(identity: &IdentityAnswer, ok: bool, controls: ConnectControls)
             Ok(input) => {
                 save.dispatch(input);
             }
-            Err(e) => report_save_refusal(save_refused, e.to_string()),
+            Err(e) => report_save_refusal(save_refused, unreadable_form(e)),
         }
     };
     let blocked = move || {
@@ -430,7 +431,7 @@ fn continue_view(identity: &IdentityAnswer, ok: bool, controls: ConnectControls)
         );
         view! { <p class="text-sm text-ink">{body}</p> }
     };
-    let refusal = move || save_refused.get().map(|e| inline_error(&e));
+    let refusal = move || save_refused.get().map(|e| refusal_view(&e));
     view! {
         <Show when=move || missing.with(Vec::is_empty) fallback=blocked>
             <form action=SaveIdentity::url() method="post" on:submit=on_submit>
@@ -479,7 +480,7 @@ struct ConnectGates {
 }
 
 /// The probe's answer: the status line and what comes next.
-fn answer_view(result: Result<ConnectAnswer, String>, controls: ConnectControls) -> AnyView {
+fn answer_view(result: Result<ConnectAnswer, ConsoleError>, controls: ConnectControls) -> AnyView {
     match result {
         Ok(ConnectAnswer {
             probe: ProbeAnswer::Answered {
@@ -523,15 +524,7 @@ fn answer_view(result: Result<ConnectAnswer, String>, controls: ConnectControls)
             </div>
         }
         .into_any(),
-        Err(e) => view! {
-            <div class="space-y-2">
-                {inline_error(&e)}
-                <p class="text-sm text-ink-muted">
-                    "Nothing was contacted and no connection was stored. Correct the target and probe again."
-                </p>
-            </div>
-        }
-        .into_any(),
+        Err(e) => refusal_view(&e).into_any(),
     }
 }
 
@@ -556,29 +549,30 @@ fn refusal_sentence(token: &str) -> &'static str {
     )
 }
 
+/// A form the browser could not turn into the server function's arguments,
+/// as the error the action reports (the way `<ActionForm>` reports it, in
+/// leptos `form.rs`).
+fn unreadable_form(error: impl std::fmt::Display) -> ConsoleError {
+    ConsoleError::Transport(leptos::prelude::ServerFnErrorErr::Serialization(
+        error.to_string(),
+    ))
+}
+
 /// Reports a refused probe: the notification and the inline answer, for a
-/// refusal from the server and for a form that would not parse alike (the
-/// way `<ActionForm>` reports both, in leptos `form.rs`).
-///
-/// The body says only what is true of every refusal: no connection was
-/// stored. A refusal after the server was reached (the draft store) did
-/// contact it, so "nothing was contacted" is not said here.
-fn report_probe_refusal(answer: RwSignal<Option<Result<ConnectAnswer, String>>>, body: String) {
-    toast::error(
-        "The connection was refused",
-        &format!("No connection was stored: {body}"),
-    );
-    answer.set(Some(Err(body)));
+/// refusal from the server and for a form that would not parse alike.
+fn report_probe_refusal(
+    answer: RwSignal<Option<Result<ConnectAnswer, ConsoleError>>>,
+    error: ConsoleError,
+) {
+    toast::refused(Act::Probe, &error);
+    answer.set(Some(Err(error)));
 }
 
 /// Reports a refused Continue: the notification and the inline line, for a
 /// refusal from the server and for a form that would not parse alike.
-fn report_save_refusal(save_refused: RwSignal<Option<String>>, body: String) {
-    toast::error(
-        "The identity was not saved",
-        &format!("The connection draft is unchanged: {body}"),
-    );
-    save_refused.set(Some(body));
+fn report_save_refusal(save_refused: RwSignal<Option<ConsoleError>>, error: ConsoleError) {
+    toast::refused(Act::SaveIdentity, &error);
+    save_refused.set(Some(error));
 }
 
 /// S3 — the connection form and the probe.
@@ -609,7 +603,7 @@ pub fn Connect() -> impl IntoView {
     // are the facts the probe stored, so the run cannot drive the edit until
     // a new probe stores it.
     let edited = RwSignal::new(false);
-    let answer = RwSignal::new(None::<Result<ConnectAnswer, String>>);
+    let answer = RwSignal::new(None::<Result<ConnectAnswer, ConsoleError>>);
     let probe = Action::new(move |input: &ProbeAndSave| {
         let input = input.clone();
         async move {
@@ -623,37 +617,41 @@ pub fn Connect() -> impl IntoView {
             .await
             {
                 Ok(connected) => answer.set(Some(Ok(connected))),
-                Err(e) => report_probe_refusal(answer, e.to_string()),
+                Err(e) => report_probe_refusal(answer, e),
             }
         }
     });
     // A success needs no answer here: the server function's redirect moves
     // the router to Scope.
-    let save_refused = RwSignal::new(None::<String>);
+    let save_refused = RwSignal::new(None::<ConsoleError>);
     let save = Action::new(move |input: &SaveIdentity| {
         let input = input.clone();
         async move {
             if let Err(e) = save_identity(input.sut_name, input.sut_version).await {
-                report_save_refusal(save_refused, e.to_string());
+                report_save_refusal(save_refused, e);
             }
         }
     });
     let (probed, refused) = connect_from_url();
+    // A page a probe came back to reads the stored draft: its address and
+    // labels refill the form, so a page without script can probe again from
+    // what it shows (#936). A refused form stored nothing, so its page offers
+    // no earlier draft's address as if the operator had just entered it.
     let stored = Resource::new(
         move || probed.get() && refused.with(Option::is_none),
-        |probed| async move {
-            if probed {
-                fetch_connect().await.map_err(|e| e.to_string())
+        |returned| async move {
+            if returned {
+                fetch_connect().await
             } else {
                 Ok(None)
             }
         },
     );
-    // Seeds the editable labels from a probe an earlier request stored, once
+    // Seeds the editable fields from a draft an earlier request stored, once
     // it has loaded: they render in the form and in the stored answer's
     // Continue, outside any one Suspend, which is the sanctioned one-shot
     // resource-seeding effect (`reactivity/working_with_signals`). Until it
-    // runs, the shown labels read the stored record itself.
+    // runs, the shown values read the stored record itself.
     let seeded = RwSignal::new(false);
     Effect::new(move |_| {
         if seeded.get_untracked() {
@@ -661,6 +659,7 @@ pub fn Connect() -> impl IntoView {
         }
         if let Some(loaded) = stored.get() {
             if let Ok(Some(record)) = loaded {
+                base_url.set(record.base_url);
                 sut_name.set(record.sut_name);
                 sut_version.set(record.sut_version);
             }
@@ -695,6 +694,7 @@ pub fn Connect() -> impl IntoView {
             shown: shown(sut_version, |record| &record.sut_version),
         },
     );
+    let shown_base_url = shown(base_url, |record| &record.base_url);
     let controls = ConnectControls {
         labels,
         gates: ConnectGates {
@@ -719,7 +719,13 @@ pub fn Connect() -> impl IntoView {
                     });
                 let loaded = stored.await;
                 let identity = live
-                    .or_else(|| { loaded.ok().flatten().map(|record| record.answer.identity) });
+                    .or_else(|| {
+                        loaded
+                            .ok()
+                            .flatten()
+                            .and_then(|record| record.answer)
+                            .map(|stored| stored.identity)
+                    });
                 identity_fields(identity.as_ref(), labels)
             })}
         </Suspense>
@@ -750,12 +756,12 @@ pub fn Connect() -> impl IntoView {
     let recalled = view! {
         <Suspense fallback=|| ()>
             {move || Suspend::new(async move {
-                let superseded = answer.with(Option::is_some);
+                let superseded = answer.with(Option::is_some) || refused.with(Option::is_some);
                 let record = stored.await;
-                match record {
-                    Ok(Some(record)) if !superseded => answer_view(Ok(record.answer), controls),
+                match record.map(|record| record.and_then(|record| record.answer)) {
+                    Ok(Some(stored)) if !superseded => answer_view(Ok(stored), controls),
                     Ok(_) => ().into_any(),
-                    Err(e) => inline_error(&e).into_any(),
+                    Err(e) => inline_error(&e.to_string()).into_any(),
                 }
             })}
         </Suspense>
@@ -768,28 +774,43 @@ pub fn Connect() -> impl IntoView {
             Ok(input) => {
                 probe.dispatch(input);
             }
-            Err(e) => report_probe_refusal(answer, e.to_string()),
+            Err(e) => report_probe_refusal(answer, unreadable_form(e)),
         }
     };
+    // The address reads the stored draft too, so its server HTML carries the
+    // stored value as the `value` attribute and hydration keeps it live
+    // through `prop:value` (#936).
+    let address = view! {
+        <Suspense fallback=|| ()>
+            {move || Suspend::new(async move {
+                let _loaded = stored.await;
+                view! {
+                    <div>
+                        <label class=LABEL for="base-url">
+                            "CDR base URL"
+                        </label>
+                        <input
+                            id="base-url"
+                            name="base_url"
+                            type="url"
+                            class=format!("{INPUT} mt-1 w-full")
+                            placeholder="https://cdr.example/ehrbase/rest/openehr/v1"
+                            value=shown_base_url.get_untracked()
+                            prop:value=move || shown_base_url.get()
+                            on:input:target=move |ev| {
+                                base_url.set(ev.target().value());
+                                edited.set(true);
+                            }
+                        />
+                    </div>
+                }
+            })}
+        </Suspense>
+    }
+    .into_any();
     let form = view! {
         <form action=ProbeAndSave::url() method="post" class="space-y-4" on:submit=on_probe>
-            <div>
-                <label class=LABEL for="base-url">
-                    "CDR base URL"
-                </label>
-                <input
-                    id="base-url"
-                    name="base_url"
-                    type="url"
-                    class=format!("{INPUT} mt-1 w-full")
-                    placeholder="https://cdr.example/ehrbase/rest/openehr/v1"
-                    prop:value=move || base_url.get()
-                    on:input:target=move |ev| {
-                        base_url.set(ev.target().value());
-                        edited.set(true);
-                    }
-                />
-            </div>
+            {address}
             {identity}
             {credentials}
             <div class="flex items-center gap-2">
@@ -840,7 +861,7 @@ pub fn Scope() -> impl IntoView {
     // The operator's own ticks, by folder; a folder absent here shows the
     // start the server's listed endpoints gave it (`CapabilityRow`).
     let checked = RwSignal::new(std::collections::BTreeMap::<String, bool>::new());
-    let composed_note = RwSignal::new(None::<Result<String, String>>);
+    let composed_note = RwSignal::new(None::<Result<String, ConsoleError>>);
     let compose = Action::new(move |selection: &Vec<String>| {
         let selection = selection.clone();
         async move {
@@ -851,7 +872,7 @@ pub fn Scope() -> impl IntoView {
                         "Composed from the checked capabilities. Read it, edit it if you need to, then save the scope.",
                     ))));
                 }
-                Err(e) => composed_note.set(Some(Err(e.to_string()))),
+                Err(e) => composed_note.set(Some(Err(e))),
             }
         }
     });
@@ -866,46 +887,23 @@ pub fn Scope() -> impl IntoView {
                     "Specification saved",
                     &format!("The run is judged against the {token} text."),
                 ),
-                Err(e) => toast::error(
-                    "The specification was refused",
-                    &format!("{e}. Choose the development snapshot or the release again."),
-                ),
+                Err(e) => toast::refused(Act::SaveProfile, &e),
             }
         }
     });
-    // Every mutation below reports BOTH outcomes as a toast and keeps its
-    // inline pane. The answers land in each action's own async continuation,
-    // so no signal-writing Effect mediates
+    // The preview is a pure read, so it answers inline only, in its own
+    // pane. Every mutation below reports BOTH outcomes as a toast and keeps
+    // its inline pane. The answers land in each action's own async
+    // continuation, so no signal-writing Effect mediates
     // (<https://book.leptos.dev/reactivity/working_with_signals.html>).
-    let previewed = RwSignal::new(None::<Result<ScopePreview, String>>);
+    let previewed = RwSignal::new(None::<Result<ScopePreview, ConsoleError>>);
     let preview = Action::new(move |filter: &String| {
         let filter = filter.clone();
         async move {
-            match fetch_scope_preview(filter).await {
-                Ok(scope) => {
-                    toast::success(
-                        "Selection previewed",
-                        &format!(
-                            "{} cases are in scope; every one of them lands as a row of the results.",
-                            scope.total
-                        ),
-                    );
-                    previewed.set(Some(Ok(scope)));
-                }
-                Err(e) => {
-                    let body = e.to_string();
-                    toast::error(
-                        "The preview was refused",
-                        &format!(
-                            "The catalogue could not be counted: {body}. Check the mounted catalogue root."
-                        ),
-                    );
-                    previewed.set(Some(Err(body)));
-                }
-            }
+            previewed.set(Some(fetch_scope_preview(filter).await));
         }
     });
-    let saved = RwSignal::new(None::<Result<Option<ClaimSummary>, String>>);
+    let saved = RwSignal::new(None::<Result<Option<ClaimSummary>, ConsoleError>>);
     let save = Action::new(move |input: &ScopeInput| {
         let input = input.clone();
         async move {
@@ -921,17 +919,13 @@ pub fn Scope() -> impl IntoView {
                     saved.set(Some(Ok(claim)));
                 }
                 Err(e) => {
-                    let body = e.to_string();
-                    toast::error(
-                        "The scope was refused",
-                        &format!("The claim was not stored: {body}. Correct it and save again."),
-                    );
-                    saved.set(Some(Err(body)));
+                    toast::refused(Act::SaveScope, &e);
+                    saved.set(Some(Err(e)));
                 }
             }
         }
     });
-    let started = RwSignal::new(None::<Result<StartOutcome, String>>);
+    let started = RwSignal::new(None::<Result<StartOutcome, ConsoleError>>);
     let start = Action::new(move |(): &()| async move {
         match start_run().await {
             Ok(StartOutcome::Accepted(id)) => {
@@ -953,12 +947,8 @@ pub fn Scope() -> impl IntoView {
                 started.set(Some(Ok(StartOutcome::AlreadyInFlight(id))));
             }
             Err(e) => {
-                let body = e.to_string();
-                toast::error(
-                    "The run was refused",
-                    &format!("Nothing was driven: {body}."),
-                );
-                started.set(Some(Err(body)));
+                toast::refused(Act::Start, &e);
+                started.set(Some(Err(e)));
             }
         }
     });
@@ -1077,7 +1067,7 @@ pub fn Scope() -> impl IntoView {
                                 }
                                     .into_any()
                             }
-                            Err(e) => inline_error(&e).into_any(),
+                            Err(e) => inline_error(&e.to_string()).into_any(),
                         })
                 }}
                 {move || {
@@ -1102,7 +1092,7 @@ pub fn Scope() -> impl IntoView {
                                 }
                                     .into_any()
                             }
-                            Err(e) => inline_error(&e).into_any(),
+                            Err(e) => refusal_view(&e).into_any(),
                         })
                 }}
                 {move || {
@@ -1137,7 +1127,7 @@ pub fn Scope() -> impl IntoView {
                                 }
                                     .into_any()
                             }
-                            Err(e) => inline_error(&e).into_any(),
+                            Err(e) => refusal_view(&e).into_any(),
                         })
                 }}
             </div>
@@ -1160,10 +1150,10 @@ fn checked_names(
 /// The capability picker: each folder's counts, the checkboxes that build the
 /// claim, and the compose button with its note.
 fn capability_picker(
-    capability_rows: Resource<Result<Vec<CapabilityRow>, ServerFnError>>,
+    capability_rows: Resource<Result<Vec<CapabilityRow>, ConsoleError>>,
     checked: RwSignal<std::collections::BTreeMap<String, bool>>,
     compose: Action<Vec<String>, ()>,
-    composed_note: RwSignal<Option<Result<String, String>>>,
+    composed_note: RwSignal<Option<Result<String, ConsoleError>>>,
 ) -> impl IntoView + use<> {
     view! {
         <div>
@@ -1248,7 +1238,7 @@ fn capability_picker(
                         Ok(line) => {
                             view! { <p class="mt-2 text-sm text-ink-muted">{line}</p> }.into_any()
                         }
-                        Err(e) => inline_error(&e).into_any(),
+                        Err(e) => refusal_view(&e).into_any(),
                     })
             }}
         </div>
@@ -1716,10 +1706,7 @@ pub fn Live() -> impl IntoView {
                     "Cancel requested",
                     "The engine process was signalled; the job reports cancelled once it exits.",
                 ),
-                Err(e) => toast::error(
-                    "The cancel was refused",
-                    &format!("The run is still driving: {e}."),
-                ),
+                Err(e) => toast::refused(Act::Cancel, &e),
             }
         }
     });

@@ -61,17 +61,11 @@ pub(crate) fn slow_fixture_sut(delay: std::time::Duration) -> Result<u16, std::i
     Ok(port)
 }
 
-/// The repository root, two levels above this crate (#55): the catalogue the
-/// gate drives lives there.
-pub(crate) fn repo_root() -> &'static Path {
-    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-}
-
 /// The named ICS fixture: a filled-in declaration for a product that does not
 /// exist, which is the shape these tests need and never a claim about any real
 /// product (ISO/IEC 9646-7 gives the support columns to the supplier).
 pub(crate) fn declaration_fixture() -> PathBuf {
-    repo_root().join("fixtures/declaration/statement.json")
+    crate::support::repo_root().join("fixtures/declaration/statement.json")
 }
 
 /// The engine binary for the gate: the [`engine::ENGINE_ENV`] override when
@@ -95,7 +89,7 @@ pub(crate) fn gate_binary() -> PathBuf {
     std::env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().and_then(Path::parent).map(Path::to_path_buf))
-        .unwrap_or_else(|| repo_root().join("target/debug"))
+        .unwrap_or_else(|| crate::support::repo_root().join("target/debug"))
         .join("veredictum")
 }
 
@@ -158,7 +152,7 @@ pub(crate) const GATE_DOCUMENT: &str = "system_options";
 pub(crate) fn gate_spec(ixit: PathBuf, port: u16, out: PathBuf) -> RunSpec {
     RunSpec {
         profile: veredictum::arazzo::spec_profile::SpecProfile::Development,
-        root: repo_root().join("catalogue"),
+        root: crate::support::repo_root().join("catalogue"),
         base_url: format!("http://127.0.0.1:{port}"),
         auth: "basic",
         admin_auth: "none",
@@ -215,7 +209,7 @@ fn a_console_run_and_a_cli_run_emit_identical_documents() -> Result<(), Box<dyn 
     let scratch = assert_fs::TempDir::new()?;
     let port = fixture_sut()?;
     let ixit = write_ixit(scratch.path(), port)?;
-    let root = repo_root().join("catalogue");
+    let root = crate::support::repo_root().join("catalogue");
 
     // Path one: the console's seam.
     let console_out = scratch.path().join("console-run");
@@ -333,7 +327,7 @@ fn the_console_binary_hands_an_engine_subcommand_to_the_engine()
         engine::expected_version_report()
     );
 
-    let missing = repo_root().join("no-such-recording.har");
+    let missing = crate::support::repo_root().join("no-such-recording.har");
     let refused = console(&binary, &["test", "--rejudge", &missing.to_string_lossy()])?;
     assert_eq!(refused.status.code(), Some(2), "{refused:?}");
     assert!(

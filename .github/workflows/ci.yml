@@ -1096,10 +1096,9 @@ jobs:
   # over the repository's own mounts, start the pinned browser container, run
   # the journeys, tear down), so this job installs tools and calls it.
   #
-  # The capture pass is deliberately NOT run here: committed screenshots are
-  # reviewed as a diff on the pull request, and a CI job regenerating them would
-  # produce bytes nobody looked at. `ui-screenshot-guard` below is what makes an
-  # author refresh them.
+  # The capture pass does not run here: `ui-captures-match` below re-renders
+  # the captures and only COMPARES them, and `ui-screenshot-guard` is what makes
+  # an author refresh them.
   ui-e2e:
     name: console journeys
     needs: changes
@@ -1154,6 +1153,68 @@ jobs:
           path: target/ui-e2e/screenshots
           if-no-files-found: ignore
           retention-days: 7
+
+  # The committed captures match the tree (#509). The same journeys run in
+  # capture mode on this amd64 runner, the platform `ui-captures.yml` renders
+  # the committed set on (#480), so an exact match is the check: a pass that
+  # rewrites any capture fails and names it, and the harness keeps none of the
+  # bytes it rendered, so nothing reaches the tree unreviewed. It catches the
+  # change `ui-screenshot-guard` cannot: an engine-side change that alters a
+  # console screen with no console path touched.
+  #
+  # It is a second journey pass rather than a mode of `console journeys`
+  # because capture mode pins what a pass measures or mints (the run clock,
+  # the probe's round trip, run ids, the fixture's address), so the journeys
+  # there would no longer exercise the unpinned values a deployment shows.
+  #
+  # NON_GATING keeps it out of `conclusion` (ci-conclusion-complete.sh reads
+  # it): a new byte-exact check reports before it can block a merge.
+  ui-captures-match:
+    name: console captures match the tree
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      NON_GATING: "reports only until three runs on one SHA prove the capture comparison deterministic (#509)"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          target: wasm32-unknown-unknown
+          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        with:
+          tool: cargo-nextest
+
+      # The same pinned, checksum-verified binaries as `console journeys`.
+      - name: Fetch cargo-leptos and Tailwind (pinned, checksum-verified)
+        env:
+          DOCKERFILE: deploy/docker/Dockerfile
+        run: |
+          set -euo pipefail
+          clv="$(grep -E '^ARG CARGO_LEPTOS_VERSION=' "$DOCKERFILE" | head -1 | cut -d= -f2)"
+          twv="$(grep -E '^ARG TAILWIND_VERSION=' "$DOCKERFILE" | head -1 | cut -d= -f2)"
+          echo "cargo-leptos ${clv}, tailwindcss ${twv}"
+          triple=x86_64-unknown-linux-gnu
+          curl --proto '=https' --tlsv1.2 -fsSLO "https://github.com/leptos-rs/cargo-leptos/releases/download/${clv}/cargo-leptos-${triple}.tar.gz"
+          curl --proto '=https' --tlsv1.2 -fsSLO "https://github.com/leptos-rs/cargo-leptos/releases/download/${clv}/cargo-leptos-${triple}.tar.gz.sha256"
+          sha256sum -c "cargo-leptos-${triple}.tar.gz.sha256"
+          tar -xzf "cargo-leptos-${triple}.tar.gz"
+          sudo install -m 0755 "$(find . -type f -name cargo-leptos | head -1)" /usr/local/bin/cargo-leptos
+          curl --proto '=https' --tlsv1.2 -fsSLo tailwindcss "https://github.com/tailwindlabs/tailwindcss/releases/download/${twv}/tailwindcss-linux-x64"
+          sudo install -m 0755 tailwindcss /usr/local/bin/tailwindcss
+          rm -rf cargo-leptos* tailwindcss
+
+      - name: Render the captures and compare them with the committed set
+        env:
+          UI_E2E_DOCS_SHOTS: "1"
+          UI_E2E_COMPARE_SHOTS: "1"
+        run: bash scripts/ui-e2e.sh
 
   # ── The SMART lane: every SMART document against a CDR in the SMART posture ─
   # The SMART on openEHR documents need a Platform base URL and a CDR that

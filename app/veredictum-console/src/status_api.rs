@@ -53,7 +53,8 @@ pub mod fns {
     )]
 
     use super::StatusLine;
-    use leptos::prelude::{ServerFnError, server};
+    use crate::error::ConsoleError;
+    use leptos::prelude::server;
 
     /// The linked engine's approval status, and this console's issuance
     /// mode.
@@ -61,7 +62,7 @@ pub mod fns {
     /// # Errors
     /// The server-fn transport only; both are startup facts.
     #[server]
-    pub async fn fetch_status_line() -> Result<StatusLine, ServerFnError> {
+    pub async fn fetch_status_line() -> Result<StatusLine, ConsoleError> {
         let state: crate::state::ConsoleState = leptos::prelude::expect_context();
         Ok(StatusLine::of_engine(state.jobs.issuance_mode()))
     }
