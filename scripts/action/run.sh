@@ -7,9 +7,15 @@
 # Arazzo catalogue against the server under test and writes `results.json` and
 # the HAR recording into the output directory, then `export` writes the JUnit
 # XML, CTRF and Markdown views beside them, and `badge` writes the badges into
-# `badges/` under it. The Markdown summary is appended to the job summary. The step exits with the run's own status: 0 when every row
-# passed or was skipped, 1 when a verdict-bearing row failed or errored, 2 when
-# the run could not start or finish.
+# `badges/` under it. The Markdown summary is appended to the job summary, and
+# each failed, errored or warning row is printed as a workflow-command
+# annotation, at most GitHub's 10 of each kind per step. The step exits with
+# the run's own status: 0 when no row counts against the server and none is
+# inconclusive, 1 when a row counts against the server, 3 when none does but
+# a row is inconclusive (the instrument could not judge it), 2 when the run
+# could not start or finish. With IN_FAIL_ON_INCONCLUSIVE=false a 3 passes
+# the step, the `exit-code` output still reads 3, and the job summary lists
+# the inconclusive rows.
 #
 # No openEHR specification governs this. It is our own design.
 #
@@ -31,6 +37,8 @@
 #   IN_NETWORK      the container network the run joins
 #   IN_BADGE_BRANCH the branch of the calling repository the badges are pushed
 #                   to (optional; empty pushes nothing)
+#   IN_FAIL_ON_INCONCLUSIVE  true | false: whether exit status 3 fails the step
+#   IN_ANNOTATIONS  true | false: whether the rows are annotated
 #
 # The badge push uses GITHUB_TOKEN from the step's env, by name, and happens
 # only on a run that is not a pull request (GITHUB_EVENT_NAME) and whose
@@ -203,6 +211,7 @@ main() {
   local image="${IN_IMAGE:-}" pull="${IN_PULL:-true}" network="${IN_NETWORK:-host}"
   local auth="${IN_AUTH:-none}" admin_auth="${IN_ADMIN_AUTH:-none}"
   local profile="${IN_PROFILE:-development}"
+  local fail_on_inconclusive="${IN_FAIL_ON_INCONCLUSIVE:-true}" annotations="${IN_ANNOTATIONS:-true}"
   local version="" image_id repo_digests
   local -a run_args=() test_args=()
 
@@ -210,6 +219,14 @@ main() {
   case "$pull" in
     true | false) ;;
     *) refuse "the pull input is \"${pull}\" (accepted: true, false)" ;;
+  esac
+  case "$fail_on_inconclusive" in
+    true | false) ;;
+    *) refuse "the fail-on-inconclusive input is \"${fail_on_inconclusive}\" (accepted: true, false)" ;;
+  esac
+  case "$annotations" in
+    true | false) ;;
+    *) refuse "the annotations input is \"${annotations}\" (accepted: true, false)" ;;
   esac
   [[ -n "$network" ]] || refuse "the network input is empty"
 
@@ -301,7 +318,7 @@ main() {
     --auth "$auth" --admin-auth "$admin_auth" --profile "$profile" \
     ${test_args[@]+"${test_args[@]}"} --out /work/out || code=$?
   case "$code" in
-    0 | 1 | 2) ;;
+    0 | 1 | 2 | 3) ;;
     # Any other status is the container runtime's own, never the engine's.
     *)
       echo "::error::the container exited ${code}, which is not an engine status" >&2
@@ -318,7 +335,8 @@ main() {
   local export_code=0
   docker run --rm --network none --user "$(id -u):$(id -g)" -v "${out_dir}:/work/out" \
     "$image_id" export --results /work/out/results.json --junit /work/out/junit.xml \
-    --ctrf /work/out/ctrf.json --markdown /work/out/summary.md || export_code=$?
+    --ctrf /work/out/ctrf.json --markdown /work/out/summary.md \
+    --annotations /work/out/annotations.txt || export_code=$?
   if [[ "$export_code" -eq 0 ]]; then
     output junit "${out_dir}/junit.xml"
     output ctrf "${out_dir}/ctrf.json"
@@ -328,11 +346,16 @@ main() {
     fi
     summary ""
     summary "Image \`${image}\`, id \`${image_id}\`."
+    # A workflow command is read from the step's standard output.
+    if [[ "$annotations" == true ]]; then
+      cat "${out_dir}/annotations.txt"
+    fi
   else
     echo "::error::the export of ${out_dir}/results.json exited ${export_code}" >&2
     summary "Veredictum could not export the results (exit status ${export_code})."
-    if [[ "$code" -eq 0 ]]; then code=2; fi
+    if [[ "$code" -eq 0 || "$code" -eq 3 ]]; then code=2; fi
   fi
+  rm -f "${out_dir}/annotations.txt"
 
   local badge_code=0
   docker run --rm --network none --user "$(id -u):$(id -g)" -v "${out_dir}:/work/out" \
@@ -343,15 +366,25 @@ main() {
       echo "badges not pushed: the badge-branch input is empty"
     elif ! publish_badges "${out_dir}/badges" "$IN_BADGE_BRANCH"; then
       summary "Veredictum could not push the badges to \`${IN_BADGE_BRANCH}\`; the step log says why."
-      if [[ "$code" -eq 0 ]]; then code=2; fi
+      if [[ "$code" -eq 0 || "$code" -eq 3 ]]; then code=2; fi
     fi
   else
     echo "::error::the badges of ${out_dir}/results.json exited ${badge_code}" >&2
     summary "Veredictum could not draw the badges (exit status ${badge_code})."
-    if [[ "$code" -eq 0 ]]; then code=2; fi
+    if [[ "$code" -eq 0 || "$code" -eq 3 ]]; then code=2; fi
   fi
 
   output exit-code "$code"
+  if [[ "$code" -eq 3 && "$fail_on_inconclusive" == false ]]; then
+    summary ""
+    summary "Exit status 3 passes this step (fail-on-inconclusive: false). The inconclusive rows, which the instrument could not judge and which do not count against the server:"
+    summary ""
+    jq -r '.rows[] | select((.status == "failed" or .status == "errored") and .explanation.whose == "instrument")
+      | "- `\(.case)` row \(.row): \(.explanation.received)"' "${out_dir}/results.json" \
+      | while IFS= read -r line; do summary "$line"; done
+    echo "exit status 3 (inconclusive rows only) passes the step: fail-on-inconclusive is false"
+    exit 0
+  fi
   exit "$code"
 }
 
@@ -391,12 +424,17 @@ for arg in "$@"; do
   case "$arg" in
     test)
       [[ "$STUB_TEST_EXIT" == 2 ]] && exit 2
-      printf '{}\n' > "$out/results.json"
+      if [[ "$STUB_TEST_EXIT" == 3 ]]; then
+        printf '{"rows":[{"case":"stub/unjudged","row":0,"status":"errored","explanation":{"whose":"instrument","received":"not judged: stub"}},{"case":"stub/fine","row":0,"status":"passed"}]}\n' > "$out/results.json"
+      else
+        printf '{}\n' > "$out/results.json"
+      fi
       exit "$STUB_TEST_EXIT" ;;
     export)
       printf '<testsuites/>\n' > "$out/junit.xml"
       printf '{}\n' > "$out/ctrf.json"
       printf '# Veredictum results: stub\n' > "$out/summary.md"
+      printf '::error title=stub/case row 0::stub annotation\n' > "$out/annotations.txt"
       exit 0 ;;
     badge)
       mkdir -p "$out/badges"
@@ -412,8 +450,11 @@ STUB
   chmod +x "$dir/bin/docker"
 
   # check <label> <exit> <pattern that must match> <pattern the docker log must not match> [env…]
+  # <exit> is the step's exit status, or <step>/<exit-code output> when the two differ.
+  # The must-match pattern is searched in the docker log, the job summary, the
+  # step outputs and the step's own standard output.
   check() {
-    local label="$1" want="$2" must="$3" mustnt="$4" got=0
+    local label="$1" want="${2%%/*}" want_out="${2##*/}" must="$3" mustnt="$4" got=0
     shift 4
     : > "$dir/log"
     : > "$dir/summary"
@@ -423,19 +464,19 @@ STUB
       env -i PATH="$dir/bin:$PATH" STUB_LOG="$dir/log" STUB_VERSION=9.8.7 \
         GITHUB_ACTION_PATH="$dir/action" GITHUB_STEP_SUMMARY="$dir/summary" \
         GITHUB_OUTPUT="$dir/output" IN_BASE_URL=http://127.0.0.1:9/openehr/v1 \
-        STUB_TEST_EXIT=0 "$@" bash "$SELF" >/dev/null 2>&1
+        STUB_TEST_EXIT=0 "$@" bash "$SELF" >"$dir/stdout" 2>/dev/null
     ) || got=$?
     if [[ "$got" != "$want" ]]; then
       echo "self-test FAILED: ${label}: exit ${got}, expected ${want}" >&2
       fails=$((fails + 1))
-    elif [[ -n "$must" ]] && ! grep -qE -- "$must" "$dir/log" "$dir/summary" "$dir/output"; then
+    elif [[ -n "$must" ]] && ! grep -qE -- "$must" "$dir/log" "$dir/summary" "$dir/output" "$dir/stdout"; then
       echo "self-test FAILED: ${label}: nothing matched ${must}" >&2
       fails=$((fails + 1))
-    elif [[ -n "$mustnt" ]] && grep -qE -- "$mustnt" "$dir/log"; then
-      echo "self-test FAILED: ${label}: the docker command line matched ${mustnt}" >&2
+    elif [[ -n "$mustnt" ]] && grep -qE -- "$mustnt" "$dir/log" "$dir/stdout" "$dir/summary"; then
+      echo "self-test FAILED: ${label}: the docker command line or the step output matched ${mustnt}" >&2
       fails=$((fails + 1))
-    elif ! grep -qx "exit-code=${want}" "$dir/output"; then
-      echo "self-test FAILED: ${label}: no exit-code=${want} output" >&2
+    elif ! grep -qx "exit-code=${want_out}" "$dir/output"; then
+      echo "self-test FAILED: ${label}: no exit-code=${want_out} output" >&2
       fails=$((fails + 1))
     else
       echo "self-test ok: ${label}"
@@ -446,6 +487,30 @@ STUB
   check "the default image is the release image of the action's version" 0 \
     "pull --quiet ${RELEASE_IMAGE}:9\\.8\\.7" ''
   check "a failed row exits 1" 1 '^exit-code=1$' '' STUB_TEST_EXIT=1
+  check "a failed row fails the step whatever fail-on-inconclusive says" 1 '^exit-code=1$' '' \
+    STUB_TEST_EXIT=1 IN_FAIL_ON_INCONCLUSIVE=false
+  check "an inconclusive run exits 3 and fails the step by default" 3 '^exit-code=3$' '' \
+    STUB_TEST_EXIT=3
+  check "fail-on-inconclusive false passes exit 3 and lists the inconclusive rows" 0/3 \
+    '^- `stub/unjudged` row 0: not judged: stub$' '' \
+    STUB_TEST_EXIT=3 IN_FAIL_ON_INCONCLUSIVE=false
+  check "fail-on-inconclusive false lists no conclusive row" 0/3 '' 'stub/fine' \
+    STUB_TEST_EXIT=3 IN_FAIL_ON_INCONCLUSIVE=false
+  check "a run that cannot start fails the step whatever fail-on-inconclusive says" 2 \
+    'could not start' '' STUB_TEST_EXIT=2 IN_FAIL_ON_INCONCLUSIVE=false
+  check "an unknown fail-on-inconclusive value is refused" 2 'accepted: true, false' '' \
+    IN_FAIL_ON_INCONCLUSIVE=no
+  check "the rows are annotated on the step's output" 0 \
+    '^::error title=stub/case row 0::stub annotation$' ''
+  check "the export writes the annotations" 0 '--annotations /work/out/annotations\.txt' ''
+  check "annotations false prints none" 0 '' '^::error title=stub' IN_ANNOTATIONS=false
+  check "an unknown annotations value is refused" 2 'accepted: true, false' '' IN_ANNOTATIONS=maybe
+  if [[ -e "$dir/work/veredictum-results/annotations.txt" ]]; then
+    echo "self-test FAILED: the annotations file was left in the output directory" >&2
+    fails=$((fails + 1))
+  else
+    echo "self-test ok: the annotations file is not left in the output directory"
+  fi
   check "a run that cannot start exits 2" 2 'could not start' '' STUB_TEST_EXIT=2
   check "a token is passed by name, never by value" 0 '-e VEREDICTUM_CDR_TOKEN ' 's3cr3t' \
     VEREDICTUM_CDR_TOKEN=s3cr3t

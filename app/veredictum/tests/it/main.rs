@@ -29,6 +29,7 @@ mod certificate_cli;
 mod defect_rejection;
 mod env_coupled;
 mod fake_sut;
+mod gitlab_template;
 mod identity_wire;
 mod perf_compare;
 mod perf_corpus;

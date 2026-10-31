@@ -92,6 +92,7 @@ jobs:
       docker: ${{ steps.filter.outputs.docker }}
       image: ${{ steps.filter.outputs.image }}
       action: ${{ steps.filter.outputs.action }}
+      smart: ${{ steps.filter.outputs.smart }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -134,6 +135,7 @@ jobs:
               echo "docker=true"
               echo "image=true"
               echo "action=true"
+              echo "smart=true"
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -149,7 +151,9 @@ jobs:
           # (#55); no code lives at the root any more. The legend generator is
           # named individually (#189) because the test job runs its --check and
           # the rest of scripts/render/ has nothing to do with that job.
-          if echo "$changed" | grep -qE '^(app/|catalogue/|perf/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
+          # ci/gitlab/ is in it because the test job validates the GitLab CI
+          # template against GitLab's own schema (#920).
+          if echo "$changed" | grep -qE '^(app/|catalogue/|ci/gitlab/|perf/|schemas/|fixtures/|specs/|verification-pack/|website/|fuzz/|scripts/vendor/|scripts/checks/|Cargo\.(toml|lock)$|rust-toolchain\.toml$|rustfmt\.toml$|clippy\.toml$|deny\.toml$|\.config/nextest\.toml$|\.github/workflows/ci\.yml$)'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
@@ -182,6 +186,14 @@ jobs:
             echo "action=true" >> "$GITHUB_OUTPUT"
           else
             echo "action=false" >> "$GITHUB_OUTPUT"
+          fi
+          # The SMART lane (#921): the SMART documents, the Platform source,
+          # the committed test issuer, the evaluator's token handling, the
+          # SMART-posture environment, the lane's script and this file.
+          if echo "$changed" | grep -qE '^(catalogue/cases/smart/|catalogue/sources/smart-platform\.openapi\.yaml$|catalogue/keys/smart-test-issuer/|app/veredictum/src/arazzo/(credential|scope|evaluate)\.rs$|app/veredictum/src/pipeline/arazzo_run\.rs$|deploy/docker/e2e-ferroehr-smart\.yml$|deploy/docker/e2e-ferroehr\.toml$|deploy/docker/smart/|scripts/smart-lane\.sh$|\.github/workflows/ci\.yml$)'; then
+            echo "smart=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "smart=false" >> "$GITHUB_OUTPUT"
           fi
 
   # ── The guard tier: prose, licensing, commit messages, changelog structure ──
@@ -346,6 +358,14 @@ jobs:
       # its seeded trees prove each disagreement is refused.
       - name: The console's engine pin — seeded self-test
         run: bash scripts/release/check-console-pin.sh --self-test
+
+      # The GitLab CI template (#920) runs the release image of the version it
+      # is tagged with, and reads only the inputs it declares. GitLab's own
+      # schema validates it in the test job (`gitlab_template`).
+      - name: The GitLab CI template runs this tree's engine
+        run: bash scripts/release/check-gitlab-template.sh
+      - name: The GitLab CI template check refuses its seeded violations
+        run: bash scripts/release/check-gitlab-template.sh --self-test
 
       # CITATION.cff and the generated .zenodo.json carry the workspace engine
       # version (#812). The release `plan` compares CITATION.cff with the tag,
@@ -752,9 +772,9 @@ jobs:
           echo "the image carries the committed hosted posture at /app/posture, and it parses"
       # The same check the release smoke runs on the pushed digest (#768): the
       # image's own entry point drives the shipped Arazzo catalogue at a port
-      # nothing listens on, inside no network, so every driven row is errored,
-      # none is failed, the exit status is 1, and the offline re-judgement of
-      # the recording writes the same bytes.
+      # nothing listens on, inside no network, so every driven row is errored
+      # and inconclusive, none is failed, the exit status is 3, and the
+      # offline re-judgement of the recording writes the same bytes.
       - name: The image runs the Arazzo catalogue it ships
         env:
           IMAGE: veredictum-ci-image-build:${{ github.sha }}
@@ -766,9 +786,11 @@ jobs:
           docker run --rm --network none -v "${out}:/work/out" "$IMAGE" \
             test --base-url http://127.0.0.1:9/ --out /work/out > "${out}/run.log" || code=$?
           tail -n 4 "${out}/run.log"
-          if [[ "$code" != "1" ]]; then
-            echo "::error::a run against no server exited ${code}, not 1 (a row errored)" >&2; exit 1
+          if [[ "$code" != "3" ]]; then
+            echo "::error::a run against no server exited ${code}, not 3 (every red row inconclusive)" >&2; exit 1
           fi
+          jq -e '[.rows[] | select(.explanation != null and .explanation.whose != "instrument")] | length == 0' "${out}/results.json" >/dev/null \
+            || { echo "::error::a refused connection was attributed to the server; it is inconclusive" >&2; exit 1; }
           jq -e '[.rows[] | select(.status == "errored")] | length > 0' "${out}/results.json" >/dev/null \
             || { echo "::error::the run recorded no errored row" >&2; exit 1; }
           jq -e '[.rows[] | select(.status == "failed")] | length == 0' "${out}/results.json" >/dev/null \
@@ -777,8 +799,8 @@ jobs:
           code=0
           docker run --rm --network none -v "${out}:/work/out" "$IMAGE" \
             test --rejudge /work/out/recording.har --out /work/out/rejudged > /dev/null || code=$?
-          if [[ "$code" != "1" ]]; then
-            echo "::error::the re-judgement exited ${code}, not the recorded run's 1" >&2; exit 1
+          if [[ "$code" != "3" ]]; then
+            echo "::error::the re-judgement exited ${code}, not the recorded run's 3" >&2; exit 1
           fi
           cmp "${out}/results.json" "${out}/rejudged/results.json" \
             || { echo "::error::the re-judgement did not write the recorded run's bytes" >&2; exit 1; }
@@ -1127,6 +1149,40 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # ── The SMART lane: every SMART document against a CDR in the SMART posture ─
+  # The SMART on openEHR documents need a Platform base URL and a CDR that
+  # trusts the issuer of the scoped tokens each row presents (#921). The lane
+  # composes FerroEHR, pinned by digest, as that resource server, trusting the
+  # committed static test issuer, and holds the run to exit status 0 with no
+  # SMART row skipped. A red row is attributed from the results and the
+  # recording, which are kept on failure; the key is committed test material,
+  # so they hold nothing secret.
+  smart:
+    name: SMART documents end to end
+    needs: changes
+    if: needs.changes.outputs.smart == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - run: bash scripts/smart-lane.sh
+
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smart-lane-run
+          path: target/smart-lane
+          if-no-files-found: ignore
+          retention-days: 7
+
   # The visual feedback loop's other half: a pull request that changes how the
   # console LOOKS must refresh the committed captures, so every UI change lands
   # as a reviewable image diff instead of a description of one. The escape is the
@@ -1170,10 +1226,12 @@ jobs:
           exit 1
 
   # ── The GitHub Action drives a server ───────────────────────────────────────
-  # The action at the repository root (#770) runs against a fake server three
+  # The action at the repository root (#770) runs against a fake server five
   # times, and each outcome is asserted: a run whose rows all pass exits 0, a
-  # run with failed rows fails the step with exit status 1, and a run whose
-  # credential is an empty secret cannot start and fails it with 2. The image
+  # run with failed rows fails the step with exit status 1, a run whose
+  # credential is an empty secret cannot start and fails it with 2, and a run
+  # against no server, whose rows are all inconclusive, exits 3: it fails the
+  # step by default and passes it with `fail-on-inconclusive: false`. The image
   # is a stand-in built from this tree, because a pull request has no release
   # image: the engine, the catalogue and the specification trees at the release
   # image's paths (scripts/action/test/engine.Dockerfile, which also builds the
@@ -1297,6 +1355,51 @@ jobs:
           [[ "$EXIT_CODE" == "2" ]] || { echo "::error::exit-code is '${EXIT_CODE}', not 2" >&2; exit 1; }
           [[ ! -e "${OUT_DIR}/results.json" ]] || { echo "::error::a run that could not start wrote results" >&2; exit 1; }
 
+      # Nothing listens on port 9, so every row the System API workflows drive
+      # is errored with the instrument named: inconclusive, exit status 3.
+      - id: inconclusive
+        name: A run whose only red rows are inconclusive fails the step by default
+        continue-on-error: true
+        uses: ./
+        with:
+          base-url: http://127.0.0.1:9/openehr/v1
+          statement: ${{ runner.temp }}/statements/system.json
+          out-dir: ${{ runner.temp }}/inconclusive
+          image: veredictum-action-stand-in:local
+          pull: "false"
+
+      - name: The inconclusive run failed the step with exit status 3
+        env:
+          OUTCOME: ${{ steps.inconclusive.outcome }}
+          EXIT_CODE: ${{ steps.inconclusive.outputs.exit-code }}
+          RESULTS: ${{ steps.inconclusive.outputs.results }}
+        run: |
+          set -euo pipefail
+          [[ "$OUTCOME" == "failure" ]] || { echo "::error::the step's outcome is '${OUTCOME}', not failure" >&2; exit 1; }
+          [[ "$EXIT_CODE" == "3" ]] || { echo "::error::exit-code is '${EXIT_CODE}', not 3" >&2; exit 1; }
+          jq -e '[.rows[] | select(.status == "errored" and .explanation.whose == "instrument")] | length > 0' "$RESULTS" >/dev/null \
+            || { echo "::error::no inconclusive row" >&2; exit 1; }
+
+      - id: tolerated
+        name: With fail-on-inconclusive false the same run passes the step
+        uses: ./
+        with:
+          base-url: http://127.0.0.1:9/openehr/v1
+          statement: ${{ runner.temp }}/statements/system.json
+          out-dir: ${{ runner.temp }}/tolerated
+          image: veredictum-action-stand-in:local
+          pull: "false"
+          fail-on-inconclusive: "false"
+
+      - name: The tolerated run passed the step and still reports exit status 3
+        env:
+          OUTCOME: ${{ steps.tolerated.outcome }}
+          EXIT_CODE: ${{ steps.tolerated.outputs.exit-code }}
+        run: |
+          set -euo pipefail
+          [[ "$OUTCOME" == "success" ]] || { echo "::error::the step's outcome is '${OUTCOME}', not success" >&2; exit 1; }
+          [[ "$EXIT_CODE" == "3" ]] || { echo "::error::exit-code is '${EXIT_CODE}', not 3" >&2; exit 1; }
+
   # ── The single required check ───────────────────────────────────────────────
   # Branch protection points at `conclusion` alone, which is what lets jobs be
   # added, renamed or path-gated without editing repository settings. The cost
@@ -1323,6 +1426,7 @@ jobs:
       - ui-e2e
       - ui-screenshot-guard
       - action
+      - smart
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}

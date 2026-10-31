@@ -44,7 +44,7 @@ The results record, under `server`, what the server stated through ITS-REST Syst
 
 A credential is read from the environment, never from an argument: from the variables `--auth` and `--admin-auth` name, or from the file named by the same variable with `_FILE` appended. Neither credential is recorded. The recording holds the server's response bodies verbatim, so it belongs where the operator keeps the run.
 
-Exit status: `0` when every row passed or was skipped, or failed only as a warning (a SHOULD, which never counts against a capability); `1` when any other row failed or errored; `2` when the run could not start or finish: a usage error, a gate finding, an unreadable file, a missing credential, or a recording that does not replay.
+Exit status follows whose problem each red row's record names. `1` when any row counts against the server: it failed (a warning row excepted) or errored with the server named, whatever else the run holds. `3` when no row counts against the server and at least one is inconclusive: it failed or errored with the instrument named, because the instrument could not judge it. `0` when every row passed or was skipped, or failed only as a warning (a SHOULD, which never counts against a capability). `2` when the run could not start or finish: a usage error, a gate finding, an unreadable file, a missing credential, or a recording that does not replay. The line before the exit names both counts. `--rejudge` exits the same way.
 
 Usage: veredictum test [OPTIONS]
 
@@ -807,6 +807,9 @@ Options:
           
           [env: GITHUB_STEP_SUMMARY]
 
+      --annotations <ANNOTATIONS>
+          Write the GitHub Actions annotations here: one `::error` workflow command per failed or errored row and one `::warning` per warning row, titled with the case id and carrying what was checked, the cited sentence and what was expected and received. GitHub shows at most 10 of each kind per step, so at most 10 of each are written and a closing `::notice` names how many more rows the summary lists. An Arazzo results document only
+
   -h, --help
           Print help (see a summary with '-h')
 ```
@@ -901,8 +904,14 @@ belongs to:
 ```
 
 The step writes `junit.xml`, `ctrf.json` and `summary.md` into `conformance/`,
-appends the summary to the job summary, and fails the job when a row failed or
-errored. Its page has a complete workflow.
+appends the summary to the job summary, annotates the rows that need attention,
+and fails the job when a row counts against the server. Its page has a
+complete workflow, and [GitLab CI](gitlab-ci.md) has the same as a template.
+
+`--annotations <file>` writes those annotations as GitHub Actions workflow
+commands: one `::error` per failed or errored row and one `::warning` per
+warning row, at most 10 of each, then a `::notice` naming how many more rows
+the summary lists.
 
 The JUnit file is read by GitLab (`artifacts:reports:junit`), Jenkins (the
 JUnit plugin) and most other CI systems. `conformance/recording.har` holds the
@@ -910,8 +919,9 @@ server's response bodies verbatim, so it belongs where the operator keeps the
 run, never in a public artifact.
 
 A `perf-result.json` has one exported view, the Markdown summary, with the
-same content `show` prints laid out as tables. `--junit` and `--ctrf` refuse
-it with exit status 2, since a performance record has no test cases to list.
+same content `show` prints laid out as tables. `--junit`, `--ctrf` and
+`--annotations` refuse it with exit status 2, since a performance record has
+no test cases to list.
 
 ## badge
 
@@ -920,7 +930,7 @@ Draw the static badges of a result document, for a README.
 
 Each badge is written as `<name>.svg`, a flat badge drawn without a font or the network, and as `<name>.json`, a Shields.io endpoint document (<https://shields.io/badges/endpoint-badge>), and each is a byte-deterministic function of the document. Every badge reports the vendor's own run, and none is a certificate.
 
-An Arazzo results document draws five: `base` (passed out of every BASE row), `options` (passed out of every row of the selected option arms and of the cases resting on TRIAL text), `warnings` (the warning rows, a SHOULD the server did not follow), `profile` (the specification profile) and `instrument` (the version, and `self-run`). Each counting badge names the profile in its label, so a development tally never reads as a released one. A counting badge is green only when no row failed or errored: red when a row failed, orange when none failed but one errored, grey when nothing passed.
+An Arazzo results document draws five: `base` (passed out of every BASE row), `options` (passed out of every row of the selected option arms and of the cases resting on TRIAL text), `warnings` (the warning rows, a SHOULD the server did not follow), `profile` (the specification profile) and `instrument` (the version, and `self-run`). Each counting badge names the profile in its label, so a development tally never reads as a released one. A counting badge is green only when no row failed or errored: red when a row counts against the server (it failed, or errored with the server or no one named), orange when none does but an errored row is inconclusive, grey when nothing passed.
 
 A `perf-result` draws one, `perf`: the workload in the label and the knee as the record states it, in a neutral colour, because a knee is a reading and never a pass or a failure.
 

@@ -124,6 +124,13 @@ impl ArazzoRunOutcome {
         self.red_rows().next().is_none()
     }
 
+    /// The rows counted by where each stands against the server, which
+    /// decides the run's exit status.
+    #[must_use]
+    pub fn verdict(&self) -> RunVerdict {
+        RunVerdict::of(&self.results.rows)
+    }
+
     /// The files the run writes: [`RESULTS_FILE`], and [`RECORDING_FILE`]
     /// for a live run.
     ///
@@ -148,16 +155,103 @@ impl ArazzoRunOutcome {
     }
 }
 
-/// Whether `row` bears on the verdict and is not green. A warning row,
-/// a SHOULD the server did not follow, never counts against a capability.
+/// Whether `row` bears on the verdict and is not green: it counts against
+/// the server or is inconclusive. A warning row, a SHOULD the server did not
+/// follow, never counts against a capability.
 pub(crate) fn is_red(row: &ResultRow) -> bool {
-    match row.status {
-        Status::Passed | Status::Skipped => false,
-        Status::Errored => true,
-        Status::Failed => row
+    Bearing::of(row) != Bearing::Clear
+}
+
+/// Where one row stands against the server, read from the attribution its
+/// record already carries (`explanation.whose`). No openEHR spec governs
+/// this — our own design.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Bearing {
+    /// Passed, skipped, or failed only as a warning.
+    Clear,
+    /// Failed or errored with the server as whose problem it is, or with no
+    /// attribution recorded at all.
+    AgainstServer,
+    /// Failed or errored with the instrument as whose problem it is: the
+    /// instrument could not judge the row, and it does not count against the
+    /// vendor.
+    Inconclusive,
+}
+
+impl Bearing {
+    /// The bearing of `row`.
+    #[must_use]
+    pub fn of(row: &ResultRow) -> Self {
+        let whose = row
             .explanation
             .as_ref()
-            .is_none_or(|explanation| explanation.whose != Whose::Warning),
+            .map(|explanation| explanation.whose);
+        match (row.status, whose) {
+            (Status::Passed | Status::Skipped, _) | (Status::Failed, Some(Whose::Warning)) => {
+                Self::Clear
+            }
+            (Status::Failed | Status::Errored, Some(Whose::Instrument)) => Self::Inconclusive,
+            // NOTE: no openEHR spec governs this — our own design; a red row whose record
+            // names no instrument attribution counts against the server, so it never passes.
+            (Status::Failed | Status::Errored, _) => Self::AgainstServer,
+        }
+    }
+}
+
+/// The exit status of a run with a row that counts against the server.
+pub const EXIT_AGAINST_SERVER: u8 = 1;
+
+/// The exit status of a run with no row against the server and at least one
+/// inconclusive row.
+pub const EXIT_INCONCLUSIVE: u8 = 3;
+
+/// A run's rows counted by where each stands against the server.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RunVerdict {
+    /// The rows that count against the server.
+    pub against_server: usize,
+    /// The rows the instrument could not judge.
+    pub inconclusive: usize,
+}
+
+impl RunVerdict {
+    /// Counts `rows`.
+    #[must_use]
+    pub fn of<'a>(rows: impl IntoIterator<Item = &'a ResultRow>) -> Self {
+        let mut verdict = Self::default();
+        for row in rows {
+            let count = match Bearing::of(row) {
+                Bearing::Clear => continue,
+                Bearing::AgainstServer => &mut verdict.against_server,
+                Bearing::Inconclusive => &mut verdict.inconclusive,
+            };
+            *count = count.saturating_add(1);
+        }
+        verdict
+    }
+
+    /// The exit status the run ends with: [`EXIT_AGAINST_SERVER`] when any
+    /// row counts against the server, whatever else the run holds; otherwise
+    /// [`EXIT_INCONCLUSIVE`] when any row is inconclusive; otherwise `0`.
+    #[must_use]
+    pub const fn exit_status(self) -> u8 {
+        if self.against_server > 0 {
+            EXIT_AGAINST_SERVER
+        } else if self.inconclusive > 0 {
+            EXIT_INCONCLUSIVE
+        } else {
+            0
+        }
+    }
+}
+
+impl std::fmt::Display for RunVerdict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} row(s) against the server, {} inconclusive row(s)",
+            self.against_server, self.inconclusive
+        )
     }
 }
 
@@ -399,5 +493,84 @@ mod tests {
         assert!(is_red(&row(Status::Failed, Some(Whose::Server))));
         assert!(is_red(&row(Status::Failed, None)));
         assert!(is_red(&row(Status::Errored, Some(Whose::Instrument))));
+    }
+
+    #[test]
+    fn a_row_bears_on_the_server_by_the_attribution_it_carries() {
+        let cases = [
+            (Status::Passed, None, Bearing::Clear),
+            (Status::Skipped, None, Bearing::Clear),
+            (Status::Failed, Some(Whose::Warning), Bearing::Clear),
+            (Status::Failed, Some(Whose::Server), Bearing::AgainstServer),
+            (Status::Errored, Some(Whose::Server), Bearing::AgainstServer),
+            (Status::Failed, None, Bearing::AgainstServer),
+            (Status::Errored, None, Bearing::AgainstServer),
+            (
+                Status::Errored,
+                Some(Whose::Instrument),
+                Bearing::Inconclusive,
+            ),
+            (
+                Status::Failed,
+                Some(Whose::Instrument),
+                Bearing::Inconclusive,
+            ),
+        ];
+        for (status, whose, bearing) in cases {
+            assert_eq!(
+                Bearing::of(&row(status, whose)),
+                bearing,
+                "{status:?} {whose:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn only_instrument_errored_rows_exit_three() {
+        let rows = [
+            row(Status::Passed, None),
+            row(Status::Errored, Some(Whose::Instrument)),
+            row(Status::Errored, Some(Whose::Instrument)),
+            row(Status::Failed, Some(Whose::Warning)),
+        ];
+        let verdict = RunVerdict::of(&rows);
+        assert_eq!(
+            verdict,
+            RunVerdict {
+                against_server: 0,
+                inconclusive: 2
+            }
+        );
+        assert_eq!(verdict.exit_status(), EXIT_INCONCLUSIVE);
+        assert_eq!(
+            verdict.to_string(),
+            "0 row(s) against the server, 2 inconclusive row(s)"
+        );
+    }
+
+    #[test]
+    fn a_server_failed_row_exits_one_whatever_else_the_run_holds() {
+        let rows = [
+            row(Status::Errored, Some(Whose::Instrument)),
+            row(Status::Failed, Some(Whose::Server)),
+            row(Status::Failed, Some(Whose::Warning)),
+            row(Status::Skipped, None),
+            row(Status::Passed, None),
+        ];
+        let verdict = RunVerdict::of(&rows);
+        assert_eq!(verdict.against_server, 1);
+        assert_eq!(verdict.inconclusive, 1);
+        assert_eq!(verdict.exit_status(), EXIT_AGAINST_SERVER);
+    }
+
+    #[test]
+    fn a_run_with_no_red_row_exits_zero() {
+        let rows = [
+            row(Status::Passed, None),
+            row(Status::Skipped, None),
+            row(Status::Failed, Some(Whose::Warning)),
+        ];
+        assert_eq!(RunVerdict::of(&rows).exit_status(), 0);
+        assert_eq!(RunVerdict::of(&[]).exit_status(), 0);
     }
 }

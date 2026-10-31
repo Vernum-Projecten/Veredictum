@@ -108,11 +108,17 @@ enum Command {
     /// recorded. The recording holds the server's response bodies verbatim,
     /// so it belongs where the operator keeps the run.
     ///
-    /// Exit status: `0` when every row passed or was skipped, or failed only
-    /// as a warning (a SHOULD, which never counts against a capability); `1`
-    /// when any other row failed or errored; `2` when the run could not start
-    /// or finish: a usage error, a gate finding, an unreadable file, a missing
-    /// credential, or a recording that does not replay.
+    /// Exit status follows whose problem each red row's record names. `1`
+    /// when any row counts against the server: it failed (a warning row
+    /// excepted) or errored with the server named, whatever else the run
+    /// holds. `3` when no row counts against the server and at least one is
+    /// inconclusive: it failed or errored with the instrument named, because
+    /// the instrument could not judge it. `0` when every row passed or was
+    /// skipped, or failed only as a warning (a SHOULD, which never counts
+    /// against a capability). `2` when the run could not start or finish: a
+    /// usage error, a gate finding, an unreadable file, a missing credential,
+    /// or a recording that does not replay. The line before the exit names
+    /// both counts. `--rejudge` exits the same way.
     Test {
         /// The catalogue root, holding `capabilities.yaml` and `cases/`. Its
         /// parent holds the vendored `specs/` tree its citations and OAS
@@ -508,6 +514,15 @@ enum Command {
         /// appended to. GitHub sets the variable in every job step.
         #[arg(long, env = "GITHUB_STEP_SUMMARY", hide_env_values = true)]
         step_summary: Option<PathBuf>,
+        /// Write the GitHub Actions annotations here: one `::error` workflow
+        /// command per failed or errored row and one `::warning` per warning
+        /// row, titled with the case id and carrying what was checked, the
+        /// cited sentence and what was expected and received. GitHub shows
+        /// at most 10 of each kind per step, so at most 10 of each are
+        /// written and a closing `::notice` names how many more rows the
+        /// summary lists. An Arazzo results document only.
+        #[arg(long)]
+        annotations: Option<PathBuf>,
     },
     /// Draw the static badges of a result document, for a README.
     ///
@@ -524,8 +539,9 @@ enum Command {
     /// specification profile) and `instrument` (the version, and `self-run`).
     /// Each counting badge names the profile in its label, so a development
     /// tally never reads as a released one. A counting badge is green only
-    /// when no row failed or errored: red when a row failed, orange when none
-    /// failed but one errored, grey when nothing passed.
+    /// when no row failed or errored: red when a row counts against the server
+    /// (it failed, or errored with the server or no one named), orange when
+    /// none does but an errored row is inconclusive, grey when nothing passed.
     ///
     /// A `perf-result` draws one, `perf`: the workload in the label and the
     /// knee as the record states it, in a neutral colour, because a knee is a
@@ -753,6 +769,7 @@ fn main() -> ExitCode {
             ctrf,
             markdown,
             step_summary,
+            annotations,
         } => export_command(
             &results,
             &ExportTargets {
@@ -760,6 +777,7 @@ fn main() -> ExitCode {
                 ctrf: ctrf.as_deref(),
                 markdown: markdown.as_deref(),
                 step_summary: step_summary.as_deref(),
+                annotations: annotations.as_deref(),
             },
         ),
         Command::Perf {
@@ -1120,13 +1138,10 @@ fn test_command(
             return code;
         }
     }
-    let red = outcome.red_rows().count();
-    if red == 0 {
-        ExitCode::SUCCESS
-    } else {
-        eprintln!("{red} row(s) failed or errored");
-        ExitCode::from(1)
-    }
+    let verdict = outcome.verdict();
+    let status = verdict.exit_status();
+    eprintln!("{verdict}: exit status {status}");
+    ExitCode::from(status)
 }
 
 fn identify_command(base_url: &str, auth: &str) -> ExitCode {
@@ -1449,6 +1464,8 @@ struct ExportTargets<'a> {
     /// The GitHub Actions job summary file the Markdown summary is appended
     /// to.
     step_summary: Option<&'a Path>,
+    /// The GitHub Actions annotations file.
+    annotations: Option<&'a Path>,
 }
 
 /// Writes the views of an Arazzo results document.
@@ -1462,14 +1479,20 @@ fn export_command(results: &Path, targets: &ExportTargets<'_>) -> ExitCode {
         Ok(views) => views,
         Err(e) => return fail(&e),
     };
-    let (junit, ctrf) = match &views {
-        Exports::Results(views) => (Some(&views.junit), Some(&views.ctrf)),
-        Exports::Perf { .. } => (None, None),
+    let (junit, ctrf, annotations) = match &views {
+        Exports::Results(views) => (
+            Some(&views.junit),
+            Some(&views.ctrf),
+            Some(&views.annotations),
+        ),
+        Exports::Perf { .. } => (None, None, None),
     };
-    if junit.is_none() && (targets.junit.is_some() || targets.ctrf.is_some()) {
+    if junit.is_none()
+        && (targets.junit.is_some() || targets.ctrf.is_some() || targets.annotations.is_some())
+    {
         eprintln!(
-            "{} is a perf-result, which has a Markdown view only: --junit and --ctrf read an \
-             Arazzo results document",
+            "{} is a perf-result, which has a Markdown view only: --junit, --ctrf and \
+             --annotations read an Arazzo results document",
             results.display()
         );
         return ExitCode::from(2);
@@ -1478,6 +1501,7 @@ fn export_command(results: &Path, targets: &ExportTargets<'_>) -> ExitCode {
         (targets.junit, junit),
         (targets.ctrf, ctrf),
         (targets.markdown, Some(&views.markdown().to_owned())),
+        (targets.annotations, annotations),
     ] {
         let (Some(path), Some(body)) = (path, body) else {
             continue;

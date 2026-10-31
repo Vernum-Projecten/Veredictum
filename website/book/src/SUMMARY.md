@@ -9,6 +9,7 @@
   - [Logging in to the CDR](authentication.md)
   - [Command reference](commands.md)
   - [The GitHub Action](github-action.md)
+  - [GitLab CI](gitlab-ci.md)
   - [Badges](badges.md)
 - [The web console](console.md)
 - [The conformance method](methodology.md)

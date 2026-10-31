@@ -1,6 +1,6 @@
 ---
 source: app/veredictum/tests/it/results_export.rs
-assertion_line: 709
+assertion_line: 714
 expression: summary
 ---
 # Veredictum results
@@ -17,10 +17,11 @@ expression: summary
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | BASE | 3 | 2 | 1 | 0 | 0 | 6 |
 | OPTIONS | 1 | 1 | 0 | 1 | 1 | 4 |
+| Unplaced | 1 | 0 | 0 | 0 | 0 | 1 |
 | **Every row** | **5** | **3** | **1** | **1** | **1** | **11** |
 
 > [!NOTE]
-> Only a **failed** row counts against the server. A **warning** row is a SHOULD the server did not follow, and it never counts against the server. An **errored** row is one the instrument could not judge, and a **skipped** row was not run.
+> A **failed** row counts against the server. A **warning** row is a SHOULD the server did not follow, and it never counts against the server. An **errored** row is inconclusive when its record names the instrument, which could not judge it, and counts against the server when its record names the server or no one. A **skipped** row was not run.
 
 ## BASE
 

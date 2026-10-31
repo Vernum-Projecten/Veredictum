@@ -1,0 +1,11 @@
+{
+  "scoped_tokens": {
+    "mint": {
+      "issuer": "https://issuer.veredictum.test",
+      "subject": "veredictum-smart-lane",
+      "audience": "veredictum-smart-sut",
+      "kid": "cnf-smart-test",
+      "ttl_seconds": 300
+    }
+  }
+}

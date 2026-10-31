@@ -36,7 +36,8 @@ use crate::perf_result::view::format_rate;
 /// One badge the instrument draws, by the file name it is written under.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BadgeName {
-    /// The BASE rows: passed out of every BASE row.
+    /// The BASE rows: passed out of every BASE row and every row the outline
+    /// places nowhere.
     Base,
     /// The rows of the selected option arms, with the BASE cases resting on
     /// TRIAL text, which are read with the options.
@@ -81,10 +82,12 @@ impl BadgeName {
 pub enum BadgeColour {
     /// Rows passed, and none failed or errored: green.
     Passing,
-    /// At least one row failed: red, whatever else the tally holds.
+    /// At least one row counts against the server: it failed, or errored
+    /// with the server or no one named. Red, whatever else the tally holds.
     Failing,
-    /// No row failed but at least one errored, which the instrument could not
-    /// judge: orange, never green.
+    /// No row counts against the server, but at least one errored row is
+    /// inconclusive, which the instrument could not judge: orange, never
+    /// green.
     Errored,
     /// Nothing passed and nothing failed or errored (no rows, or every row
     /// skipped): grey.
@@ -118,11 +121,13 @@ impl BadgeColour {
         }
     }
 
-    /// The colour of a tally: red when any row failed, orange when none failed
-    /// but one errored, grey when nothing passed, and green otherwise.
+    /// The colour of a tally: red when any row counts against the server
+    /// (failed, or errored with the server or no one named), orange when none
+    /// does but one is inconclusive, grey when nothing passed, and green
+    /// otherwise.
     #[must_use]
     pub const fn of(tally: Tally) -> Self {
-        if tally.failed > 0 {
+        if tally.against_server() > 0 {
             Self::Failing
         } else if tally.errored > 0 {
             Self::Errored
@@ -386,7 +391,9 @@ pub fn badges(results: &Results) -> Vec<Badge> {
             (String::from("no outline"), BadgeColour::Empty)
         }
     };
-    let (base_message, base_colour) = counted(reading.base_total);
+    // NOTE: no openEHR spec governs this — our own design; a row the outline places
+    // nowhere counts on the BASE badge, so a red unplaced row never leaves it green.
+    let (base_message, base_colour) = counted(reading.base_total.plus(reading.unplaced_total));
     let (options_message, options_colour) = counted(reading.options.selected_tally());
     let warnings = reading.total.warning;
     BadgeName::CONFORMANCE
@@ -494,6 +501,7 @@ mod tests {
             failed,
             warning: 0,
             errored,
+            errored_against_server: 0,
             skipped,
         }
     }
@@ -503,6 +511,15 @@ mod tests {
         assert_eq!(BadgeColour::of(tally(9, 1, 0, 0)), BadgeColour::Failing);
         assert_eq!(BadgeColour::of(tally(9, 1, 1, 0)), BadgeColour::Failing);
         assert_eq!(BadgeColour::of(tally(9, 0, 1, 0)), BadgeColour::Errored);
+        let against = Tally {
+            errored_against_server: 1,
+            ..tally(9, 0, 2, 0)
+        };
+        assert_eq!(
+            BadgeColour::of(against),
+            BadgeColour::Failing,
+            "an errored row against the server is red, like a failed one"
+        );
         assert_eq!(BadgeColour::of(tally(0, 0, 0, 3)), BadgeColour::Empty);
         assert_eq!(BadgeColour::of(tally(0, 0, 0, 0)), BadgeColour::Empty);
         assert_eq!(BadgeColour::of(tally(9, 0, 0, 3)), BadgeColour::Passing);
