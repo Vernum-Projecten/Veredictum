@@ -82,10 +82,10 @@ regex = "1"
 # library, never `std::time::SystemTime` (clippy.toml `disallowed-methods`);
 # elapsed-time measurement stays on `std::time::Instant`.
 jiff = { version = "0.2.31", features = ["serde"] }
-# Canonical-XML response assertions (`xml_root`): the served document's root
-# element name and the namespace its prefix resolves to. A namespace-aware
-# parser is required — a regex cannot tell the root from a descendant, nor
-# relate a prefix to the URI in scope for it.
+# Namespace-aware XML reading: the perf emulator reads the leaf constraints
+# of an operational template, resolving `xsi:type` (`perf_emulate/jitter.rs`), and
+# `validate` finds the top-level definition an XSD citation names
+# (`arazzo/cite.rs`).
 quick-xml = { version = "0.42.0", features = ["serialize"] }
 # Percent-encode path/query segments — never hand-roll a percent codec.
 urlencoding = "2.1.3"
