@@ -17,6 +17,7 @@ reports:
   724: { title: "ITS-JSON: DV_URI and DV_EHR_URI require no value, and DV_INTERVAL limits are untyped objects", state: confirmed }
   735: { title: "ITS-REST: the bulk EHR delete declares its ehr_id subset as one UUID and templates it into the path", state: open }
   750: { title: "ITS-REST: the ITEM_TAG operations leave invariant refusals, filter matching and tag identity unassigned", state: open }
+  752: { title: "ITS-REST: deleted-version reads, deactivated-EHR writes and the update body uid have no assigned answer, and the RM and ITS-REST disagree on the copied uid", state: open }
   758: { title: "SMART on openEHR: the discovery example and scope grammar contradict each other, and no scope maps to an operation", state: open }
   759: { title: "ITS-REST: the Simplified Formats and canonical XML chapters require what they leave undefined", state: open }
   771: { title: "AQL: AND and OR precedence, regex node predicates, LIKE escapes, basic-format dates, whole-value comparisons and supertype paths are unassigned", state: open }
