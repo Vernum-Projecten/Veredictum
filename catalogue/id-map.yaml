@@ -1702,6 +1702,12 @@ cases:
       - person/get_person-at_time_before_first_version
   I_DEMOGRAPHIC_SERVICE.get_party_at_time-deleted_current:
     new: [person/delete_person-read_after]
+    open: &deleted_read_status >-
+      The status code: 204_deleted_at_time.yaml assigns 204 only to a read
+      at a version_at_time, so a read of the deleted latest version, or by
+      the version_uid the delete created, is held only to serve no data
+      (RM master06 §Logical Deletion), and 204 or 404 holds (upstream
+      report #752).
   I_DEMOGRAPHIC_SERVICE.get_party_at_time-xml:
     new: [versioned_party_read_xml/get_versioned_party_version-xml]
     open: >-
@@ -2272,6 +2278,7 @@ cases:
       get_composition_at_time-future.
   I_EHR_COMPOSITION.get_composition_at_version-deleted_version:
     new: [composition_read_container/get_composition-deleted-version_uid]
+    open: *deleted_read_status
   I_EHR_COMPOSITION.get_composition_at_version-spec_profile_dev_body_development:
     new: []
     open: &spec_profile >-
@@ -2298,6 +2305,7 @@ cases:
     new: [composition_read/get_composition-unknown_ehr-versioned_object_uid]
   I_EHR_COMPOSITION.get_composition_latest-deleted_head:
     new: [composition_read_container/get_composition-deleted-latest]
+    open: *deleted_read_status
   I_EHR_COMPOSITION.get_composition_latest-identifier_forms_agree:
     new: [composition_read_container/get_composition-identifier_forms_agree]
     open: >-
@@ -2948,6 +2956,7 @@ cases:
       - directory_delete/delete_directory
       - directory_delete/delete_directory-read_back
       - directory_delete/delete_directory-no_location
+    open: *deleted_read_status
   I_EHR_DIRECTORY.delete_directory-empty_ehr:
     new: [directory_delete/delete_directory-no_directory]
   I_EHR_DIRECTORY.delete_directory-etag_names_new_version:
@@ -2964,6 +2973,7 @@ cases:
     new: [directory_read/get_directory-unknown_ehr]
   I_EHR_DIRECTORY.get_directory-deleted_head:
     new: [directory_read/get_directory-deleted]
+    open: *deleted_read_status
   I_EHR_DIRECTORY.get_directory-directory_with_structure:
     new:
       - directory_read/get_directory
@@ -2990,8 +3000,13 @@ cases:
       - directory_read_xml/get_directory-xml
       - directory_read_xml_not_acceptable/get_directory-xml_not_acceptable
     open: &directory_xml_root >-
-      The root element of the XML document is not judged: no published XSD
-      declares a document element for FOLDER.
+      The served FOLDER is judged as the items document element that
+      ITS-XML Structure.xsd declares, typed FOLDER in xsi:type, in
+      directory_read_xml/get_directory-xml and
+      directory_read_xml/get_directory_version-xml. Which namespace it is in
+      is not judged beyond the two the published ITS-XML schemas declare:
+      Resources.md §XML Format requires only that the document "MUST conform
+      to the published XSDs".
   I_EHR_DIRECTORY.get_directory-xml_not_acceptable:
     new: *directory_xml
     open: *directory_xml_root
