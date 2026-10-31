@@ -1,0 +1,47 @@
+# The 400 rows of the EHR create with an invalid EHR_STATUS: an EHR_STATUS
+# with one member the released request-body schema requires deleted and
+# nothing else changed. Each subject is the row's own, so a refusal is never
+# a subject conflict.
+workflow: ehr/create_ehr-invalid_status-missing_required
+iteration: reset_per_row
+rows:
+  # is_queryable deleted
+  - ehr_status:
+      _type: EHR_STATUS
+      archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+      name: { _type: DV_TEXT, value: EHR status }
+      archetype_details:
+        archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+        rm_version: 1.1.0
+      subject:
+        _type: PARTY_SELF
+        external_ref:
+          id: { _type: HIER_OBJECT_ID, value: veredictum-invalid-status-missing-is-queryable }
+          namespace: veredictum
+          type: PERSON
+      is_modifiable: true
+  # is_modifiable deleted
+  - ehr_status:
+      _type: EHR_STATUS
+      archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+      name: { _type: DV_TEXT, value: EHR status }
+      archetype_details:
+        archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+        rm_version: 1.1.0
+      subject:
+        _type: PARTY_SELF
+        external_ref:
+          id: { _type: HIER_OBJECT_ID, value: veredictum-invalid-status-missing-is-modifiable }
+          namespace: veredictum
+          type: PERSON
+      is_queryable: true
+  # subject deleted
+  - ehr_status:
+      _type: EHR_STATUS
+      archetype_node_id: openEHR-EHR-EHR_STATUS.generic.v1
+      name: { _type: DV_TEXT, value: EHR status }
+      archetype_details:
+        archetype_id: { _type: ARCHETYPE_ID, value: openEHR-EHR-EHR_STATUS.generic.v1 }
+        rm_version: 1.1.0
+      is_queryable: true
+      is_modifiable: true
