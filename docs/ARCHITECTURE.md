@@ -182,10 +182,10 @@ with T Beale) and 0.8.6 (24 Mar 2022, "Improved headings based on openEHR
 Service Model", his alone). Those three revisions made master06–09 the
 fleshed core §8 draws on, and
 `guide/master00-amendment_record.adoc` names him with T Beale on the
-Conformance Guide's initial writing. Recounted against this repository on
-2026-08-29: **127 of the 1146 case cores cite master06, master07, master08 or
-master09** (22 / 31 / 40 / 34 respectively), and 349 cite some chapter of the
-Test Schedule.
+Conformance Guide's initial writing. Recounted on 2026-08-29 against the
+catalogue as it stood before the cut-over (#604): **127 of its 1146 case cores
+cited master06, master07, master08 or master09** (22 / 31 / 40 / 34
+respectively), and 349 cited some chapter of the Test Schedule.
 
 Pablo Pazos wrote the original EHRbase conformance tests in 2019 at Hannover
 Medical School. The Robot battery of §3.3 is that work: 179 of its 223 files
@@ -252,7 +252,8 @@ remains the oldest open requirements list; its asks are answered in the
 design: computable Conformance Statements as the first artifact (§8.10),
 certificate governance — who creates/grants/verifies (§9), scope discipline
 via ISO/IEC 25010 with no manual testing (§6.3, §7),
-no conceptual REST hard-coding (the §8.3/§8.4 case-core/binding split), and
+no conceptual REST hard-coding (a case's steps call the released ITS-REST
+operations by `operationId`, never a hand-written path, §15.2), and
 precise archetype-validation conformance points (§8.9 pilot 5, §11).
 
 ## 5. Prior art — how other standards run conformance
@@ -1176,11 +1177,12 @@ The deliverable a tendering authority can use the moment rung 0 exists:
 
 ## 11. Gap-fill roadmap (content plan for the schedule itself)
 
-Ordered by procurement value; each item is a bounded, assignable chapter task
-once §8.3 makes cases enumerable files:
+Ordered by procurement value; each item is a bounded, assignable chapter task,
+landing as Arazzo workflows in a capability folder under `catalogue/cases/`
+(§15.3):
 
 1. **Querying / AQL (master11 + master05)** — the flagship gap. The
-   result-set equivalence rules are **written, normative, and cited in §8.6**
+   result-set equivalence rules are **written, normative, and cited in §15.11**
    (spec-grounded rules marked [spec]; the four points the specs are silent
    on carried as [legislated] proposed defaults) — U5's gate is SEC
    ratification of the [legislated] points, not de-novo design. Seed
@@ -1197,7 +1199,7 @@ once §8.3 makes cases enumerable files:
 3. **Scenario/lifecycle suites** (the 2017 "EHR API lifecycle test"):
    realistic multi-contribution journeys — admission (admin COMPOSITION) →
    persistent medication list → event vital signs → update both → retrieve
-   all versions in both formats — encoded as ordinary §8.3 flows; these
+   all versions in both formats — encoded as ordinary workflows (§15.2); these
    catch cross-operation state defects the per-operation cases cannot.
 4. **The performance & volumetrics chapter** (§8.14): normative workload
    definitions + the provisional reference mix and plateau limits now tabled in §8.14
@@ -1268,9 +1270,9 @@ the difference between "nice idea, same risk" and "resourced program".
   International's own staff. Charter published in the repo before the first
   normative merge.
 - **Change control**: RFC process for schema/scheme changes; schedule releases
-  cut like spec releases (versioned, changelogged); CI (§8.13) makes
-  community PRs safe to accept, which is what actually de-bottlenecks a
-  volunteer group.
+  cut like spec releases (versioned, changelogged); CI running the §15.9
+  gates makes community PRs safe to accept, which is what actually
+  de-bottlenecks a volunteer group.
 - **IP**: donated cases/schemas/corpus items enter under the spec repo's
   licence with contributor licence hygiene (no retained vendor copyright in
   normative artifacts, no patent encumbrance).
@@ -1327,7 +1329,7 @@ finally cut — before the March 2027 EHDS implementing acts.
 
 Two tracks, both production-grade from day one — no throwaway prototype. The
 in-repo track did not wait for upstream adoption: the reference runner
-implements the §8 artifact set as its production format, which is
+implements the §15 catalogue design as its production format, which is
 simultaneously the proof the upstream proposal ships with. **Status
 (re-verified 2026-08-27): the in-repo track (§14.2) is DELIVERED and
 published; the upstream track (§14.1) has not started and remains the plan.**
@@ -1339,13 +1341,13 @@ acceptance gate:
 
 | PR | Content | Acceptance gate |
 |---|---|---|
-| U1 | The five schedule-artifact schema families (§8.2 #1–5: case cores, bindings, vocabularies incl. the capability options (`catalogue/capabilities.yaml`), corpus manifest, ambiguity register — a living artifact, each carried divergence linked via `upstream_issue` to its outbound report) + the §8.13 CI workflow | Schemas validate the §8.9 pilot files; CI runs on the repo |
-| U2 | master06 (EHR) converted: all 21 cases as case cores + the its-rest bindings for the EHR operations + corpus manifest over the existing EHR fixtures | Generated prose semantically equivalent to the current chapter (human-reviewed diff); zero information loss against the AsciiDoc tables |
-| U3 | master07/08/09 (COMPOSITION/CONTRIBUTION/DIRECTORY) conversion + bindings | Same gate; the versioning cases (§8.9 pilot 4 shape) round-trip |
-| U4 | Content chapters (master15–17) conversion — decision tables as data + the literal grammar + generation recipes | Every existing table row preserved verbatim; grammar parses 100% of existing literals |
-| U5 | **master11/AQL — the first new chapter**: the §8.6 equivalence rules as normative schema text + ~37 cases seeded from ECC QRY/SQR/AQT (25 QRY + 8 SQR + 4 AQT) + the EHRbase AQL corpus | SEC ratifies the §8.6 [legislated] defaults FIRST; every case spec-cited to AQL 1.1 |
-| U6 | **Simplified-Formats chapter** (new): the §8.7 fifteen categories, ~60 cases driven from the master04/05/06 spec-example blocks | Every case cites its simplified_formats section; OPTIONS-profile placement |
-| U7 | statement/results/ixit schemas + verdict rules + the reference verdict implementation + the runner verification pack (transcripts + adjudications) | Two independent runners (ECC + the rescued Robot suite or another vendor's) compute identical verdicts on the pack |
+| U1 | The catalogue format: the Arazzo profile with the `x-veredictum-*` extensions (§15.2, §15.4), the capability options (`catalogue/capabilities.yaml`), the condition profile (§15.6), and the §15.9 gates as the CI workflow; a defect or silence in the cited text is an `upstream-report` issue that the citation names in `report:` (§15.4) | The schemas validate this repository's catalogue at zero `validate` findings; CI runs on the repo |
+| U2 | master06 (EHR) converted: all 21 cases as Arazzo workflows in the `ehr` capability folder over the released EHR operations, each case id mapped in `catalogue/id-map.yaml` | Generated prose semantically equivalent to the current chapter (human-reviewed diff); zero information loss against the AsciiDoc tables |
+| U3 | master07/08/09 (COMPOSITION/CONTRIBUTION/DIRECTORY) converted the same way, one capability folder each | Same gate; the versioning cases round-trip |
+| U4 | Content chapters (master15–17) conversion — decision tables as rows files under the literal grammar (§15.7) + generation recipes | Every existing table row preserved verbatim; grammar parses 100% of existing literals |
+| U5 | **master11/AQL — the first new chapter**: the §15.11 equivalence rules as normative text + ~37 cases seeded from ECC QRY/SQR/AQT (25 QRY + 8 SQR + 4 AQT) + the EHRbase AQL corpus | SEC ratifies the §15.11 [legislated] defaults FIRST; every case spec-cited to AQL 1.1 |
+| U6 | **Simplified-Formats chapter** (new): the `simplified_formats` capability folder, cases driven from the master04/05/06 spec-example blocks | Every case cites its simplified_formats section; OPTIONS-profile placement |
+| U7 | statement/results/ixit schemas + verdict rules + the reference verdict implementation + the runner verification pack (recorded HAR exchanges + adjudications) | Two independent runners (ECC + the rescued Robot suite or another vendor's) compute identical verdicts on the pack |
 | U8 | The hosted instrument handed to openEHR International (§15.10): certificate issuance under a key the foundation generates, attestation-rung labels, the dispute path of §9 | Two vendors hold certificates of their own runs |
 
 The performance & volumetrics chapter (§8.14 + §11.4), Demographic
@@ -1369,18 +1371,19 @@ below shipped, in this order, first inside FerroEHR and then here:
 
 | WS | Workstream | Content | Done-gate |
 |---|---|---|---|
-| W1 | **Artifact schemas in Rust** | The typed model + validator (now `app/veredictum/src/`) for case cores, bindings, vocabularies (outcomes + the capability options), corpus manifest, ambiguity register; JSON-Schema emission so the same schemas ship upstream in U1. The §8.13 checks become `cargo nextest` guards alongside the existing coverage guard. Scope: assertion-machinery artifacts; the performance case-core schema lands with W7. | Validator rejects every seeded-defect artifact fixture; schemas byte-identical to the U1 set |
+| W1 | **Artifact schemas in Rust** | The typed model + validator (`app/veredictum/src/`) for the catalogue's documents, with JSON-Schema emission under `schemas/` so the same schemas ship upstream in U1. The catalogue checks run as `validate` (§15.9) and as `cargo nextest` guards. Done; the model is the Arazzo catalogue of §15 since #604. | Validator rejects every seeded-defect artifact fixture; schemas byte-identical to the U1 set |
 | W2 | **Catalogue authoring + comparison** | The CNF 2.0 catalogue authored per the framework: official schedule cases first (the §8.9 pilot encodings generalized across master04–09/15–17), then the ECC-original designs that fill genuine gaps — each re-adjudicated to spec-text-only evidence (§11.8) before entry, keeping an `ecc-` namespace pending upstream adoption. Official CNF ids primary; `inventory/ecc-catalog.tsv` retires with the old harness. | **Comparison gate** (not reproduction): committed ECC↔CNF coverage map + comparison report — every difference from the old baseline enumerated and justified against the framework, verdict regressions on equivalent coverage explained, official-schedule coverage ≥ the old harness; cutover, old-harness retirement, and the new baseline follow a reviewed report |
-| W3 | **Data-driven executor** | The engine executes functional case cores directly from the artifact files (flow interpreter: requires-setup, parameter iteration with reset_per_row, captures, outcome mapping via bindings, typed assertions). Hand-written Rust remains only for generation recipes and genuinely non-mechanizable glue — each such exception is registered. Content decision tables execute from the data. The AQL `result_set` assertions execute under the §8.6 equivalence rules (U5 ratifies the [legislated] defaults). | ≥90% of cases run through the interpreter; every exception listed in the report; the W2 comparison report stays green |
+| W3 | **Data-driven executor** | The engine executes the catalogue directly from its files: the Arazzo workflows (§15.2), their rows files (§15.7) and the condition profile (§15.6), with the AQL `result_set` assertions under the §15.11 equivalence rules (U5 ratifies the [legislated] defaults). Hand-written Rust remains only for generation recipes and genuinely non-mechanizable glue. Done; it executes the Arazzo catalogue since #604. | ≥90% of cases run through the interpreter; every exception listed in the report; the W2 comparison report stays green |
 | W4 | **Statement / results / ixit emission** | `results.json` is emitted in the §8.10 schema (per-row outcomes, ambiguity dispositions, runner verification status); `statement.json` (ICS) + `ixit.json` (formalizing `SutDescriptor`) emitted per SUT; the Certificate/Statement/Comparison artifacts render from them; verdict computation moves to the shared pure function. | All of FerroEHR's `docs/conformance/**` artifacts regenerate from the new schemas; the honesty blocks survive; badges derive from the new results |
 | W5 | **Simplified-formats deepening** | The §8.7 blueprint's gap categories 2–9 (node-id algorithm, level removal, the 43 suffix tables, `_`-attributes, `\|raw`, full ctx vocabulary, counters, STRUCTURED style) + deepened 1/10 — ~40 new SF cases, all spec-example-driven, all OPTIONS-profile. | Every master04/05/06 spec-example JSON block exercised; ECC baseline ratchets upward only |
 | W6 | **Runner verification pack** | Author the U7 transcripts + adjudications; ECC self-verifies against them in CI; publish the pack so the Robot suite (and any vendor runner) can prove itself. | ECC passes both pack parts; the pack rejects a deliberately-broken runner build |
-| W7 | **Performance schedule implementation** | The donated benchmark harness's workload generation, knee-finding ladder, and sustained-run procedure re-expressed as §8.14 performance cases + the measurement schema; class verdicts computed into results.json; environment block formalized in ixit.json. | An earned-class run against both SUTs committed; verdicts reproduce the published benchmark artifacts |
+| W7 | **Performance schedule implementation** | The donated benchmark harness's workload generation and knee-finding ladder re-expressed as the §8.14 workloads under `perf/`, the load ladder to the knee, and the measured-run schemas; the host recorded beside each run. Done; the measured run is the ladder to the knee since #892. | A measured run re-judges from its recorded histograms (§8.14) |
 
 Sequencing was W1 → W2 → {W3, W4} → {W5, W6, W7}, all delivered. The
 standing gates carried over and grew: the guard tier, the full Rust tier,
-`validate` at zero findings over 1103 cases / 247 bindings, the fuzz lane,
-and the ratchet rule (the baseline only moves upward).
+`validate` at zero findings over 1689 workflows in 219 documents (recounted
+2026-10-31), the fuzz lane, and the ratchet rule (the baseline only moves
+upward).
 
 **Shipped since the split, beyond the W-plan** (each on this repository's
 tracker): the deliberate library API (`veredictum::pipeline`, one seam per
@@ -2265,8 +2268,8 @@ embedded `{$…}` expression, which the parser check reads as a placeholder.
   the ITS-REST rule that a recognized but not allowed method "SHOULD be `405
   Method Not Allowed`". A rule only another standard states (an HTTP RFC) is
   asserted only where the openEHR text adopts it.
-- **One root.** `veredictum validate --root catalogue` checks the catalogue;
-  the former case-core format was retired at the cut-over (#604).
+- **One root.** `veredictum validate --root catalogue` checks the whole
+  catalogue, and no second catalogue format exists beside it.
 
 ## Appendix — source register
 
