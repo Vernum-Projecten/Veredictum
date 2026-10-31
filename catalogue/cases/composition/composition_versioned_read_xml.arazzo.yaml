@@ -1,9 +1,11 @@
 # The VERSIONED_COMPOSITION reads in canonical XML, for a service that
 # serves the COMPOSITION family in XML: the served arm of the
 # `composition-xml-read` option, whose refused arm is
-# `composition_versioned_read_xml_not_acceptable.arazzo.yaml`. The XML body
-# is not read; each workflow judges the status and the Content-Type. Every
-# quote is copied verbatim from the named vendored file.
+# `composition_versioned_read_xml_not_acceptable.arazzo.yaml`. Each workflow
+# judges the status and the Content-Type, and a VERSION read also judges the
+# version document element of the ITS-XML Version.xsd; no published XSD
+# declares a document element for VERSIONED_COMPOSITION or REVISION_HISTORY.
+# Every quote is copied verbatim from the named vendored file.
 arazzo: 1.1.0
 info:
   title: VERSIONED_COMPOSITION read in canonical XML
@@ -164,7 +166,8 @@ workflows:
     description: >-
       Creates an EHR and commits a COMPOSITION in JSON, then retrieves the
       latest VERSION of its VERSIONED_COMPOSITION, asking for canonical XML.
-      The answer is 200 with Content-Type application/xml.
+      The answer is 200 with Content-Type application/xml, and its document
+      element is a version carrying the members the ITS-XML schema requires.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite: *served
     inputs: *ehr_input
@@ -187,13 +190,52 @@ workflows:
           - context: $response.header.Content-Type
             type: regex
             condition: '^application/xml'
+          # NOTE: ITS-REST overview Resources.md §XML Format names no namespace, so either published
+          # ITS-XML lineage's (v1 Release-1.0.2, v2 Release-2.0.0) holds.
+          - &version_root
+            context: $response.body
+            type: xpath
+            condition: exists(/oe:version) or exists(/oe2:version)
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Version.xsd
+              section: element version
+              quote: '<xs:element name="version" type="VERSION"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/documents/Version.xsd
+                section: element version
+                quote: '<xs:element name="version" type="VERSION"/>'
+          - &version_contribution
+            context: $response.body
+            type: xpath
+            condition: count(/oe:version/oe:contribution) eq 1 or count(/oe2:version/oe2:contribution) eq 1
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Version.xsd
+              section: complexType VERSION
+              quote: '<xs:element name="contribution" type="OBJECT_REF"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
+                section: complexType VERSION
+                quote: '<xs:element name="contribution" type="OBJECT_REF"/>'
+          - &version_commit_audit
+            context: $response.body
+            type: xpath
+            condition: count(/oe:version/oe:commit_audit) eq 1 or count(/oe2:version/oe2:commit_audit) eq 1
+            x-veredictum-cite:
+              source: specs/its-xml-schemas/its-xml-1.0.2-nsv1/ALL/Version.xsd
+              section: complexType VERSION
+              quote: '<xs:element name="commit_audit" type="AUDIT_DETAILS"/>'
+              development:
+                source: specs/openehr-development/specifications-ITS-XML/components/RM/latest/Common.xsd
+                section: complexType VERSION
+                quote: '<xs:element name="commit_audit" type="AUDIT_DETAILS"/>'
 
   - workflowId: get_versioned_composition_version-by_id-xml
     summary: A VERSION read by version_uid with Accept application/xml is answered in XML
     description: >-
       Creates an EHR and commits a COMPOSITION in JSON, then retrieves the
       VERSION the commit created by its version_uid, asking for canonical XML.
-      The answer is 200 with Content-Type application/xml.
+      The answer is 200 with Content-Type application/xml, and its document
+      element is a version carrying the members the ITS-XML schema requires.
     dependsOn: [$sourceDescriptions.setup.upload_template-count_range]
     x-veredictum-cite: *served
     inputs: *ehr_input
@@ -217,6 +259,9 @@ workflows:
           - context: $response.header.Content-Type
             type: regex
             condition: '^application/xml'
+          - *version_root
+          - *version_contribution
+          - *version_commit_audit
 
   - workflowId: get_versioned_composition-revision_history-xml
     summary: A revision history read with Accept application/xml is answered in XML

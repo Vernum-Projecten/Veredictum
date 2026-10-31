@@ -137,7 +137,7 @@ veredictum validate --root catalogue --specs specs/openehr
 A working install over an intact clone prints one line and exits zero:
 
 ```text
-252 document(s), 1818 workflow(s), 379 rows file(s), 15 capability folder(s), 0 finding(s)
+253 document(s), 1820 workflow(s), 376 rows file(s), 15 capability folder(s), 0 finding(s)
 ```
 
 Any finding count above zero is a failure of the catalogue, not of your setup,

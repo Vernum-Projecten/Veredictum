@@ -239,7 +239,7 @@ options:
       this one answers 415.
     arms:
       composition-flat-write-accepted:
-        documents: [composition_write_flat, flat_context, flat_mapping, flat_structure, flat_commit_refused, flat_ranges, flat_context_values, flat_rm_attributes, flat_entries, flat_rm_refused, flat_read]
+        documents: [composition_write_flat, flat_context, flat_mapping, flat_structure, flat_commit_refused, flat_ranges, flat_context_values, flat_rm_attributes, flat_entries, flat_rm_refused, flat_read, flat_adl2]
       composition-flat-write-refused:
         documents: [composition_write_flat_unsupported]
     x-veredictum-cite:
@@ -790,6 +790,7 @@ documents:
   contribution_read_flat: { formats: [canonical-json, wt-flat] }
   contribution_write_flat: { formats: [canonical-json, wt-flat] }
   contribution_write_flat_accept: { formats: [canonical-json, wt-flat] }
+  flat_adl2: { formats: [canonical-json, wt-flat] }
   flat_commit_refused: { formats: [wt-flat] }
   flat_context: { formats: [canonical-json, wt-flat] }
   flat_context_values: { formats: [canonical-json, wt-flat] }
@@ -1006,7 +1007,7 @@ floors:
   item_tags: 71
   query: 194
   security: 11
-  simplified_formats: 137
+  simplified_formats: 139
   smart: 3
   system: 3
 # The capability folders verified only over the routes of the sources under
