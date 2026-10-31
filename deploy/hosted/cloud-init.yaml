@@ -165,6 +165,17 @@ write_files:
         "live-restore": true
       }
 
+  # The journal holds the console's output, the per-run record lines among
+  # them (#489), past a container recreate and a reboot. Persistent, and capped
+  # so it cannot fill the disk the run artifacts also live on
+  # (https://www.freedesktop.org/software/systemd/man/latest/journald.conf.html).
+  - path: /etc/systemd/journald.conf.d/50-veredictum.conf
+    content: |
+      [Journal]
+      Storage=persistent
+      SystemMaxUse=1G
+      MaxRetentionSec=1year
+
   # The ONE command the CI key may run. The deploy is a pull, an extraction of
   # the posture out of the pulled image, and a recreate: nothing is built here,
   # and nothing is fetched from this repository over the network.
@@ -287,6 +298,7 @@ runcmd:
   - [ufw, allow, "80/tcp"]
   - [ufw, allow, "443/tcp"]
   - [ufw, --force, enable]
+  - [systemctl, restart, systemd-journald]
   - [systemctl, enable, --now, docker]
   # Validated before it applies, so a bad drop-in cannot lock the box out.
   - [sh, -c, "sshd -t && systemctl reload-or-restart ssh"]

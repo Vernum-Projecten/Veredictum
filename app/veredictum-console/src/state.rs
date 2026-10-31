@@ -74,6 +74,9 @@ pub enum StartupError {
     /// or not published, revoked or expired in the published set.
     #[error(transparent)]
     Certificates(#[from] crate::certificates::ssr::IssuanceError),
+    /// The metrics token is set and is not a usable token.
+    #[error(transparent)]
+    MetricsToken(#[from] crate::metrics::TokenRefusal),
 }
 
 /// The loaded catalogue, or the explanation of why there is none.
@@ -114,6 +117,10 @@ pub struct ConsoleState {
     /// as fixed stand-ins. It changes what the surfaces DISPLAY and nothing
     /// that is written, sealed or signed.
     pub capture: bool,
+    /// The operator's signal (#489): the counters the job map and the request
+    /// seams report into, and the token that opens them
+    /// ([`crate::metrics::TOKEN_ENV`]).
+    pub metrics: crate::metrics::Metrics,
 }
 
 impl ConsoleState {
@@ -122,8 +129,9 @@ impl ConsoleState {
     ///
     /// # Errors
     /// [`StartupError`]: a posture that names no posture, a concurrency cap
-    /// that is not a positive integer, or certificate issuance switched on
-    /// with a key that cannot issue. Those are the startup values this console
+    /// that is not a positive integer, certificate issuance switched on
+    /// with a key that cannot issue, or a metrics token that is set and
+    /// unusable. Those are the startup values this console
     /// refuses to guess at — a missing mount is a first-class state the
     /// screens explain, while a wrong guess about one of these lets the
     /// instrument drive an address it should not, admit work it cannot hold,
@@ -163,6 +171,8 @@ impl ConsoleState {
         );
         let out = PathBuf::from(std::env::var(OUT_ENV).unwrap_or_else(|_| String::from("out")));
         let (issuance, setting) = crate::certificates::ssr::Issuance::from_env(&root)?;
+        let metrics = crate::metrics::Metrics::default()
+            .with_access(crate::metrics::AccessToken::from_env()?);
         let catalogue =
             veredictum::pipeline::listing::read(&root, Some(&specs)).map_err(|e| e.to_string());
         let state = Self {
@@ -175,13 +185,15 @@ impl ConsoleState {
                 max_concurrent,
                 ..crate::run_job::Limits::default()
             })
-            .with_issuance(issuance),
+            .with_issuance(issuance)
+            .with_metrics(metrics.clone()),
             client_ip_header: std::env::var(CLIENT_IP_HEADER_ENV)
                 .ok()
                 .filter(|name| !name.trim().is_empty()),
             posture,
             rates: crate::rate_limit::RateLimiter::default(),
             capture: crate::capture::enabled(),
+            metrics,
         };
         Ok((state, setting))
     }

@@ -41,6 +41,7 @@ fn state_over(out: &Path) -> ConsoleState {
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     }
 }
 

@@ -206,6 +206,7 @@ fn starting_a_run_writes_the_ixit_and_moves_the_credentials()
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     };
 
     let veredictum_console::run_api::StartOutcome::Accepted(id) =
@@ -329,6 +330,7 @@ async fn starting_without_a_draft_is_refused_by_name() -> Result<(), Box<dyn std
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     };
     let refusal =
         veredictum_console::run_api::read::start_run(&state, engine_gate::gate_submitter())
@@ -384,6 +386,7 @@ async fn a_hosted_instance_refuses_a_private_target_at_the_start_seam()
         posture: veredictum_console::posture::Posture::Hosted,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     };
     let refusal =
         veredictum_console::run_api::read::start_run(&state, engine_gate::gate_submitter())

@@ -377,6 +377,7 @@ struct JobState {
     completed: u64,
     total: u64,
     current_case: Option<String>,
+    accepted: Instant,
     started: Instant,
     last_case_at: Instant,
     durations_ms: Vec<u64>,
@@ -509,6 +510,7 @@ pub struct JobSlot {
     state: Arc<Mutex<Jobs>>,
     limits: Limits,
     issuance: crate::certificates::ssr::Issuance,
+    metrics: crate::metrics::Metrics,
 }
 
 #[cfg(feature = "ssr")]
@@ -518,6 +520,7 @@ impl Default for JobSlot {
             state: Arc::new(Mutex::new(Jobs::new())),
             limits: Limits::default(),
             issuance: crate::certificates::ssr::Issuance::Trial,
+            metrics: crate::metrics::Metrics::default(),
         }
     }
 }
@@ -746,6 +749,7 @@ fn begin(
     jobs: &mut Jobs,
     id: RunId,
     limits: Limits,
+    metrics: &crate::metrics::Metrics,
 ) -> Result<(), crate::engine::Error> {
     let Some(job) = jobs.get_mut(&id) else {
         return Ok(());
@@ -759,13 +763,15 @@ fn begin(
     job.started = now;
     job.last_case_at = now;
     job.status = JobStatus::Running;
+    metrics.run_started(id, now.saturating_duration_since(job.accepted));
     let out_dir = job.out_dir.clone();
 
     // The supervising thread owns the stream; the server fns only ever take
     // the lock briefly. A thread rather than a tokio task because the engine
     // stream is blocking I/O end to end.
     let supervised = Arc::clone(state);
-    std::thread::spawn(move || supervise(&supervised, id, running, &out_dir, limits));
+    let reported = metrics.clone();
+    std::thread::spawn(move || supervise(&supervised, id, running, &out_dir, limits, &reported));
     let watched = Arc::clone(state);
     std::thread::spawn(move || watchdog(&watched, id, limits));
     Ok(())
@@ -779,6 +785,7 @@ fn supervise(
     running: crate::engine::RunningEngine,
     out_dir: &std::path::Path,
     limits: Limits,
+    metrics: &crate::metrics::Metrics,
 ) {
     let on_line = |line: Line| {
         let Ok(mut jobs) = state.lock() else { return };
@@ -812,8 +819,11 @@ fn supervise(
             }
             job.status = status;
             job.finished_at = Some(Instant::now());
+            if let Some(outcome) = run_end(&job.status) {
+                metrics.run_ended(&ended(job, outcome));
+            }
         }
-        promote(state, &mut jobs, limits);
+        promote(state, &mut jobs, limits, metrics);
         renumber(&mut jobs);
         evict(&mut jobs, &limits);
     }
@@ -854,17 +864,66 @@ fn watchdog(state: &Arc<Mutex<Jobs>>, id: RunId, limits: Limits) {
 
 /// Starts queued runs into every free slot, oldest first.
 #[cfg(feature = "ssr")]
-fn promote(state: &Arc<Mutex<Jobs>>, jobs: &mut Jobs, limits: Limits) {
+fn promote(
+    state: &Arc<Mutex<Jobs>>,
+    jobs: &mut Jobs,
+    limits: Limits,
+    metrics: &crate::metrics::Metrics,
+) {
     while running_count(jobs) < limits.max_concurrent {
         let Some(id) = next_queued(jobs) else { return };
-        if let Err(e) = begin(state, jobs, id, limits) {
+        if let Err(e) = begin(state, jobs, id, limits, metrics) {
             // Nobody is waiting on this promotion's answer, so the refusal
             // becomes the run's own recorded failure.
             if let Some(job) = jobs.get_mut(&id) {
                 job.status = JobStatus::Failed(e.to_string());
                 job.finished_at = Some(Instant::now());
+                metrics.run_ended(&ended(job, crate::metrics::RunEnd::NotStarted));
             }
         }
+    }
+}
+
+/// The metric outcome a terminal status counts as; `None` while in flight.
+///
+/// A spawn refusal is counted as [`crate::metrics::RunEnd::NotStarted`]
+/// where it is handled, so this reads the statuses a run reaches after its
+/// engine drove.
+#[cfg(feature = "ssr")]
+fn run_end(status: &JobStatus) -> Option<crate::metrics::RunEnd> {
+    use crate::metrics::RunEnd;
+
+    match status {
+        JobStatus::Queued { .. } | JobStatus::Running => None,
+        JobStatus::Finished => Some(RunEnd::Finished),
+        JobStatus::Cancelled => Some(RunEnd::Cancelled),
+        JobStatus::Expired => Some(RunEnd::Expired),
+        JobStatus::Failed(_) => Some(RunEnd::Failed),
+    }
+}
+
+/// What the run record says about `job` as it leaves with `outcome`.
+///
+/// A run that drove waited from acceptance to its start and drove from its
+/// start to its end; a run that never drove waited until it left and drove
+/// not at all.
+#[cfg(feature = "ssr")]
+fn ended(job: &JobState, outcome: crate::metrics::RunEnd) -> crate::metrics::Ended {
+    use crate::metrics::RunEnd;
+
+    let drove = !matches!(outcome, RunEnd::NotStarted | RunEnd::Withdrawn);
+    let end = job.finished_at.unwrap_or_else(Instant::now);
+    crate::metrics::Ended {
+        run: job.id,
+        outcome,
+        queued: if drove {
+            job.started.saturating_duration_since(job.accepted)
+        } else {
+            end.saturating_duration_since(job.accepted)
+        },
+        driving: drove.then(|| end.saturating_duration_since(job.started)),
+        cases_completed: job.completed,
+        cases_total: job.total,
     }
 }
 
@@ -880,6 +939,7 @@ impl JobSlot {
             state: Arc::new(Mutex::new(Jobs::new())),
             limits,
             issuance: crate::certificates::ssr::Issuance::Trial,
+            metrics: crate::metrics::Metrics::default(),
         }
     }
 
@@ -890,6 +950,43 @@ impl JobSlot {
     pub fn with_issuance(mut self, issuance: crate::certificates::ssr::Issuance) -> Self {
         self.issuance = issuance;
         self
+    }
+
+    /// The same map, reporting into `metrics`.
+    ///
+    /// Every map is built with counters of its own; the server shares the
+    /// console's one set through this, so the route serves what the map saw.
+    #[must_use]
+    pub fn with_metrics(mut self, metrics: crate::metrics::Metrics) -> Self {
+        self.metrics = metrics;
+        self
+    }
+
+    /// The counters this map reports into.
+    #[must_use]
+    pub fn metrics(&self) -> &crate::metrics::Metrics {
+        &self.metrics
+    }
+
+    /// How many runs drive and wait right now, beside the cap.
+    ///
+    /// A poisoned map reads as empty: this feeds the operator's gauges, and a
+    /// poisoned map already refuses every run with its own diagnostic.
+    #[must_use]
+    pub fn occupancy(&self) -> crate::metrics::Occupancy {
+        let count = |n: usize| u64::try_from(n).unwrap_or(u64::MAX);
+        let (running, queued) = self.lock().map_or((0, 0), |jobs| {
+            let queued = jobs
+                .values()
+                .filter(|job| matches!(job.status, JobStatus::Queued { .. }))
+                .count();
+            (running_count(&jobs), queued)
+        });
+        crate::metrics::Occupancy {
+            running: count(running),
+            queued: count(queued),
+            max_concurrent: count(self.limits.max_concurrent),
+        }
     }
 
     /// Whether this map issues certificates.
@@ -961,6 +1058,7 @@ impl JobSlot {
                 completed: 0,
                 total: 0,
                 current_case: None,
+                accepted: now,
                 started: now,
                 last_case_at: now,
                 durations_ms: Vec::new(),
@@ -976,10 +1074,14 @@ impl JobSlot {
                 }),
             },
         );
+        self.metrics.run_accepted();
         if running_count(&jobs) < self.limits.max_concurrent
-            && let Err(e) = begin(&self.state, &mut jobs, id, self.limits)
+            && let Err(e) = begin(&self.state, &mut jobs, id, self.limits, &self.metrics)
         {
-            jobs.remove(&id);
+            if let Some(job) = jobs.remove(&id) {
+                self.metrics
+                    .run_ended(&ended(&job, crate::metrics::RunEnd::NotStarted));
+            }
             return Err(JobError::Engine(e));
         }
         renumber(&mut jobs);
@@ -1004,7 +1106,10 @@ impl JobSlot {
             let job = jobs.get_mut(&id).ok_or(JobError::Idle)?;
             match job.status {
                 JobStatus::Queued { .. } => {
-                    jobs.remove(&id);
+                    if let Some(job) = jobs.remove(&id) {
+                        self.metrics
+                            .run_ended(&ended(&job, crate::metrics::RunEnd::Withdrawn));
+                    }
                     renumber(&mut jobs);
                     return Ok(());
                 }
@@ -1277,6 +1382,7 @@ mod map_tests {
                 completed: 0,
                 total: 0,
                 current_case: None,
+                accepted: now,
                 started: now,
                 last_case_at: now,
                 durations_ms: Vec::new(),

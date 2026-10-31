@@ -1045,26 +1045,38 @@ pub mod read {
         let summary = statement_json
             .as_deref()
             .map(|body| {
+                let refused = |reason| {
+                    state
+                        .metrics
+                        .refused(crate::metrics::Refusal::Statement(reason));
+                };
                 if count(body.len()) > STATEMENT_CAP_BYTES {
+                    refused(crate::metrics::StatementReason::TooLarge);
                     return Err(format!(
                         "the statement is {} bytes; the cap is {STATEMENT_CAP_BYTES}",
                         body.len()
                     ));
                 }
-                let value: serde_json::Value = serde_json::from_str(body)
-                    .map_err(|e| format!("the statement is not JSON: {e}"))?;
+                let value: serde_json::Value = serde_json::from_str(body).map_err(|e| {
+                    refused(crate::metrics::StatementReason::NotJson);
+                    format!("the statement is not JSON: {e}")
+                })?;
                 // Held to the PUBLISHED statement schema — the same document
                 // the engine emits and loads by — before the typed parse.
                 let validator = jsonschema::validator_for(&veredictum::schema::statement_schema())
                     .map_err(|e| format!("the statement schema itself failed to compile: {e}"))?;
                 if let Some(finding) = validator.iter_errors(&value).next() {
+                    refused(crate::metrics::StatementReason::SchemaInvalid);
                     return Err(format!(
                         "the statement fails its published schema at {}: {finding}",
                         finding.instance_path()
                     ));
                 }
                 let statement: veredictum::party::Statement = serde_json::from_value(value)
-                    .map_err(|e| format!("the statement does not parse: {e}"))?;
+                    .map_err(|e| {
+                        refused(crate::metrics::StatementReason::Unparsable);
+                        format!("the statement does not parse: {e}")
+                    })?;
                 Ok(ClaimSummary {
                     product: format!("{} {}", statement.product.name, statement.product.version),
                     capabilities: count(statement.claims.capabilities.len()),
@@ -1448,18 +1460,47 @@ pub mod read {
         let Some(base_url) = drafted else {
             return Err(String::from(NO_DRAFT));
         };
-        state
-            .rates
-            .admit(submitter, crate::rate_limit::Metered::Start)
-            .map_err(|e| e.to_string())?;
+        admit(state, submitter, crate::rate_limit::Metered::Start)?;
         // The target guard (#390), before the engine is spawned: a hosted
         // instance refuses an address only it can reach, resolving the name
         // first. The local posture refuses nothing.
-        crate::target_safety::check(state.posture, &base_url)
-            .await
-            .map_err(|e| e.to_string())?;
+        guard_target(state, &base_url).await?;
         let engine = crate::engine::locate().map_err(|e| e.to_string())?;
         start_run_with(state, submitter, &engine)
+    }
+
+    /// Spends one unit of this submitter's budget, counting a refusal by what
+    /// it metered.
+    ///
+    /// # Errors
+    /// The rate ledger's refusal, verbatim.
+    pub fn admit(
+        state: &ConsoleState,
+        submitter: Submitter,
+        what: crate::rate_limit::Metered,
+    ) -> Result<(), String> {
+        state.rates.admit(submitter, what).map_err(|refusal| {
+            if let crate::rate_limit::RateRefusal::TooMany { what, .. } = refusal {
+                state.metrics.refused(crate::metrics::Refusal::Rate(what));
+            }
+            refusal.to_string()
+        })
+    }
+
+    /// Puts a visitor-named target through the posture's guard, counting a
+    /// refusal by its reason and never by the address it refused.
+    ///
+    /// # Errors
+    /// The target guard's refusal, verbatim.
+    pub async fn guard_target(state: &ConsoleState, base_url: &str) -> Result<(), String> {
+        crate::target_safety::check(state.posture, base_url)
+            .await
+            .map_err(|refusal| {
+                state.metrics.refused(crate::metrics::Refusal::Target(
+                    crate::metrics::TargetReason::from(&refusal),
+                ));
+                refusal.to_string()
+            })
     }
 
     /// Starts the drafted run through an already-located engine.
@@ -1494,6 +1535,9 @@ pub mod read {
             .in_flight_of(submitter)
             .map_err(|e| e.to_string())?
         {
+            state
+                .metrics
+                .refused(crate::metrics::Refusal::AlreadyInFlight);
             return Ok(StartOutcome::AlreadyInFlight(existing));
         }
         let mut guard = state.draft.lock().map_err(|e| e.to_string())?;
@@ -1535,6 +1579,9 @@ pub mod read {
         match state.jobs.start(id, submitter, engine, spec, sut) {
             Ok(accepted) => Ok(StartOutcome::Accepted(accepted)),
             Err(crate::run_job::JobError::Busy(existing)) => {
+                state
+                    .metrics
+                    .refused(crate::metrics::Refusal::AlreadyInFlight);
                 Ok(StartOutcome::AlreadyInFlight(existing))
             }
             Err(e) => Err(e.to_string()),
@@ -1857,11 +1904,9 @@ pub mod fns {
             refusal(refused)
         };
         super::read::check_labels(&sut_name, &sut_version).map_err(refuse)?;
-        state
-            .rates
-            .admit(who, crate::rate_limit::Metered::Probe)
+        super::read::admit(&state, who, crate::rate_limit::Metered::Probe)
             .map_err(|e| refuse(Refused::new(ConnectRefusal::Budget, e)))?;
-        crate::target_safety::check(state.posture, &base_url)
+        super::read::guard_target(&state, &base_url)
             .await
             .map_err(|e| refuse(Refused::new(ConnectRefusal::Target, e)))?;
         let answer = super::read::probe(&base_url, auth, &user, &password, &token).await;

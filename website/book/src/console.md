@@ -146,7 +146,7 @@ is the reader's side.
 
 The hosted instrument at
 [console.veredictum.eu](https://console.veredictum.eu) is this console served
-publicly, and a public console has two problems a local one does not.
+publicly, and a public console has three problems a local one does not.
 
 **It drives whatever endpoint a visitor names.** `VEREDICTUM_POSTURE=hosted`
 turns on the target guard: loopback, private, link-local, unique-local,
@@ -164,8 +164,19 @@ names is read, because an unconditionally trusted `X-Forwarded-For` would let
 any visitor claim any identity and defeat the per-visitor caps. Unset, the
 socket peer is the whole answer.
 
-Both are documented with the rest of the hosted posture in the repository's
-`deploy/hosted/` directory.
+**Its operator needs a signal that names nobody.** With
+`VEREDICTUM_METRICS_TOKEN` set, `/metrics` serves counters in the Prometheus
+text format to a request presenting that token as a bearer credential: runs by
+outcome, refusals by the guard and reason that refused, server-function answers
+by status class, the queue, and the container's memory and CPU. Every label is
+a fixed word the console spells itself, so no URL, name or result a visitor
+supplied appears there. Unset, the route answers `404`; a value that is not a
+usable token refuses to start. Each run also writes one JSON line to standard
+error when its engine starts and when it ends, with its id, outcome, durations
+and case counts.
+
+All three are documented with the rest of the hosted posture in the
+repository's `deploy/hosted/` directory.
 
 ## An address the console does not serve
 

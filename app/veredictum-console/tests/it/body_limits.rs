@@ -39,6 +39,7 @@ async fn bind() -> Result<Bound, Box<dyn std::error::Error>> {
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     };
     let options = leptos::prelude::LeptosOptions::builder()
         .output_name("veredictum-console")

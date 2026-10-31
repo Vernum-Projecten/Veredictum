@@ -61,6 +61,7 @@ async fn bind_with(
         draft: Arc::new(Mutex::new(veredictum_console::run_api::Drafts::new())),
         jobs: veredictum_console::run_job::JobSlot::default(),
         client_ip_header: None,
+        metrics: veredictum_console::metrics::Metrics::default(),
         posture,
         rates: veredictum_console::rate_limit::RateLimiter::with(
             rates,

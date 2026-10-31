@@ -413,6 +413,7 @@ fn the_record_surfaces_read_a_finished_statement_run() -> Result<(), Box<dyn std
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     };
     let id = state.jobs.allocate_id();
     state
@@ -530,6 +531,7 @@ fn state_over(out: &std::path::Path) -> veredictum_console::state::ConsoleState 
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     }
 }
 
@@ -927,6 +929,7 @@ fn the_start_seam_answers_with_the_run_already_in_flight() -> Result<(), Box<dyn
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     };
 
     let who = engine_gate::gate_submitter();

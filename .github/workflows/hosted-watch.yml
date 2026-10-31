@@ -44,6 +44,11 @@ jobs:
     steps:
       - name: Ask the instrument
         id: ask
+        env:
+          # The operator's metrics token (#489), a repository secret holding the
+          # VEREDICTUM_METRICS_TOKEN the box's `.env` sets. Unset, the metrics
+          # question is not asked.
+          METRICS_TOKEN: ${{ secrets.HOSTED_METRICS_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -73,6 +78,21 @@ jobs:
               | jq -r '.config.Labels["org.opencontainers.image.version"] // empty')
           fi
 
+          # The counters (#489), read with the token from a file so it never
+          # sits on a command line. The body is never printed: this log is
+          # public, so only the two facts below leave the step.
+          metrics_code=skipped
+          oom_kills=""
+          if [ -n "${METRICS_TOKEN:-}" ]; then
+            printf 'Authorization: Bearer %s\n' "$METRICS_TOKEN" > "$RUNNER_TEMP/metrics-auth"
+            metrics_code="$(curl -sS --proto '=https' --tlsv1.2 -m 20 -H @"$RUNNER_TEMP/metrics-auth" \
+              -o "$RUNNER_TEMP/metrics" -w '%{http_code}' "${HOSTED_BASE}/metrics" || echo 000)"
+            rm -f "$RUNNER_TEMP/metrics-auth"
+            if [ "$metrics_code" = "200" ]; then
+              oom_kills="$(awk '$1 == "veredictum_container_oom_kills_total" { print $2 }' "$RUNNER_TEMP/metrics")"
+            fi
+          fi
+
           verdict=ok
           detail=""
           if [ "$health" != "200" ]; then
@@ -84,6 +104,12 @@ jobs:
           elif [ -n "$expected" ] && [ "$served" != "$expected" ]; then
             verdict=stale
             detail="It serves engine \`${served}\` and the release pointer names \`${expected}\`. A deploy did not land, or landed and was rolled back."
+          elif [ "$metrics_code" != "skipped" ] && [ "$metrics_code" != "200" ]; then
+            verdict=blind
+            detail="\`/metrics\` answered ${metrics_code} to the operator's token. The instrument serves, and its counters cannot be read: the token in \`.env\` and the HOSTED_METRICS_TOKEN secret disagree, or the route is broken."
+          elif [ -n "$oom_kills" ] && [ "$oom_kills" != "0" ]; then
+            verdict=strained
+            detail="The kernel has killed ${oom_kills} process(es) in the console container for memory since it started. A run was lost to the memory limit: re-derive VEREDICTUM_MAX_CONCURRENT_RUNS and the compose memory limit together."
           fi
 
           {
@@ -92,7 +118,7 @@ jobs:
             echo "expected=${expected:-unknown}"
             echo "detail=${detail}"
           } >> "$GITHUB_OUTPUT"
-          echo "verdict=${verdict} served=${served:-none} expected=${expected:-unknown}"
+          echo "verdict=${verdict} served=${served:-none} expected=${expected:-unknown} metrics=${metrics_code}"
 
       # One issue, reused, and a comment only when the DIAGNOSIS CHANGES. A box
       # down for a day is one record whose comments are the distinct things that

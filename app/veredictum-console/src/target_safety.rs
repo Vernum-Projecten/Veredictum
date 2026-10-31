@@ -40,7 +40,7 @@ const ASSUMED_PORT: u16 = 443;
 /// One variant per family the run wizard can be pointed at, each carrying the
 /// released RFC that defines it, because the refusal a visitor reads has to
 /// say what was refused and on whose authority.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RefusedFamily {
     /// `127.0.0.0/8` and `::1`.
     Loopback,

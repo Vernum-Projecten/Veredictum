@@ -61,6 +61,10 @@ console.veredictum.eu {
 		}
 	}
 
+	# /metrics passes through to the console, which answers only the operator's
+	# bearer token (#489). The token rides the Authorization header, which the
+	# access log below redacts by default
+	# (https://caddyserver.com/docs/caddyfile/options#log-credentials).
 	log {
 		output stdout
 		format console

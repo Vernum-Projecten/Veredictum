@@ -39,6 +39,7 @@ fn committed_state() -> ConsoleState {
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     }
 }
 
@@ -104,6 +105,7 @@ fn refused_state(reason: &str) -> ConsoleState {
         posture: veredictum_console::posture::Posture::Local,
         rates: veredictum_console::rate_limit::RateLimiter::default(),
         capture: false,
+        metrics: veredictum_console::metrics::Metrics::default(),
     }
 }
 

@@ -171,3 +171,31 @@ fn the_build_context_ignore_file_keeps_the_posture() -> Result<(), Box<dyn std::
     }
     Ok(())
 }
+
+/// The run record survives a redeploy (#489): the console's output goes to the
+/// host's journal, which a container recreate does not delete the way it
+/// deletes a json-file log, and the journal is persistent and capped.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "the Book ch11 Result-returning test shape: assertions panic, plumbing propagates with ? (https://doc.rust-lang.org/book/ch11-01-writing-tests.html)"
+)]
+#[test]
+fn the_run_record_outlives_the_container() -> Result<(), Box<dyn std::error::Error>> {
+    let compose = std::fs::read_to_string(repo_root().join("deploy/hosted/docker-compose.yml"))?;
+    let console = compose
+        .split("\n  caddy:")
+        .next()
+        .ok_or("the compose file names the console first")?;
+    assert!(
+        console.contains("logging:\n      driver: journald"),
+        "the console's own service must log to the journal"
+    );
+    let journald = cloud_init()?;
+    for setting in ["Storage=persistent", "SystemMaxUse="] {
+        assert!(
+            journald.contains(setting),
+            "the journal must be persistent and capped: {setting}"
+        );
+    }
+    Ok(())
+}

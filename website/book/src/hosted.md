@@ -58,10 +58,16 @@ the container's memory limit. Raising it is an environment edit and a
 redeploy, never a release, so a bigger machine changes what the instrument
 admits without changing a line of code.
 
-**The host holds no credential.** What the box can do is drive the catalogue,
-record the exchanges and show the verdicts.
+**The host holds no signing credential.** What the box can do is drive the
+catalogue, record the exchanges and show the verdicts. Its one secret is the
+token that opens the operator's counters at `/metrics`: runs by outcome,
+refusals by reason, queue depth, error classes and the container's memory and
+CPU. They are counts and durations only, and name no server, no target and no
+result.
 
-The box is disposable. It stores nothing durable, and the whole posture is
+The box is disposable. The only thing it keeps past a restart is one line per
+run in the host's journal: the run's id, how it ended, how long it waited and
+drove, and how many cases it completed. The whole posture is
 committed under
 [`deploy/hosted/`](https://github.com/Vernum-Projecten/Veredictum/tree/main/deploy/hosted):
 the cloud-init that built it, the compose file, the proxy configuration. A
